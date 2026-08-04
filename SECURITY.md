@@ -7,17 +7,17 @@ source rows, or recovery codes in an issue or pull request.
 ## Supported versions
 
 Only the newest published patch of the current `0.x` minor receives security and correctness fixes.
-Before `0.1.0` is published, the newest `0.1.0` release candidate is supported. After a final or a
-newer patch is published, superseded candidates and patches are unsupported and should be upgraded.
+While the next minor is in public candidate acceptance, only its newest candidate also receives
+candidate fixes. After a final, candidate, or patch is superseded, operators should upgrade.
 
 | Version | Supported |
 |---|---|
-| Newest `0.1.x` patch, or current `0.1.0` candidate before final | Yes |
-| Superseded `0.1.x` patch or candidate | No |
-| `0.0.x` and older | No |
+| Newest patch of the current published minor | Yes |
+| Newest public candidate for the next minor | Acceptance fixes only |
+| Superseded patch, candidate, or older minor | No |
 
-Support for `0.1.x` ends when `0.2.0` is published. This policy does not promise a response or fix
-deadline.
+Publishing a new final minor ends support for the preceding minor. This policy does not promise a
+response or fix deadline.
 
 ## Reporting a vulnerability
 

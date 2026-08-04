@@ -3,8 +3,8 @@
 [![CI](https://github.com/harrisonoconnorhover/dander/actions/workflows/ci.yml/badge.svg)](https://github.com/harrisonoconnorhover/dander/actions/workflows/ci.yml)
 
 > [!WARNING]
-> **Alpha software.** Dander `0.1.x` is being stabilized through a retained proof project and an
-> independent-operator trial. Use a disposable GCP project, review every Terraform plan, and read
+> **Alpha software.** Dander is being stabilized through a retained proof project and an
+> operator trial. Use a disposable GCP project, review every Terraform plan, and read
 > the [known limitations](https://github.com/harrisonoconnorhover/dander/blob/main/docs/known-limitations.md)
 > before relying on it. Only the latest patch in the current `0.x` minor is supported.
 
@@ -57,13 +57,13 @@ Operator-facing documentation:
 
 Python 3.12 (app + CLI) · BigQuery SQL (transforms) · Terraform/HCL (infra) · YAML (config).
 
-## Install a release candidate
+## Install the latest public release
 
 The Python distribution is named `dander-platform` because the `dander` name on PyPI belongs to a
 different project. The import package and command remain `dander`:
 
 ```bash
-uv tool install dander-platform==0.1.0
+uv tool install dander-platform==0.2.0
 dander --version
 dander new my-data-platform
 cd my-data-platform

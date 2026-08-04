@@ -28,7 +28,7 @@ gcloud auth application-default set-quota-project "$DANDER_PROJECT"
 ## Install and scaffold
 
 ```bash
-uv tool install dander-platform==0.1.0
+uv tool install dander-platform==0.2.0
 dander --version
 dander new my-dander-project
 cd my-dander-project
@@ -95,5 +95,5 @@ the expected platform change is the scheduler state plus the immutable image gen
 updated project content.
 
 Use [upgrading.md](upgrading.md) for later releases and safe reruns. If installation or the first
-hosted run cannot be completed from this page, report it as a `0.1.x` defect rather than consulting
-Dander's source.
+hosted run cannot be completed from this page, report it as a defect in the current supported
+release rather than consulting Dander's source.

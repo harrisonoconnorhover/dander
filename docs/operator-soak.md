@@ -29,6 +29,6 @@ Close the trial only when all of the following are true:
 - The workflow was operated entirely from public packages and documentation.
 - The newest supported patch has run cleanly for at least seven consecutive days.
 
-A runtime or Terraform fix becomes a normal `0.1.x` patch and does not restart the entire 30 days.
-Documentation-only corrections do not affect the soak. A patch resets only the final seven-day
-clean window.
+A runtime or Terraform fix becomes a normal patch on the current supported minor and does not
+restart the entire 30 days. Documentation-only corrections do not affect the soak. A patch resets
+only the final seven-day clean window.

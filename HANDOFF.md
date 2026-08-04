@@ -2,43 +2,42 @@
 
 ## Finished
 
-- Merged Salesforce Bulk API 2.0 through protected PR #54 after all five required CI jobs passed.
-- Completed source-free Odoo and Salesforce live proofs, including replay, cursor, lease, transform/test, metadata, and soft-delete checks.
-- Added sanitized proof results to operator-soak issue #26 without changing any retained schedule.
-- Prepared `0.3.0rc1` release metadata and notes from merged `main`; `src/dander` is unchanged.
-- Kept NetSuite explicitly simulator-validated rather than claiming real-tenant support.
+- Updated the public install path to the latest published release, `dander-platform==0.2.0`.
+- Made support, upgrade, release, known-limitations, and operator-soak wording current and minor-version-aware.
+- Preserved the optional guarded-upgrade instructions while keeping the standard path free of billing-account requirements.
+- Audited every remaining remote `codex/*` branch against its merged pull request and deleted all 13 stale pointers.
+- Preserved intentional backup and unreviewed local branches.
 
 ## Try It
 
 ```bash
-uv run dander --version
-uv build --out-dir /tmp/dander-v030rc1
-uv run python scripts/check_distribution.py /tmp/dander-v030rc1/*.whl /tmp/dander-v030rc1/*.tar.gz
+uv tool install dander-platform==0.2.0
+dander new my-data-platform
+cd my-data-platform && dander validate
 ```
 
 ## Checks
 
 - Ruff lint/format and strict mypy passed; all 677 tests passed.
-- Lock validation and the locked dependency audit passed with no known vulnerabilities.
-- Terraform formatting and both repository roots validated with backends disabled.
-- Wheel and sdist identity/archive checks passed; both installed outside the checkout, reported `0.3.0rc1`, and generated valid source-free projects pinned to the candidate.
-- The local Linux image built and passed CLI, non-root-user, and bundled-asset checks.
+- Repository project validation passed for all five configured pipelines.
+- The `0.3.0rc1` wheel and source distribution built and passed identity/archive inspection.
+- The stale `0.1.x` scan now finds only intentional historical decision records.
+- Post-merge CI for `0.3.0rc1` passed all five jobs before this documentation-only cleanup.
 
 ## Decisions
 
-- Candidate preparation changes release metadata, assertions, notes, and handoff only; packaged runtime behavior is unchanged from merged `main`.
-- Odoo is real-instance-proven; NetSuite remains simulator-validated pending one narrow tenant acceptance.
-- Tagging, PyPI publication, retained deployment, and scheduler changes remain separate approval gates.
+- Public onboarding remains pinned to final `0.2.0`; merged `0.3.0rc1` metadata is not presented as published.
+- Support policy uses durable current-minor language instead of embedding obsolete minor-specific rules.
+- Pull requests retain the history of deleted feature branches; unique local backups remain untouched.
 
 ## Remaining
 
-- Push `codex/v030rc1-release` and open a focused release-candidate PR.
-- Let protected CI repeat Linux packaging, container, Terraform, dependency, and secret checks.
-- Do not merge, tag, publish, or deploy the candidate without separate direction.
-- Continue the existing 30-day operator soak on its current schedules.
+- Obtain explicit approval before tagging or publishing `0.3.0rc1`.
+- Continue the existing 30-day operator soak and its weekly review cadence.
+- Keep NetSuite simulator-validated until one narrow real-tenant acceptance succeeds.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `.github/workflows/ci.yml`
+- `README.md`
+- `SECURITY.md`
+- `docs/upgrading.md`

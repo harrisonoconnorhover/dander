@@ -10,7 +10,7 @@ package and CLI. Releases are immutable and come only from an exact `v<version>`
 2. Confirm `git status --short` is empty and the tag target is the tested `origin/main` commit.
 3. Confirm the GitHub `pypi` environment requires review and PyPI trusts this repository's
    `publish.yml` workflow for the `dander-platform` project.
-4. Create and push the exact tag, such as `v0.1.0`, only after explicit publication approval.
+4. Create and push the exact `v<version>` tag only after explicit publication approval.
 5. Dispatch **Publish Python distribution** from that tag and approve its `pypi` environment.
 6. Install the published candidate into a new environment outside a checkout and repeat
    `dander --version`, `dander new`, `dander validate`, and Terraform validation.
@@ -26,17 +26,19 @@ broadly changes packaging, provisioning, orchestration, state, cursors, concurre
 Tests, evidence tooling, and documentation may change without a new candidate only when packaged
 runtime behavior is unchanged.
 
-## Alpha release line
+## Alpha release lines
 
-- `0.1.x` contains fixes only: installation, upgrades, drift, cursor/lease correctness, schemas,
-  staging cleanup, CLI accuracy, security, and documentation that blocks operation.
-- New connectors, commands, manifest capabilities, writer modes, and subsystems wait for `0.2.0`.
+- Published minor lines contain fixes only: installation, upgrades, drift, cursor/lease
+  correctness, schemas, staging cleanup, CLI accuracy, security, and documentation that blocks
+  operation.
+- New connectors, commands, manifest capabilities, writer modes, and subsystems enter through the
+  next minor release.
 - Only the latest patch in the current `0.x` minor is supported. A functional patch uses its own
   candidate, public-artifact proof, protected publication, and clean upgrade verification.
 - GitHub Release notes must match `CHANGELOG.md`, identify the release as alpha, link the known
   limitations, and name the exact tag and commit.
 
-## `0.1.0` gates and post-release soak
+## Initial `0.1.0` gates and post-release soak
 
 - Before final publication, the latest approved candidate must pass the bounded retained-project
   acceptance.

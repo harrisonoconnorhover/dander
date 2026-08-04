@@ -1,6 +1,6 @@
 # Known limitations
 
-Dander `0.1.x` is alpha and proves a focused GCP-native vertical slice. It is not yet suitable for
+Dander `0.2.x` is alpha and proves a focused GCP-native vertical slice. It is not yet suitable for
 an unattended production system containing business-critical data.
 
 ## Ingestion and schemas
@@ -42,11 +42,11 @@ an unattended production system containing business-critical data.
   Cloud charges can be delayed, and enabled GCP services may be billable.
 - The starter requires Python 3.12, Terraform 1.9 or newer, Docker Buildx, Google Cloud CLI, and an
   authenticated administrator.
-- Dataplex and Storage Write remain optional paths and are not part of the supported `0.1.x`
+- Dataplex and Storage Write remain optional paths and are not part of the supported `0.2.x`
   operator trial.
 
 ## Support boundary
 
-`0.1.x` receives fixes only. New connectors, new commands or subsystems, manifest capabilities,
-and broader writer orchestration wait for `0.2.0`. Only the latest patch in the current `0.x` minor
-is supported; see [SECURITY.md](../SECURITY.md).
+`0.2.x` receives fixes only. New connectors, commands, subsystems, manifest capabilities, and
+broader writer orchestration enter through `0.3.0` or a later minor. Only the latest patch in the
+current public `0.x` minor is supported; see [SECURITY.md](../SECURITY.md).
