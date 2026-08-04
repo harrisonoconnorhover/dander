@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 import httpx
 
 from dander.ingestion.pagination import NoPagination, OffsetPagination, PageNumberPagination
-from dander.ingestion.source import BackoffKind, Endpoint, Source
+from dander.ingestion.source import BackoffKind, Endpoint, RawField, Source
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
@@ -39,7 +39,7 @@ class EnterpriseHttpClient(Protocol):
 
 
 class EnterpriseSource(Source):
-    """Shared authenticated transport for bespoke enterprise sources."""
+    """Shared authenticated transport for sources that fully control the request cycle."""
 
     def __init__(
         self,
@@ -263,6 +263,49 @@ def _suiteql_page(
     return [dict(row) for row in cast("list[dict[str, Any]]", items)], has_more
 
 
+class OdooJson2Source(EnterpriseSource):
+    """Read Odoo 19+ models through the JSON-2 ``search_read`` API."""
+
+    def discover(self) -> Mapping[str, Any]:
+        """Return declared model schemas without reading business records."""
+        return {
+            endpoint.name: {
+                "path": endpoint.path,
+                "primary_key": list(endpoint.primary_key),
+                "incremental_cursor": endpoint.incremental_cursor,
+                "field_types": dict(endpoint.field_types),
+            }
+            for endpoint in self.config.endpoints
+        }
+
+    def extract(self, endpoint: str, *, since: str | None = None) -> Iterator[Mapping[str, Any]]:
+        """Yield one normalized Odoo record at a time using bounded offset pages."""
+        declaration = self._endpoint(endpoint)
+        pagination = _validate_odoo_endpoint(declaration)
+        domain = _odoo_domain(declaration, since)
+
+        offset = 0
+        while True:
+            request = _build_odoo_request(
+                self.config,
+                declaration,
+                pagination,
+                domain=domain,
+                offset=offset,
+            )
+            response = self._send(request, endpoint)
+            rows = _select_odoo_rows(response.json(), endpoint)
+            for row in rows:
+                normalized = _normalize_odoo_row(row, declaration.raw_schema)
+                yield _cast_row(normalized, declaration)
+
+            if len(rows) < pagination.page_size:
+                return
+            if self.config.rate_limit is not None:
+                self._sleep(1 / self.config.rate_limit.requests_per_second)
+            offset += pagination.page_size
+
+
 def _select_rows(payload: object, endpoint: Endpoint) -> list[object]:
     selected = payload
     if endpoint.data_selector is not None:
@@ -275,6 +318,75 @@ def _select_rows(payload: object, endpoint: Endpoint) -> list[object]:
     if not isinstance(selected, list):
         raise EnterpriseSourceError(f"Endpoint {endpoint.name!r} response data must be a list")
     return selected
+
+
+def _validate_odoo_endpoint(endpoint: Endpoint) -> OffsetPagination:
+    pagination = endpoint.pagination
+    if not isinstance(pagination, OffsetPagination):
+        raise EnterpriseSourceError(
+            f"Odoo JSON-2 endpoint {endpoint.name!r} requires offset pagination"
+        )
+    if not endpoint.raw_schema:
+        raise EnterpriseSourceError(
+            f"Odoo JSON-2 endpoint {endpoint.name!r} requires a declared raw schema"
+        )
+    if not endpoint.path.startswith("/json/2/") or not endpoint.path.endswith("/search_read"):
+        raise EnterpriseSourceError(
+            f"Odoo JSON-2 endpoint {endpoint.name!r} must target /json/2/<model>/search_read"
+        )
+    return pagination
+
+
+def _odoo_domain(endpoint: Endpoint, since: str | None) -> list[list[object]]:
+    if since is None or endpoint.incremental_cursor is None:
+        return []
+    # The inclusive boundary deliberately replays tied watermark values; SCD1 publication makes
+    # that replay idempotent and avoids dropping rows that share a timestamp.
+    return [[endpoint.incremental_cursor, ">=", since]]
+
+
+def _build_odoo_request(
+    config: SourceConfig,
+    endpoint: Endpoint,
+    pagination: OffsetPagination,
+    *,
+    domain: list[list[object]],
+    offset: int,
+) -> httpx.Request:
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    database = config.auth_options.get("database")
+    if database is not None:
+        if not isinstance(database, str) or not database.strip():
+            raise EnterpriseSourceError(
+                "Odoo auth_options.database must be a non-empty string when set"
+            )
+        headers["X-Odoo-Database"] = database
+    body: dict[str, object] = {
+        "domain": domain,
+        "fields": [field.name for field in endpoint.raw_schema],
+        "limit": pagination.page_size,
+        "offset": offset,
+        "order": "id asc",
+    }
+    return httpx.Request(
+        "POST",
+        f"{config.base_url.rstrip('/')}/{endpoint.path.lstrip('/')}",
+        headers=headers,
+        json=body,
+    )
+
+
+def _select_odoo_rows(payload: object, endpoint: str) -> list[dict[str, Any]]:
+    if not isinstance(payload, list):
+        raise EnterpriseSourceError(f"Endpoint {endpoint!r} response data must be a list")
+    rows: list[dict[str, Any]] = []
+    for index, row in enumerate(payload):
+        if not isinstance(row, dict):
+            raise EnterpriseSourceError(
+                f"Endpoint {endpoint!r} returned a non-mapping row at index {index}"
+            )
+        rows.append(row)
+    return rows
 
 
 def _cast_row(row: dict[str, Any], endpoint: Endpoint) -> dict[str, Any]:
@@ -291,33 +403,63 @@ def _cast_row(row: dict[str, Any], endpoint: Endpoint) -> dict[str, Any]:
     return cast
 
 
+def _normalize_odoo_row(row: dict[str, Any], schema: list[RawField]) -> dict[str, Any]:
+    """Convert Odoo's ``false`` sentinel to null for non-boolean scalar fields."""
+    normalized = dict(row)
+    for field in schema:
+        if normalized.get(field.name) is False and field.data_type != "BOOL":
+            normalized[field.name] = None
+    return normalized
+
+
+def _cast_integer(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, (str, int, float, Decimal)):
+        raise TypeError
+    return int(value)
+
+
+def _cast_float(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (str, int, float, Decimal)):
+        raise TypeError
+    return float(value)
+
+
+def _cast_numeric(value: object) -> Decimal:
+    if isinstance(value, bool):
+        raise TypeError
+    return Decimal(str(value))
+
+
+def _cast_boolean(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).lower()
+    if normalized not in {"true", "false"}:
+        raise ValueError
+    return normalized == "true"
+
+
+def _cast_timestamp(value: object) -> datetime:
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError
+    return parsed
+
+
+_SCALAR_CASTERS: dict[str, Callable[[object], object]] = {
+    "BOOL": _cast_boolean,
+    "DATE": lambda value: date.fromisoformat(str(value)),
+    "FLOAT64": _cast_float,
+    "INT64": _cast_integer,
+    "NUMERIC": _cast_numeric,
+    "STRING": str,
+    "TIMESTAMP": _cast_timestamp,
+}
+
+
 def _cast_value(value: object, data_type: str) -> object:
-    if data_type == "STRING":
-        return str(value)
-    if data_type == "INT64":
-        if isinstance(value, bool) or not isinstance(value, (str, int, float, Decimal)):
-            raise TypeError
-        return int(value)
-    if data_type == "FLOAT64":
-        if isinstance(value, bool) or not isinstance(value, (str, int, float, Decimal)):
-            raise TypeError
-        return float(value)
-    if data_type == "NUMERIC":
-        if isinstance(value, bool):
-            raise TypeError
-        return Decimal(str(value))
-    if data_type == "BOOL":
-        if isinstance(value, bool):
-            return value
-        normalized = str(value).lower()
-        if normalized not in {"true", "false"}:
-            raise ValueError
-        return normalized == "true"
-    if data_type == "DATE":
-        return date.fromisoformat(str(value))
-    if data_type == "TIMESTAMP":
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        if parsed.tzinfo is None:
-            raise ValueError
-        return parsed
-    raise AssertionError(f"Unhandled declared data type: {data_type}")
+    try:
+        caster = _SCALAR_CASTERS[data_type]
+    except KeyError as error:
+        raise AssertionError(f"Unhandled declared data type: {data_type}") from error
+    return caster(value)

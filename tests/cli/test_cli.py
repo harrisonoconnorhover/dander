@@ -6,7 +6,9 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from dander.cli.main import app
+from dander.cli.main import _build_source_adapter, app
+from dander.ingestion import OdooJson2Source, load_source_config
+from dander.security import NoAuth
 
 _REPO_ROOT = Path(__file__).parents[2]
 
@@ -130,6 +132,40 @@ def test_harvest_v3_dry_run_validates_without_credentials() -> None:
 
     assert result.exit_code == 0, result.output
     assert "greenhouse_candidates" in result.output
+
+
+def test_odoo_json2_dry_run_validates_without_credentials(tmp_path: Path) -> None:
+    connectors = tmp_path / "connectors"
+    connectors.mkdir()
+    (connectors / "odoo.yaml").write_text(
+        (_REPO_ROOT / "connectors" / "odoo.example.yaml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "odoo",
+            "--dry-run",
+            "--project",
+            "unit-project",
+            "--connectors-dir",
+            str(connectors),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "odoo_partners" in result.output
+    assert "SCD1" in result.output
+
+
+def test_odoo_json2_engine_selects_enterprise_source() -> None:
+    config = load_source_config(_REPO_ROOT / "connectors" / "odoo.example.yaml")
+
+    source = _build_source_adapter(config, NoAuth())
+
+    assert isinstance(source, OdooJson2Source)
 
 
 def test_sandbox_dry_run_declares_replace_mode_without_network() -> None:

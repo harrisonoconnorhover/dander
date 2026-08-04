@@ -1,0 +1,40 @@
+# Read-only Odoo 19+ JSON-2 connector. The API key remains a secret reference; for an Odoo host
+# that serves only one database, remove auth_options.database and the X-Odoo-Database header is
+# omitted. Odoo Online requires a Custom plan for external API access. Odoo Community can be run
+# locally with the official Odoo and PostgreSQL images for no-license-cost development.
+name: odoo
+engine: odoo_json2
+base_url: http://localhost:8069
+auth_strategy: api_key_bearer
+auth_ref: ODOO_API_KEY
+auth_options:
+  database: dander_odoo
+rate_limit:
+  requests_per_second: 4
+  burst: 1
+  backoff: exponential
+  max_retries: 4
+
+endpoints:
+  - name: partners
+    path: /json/2/res.partner/search_read
+    pagination:
+      kind: offset
+      page_size: 100
+    primary_key: [id]
+    incremental_cursor: write_date
+    field_types:
+      id: INT64
+      active: BOOL
+      is_company: BOOL
+    raw_schema:
+      - {name: id, type: INT64, mode: REQUIRED}
+      - {name: name, type: STRING}
+      - {name: email, type: STRING}
+      - {name: phone, type: STRING}
+      - {name: city, type: STRING}
+      - {name: country_code, type: STRING}
+      - {name: is_company, type: BOOL, mode: REQUIRED}
+      - {name: active, type: BOOL, mode: REQUIRED}
+      - {name: create_date, type: STRING}
+      - {name: write_date, type: STRING, mode: REQUIRED}

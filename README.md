@@ -228,6 +228,11 @@ client credentials, primitive internal values, stable offset paging, and a decla
 The first slice performs a full read and idempotent SCD1 publication; it does not claim unsafe
 timestamp-plus-offset incrementality. See [`docs/servicenow.md`](docs/servicenow.md).
 
+`connectors/odoo.example.yaml` reads Odoo 19+ contacts and companies through the current JSON-2
+API using a bearer API key, bounded pages, and an inclusive `write_date` watermark. Odoo Online
+requires a Custom plan for external API access; the official Odoo Community Docker image provides
+a free local development target. See [`docs/odoo.md`](docs/odoo.md).
+
 `connectors/netsuite.example.yaml` is a **simulator-validated, not NetSuite-validated** customer
 SuiteQL slice. It uses bounded offset paging, stable ordering, declared schemas, and the existing
 OAuth1 TBA signer. It is not part of the public `0.2.0` support surface; real-tenant acceptance and

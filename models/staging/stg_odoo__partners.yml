@@ -1,0 +1,56 @@
+model: stg_odoo__partners
+description: Odoo contacts and companies normalized from the read-only JSON-2 contract.
+owner: data-eng
+materialization: incremental
+dataset: staging
+source_system: odoo
+sensitivity: confidential
+unique_key: [partner_id]
+incremental_cursor: updated_at
+
+columns:
+  - name: partner_id
+    type: INT64
+    description: Stable Odoo res.partner identifier.
+  - name: partner_name
+    type: STRING
+    description: Contact or company display name.
+  - name: email
+    type: STRING
+    description: Primary email address when present.
+  - name: phone
+    type: STRING
+    description: Primary telephone number when present.
+  - name: city
+    type: STRING
+    description: Contact city when present.
+  - name: country_code
+    type: STRING
+    description: Contact country code when present.
+  - name: is_company
+    type: BOOL
+    description: Whether this partner represents a company.
+  - name: is_active
+    type: BOOL
+    description: Whether this partner is active.
+  - name: created_at
+    type: TIMESTAMP
+    description: UTC record creation time when available.
+  - name: updated_at
+    type: TIMESTAMP
+    description: UTC record modification watermark.
+
+tests:
+  - column: partner_id
+    not_null: true
+    unique: true
+  - column: is_company
+    not_null: true
+  - column: is_active
+    not_null: true
+
+metrics:
+  - name: partner_count
+    description: Number of Odoo contacts and companies represented.
+    aggregation: count_distinct
+    field: partner_id

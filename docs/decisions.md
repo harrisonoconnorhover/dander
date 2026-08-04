@@ -393,3 +393,13 @@
 - OAuth1 TBA is retained only to exercise Dander's existing compatibility strategy. Oracle's
   announced 2027.1 restriction on new TBA REST integrations makes current OAuth2 acceptance a
   release gate; until a real tenant passes, the connector is not NetSuite-validated or supported.
+
+## 2026-08-04 — Odoo starts on JSON-2 against Community
+
+- Odoo 19+'s JSON-2 API is the connector contract. New work does not depend on the deprecated
+  XML-RPC/JSON-RPC endpoints.
+- The first vertical slice reads only `res.partner` through the existing Source/runtime/writer
+  boundary, using API-key bearer auth, bounded offset pages, and declared raw fields.
+- Official Odoo Community and PostgreSQL containers are the free acceptance target because Odoo
+  Online exposes its external API only on the Custom plan. Concurrently mutating large tables
+  need later snapshot/keyset paging before this slice is described as scale-ready.

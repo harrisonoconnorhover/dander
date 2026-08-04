@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -12,6 +13,7 @@ from dander.ingestion import (
     CursorPagination,
     EnterpriseSource,
     EnterpriseSourceError,
+    OdooJson2Source,
     WorkdayRaasSource,
 )
 from dander.ingestion.source import Endpoint, RateLimitConfig, SourceConfig
@@ -79,6 +81,35 @@ def _config(*, page_size: int = 2) -> SourceConfig:
                     "start_date": "DATE",
                     "updated_at": "TIMESTAMP",
                 },
+            )
+        ],
+    )
+
+
+def _odoo_config(*, page_size: int = 2) -> SourceConfig:
+    return SourceConfig(
+        name="odoo",
+        engine="odoo_json2",
+        base_url="https://odoo.example.test",
+        auth_strategy="api_key_bearer",
+        auth_ref="ODOO_API_KEY",
+        auth_options={"database": "dander_test"},
+        endpoints=[
+            Endpoint(
+                name="partners",
+                path="/json/2/res.partner/search_read",
+                pagination={"kind": "offset", "page_size": page_size},
+                incremental_cursor="write_date",
+                primary_key=["id"],
+                field_types={"id": "INT64", "active": "BOOL", "is_company": "BOOL"},
+                raw_schema=[
+                    {"name": "id", "type": "INT64", "mode": "REQUIRED"},
+                    {"name": "name", "type": "STRING"},
+                    {"name": "email", "type": "STRING"},
+                    {"name": "active", "type": "BOOL"},
+                    {"name": "is_company", "type": "BOOL"},
+                    {"name": "write_date", "type": "STRING"},
+                ],
             )
         ],
     )
@@ -232,3 +263,102 @@ def test_workday_source_retries_with_bounded_declared_backoff() -> None:
 
     assert list(source.extract("workers")) == []
     assert delays == [0.5, 1.0]
+
+
+def test_odoo_source_posts_bounded_pages_and_replays_cursor_boundary() -> None:
+    client = _Client(
+        [
+            [
+                {
+                    "id": 1,
+                    "name": "Acme",
+                    "email": False,
+                    "active": True,
+                    "is_company": True,
+                    "write_date": "2026-08-04 10:00:00",
+                },
+                {
+                    "id": 2,
+                    "name": "Example",
+                    "email": "hello@example.test",
+                    "active": True,
+                    "is_company": False,
+                    "write_date": "2026-08-04 11:00:00",
+                },
+            ],
+            [],
+        ]
+    )
+    auth = _Auth()
+    source = OdooJson2Source(_odoo_config(), auth, client=client)
+
+    rows = list(source.extract("partners", since="2026-08-04 09:00:00"))
+
+    assert rows[0]["id"] == 1
+    assert rows[0]["email"] is None
+    assert rows[0]["is_company"] is True
+    assert auth.requests == 2
+    first_body = json.loads(client.requests[0].content)
+    second_body = json.loads(client.requests[1].content)
+    assert first_body == {
+        "domain": [["write_date", ">=", "2026-08-04 09:00:00"]],
+        "fields": ["id", "name", "email", "active", "is_company", "write_date"],
+        "limit": 2,
+        "offset": 0,
+        "order": "id asc",
+    }
+    assert second_body["offset"] == 2
+    assert all(request.method == "POST" for request in client.requests)
+    assert all(request.headers["Authorization"] == "Basic synthetic" for request in client.requests)
+    assert all(request.headers["X-Odoo-Database"] == "dander_test" for request in client.requests)
+
+
+def test_odoo_discovery_uses_declarations_without_network() -> None:
+    client = _Client([])
+    source = OdooJson2Source(_odoo_config(), _Auth(), client=client)
+
+    discovered = source.discover()
+
+    assert discovered["partners"]["primary_key"] == ["id"]
+    assert discovered["partners"]["incremental_cursor"] == "write_date"
+    assert client.requests == []
+
+
+@pytest.mark.parametrize(
+    ("config", "payloads", "message"),
+    [
+        (_odoo_config(), [{"records": []}], "must be a list"),
+        (_odoo_config(), [["not-a-row"]], "non-mapping row"),
+        (
+            _odoo_config().model_copy(
+                update={
+                    "endpoints": [_odoo_config().endpoints[0].model_copy(update={"raw_schema": []})]
+                }
+            ),
+            [],
+            "requires a declared raw schema",
+        ),
+        (
+            _odoo_config().model_copy(
+                update={
+                    "endpoints": [
+                        _odoo_config()
+                        .endpoints[0]
+                        .model_copy(update={"path": "/json/2/res.partner/read"})
+                    ]
+                }
+            ),
+            [],
+            "must target",
+        ),
+    ],
+)
+def test_odoo_source_rejects_invalid_contracts(
+    config: SourceConfig,
+    payloads: list[object],
+    message: str,
+) -> None:
+    source = OdooJson2Source(config, _Auth(), client=_Client(payloads))
+
+    with pytest.raises(EnterpriseSourceError, match=message):
+        list(source.extract("partners"))

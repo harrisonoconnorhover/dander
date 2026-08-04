@@ -47,6 +47,7 @@ from dander.ingestion import (
     Endpoint,
     IngestionEngine,
     NetSuiteSuiteQLSource,
+    OdooJson2Source,
     Source,
     SourceConfig,
     WorkdayRaasSource,
@@ -1675,6 +1676,8 @@ def _build_source_adapter(config: SourceConfig, auth: AuthStrategy) -> Source:
         return WorkdayRaasSource(config, auth)
     if config.engine is IngestionEngine.NETSUITE_SUITEQL:
         return NetSuiteSuiteQLSource(config, auth)
+    if config.engine is IngestionEngine.ODOO_JSON2:
+        return OdooJson2Source(config, auth)
     return DltRestSource(config, auth)
 
 

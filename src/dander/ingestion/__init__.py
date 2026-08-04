@@ -9,6 +9,7 @@ from dander.ingestion.enterprise import (
     EnterpriseSource,
     EnterpriseSourceError,
     NetSuiteSuiteQLSource,
+    OdooJson2Source,
     WorkdayRaasSource,
 )
 from dander.ingestion.pagination import (
@@ -37,6 +38,7 @@ __all__ = [
     "NoPagination",
     "NetSuiteSuiteQLSource",
     "OffsetPagination",
+    "OdooJson2Source",
     "PageNumberPagination",
     "PaginationKind",
     "PaginationStrategy",
