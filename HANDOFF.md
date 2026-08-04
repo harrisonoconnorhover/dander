@@ -2,42 +2,45 @@
 
 ## Finished
 
-- Added an opt-in loopback API that validates one graph against its manifest-bound hosted pipeline.
-- Added fixed-target submission for that pipeline's already-deployed Cloud Run job.
-- Added compact status for the latest Cloud Run execution and Dander run-ledger result.
-- Rejected stale graph revisions and overlapping/in-flight submissions.
-- Kept status history reads non-mutating and preserved document-only Druff behavior by default.
+- Added an opt-in deployment preview for a clean, saved graph revision.
+- Built and pushed an immutable source-free candidate before planning the complete manifest.
+- Rendered the exact no-color Terraform plan from an isolated temporary workspace.
+- Kept browser inputs limited to the graph ETag; the operator fixes every cloud input at startup.
+- Preserved file-only save, existing job execution, and the canonical applyable Terraform plan.
 
 ## Try It
 
 ```bash
 uv run dander graph serve --file graphs/greenhouse_jobs.yaml --config dander.yaml \
-  --pipeline greenhouse_jobs_graph --project dander-proof-harrison-20260801
+  --pipeline greenhouse_jobs_graph --project YOUR_PROJECT \
+  --enable-deployment-preview --failure-alert-email YOUR_ALERT_EMAIL \
+  --billing-account YOUR_BILLING_ACCOUNT
 ```
+
+Open the graph in Druff, refresh status, then choose **Build candidate & plan**.
 
 ## Checks
 
-- Ruff lint/format and strict mypy passed.
-- All 646 Python tests passed; the focused graph-service group contains 28 passing tests.
+- Ruff lint/format and strict mypy passed; all 654 Python tests passed.
 - Both Terraform roots initialized without backends and validated successfully.
-- Wheel/sdist inspection, source-free wheel install, dependency audit, and local container checks passed.
-- No Terraform plan/apply or live GCP mutation occurred in this change.
+- Wheel/sdist build and inspection passed; the dependency audit found no known vulnerabilities.
+- Live proof pushed candidate `sha256:c9c16f8ac162...` and rendered `0 add, 5 change, 0 destroy` for the five shared-image jobs.
+- No apply, deployment, schedule, state, dataset, IAM, or secret mutation occurred; deployed jobs retained their prior image digest.
 
 ## Decisions
 
-- The operator fixes project, pipeline, graph, region, and job at service startup; the browser cannot select them.
-- Run submission uses argument-only `gcloud`, and status never creates or alters the run-history table.
-- The bridge runs an existing deployment only; it does not deploy graph edits or modify schedules.
+- Save remains file-only; candidate creation is a separate explicit action.
+- The candidate snapshot includes connectors, graphs, models, and manifest, but never repository source.
+- Repeatable operator-only `--secret-id` inputs preserve extra managed containers; preview plans remain temporary and non-applyable.
 
 ## Remaining
 
-- Merge this focused Dander API through protected CI.
-- Add the matching Validate, Run deployed job, and Refresh controls to Druff.
-- Exercise the complete UI path against the paused retained graph job.
-- Reconfirm data idempotency, cleanup, lease release, run history, and Terraform no-drift.
+- Push and open a focused PR only after explicit approval.
+- Let protected CI repeat Python, Terraform, package, dependency, and secret checks.
+- Treat deployment/apply as a separate, explicitly approved action.
 
 ## Review First
 
-- `src/dander/pipeline/graph_operations.py`
-- `src/dander/pipeline/graph_service.py`
-- `tests/pipeline/test_graph_operations.py`
+- `src/dander/pipeline/graph_deployment.py`
+- `src/dander/cli/main.py`
+- `tests/pipeline/test_graph_deployment.py`

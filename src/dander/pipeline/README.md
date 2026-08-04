@@ -494,6 +494,30 @@ without creating or altering it.
 This bridge edits `PipelineGraph` and can execute only the bound, already-deployed job. It does not
 write `dander.yaml`, resolve secrets, deploy changes, enable schedules, or plan/apply Terraform.
 
+To opt into candidate planning, supply the complete current platform inputs at service startup:
+
+```bash
+dander graph serve \
+  --file /absolute/path/to/graphs/greenhouse_jobs.yaml \
+  --config /absolute/path/to/dander.yaml \
+  --pipeline greenhouse_jobs_graph \
+  --project my-gcp-project \
+  --enable-deployment-preview \
+  --billing-account "$DANDER_BILLING_ACCOUNT" \
+  --failure-alert-email "$DANDER_ALERT_EMAIL" \
+  --secret-id OPTIONAL_EXTRA_MANAGED_SECRET
+```
+
+**Build candidate & plan** is separate from Save. It snapshots the exact saved ETag, builds and
+pushes a source-free image from the public `dander-platform` version, and renders the full-manifest
+Terraform plan. All cloud/plan inputs are fixed by the operator; the browser cannot replace them.
+Repeat `--secret-id` for any Terraform-managed secret containers that are not referenced by a
+manifest pipeline, so the full plan preserves them.
+The binary plan is created in a temporary copy of `infra/`, deleted after rendering, and cannot be
+used by `dander init-platform-apply`. No Terraform apply, scheduler change, or runtime deployment
+occurs. Because one image is shared by the manifest, the preview names every hosted job that would
+consume the candidate if a later, separately approved deployment were prepared.
+
 ## Connector-backed execution
 
 A hosted pipeline may set `graph: graphs/<name>.yaml`, leave `models` empty, and set

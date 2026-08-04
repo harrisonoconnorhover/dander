@@ -50,6 +50,10 @@ from dander.ingestion import (
     WorkdayRaasSource,
     load_source_config,
 )
+from dander.pipeline.graph_deployment import (
+    GraphDeploymentPreviewer,
+    GraphDeploymentSettings,
+)
 from dander.pipeline.graph_operations import (
     GraphOperationBinding,
     GraphOperationError,
@@ -202,6 +206,30 @@ def serve_graph(
         "--project",
         help="GCP project containing the already-deployed graph job.",
     ),
+    enable_deployment_preview: bool = typer.Option(
+        False,
+        "--enable-deployment-preview",
+        help="Allow an explicit source-free image build and isolated Terraform plan.",
+    ),
+    state_bucket: str = typer.Option("", "--state-bucket"),
+    state_prefix: str = typer.Option("dander/state", "--state-prefix"),
+    bootstrap_service_account: str = typer.Option("", "--bootstrap-service-account"),
+    billing_account_id: str = typer.Option("", "--billing-account"),
+    failure_alert_email: str | None = typer.Option(None, "--failure-alert-email"),
+    secret_ids: list[str] | None = typer.Option(  # noqa: B008
+        None,
+        "--secret-id",
+        help="Preserve an additional Terraform-managed secret container; repeat as needed.",
+    ),
+    github_repository: str = typer.Option("", "--github-repository"),
+    github_ref: str = typer.Option("refs/heads/main", "--github-ref"),
+    enable_cost_guard: bool | None = typer.Option(
+        None,
+        "--enable-cost-guard/--no-cost-guard",
+    ),
+    cost_guard_budget_name: str = typer.Option("dander-sbx-cap", "--cost-guard-budget-name"),
+    cost_guard_budget_amount: str = typer.Option("5.00", "--cost-guard-budget-amount"),
+    live_cost_guard: bool = typer.Option(False, "--live-cost-guard"),
 ) -> None:
     """Serve one graph file to Druff, optionally bound to one already-deployed job."""
     try:
@@ -215,7 +243,36 @@ def serve_graph(
                 pipeline_id=pipeline,
                 project=project,
             )
-            operations = GraphOperations(binding)
+            deployment_previewer = None
+            if enable_deployment_preview:
+                if failure_alert_email is None:
+                    raise GraphOperationError(
+                        "--enable-deployment-preview requires an explicit "
+                        "--failure-alert-email value"
+                    )
+                deployment_previewer = GraphDeploymentPreviewer(
+                    binding,
+                    GraphDeploymentSettings(
+                        state_bucket=state_bucket or f"{project}-dander-state",
+                        state_prefix=state_prefix,
+                        bootstrap_service_account=bootstrap_service_account
+                        or f"dander-bootstrap@{project}.iam.gserviceaccount.com",
+                        billing_account_id=billing_account_id,
+                        failure_alert_email=failure_alert_email,
+                        secret_ids=tuple(secret_ids or ()),
+                        github_repository=github_repository,
+                        github_ref=github_ref,
+                        enable_cost_guard=enable_cost_guard,
+                        cost_guard_budget_name=cost_guard_budget_name,
+                        cost_guard_budget_amount=cost_guard_budget_amount,
+                        live_cost_guard=live_cost_guard,
+                    ),
+                )
+            operations = GraphOperations(binding, deployment_previewer=deployment_previewer)
+        elif enable_deployment_preview:
+            raise GraphOperationError(
+                "--enable-deployment-preview requires --pipeline and --project"
+            )
         console.print(f"Serving [bold]{graph_file.resolve()}[/bold]")
         console.print(f"Druff API: http://127.0.0.1:{port}/v1/graph (origin: {origin})")
         if operations is not None:
@@ -224,6 +281,11 @@ def serve_graph(
                 f"{operations.binding.pipeline_id} -> {operations.binding.job_name} "
                 f"({operations.binding.project}/{operations.binding.region})"
             )
+            if enable_deployment_preview:
+                console.print(
+                    "Deployment preview: enabled (pushes a source-free candidate and creates "
+                    "a temporary full-platform plan; never applies it)"
+                )
         console.print(
             "Press Ctrl-C to stop. YAML formatting and comments may be normalized on save."
         )

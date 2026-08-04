@@ -40,6 +40,7 @@ GRAPH_API_PATH = "/v1/graph"
 GRAPH_STATUS_API_PATH = "/v1/graph/status"
 GRAPH_VALIDATE_API_PATH = "/v1/graph/validate"
 GRAPH_RUN_API_PATH = "/v1/graph/run"
+GRAPH_PREVIEW_API_PATH = "/v1/graph/deployment-preview"
 MAX_GRAPH_DOCUMENT_BYTES = 5 * 1024 * 1024
 
 
@@ -197,7 +198,13 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         if not self._request_is_allowed(
-            {GRAPH_API_PATH, GRAPH_STATUS_API_PATH, GRAPH_VALIDATE_API_PATH, GRAPH_RUN_API_PATH}
+            {
+                GRAPH_API_PATH,
+                GRAPH_STATUS_API_PATH,
+                GRAPH_VALIDATE_API_PATH,
+                GRAPH_RUN_API_PATH,
+                GRAPH_PREVIEW_API_PATH,
+            }
         ):
             return
         self.send_response(HTTPStatus.NO_CONTENT)
@@ -227,7 +234,9 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
         )
 
     def do_POST(self) -> None:  # noqa: N802
-        if not self._request_is_allowed({GRAPH_VALIDATE_API_PATH, GRAPH_RUN_API_PATH}):
+        if not self._request_is_allowed(
+            {GRAPH_VALIDATE_API_PATH, GRAPH_RUN_API_PATH, GRAPH_PREVIEW_API_PATH}
+        ):
             return
         if self.operations is None:
             self._send_json(
@@ -258,7 +267,7 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
                     result,
                     revision=expected_revision,
                 )
-            else:
+            elif self.path == GRAPH_RUN_API_PATH:
                 execution = self.operations.trigger(
                     self.store,
                     expected_revision=expected_revision,
@@ -267,6 +276,12 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
                     HTTPStatus.ACCEPTED,
                     {"execution": execution.as_dict()},
                 )
+            else:
+                preview = self.operations.preview_deployment(
+                    self.store,
+                    expected_revision=expected_revision,
+                )
+                self._send_json(HTTPStatus.OK, preview.as_dict())
         except GraphOperationRevisionError as error:
             self._send_json(HTTPStatus.PRECONDITION_FAILED, {"error": str(error)})
         except GraphOperationConflictError as error:

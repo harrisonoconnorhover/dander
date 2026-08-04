@@ -13,6 +13,7 @@ import yaml
 
 from dander.pipeline import Node, PipelineGraph, dump_graph_to_yaml, load_graph_from_yaml
 from dander.pipeline.graph import NodeVisual, Position
+from dander.pipeline.graph_deployment import GraphDeploymentPreview
 from dander.pipeline.graph_operations import (
     CloudRunExecution,
     GraphOperationConflictError,
@@ -20,6 +21,7 @@ from dander.pipeline.graph_operations import (
 )
 from dander.pipeline.graph_service import (
     GRAPH_API_PATH,
+    GRAPH_PREVIEW_API_PATH,
     GRAPH_RUN_API_PATH,
     GRAPH_STATUS_API_PATH,
     GRAPH_VALIDATE_API_PATH,
@@ -226,6 +228,7 @@ class _Operations:
         self.validated: list[str] = []
         self.triggered: list[str] = []
         self.conflict = False
+        self.previewed: list[str] = []
 
     def validate(
         self,
@@ -254,6 +257,24 @@ class _Operations:
             "execution": None,
             "run": None,
         }
+
+    def preview_deployment(
+        self,
+        _store: GraphDocumentStore,
+        *,
+        expected_revision: str,
+    ) -> GraphDeploymentPreview:
+        self.previewed.append(expected_revision)
+        return GraphDeploymentPreview(
+            revision=expected_revision,
+            candidate_image=(
+                "us-central1-docker.pkg.dev/proof-project/dander/dander@sha256:" + "a" * 64
+            ),
+            plan_sha256="b" * 64,
+            plan_summary="Plan: 0 to add, 1 to change, 0 to destroy.",
+            plan_text="exact human plan",
+            affected_jobs=("dander-graph-records",),
+        )
 
 
 def test_http_operations_are_disabled_without_an_operator_binding(tmp_path: Path) -> None:
@@ -308,6 +329,31 @@ def test_http_validate_and_run_require_and_forward_the_open_revision(tmp_path: P
     assert run_body["execution"]["state"] == "starting"
     assert operations.validated == [revision]
     assert operations.triggered == [revision]
+
+
+def test_http_deployment_preview_returns_only_the_human_plan_projection(tmp_path: Path) -> None:
+    graph_file = tmp_path / "pipeline.yaml"
+    _write_graph(graph_file)
+    operations = _Operations()
+
+    with _running_server(
+        graph_file,
+        operations=cast("GraphOperations", operations),
+    ) as address:
+        _, _, graph_headers = _request(address, "GET")
+        status, body, _ = _request(
+            address,
+            "POST",
+            path=GRAPH_PREVIEW_API_PATH,
+            headers={"If-Match": graph_headers["etag"]},
+        )
+
+    revision = graph_headers["etag"].strip('"')
+    assert status == 200
+    assert body["revision"] == revision
+    assert body["plan_text"] == "exact human plan"
+    assert "state" not in body
+    assert operations.previewed == [revision]
 
 
 def test_http_run_maps_active_execution_to_conflict(tmp_path: Path) -> None:

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from dander.pipeline.graph_deployment import GraphDeploymentPreview
 from dander.pipeline.graph_operations import (
     GraphOperationBinding,
     GraphOperationConflictError,
@@ -175,6 +176,48 @@ def test_validate_requires_the_opened_graph_revision(tmp_path: Path) -> None:
     result = operations.validate(store, expected_revision=revision)
     assert result["valid"] is True
     assert result["revision"] == revision
+
+
+def test_deployment_preview_is_explicit_and_revision_bound(tmp_path: Path) -> None:
+    binding, store = _project(tmp_path)
+
+    class _Previewer:
+        def preview(
+            self,
+            _store: GraphDocumentStore,
+            *,
+            expected_revision: str,
+        ) -> GraphDeploymentPreview:
+            return GraphDeploymentPreview(
+                revision=expected_revision,
+                candidate_image=(
+                    "us-central1-docker.pkg.dev/proof-project/dander/dander@sha256:" + "a" * 64
+                ),
+                plan_sha256="b" * 64,
+                plan_summary="Plan: 0 to add, 1 to change, 0 to destroy.",
+                plan_text="exact human plan",
+                affected_jobs=("dander-graph-records",),
+            )
+
+    disabled = GraphOperations(
+        binding,
+        command_runner=lambda _args: "[]",
+        run_history=_History(),
+    )
+    with pytest.raises(GraphOperationConflictError, match="disabled"):
+        disabled.preview_deployment(store, expected_revision=store.load().revision)
+
+    operations = GraphOperations(
+        binding,
+        command_runner=lambda _args: "[]",
+        run_history=_History(),
+        deployment_previewer=_Previewer(),
+    )
+    revision = store.load().revision
+    preview = operations.preview_deployment(store, expected_revision=revision)
+
+    assert preview.revision == revision
+    assert operations.status(store)["deployment_preview_enabled"] is True
 
 
 def test_trigger_uses_fixed_async_job_and_blocks_until_it_is_observed_terminal(

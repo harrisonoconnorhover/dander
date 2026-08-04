@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-04 — Graph deployment preview is artifact-writing but non-applyable
+
+- Graph Save remains a local conditional file write. Candidate creation is a separate explicit
+  action that pushes one source-free Artifact Registry image for the exact saved graph revision.
+- The operator fixes every Terraform input when starting the loopback service. Druff supplies only
+  the ETag and receives the sensitivity-aware human plan plus shared-image job names.
+- Terraform runs against an isolated temporary infrastructure copy; its binary plan is deleted and
+  cannot enter the normal apply path. Deployment and scheduler control remain separate work.
+
 ## 2026-08-03 — ServiceNow v1 favors complete reads over unsafe cursor paging
 
 - The first ServiceNow slice uses OAuth client credentials and the read-only Table API incident

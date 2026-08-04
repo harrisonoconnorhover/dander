@@ -15,6 +15,11 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
+from dander.pipeline.graph_deployment import (
+    GraphDeploymentError,
+    GraphDeploymentPreview,
+    GraphDeploymentStaleError,
+)
 from dander.project import ProjectConfigError, load_project_config
 from dander.state import BigQueryRunHistoryStore, RunRecord
 
@@ -55,6 +60,15 @@ class _RunHistoryReader(Protocol):
         limit: int = 20,
         pipeline_id: str | None = None,
     ) -> tuple[RunRecord, ...]: ...
+
+
+class _DeploymentPreviewer(Protocol):
+    def preview(
+        self,
+        store: GraphDocumentStore,
+        *,
+        expected_revision: str,
+    ) -> GraphDeploymentPreview: ...
 
 
 CommandRunner = Callable[[tuple[str, ...]], str]
@@ -179,6 +193,7 @@ class GraphOperations:
         *,
         command_runner: CommandRunner = _run_gcloud,
         run_history: _RunHistoryReader | None = None,
+        deployment_previewer: _DeploymentPreviewer | None = None,
     ) -> None:
         self.binding = binding
         self._run = command_runner
@@ -188,7 +203,9 @@ class GraphOperations:
             initialize_on_read=False,
         )
         self._lock = threading.Lock()
+        self._preview_lock = threading.Lock()
         self._submitted_execution: str | None = None
+        self._deployment_previewer = deployment_previewer
 
     def validate(
         self,
@@ -242,6 +259,35 @@ class GraphOperations:
             self._submitted_execution = name
             return CloudRunExecution(name=name, state="starting")
 
+    def preview_deployment(
+        self,
+        store: GraphDocumentStore,
+        *,
+        expected_revision: str,
+    ) -> GraphDeploymentPreview:
+        """Build one candidate and isolated plan for the exact saved graph revision."""
+        if self._deployment_previewer is None:
+            raise GraphOperationConflictError(
+                "Deployment preview is disabled. Restart Dander with its operator inputs."
+            )
+        if not self._preview_lock.acquire(blocking=False):
+            raise GraphOperationConflictError("A deployment preview is already being created.")
+        try:
+            self.validate(store, expected_revision=expected_revision)
+            try:
+                preview = self._deployment_previewer.preview(
+                    store,
+                    expected_revision=expected_revision,
+                )
+            except GraphDeploymentStaleError as error:
+                raise GraphOperationRevisionError(str(error)) from error
+            except GraphDeploymentError as error:
+                raise GraphOperationUnavailableError(str(error)) from error
+            self.validate(store, expected_revision=expected_revision)
+            return preview
+        finally:
+            self._preview_lock.release()
+
     def status(self, store: GraphDocumentStore) -> dict[str, object]:
         with self._lock:
             self.binding.validate_current_project()
@@ -255,6 +301,7 @@ class GraphOperations:
                 ) from error
             return {
                 "enabled": True,
+                "deployment_preview_enabled": self._deployment_previewer is not None,
                 "graph_name": document.graph.name,
                 "revision": document.revision,
                 "binding": self.binding.as_dict(),

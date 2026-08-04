@@ -149,12 +149,14 @@ class RuntimeImagePublisher:
         self._repository_dir = repository_dir.resolve()
         self._runner = runner or _subprocess_runner
 
-    def publish(self, *, project: str, region: str) -> str:
+    def publish(self, *, project: str, region: str, tag_prefix: str = "init") -> str:
         if not _PROJECT_ID.fullmatch(project) or not _REGION.fullmatch(region):
             raise ProjectBootstrapError("Invalid runtime image project or region")
+        if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", tag_prefix):
+            raise ProjectBootstrapError("Invalid runtime image tag prefix")
         host = f"{region}-docker.pkg.dev"
         repository = f"{host}/{project}/dander/dander"
-        tag = f"init-{self._content_digest()[:12]}"
+        tag = f"{tag_prefix}-{self._content_digest()[:12]}"
         tagged_image = f"{repository}:{tag}"
         try:
             self._runner(
@@ -214,6 +216,7 @@ class RuntimeImagePublisher:
             for path in (
                 self._repository_dir / "src",
                 self._repository_dir / "connectors",
+                self._repository_dir / "graphs",
                 self._repository_dir / "models",
                 self._repository_dir / "infra",
             )

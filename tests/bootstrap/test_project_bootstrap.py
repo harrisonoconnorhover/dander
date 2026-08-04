@@ -125,6 +125,29 @@ def test_runtime_image_tag_ignores_local_state_but_tracks_infrastructure(tmp_pat
     assert tags[2] != tags[1]
 
 
+def test_runtime_image_tag_tracks_graph_content(tmp_path: Path) -> None:
+    for name in ("Dockerfile", "dander.yaml"):
+        (tmp_path / name).write_text(name, encoding="utf-8")
+    for directory in ("connectors", "graphs", "models"):
+        path = tmp_path / directory
+        path.mkdir()
+        (path / "content.txt").write_text(directory, encoding="utf-8")
+    runner = _Runner()
+    publisher = RuntimeImagePublisher(tmp_path, runner=runner)
+
+    publisher.publish(project="unit-project", region="us-central1", tag_prefix="candidate")
+    (tmp_path / "graphs" / "content.txt").write_text("changed", encoding="utf-8")
+    publisher.publish(project="unit-project", region="us-central1", tag_prefix="candidate")
+
+    tags = [
+        command[command.index("-t") + 1]
+        for command in runner.commands
+        if command[:3] == ("docker", "buildx", "build")
+    ]
+    assert tags[0] != tags[1]
+    assert all(":candidate-" in tag for tag in tags)
+
+
 def test_active_admin_member_uses_the_authenticated_gcloud_user(tmp_path: Path) -> None:
     assert active_admin_member(cwd=tmp_path, runner=_Runner()) == ("user:operator@example.invalid")
 
