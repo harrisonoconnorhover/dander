@@ -56,7 +56,7 @@ pipelines:
     models: [stg_servicenow__incidents]
     schedule: "0 12 * * *"
     time_zone: America/New_York
-    paused: true
+    paused: false
     secrets:
       SERVICENOW_CLIENT_ID: servicenow-client-id
       SERVICENOW_CLIENT_SECRET: servicenow-client-secret

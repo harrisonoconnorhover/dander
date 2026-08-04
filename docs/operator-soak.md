@@ -1,15 +1,16 @@
-# `0.1.x` post-release operator soak
+# Post-release operator soak
 
-The 30-day soak begins after `0.1.0` is public. It gathers evidence for fixes and `0.2.0`; it is
-not a retroactive release gate. Authenticated HubSpot is the primary pipeline and public
-Greenhouse is the daily control.
+The 30-day soak began after `0.1.0` became public and continues on the newest supported release. It
+gathers operating evidence; it is not a retroactive release gate. Authenticated HubSpot is the
+primary pipeline, public Greenhouse is the daily control, and Salesforce and ServiceNow exercise
+additional authenticated enterprise paths.
 
 ## Operating cadence
 
-- Keep both retained schedules enabled and review Dander run history once each week.
+- Keep all four retained schedules enabled and review Dander run history once each week.
 - Investigate every alert. Wait for any active execution to finish, follow the published upgrade
   and rerun guide, and perform at most one documented rerun for the incident.
-- During the soak, perform one planned manual rerun of Greenhouse and one of HubSpot.
+- During the soak, perform one planned manual rerun of each enabled pipeline.
 - Never edit leases, watermarks, run-scoped staging tables, or Terraform state by hand.
 - Record sanitized dates, package versions, run IDs, outcomes, alerts, diagnoses, reruns, row-count
   checks, cursor checks, cleanup checks, and Terraform-plan results in one operator-trial issue.
@@ -21,10 +22,10 @@ Close the trial only when all of the following are true:
 
 - No failed execution was silent, and every failure was diagnosable from the published run ledger,
   Cloud Run logs, and public documentation.
-- HubSpot remained duplicate-free, watermarks were monotonic, and no lease or staging residue
-  required manual repair.
-- Both pipelines were manually rerun once, scheduler state matches the tracked manifest, and the
-  final Terraform plan reports no changes.
+- HubSpot and Salesforce remained duplicate-free, watermarks were monotonic where supported, and
+  no lease or staging residue required manual repair.
+- Every enabled pipeline was manually rerun once, scheduler state matches the tracked manifest,
+  and the final Terraform plan reports no changes.
 - The workflow was operated entirely from public packages and documentation.
 - The newest supported patch has run cleanly for at least seven consecutive days.
 

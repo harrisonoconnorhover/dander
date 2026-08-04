@@ -98,7 +98,7 @@ def test_repository_manifest_defines_five_additive_hosted_pipelines() -> None:
         ),
     }
     assert expanded["servicenow_incidents"]["job_name"] == "dander-servicenow-incidents"
-    assert expanded["servicenow_incidents"]["paused"] is True
+    assert expanded["servicenow_incidents"]["paused"] is False
     assert expanded["servicenow_incidents"]["secret_env"] == {
         "SERVICENOW_CLIENT_ID": "servicenow-client-id",
         "SERVICENOW_CLIENT_SECRET": "servicenow-client-secret",
