@@ -123,6 +123,10 @@ pipelines:
         captured.update(origin=origin, port=port, operations=operations)
 
     monkeypatch.setattr("dander.cli.main.serve_graph_file", fake_serve)
+    monkeypatch.setattr(
+        "dander.pipeline.graph_operations.BigQueryRunHistoryStore",
+        lambda **_kwargs: object(),
+    )
 
     result = CliRunner().invoke(
         app,
