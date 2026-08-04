@@ -410,7 +410,7 @@ def test_salesforce_bulk2_streams_bounded_pages_and_filters_replay() -> None:
             "BillingState,BillingCountry,CreatedDate,LastModifiedDate,SystemModstamp,IsDeleted",
             "001A,Alpha,Customer,Technology,125.50,10,Raleigh,NC,US,"
             "2026-08-01T12:00:00.000Z,2026-08-04T13:00:00.000Z,"
-            "2026-08-04T13:00:00.000Z,false",
+            "2026-08-04T13:00:00.000Z,False",
             "001B,Beta,,,,,,,,2026-08-02T12:00:00.000Z,"
             "2026-08-04T14:00:00.000Z,2026-08-04T14:00:00.000Z,false",
         ],
@@ -450,6 +450,7 @@ def test_salesforce_bulk2_streams_bounded_pages_and_filters_replay() -> None:
 
     assert [row["Id"] for row in rows] == ["001A", "001B", "001C"]
     assert rows[1]["AnnualRevenue"] is None
+    assert rows[0]["IsDeleted"] is False
     assert client.streams == [False, False, False, True, True, False]
     assert first_page.closed is True
     assert second_page.closed is True

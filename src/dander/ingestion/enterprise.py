@@ -448,7 +448,7 @@ class SalesforceBulk2Source(EnterpriseSource):
                             f"Endpoint {endpoint!r} returned malformed CSV row {index}"
                         )
                     page_rows += 1
-                    yield {str(name): None if value == "" else value for name, value in row.items()}
+                    yield _normalize_salesforce_csv_row(row, declaration, index=index)
                 _validate_salesforce_page_count(response.headers, page_rows, endpoint)
                 next_locator = response.headers.get(pagination.next_cursor_header)
             finally:
@@ -623,6 +623,30 @@ def _validate_salesforce_csv_fields(fieldnames: list[str], endpoint: Endpoint) -
         raise EnterpriseSourceError(
             f"Endpoint {endpoint.name!r} omitted required Salesforce field {missing[0]!r}"
         )
+
+
+def _normalize_salesforce_csv_row(
+    row: Mapping[str | None, str | None], endpoint: Endpoint, *, index: int
+) -> dict[str, object | None]:
+    fields = {field.name: field for field in endpoint.raw_schema}
+    normalized: dict[str, object | None] = {}
+    for raw_name, raw_value in row.items():
+        assert raw_name is not None and raw_value is not None
+        if raw_value == "":
+            normalized[raw_name] = None
+            continue
+        field = fields[raw_name]
+        if field.data_type == "BOOL":
+            boolean = raw_value.strip().lower()
+            if boolean not in {"true", "false"}:
+                raise EnterpriseSourceError(
+                    f"Endpoint {endpoint.name!r} returned invalid BOOL CSV field "
+                    f"{raw_name!r} at row {index}"
+                )
+            normalized[raw_name] = boolean == "true"
+        else:
+            normalized[raw_name] = raw_value
+    return normalized
 
 
 def _validate_salesforce_page_count(headers: Mapping[str, str], actual: int, endpoint: str) -> None:
