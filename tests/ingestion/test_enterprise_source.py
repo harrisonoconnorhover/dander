@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -14,10 +16,15 @@ from dander.ingestion import (
     EnterpriseSource,
     EnterpriseSourceError,
     OdooJson2Source,
+    SalesforceBulk2Source,
     WorkdayRaasSource,
+    load_source_config,
 )
 from dander.ingestion.source import Endpoint, RateLimitConfig, SourceConfig
 from dander.security.base import AuthStrategy
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class _Auth(AuthStrategy):
@@ -43,14 +50,36 @@ class _Response:
         return self._payload
 
 
+class _CsvResponse(_Response):
+    def __init__(self, lines: list[str], *, locator: str, records: int) -> None:
+        super().__init__(None)
+        self._lines = lines
+        self.headers = httpx.Headers(
+            {
+                "Sforce-Locator": locator,
+                "Sforce-NumberOfRecords": str(records),
+            }
+        )
+        self.closed = False
+
+    def iter_lines(self) -> Iterator[str]:
+        yield from self._lines
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class _Client:
     def __init__(self, payloads: list[object]) -> None:
         self._payloads = iter(payloads)
         self.requests: list[httpx.Request] = []
+        self.streams: list[bool] = []
 
-    def send(self, request: httpx.Request) -> _Response:
+    def send(self, request: httpx.Request, *, stream: bool = False) -> _Response:
         self.requests.append(request)
-        return _Response(next(self._payloads))
+        self.streams.append(stream)
+        payload = next(self._payloads)
+        return payload if isinstance(payload, _Response) else _Response(payload)
 
 
 def _config(*, page_size: int = 2) -> SourceConfig:
@@ -113,6 +142,16 @@ def _odoo_config(*, page_size: int = 2) -> SourceConfig:
             )
         ],
     )
+
+
+def _salesforce_config(*, page_size: int = 2) -> SourceConfig:
+    config = load_source_config(
+        Path(__file__).parents[2] / "connectors" / "salesforce_jwt.example.yaml"
+    )
+    config.base_url = "https://salesforce.example.test/services/data/v67.0"
+    pagination = config.endpoints[0].pagination
+    config.endpoints[0].pagination = pagination.model_copy(update={"page_size": page_size})
+    return config
 
 
 def test_workday_source_pages_authenticates_casts_and_passes_cursor() -> None:
@@ -362,3 +401,133 @@ def test_odoo_source_rejects_invalid_contracts(
 
     with pytest.raises(EnterpriseSourceError, match=message):
         list(source.extract("partners"))
+
+
+def test_salesforce_bulk2_streams_bounded_pages_and_filters_replay() -> None:
+    first_page = _CsvResponse(
+        [
+            "Id,Name,Type,Industry,AnnualRevenue,NumberOfEmployees,BillingCity,"
+            "BillingState,BillingCountry,CreatedDate,LastModifiedDate,SystemModstamp,IsDeleted",
+            "001A,Alpha,Customer,Technology,125.50,10,Raleigh,NC,US,"
+            "2026-08-01T12:00:00.000Z,2026-08-04T13:00:00.000Z,"
+            "2026-08-04T13:00:00.000Z,false",
+            "001B,Beta,,,,,,,,2026-08-02T12:00:00.000Z,"
+            "2026-08-04T14:00:00.000Z,2026-08-04T14:00:00.000Z,false",
+        ],
+        locator="next-page",
+        records=2,
+    )
+    second_page = _CsvResponse(
+        [
+            "Id,Name,Type,Industry,AnnualRevenue,NumberOfEmployees,BillingCity,"
+            "BillingState,BillingCountry,CreatedDate,LastModifiedDate,SystemModstamp,IsDeleted",
+            "001C,Gamma,Partner,Services,50,3,Durham,NC,US,"
+            "2026-08-03T12:00:00.000Z,2026-08-04T15:00:00.000Z,"
+            "2026-08-04T15:00:00.000Z,false",
+        ],
+        locator="null",
+        records=1,
+    )
+    client = _Client(
+        [
+            {"id": "750-job", "state": "UploadComplete"},
+            {"state": "InProgress"},
+            {"state": "JobComplete"},
+            first_page,
+            second_page,
+            None,
+        ]
+    )
+    delays: list[float] = []
+    source = SalesforceBulk2Source(
+        _salesforce_config(),
+        _Auth(),
+        client=client,
+        sleeper=delays.append,
+    )
+
+    rows = list(source.extract("accounts", since="2026-08-04T12:30:00+00:00"))
+
+    assert [row["Id"] for row in rows] == ["001A", "001B", "001C"]
+    assert rows[1]["AnnualRevenue"] is None
+    assert client.streams == [False, False, False, True, True, False]
+    assert first_page.closed is True
+    assert second_page.closed is True
+    create_body = json.loads(client.requests[0].content)
+    assert create_body["operation"] == "queryAll"
+    assert create_body["query"].endswith(
+        "FROM Account WHERE SystemModstamp >= 2026-08-04T12:30:00.000Z"
+    )
+    assert "ORDER BY" not in create_body["query"]
+    assert client.requests[3].url.params["maxRecords"] == "2"
+    assert "locator" not in client.requests[3].url.params
+    assert client.requests[4].url.params["locator"] == "next-page"
+    assert client.requests[-1].method == "DELETE"
+    assert delays == [1.0]
+
+
+def test_salesforce_bulk2_initial_query_has_no_watermark_filter() -> None:
+    page = _CsvResponse(
+        [
+            "Id,Name,CreatedDate,LastModifiedDate,SystemModstamp,IsDeleted",
+        ],
+        locator="null",
+        records=0,
+    )
+    client = _Client(
+        [
+            {"id": "750-empty", "state": "UploadComplete"},
+            {"state": "JobComplete"},
+            page,
+            None,
+        ]
+    )
+    source = SalesforceBulk2Source(_salesforce_config(), _Auth(), client=client)
+
+    assert list(source.extract("accounts")) == []
+    assert " WHERE " not in json.loads(client.requests[0].content)["query"]
+    assert client.requests[-1].method == "DELETE"
+
+
+def test_salesforce_bulk2_failed_job_is_clear_and_cleaned_up() -> None:
+    client = _Client(
+        [
+            {"id": "750-failed", "state": "UploadComplete"},
+            {"state": "Failed", "errorMessage": "synthetic query failure"},
+            None,
+        ]
+    )
+    source = SalesforceBulk2Source(_salesforce_config(), _Auth(), client=client)
+
+    with pytest.raises(EnterpriseSourceError, match="ended in Failed") as raised:
+        list(source.extract("accounts"))
+
+    assert "synthetic query failure" in str(raised.value)
+    assert client.requests[-1].method == "DELETE"
+
+
+def test_salesforce_bulk2_rejects_malformed_csv_before_publication() -> None:
+    malformed = _CsvResponse(
+        [
+            "Id,Name,CreatedDate,LastModifiedDate,SystemModstamp,IsDeleted,Unexpected",
+            "001A,Alpha,2026-08-01T12:00:00.000Z,2026-08-04T13:00:00.000Z,"
+            "2026-08-04T13:00:00.000Z,false,surprise",
+        ],
+        locator="null",
+        records=1,
+    )
+    client = _Client(
+        [
+            {"id": "750-malformed", "state": "UploadComplete"},
+            {"state": "JobComplete"},
+            malformed,
+            None,
+        ]
+    )
+    source = SalesforceBulk2Source(_salesforce_config(), _Auth(), client=client)
+
+    with pytest.raises(EnterpriseSourceError, match="undeclared Salesforce field"):
+        list(source.extract("accounts"))
+
+    assert malformed.closed is True
+    assert client.requests[-1].method == "DELETE"

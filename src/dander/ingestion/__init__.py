@@ -10,10 +10,12 @@ from dander.ingestion.enterprise import (
     EnterpriseSourceError,
     NetSuiteSuiteQLSource,
     OdooJson2Source,
+    SalesforceBulk2Source,
     WorkdayRaasSource,
 )
 from dander.ingestion.pagination import (
     CursorPagination,
+    HeaderCursorPagination,
     JsonLinkPagination,
     LinkHeaderPagination,
     NoPagination,
@@ -32,6 +34,7 @@ __all__ = [
     "EnterpriseHttpClient",
     "EnterpriseSource",
     "EnterpriseSourceError",
+    "HeaderCursorPagination",
     "IngestionEngine",
     "JsonLinkPagination",
     "LinkHeaderPagination",
@@ -43,6 +46,7 @@ __all__ = [
     "PaginationKind",
     "PaginationStrategy",
     "RawField",
+    "SalesforceBulk2Source",
     "Source",
     "SourceConfig",
     "WorkdayRaasSource",

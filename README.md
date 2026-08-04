@@ -219,9 +219,9 @@ credential or employee row is stored in this repository.
 
 `connectors/salesforce_jwt.example.yaml` is a complete read-only Accounts QueryAll slice: OAuth2
 JWT bearer authentication, Salesforce's distinct authorization-server audience, a short assertion,
-opaque `nextRecordsUrl` pagination, a declared raw schema, and soft-delete visibility. The first
-slice deliberately performs a full query and relies on idempotent SCD1 publication; server-filtered
-SOQL and Bulk API are later scale work. See [`docs/salesforce.md`](docs/salesforce.md).
+server-filtered SOQL, bounded streaming Bulk API 2.0 result pages, a declared raw schema, and
+soft-delete visibility. Hosted replays use an inclusive `SystemModstamp` watermark and idempotent
+SCD1 publication. See [`docs/salesforce.md`](docs/salesforce.md).
 
 `connectors/servicenow.example.yaml` reads incidents through ServiceNow's Table API using OAuth2
 client credentials, primitive internal values, stable offset paging, and a declared raw schema.

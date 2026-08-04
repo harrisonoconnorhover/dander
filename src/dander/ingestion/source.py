@@ -230,6 +230,7 @@ class IngestionEngine(StrEnum):
     DLT = "dlt"
     NETSUITE_SUITEQL = "netsuite_suiteql"
     ODOO_JSON2 = "odoo_json2"
+    SALESFORCE_BULK2 = "salesforce_bulk2"
     WORKDAY_RAAS = "workday_raas"
 
 

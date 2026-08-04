@@ -403,3 +403,12 @@
 - Official Odoo Community and PostgreSQL containers are the free acceptance target because Odoo
   Online exposes its external API only on the Custom plan. Concurrently mutating large tables
   need later snapshot/keyset paging before this slice is described as scale-ready.
+
+## 2026-08-04 — Salesforce scale moves to Bulk API 2.0
+
+- Accounts use one asynchronous Bulk API 2.0 `queryAll` job. CSV result pages are streamed through
+  the provider's opaque header locator and the query job is cleaned up after extraction.
+- Hosted runs add an inclusive `SystemModstamp` predicate from Dander's committed watermark. The
+  initial query and sandbox runs remain full reads, while SCD1 makes boundary replay idempotent.
+- Dander deliberately omits `ORDER BY` and `LIMIT` because Salesforce documents that they disable
+  Bulk API PK chunking. Polling remains bounded and a job without a completion SLA fails clearly.

@@ -1,7 +1,7 @@
 # Read-only Salesforce Accounts template. Replace YOUR_DOMAIN and the JWT subject with values from
 # your Salesforce org. The issuer and RSA private key are secret references, never literal values.
 name: salesforce
-engine: dlt
+engine: salesforce_bulk2
 base_url: https://YOUR_DOMAIN.my.salesforce.com/services/data/v67.0
 auth_strategy: oauth2_jwt
 auth_refs:
@@ -23,21 +23,25 @@ rate_limit:
 
 endpoints:
   - name: accounts
-    path: /queryAll
+    path: /jobs/query
     pagination:
-      kind: json_link
-      next_url_path: nextRecordsUrl
-    data_selector: records
-    query_params:
-      q: >-
+      kind: header_cursor
+      next_cursor_header: Sforce-Locator
+      cursor_param: locator
+      size_param: maxRecords
+      page_size: 10000
+      terminal_value: "null"
+    request_body:
+      operation: queryAll
+      query: >-
         SELECT Id, Name, Type, Industry, AnnualRevenue, NumberOfEmployees,
         BillingCity, BillingState, BillingCountry, CreatedDate, LastModifiedDate,
-        SystemModstamp, IsDeleted FROM Account ORDER BY SystemModstamp ASC, Id ASC
+        SystemModstamp, IsDeleted FROM Account
+      contentType: CSV
+      columnDelimiter: COMMA
+      lineEnding: LF
     primary_key: [Id]
     incremental_cursor: SystemModstamp
-    # QueryAll has no standalone timestamp parameter: this initial slice records a watermark but
-    # deliberately rereads the bounded endpoint so hosted SCD1 publication remains idempotent.
-    cursor_param: ""
     raw_schema:
       - name: attributes
         type: RECORD

@@ -7,7 +7,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from dander.cli.main import _build_source_adapter, app
-from dander.ingestion import OdooJson2Source, load_source_config
+from dander.ingestion import OdooJson2Source, SalesforceBulk2Source, load_source_config
 from dander.security import NoAuth
 
 _REPO_ROOT = Path(__file__).parents[2]
@@ -166,6 +166,14 @@ def test_odoo_json2_engine_selects_enterprise_source() -> None:
     source = _build_source_adapter(config, NoAuth())
 
     assert isinstance(source, OdooJson2Source)
+
+
+def test_salesforce_bulk2_engine_selects_enterprise_source() -> None:
+    config = load_source_config(_REPO_ROOT / "connectors" / "salesforce_jwt.example.yaml")
+
+    source = _build_source_adapter(config, NoAuth())
+
+    assert isinstance(source, SalesforceBulk2Source)
 
 
 def test_sandbox_dry_run_declares_replace_mode_without_network() -> None:

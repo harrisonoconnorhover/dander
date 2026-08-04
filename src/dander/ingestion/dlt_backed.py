@@ -31,6 +31,7 @@ from requests import PreparedRequest, RequestException, Response, Session
 
 from dander.ingestion.pagination import (
     CursorPagination,
+    HeaderCursorPagination,
     JsonLinkPagination,
     LinkHeaderPagination,
     NoPagination,
@@ -313,5 +314,9 @@ class DltRestSource(Source):
                 cursor_path=pagination.next_cursor_path,
                 cursor_param=pagination.cursor_param,
                 stop_after_empty_page=True,
+            )
+        if isinstance(pagination, HeaderCursorPagination):
+            raise UnsupportedPaginationError(
+                "header-cursor pagination requires a bespoke ingestion engine"
             )
         raise AssertionError(f"Unhandled pagination strategy: {type(pagination).__name__}")

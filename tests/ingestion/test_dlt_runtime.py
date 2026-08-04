@@ -7,9 +7,10 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
 
 from dlt.sources.helpers.rest_client.auth import AuthConfigBase
-from dlt.sources.helpers.rest_client.paginators import HeaderLinkPaginator, JSONLinkPaginator
+from dlt.sources.helpers.rest_client.paginators import HeaderLinkPaginator
 from requests import Request, Response, Session
 
+from dander.ingestion import HeaderCursorPagination, IngestionEngine
 from dander.ingestion.config import load_source_config
 from dander.ingestion.dlt_backed import (
     DltAuthAdapter,
@@ -174,7 +175,7 @@ def test_marketo_template_maps_provider_auth_pagination_and_rate_limit() -> None
     assert isinstance(rest_config["client"]["session"], Session)
 
 
-def test_salesforce_template_maps_queryall_json_links_schema_and_jwt_contract() -> None:
+def test_salesforce_template_maps_bulk2_query_schema_and_jwt_contract() -> None:
     connector_path = Path(__file__).parents[2] / "connectors" / "salesforce_jwt.example.yaml"
     config = load_source_config(connector_path)
 
@@ -185,11 +186,16 @@ def test_salesforce_template_maps_queryall_json_links_schema_and_jwt_contract() 
         "assertion_lifetime": 120,
         "default_expires_in": 300,
     }
+    assert config.engine is IngestionEngine.SALESFORCE_BULK2
     endpoint = config.endpoints[0]
-    assert endpoint.path == "/queryAll"
-    assert endpoint.data_selector == "records"
+    assert endpoint.path == "/jobs/query"
     assert endpoint.incremental_cursor == "SystemModstamp"
-    assert endpoint.cursor_param == ""
+    assert isinstance(endpoint.pagination, HeaderCursorPagination)
+    assert endpoint.pagination.next_cursor_header == "Sforce-Locator"
+    assert endpoint.pagination.page_size == 10_000
+    assert endpoint.request_body["operation"] == "queryAll"
+    assert str(endpoint.request_body["query"]).endswith("FROM Account")
+    assert "ORDER BY" not in str(endpoint.request_body["query"])
     assert {field.name for field in endpoint.raw_schema} >= {
         "attributes",
         "Id",
@@ -197,16 +203,6 @@ def test_salesforce_template_maps_queryall_json_links_schema_and_jwt_contract() 
         "SystemModstamp",
         "IsDeleted",
     }
-    rest_config = DltRestSource(
-        config,
-        _Auth(_Secrets(), "DANDER_TEST_REFERENCE"),
-    ).build_rest_config("accounts", since="2026-08-01T00:00:00Z")
-    resource = rest_config["resources"][0]
-    assert isinstance(resource, dict)
-    salesforce_endpoint = resource["endpoint"]
-    assert isinstance(salesforce_endpoint, dict)
-    assert isinstance(salesforce_endpoint["paginator"], JSONLinkPaginator)
-    assert salesforce_endpoint["params"] == endpoint.query_params
 
 
 class _FakeDltSource:

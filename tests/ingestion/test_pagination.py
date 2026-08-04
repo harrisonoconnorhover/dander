@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from dander.ingestion.pagination import (
     CursorPagination,
+    HeaderCursorPagination,
     JsonLinkPagination,
     LinkHeaderPagination,
     NoPagination,
@@ -59,6 +60,16 @@ def test_each_kind_parses_with_its_params() -> None:
         {"kind": "json_link", "next_url_path": "paging.nextRecordsUrl"}
     )
     assert json_link.next_url_path == "paging.nextRecordsUrl"
+
+    header_cursor = HeaderCursorPagination.model_validate(
+        {
+            "kind": "header_cursor",
+            "next_cursor_header": "Sforce-Locator",
+            "page_size": 5000,
+        }
+    )
+    assert header_cursor.next_cursor_header == "Sforce-Locator"
+    assert header_cursor.page_size == 5000
 
 
 _BareCoercionTarget = (
@@ -153,6 +164,11 @@ def _sample_source_config() -> SourceConfig:
                 name="json_link_ep",
                 path="/json-link",
                 pagination=JsonLinkPagination(next_url_path="nextRecordsUrl"),
+            ),
+            Endpoint(
+                name="header_cursor_ep",
+                path="/header-cursor",
+                pagination=HeaderCursorPagination(next_cursor_header="Sforce-Locator"),
             ),
         ],
     )

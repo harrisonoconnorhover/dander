@@ -42,6 +42,8 @@ class PaginationKind(StrEnum):
         PAGE_NUMBER: Page-number-style pagination (``?page=...&per_page=...``).
         LINK_HEADER: RFC 5988 ``Link`` response-header pagination (e.g. Greenhouse Harvest).
         JSON_LINK: Next-page URL read from the JSON response body (e.g. Salesforce Query).
+        HEADER_CURSOR: Opaque next-page cursor returned in a response header (e.g. Salesforce
+            Bulk API 2.0 query results).
     """
 
     NONE = "none"
@@ -50,6 +52,7 @@ class PaginationKind(StrEnum):
     PAGE_NUMBER = "page_number"
     LINK_HEADER = "link_header"
     JSON_LINK = "json_link"
+    HEADER_CURSOR = "header_cursor"
 
 
 class NoPagination(BaseModel):
@@ -164,13 +167,27 @@ class JsonLinkPagination(BaseModel):
     next_url_path: str = "next"
 
 
+class HeaderCursorPagination(BaseModel):
+    """Opaque cursor returned in a response header and echoed as a query parameter."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    kind: Literal[PaginationKind.HEADER_CURSOR] = PaginationKind.HEADER_CURSOR
+    next_cursor_header: str
+    cursor_param: str = "locator"
+    size_param: str = "maxRecords"
+    page_size: int = Field(default=10_000, gt=0, le=100_000)
+    terminal_value: str = "null"
+
+
 PaginationStrategy = Annotated[
     NoPagination
     | OffsetPagination
     | CursorPagination
     | PageNumberPagination
     | LinkHeaderPagination
-    | JsonLinkPagination,
+    | JsonLinkPagination
+    | HeaderCursorPagination,
     Field(discriminator="kind"),
 ]
 """The pagination-strategy type alias. Application code (and `Endpoint.pagination`) depends on

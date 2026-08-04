@@ -1,8 +1,9 @@
 # Salesforce Accounts
 
-Dander's first Salesforce slice is intentionally read-only: one Accounts QueryAll extraction,
-opaque response-link pagination, declared raw schema, SCD1 publication, one staging model, and the
-existing transform/test/run-history path. It does not modify Salesforce records.
+Dander's Salesforce slice is intentionally read-only: one Accounts Bulk API 2.0 `queryAll` job,
+server-filtered SOQL, streaming locator pagination, a declared raw schema, SCD1 publication, one
+staging model, and the existing transform/test/run-history path. It does not modify Salesforce
+business records.
 
 Salesforce restricts creation of legacy Connected Apps as of Spring '26 and recommends External
 Client Apps for new integrations. Configure one External Client App for non-interactive JWT bearer
@@ -49,8 +50,10 @@ uv run dander run salesforce --sandbox --project YOUR_NO_BILLING_GCP_PROJECT
 ```
 
 The caller must be able to read the project's billing status and create/write the BigQuery Sandbox
-dataset. The real command authenticates to Salesforce, extracts Accounts, replaces the raw sandbox
-table, and records local run/cursor state in `.dander/state.db`.
+dataset. The real command authenticates to Salesforce, streams Accounts through bounded CSV
+result pages, replaces the raw sandbox table, and records local run/cursor state in
+`.dander/state.db`. Sandbox runs intentionally perform a complete read; hosted runs inject the
+committed `SystemModstamp` into the next SOQL query.
 
 A hosted pipeline should map those same environment names to two Secret Manager containers in
 `dander.yaml`; Terraform manages the containers and least-privilege runtime access, not secret
@@ -58,13 +61,19 @@ versions. Review the plan before applying.
 
 ## Current boundary
 
-The connector follows every `nextRecordsUrl` and sees soft-deleted Accounts through QueryAll. It
-records the maximum `SystemModstamp`, but the initial slice intentionally rereads the endpoint
-instead of rewriting SOQL around a stored timestamp. Hosted SCD1 merge makes replays idempotent.
-Large orgs that need server-filtered SOQL or Bulk API 2.0 should treat those as later scale work.
+The connector creates one asynchronous Bulk API 2.0 query job, polls it with a fixed upper bound,
+and reads each CSV page through Salesforce's opaque `Sforce-Locator`. The response is streamed a
+record at a time rather than materialized as one endpoint-sized list. The result job is deleted
+after success or handled failure. QueryAll preserves soft-delete visibility, and the inclusive
+`SystemModstamp >= <watermark>` boundary makes tied timestamps replay-safe through hosted SCD1.
+
+The base SOQL must remain one unfiltered, unordered `SELECT`: Dander owns the watermark predicate,
+and omitting `ORDER BY` preserves Salesforce PK chunking for large jobs. Bulk jobs have no
+completion SLA; a job that exceeds Dander's bounded polling window fails clearly and can be rerun.
 
 Official Salesforce references:
 
 - [External Client Apps](https://developer.salesforce.com/docs/platform/mobile-sdk/guide/eca-create.html)
 - [OAuth JWT bearer flow](https://help.salesforce.com/s/articleView?id=xcloud.remoteaccess_oauth_jwt_flow.htm&type=5)
-- [Processing query results and `nextRecordsUrl`](https://developer.salesforce.com/blogs/2022/12/processing-large-amounts-of-data-with-apis-part-1-of-2)
+- [Bulk API 2.0 query guide](https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_asynch.pdf)
+- [Choosing Bulk API 2.0 for large data sets](https://developer.salesforce.com/blogs/2024/04/accessing-object-data-with-salesforce-platform-apis)
