@@ -1,8 +1,40 @@
 # Changelog
 
 Release notes for Dander are kept here and copied into the matching GitHub Release. Dander follows
-semantic versioning while it is alpha: `0.1.x` contains fixes only, and the next product capability
-will be `0.2.0`.
+semantic versioning while it is alpha: released minor lines receive fixes only, and new product
+capabilities enter through the next minor release.
+
+## 0.3.0rc1 — 2026-08-04 (alpha)
+
+### Added
+
+- Add isolated, source-free deployment previews and explicit deployed-graph operations for Druff's
+  canonical PipelineGraph workflow.
+- Add a real-instance-proven Odoo 19+ JSON-2 partner slice with declared schema, bounded paging,
+  inclusive watermark replay, transform tests, and metadata.
+- Add a stateful NetSuite SuiteQL simulator and customer slice covering OAuth1 TBA, stable paging,
+  throttling, permissions, malformed responses, and replay. This remains simulator-validated and
+  is not represented as real-tenant NetSuite support.
+
+### Changed
+
+- Move Salesforce Accounts extraction to Bulk API 2.0 QueryAll with server-filtered SOQL, bounded
+  job polling, streamed locator pages, cleanup, and soft-delete visibility.
+- Include ServiceNow in the retained daily operator soak without changing its existing connector
+  contract.
+
+### Acceptance
+
+- Merged Odoo installed source-free and completed initial ingestion, transform/test, metadata, and
+  replay against an ephemeral official Odoo 19 instance; raw and staging stayed at five unique
+  partner IDs and the lease cleared.
+- Salesforce installed source-free and completed initial load, tied-boundary replay, one-record
+  server-filtered replay, and soft-delete capture against the disposable dev org; raw and staging
+  stayed at 14 unique Account IDs, the cursor advanced monotonically, and the lease cleared.
+- Protected CI passed Python quality, Terraform and static security validation, distribution
+  installation, container scanning, and secret scanning on both accepted capability PRs.
+- No `0.3.0rc1` tag, public package, retained deployment, or scheduler change occurred during
+  candidate preparation.
 
 ## 0.2.0 — 2026-08-04 (alpha)
 
