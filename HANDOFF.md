@@ -22,6 +22,7 @@ curl -H 'Origin: http://localhost:3000' http://127.0.0.1:8765/v1/connectors
 - Terraform formatting, backend-disabled initialization, and validation passed for platform and stage zero.
 - Dependency audit reported no known vulnerabilities.
 - `0.4.0rc2` wheel/sdist validation and the local Linux container build passed; the container reported `dander 0.4.0rc2`.
+- Protected PR checks passed for Python, Terraform, distribution, container, and secret validation.
 
 ## Decisions
 
@@ -31,7 +32,6 @@ curl -H 'Origin: http://localhost:3000' http://127.0.0.1:8765/v1/connectors
 
 ## Remaining
 
-- Complete Dander, Salesforce plugin, and Druff validation and protected PRs.
 - Obtain explicit approval before publishing Dander `0.4.0rc2` or the plugin candidate.
 - Prepare a fresh disposable GCP project and reviewed Terraform plan.
 - Run the isolated source-free Salesforce/Druff proof only after the publication and apply approvals.
