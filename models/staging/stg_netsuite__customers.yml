@@ -1,0 +1,50 @@
+model: stg_netsuite__customers
+description: NetSuite customers normalized from the simulator-validated SuiteQL contract.
+owner: data-eng
+materialization: incremental
+dataset: staging
+source_system: netsuite
+sensitivity: confidential
+unique_key: [customer_id]
+incremental_cursor: updated_at
+
+columns:
+  - name: customer_id
+    type: STRING
+    description: Stable NetSuite internal customer ID.
+  - name: customer_code
+    type: STRING
+    description: Account-facing customer identifier.
+  - name: company_name
+    type: STRING
+    description: Customer company name.
+  - name: email
+    type: STRING
+    description: Customer email when present.
+  - name: phone
+    type: STRING
+    description: Customer phone when present.
+  - name: created_at
+    type: TIMESTAMP
+    description: Record creation time.
+  - name: updated_at
+    type: TIMESTAMP
+    description: Record modification time.
+  - name: is_inactive
+    type: BOOL
+    description: Whether the customer is inactive in NetSuite.
+
+tests:
+  - column: customer_id
+    not_null: true
+    unique: true
+  - column: customer_code
+    not_null: true
+  - column: is_inactive
+    not_null: true
+
+metrics:
+  - name: customer_count
+    description: Number of NetSuite customers represented.
+    aggregation: count_distinct
+    field: customer_id

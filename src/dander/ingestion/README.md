@@ -1,15 +1,21 @@
 # Hybrid ingestion
 
-Dander has two concrete paths behind the same `Source` contract:
+Dander has two extraction families behind the same `Source` contract:
 
 - `DltRestSource` translates ordinary declarative REST connectors into dlt resources.
 - `WorkdayRaasSource` owns the request loop for Workday RaaS reports: OAuth/basic auth strategy
   application, response-envelope selection, page-number pagination, cursor params, bounded
   rate-limit backoff, and explicit BigQuery scalar casts.
+- `NetSuiteSuiteQLSource` is the hand-rolled SuiteQL POST path: OAuth1 TBA application, required
+  headers, validated offset-page metadata, and removal of NetSuite's per-item transport links.
 
 Set `engine: workday_raas` in connector YAML to select the hand-rolled path. Its HTTP transport and
 sleeper are injected seams, so the full behavior is testable without a tenant or credential.
 `discover()` reports declarations only and never samples employee rows.
+
+Set `engine: netsuite_suiteql` for the simulator-validated NetSuite customer slice. Its tracked
+contract and real-tenant acceptance boundary are documented in
+[`docs/netsuite-simulator.md`](../../../docs/netsuite-simulator.md).
 
 Standard REST pagination includes offset, page number, JSON cursor, RFC 5988 Link header, and a
 JSON-carried next-page URL. The last form exists for APIs such as Salesforce Query/QueryAll, whose

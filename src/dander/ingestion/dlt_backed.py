@@ -63,6 +63,10 @@ class UnsupportedPaginationError(ValueError):
     """Raised when dlt cannot represent a declared pagination variation."""
 
 
+class UnsupportedRequestBodyError(ValueError):
+    """Raised when a POST-style body is assigned to the generic GET adapter."""
+
+
 class _RateLimitedSession(Session):
     """Apply one source's bounded request-rate and retry contract around dlt HTTP calls."""
 
@@ -224,6 +228,11 @@ class DltRestSource(Source):
         sources and must never be logged.
         """
         endpoint = self._get_endpoint(endpoint_name)
+        if endpoint.request_body:
+            raise UnsupportedRequestBodyError(
+                f"Endpoint {endpoint_name!r} declares request_body, which requires a bespoke "
+                "enterprise ingestion engine"
+            )
         params: dict[str, Any] = dict(endpoint.query_params)
         paginator = self._build_paginator(endpoint, params)
         # An explicit empty cursor_param is a deliberate read-only watermark: retain the

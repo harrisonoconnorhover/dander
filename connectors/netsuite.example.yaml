@@ -1,8 +1,9 @@
-# Template only. Every credential below is an environment or Secret Manager reference, never a
-# literal. Replace ACCOUNT with the account-specific hostname and account id.
+# Simulator-validated template only; it has not yet passed a real NetSuite tenant acceptance.
+# Every credential below is an environment or Secret Manager reference, never a literal. Replace
+# ACCOUNT with the account-specific hostname and account ID. See docs/netsuite-simulator.md.
 name: netsuite
-engine: dlt
-base_url: https://ACCOUNT.suitetalk.api.netsuite.com/services/rest/record/v1
+engine: netsuite_suiteql
+base_url: https://ACCOUNT.suitetalk.api.netsuite.com/services/rest/query/v1
 auth_strategy: oauth1_tba
 auth_refs:
   consumer_key: NETSUITE_CONSUMER_KEY
@@ -11,13 +12,34 @@ auth_refs:
   token_secret: NETSUITE_TOKEN_SECRET
 auth_options:
   account_id: ACCOUNT
+rate_limit:
+  requests_per_second: 2
+  burst: 1
+  backoff: exponential
+  max_retries: 4
 endpoints:
   - name: customers
-    path: /customer
-    data_selector: items
+    path: /suiteql
+    request_body:
+      q: >-
+        SELECT id, entityid AS entity_id, companyname AS company_name, email, phone,
+        TO_CHAR(datecreated, 'YYYY-MM-DD"T"HH24:MI:SS') AS date_created_at,
+        TO_CHAR(lastmodifieddate, 'YYYY-MM-DD"T"HH24:MI:SS') AS last_modified_at,
+        isinactive AS is_inactive FROM customer ORDER BY id
     pagination:
       kind: offset
       offset_param: offset
       limit_param: limit
-      page_size: 100
+      page_size: 1000
+    incremental_cursor: last_modified_at
+    cursor_param: ""
     primary_key: [id]
+    raw_schema:
+      - {name: id, type: STRING}
+      - {name: entity_id, type: STRING}
+      - {name: company_name, type: STRING}
+      - {name: email, type: STRING}
+      - {name: phone, type: STRING}
+      - {name: date_created_at, type: STRING}
+      - {name: last_modified_at, type: STRING}
+      - {name: is_inactive, type: STRING}

@@ -16,6 +16,9 @@ an unattended production system containing business-critical data.
 - ServiceNow incidents extraction performs a stably ordered full endpoint read. It does not use a
   timestamp watermark with offset paging because that combination can skip moving records.
 - Source hard deletes are not propagated by the first ServiceNow incidents slice.
+- NetSuite customers are simulator-validated only. The first SuiteQL slice performs a full read,
+  is capped by NetSuite's 100,000-result SuiteQL REST limit, and has not passed tenant-specific
+  role, field-availability, or authentication acceptance. It is not supported in public `0.2.0`.
 - Greenhouse Job Board extraction is a full refresh but does not delete jobs that disappear from
   the public board.
 

@@ -128,6 +128,7 @@ packages = ["src/dander"]
 include = [
   ".dockerignore",
   "CHANGELOG.md",
+  "contracts/netsuite-suiteql-simulator.openapi.yaml",
   "Dockerfile",
   "LICENSE",
   "README.md",
@@ -136,6 +137,7 @@ include = [
   "dander.yaml",
   "docs/getting-started.md",
   "docs/known-limitations.md",
+  "docs/netsuite-simulator.md",
   "docs/operator-soak.md",
   "docs/upgrading.md",
   "infra",

@@ -2,45 +2,43 @@
 
 ## Finished
 
-- Added an opt-in deployment preview for a clean, saved graph revision.
-- Built and pushed an immutable source-free candidate before planning the complete manifest.
-- Rendered the exact no-color Terraform plan from an isolated temporary workspace.
-- Kept browser inputs limited to the graph ETag; the operator fixes every cloud input at startup.
-- Preserved file-only save, existing job execution, and the canonical applyable Terraform plan.
+- Added a hand-rolled `netsuite_suiteql` customer source using the existing OAuth1 TBA, retry, raw-schema, watermark, and SCD1 runtime.
+- Added a stateful six-operation FastAPI simulator with invented customers, real HMAC-SHA256 signature verification, offset paging, and named auth/throttle/permission/malformed failures.
+- Proved stateful create, update, duplicate-free replay, monotonic watermarks, transport-link removal, and proof-fixture cleanup over loopback HTTP.
+- Added the tracked OpenAPI contract, customer staging model, and explicit “simulator-validated, not NetSuite-validated” documentation.
+- Preserved completed Odoo work unchanged on `codex/odoo-json2` at `14244cd`.
 
 ## Try It
 
 ```bash
-uv run dander graph serve --file graphs/greenhouse_jobs.yaml --config dander.yaml \
-  --pipeline greenhouse_jobs_graph --project YOUR_PROJECT \
-  --enable-deployment-preview --failure-alert-email YOUR_ALERT_EMAIL \
-  --billing-account YOUR_BILLING_ACCOUNT
+uv sync --extra dev
+uv run python -m dander.dev.netsuite_simulator
+uv run pytest tests/integration/test_netsuite_simulator.py
 ```
-
-Open the graph in Druff, refresh status, then choose **Build candidate & plan**.
 
 ## Checks
 
-- Ruff lint/format and strict mypy passed; all 654 Python tests passed.
-- Both Terraform roots initialized without backends and validated successfully.
-- Wheel/sdist build and inspection passed; the dependency audit found no known vulnerabilities.
-- Live proof pushed candidate `sha256:c9c16f8ac162...` and rendered `0 add, 5 change, 0 destroy` for the five shared-image jobs.
-- No apply, deployment, schedule, state, dataset, IAM, or secret mutation occurred; deployed jobs retained their prior image digest.
+- Ruff lint and format passed; strict mypy passed for all 150 source files.
+- All 664 tests passed.
+- Wheel/sdist build and inspection passed; NetSuite contract/docs/fixtures are packaged.
+- A source-free wheel installed with the documented `dev` extra and exposed all six simulator operations.
+- No NetSuite tenant, GCP resource, Terraform state, public package, or remote branch was changed.
 
 ## Decisions
 
-- Save remains file-only; candidate creation is a separate explicit action.
-- The candidate snapshot includes connectors, graphs, models, and manifest, but never repository source.
-- Repeatable operator-only `--secret-id` inputs preserve extra managed containers; preview plans remain temporary and non-applyable.
+- SuiteQL replaces the old record-list example because the latter returns only IDs and links; the query is uniquely ordered by customer ID.
+- The first slice is a full read with bounded pages and idempotent SCD1 replay; 100,000-row and concurrent-offset limits remain explicit.
+- OAuth1 TBA is compatibility coverage only. Current OAuth2 and one real-tenant proof gate any supported future release.
 
 ## Remaining
 
-- Push and open a focused PR only after explicit approval.
-- Let protected CI repeat Python, Terraform, package, dependency, and secret checks.
-- Treat deployment/apply as a separate, explicitly approved action.
+- Push `codex/netsuite-simulator` and open a focused PR only when requested.
+- Let protected CI repeat Linux tests, packaging, scans, and Terraform validation.
+- Obtain an authorized NetSuite/SDN sandbox for the narrow acceptance in `docs/netsuite-simulator.md`.
+- Keep the connector out of the supported `0.2.0` surface; consider `0.3.0` only after tenant acceptance.
 
 ## Review First
 
-- `src/dander/pipeline/graph_deployment.py`
-- `src/dander/cli/main.py`
-- `tests/pipeline/test_graph_deployment.py`
+- `src/dander/ingestion/enterprise.py`
+- `src/dander/dev/netsuite_simulator.py`
+- `tests/integration/test_netsuite_simulator.py`

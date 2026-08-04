@@ -1,0 +1,52 @@
+[
+  {
+    "id": "1001",
+    "entity_id": "CUST-ACME",
+    "company_name": "Acme Weather Instruments",
+    "email": "billing@acme-weather.example",
+    "phone": "+1-555-0101",
+    "date_created_at": "2025-01-15T14:30:00",
+    "last_modified_at": "2026-08-01T13:00:00",
+    "is_inactive": "F"
+  },
+  {
+    "id": "1002",
+    "entity_id": "CUST-LANTERN",
+    "company_name": "Lantern Bicycle Cooperative",
+    "email": "accounts@lantern-bikes.example",
+    "phone": "+1-555-0102",
+    "date_created_at": "2025-02-02T09:15:00",
+    "last_modified_at": "2026-08-01T14:00:00",
+    "is_inactive": "F"
+  },
+  {
+    "id": "1003",
+    "entity_id": "CUST-JUNIPER",
+    "company_name": "Juniper Field Services",
+    "email": "finance@juniper-field.example",
+    "phone": "+1-555-0103",
+    "date_created_at": "2025-04-21T16:45:00",
+    "last_modified_at": "2026-08-02T10:30:00",
+    "is_inactive": "F"
+  },
+  {
+    "id": "1004",
+    "entity_id": "CUST-MARINER",
+    "company_name": "Mariner Paper Works",
+    "email": "ap@mariner-paper.example",
+    "phone": "+1-555-0104",
+    "date_created_at": "2025-06-10T11:00:00",
+    "last_modified_at": "2026-08-02T12:00:00",
+    "is_inactive": "T"
+  },
+  {
+    "id": "1005",
+    "entity_id": "CUST-PINE",
+    "company_name": "Pine Street Ceramics",
+    "email": "hello@pine-ceramics.example",
+    "phone": "+1-555-0105",
+    "date_created_at": "2025-09-03T08:20:00",
+    "last_modified_at": "2026-08-03T15:45:00",
+    "is_inactive": "F"
+  }
+]

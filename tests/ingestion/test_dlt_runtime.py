@@ -11,7 +11,11 @@ from dlt.sources.helpers.rest_client.paginators import HeaderLinkPaginator, JSON
 from requests import Request, Response, Session
 
 from dander.ingestion.config import load_source_config
-from dander.ingestion.dlt_backed import DltAuthAdapter, DltRestSource
+from dander.ingestion.dlt_backed import (
+    DltAuthAdapter,
+    DltRestSource,
+    UnsupportedRequestBodyError,
+)
 from dander.ingestion.source import Endpoint, RateLimitConfig, SourceConfig
 from dander.security import NoAuth
 from dander.security.base import AuthStrategy
@@ -106,6 +110,18 @@ def test_build_config_supports_public_enveloped_response() -> None:
     assert isinstance(adapter, DltAuthAdapter)
     prepared = Request("GET", "https://example.test/v1/boards/demo/jobs").prepare()
     assert "Authorization" not in adapter(prepared).headers
+
+
+def test_generic_get_adapter_rejects_a_declared_request_body() -> None:
+    config = _config()
+    config.endpoints[0].request_body = {"q": "SELECT id FROM customer ORDER BY id"}
+
+    try:
+        DltRestSource(config, NoAuth()).build_rest_config("widgets")
+    except UnsupportedRequestBodyError as error:
+        assert "bespoke enterprise ingestion engine" in str(error)
+    else:
+        raise AssertionError("dlt must not silently ignore a declared request body")
 
 
 def test_empty_cursor_param_records_watermark_without_sending_filter() -> None:

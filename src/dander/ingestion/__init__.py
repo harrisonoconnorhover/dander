@@ -8,6 +8,7 @@ from dander.ingestion.enterprise import (
     EnterpriseHttpClient,
     EnterpriseSource,
     EnterpriseSourceError,
+    NetSuiteSuiteQLSource,
     WorkdayRaasSource,
 )
 from dander.ingestion.pagination import (
@@ -34,6 +35,7 @@ __all__ = [
     "JsonLinkPagination",
     "LinkHeaderPagination",
     "NoPagination",
+    "NetSuiteSuiteQLSource",
     "OffsetPagination",
     "PageNumberPagination",
     "PaginationKind",

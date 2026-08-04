@@ -46,6 +46,8 @@ from dander.ingestion import (
     DltRestSource,
     Endpoint,
     IngestionEngine,
+    NetSuiteSuiteQLSource,
+    Source,
     SourceConfig,
     WorkdayRaasSource,
     load_source_config,
@@ -1135,11 +1137,7 @@ def run(
 
     secrets = EnvironmentSecretStore() if sandbox else DefaultSecretStore()
     auth = _build_auth(config, secrets)
-    source_adapter = (
-        WorkdayRaasSource(config, auth)
-        if config.engine is IngestionEngine.WORKDAY_RAAS
-        else DltRestSource(config, auth)
-    )
+    source_adapter = _build_source_adapter(config, auth)
     control_dataset = settings.bq_dataset_metadata if project_pipeline else resolved_dataset
     history = (
         SqliteRunHistoryStore(state_path)
@@ -1669,6 +1667,15 @@ def _print_transform_result(action: str, models: Sequence[str], assertions: int)
     console.print(table)
     summary = f"{action} {len(models)} model(s); {assertions} assertion(s) passed."
     console.print(f"[green]{summary}[/green]")
+
+
+def _build_source_adapter(config: SourceConfig, auth: AuthStrategy) -> Source:
+    """Select the extraction implementation declared by the connector."""
+    if config.engine is IngestionEngine.WORKDAY_RAAS:
+        return WorkdayRaasSource(config, auth)
+    if config.engine is IngestionEngine.NETSUITE_SUITEQL:
+        return NetSuiteSuiteQLSource(config, auth)
+    return DltRestSource(config, auth)
 
 
 def _build_auth(

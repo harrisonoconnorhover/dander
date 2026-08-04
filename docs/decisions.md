@@ -381,3 +381,15 @@
 - Graph replacement stages compiled SQL output, then conditionally touches the active lease and
   replaces target rows with DML in one transaction. The existing `dander run` Cloud Run command
   remains the sole execution and deployment entrypoint.
+
+## 2026-08-04 — NetSuite begins as a simulator-validated SuiteQL slice
+
+- Customer extraction uses SuiteQL because NetSuite's record-collection endpoint returns IDs and
+  HATEOAS links rather than selected field rows. The query uses a unique `ORDER BY id` and Dander
+  removes SuiteQL's per-item transport links before raw-schema validation.
+- The first slice fully rereads customers through bounded offset pages and relies on idempotent
+  SCD1 publication while recording a monotonic watermark. SuiteQL's 100,000-result limit and
+  offset paging under concurrent source mutation remain explicit scale boundaries.
+- OAuth1 TBA is retained only to exercise Dander's existing compatibility strategy. Oracle's
+  announced 2027.1 restriction on new TBA REST integrations makes current OAuth2 acceptance a
+  release gate; until a real tenant passes, the connector is not NetSuite-validated or supported.

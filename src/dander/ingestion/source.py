@@ -100,6 +100,8 @@ class Endpoint(BaseModel):
         data_selector: Optional JSONPath selecting records from an enveloped response.
         query_params: Non-secret scalar query parameters applied to every request. Authentication
             material must use the source's auth strategy instead.
+        request_body: Non-secret scalar JSON body applied by a bespoke enterprise source. The
+            generic dlt adapter rejects this field rather than silently ignoring it.
         raw_schema: Complete raw relation schema for hosted project execution. Direct-source
             callers may omit it temporarily through the deprecated inference path.
     """
@@ -114,6 +116,7 @@ class Endpoint(BaseModel):
     primary_key: list[str] = Field(default_factory=list)
     data_selector: str | None = None
     query_params: dict[str, str | int | bool] = Field(default_factory=dict)
+    request_body: dict[str, str | int | bool] = Field(default_factory=dict)
     field_types: dict[str, str] = Field(
         default_factory=dict,
         description="Explicit BigQuery type overrides applied by hand-rolled enterprise sources.",
@@ -135,12 +138,12 @@ class Endpoint(BaseModel):
             raise ValueError(f"Unsupported field type: {unknown[0]}")
         return normalized
 
-    @field_validator("query_params")
+    @field_validator("query_params", "request_body")
     @classmethod
-    def _validate_query_params(
+    def _validate_static_request_values(
         cls, value: dict[str, str | int | bool]
     ) -> dict[str, str | int | bool]:
-        """Keep static request parameters non-secret and request-safe."""
+        """Keep static request values non-secret and request-safe."""
         sensitive_names = {
             "api_key",
             "apikey",
@@ -155,10 +158,10 @@ class Endpoint(BaseModel):
         for name in value:
             normalized = name.lower().replace("-", "_")
             if not name or "\r" in name or "\n" in name:
-                raise ValueError("query_params keys must be non-empty single-line names")
+                raise ValueError("static request keys must be non-empty single-line names")
             if normalized in sensitive_names or normalized.endswith(("_key", "_secret", "_token")):
                 raise ValueError(
-                    f"query_params cannot contain credential-like parameter {name!r}; "
+                    f"static requests cannot contain credential-like parameter {name!r}; "
                     "use auth_strategy"
                 )
         return value
@@ -225,6 +228,7 @@ class IngestionEngine(StrEnum):
     """Execution path used by one source configuration."""
 
     DLT = "dlt"
+    NETSUITE_SUITEQL = "netsuite_suiteql"
     WORKDAY_RAAS = "workday_raas"
 
 

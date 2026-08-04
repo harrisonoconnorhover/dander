@@ -228,9 +228,11 @@ client credentials, primitive internal values, stable offset paging, and a decla
 The first slice performs a full read and idempotent SCD1 publication; it does not claim unsafe
 timestamp-plus-offset incrementality. See [`docs/servicenow.md`](docs/servicenow.md).
 
-`connectors/netsuite.example.yaml` demonstrates OAuth1 TBA with four credential references and
-HMAC-SHA256 request signing. Copy either template to a local connector and replace only
-account/endpoint identifiers and secret reference names; do not place credential values in YAML.
+`connectors/netsuite.example.yaml` is a **simulator-validated, not NetSuite-validated** customer
+SuiteQL slice. It uses bounded offset paging, stable ordering, declared schemas, and the existing
+OAuth1 TBA signer. It is not part of the public `0.2.0` support surface; real-tenant acceptance and
+current OAuth2 setup are gates for a future release. See
+[`docs/netsuite-simulator.md`](docs/netsuite-simulator.md).
 
 ### Strict $0 BigQuery Sandbox
 

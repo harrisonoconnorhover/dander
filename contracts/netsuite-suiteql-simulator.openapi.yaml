@@ -1,0 +1,142 @@
+openapi: 3.1.0
+info:
+  title: Dander NetSuite SuiteQL simulator
+  version: 1.0.0
+  description: >-
+    Six-operation synthetic contract for Dander's simulator-validated NetSuite customer slice.
+    Only executeSuiteQL represents the connector's production read path; the remaining operations
+    prepare deterministic integration-test state.
+paths:
+  /services/rest/query/v1/suiteql:
+    post:
+      operationId: executeSuiteQL
+      tags: [netsuite-contract]
+      parameters:
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 1000, default: 1000}}
+        - {name: offset, in: query, required: false, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: Prefer, in: header, required: true, schema: {type: string, const: transient}}
+      security:
+        - OAuth1Header: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [q]
+              properties:
+                q: {type: string}
+      responses:
+        "200":
+          description: One offset-paged SuiteQL result.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SuiteQLPage"}
+        "401": {description: Expired or invalid OAuth1 credentials.}
+        "403": {description: Missing SuiteAnalytics permission.}
+        "429": {description: Concurrency or request limit exceeded.}
+  /_dander/customer:
+    post:
+      operationId: createCustomer
+      tags: [acceptance-setup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CustomerCreate"}
+      responses:
+        "200":
+          description: Synthetic customer created.
+  /_dander/customer/{customer_id}:
+    parameters:
+      - {name: customer_id, in: path, required: true, schema: {type: string, pattern: "^[0-9]+$"}}
+    patch:
+      operationId: updateCustomer
+      tags: [acceptance-setup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CustomerPatch"}
+      responses:
+        "200":
+          description: Synthetic customer updated.
+        "404": {description: Customer not found.}
+    delete:
+      operationId: deleteCustomer
+      tags: [acceptance-setup]
+      responses:
+        "204": {description: Synthetic customer deleted.}
+        "404": {description: Customer not found.}
+  /_dander/scenario:
+    put:
+      operationId: setScenario
+      tags: [simulator-control]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario]
+              properties:
+                scenario:
+                  type: string
+                  enum: [normal, expired_credentials, throttling, missing_permissions, malformed_record, malformed_response]
+      responses:
+        "200": {description: Scenario selected.}
+  /_dander/reset:
+    post:
+      operationId: resetSimulator
+      tags: [simulator-control]
+      responses:
+        "200": {description: Fixtures and request counters reset.}
+components:
+  securitySchemes:
+    OAuth1Header:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: RFC 5849 OAuth1 TBA header using HMAC-SHA256 and a NetSuite account realm.
+  schemas:
+    CustomerCreate:
+      type: object
+      required: [entity_id, company_name]
+      properties:
+        entity_id: {type: string}
+        company_name: {type: string}
+        email: {type: string}
+        phone: {type: string}
+        is_inactive: {type: string, enum: [T, F]}
+    CustomerPatch:
+      type: object
+      properties:
+        entity_id: {type: string}
+        company_name: {type: string}
+        email: {type: string}
+        phone: {type: string}
+        is_inactive: {type: string, enum: [T, F]}
+    SuiteQLPage:
+      type: object
+      required: [links, count, offset, totalResults, hasMore, items]
+      properties:
+        links: {type: array, items: {type: object}}
+        count: {type: integer}
+        offset: {type: integer}
+        totalResults: {type: integer}
+        hasMore: {type: boolean}
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, entity_id, company_name, date_created_at, last_modified_at, is_inactive, links]
+            properties:
+              id: {type: string}
+              entity_id: {type: string}
+              company_name: {type: string}
+              email: {type: string}
+              phone: {type: string}
+              date_created_at: {type: string}
+              last_modified_at: {type: string}
+              is_inactive: {type: string, enum: [T, F]}
+              links: {type: array, items: {type: object}}

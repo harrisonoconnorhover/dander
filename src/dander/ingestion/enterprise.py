@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import httpx
 
-from dander.ingestion.pagination import NoPagination, PageNumberPagination
+from dander.ingestion.pagination import NoPagination, OffsetPagination, PageNumberPagination
 from dander.ingestion.source import BackoffKind, Endpoint, Source
 
 if TYPE_CHECKING:
@@ -39,11 +39,7 @@ class EnterpriseHttpClient(Protocol):
 
 
 class EnterpriseSource(Source):
-    """Base marker for bespoke sources that fully control the request cycle."""
-
-
-class WorkdayRaasSource(EnterpriseSource):
-    """Extract Workday RaaS JSON reports with explicit paging and type overrides."""
+    """Shared authenticated transport for bespoke enterprise sources."""
 
     def __init__(
         self,
@@ -57,6 +53,61 @@ class WorkdayRaasSource(EnterpriseSource):
         self._auth = auth
         self._client = client or cast("EnterpriseHttpClient", httpx.Client())
         self._sleep = sleeper
+
+    def _endpoint(self, name: str) -> Endpoint:
+        for endpoint in self.config.endpoints:
+            if endpoint.name == name:
+                return endpoint
+        raise EnterpriseSourceError(f"Connector {self.config.name!r} has no endpoint {name!r}")
+
+    def _send(self, request: httpx.Request, endpoint: str) -> _Response:
+        policy = self.config.rate_limit
+        max_retries = policy.max_retries if policy is not None else 0
+        for attempt in range(max_retries + 1):
+            try:
+                # Reapply authentication for every attempt. This is required for OAuth1 because
+                # a retry must receive a fresh nonce/signature rather than replaying a rejected
+                # Authorization header.
+                response = self._client.send(self._auth.apply(request))
+                response.raise_for_status()
+                return response
+            except httpx.HTTPStatusError as error:
+                status = error.response.status_code
+                if 400 <= status < 500 and status != 429:
+                    if status == 401:
+                        reason = "authentication failed"
+                    elif status == 403:
+                        reason = "permission denied"
+                    else:
+                        reason = "request was rejected"
+                    raise EnterpriseSourceError(
+                        f"Endpoint {endpoint!r} {reason} (HTTP {status})"
+                    ) from error
+                retry_error: httpx.HTTPError = error
+            except httpx.HTTPError as error:
+                retry_error = error
+            if attempt == max_retries:
+                raise EnterpriseSourceError(
+                    f"Endpoint {endpoint!r} request failed after bounded retries"
+                ) from retry_error
+            assert policy is not None
+            multiplier = 2**attempt if policy.backoff is BackoffKind.EXPONENTIAL else 1
+            self._sleep(multiplier / policy.requests_per_second)
+        raise AssertionError("bounded retry loop did not return or raise")
+
+
+class WorkdayRaasSource(EnterpriseSource):
+    """Extract Workday RaaS JSON reports with explicit paging and type overrides."""
+
+    def __init__(
+        self,
+        config: SourceConfig,
+        auth: AuthStrategy,
+        *,
+        client: EnterpriseHttpClient | None = None,
+        sleeper: Callable[[float], None] = sleep,
+    ) -> None:
+        super().__init__(config, auth, client=client, sleeper=sleeper)
 
     def discover(self) -> Mapping[str, Any]:
         """Return declared report schemas without sampling employee data."""
@@ -94,7 +145,7 @@ class WorkdayRaasSource(EnterpriseSource):
                 f"{self.config.base_url.rstrip('/')}/{declaration.path.lstrip('/')}",
                 params=params,
             )
-            response = self._send(self._auth.apply(request), endpoint)
+            response = self._send(request, endpoint)
             rows = _select_rows(response.json(), declaration)
             for index, row in enumerate(rows):
                 if not isinstance(row, dict):
@@ -111,43 +162,105 @@ class WorkdayRaasSource(EnterpriseSource):
                 self._sleep(1 / self.config.rate_limit.requests_per_second)
             page += 1
 
-    def _endpoint(self, name: str) -> Endpoint:
-        for endpoint in self.config.endpoints:
-            if endpoint.name == name:
-                return endpoint
-        raise EnterpriseSourceError(f"Connector {self.config.name!r} has no endpoint {name!r}")
 
-    def _send(self, request: httpx.Request, endpoint: str) -> _Response:
-        policy = self.config.rate_limit
-        max_retries = policy.max_retries if policy is not None else 0
-        for attempt in range(max_retries + 1):
-            try:
-                response = self._client.send(request)
-                response.raise_for_status()
-                return response
-            except httpx.HTTPStatusError as error:
-                status = error.response.status_code
-                if 400 <= status < 500 and status != 429:
-                    if status == 401:
-                        reason = "authentication failed"
-                    elif status == 403:
-                        reason = "permission denied"
-                    else:
-                        reason = "request was rejected"
-                    raise EnterpriseSourceError(
-                        f"Endpoint {endpoint!r} {reason} (HTTP {status})"
-                    ) from error
-                retry_error: httpx.HTTPError = error
-            except httpx.HTTPError as error:
-                retry_error = error
-            if attempt == max_retries:
+class NetSuiteSuiteQLSource(EnterpriseSource):
+    """Execute one declared, stably ordered SuiteQL query with bounded offset paging."""
+
+    def discover(self) -> Mapping[str, Any]:
+        """Return the declared query contract without contacting NetSuite."""
+        return {
+            endpoint.name: {
+                "path": endpoint.path,
+                "primary_key": list(endpoint.primary_key),
+                "incremental_cursor": endpoint.incremental_cursor,
+                "raw_schema": [field.model_dump(by_alias=True) for field in endpoint.raw_schema],
+            }
+            for endpoint in self.config.endpoints
+        }
+
+    def extract(self, endpoint: str, *, since: str | None = None) -> Iterator[Mapping[str, Any]]:
+        """Yield SuiteQL items while validating NetSuite's page metadata."""
+        del since  # The first slice records a watermark but deliberately performs a full read.
+        declaration = self._endpoint(endpoint)
+        pagination = declaration.pagination
+        if not isinstance(pagination, OffsetPagination):
+            raise EnterpriseSourceError(
+                f"NetSuite SuiteQL endpoint {endpoint!r} requires offset pagination"
+            )
+        query = declaration.request_body.get("q")
+        if not isinstance(query, str) or not query.strip():
+            raise EnterpriseSourceError(
+                f"NetSuite SuiteQL endpoint {endpoint!r} requires request_body.q"
+            )
+
+        offset = 0
+        while True:
+            request = httpx.Request(
+                "POST",
+                f"{self.config.base_url.rstrip('/')}/{declaration.path.lstrip('/')}",
+                params={
+                    pagination.limit_param: pagination.page_size,
+                    pagination.offset_param: offset,
+                },
+                headers={"Content-Type": "application/json", "Prefer": "transient"},
+                json={"q": query},
+            )
+            response = self._send(request, endpoint)
+            rows, has_more = _suiteql_page(response.json(), declaration, offset)
+            for row in rows:
+                # NetSuite adds HATEOAS links to every SuiteQL item even when they were not
+                # selected. They are transport metadata, not part of the declared raw relation.
+                yield _cast_row(
+                    {key: value for key, value in row.items() if key != "links"}, declaration
+                )
+            if not has_more:
+                return
+            if not rows:
                 raise EnterpriseSourceError(
-                    f"Endpoint {endpoint!r} request failed after bounded retries"
-                ) from retry_error
-            assert policy is not None
-            multiplier = 2**attempt if policy.backoff is BackoffKind.EXPONENTIAL else 1
-            self._sleep(multiplier / policy.requests_per_second)
-        raise AssertionError("bounded retry loop did not return or raise")
+                    f"Endpoint {endpoint!r} returned hasMore=true with an empty page"
+                )
+            offset += len(rows)
+            if self.config.rate_limit is not None:
+                self._sleep(1 / self.config.rate_limit.requests_per_second)
+
+
+def _suiteql_page(
+    payload: object,
+    endpoint: Endpoint,
+    expected_offset: int,
+) -> tuple[list[dict[str, Any]], bool]:
+    if not isinstance(payload, dict):
+        raise EnterpriseSourceError(f"Endpoint {endpoint.name!r} response must be an object")
+    items = payload.get("items")
+    count = payload.get("count")
+    offset = payload.get("offset")
+    total_results = payload.get("totalResults")
+    has_more = payload.get("hasMore")
+    if not isinstance(items, list) or not all(isinstance(row, dict) for row in items):
+        raise EnterpriseSourceError(f"Endpoint {endpoint.name!r} items must be mapping records")
+    if (
+        isinstance(count, bool)
+        or not isinstance(count, int)
+        or isinstance(offset, bool)
+        or not isinstance(offset, int)
+        or isinstance(total_results, bool)
+        or not isinstance(total_results, int)
+        or not isinstance(has_more, bool)
+    ):
+        raise EnterpriseSourceError(
+            f"Endpoint {endpoint.name!r} response has invalid SuiteQL page metadata"
+        )
+    expected_has_more = offset + count < total_results
+    if (
+        count != len(items)
+        or offset != expected_offset
+        or total_results < offset + count
+        or has_more is not expected_has_more
+    ):
+        raise EnterpriseSourceError(
+            f"Endpoint {endpoint.name!r} response has inconsistent SuiteQL page metadata"
+        )
+    return [dict(row) for row in cast("list[dict[str, Any]]", items)], has_more
 
 
 def _select_rows(payload: object, endpoint: Endpoint) -> list[object]:
