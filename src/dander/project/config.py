@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import yaml
+from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 _PIPELINE_ID = re.compile(r"^[a-z][a-z0-9_]{1,62}$")
@@ -17,10 +19,40 @@ _SECRET_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,254}$")
 _GCP_RESOURCE_ID = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
 _SERVICE_ACCOUNT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _RUNTIME_MEMORY = re.compile(r"^[1-9][0-9]*(?:Mi|Gi)$")
+_PLUGIN_ID = re.compile(r"^[a-z][a-z0-9_]*$")
+_DISTRIBUTION = re.compile(r"^[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*$")
+
+if TYPE_CHECKING:
+    from dander.plugins import ConnectorPluginRegistry
 
 
 class ProjectConfigError(ValueError):
     """Raised when project configuration is missing, invalid, or unresolved."""
+
+
+class PluginSpec(BaseModel):
+    """One exact independently distributed connector-plugin pin."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    distribution: str
+    version: str
+
+    @field_validator("distribution")
+    @classmethod
+    def validate_distribution(cls, value: str) -> str:
+        if not _DISTRIBUTION.fullmatch(value):
+            raise ValueError("plugin distribution must be a package name, not a requirement")
+        return value
+
+    @field_validator("version")
+    @classmethod
+    def validate_exact_version(cls, value: str) -> str:
+        try:
+            Version(value)
+        except InvalidVersion as error:
+            raise ValueError("plugin version must be one exact PEP 440 version") from error
+        return value
 
 
 class PipelineResourceNames(BaseModel):
@@ -162,7 +194,18 @@ class DanderProject(BaseModel):
 
     version: Literal[1]
     platform: PlatformSpec = Field(default_factory=PlatformSpec)
+    plugins: dict[str, PluginSpec] = Field(default_factory=dict)
     pipelines: dict[str, PipelineSpec] = Field(min_length=1)
+
+    @field_validator("plugins")
+    @classmethod
+    def validate_plugin_ids(cls, values: dict[str, PluginSpec]) -> dict[str, PluginSpec]:
+        if any(not _PLUGIN_ID.fullmatch(plugin_id) for plugin_id in values):
+            raise ValueError("plugin ids must use lowercase letters, numbers, and underscores")
+        distributions = [canonicalize_name(plugin.distribution) for plugin in values.values()]
+        if len(distributions) != len(set(distributions)):
+            raise ValueError("plugin distributions must not be declared more than once")
+        return values
 
     @field_validator("pipelines")
     @classmethod
@@ -184,6 +227,7 @@ class DanderProject(BaseModel):
         *,
         connectors_dir: Path = Path("connectors"),
         models_dir: Path = Path("models"),
+        plugin_registry: ConnectorPluginRegistry | None = None,
     ) -> None:
         """Require every hosted connector, raw schema, and selected model to exist."""
         from dander.ingestion import ConnectorConfigError, load_source_config
@@ -192,6 +236,12 @@ class DanderProject(BaseModel):
             load_graph_for_execution,
             plan_graph_execution,
         )
+        from dander.plugins import ConnectorPluginError, load_connector_plugins
+
+        try:
+            registry = plugin_registry or load_connector_plugins(self.plugins)
+        except ConnectorPluginError as error:
+            raise ProjectConfigError(str(error)) from error
 
         connectors = (root / connectors_dir).resolve()
         models = (root / models_dir).resolve()
@@ -207,6 +257,13 @@ class DanderProject(BaseModel):
             except ConnectorConfigError as error:
                 raise ProjectConfigError(
                     f"Pipeline {pipeline_id!r} references invalid connector {pipeline.source!r}"
+                ) from error
+            try:
+                registry.require_engine(source.engine)
+            except ConnectorPluginError as error:
+                raise ProjectConfigError(
+                    f"Pipeline {pipeline_id!r} cannot use connector engine {source.engine!s}: "
+                    f"{error}"
                 ) from error
             for endpoint in source.endpoints:
                 if not endpoint.raw_schema:

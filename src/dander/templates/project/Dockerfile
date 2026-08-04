@@ -9,10 +9,13 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir "dander-platform==${DANDER_VERSION}"
 
+COPY dander.yaml ./dander.yaml
+
+RUN dander plugins install --config dander.yaml
+
 COPY connectors ./connectors
 COPY graphs ./graphs
 COPY models ./models
-COPY dander.yaml ./dander.yaml
 
 USER 65532:65532
 

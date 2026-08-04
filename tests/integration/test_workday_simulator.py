@@ -187,7 +187,7 @@ def test_tracked_openapi_contract_matches_the_fastapi_operations() -> None:
 def test_example_connector_matches_the_two_report_contracts() -> None:
     config = load_source_config(_CONNECTOR)
 
-    assert config.engine.value == "workday_raas"
+    assert str(config.engine) == "workday_raas"
     assert [endpoint.name for endpoint in config.endpoints] == ["workers", "organizations"]
     assert [endpoint.path for endpoint in config.endpoints] == [
         "REPORT_OWNER/Dander_Workers",

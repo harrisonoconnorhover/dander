@@ -150,7 +150,7 @@ class MetadataSpine:
             "projects": projects,
             "source": {
                 "name": source.name,
-                "engine": source.engine.value,
+                "engine": str(source.engine),
                 "endpoints": [
                     {
                         "name": endpoint.name,

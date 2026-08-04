@@ -520,7 +520,7 @@ wheels = [
 
 [[package]]
 name = "dander-platform"
-version = "0.3.0"
+version = "0.4.0rc1"
 source = { editable = "." }
 dependencies = [
     { name = "dlt", extra = ["bigquery"] },
@@ -531,6 +531,7 @@ dependencies = [
     { name = "google-cloud-secret-manager" },
     { name = "httpx" },
     { name = "jinja2" },
+    { name = "packaging" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyyaml" },
@@ -564,6 +565,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11" },
+    { name = "packaging", specifier = ">=24.0" },
     { name = "pydantic", specifier = ">=2.12" },
     { name = "pydantic-settings", specifier = ">=2.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },

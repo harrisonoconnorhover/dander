@@ -2,42 +2,43 @@
 
 ## Finished
 
-- Updated the public install path to the latest published release, `dander-platform==0.2.0`.
-- Made support, upgrade, release, known-limitations, and operator-soak wording current and minor-version-aware.
-- Preserved the optional guarded-upgrade instructions while keeping the standard path free of billing-account requirements.
-- Audited every remaining remote `codex/*` branch against its merged pull request and deleted all 13 stale pointers.
-- Preserved intentional backup and unreviewed local branches.
+- Published and source-free verified Dander `0.3.0` from commit `15494be17a3b5b06d61e6f7e66685db5326262e9`.
+- Added exact manifest plugin pins and explicit `dander.connectors` entry-point discovery.
+- Added the public plugin API v1 contract, engine registry, compatibility failures, and built-in fallback behavior.
+- Added `dander plugins install` and wired generated source-free Dockerfiles to install declared plugins.
+- Prepared the isolated contract as `0.4.0rc1`; it is not tagged or published.
 
 ## Try It
 
 ```bash
-uv tool install dander-platform==0.2.0
-dander new my-data-platform
-cd my-data-platform && dander validate
+uv run dander plugins install --config dander.yaml
+uv run dander validate
 ```
 
 ## Checks
 
-- Ruff lint/format and strict mypy passed; all 677 tests passed.
-- Repository project validation passed for all five configured pipelines.
-- The `0.3.0rc1` wheel and source distribution built and passed identity/archive inspection.
-- The stale `0.1.x` scan now finds only intentional historical decision records.
-- Post-merge CI for `0.3.0rc1` passed all five jobs before this documentation-only cleanup.
+- Ruff lint/format, strict mypy, and all 690 tests passed.
+- Terraform formatting, backend-disabled initialization, and validation passed for platform and stage zero.
+- Dependency audit reported no known vulnerabilities.
+- `0.4.0rc1` wheel and sdist passed archive validation and installed outside the checkout.
+- Both installed artifacts generated and validated source-free projects with the plugin-install build step.
 
 ## Decisions
 
-- Public onboarding remains pinned to final `0.2.0`; merged `0.3.0rc1` metadata is not presented as published.
-- Support policy uses durable current-minor language instead of embedding obsolete minor-specific rules.
-- Pull requests retain the history of deleted feature branches; unique local backups remain untouched.
+- Only manifest-declared exact package pins are active; unrelated global packages remain ignored.
+- Explicit plugins may replace a built-in engine, while duplicate plugin engines fail.
+- Authentication remains in Dander core; the Salesforce implementation has not moved yet.
 
 ## Remaining
 
-- Obtain explicit approval before tagging or publishing `0.3.0rc1`.
-- Continue the existing 30-day operator soak and its weekly review cadence.
-- Keep NetSuite simulator-validated until one narrow real-tenant acceptance succeeds.
+- Push the focused Dander contract PR and let protected CI repeat Linux checks.
+- Obtain explicit approval before tagging or publishing `0.4.0rc1`; generated images cannot install it publicly before then.
+- Obtain explicit approval before creating the public Salesforce plugin repository.
+- Move Salesforce behavior unchanged only after the core contract is published.
+- Add Dander descriptor serving and Druff discovery in a later isolated PR.
 
 ## Review First
 
-- `README.md`
-- `SECURITY.md`
-- `docs/upgrading.md`
+- `src/dander/plugins/registry.py`
+- `src/dander/plugins/contracts.py`
+- `src/dander/project/config.py`

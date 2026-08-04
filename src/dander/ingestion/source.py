@@ -19,6 +19,7 @@ from dander.ingestion.pagination import NoPagination, PaginationStrategy
 from dander.schema import BIGQUERY_FIELD_MODES, BIGQUERY_FIELD_TYPES, normalize_bigquery_type
 
 _FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ENGINE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
@@ -268,7 +269,7 @@ class SourceConfig(BaseModel):
 
     name: str
     base_url: str
-    engine: IngestionEngine = IngestionEngine.DLT
+    engine: IngestionEngine | str = IngestionEngine.DLT
     auth_strategy: str = Field(description="Registered AuthStrategy key, e.g. 'api_key_basic'")
     auth_ref: str | None = Field(
         default=None,
@@ -287,6 +288,18 @@ class SourceConfig(BaseModel):
         default=None,
         description="Optional per-source rate-limit/backoff policy; None means unconstrained.",
     )
+
+    @field_validator("engine")
+    @classmethod
+    def _validate_engine(cls, value: IngestionEngine | str) -> IngestionEngine | str:
+        """Preserve built-ins as enums while accepting registered plugin engine keys."""
+        try:
+            return IngestionEngine(value)
+        except ValueError:
+            engine = str(value)
+            if not _ENGINE_NAME.fullmatch(engine):
+                raise ValueError("engine must be a lowercase Dander plugin identifier") from None
+            return engine
 
     @model_validator(mode="after")
     def _validate_auth_configuration(self) -> SourceConfig:

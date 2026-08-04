@@ -7,6 +7,7 @@ from dander.project.config import (
     PlatformRuntimeSpec,
     PlatformSafetySpec,
     PlatformSpec,
+    PluginSpec,
     ProjectConfigError,
     load_project_config,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "DanderProject",
     "PipelineResourceNames",
     "PipelineSpec",
+    "PluginSpec",
     "PlatformRuntimeSpec",
     "PlatformSafetySpec",
     "PlatformSpec",

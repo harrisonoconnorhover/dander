@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import os
 import re
+import shutil as shutil
+import subprocess as subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -43,15 +46,9 @@ from dander.core.config import Settings
 from dander.evidence import EvidenceBundle, EvidenceManifest, ProofEvidence, ProofStatus
 from dander.executor import PipelineExecutor
 from dander.ingestion import (
-    DltRestSource,
     Endpoint,
-    IngestionEngine,
-    NetSuiteSuiteQLSource,
-    OdooJson2Source,
-    SalesforceBulk2Source,
     Source,
     SourceConfig,
-    WorkdayRaasSource,
     load_source_config,
 )
 from dander.pipeline.graph_deployment import (
@@ -70,6 +67,11 @@ from dander.pipeline.runtime import (
     GraphRuntimeError,
     load_graph_for_execution,
     plan_graph_execution,
+)
+from dander.plugins import (
+    ConnectorPluginError,
+    ConnectorPluginRegistry,
+    load_connector_plugins,
 )
 from dander.project import (
     PlatformRuntimeSpec,
@@ -121,9 +123,11 @@ app = typer.Typer(
 verify_app = typer.Typer(help="Verify deployed resources with read-only checks.")
 metadata_app = typer.Typer(help="Inspect the durable metadata spine and run ledger.")
 graph_app = typer.Typer(help="Open validated pipeline graphs to local visual editors.")
+plugins_app = typer.Typer(help="Install and inspect explicitly pinned connector plugins.")
 app.add_typer(verify_app, name="verify")
 app.add_typer(metadata_app, name="metadata")
 app.add_typer(graph_app, name="graph")
+app.add_typer(plugins_app, name="plugins")
 console = Console()
 _SOURCE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _DEFAULT_CONNECTORS_DIR = Path("connectors")
@@ -184,6 +188,43 @@ def validate_project(
         raise ClickException(str(error)) from error
     summary = f"Validated {len(manifest.pipelines)} additive pipeline(s) from {project_config}."
     console.print(f"[green]{summary}[/green]")
+
+
+@plugins_app.command("install")
+def install_plugins(
+    project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+) -> None:
+    """Install the manifest's exact connector-plugin package pins."""
+    try:
+        manifest = load_project_config(project_config)
+    except ProjectConfigError as error:
+        raise ClickException(str(error)) from error
+    requirements = [
+        f"{plugin.distribution}=={plugin.version}" for _, plugin in sorted(manifest.plugins.items())
+    ]
+    if not requirements:
+        console.print("No connector plugins are declared in dander.yaml.")
+        return
+    uv_executable = shutil.which("uv")
+    command = (
+        (uv_executable, "pip", "install", "--python", sys.executable, *requirements)
+        if uv_executable is not None
+        else (sys.executable, "-m", "pip", "install", *requirements)
+    )
+    try:
+        completed = subprocess.run(  # noqa: S603
+            command,
+            check=False,
+        )
+    except OSError as error:
+        raise ClickException("Could not start the Python package installer") from error
+    if completed.returncode != 0:
+        raise ClickException("Connector plugin installation failed")
+    try:
+        load_connector_plugins(manifest.plugins)
+    except ConnectorPluginError as error:
+        raise ClickException(f"Installed connector plugins are incompatible: {error}") from error
+    console.print(f"[green]Installed {len(requirements)} connector plugin(s).[/green]")
 
 
 @graph_app.command("serve")
@@ -1058,9 +1099,11 @@ def run(
     pipeline_id = pipeline_or_source
     project_pipeline = False
     graph_file: Path | None = None
+    plugin_registry: ConnectorPluginRegistry | None = None
     if project_config.is_file():
         try:
             manifest = load_project_config(project_config)
+            plugin_registry = load_connector_plugins(manifest.plugins)
             pipeline = manifest.pipelines.get(pipeline_or_source)
             if pipeline is not None:
                 project_pipeline = True
@@ -1068,6 +1111,7 @@ def run(
                     project_config.resolve().parent,
                     connectors_dir=connectors_dir,
                     models_dir=models_dir,
+                    plugin_registry=plugin_registry,
                 )
                 source = pipeline.source
                 if pipeline.graph is not None:
@@ -1076,7 +1120,7 @@ def run(
                     selected_models = list(pipeline.models)
                 build_models = build_models or pipeline.build_models
                 publish_dataplex = publish_dataplex or pipeline.publish_dataplex
-        except ProjectConfigError as error:
+        except (ConnectorPluginError, ProjectConfigError) as error:
             raise ClickException(str(error)) from error
     if not _SOURCE_NAME.fullmatch(source):
         raise typer.BadParameter("Source names may contain only letters, numbers, '_' and '-'")
@@ -1084,6 +1128,11 @@ def run(
     config = load_source_config(connectors_dir / f"{source}.yaml")
     if config.name != source:
         raise ClickException(f"Connector file declares source {config.name!r}, expected {source!r}")
+    try:
+        plugin_registry = plugin_registry or load_connector_plugins({})
+        plugin_registry.require_engine(config.engine)
+    except ConnectorPluginError as error:
+        raise ClickException(str(error)) from error
     settings = Settings()
     resolved_project = project or settings.gcp_project_id
     resolved_dataset = dataset or settings.bq_dataset_raw
@@ -1139,7 +1188,10 @@ def run(
 
     secrets = EnvironmentSecretStore() if sandbox else DefaultSecretStore()
     auth = _build_auth(config, secrets)
-    source_adapter = _build_source_adapter(config, auth)
+    try:
+        source_adapter = _build_source_adapter(config, auth, plugin_registry=plugin_registry)
+    except ConnectorPluginError as error:
+        raise ClickException(str(error)) from error
     control_dataset = settings.bq_dataset_metadata if project_pipeline else resolved_dataset
     history = (
         SqliteRunHistoryStore(state_path)
@@ -1671,17 +1723,15 @@ def _print_transform_result(action: str, models: Sequence[str], assertions: int)
     console.print(f"[green]{summary}[/green]")
 
 
-def _build_source_adapter(config: SourceConfig, auth: AuthStrategy) -> Source:
+def _build_source_adapter(
+    config: SourceConfig,
+    auth: AuthStrategy,
+    *,
+    plugin_registry: ConnectorPluginRegistry | None = None,
+) -> Source:
     """Select the extraction implementation declared by the connector."""
-    if config.engine is IngestionEngine.WORKDAY_RAAS:
-        return WorkdayRaasSource(config, auth)
-    if config.engine is IngestionEngine.NETSUITE_SUITEQL:
-        return NetSuiteSuiteQLSource(config, auth)
-    if config.engine is IngestionEngine.ODOO_JSON2:
-        return OdooJson2Source(config, auth)
-    if config.engine is IngestionEngine.SALESFORCE_BULK2:
-        return SalesforceBulk2Source(config, auth)
-    return DltRestSource(config, auth)
+    registry = plugin_registry or load_connector_plugins({})
+    return registry.build_source(config, auth)
 
 
 def _build_auth(

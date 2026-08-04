@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from dander.ingestion import IngestionEngine, SourceConfig
 from dander.project import ProjectConfigError, load_project_config
 
 _VALID_CONNECTOR = """
@@ -70,6 +71,7 @@ def test_repository_manifest_defines_five_additive_hosted_pipelines() -> None:
         "batch_rows": 10_000,
     }
     assert project.platform.safety.require_guarded_free_tier is True
+    assert project.plugins == {}
     expanded = project.terraform_pipelines()
     assert set(expanded) == {
         "greenhouse_jobs",
@@ -103,6 +105,66 @@ def test_repository_manifest_defines_five_additive_hosted_pipelines() -> None:
         "SERVICENOW_CLIENT_ID": "servicenow-client-id",
         "SERVICENOW_CLIENT_SECRET": "servicenow-client-secret",
     }
+
+
+def test_manifest_accepts_exact_plugin_pins_and_connector_engines_remain_compatible(
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / "dander.yaml"
+    config.write_text(
+        """
+version: 1
+plugins:
+  salesforce:
+    distribution: dander-connector-salesforce
+    version: 0.1.0rc1
+pipelines:
+  example:
+    source: salesforce
+    models: [example]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    project = load_project_config(config)
+    builtin = SourceConfig(
+        name="builtin",
+        base_url="https://example.test",
+        engine="salesforce_bulk2",
+        auth_strategy="none",
+    )
+    plugin = SourceConfig(
+        name="plugin",
+        base_url="https://example.test",
+        engine="custom_engine",
+        auth_strategy="none",
+    )
+
+    assert project.plugins["salesforce"].version == "0.1.0rc1"
+    assert builtin.engine is IngestionEngine.SALESFORCE_BULK2
+    assert plugin.engine == "custom_engine"
+
+
+@pytest.mark.parametrize("version", ["^0.1.0", ">=0.1.0", "latest"])
+def test_manifest_rejects_non_exact_plugin_versions(tmp_path: Path, version: str) -> None:
+    config = tmp_path / "dander.yaml"
+    config.write_text(
+        f"""
+version: 1
+plugins:
+  example:
+    distribution: dander-connector-example
+    version: {version!r}
+pipelines:
+  example:
+    source: example
+    models: [example]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ProjectConfigError, match="plugins.example.version"):
+        load_project_config(config)
 
 
 def test_generated_resource_names_are_stable_and_bounded(tmp_path: Path) -> None:

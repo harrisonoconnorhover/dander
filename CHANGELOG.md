@@ -4,6 +4,21 @@ Release notes for Dander are kept here and copied into the matching GitHub Relea
 semantic versioning while it is alpha: released minor lines receive fixes only, and new product
 capabilities enter through the next minor release.
 
+## 0.4.0rc1 — 2026-08-04 (alpha)
+
+### Added
+
+- Add manifest-pinned connector plugins discovered only through the `dander.connectors` Python
+  entry-point group, with a public API v1 contract and strict package/version compatibility checks.
+- Add `dander plugins install` and invoke it from generated source-free images so independently
+  distributed connectors can be installed without copying Dander source.
+
+### Compatibility
+
+- Existing manifests without `plugins` and all built-in ingestion engines continue unchanged.
+- Explicitly declared plugins may replace a built-in engine; unrelated duplicate plugin engines
+  and undeclared installed plugins remain inactive.
+
 ## 0.3.0 — 2026-08-04 (alpha)
 
 ### Added
