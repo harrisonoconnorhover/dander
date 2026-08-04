@@ -20,6 +20,7 @@ from dander.pipeline.graph_operations import (
     GraphOperations,
 )
 from dander.pipeline.graph_service import (
+    CONNECTORS_API_PATH,
     GRAPH_API_PATH,
     GRAPH_PREVIEW_API_PATH,
     GRAPH_RUN_API_PATH,
@@ -29,6 +30,13 @@ from dander.pipeline.graph_service import (
     GraphDocumentStore,
     GraphDocumentValidationError,
     create_graph_server,
+)
+from dander.plugins import (
+    ConnectorDescriptor,
+    ConnectorEndpointDescriptor,
+    ConnectorFieldDescriptor,
+    ConnectorPlugin,
+    InstalledConnectorPlugin,
 )
 
 if TYPE_CHECKING:
@@ -136,8 +144,15 @@ def _running_server(
     path: Path,
     *,
     operations: GraphOperations | None = None,
+    connector_plugins: tuple[InstalledConnectorPlugin, ...] = (),
 ) -> Iterator[tuple[str, int]]:
-    server = create_graph_server(path, origin=ORIGIN, port=0, operations=operations)
+    server = create_graph_server(
+        path,
+        origin=ORIGIN,
+        port=0,
+        operations=operations,
+        connector_plugins=connector_plugins,
+    )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -191,6 +206,87 @@ def test_http_get_and_conditional_put_round_trip(tmp_path: Path) -> None:
     reloaded = load_graph_from_yaml(path)
     assert reloaded.nodes[0].visual is not None
     assert reloaded.nodes[0].visual.position == Position(x=125, y=250)
+
+
+def test_http_connector_discovery_returns_only_presentation_safe_plugin_data(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "pipeline.yaml"
+    _write_graph(path)
+    plugin = ConnectorPlugin(
+        plugin_id="salesforce",
+        api_version=1,
+        engine="salesforce_bulk2",
+        display_name="Salesforce",
+        source_factory=cast("Any", lambda *_args: None),
+        connectors=(
+            ConnectorDescriptor(
+                connector_id="salesforce",
+                display_name="Salesforce",
+                engine="salesforce_bulk2",
+                endpoints=(
+                    ConnectorEndpointDescriptor(
+                        endpoint_id="accounts",
+                        display_name="Accounts",
+                        fields=(
+                            ConnectorFieldDescriptor(
+                                name="Id",
+                                display_name="ID",
+                                data_type="STRING",
+                                required=True,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    installed = InstalledConnectorPlugin(
+        plugin=plugin,
+        distribution="dander-connector-salesforce",
+        version="0.1.0rc1",
+    )
+
+    with _running_server(path, connector_plugins=(installed,)) as address:
+        status, body, headers = _request(address, "GET", path=CONNECTORS_API_PATH)
+
+    assert status == 200
+    assert headers["access-control-allow-origin"] == ORIGIN
+    assert body == {
+        "connectors": [
+            {
+                "id": "salesforce",
+                "display_name": "Salesforce",
+                "engine": "salesforce_bulk2",
+                "description": "",
+                "plugin": {
+                    "id": "salesforce",
+                    "distribution": "dander-connector-salesforce",
+                    "version": "0.1.0rc1",
+                },
+                "endpoints": [
+                    {
+                        "id": "accounts",
+                        "display_name": "Accounts",
+                        "graph_binding": {"connector": "salesforce", "endpoint": "accounts"},
+                        "fields": [
+                            {
+                                "name": "Id",
+                                "display_name": "ID",
+                                "data_type": "STRING",
+                                "required": True,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    serialized = json.dumps(body).lower()
+    assert all(
+        secret_name not in serialized
+        for secret_name in ("base_url", "auth", "secret", "request_body", "credential")
+    )
 
 
 def test_http_rejects_wrong_origin_and_stale_save(tmp_path: Path) -> None:

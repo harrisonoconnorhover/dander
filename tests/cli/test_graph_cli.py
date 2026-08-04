@@ -119,8 +119,14 @@ pipelines:
         origin: str,
         port: int,
         operations: GraphOperations,
+        connector_plugins: tuple[object, ...],
     ) -> None:
-        captured.update(origin=origin, port=port, operations=operations)
+        captured.update(
+            origin=origin,
+            port=port,
+            operations=operations,
+            connector_plugins=connector_plugins,
+        )
 
     monkeypatch.setattr("dander.cli.main.serve_graph_file", fake_serve)
     monkeypatch.setattr(
@@ -157,4 +163,5 @@ pipelines:
     assert previewer.settings.state_bucket == "unit-project-dander-state"
     assert previewer.settings.failure_alert_email == ""
     assert previewer.settings.secret_ids == ("operator-secret",)
+    assert captured["connector_plugins"] == ()
     assert "never applies it" in result.output

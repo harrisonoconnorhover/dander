@@ -4,6 +4,22 @@ Release notes for Dander are kept here and copied into the matching GitHub Relea
 semantic versioning while it is alpha: released minor lines receive fixes only, and new product
 capabilities enter through the next minor release.
 
+## 0.4.0rc2 — 2026-08-04 (alpha)
+
+### Added
+
+- Add presentation-safe connector discovery at `GET /v1/connectors` for the operator-bound graph
+  service. The response contains graph bindings, declared fields, and exact plugin package identity,
+  but no URLs, authentication settings, secret references, request bodies, or credentials.
+- Prepare Dander to serve the independently packaged Salesforce connector descriptor while keeping
+  the existing built-in `salesforce_bulk2` adapter as a deprecated fallback.
+
+### Compatibility
+
+- Static/offline Druff use and projects without plugins remain unchanged.
+- Connector discovery is additive; graph open/save, execution, and deployment boundaries are
+  unchanged from `0.4.0rc1`.
+
 ## 0.4.0rc1 — 2026-08-04 (alpha)
 
 ### Added

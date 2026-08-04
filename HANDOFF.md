@@ -2,43 +2,42 @@
 
 ## Finished
 
-- Published and source-free verified Dander `0.3.0` from commit `15494be17a3b5b06d61e6f7e66685db5326262e9`.
-- Added exact manifest plugin pins and explicit `dander.connectors` entry-point discovery.
-- Added the public plugin API v1 contract, engine registry, compatibility failures, and built-in fallback behavior.
-- Added `dander plugins install` and wired generated source-free Dockerfiles to install declared plugins.
-- Prepared the isolated contract as `0.4.0rc1`; it is not tagged or published.
+- Published and source-free verified Dander `0.4.0rc1` from `a6a8b35e1cfa566d200320fb334f6b8d0b1e15dd`.
+- Created the public `dander-connector-salesforce` repository and moved the Bulk API adapter into it.
+- Added presentation-safe `GET /v1/connectors` discovery for installed manifest plugins.
+- Kept the built-in Salesforce adapter as a deprecated 0.4 fallback.
+- Prepared Dander `0.4.0rc2` for the combined plugin/discovery acceptance path.
 
 ## Try It
 
 ```bash
-uv run dander plugins install --config dander.yaml
-uv run dander validate
+uv run dander graph serve --file graphs/greenhouse_jobs.yaml --config dander.yaml
+curl -H 'Origin: http://localhost:3000' http://127.0.0.1:8765/v1/connectors
 ```
 
 ## Checks
 
-- Ruff lint/format, strict mypy, and all 690 tests passed.
+- `0.4.0rc1` protected publication succeeded and the public package generated a valid source-free project.
+- Ruff lint/format, strict mypy, and all 691 tests passed.
 - Terraform formatting, backend-disabled initialization, and validation passed for platform and stage zero.
 - Dependency audit reported no known vulnerabilities.
-- `0.4.0rc1` wheel and sdist passed archive validation and installed outside the checkout.
-- Both installed artifacts generated and validated source-free projects with the plugin-install build step.
+- `0.4.0rc2` wheel/sdist validation and the local Linux container build passed; the container reported `dander 0.4.0rc2`.
 
 ## Decisions
 
-- Only manifest-declared exact package pins are active; unrelated global packages remain ignored.
-- Explicit plugins may replace a built-in engine, while duplicate plugin engines fail.
-- Authentication remains in Dander core; the Salesforce implementation has not moved yet.
+- Only exact manifest plugin pins are active; unrelated installed packages remain ignored.
+- Connector discovery exposes presentation metadata only; auth and secrets remain in Dander core.
+- The live proof must use `0.4.0rc2` plus a published Salesforce plugin candidate.
 
 ## Remaining
 
-- Push the focused Dander contract PR and let protected CI repeat Linux checks.
-- Obtain explicit approval before tagging or publishing `0.4.0rc1`; generated images cannot install it publicly before then.
-- Obtain explicit approval before creating the public Salesforce plugin repository.
-- Move Salesforce behavior unchanged only after the core contract is published.
-- Add Dander descriptor serving and Druff discovery in a later isolated PR.
+- Complete Dander, Salesforce plugin, and Druff validation and protected PRs.
+- Obtain explicit approval before publishing Dander `0.4.0rc2` or the plugin candidate.
+- Prepare a fresh disposable GCP project and reviewed Terraform plan.
+- Run the isolated source-free Salesforce/Druff proof only after the publication and apply approvals.
 
 ## Review First
 
-- `src/dander/plugins/registry.py`
-- `src/dander/plugins/contracts.py`
-- `src/dander/project/config.py`
+- `src/dander/pipeline/graph_service.py`
+- `src/dander/cli/main.py`
+- `tests/pipeline/test_graph_service.py`

@@ -474,6 +474,13 @@ The service binds to `127.0.0.1:8765` and accepts only the configured browser or
 configured file. A stale ETag or invalid graph leaves the file unchanged. The browser never sends
 a filesystem path. Saving is model-lossless but may normalize YAML formatting and comments.
 
+When the selected project manifest declares installed connector plugins, `GET /v1/connectors`
+returns their presentation-safe descriptors for Druff's palette. Each endpoint includes only its
+canonical `config.connector` / `config.endpoint` graph binding and declared field names/types. API
+URLs, authentication settings, secret references, request bodies, and credentials are never
+returned. A project without plugins returns an empty dynamic catalog; Druff retains its static
+Greenhouse descriptor for offline/document-only authoring.
+
 To validate that graph against one manifest pipeline, manually run its already-deployed Cloud Run
 job, and read the latest execution plus Dander run-ledger result, bind the operator service at
 startup:

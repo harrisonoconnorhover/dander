@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import yaml
 from pydantic import ValidationError
@@ -36,7 +36,11 @@ from dander.pipeline.graph_operations import (
 )
 from dander.pipeline.graph_ops import validate_field_wiring
 
+if TYPE_CHECKING:
+    from dander.plugins import InstalledConnectorPlugin
+
 GRAPH_API_PATH = "/v1/graph"
+CONNECTORS_API_PATH = "/v1/connectors"
 GRAPH_STATUS_API_PATH = "/v1/graph/status"
 GRAPH_VALIDATE_API_PATH = "/v1/graph/validate"
 GRAPH_RUN_API_PATH = "/v1/graph/run"
@@ -156,6 +160,7 @@ def create_graph_server(
     origin: str = "http://localhost:3000",
     port: int = 8765,
     operations: GraphOperations | None = None,
+    connector_plugins: tuple[InstalledConnectorPlugin, ...] = (),
 ) -> ThreadingHTTPServer:
     """Create a loopback-only graph server without starting its blocking event loop."""
     store = GraphDocumentStore(graph_file)
@@ -164,11 +169,13 @@ def create_graph_server(
     store_for_handler = store
     origin_for_handler = origin
     operations_for_handler = operations
+    connector_catalog_for_handler = _connector_catalog(connector_plugins)
 
     class BoundGraphRequestHandler(_GraphRequestHandler):
         store = store_for_handler
         allowed_origin = origin_for_handler
         operations = operations_for_handler
+        connector_catalog = connector_catalog_for_handler
 
     return ThreadingHTTPServer(("127.0.0.1", port), BoundGraphRequestHandler)
 
@@ -179,9 +186,16 @@ def serve_graph_file(
     origin: str = "http://localhost:3000",
     port: int = 8765,
     operations: GraphOperations | None = None,
+    connector_plugins: tuple[InstalledConnectorPlugin, ...] = (),
 ) -> None:
     """Serve one graph file on loopback until interrupted."""
-    server = create_graph_server(graph_file, origin=origin, port=port, operations=operations)
+    server = create_graph_server(
+        graph_file,
+        origin=origin,
+        port=port,
+        operations=operations,
+        connector_plugins=connector_plugins,
+    )
     try:
         server.serve_forever()
     finally:
@@ -195,11 +209,13 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
     store: ClassVar[GraphDocumentStore]
     allowed_origin: ClassVar[str]
     operations: ClassVar[GraphOperations | None]
+    connector_catalog: ClassVar[dict[str, object]]
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         if not self._request_is_allowed(
             {
                 GRAPH_API_PATH,
+                CONNECTORS_API_PATH,
                 GRAPH_STATUS_API_PATH,
                 GRAPH_VALIDATE_API_PATH,
                 GRAPH_RUN_API_PATH,
@@ -213,7 +229,12 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802
-        if not self._request_is_allowed({GRAPH_API_PATH, GRAPH_STATUS_API_PATH}):
+        if not self._request_is_allowed(
+            {GRAPH_API_PATH, GRAPH_STATUS_API_PATH, CONNECTORS_API_PATH}
+        ):
+            return
+        if self.path == CONNECTORS_API_PATH:
+            self._send_json(HTTPStatus.OK, self.connector_catalog)
             return
         if self.path == GRAPH_STATUS_API_PATH:
             self._get_status()
@@ -404,6 +425,49 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         """Keep the local bridge quiet; the CLI prints its bound file and address."""
+
+
+def _connector_catalog(plugins: tuple[InstalledConnectorPlugin, ...]) -> dict[str, object]:
+    """Project installed-plugin descriptors into the non-secret Druff discovery contract."""
+    connectors: list[dict[str, object]] = []
+    for installed in plugins:
+        plugin = installed.plugin
+        for connector in plugin.connectors:
+            endpoints = [
+                {
+                    "id": endpoint.endpoint_id,
+                    "display_name": endpoint.display_name,
+                    "graph_binding": {
+                        "connector": connector.connector_id,
+                        "endpoint": endpoint.endpoint_id,
+                    },
+                    "fields": [
+                        {
+                            "name": field.name,
+                            "display_name": field.display_name,
+                            "data_type": field.data_type,
+                            "required": field.required,
+                        }
+                        for field in endpoint.fields
+                    ],
+                }
+                for endpoint in connector.endpoints
+            ]
+            connectors.append(
+                {
+                    "id": connector.connector_id,
+                    "display_name": connector.display_name,
+                    "engine": connector.engine,
+                    "description": connector.description,
+                    "plugin": {
+                        "id": plugin.plugin_id,
+                        "distribution": installed.distribution,
+                        "version": installed.version,
+                    },
+                    "endpoints": endpoints,
+                }
+            )
+    return {"connectors": connectors}
 
 
 def _validate_graph_payload(payload: object) -> PipelineGraph:

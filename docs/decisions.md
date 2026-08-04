@@ -412,3 +412,14 @@
   initial query and sandbox runs remain full reads, while SCD1 makes boundary replay idempotent.
 - Dander deliberately omits `ORDER BY` and `LIMIT` because Salesforce documents that they disable
   Bulk API PK chunking. Polling remains bounded and a job without a completion SLA fails clearly.
+
+## 2026-08-04 — Salesforce proves the connector plugin boundary
+
+- Salesforce becomes the first independently installed connector while the behaviorally identical
+  built-in adapter remains a deprecated 0.4 fallback. An exact manifest pin selects the plugin;
+  undeclared installed packages remain inactive.
+- Dander serves only presentation-safe installed-plugin descriptors to Druff. Connector YAML and
+  Dander core remain authoritative for API settings, OAuth2 JWT authentication, secret references,
+  execution, and publication.
+- The live proof must use published Dander and plugin candidates. Functional discovery or plugin
+  changes after `0.4.0rc1` therefore require `0.4.0rc2` before isolated acceptance.

@@ -116,6 +116,8 @@ from dander.writer import BigQueryReplaceWriter, BigQueryScd1Writer, SchemaEvolu
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from dander.plugins import InstalledConnectorPlugin
+
 app = typer.Typer(
     help="Dander — GCP-native data platform (ingest + transform + catalog).",
     no_args_is_help=True,
@@ -239,7 +241,7 @@ def serve_graph(
     project_config: Path = typer.Option(  # noqa: B008
         _DEFAULT_PROJECT_CONFIG,
         "--config",
-        help="Dander project manifest used only when execution controls are enabled.",
+        help="Dander project manifest used for plugin discovery and execution controls.",
     ),
     pipeline: str = typer.Option(
         "",
@@ -280,6 +282,10 @@ def serve_graph(
     try:
         if bool(pipeline) != bool(project):
             raise GraphOperationError("--pipeline and --project must be supplied together")
+        connector_plugins: tuple[InstalledConnectorPlugin, ...] = ()
+        if project_config.is_file():
+            manifest = load_project_config(project_config)
+            connector_plugins = load_connector_plugins(manifest.plugins).plugins
         operations = None
         if pipeline:
             binding = GraphOperationBinding.from_project(
@@ -334,8 +340,19 @@ def serve_graph(
         console.print(
             "Press Ctrl-C to stop. YAML formatting and comments may be normalized on save."
         )
-        serve_graph_file(graph_file, origin=origin, port=port, operations=operations)
-    except (GraphDocumentError, GraphOperationError) as error:
+        serve_graph_file(
+            graph_file,
+            origin=origin,
+            port=port,
+            operations=operations,
+            connector_plugins=connector_plugins,
+        )
+    except (
+        ConnectorPluginError,
+        GraphDocumentError,
+        GraphOperationError,
+        ProjectConfigError,
+    ) as error:
         raise ClickException(str(error)) from error
     except OSError as error:
         raise ClickException(f"Could not start graph service: {error}") from error
