@@ -1,6 +1,6 @@
 [project]
 name = "dander-platform"
-version = "0.3.0rc1"
+version = "0.3.0"
 description = "Opinionated, GCP-native, self-hosted data platform: ingest + transform + catalog behind one CLI."
 readme = "README.md"
 requires-python = ">=3.12"

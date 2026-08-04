@@ -19,7 +19,7 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     manifest.validate_references(project)
     assert manifest.pipelines["greenhouse_jobs"].paused
     assert manifest.platform.safety.require_guarded_free_tier is False
-    assert "ARG DANDER_VERSION=0.3.0rc1" in (project / "Dockerfile").read_text(encoding="utf-8")
+    assert "ARG DANDER_VERSION=0.3.0" in (project / "Dockerfile").read_text(encoding="utf-8")
     assert 'CMD ["run", "greenhouse_jobs"]' in (project / "Dockerfile").read_text(encoding="utf-8")
     assert "--guarded-free-tier" not in (project / "Dockerfile").read_text(encoding="utf-8")
     for relative in (

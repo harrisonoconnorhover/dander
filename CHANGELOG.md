@@ -4,7 +4,7 @@ Release notes for Dander are kept here and copied into the matching GitHub Relea
 semantic versioning while it is alpha: released minor lines receive fixes only, and new product
 capabilities enter through the next minor release.
 
-## 0.3.0rc1 — 2026-08-04 (alpha)
+## 0.3.0 — 2026-08-04 (alpha)
 
 ### Added
 
@@ -33,8 +33,9 @@ capabilities enter through the next minor release.
   stayed at 14 unique Account IDs, the cursor advanced monotonically, and the lease cleared.
 - Protected CI passed Python quality, Terraform and static security validation, distribution
   installation, container scanning, and secret scanning on both accepted capability PRs.
-- No `0.3.0rc1` tag, public package, retained deployment, or scheduler change occurred during
-  candidate preparation.
+- Public `0.3.0rc1` installed outside the checkout, generated and validated a source-free project,
+  built that project's Docker image, and started the packaged CLI successfully.
+- The final `0.3.0` runtime and Terraform behavior are unchanged from the accepted candidate.
 
 ## 0.2.0 — 2026-08-04 (alpha)
 
