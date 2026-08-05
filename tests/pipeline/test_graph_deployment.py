@@ -161,7 +161,7 @@ def test_preview_builds_source_free_snapshot_and_isolates_exact_plan(tmp_path: P
     ).preview(store, expected_revision=store.load().revision)
 
     assert observations["source_free"] is True
-    assert "ARG DANDER_VERSION=0.5.0rc1" in observations["dockerfile"]
+    assert "ARG DANDER_VERSION=0.5.0rc2" in observations["dockerfile"]
     assert "RUN dander plugins install --config dander.yaml" in observations["dockerfile"]
     assert observations["graph"] == _GRAPH
     assert observations["publish"] == ("proof-project", "us-central1", "candidate")

@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.5.0rc2 — 2026-08-05 (alpha)
+
 ### Added
 
 - Add ordered, schema-preserving trim, truncate, default, and bounded-filter operations to

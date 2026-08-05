@@ -6,7 +6,7 @@
 - Added typed, ordered trim, truncate, default, and bounded-filter operations to transform nodes.
 - Compiled operations as explicit schema-preserving CTEs in the existing post-ingestion graph stage.
 - Added semantic field validation, `dander run --dry-run` coverage, and `GET /v1/operations`.
-- Rebased the slice onto public Dander `0.5.0rc1` without changing GCP or live schedules.
+- Packaged the merged runtime as `0.5.0rc2` without changing GCP or live schedules.
 
 ## Try It
 
@@ -16,10 +16,11 @@ uv run dander run PIPELINE --dry-run --project PROJECT
 
 ## Checks
 
-- Focused Ruff and strict mypy passed; 59 focused tests passed.
-- After rebasing, full Ruff, formatting, and strict mypy passed; all 746 tests passed.
-- A wheel installed outside the checkout completed graph dry-run and served all four operations.
-- `git diff --check` passed.
+- Ruff, formatting, strict mypy, dependency audit, and `git diff --check` passed; all 746 tests
+  passed.
+- Platform and stage-zero Terraform formatting and validation passed.
+- The wheel and source distribution passed artifact inspection, installed outside the checkout,
+  generated valid source-free projects pinned to `0.5.0rc2`, and passed Terraform validation.
 
 ## Decisions
 
@@ -29,9 +30,9 @@ uv run dander run PIPELINE --dry-run --project PROJECT
 
 ## Remaining
 
-- Publish this operation slice through protected CI.
-- Review the prepared local Druff operation-discovery/editor branch.
-- Run compatibility acceptance without changing soak schedules.
+- Merge and publish `0.5.0rc2` through protected CI and trusted publishing.
+- Run the isolated source-free Druff and Salesforce graph-operation acceptance.
+- Promote `0.5.0` only if the complete candidate acceptance passes.
 
 ## Review First
 
