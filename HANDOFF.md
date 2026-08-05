@@ -2,43 +2,43 @@
 
 ## Finished
 
-- Added a public, read-only optional capability contract for targeted lookup, cheap count, and
-  connection testing.
-- Added `SourceCapabilities`, which detects and invokes those operations on built-in or
-  independently installed plugin sources with clear unsupported/result-contract errors.
-- Added registry integration without changing `Source`, `ConnectorPlugin`, or plugin API v1.
-- Documented the plugin-author contract, deferred mutations, and Josh Wagner's originating commit.
+- Merged the read-only source capability contract through protected PR #71.
+- Added `dander connector inspect` for provider-free capability discovery.
+- Added `dander connector check` for an optional authenticated, record-free connection probe.
+- Reused manifest plugin pins, pipeline-to-source resolution, core authentication, and secret
+  references without changing normal ingestion.
 
 ## Try It
 
-```python
-capabilities = registry.build_capabilities(source_config, auth)
-if capabilities.supports(ConnectorOperation.TEST_CONNECTION):
-    status = capabilities.test_connection()
+```bash
+dander connector inspect PIPELINE_OR_SOURCE
+dander connector check PIPELINE_OR_SOURCE
 ```
 
 ## Checks
 
-- Focused Ruff, mypy, and 18 tests passed.
-- Full Ruff and strict mypy passed; all 728 tests passed.
-- Wheel and sdist inspection passed.
-- Outside-checkout wheel installation and public capability imports passed.
+- Focused Ruff, strict mypy, and 23 capability/CLI/registry tests passed.
+- Full Ruff and strict mypy passed; all 733 tests passed.
+- CLI help and provider-free Greenhouse inspection passed.
+- Wheel/sdist inspection and outside-checkout connector CLI startup passed.
+- PR #71 protected CI passed Python, 728 tests, dependency, Terraform, distribution, container,
+  and secret checks.
 
 ## Decisions
 
-- Optional operations are detected structurally on the `Source` returned by the existing factory.
-- The initial contract is read-only and does not bump connector plugin API v1.
-- Deleted-record feeds and provider mutations remain separate product decisions.
+- `inspect` constructs the configured source but never invokes a provider operation.
+- `check` invokes only `test_connection` and displays its non-secret scalar status.
+- Unsupported connectors fail clearly; the command never falls back to extracting a sample row.
 
 ## Remaining
 
-- Push the focused branch, open its protected-main PR, and let CI repeat validation.
-- Add the narrow connector inspect/check CLI path after this contract merges.
-- Implement the first real capabilities in the independently packaged Salesforce connector.
-- Add safe configurable operations through graph transforms, not raw ingestion.
+- Push and merge the connector CLI PR through protected CI.
+- Implement the three read-only capabilities in the independent Salesforce plugin.
+- Publish a compatible Dander candidate before merging the plugin dependency change.
+- Add safe operations through canonical graph transforms after the connector slice.
 
 ## Review First
 
-- `src/dander/ingestion/capabilities.py`
-- `src/dander/plugins/registry.py`
-- `tests/ingestion/test_capabilities.py`
+- `src/dander/cli/main.py`
+- `tests/cli/test_connector_cli.py`
+- `docs/connector-plugins.md`

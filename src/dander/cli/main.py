@@ -46,9 +46,15 @@ from dander.core.config import Settings
 from dander.evidence import EvidenceBundle, EvidenceManifest, ProofEvidence, ProofStatus
 from dander.executor import PipelineExecutor
 from dander.ingestion import (
+    ConnectorConfigError,
+    ConnectorOperation,
     Endpoint,
+    EnterpriseSourceError,
+    InvalidConnectorCapabilityResultError,
     Source,
+    SourceCapabilities,
     SourceConfig,
+    UnsupportedConnectorOperationError,
     load_source_config,
 )
 from dander.pipeline.graph_deployment import (
@@ -98,6 +104,8 @@ from dander.security import (
     OAuth1TBA,
     OAuth2ClientCredentials,
     OAuth2JWT,
+    OAuthTokenError,
+    SecretResolutionError,
 )
 from dander.state import (
     BigQueryLeaseStore,
@@ -129,10 +137,12 @@ verify_app = typer.Typer(help="Verify deployed resources with read-only checks."
 metadata_app = typer.Typer(help="Inspect the durable metadata spine and run ledger.")
 graph_app = typer.Typer(help="Open validated pipeline graphs to local visual editors.")
 plugins_app = typer.Typer(help="Install and inspect explicitly pinned connector plugins.")
+connector_app = typer.Typer(help="Inspect and check configured connector capabilities.")
 app.add_typer(verify_app, name="verify")
 app.add_typer(metadata_app, name="metadata")
 app.add_typer(graph_app, name="graph")
 app.add_typer(plugins_app, name="plugins")
+app.add_typer(connector_app, name="connector")
 console = Console()
 _SOURCE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _DEFAULT_CONNECTORS_DIR = Path("connectors")
@@ -294,6 +304,67 @@ def search_plugins(
     console.print("Exact package pins:")
     for connector in connectors:
         console.print(f"  {connector.distribution}=={connector.version}")
+
+
+@connector_app.command("inspect")
+def inspect_connector(
+    source_or_pipeline: str = typer.Argument(  # noqa: B008
+        ...,
+        help="Connector source name or pipeline name from dander.yaml.",
+    ),
+    project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    connectors_dir: Path = typer.Option(  # noqa: B008
+        _DEFAULT_CONNECTORS_DIR,
+        "--connectors-dir",
+    ),
+) -> None:
+    """List optional read capabilities without contacting the provider."""
+    config, capabilities = _load_connector_capabilities(
+        source_or_pipeline,
+        project_config=project_config,
+        connectors_dir=connectors_dir,
+    )
+    table = Table(title=f"Dander connector: {config.name}")
+    table.add_column("Capability")
+    table.add_column("Supported")
+    for operation in ConnectorOperation:
+        table.add_row(operation.value, "yes" if capabilities.supports(operation) else "no")
+    console.print(table)
+    console.print(f"Engine: {config.engine}")
+
+
+@connector_app.command("check")
+def check_connector(
+    source_or_pipeline: str = typer.Argument(  # noqa: B008
+        ...,
+        help="Connector source name or pipeline name from dander.yaml.",
+    ),
+    project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    connectors_dir: Path = typer.Option(  # noqa: B008
+        _DEFAULT_CONNECTORS_DIR,
+        "--connectors-dir",
+    ),
+) -> None:
+    """Run a connector's optional read-only connectivity and credential probe."""
+    config, capabilities = _load_connector_capabilities(
+        source_or_pipeline,
+        project_config=project_config,
+        connectors_dir=connectors_dir,
+    )
+    try:
+        status = capabilities.test_connection()
+    except (
+        EnterpriseSourceError,
+        InvalidConnectorCapabilityResultError,
+        OAuthTokenError,
+        SecretResolutionError,
+        UnsupportedConnectorOperationError,
+    ) as error:
+        raise ClickException(str(error)) from error
+    if not status.ok:
+        detail = status.detail or "provider rejected the connection"
+        raise ClickException(f"Connector {config.name!r} connection check failed: {detail}")
+    console.print(f"[green]Connector {config.name!r} connection check passed.[/green]")
 
 
 @graph_app.command("serve")
@@ -1836,6 +1907,37 @@ def _build_source_adapter(
     """Select the extraction implementation declared by the connector."""
     registry = plugin_registry or load_connector_plugins({})
     return registry.build_source(config, auth)
+
+
+def _load_connector_capabilities(
+    source_or_pipeline: str,
+    *,
+    project_config: Path,
+    connectors_dir: Path,
+) -> tuple[SourceConfig, SourceCapabilities]:
+    """Resolve one configured source and inspect its optional operations without provider I/O."""
+    source = source_or_pipeline
+    try:
+        registry = load_connector_plugins({})
+        if project_config.is_file():
+            manifest = load_project_config(project_config)
+            registry = load_connector_plugins(manifest.plugins)
+            pipeline = manifest.pipelines.get(source_or_pipeline)
+            if pipeline is not None:
+                source = pipeline.source
+        if not _SOURCE_NAME.fullmatch(source):
+            raise ConnectorConfigError(
+                "Connector source names may contain only letters, numbers, '_' and '-'"
+            )
+        config = load_source_config(connectors_dir / f"{source}.yaml")
+        if config.name != source:
+            raise ConnectorConfigError(
+                f"Connector file declares source {config.name!r}, expected {source!r}"
+            )
+        auth = _build_auth(config, DefaultSecretStore())
+        return config, registry.build_capabilities(config, auth)
+    except (ConnectorConfigError, ConnectorPluginError, ProjectConfigError) as error:
+        raise ClickException(str(error)) from error
 
 
 def _build_auth(

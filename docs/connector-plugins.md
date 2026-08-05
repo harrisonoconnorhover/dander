@@ -87,6 +87,18 @@ an unsupported operation and an invalid plugin result fail with a connector-faci
 than an `AttributeError`. The initial capability contract is intentionally read-only; deleted-row
 feeds and provider create/update/delete operations require separate runtime semantics.
 
+Inspect the configured source without contacting its provider, then run its optional connection
+probe when one is implemented:
+
+```console
+dander connector inspect acme_crm
+dander connector check acme_crm
+```
+
+Both commands also accept a pipeline name and resolve its configured source. `check` uses the same
+core authentication and secret-reference path as `dander run`; a successful implementation returns
+only a scalar status and no business records.
+
 ## Prove provider behavior
 
 Use realistic synthetic fixtures and a stateful loopback simulator for the operations Dander
