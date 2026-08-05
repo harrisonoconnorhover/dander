@@ -24,6 +24,10 @@ uv run dander graph serve --file /path/to/graph.yaml --origin HTTPS_DRUFF_URL
 - Terraform format/init/validation passed for the platform, stage zero, and packaged project.
 - Wheel and sdist inspection plus two outside-checkout installs/scaffolds passed.
 - Dander container build/start/non-root checks passed; Docker Scout found 0 fixed high/critical issues.
+- Protected CI passed, the disposable-project image-only apply succeeded, and the final Terraform
+  plan reported exactly `No changes.`
+- Hosted Druff opened, saved, refreshed, and validated the loopback-served Salesforce graph with
+  HTTP 200 responses and no failed browser requests.
 
 ## Decisions
 
@@ -33,10 +37,9 @@ uv run dander graph serve --file /path/to/graph.yaml --origin HTTPS_DRUFF_URL
 
 ## Remaining
 
-- Pass protected CI for the final provider-normalization drift correction.
-- Apply only the reviewed Druff image update in the disposable project.
-- Verify hosted open/save, paused schedules, and a final no-drift plan; never touch the retained
-  project.
+- Keep the disposable Salesforce and ServiceNow schedules paused until separately approved.
+- Start the local graph service when authoring or operating a hosted graph through Druff.
+- The retained proof project remains untouched.
 
 ## Review First
 
