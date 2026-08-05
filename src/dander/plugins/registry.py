@@ -17,6 +17,7 @@ from dander.ingestion import (
     OdooJson2Source,
     SalesforceBulk2Source,
     Source,
+    SourceCapabilities,
     WorkdayRaasSource,
 )
 from dander.plugins.contracts import (
@@ -105,6 +106,14 @@ class ConnectorPluginRegistry:
                 "not dander.ingestion.Source"
             )
         return source
+
+    def build_capabilities(
+        self,
+        config: SourceConfig,
+        auth: AuthStrategy,
+    ) -> SourceCapabilities:
+        """Build a source and expose the optional read operations it actually implements."""
+        return SourceCapabilities(self.build_source(config, auth))
 
 
 def load_connector_plugins(

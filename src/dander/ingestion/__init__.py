@@ -2,6 +2,20 @@
 
 from __future__ import annotations
 
+from dander.ingestion.capabilities import (
+    RECORD_NOT_FOUND,
+    ConnectionStatus,
+    ConnectorOperation,
+    CountPrecision,
+    CountResult,
+    InvalidConnectorCapabilityResultError,
+    RecordNotFound,
+    SourceCapabilities,
+    SupportsCount,
+    SupportsGetSingleObject,
+    SupportsTestConnection,
+    UnsupportedConnectorOperationError,
+)
 from dander.ingestion.config import ConnectorConfigError, load_source_config
 from dander.ingestion.dlt_backed import DltRestSource
 from dander.ingestion.enterprise import (
@@ -27,8 +41,13 @@ from dander.ingestion.pagination import (
 from dander.ingestion.source import Endpoint, IngestionEngine, RawField, Source, SourceConfig
 
 __all__ = [
+    "RECORD_NOT_FOUND",
+    "ConnectionStatus",
     "CursorPagination",
     "ConnectorConfigError",
+    "ConnectorOperation",
+    "CountPrecision",
+    "CountResult",
     "DltRestSource",
     "Endpoint",
     "EnterpriseHttpClient",
@@ -36,6 +55,7 @@ __all__ = [
     "EnterpriseSourceError",
     "HeaderCursorPagination",
     "IngestionEngine",
+    "InvalidConnectorCapabilityResultError",
     "JsonLinkPagination",
     "LinkHeaderPagination",
     "NoPagination",
@@ -46,9 +66,15 @@ __all__ = [
     "PaginationKind",
     "PaginationStrategy",
     "RawField",
+    "RecordNotFound",
     "SalesforceBulk2Source",
     "Source",
+    "SourceCapabilities",
     "SourceConfig",
+    "SupportsCount",
+    "SupportsGetSingleObject",
+    "SupportsTestConnection",
+    "UnsupportedConnectorOperationError",
     "WorkdayRaasSource",
     "load_source_config",
 ]

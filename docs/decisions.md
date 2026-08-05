@@ -452,3 +452,12 @@
   the only persistence and operational authority.
 - Every full-platform plan, including Druff-triggered deployment previews, must repeat the current
   immutable Druff image to retain the service; omission visibly plans its removal.
+
+## 2026-08-05 — Optional source capabilities remain structural and read-only
+
+- Independently installed and built-in sources may structurally implement targeted lookup, cheap
+  count, and connection-test protocols. A typed facade detects and invokes them without changing
+  the mandatory `Source` contract or connector plugin API v1.
+- Deleted-record feeds and provider create/update/delete operations remain absent until their
+  cursor, retry, authorization, and destination semantics are approved separately. Josh Wagner's
+  originating adapter work is preserved at `WagnerJ-Dev/dander@574d2f0`.

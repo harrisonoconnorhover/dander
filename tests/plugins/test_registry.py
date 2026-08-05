@@ -9,7 +9,13 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 import dander.plugins.registry as registry_module
-from dander.ingestion import IngestionEngine, Source, SourceConfig
+from dander.ingestion import (
+    ConnectionStatus,
+    ConnectorOperation,
+    IngestionEngine,
+    Source,
+    SourceConfig,
+)
 from dander.plugins import (
     PLUGIN_API_VERSION,
     ConnectorDescriptor,
@@ -38,9 +44,19 @@ class _PluginSource(Source):
         return iter(())
 
 
+class _CapablePluginSource(_PluginSource):
+    def test_connection(self) -> ConnectionStatus:
+        return ConnectionStatus(ok=True)
+
+
 def _plugin_source_factory(config: SourceConfig, auth: AuthStrategy) -> Source:
     del auth
     return _PluginSource(config)
+
+
+def _capable_plugin_source_factory(config: SourceConfig, auth: AuthStrategy) -> Source:
+    del auth
+    return _CapablePluginSource(config)
 
 
 @dataclass(frozen=True)
@@ -129,6 +145,48 @@ def test_declared_plugin_overrides_matching_builtin_engine(
 
     assert isinstance(source, _PluginSource)
     assert registry.plugins[0].distribution == "dander-connector-salesforce"
+
+
+def test_declared_plugin_source_exposes_structural_capabilities_without_api_v1_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plugin = _plugin(
+        "example",
+        "example_engine",
+        source_factory=_capable_plugin_source_factory,
+    )
+    _patch_distributions(
+        monkeypatch,
+        {
+            "dander-connector-example": _Distribution(
+                version="0.1.0",
+                entry_points=(_EntryPoint(name="example", plugin=plugin),),
+            )
+        },
+    )
+    registry = load_connector_plugins(
+        {
+            "example": PluginSpec(
+                distribution="dander-connector-example",
+                version="0.1.0",
+            )
+        }
+    )
+
+    capabilities = registry.build_capabilities(
+        SourceConfig(
+            name="example",
+            base_url="https://example.test",
+            engine="example_engine",
+            auth_strategy="none",
+        ),
+        NoAuth(),
+    )
+
+    assert capabilities.supported_operations == {
+        ConnectorOperation.TEST_CONNECTION,
+    }
+    assert capabilities.test_connection() == ConnectionStatus(ok=True)
 
 
 def test_undeclared_distributions_are_never_inspected(monkeypatch: pytest.MonkeyPatch) -> None:

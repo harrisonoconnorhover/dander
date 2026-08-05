@@ -74,6 +74,19 @@ assert_plugin_distribution("dander-connector-acme-crm", plugin_id="acme_crm")
 kit verifies the factory returns a real Dander `Source`; without them, it checks only the API-v1
 declaration. Provider behavior still needs focused tests.
 
+## Add optional read capabilities
+
+API v1 requires only `discover()` and `extract()`. A concrete source may additionally implement
+`get_single_object()`, `count()`, or `test_connection()` using the public protocols exported from
+`dander.ingestion`. Dander detects those methods on the source returned by the existing factory;
+the `ConnectorPlugin` declaration and API version do not change.
+
+Do not add placeholder methods that raise `NotImplementedError`: method presence advertises real
+support. Callers use `SourceCapabilities` (or `ConnectorPluginRegistry.build_capabilities()`) so
+an unsupported operation and an invalid plugin result fail with a connector-facing error rather
+than an `AttributeError`. The initial capability contract is intentionally read-only; deleted-row
+feeds and provider create/update/delete operations require separate runtime semantics.
+
 ## Prove provider behavior
 
 Use realistic synthetic fixtures and a stateful loopback simulator for the operations Dander
