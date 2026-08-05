@@ -20,7 +20,7 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     assert manifest.pipelines["greenhouse_jobs"].paused
     assert manifest.platform.safety.require_guarded_free_tier is False
     dockerfile = (project / "Dockerfile").read_text(encoding="utf-8")
-    assert "ARG DANDER_VERSION=0.4.0" in dockerfile
+    assert "ARG DANDER_VERSION=0.5.0rc1" in dockerfile
     assert "RUN dander plugins install --config dander.yaml" in dockerfile
     assert "COPY --chown=65532:65532 dander.yaml ./dander.yaml" in dockerfile
     assert "COPY --chown=65532:65532 connectors ./connectors" in dockerfile

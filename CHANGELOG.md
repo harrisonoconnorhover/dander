@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.5.0rc1 — 2026-08-05 (alpha)
+
 ### Added
 
 - Add an atomic `dander plugins scaffold` command that creates a generic REST connector package,
@@ -16,6 +18,17 @@ capabilities enter through the next minor release.
   packages, including exact pins, Dander compatibility, support status, and public links.
 - Add `dander plugins search` and a presentation-safe `GET /v1/plugin-catalog` graph-service route
   whose installed markers come only from validated manifest declarations.
+- Add optional Terraform hosting for Druff beside Dander's operator-bound graph service.
+- Add a read-only source capability contract for exact record lookup, count, and non-record
+  connection checks without changing the existing `Source` interface.
+- Add `dander connector inspect` and `dander connector check` so operators can discover and invoke
+  those optional capabilities through manifest-pinned connector plugins.
+
+### Compatibility
+
+- Existing sources and plugins remain valid without implementing optional capabilities.
+- This candidate adds no provider write-back, deleted-record feed, or raw-ingestion transformation
+  path.
 
 ## 0.4.0 — 2026-08-04 (alpha)
 
