@@ -12,7 +12,7 @@ def test_distribution_identity_and_version_are_public_release() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
     assert project["name"] == "dander-platform"
-    assert project["version"] == "0.4.0rc2"
+    assert project["version"] == "0.4.0rc3"
     assert project["scripts"]["dander"] == "dander.cli.main:app"
 
 

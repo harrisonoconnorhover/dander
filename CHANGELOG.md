@@ -4,6 +4,14 @@ Release notes for Dander are kept here and copied into the matching GitHub Relea
 semantic versioning while it is alpha: released minor lines receive fixes only, and new product
 capabilities enter through the next minor release.
 
+## 0.4.0rc3 — 2026-08-04 (alpha)
+
+### Fixed
+
+- Make generated source-free images own their copied manifest, connector, graph, and model files as
+  the unprivileged runtime user. This keeps a graph saved atomically with owner-only permissions
+  readable inside the container without weakening its host filesystem permissions.
+
 ## 0.4.0rc2 — 2026-08-04 (alpha)
 
 ### Added
