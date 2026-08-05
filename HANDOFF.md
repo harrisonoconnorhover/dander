@@ -8,6 +8,8 @@
 - Kept graph persistence, connector data, credentials, and execution on Dander's loopback service.
 - Packaged the new Terraform module into generated source-free projects.
 - Documented exact image retention, public usage, and local-network behavior.
+- Upgraded the disposable shared runtime to ServiceNow connector `0.1.1` and enabled the daily
+  Salesforce and ServiceNow schedules after a successful manual proof.
 
 ## Try It
 
@@ -28,6 +30,8 @@ uv run dander graph serve --file /path/to/graph.yaml --origin HTTPS_DRUFF_URL
   plan reported exactly `No changes.`
 - Hosted Druff opened, saved, refreshed, and validated the loopback-served Salesforce graph with
   HTTP 200 responses and no failed browser requests.
+- ServiceNow `0.1.1` live proof succeeded with 67 unique incidents, 4 assertions, 1 catalog asset,
+  a released lease, no run-scoped staging residue, and a final `No changes.` Terraform plan.
 
 ## Decisions
 
@@ -37,7 +41,7 @@ uv run dander graph serve --file /path/to/graph.yaml --origin HTTPS_DRUFF_URL
 
 ## Remaining
 
-- Keep the disposable Salesforce and ServiceNow schedules paused until separately approved.
+- Review the first scheduled ServiceNow and Salesforce executions, then continue the seven-day soak.
 - Start the local graph service when authoring or operating a hosted graph through Druff.
 - The retained proof project remains untouched.
 
