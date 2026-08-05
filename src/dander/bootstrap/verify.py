@@ -357,11 +357,14 @@ class DeploymentVerifier:
                 "roles/secretmanager.admin",
                 "roles/iam.serviceAccountTokenCreator",
             }
-            required = {"roles/bigquery.jobUser", "roles/pubsub.viewer"}
-            # Terraform grants billing.viewer at billing-account scope. Callers that do not
-            # provide that account retain the legacy project-level contract for compatibility.
-            if billing_account_id is None:
-                required.add("roles/billing.viewer")
+            required = {"roles/bigquery.jobUser"}
+            unexpected_guard_roles: set[str] = set()
+            if billing_account_id is not None:
+                required.add("roles/pubsub.viewer")
+            else:
+                unexpected_guard_roles = roles.intersection(
+                    {"roles/billing.viewer", "roles/pubsub.viewer"}
+                )
             if publish_dataplex:
                 required.add("roles/dataplex.catalogEditor")
             elif "roles/dataplex.catalogEditor" in roles:
@@ -380,17 +383,18 @@ class DeploymentVerifier:
                     "broad project role detected",
                     VerificationStatus.BROAD_BINDING_DETECTED,
                 )
-            if missing:
-                detail = "required project role missing"
-                if "roles/billing.viewer" in missing and billing_account_id is None:
-                    detail = (
-                        "project-level billing.viewer missing; pass --billing-account "
-                        "to verify the account-scoped binding"
-                    )
+            if unexpected_guard_roles:
                 return VerificationCheck(
                     "runtime_iam",
                     False,
-                    detail,
+                    "guard-only project role detected for an unguarded runtime",
+                    VerificationStatus.UNEXPECTED_BINDING,
+                )
+            if missing:
+                return VerificationCheck(
+                    "runtime_iam",
+                    False,
+                    "required project role missing",
                     VerificationStatus.MISSING_REQUIRED_BINDING,
                 )
             ok = True

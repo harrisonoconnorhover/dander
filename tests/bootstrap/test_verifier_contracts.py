@@ -25,7 +25,7 @@ def test_runtime_project_iam_distinguishes_missing_and_broad_roles(tmp_path: Pat
     )
     assert not missing.ok
     assert missing.status is VerificationStatus.MISSING_REQUIRED_BINDING
-    assert "pass --billing-account" in missing.detail
+    assert missing.detail == "required project role missing"
 
     payload: dict[tuple[str, ...], object] = {
         (
@@ -68,6 +68,74 @@ def test_runtime_project_iam_distinguishes_missing_and_broad_roles(tmp_path: Pat
     )
     assert not broad.ok
     assert broad.status is VerificationStatus.BROAD_BINDING_DETECTED
+
+
+def test_unguarded_runtime_iam_rejects_guard_only_project_roles(tmp_path: Path) -> None:
+    service_account = "dander-runtime@proof-project.iam.gserviceaccount.com"
+    command = (
+        "gcloud",
+        "projects",
+        "get-iam-policy",
+        "proof-project",
+        "--format=json",
+    )
+    ordinary = {
+        "bindings": [
+            {
+                "role": "roles/bigquery.jobUser",
+                "members": [f"serviceAccount:{service_account}"],
+            }
+        ]
+    }
+    assert (
+        _verifier(tmp_path, {command: ordinary})
+        ._check_runtime_iam(service_account, publish_dataplex=False)
+        .ok
+    )
+
+    guarded_role = {
+        "bindings": [
+            *ordinary["bindings"],
+            {
+                "role": "roles/pubsub.viewer",
+                "members": [f"serviceAccount:{service_account}"],
+            },
+        ]
+    }
+    unexpected = _verifier(tmp_path, {command: guarded_role})._check_runtime_iam(
+        service_account, publish_dataplex=False
+    )
+    assert not unexpected.ok
+    assert unexpected.status is VerificationStatus.UNEXPECTED_BINDING
+
+
+def test_guarded_runtime_iam_requires_pubsub_viewer(tmp_path: Path) -> None:
+    service_account = "dander-runtime@proof-project.iam.gserviceaccount.com"
+    command = (
+        "gcloud",
+        "projects",
+        "get-iam-policy",
+        "proof-project",
+        "--format=json",
+    )
+    payload = {
+        "bindings": [
+            {
+                "role": role,
+                "members": [f"serviceAccount:{service_account}"],
+            }
+            for role in ("roles/bigquery.jobUser", "roles/pubsub.viewer")
+        ]
+    }
+    assert (
+        _verifier(tmp_path, {command: payload})
+        ._check_runtime_iam(
+            service_account,
+            publish_dataplex=False,
+            billing_account_id="ABCDEF-123456-ABCDEF",
+        )
+        .ok
+    )
 
 
 def test_runtime_billing_iam_is_checked_at_billing_account_scope(tmp_path: Path) -> None:

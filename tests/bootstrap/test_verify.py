@@ -73,18 +73,6 @@ def test_verifier_checks_actual_resources_and_writes_sanitized_summary(tmp_path:
                         "serviceAccount:dander-runtime@proof-project.iam.gserviceaccount.com"
                     ],
                 },
-                {
-                    "role": "roles/pubsub.viewer",
-                    "members": [
-                        "serviceAccount:dander-runtime@proof-project.iam.gserviceaccount.com"
-                    ],
-                },
-                {
-                    "role": "roles/billing.viewer",
-                    "members": [
-                        "serviceAccount:dander-runtime@proof-project.iam.gserviceaccount.com"
-                    ],
-                },
             ]
         },
         (
