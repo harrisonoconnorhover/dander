@@ -27,6 +27,7 @@ from dander.pipeline.node_config import (
     TransformNodeConfig,
     WriterConfig,
 )
+from dander.pipeline.operations import OperationSpec
 from dander.writer import (
     BigQueryIncrementalWriter,
     BigQueryReplaceWriter,
@@ -160,6 +161,75 @@ def test_compiles_linear_graph_to_explicit_bigquery_sql() -> None:
     ) in compiled.query
     assert "SAFE_CAST(source.`status` AS STRING) AS `status`" in compiled.query
     assert "SELECT *" not in compiled.query
+
+
+def test_compiles_ordered_schema_preserving_transform_operations() -> None:
+    graph = _linear_graph()
+    config = graph.nodes[1].config
+    assert isinstance(config, TransformNodeConfig)
+    config.operations = [
+        OperationSpec.model_validate({"kind": "trim_whitespace", "params": {"field": "full_name"}}),
+        OperationSpec.model_validate(
+            {
+                "kind": "truncate_string",
+                "params": {"field": "full_name", "max_length": 80},
+            }
+        ),
+        OperationSpec.model_validate(
+            {
+                "kind": "default_value",
+                "params": {"field": "status", "default": "unknown"},
+            }
+        ),
+        OperationSpec.model_validate(
+            {
+                "kind": "filter_rows",
+                "params": {
+                    "conditions": [
+                        {"field": "status", "op": "not_in", "value": ["archived", "deleted"]},
+                        {"field": "full_name", "op": "is_not_null"},
+                    ]
+                },
+            }
+        ),
+    ]
+
+    query = compile_target(
+        graph,
+        "target",
+        source_relations={"source": "dander-test.raw.people"},
+    ).query
+
+    assert "TRIM(source.`full_name`) AS `full_name`" in query
+    assert "FROM `_node_1` AS source" in query
+    assert "SUBSTR(source.`full_name`, 1, 80) AS `full_name`" in query
+    assert "FROM `_node_2` AS source" in query
+    assert "COALESCE(source.`status`, CAST('unknown' AS STRING)) AS `status`" in query
+    assert "FROM `_node_3` AS source" in query
+    assert (
+        "WHERE (source.`status` NOT IN ('archived', 'deleted')) AND "
+        "(source.`full_name` IS NOT NULL)"
+    ) in query
+    assert "FROM `_node_4` AS source" in query
+    assert "SELECT *" not in query
+    assert sqlglot.parse_one(query, read="bigquery") is not None
+
+
+def test_string_operation_rejects_non_string_declared_field() -> None:
+    graph = _linear_graph()
+    config = graph.nodes[1].config
+    assert isinstance(config, TransformNodeConfig)
+    config.operations = [
+        OperationSpec.model_validate({"kind": "trim_whitespace", "params": {"field": "person_id"}})
+    ]
+    graph.nodes[1].fields[0].type = "INT64"
+
+    with pytest.raises(PipelineCompileError, match="non-STRING field 'person_id'"):
+        compile_target(
+            graph,
+            "target",
+            source_relations={"source": "dander-test.raw.people"},
+        )
 
 
 @pytest.mark.parametrize(

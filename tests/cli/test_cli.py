@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from dander.cli.main import _build_source_adapter, app
@@ -114,6 +115,73 @@ pipelines:
     assert "PipelineGraph targets" in result.output
     assert "unit-project.staging.graph_greenhouse_jobs" in result.output
     assert "REPLACE" in result.output
+
+
+def test_graph_pipeline_dry_run_accepts_post_ingestion_operations(tmp_path: Path) -> None:
+    graph = yaml.safe_load(
+        (_REPO_ROOT / "graphs" / "greenhouse_jobs.yaml").read_text(encoding="utf-8")
+    )
+    source, target = graph["nodes"]
+    transform = {
+        "id": "clean_jobs",
+        "type": "transform",
+        "name": "Clean jobs",
+        "config": {
+            "operations": [
+                {"kind": "trim_whitespace", "params": {"field": "title"}},
+                {
+                    "kind": "filter_rows",
+                    "params": {
+                        "conditions": [{"field": "title", "op": "is_not_null"}],
+                    },
+                },
+            ]
+        },
+        "fields": [dict(field) for field in source["fields"]],
+    }
+    mappings = [{"source": field["name"], "target": field["name"]} for field in source["fields"]]
+    graph["nodes"] = [source, transform, target]
+    graph["edges"] = [
+        {"from": source["id"], "to": transform["id"], "mappings": mappings},
+        {"from": transform["id"], "to": target["id"], "mappings": mappings},
+    ]
+    graphs = tmp_path / "graphs"
+    graphs.mkdir()
+    (graphs / "greenhouse_jobs.yaml").write_text(yaml.safe_dump(graph), encoding="utf-8")
+    config = tmp_path / "dander.yaml"
+    config.write_text(
+        """
+version: 1
+pipelines:
+  graph_greenhouse:
+    source: greenhouse_job_board
+    graph: graphs/greenhouse_jobs.yaml
+    models: []
+    build_models: false
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "graph_greenhouse",
+            "--dry-run",
+            "--project",
+            "unit-project",
+            "--config",
+            str(config),
+            "--connectors-dir",
+            str(_REPO_ROOT / "connectors"),
+            "--models-dir",
+            str(_REPO_ROOT / "models"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "PipelineGraph targets" in result.output
+    assert "unit-project.staging.graph_greenhouse_jobs" in result.output
 
 
 def test_harvest_v3_dry_run_validates_without_credentials() -> None:

@@ -22,6 +22,7 @@ code is right and this doc has drifted — please fix it.
 | `dander.pipeline.graph_ops` | The correctness layer: structural `validate`, `topological_order`, `AdjacencyIndex`, and field-wiring `validate_field_wiring`. Pure functions of a `PipelineGraph` — nothing is persisted onto the model. |
 | `dander.pipeline.graph_service` | Loopback-only, single-file bridge for visual editors. Dander validates conditional saves and can bind that exact graph to one already-deployed Cloud Run job selected at startup. |
 | `dander.pipeline.node_config` | The discriminated, per-node-type `Node.config` models — `NodeType`, `NodeConfig`, `SourceNodeConfig`, `TransformNodeConfig`, `TargetNodeConfig` — and the routing function `Node` delegates to. See *Typed per-node-type config* below. |
+| `dander.pipeline.operations` | Typed, ordered, schema-preserving operations for executable transform nodes. |
 | `dander.pipeline.compiler` | Safe compilation of executable linear/two-input graphs to explicit BigQuery SQL, plus side-effect-free target-writer preparation. |
 | `dander.pipeline.request_spec` | `SourceNodeConfig`'s declarative request/payload spec — `HttpMethod`, `RequestSpec` — and the secret/field-reference grammar its header/param/body values must follow. See *Source request/payload spec* below. |
 | `dander.pipeline.errors` | The typed `GraphValidationError` hierarchy raised by `graph_ops`. |
@@ -33,7 +34,7 @@ The package `__init__.py` (`dander.pipeline`) re-exports the graph shape (`Node`
 (`validate`, `validate_field_wiring`, `topological_order`, `AdjacencyIndex`), the full `errors`
 hierarchy, and the typed node-config classes (`NodeType`, `NodeConfig`, `SourceNodeConfig`,
 `TransformNodeConfig`, `TargetNodeConfig`, `HttpMethod`, `RequestSpec`), the executable
-join/writer configuration classes, and compiler entry points (`compile_target`,
+join/writer configuration classes, operation configuration classes, and compiler entry points (`compile_target`,
 `prepare_target_writer`). **It does not currently re-export the finer-grained graph model
 classes** — `NodeField`, `FieldMapping`, `Transformation`,
 `TransformationKind`, `JoinSpec`, `JoinKeyPair`, `JoinType`, `CursorStrategy`, `CursorKind` —
@@ -143,6 +144,40 @@ An executable join is authored on `TransformNodeConfig.join`: `left_input` and `
 match its two incoming edges, `keys` name equality columns on those inputs, and the transform node
 is the output. The older `Edge.join` shape remains readable for backward compatibility but fails
 closed during compilation because it makes the edge target both a right input and the output.
+
+### Ordered transform operations
+
+An executable `transform` node may declare an ordered `config.operations` list. Each operation
+runs after the node's edge mappings have produced its declared fields and before downstream nodes
+read them. `dander run` compiles the list to explicit BigQuery CTEs after normal connector
+ingestion, so raw-table schemas, extraction cursors, and replay behavior remain unchanged.
+
+```yaml
+config:
+  operations:
+    - kind: trim_whitespace
+      params: {field: title}
+    - kind: truncate_string
+      params: {field: title, max_length: 200}
+    - kind: default_value
+      params: {field: status, default: unknown}
+    - kind: filter_rows
+      params:
+        logic: all
+        conditions:
+          - {field: status, op: ne, value: archived}
+          - {field: title, op: is_not_null}
+```
+
+`filter_rows` supports a flat `all`/`any` list with `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`,
+`not_in`, `is_null`, and `is_not_null`. Operations may reference only fields declared by their
+owning transform. Trim/truncate require a declared `STRING` field. Rename/drop continue to use
+canonical edge mappings; deduplication, arbitrary SQL hooks, raw-stream operations, and provider
+write-back are not part of this slice.
+
+The operator-bound graph service exposes this exact executable subset at `GET /v1/operations` as
+presentation-only labels and parameter controls. It contains no graph values, provider settings,
+secret references, or executable code; Dander's `OperationSpec` remains the validating authority.
 
 ## Node cursor / watermark strategy
 
@@ -552,6 +587,7 @@ so the source-free image is also the deployment artifact.
 This package combines declarative modeling with a bounded execution bridge. It does not:
 
 - execute arbitrary expressions, Python code, or legacy edge-level `JoinSpec` joins;
+- execute arbitrary SQL hooks, materializing deduplication, or provider write-back operations;
 - execute graph writer modes other than `replace`;
 - execute graph field tests or publish graph metadata to Dataplex;
 - combine multiple connector YAML files in one hosted graph pipeline.

@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Added
+
+- Add ordered, schema-preserving trim, truncate, default, and bounded-filter operations to
+  canonical transform nodes and execute them in `dander run` after raw ingestion.
+- Publish presentation-safe operation descriptors at `GET /v1/operations` for canonical Druff
+  authoring without creating a second runtime contract.
+
 ## 0.5.0rc1 — 2026-08-05 (alpha)
 
 ### Added

@@ -16,6 +16,16 @@ from dander.pipeline.node_config import (
     TargetNodeConfig,
     TransformNodeConfig,
 )
+from dander.pipeline.operations import (
+    ComparisonOperator,
+    DefaultValueParams,
+    FieldCondition,
+    FilterRowsParams,
+    MatchLogic,
+    OperationSpec,
+    TrimWhitespaceParams,
+    TruncateStringParams,
+)
 from dander.writer import (
     BigQueryIncrementalWriter,
     BigQueryReplaceWriter,
@@ -322,6 +332,64 @@ class _GraphSqlCompiler:
         alias = self._next_alias()
         self.ctes.append(f"{_quote(alias)} AS (\n  SELECT\n    {select_list}\n  FROM {from_sql}\n)")
         self._aliases[node.id] = alias
+        if isinstance(node.config, TransformNodeConfig) and node.config.operations:
+            return self._append_operations(node, alias, node.config.operations)
+        return alias
+
+    def _append_operations(
+        self,
+        node: Node,
+        upstream_alias: str,
+        operations: list[OperationSpec],
+    ) -> str:
+        """Compile ordered transform operations as explicit schema-preserving CTEs."""
+        fields = {field.name: field for field in node.fields}
+        alias = upstream_alias
+        for operation in operations:
+            params = operation.params
+            if isinstance(params, FilterRowsParams):
+                select_list = ",\n    ".join(
+                    f"source.{_quote(field.name)} AS {_quote(field.name)}" for field in node.fields
+                )
+                predicate = _compile_filter(params)
+                cte_sql = (
+                    "SELECT\n"
+                    f"    {select_list}\n"
+                    f"  FROM {_quote(alias)} AS source\n"
+                    f"  WHERE {predicate}"
+                )
+            else:
+                if not isinstance(
+                    params,
+                    (TruncateStringParams, TrimWhitespaceParams, DefaultValueParams),
+                ):
+                    raise AssertionError(f"Unexpected operation params: {type(params).__name__}")
+                field_name = params.field
+                field = fields[field_name]
+                source = f"source.{_quote(field_name)}"
+                if isinstance(params, TrimWhitespaceParams):
+                    _require_string_operation(node.id, field_name, field.cast_to or field.type)
+                    replacement = f"TRIM({source})"
+                elif isinstance(params, TruncateStringParams):
+                    _require_string_operation(node.id, field_name, field.cast_to or field.type)
+                    replacement = f"SUBSTR({source}, 1, {params.max_length})"
+                elif isinstance(params, DefaultValueParams):
+                    data_type = _operation_type(node.id, field_name, field.cast_to or field.type)
+                    replacement = (
+                        f"COALESCE({source}, CAST({_literal(params.default)} AS {data_type}))"
+                    )
+                select_list = ",\n    ".join(
+                    (
+                        f"{replacement} AS {_quote(declared.name)}"
+                        if declared.name == field_name
+                        else f"source.{_quote(declared.name)} AS {_quote(declared.name)}"
+                    )
+                    for declared in node.fields
+                )
+                cte_sql = f"SELECT\n    {select_list}\n  FROM {_quote(alias)} AS source"
+            alias = self._next_alias()
+            self.ctes.append(f"{_quote(alias)} AS (\n  {cte_sql}\n)")
+            self._aliases[node.id] = alias
         return alias
 
     def _next_alias(self) -> str:
@@ -506,6 +574,54 @@ def _compile_custom(transformation: Transformation, *, alias: str) -> str:
             raise PipelineCompileError(
                 f"Custom transform {transformation.function!r} is not allow-listed"
             )
+
+
+def _compile_filter(params: FilterRowsParams) -> str:
+    joiner = " AND " if params.logic is MatchLogic.ALL else " OR "
+    return joiner.join(f"({_compile_condition(condition)})" for condition in params.conditions)
+
+
+def _compile_condition(condition: FieldCondition) -> str:
+    field = f"source.{_quote(condition.field)}"
+    if condition.op is ComparisonOperator.IS_NULL:
+        return f"{field} IS NULL"
+    if condition.op is ComparisonOperator.IS_NOT_NULL:
+        return f"{field} IS NOT NULL"
+    if condition.op in {ComparisonOperator.IN, ComparisonOperator.NOT_IN}:
+        assert isinstance(condition.value, list)
+        keyword = "IN" if condition.op is ComparisonOperator.IN else "NOT IN"
+        values = ", ".join(_literal(value) for value in condition.value)
+        return f"{field} {keyword} ({values})"
+    assert condition.value is not None and not isinstance(condition.value, list)
+    operator = {
+        ComparisonOperator.EQ: "=",
+        ComparisonOperator.NE: "!=",
+        ComparisonOperator.GT: ">",
+        ComparisonOperator.GTE: ">=",
+        ComparisonOperator.LT: "<",
+        ComparisonOperator.LTE: "<=",
+    }[condition.op]
+    return f"{field} {operator} {_literal(condition.value)}"
+
+
+def _literal(value: object) -> str:
+    return exp.convert(value).sql(dialect="bigquery")
+
+
+def _require_string_operation(node_id: str, field_name: str, data_type: str) -> None:
+    if _operation_type(node_id, field_name, data_type) != "STRING":
+        raise PipelineCompileError(
+            f"Transform node {node_id!r} applies a string operation to non-STRING field "
+            f"{field_name!r}"
+        )
+
+
+def _operation_type(node_id: str, field_name: str, data_type: str) -> str:
+    if not _TYPE.fullmatch(data_type):
+        raise PipelineCompileError(
+            f"Transform node {node_id!r} operation field {field_name!r} has unsupported type"
+        )
+    return data_type.upper()
 
 
 def _require_arity(function: str | None, values: list[str], count: int) -> None:

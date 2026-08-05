@@ -3,8 +3,8 @@
 A `PipelineGraph` (see `dander.pipeline.graph`) is only safe to hand to the orchestration layer
 once it is known to be structurally sound: unique node ids, no dangling edge endpoints, no
 self-loops, and no cycles. Beyond that, it must also be *semantically* wired correctly: field
-names unique within each node, and every mapping/transformation/join reference resolving to a
-field a node actually declares (see DANDER-8, `dander.pipeline.graph_ops.validate_field_wiring`).
+names unique within each node, and every mapping/transformation/join/operation reference resolving
+to a field a node actually declares (see `dander.pipeline.graph_ops.validate_field_wiring`).
 This module defines one typed error per failure mode, each naming the offending element(s) so
 failures are loud and actionable (per `steering/02-engineering.md`).
 
@@ -123,6 +123,27 @@ class DuplicateFieldNameError(GraphValidationError):
         self.node_id = node_id
         self.field_name = field_name
         super().__init__(f"Duplicate field name {field_name!r} on node {node_id!r}.")
+
+
+class UnknownOperationFieldError(GraphValidationError):
+    """Raised when a transform operation references an undeclared output field."""
+
+    def __init__(
+        self,
+        *,
+        node_id: str,
+        field_name: str,
+        operation_kind: str,
+        operation_index: int,
+    ) -> None:
+        self.node_id = node_id
+        self.field_name = field_name
+        self.operation_kind = operation_kind
+        self.operation_index = operation_index
+        super().__init__(
+            f"Operation {operation_kind!r} at index {operation_index} on transform node "
+            f"{node_id!r} references undeclared output field {field_name!r}."
+        )
 
 
 class FieldReferenceKind(StrEnum):

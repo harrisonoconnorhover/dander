@@ -35,6 +35,7 @@ from dander.pipeline.graph_operations import (
     GraphOperationValidationError,
 )
 from dander.pipeline.graph_ops import validate_field_wiring
+from dander.pipeline.operations import build_operation_catalog
 from dander.plugins.catalog import build_plugin_catalog
 
 if TYPE_CHECKING:
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
 GRAPH_API_PATH = "/v1/graph"
 CONNECTORS_API_PATH = "/v1/connectors"
 PLUGIN_CATALOG_API_PATH = "/v1/plugin-catalog"
+OPERATIONS_API_PATH = "/v1/operations"
 GRAPH_STATUS_API_PATH = "/v1/graph/status"
 GRAPH_VALIDATE_API_PATH = "/v1/graph/validate"
 GRAPH_RUN_API_PATH = "/v1/graph/run"
@@ -173,6 +175,7 @@ def create_graph_server(
     operations_for_handler = operations
     connector_catalog_for_handler = _connector_catalog(connector_plugins)
     plugin_catalog_for_handler = build_plugin_catalog(connector_plugins)
+    operation_catalog_for_handler = build_operation_catalog()
 
     class BoundGraphRequestHandler(_GraphRequestHandler):
         store = store_for_handler
@@ -180,6 +183,7 @@ def create_graph_server(
         operations = operations_for_handler
         connector_catalog = connector_catalog_for_handler
         plugin_catalog = plugin_catalog_for_handler
+        operation_catalog = operation_catalog_for_handler
 
     return ThreadingHTTPServer(("127.0.0.1", port), BoundGraphRequestHandler)
 
@@ -215,6 +219,7 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
     operations: ClassVar[GraphOperations | None]
     connector_catalog: ClassVar[dict[str, object]]
     plugin_catalog: ClassVar[dict[str, object]]
+    operation_catalog: ClassVar[dict[str, object]]
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         if not self._request_is_allowed(
@@ -222,6 +227,7 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
                 GRAPH_API_PATH,
                 CONNECTORS_API_PATH,
                 PLUGIN_CATALOG_API_PATH,
+                OPERATIONS_API_PATH,
                 GRAPH_STATUS_API_PATH,
                 GRAPH_VALIDATE_API_PATH,
                 GRAPH_RUN_API_PATH,
@@ -241,6 +247,7 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
                 GRAPH_STATUS_API_PATH,
                 CONNECTORS_API_PATH,
                 PLUGIN_CATALOG_API_PATH,
+                OPERATIONS_API_PATH,
             }
         ):
             return
@@ -249,6 +256,9 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
             return
         if self.path == PLUGIN_CATALOG_API_PATH:
             self._send_json(HTTPStatus.OK, self.plugin_catalog)
+            return
+        if self.path == OPERATIONS_API_PATH:
+            self._send_json(HTTPStatus.OK, self.operation_catalog)
             return
         if self.path == GRAPH_STATUS_API_PATH:
             self._get_status()

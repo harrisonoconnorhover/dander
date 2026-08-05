@@ -26,6 +26,7 @@ from dander.pipeline.graph_service import (
     GRAPH_RUN_API_PATH,
     GRAPH_STATUS_API_PATH,
     GRAPH_VALIDATE_API_PATH,
+    OPERATIONS_API_PATH,
     PLUGIN_CATALOG_API_PATH,
     GraphDocumentConflictError,
     GraphDocumentStore,
@@ -287,6 +288,31 @@ def test_http_connector_discovery_returns_only_presentation_safe_plugin_data(
     assert all(
         secret_name not in serialized
         for secret_name in ("base_url", "auth", "secret", "request_body", "credential")
+    )
+
+
+def test_http_operation_discovery_returns_only_the_executable_canonical_subset(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "pipeline.yaml"
+    _write_graph(path)
+
+    with _running_server(path) as address:
+        status, body, headers = _request(address, "GET", path=OPERATIONS_API_PATH)
+
+    assert status == 200
+    assert headers["access-control-allow-origin"] == ORIGIN
+    assert body["schema_version"] == 1
+    assert [operation["kind"] for operation in body["operations"]] == [
+        "trim_whitespace",
+        "truncate_string",
+        "default_value",
+        "filter_rows",
+    ]
+    serialized = json.dumps(body).lower()
+    assert all(
+        excluded not in serialized
+        for excluded in ("write_back", "deduplicate", "sql_hook", "credential", "secret")
     )
 
 

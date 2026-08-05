@@ -10,8 +10,9 @@ never stored twice (per the decided format in `steering/00-project-overview.md`)
 Kept out of `dander.pipeline.graph` so the model stays a pure value object (SRP) and so algorithms
 depend on the model, never the reverse (DIP) — no import cycle between shape and behavior.
 
-Field-wiring validation (DANDER-8) checks that mappings, transformations, and joins reference
-fields that the graph's nodes actually declare. It is a **companion** to, not a replacement for,
+Field-wiring validation (DANDER-8) checks that mappings, transformations, joins, and operations
+reference fields that the graph's nodes actually declare. It is a **companion** to, not a
+replacement for,
 structural `validate`: `validate_field_wiring` runs `validate` first, so a graph with both a
 structural fault and a field-wiring fault always surfaces the structural error first — the
 field-wiring checks assume unique node ids and resolvable edge endpoints, which only structural
@@ -34,7 +35,9 @@ from dander.pipeline.errors import (
     JoinKeyFieldError,
     SelfLoopError,
     UnknownFieldReferenceError,
+    UnknownOperationFieldError,
 )
+from dander.pipeline.node_config import TransformNodeConfig
 
 if TYPE_CHECKING:
     from dander.pipeline.graph import PipelineGraph
@@ -377,15 +380,33 @@ def _check_join_fields(graph: PipelineGraph, index: _FieldIndex) -> None:
                 )
 
 
+def _check_operation_fields(graph: PipelineGraph, index: _FieldIndex) -> None:
+    """Require every transform operation to reference one of its node's output fields."""
+    for node in graph.nodes:
+        config = node.config
+        if not isinstance(config, TransformNodeConfig):
+            continue
+        for operation_index, operation in enumerate(config.operations):
+            for field_name in operation.referenced_fields():
+                if not index.has(node.id, field_name):
+                    raise UnknownOperationFieldError(
+                        node_id=node.id,
+                        field_name=field_name,
+                        operation_kind=operation.kind.value,
+                        operation_index=operation_index,
+                    )
+
+
 def validate_field_wiring(graph: PipelineGraph) -> None:
     """Validate a `PipelineGraph`'s field-level wiring, on top of its structural correctness.
 
-    Runs the structural gate first, then five field-wiring checks in a fixed order: (1) `validate`
+    Runs the structural gate first, then six field-wiring checks in a fixed order: (1) `validate`
     (DANDER-3) — node ids unique, no dangling edges, no self-loops, a DAG; (2) field names unique
     within each node; (3) every `FieldMapping`'s `source`/`target` resolves on the edge's
     source/target node; (4) every transformation's declared input fields resolve on the edge's
     source node; (5) every join key pair resolves on the edge's source (left) / target (right)
-    node. Running `validate` first guarantees that on a graph with both a structural fault and a
+    node; (6) every transform operation references a field declared on its owning node. Running
+    `validate` first guarantees that on a graph with both a structural fault and a
     field-wiring fault, the structural error surfaces first — the field-wiring checks assume
     unique node ids and resolvable edge endpoints. The duplicate-name check runs before the
     `_FieldIndex` is built so a node's duplicate field names are rejected rather than silently
@@ -404,6 +425,7 @@ def validate_field_wiring(graph: PipelineGraph) -> None:
             references a field the relevant node does not declare.
         JoinKeyFieldError: A join key pair references a field missing on its joined node (a
             subclass of `UnknownFieldReferenceError`).
+        UnknownOperationFieldError: A transform operation references an undeclared output field.
     """
     validate(graph)
     _check_duplicate_field_names(graph)
@@ -411,3 +433,4 @@ def validate_field_wiring(graph: PipelineGraph) -> None:
     _check_mapping_fields(graph, index)
     _check_transformation_fields(graph, index)
     _check_join_fields(graph, index)
+    _check_operation_fields(graph, index)

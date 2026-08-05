@@ -145,6 +145,100 @@ def test_plan_binds_only_declared_connector_endpoint() -> None:
     assert "unit-project.raw.greenhouse_job_board_jobs" in plan.targets[0].query
 
 
+def test_plan_compiles_operations_for_the_post_ingestion_transform_stage() -> None:
+    graph = PipelineGraph.model_validate(
+        {
+            "name": "jobs",
+            "nodes": [
+                {
+                    "id": "jobs",
+                    "type": "source",
+                    "name": "Jobs",
+                    "config": {
+                        "connector": "greenhouse_job_board",
+                        "endpoint": "jobs",
+                    },
+                    "fields": [
+                        {"name": "id", "type": "INT64"},
+                        {"name": "title", "type": "STRING"},
+                    ],
+                },
+                {
+                    "id": "clean",
+                    "type": "transform",
+                    "name": "Clean",
+                    "config": {
+                        "operations": [
+                            {"kind": "trim_whitespace", "params": {"field": "title"}},
+                            {
+                                "kind": "filter_rows",
+                                "params": {
+                                    "conditions": [
+                                        {"field": "title", "op": "is_not_null"},
+                                    ]
+                                },
+                            },
+                        ]
+                    },
+                    "fields": [
+                        {"name": "id", "type": "INT64"},
+                        {"name": "title", "type": "STRING"},
+                    ],
+                },
+                {
+                    "id": "target",
+                    "type": "target",
+                    "name": "Target",
+                    "config": {
+                        "writer": {
+                            "write_mode": "replace",
+                            "destination": {
+                                "dataset": "staging",
+                                "table": "graph_jobs",
+                                "business_key": [],
+                            },
+                        }
+                    },
+                    "fields": [
+                        {"name": "id", "type": "INT64"},
+                        {"name": "title", "type": "STRING"},
+                    ],
+                },
+            ],
+            "edges": [
+                {
+                    "from": "jobs",
+                    "to": "clean",
+                    "mappings": [
+                        {"source": "id", "target": "id"},
+                        {"source": "title", "target": "title"},
+                    ],
+                },
+                {
+                    "from": "clean",
+                    "to": "target",
+                    "mappings": [
+                        {"source": "id", "target": "id"},
+                        {"source": "title", "target": "title"},
+                    ],
+                },
+            ],
+        }
+    )
+
+    plan = plan_graph_execution(
+        graph,
+        _source_config(),
+        project="unit-project",
+        dataset="raw",
+    )
+
+    query = plan.targets[0].query
+    assert "FROM `unit-project.raw.greenhouse_job_board_jobs`" in query
+    assert "TRIM(source.`title`) AS `title`" in query
+    assert "WHERE (source.`title` IS NOT NULL)" in query
+
+
 def test_plan_fails_closed_for_writer_mode_not_yet_executable() -> None:
     with pytest.raises(GraphRuntimeError, match="unsupported graph write mode 'scd1'"):
         plan_graph_execution(

@@ -461,3 +461,15 @@
 - Deleted-record feeds and provider create/update/delete operations remain absent until their
   cursor, retry, authorization, and destination semantics are approved separately. Josh Wagner's
   originating adapter work is preserved at `WagnerJ-Dev/dander@574d2f0`.
+
+## 2026-08-05 — Pipeline operations execute after raw ingestion
+
+- Josh Wagner's ordered operation vocabulary from `WagnerJ-Dev/dander@574d2f0` becomes typed
+  `TransformNodeConfig.operations` on the existing canonical `PipelineGraph`.
+- Trim, truncate, default, and bounded filters compile to explicit schema-preserving BigQuery CTEs
+  inside the existing graph transform stage. Raw landing, cursor commits, leases, and connector
+  plugins remain unchanged.
+- The operator-bound graph service publishes only presentation-safe metadata for this executable
+  subset; Druff edits the same `OperationSpec` objects stored in `PipelineGraph`.
+- Rename/drop remain edge mappings. Deduplication, arbitrary SQL hooks, deleted feeds, and provider
+  write-back require separate product decisions rather than entering through this slice.

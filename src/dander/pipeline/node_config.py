@@ -3,8 +3,9 @@
 `Node.config` (see `dander.pipeline.graph`) is validated against a config model chosen by the
 node's `type` rather than accepted as an opaque `dict`. This module owns that discriminated set of
 config models plus the pure routing function `Node` delegates to. `SourceNodeConfig` carries the
-request/payload spec (DANDER-11); `TransformNodeConfig` carries an optional executable join;
-`TargetNodeConfig` carries the target/writer config (write pattern, destination table,
+request/payload spec (DANDER-11); `TransformNodeConfig` carries an optional executable join and
+ordered schema-preserving operations; `TargetNodeConfig` carries the target/writer config (write
+pattern, destination table,
 partitioning/clustering — DANDER-16). Pagination and incremental cursor on the source side remain
 unmodeled placeholders. Deliberately does not import `Node`
 (`graph.py` imports from here, not the reverse), so there is no import cycle.
@@ -23,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # `TYPE_CHECKING` block (ruff's TC001 suggestion) leaves the name undefined at runtime and raises
 # `PydanticUserError: '<Model>' is not fully defined` on import; verified with a minimal repro
 # before overriding the rule here.
+from dander.pipeline.operations import OperationSpec  # noqa: TC001
 from dander.pipeline.request_spec import RequestSpec  # noqa: TC001
 from dander.writer.base import SchemaEvolution, WriteMode, WriteTransport  # noqa: TC001
 
@@ -129,9 +131,12 @@ class TransformNodeConfig(NodeConfig):
     Attributes:
         join: Optional executable two-input join. Unlike the legacy edge-level `JoinSpec`, this
             names two predecessor nodes and makes the transform node the unambiguous output.
+        operations: Ordered schema-preserving operations applied after this node's mappings and
+            before any downstream edge reads its declared fields.
     """
 
     join: TransformJoinConfig | None = None
+    operations: list[OperationSpec] = Field(default_factory=list)
 
 
 class PartitioningType(StrEnum):
