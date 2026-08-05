@@ -93,11 +93,11 @@ jobs:
             uv pip install --python "$ENV_DIR/bin/python" "$ARTIFACT"
             (
               cd "$TEMP_DIR"
-              "$ENV_DIR/bin/dander" --version | grep -F "dander 0.4.0rc4"
+              "$ENV_DIR/bin/dander" --version | grep -F "dander 0.4.0"
               "$ENV_DIR/bin/dander" new "$PROJECT_DIR"
               cd "$PROJECT_DIR"
               "$ENV_DIR/bin/dander" validate
-              grep -F "ARG DANDER_VERSION=0.4.0rc4" Dockerfile
+              grep -F "ARG DANDER_VERSION=0.4.0" Dockerfile
               "$ENV_DIR/bin/python" -c 'import dander; assert "site-packages" in dander.__file__'
             )
             INDEX=$((INDEX + 1))

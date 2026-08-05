@@ -4,6 +4,32 @@ Release notes for Dander are kept here and copied into the matching GitHub Relea
 semantic versioning while it is alpha: released minor lines receive fixes only, and new product
 capabilities enter through the next minor release.
 
+## 0.4.0 — 2026-08-04 (alpha)
+
+### Added
+
+- Add exactly pinned connector plugins discovered through standard Python entry points and installed
+  into generated source-free images from the project manifest.
+- Publish presentation-safe installed-connector descriptors for Druff without exposing connector
+  URLs, authentication settings, secret references, request bodies, or credentials.
+
+### Fixed
+
+- Keep atomically saved project files readable by the generated image's unprivileged runtime user.
+- Verify unguarded deployments without requiring cost-guard billing or Pub/Sub roles, while
+  preserving the guarded deployment IAM checks.
+
+### Acceptance
+
+- Public Dander `0.4.0rc3` with Salesforce plugin `0.1.0rc1` completed initial ingestion, canonical
+  graph save and execution, replay, and controlled overlap in a fresh disposable GCP project.
+  Salesforce remained at 14 unique Accounts, the cursor stayed monotonic, one overlapping run
+  skipped, the lease released, run-scoped staging cleared, and both Terraform plans were clean.
+- Public `0.4.0rc4` installed outside the checkout, generated and validated a source-free project,
+  passed generated Terraform validation, and passed every live deployment-verifier check against
+  the isolated paused deployment.
+- The final `0.4.0` runtime and Terraform behavior are unchanged from the accepted `0.4.0rc4`.
+
 ## 0.4.0rc4 — 2026-08-04 (alpha)
 
 ### Fixed
