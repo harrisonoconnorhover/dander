@@ -6,12 +6,13 @@
 - Applied reviewed stage-zero and platform plans with the scheduler paused; both now return exactly `No changes.`
 - Proved dynamic Salesforce discovery, canonical graph save/validation, Druff bridge execution, replay, and controlled-overlap behavior.
 - Verified 14 unique Salesforce rows, a monotonic cursor, one skipped overlapping run, a released lease, and no run-scoped staging residue.
-- Fixed the verifier's stale requirement for cost-guard IAM roles on unguarded installations.
+- Merged the verifier fix through protected PR #61 and prepared the version-only `0.4.0rc4` release.
 
 ## Try It
 
 ```bash
 uv run pytest tests/bootstrap/test_verifier_contracts.py tests/bootstrap/test_verify.py -q
+uv run dander --version
 uv run dander verify deployment --project-id project-092b24a8-26a3-4438-8cd --region us-central1 --infra-dir /tmp/dander-sf-plugin-rc3-20260804/infra
 ```
 
@@ -31,8 +32,8 @@ uv run dander verify deployment --project-id project-092b24a8-26a3-4438-8cd --re
 
 ## Remaining
 
-- Merge the focused verifier fix through protected main after CI.
-- Obtain explicit approval before tagging or publishing `0.4.0rc4`.
+- Merge the version-only `0.4.0rc4` release PR after protected CI.
+- Obtain explicit approval before tagging or publishing the merged `0.4.0rc4` commit.
 - Repeat the affected verifier check and bounded candidate smoke with the published replacement candidate.
 - Perform a human Druff UI author/save/run pass if desired.
 - Separately decide whether to verify the alert email channel and when to destroy the disposable project.

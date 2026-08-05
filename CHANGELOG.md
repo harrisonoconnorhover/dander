@@ -4,6 +4,14 @@ Release notes for Dander are kept here and copied into the matching GitHub Relea
 semantic versioning while it is alpha: released minor lines receive fixes only, and new product
 capabilities enter through the next minor release.
 
+## 0.4.0rc4 — 2026-08-04 (alpha)
+
+### Fixed
+
+- Make deployment verification match the existing unguarded installation contract: ordinary
+  runtimes no longer require cost-guard billing or Pub/Sub roles, while guarded deployments retain
+  their existing IAM checks.
+
 ## 0.4.0rc3 — 2026-08-04 (alpha)
 
 ### Fixed
