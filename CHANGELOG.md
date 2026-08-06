@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.6.0rc1 — 2026-08-06 (alpha)
+
 ### Added
 
 - Add sanitized failure codes and summaries to local and hosted run history, and reconcile stale
@@ -16,6 +18,12 @@ capabilities enter through the next minor release.
   read-only permission preflight, and documented least-privilege upgrade and rollback workflows.
 - Expand the Salesforce project contract to four independently watermarked CRM endpoints, four
   governed staging models, and an Opportunity fact with Account and historical owner dimensions.
+
+### Compatibility
+
+- Existing manifests, pipeline IDs, built-in connectors, and plugin API version 1 remain valid.
+- Salesforce remains read-only; hard-delete discovery, custom fields without declared schemas,
+  additional clouds, and non-BigQuery destinations remain outside this candidate.
 
 ## 0.5.1 — 2026-08-05 (alpha)
 
