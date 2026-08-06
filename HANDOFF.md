@@ -20,6 +20,8 @@ sdist to `python3 scripts/check_distribution.py`.
 - Full test suite passed: `766 passed`.
 - Wheel and sdist built and passed identity, contents, hygiene, and description validation.
 - `git diff --check` passed.
+- Manual GitHub CI passed Python, Terraform, distribution, and container jobs; Secret scan found
+  one previously reviewed historical placeholder already handled on the parallel upstream branch.
 
 ## Decisions
 
@@ -30,6 +32,7 @@ sdist to `python3 scripts/check_distribution.py`.
 ## Remaining
 
 - Review and merge the release-metadata pull request after protected CI passes.
+- Reconcile the existing upstream gitleaks false-positive allowlist onto the GitHub main branch.
 - Publish `0.6.0rc1` only with explicit approval for the full candidate, not merely its metadata.
 - Verify the live PyPI page after publication.
 
