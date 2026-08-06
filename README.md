@@ -57,13 +57,13 @@ Operator-facing documentation:
 
 Python 3.12 (app + CLI) · BigQuery SQL (transforms) · Terraform/HCL (infra) · YAML (config).
 
-## Install the latest public release
+## Install the current public candidate
 
 The Python distribution is named `dander-platform` because the `dander` name on PyPI belongs to a
 different project. The import package and command remain `dander`:
 
 ```bash
-uv tool install dander-platform==0.5.1
+uv tool install dander-platform==0.6.0rc1
 dander --version
 dander new my-data-platform
 cd my-data-platform
@@ -623,9 +623,10 @@ shows each run's agents with their role, ticket, and live PASS/FAIL verdicts:
 
 ## Status
 
-Dander `0.5.1` is a working alpha: its source-free GCP platform, four retained daily pipelines,
-connector plugins, transform/test engine, run ledger, metadata spine, and Druff operator interface
-have completed bounded live proofs. The limits above still make it **unsuitable for production**.
+Dander `0.6.0rc1` is the current public candidate: its source-free GCP platform, four retained
+daily pipelines, connector plugins, transform/test engine, run ledger, metadata spine, and Druff
+operator interface have completed bounded live proofs. The limits above still make it
+**unsuitable for production**.
 The named HR, compensation, and customer systems describe connector categories or bounded test
 implementations; they do not imply that this repository came from, connects to, or contains data
 from an existing company. Normal provenance, licensing, and privacy review still applies before

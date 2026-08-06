@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from dander import __version__
 from dander.pipeline.graph_deployment import (
     GraphDeploymentError,
     GraphDeploymentPreviewer,
@@ -161,7 +162,7 @@ def test_preview_builds_source_free_snapshot_and_isolates_exact_plan(tmp_path: P
     ).preview(store, expected_revision=store.load().revision)
 
     assert observations["source_free"] is True
-    assert "ARG DANDER_VERSION=0.6.0rc1" in observations["dockerfile"]
+    assert f"ARG DANDER_VERSION={__version__}" in observations["dockerfile"]
     assert "RUN dander plugins install --config dander.yaml" in observations["dockerfile"]
     assert observations["graph"] == _GRAPH
     assert observations["publish"] == ("proof-project", "us-central1", "candidate")

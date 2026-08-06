@@ -1,12 +1,12 @@
-# Session Resume — 2026-08-05
+# Session Resume — 2026-08-06
 
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
 
 ## Public releases
 
-- Dander `0.5.1` is the newest supported package. It corrects the curated connector catalog and
-  does not change the `0.5.0` runtime.
+- Dander `0.6.0rc1` is the newest public candidate. Dander `0.5.1` remains the latest stable alpha
+  while candidate acceptance is in progress.
 - Salesforce and ServiceNow connector plugins are public at `0.2.0` and require Dander `0.5.x`.
 - Druff's fork contains Josh's reconciled graph-client ancestry and the later persistence,
   execution, catalog, operation-authoring, and deployment-preview work.

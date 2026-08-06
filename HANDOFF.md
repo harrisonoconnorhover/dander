@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Synchronized Josh's accepted capability work into Harrison's protected `main` through PR `#90`.
-- Merged explicit JSONL invocation for optional `get_deleted` feeds through protected PR `#87`.
-- Added confirmed create/update/upsert/delete invocation in stacked PR `#88`.
-- Kept provider writes, scheduled execution, BigQuery deletion, and deployment out of core.
-- Used one stateful fake to prove write dispatch and repeat-safe delete outcomes.
+- Added a release-metadata check covering package metadata, public docs, changelog, and templates.
+- Made CI and artifact validation derive the version from `pyproject.toml`.
+- Made wheel and sdist validation reject stale PyPI descriptions.
+- Synchronized public candidate documentation on `0.6.0rc1` while retaining `0.5.1` as stable alpha.
+- Added a regression test for the prior `0.1.0` README drift.
 
 ## Try It
 
-Run `uv run dander connector get-deleted SOURCE ENDPOINT --since CURSOR` for a supported feed.
-Write-back uses `uv run dander connector write SOURCE ENDPOINT OPERATION` with operation-specific
-JSON files and the required `--confirm-write` acknowledgement.
+Run `python3 scripts/check_release_metadata.py`. Build with `uv build`, then pass the wheel and
+sdist to `python3 scripts/check_distribution.py`.
 
 ## Checks
 
-- Synchronized `main` passed all five protected CI checks.
-- Pre-synchronization capability suite, Ruff, formatting, and strict mypy passed.
-- The synchronized #87 branch passed its full local suite: `772 passed`.
-- The synchronized #88 full local suite passed: `774 passed`.
+- Ruff lint and format checks passed across the repository.
+- Strict mypy passed across `src` and `tests`.
+- Full test suite passed: `766 passed`.
+- Wheel and sdist built and passed identity, contents, hygiene, and description validation.
+- `git diff --check` passed.
 
 ## Decisions
 
-- Keep read and mutation entry points explicit rather than adding them to normal pipeline runs.
-- Require file-based JSON and confirmation before loading a source for write-back.
-- Make provider plugins own retry and idempotency behavior; core does not retry capability calls.
+- PyPI release descriptions are immutable, so the live correction must arrive in a new release.
+- `pyproject.toml` is the single version source; publication-facing copy must match it exactly.
+- `0.6.0rc1` is the prepared candidate; `0.5.1` remains the latest stable alpha.
 
 ## Remaining
 
-- Retarget and merge PR `#88` through protected `main`.
-- Update the Salesforce provider stack to the published Dander contract version.
-- Publish candidates and run live acceptance only after the complete protected stack passes.
+- Review and merge the release-metadata pull request after protected CI passes.
+- Publish `0.6.0rc1` only with explicit approval for the full candidate, not merely its metadata.
+- Verify the live PyPI page after publication.
 
 ## Review First
 
-- `src/dander/cli/main.py`
-- `tests/cli/test_connector_cli.py`
-- `src/dander/ingestion/capabilities.py`
+- `scripts/check_release_metadata.py`
+- `scripts/check_distribution.py`
+- `.github/workflows/publish.yml`
