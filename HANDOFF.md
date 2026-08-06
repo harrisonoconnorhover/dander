@@ -17,8 +17,9 @@ sdist to `python3 scripts/check_distribution.py`.
 
 - Ruff lint and format checks passed across the repository.
 - Strict mypy passed across `src` and `tests`.
-- Full test suite passed: `766 passed`.
+- Full test suite passed: `776 passed`.
 - Wheel and sdist built and passed identity, contents, hygiene, and description validation.
+- The built wheel installed and started outside the repository checkout.
 - `git diff --check` passed.
 
 ## Decisions
