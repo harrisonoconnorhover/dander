@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shlex
@@ -355,6 +356,43 @@ def check_connector(
         detail = status.detail or "provider rejected the connection"
         raise ClickException(f"Connector {config.name!r} connection check failed: {detail}")
     console.print(f"[green]Connector {config.name!r} connection check passed.[/green]")
+
+
+@connector_app.command("get-deleted")
+def get_deleted_records(
+    source_or_pipeline: str = typer.Argument(  # noqa: B008
+        ...,
+        help="Connector source name or pipeline name from dander.yaml.",
+    ),
+    endpoint: str = typer.Argument(..., help="Configured connector endpoint name."),  # noqa: B008
+    since: str | None = typer.Option(
+        None,
+        "--since",
+        help="Optional provider cursor; interpretation is connector-specific.",
+    ),
+    project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    connectors_dir: Path = typer.Option(  # noqa: B008
+        _DEFAULT_CONNECTORS_DIR,
+        "--connectors-dir",
+    ),
+) -> None:
+    """Stream a connector's optional deleted-record feed as JSON Lines."""
+    _, capabilities = _load_connector_capabilities(
+        source_or_pipeline,
+        project_config=project_config,
+        connectors_dir=connectors_dir,
+    )
+    try:
+        for record in capabilities.get_deleted(endpoint, since=since):
+            typer.echo(json.dumps(dict(record), sort_keys=True, separators=(",", ":")))
+    except (
+        EnterpriseSourceError,
+        InvalidConnectorCapabilityResultError,
+        OAuthTokenError,
+        SecretResolutionError,
+        UnsupportedConnectorOperationError,
+    ) as error:
+        raise ClickException(str(error)) from error
 
 
 @graph_app.command("serve")
