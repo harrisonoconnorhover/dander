@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -9,7 +10,13 @@ from typer.testing import CliRunner
 
 import dander.cli.main as cli_module
 from dander.cli.main import app
-from dander.ingestion import ConnectionStatus, Source, SourceCapabilities, SourceConfig
+from dander.ingestion import (
+    ConnectionStatus,
+    DeleteOutcome,
+    Source,
+    SourceCapabilities,
+    SourceConfig,
+)
 from dander.security import OAuthTokenError
 
 if TYPE_CHECKING:
@@ -57,6 +64,41 @@ class _DeletedFeedSource(_CheckableSource):
         self.calls.append((endpoint, since))
         yield {"Id": "001000000000001AAA"}
         yield {"Id": "001000000000002AAA"}
+
+
+class _WritableSource(_CheckableSource):
+    def __init__(self, config: SourceConfig) -> None:
+        super().__init__(config, ConnectionStatus(ok=True))
+        self.records: dict[str, dict[str, Any]] = {}
+
+    def create(self, endpoint: str, record: Mapping[str, Any]) -> Mapping[str, Any]:
+        assert endpoint == "accounts"
+        created = {"Id": "001000000000001AAA", **record}
+        self.records[created["Id"]] = created
+        return created
+
+    def update(
+        self,
+        endpoint: str,
+        identity: Mapping[str, str],
+        changes: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        assert endpoint == "accounts"
+        current = self.records[identity["Id"]]
+        current.update(changes)
+        return current
+
+    def upsert(self, endpoint: str, record: Mapping[str, Any]) -> Mapping[str, Any]:
+        assert endpoint == "accounts"
+        current = self.records.setdefault(str(record["Id"]), {})
+        current.update(record)
+        return current
+
+    def delete(self, endpoint: str, identity: Mapping[str, str]) -> DeleteOutcome:
+        assert endpoint == "accounts"
+        if self.records.pop(identity["Id"], None) is None:
+            return DeleteOutcome.NOT_FOUND
+        return DeleteOutcome.DELETED
 
 
 def _config() -> SourceConfig:
@@ -252,3 +294,78 @@ def test_get_deleted_fails_clearly_when_capability_is_absent(
     assert result.exit_code == 1
     assert result.exception is not None
     assert "does not support operation 'get_deleted'" in str(result.exception)
+
+
+def test_write_dispatches_each_operation_against_stateful_source(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = _WritableSource(_config())
+    monkeypatch.setattr(
+        cli_module,
+        "_load_connector_capabilities",
+        lambda *_args, **_kwargs: (source.config, SourceCapabilities(source)),
+    )
+    inputs = {
+        "record": {"Name": "Acme"},
+        "identity": {"Id": "001000000000001AAA"},
+        "changes": {"Name": "Acme Updated"},
+        "upsert": {"Id": "001000000000001AAA", "Name": "Acme Final"},
+    }
+    paths: dict[str, Path] = {}
+    for name, payload in inputs.items():
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        paths[name] = path
+
+    commands = [
+        ("create", ["--record", str(paths["record"])], "Acme"),
+        (
+            "update",
+            ["--identity", str(paths["identity"]), "--changes", str(paths["changes"])],
+            "Acme Updated",
+        ),
+        ("upsert", ["--record", str(paths["upsert"])], "Acme Final"),
+        ("delete", ["--identity", str(paths["identity"])], "deleted"),
+    ]
+    for operation, options, expected in commands:
+        result = CliRunner().invoke(
+            app,
+            [
+                "connector",
+                "write",
+                "example",
+                "accounts",
+                operation,
+                *options,
+                "--confirm-write",
+                "--config",
+                str(tmp_path / "missing.yaml"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert expected in result.output
+
+    assert source.records == {}
+
+
+def test_write_requires_explicit_confirmation_before_loading_source(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    loaded = False
+
+    def load_source(*_args: object, **_kwargs: object) -> None:
+        nonlocal loaded
+        loaded = True
+
+    monkeypatch.setattr(cli_module, "_load_connector_capabilities", load_source)
+    result = CliRunner().invoke(
+        app,
+        ["connector", "write", "example", "accounts", "delete"],
+    )
+
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert "--confirm-write" in str(result.exception)
+    assert loaded is False
