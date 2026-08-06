@@ -395,6 +395,102 @@ def get_deleted_records(
         raise ClickException(str(error)) from error
 
 
+@connector_app.command("write")
+def write_connector_record(
+    source_or_pipeline: str = typer.Argument(  # noqa: B008
+        ...,
+        help="Connector source name or pipeline name from dander.yaml.",
+    ),
+    endpoint: str = typer.Argument(..., help="Configured connector endpoint name."),  # noqa: B008
+    operation: str = typer.Argument(  # noqa: B008
+        ...,
+        help="One of: create, update, upsert, delete.",
+    ),
+    record: Path | None = typer.Option(  # noqa: B008
+        None, "--record", help="JSON object for create/upsert."
+    ),
+    identity: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--identity",
+        help="JSON business-key object for update/delete.",
+    ),
+    changes: Path | None = typer.Option(  # noqa: B008
+        None, "--changes", help="JSON changes for update."
+    ),
+    confirm_write: bool = typer.Option(
+        False,
+        "--confirm-write",
+        help="Required acknowledgement that this command mutates the source system.",
+    ),
+    project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    connectors_dir: Path = typer.Option(  # noqa: B008
+        _DEFAULT_CONNECTORS_DIR,
+        "--connectors-dir",
+    ),
+) -> None:
+    """Invoke one explicitly confirmed connector write-back operation."""
+    if not confirm_write:
+        raise ClickException(
+            "Connector write-back changes the source system; rerun with --confirm-write"
+        )
+    try:
+        selected = ConnectorOperation(operation)
+    except ValueError as error:
+        raise ClickException("Write operation must be create, update, upsert, or delete") from error
+    write_operations = {
+        ConnectorOperation.CREATE,
+        ConnectorOperation.UPDATE,
+        ConnectorOperation.UPSERT,
+        ConnectorOperation.DELETE,
+    }
+    if selected not in write_operations:
+        raise ClickException("Write operation must be create, update, upsert, or delete")
+
+    record_payload: dict[str, object] | None = None
+    identity_payload: dict[str, str] | None = None
+    changes_payload: dict[str, object] | None = None
+    if selected in {ConnectorOperation.CREATE, ConnectorOperation.UPSERT}:
+        if identity is not None or changes is not None:
+            raise ClickException(f"Unexpected JSON input for {selected.value}")
+        record_payload = _read_json_object(record, "record")
+    elif selected is ConnectorOperation.UPDATE:
+        if record is not None:
+            raise ClickException("Unexpected JSON input for update")
+        identity_payload = _read_json_identity(identity)
+        changes_payload = _read_json_object(changes, "changes")
+    else:
+        if record is not None or changes is not None:
+            raise ClickException("Unexpected JSON input for delete")
+        identity_payload = _read_json_identity(identity)
+    _, capabilities = _load_connector_capabilities(
+        source_or_pipeline,
+        project_config=project_config,
+        connectors_dir=connectors_dir,
+    )
+    try:
+        if selected is ConnectorOperation.CREATE:
+            assert record_payload is not None
+            result: object = dict(capabilities.create(endpoint, record_payload))
+        elif selected is ConnectorOperation.UPDATE:
+            assert identity_payload is not None and changes_payload is not None
+            result = dict(capabilities.update(endpoint, identity_payload, changes_payload))
+        elif selected is ConnectorOperation.UPSERT:
+            assert record_payload is not None
+            result = dict(capabilities.upsert(endpoint, record_payload))
+        else:
+            assert identity_payload is not None
+            result = {"outcome": capabilities.delete(endpoint, identity_payload).value}
+    except (
+        EnterpriseSourceError,
+        InvalidConnectorCapabilityResultError,
+        OAuthTokenError,
+        SecretResolutionError,
+        UnsupportedConnectorOperationError,
+    ) as error:
+        raise ClickException(str(error)) from error
+    typer.echo(json.dumps(result, sort_keys=True, separators=(",", ":")))
+
+
 @graph_app.command("serve")
 def serve_graph(
     graph_file: Path = typer.Option(..., "--file", help="Existing PipelineGraph YAML/JSON file."),  # noqa: B008
@@ -1707,6 +1803,27 @@ def _load_connector_capabilities(
         return config, registry.build_capabilities(config, auth)
     except (ConnectorConfigError, ConnectorPluginError, ProjectConfigError) as error:
         raise ClickException(str(error)) from error
+
+
+def _read_json_object(path: Path | None, label: str) -> dict[str, object]:
+    """Read one CLI write-back input without echoing record contents in an error."""
+    if path is None:
+        raise ClickException(f"--{label} is required")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ClickException(f"--{label} must name a readable JSON object") from error
+    if not isinstance(payload, dict) or any(not isinstance(key, str) for key in payload):
+        raise ClickException(f"--{label} must contain one JSON object")
+    return {key: value for key, value in payload.items()}
+
+
+def _read_json_identity(path: Path | None) -> dict[str, str]:
+    """Read a write-back business key, whose protocol requires string values."""
+    payload = _read_json_object(path, "identity")
+    if any(not isinstance(value, str) for value in payload.values()):
+        raise ClickException("--identity values must be strings")
+    return {key: value for key, value in payload.items() if isinstance(value, str)}
 
 
 if __name__ == "__main__":
