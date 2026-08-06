@@ -2,41 +2,39 @@
 
 ## Finished
 
-- Added a copyable Salesforce CRM project with Accounts, Contacts, Opportunities, and Users.
-- Added five governed staging/fact models with tests, metrics, relationships, and Dataplex publication.
-- Packaged the Salesforce project overlay in every generated source-free Dander project.
-- Updated Salesforce documentation for personal data, soft deletion, replay, and custom fields.
-- Corrected final review blockers and prepared the `0.6.0rc1` package metadata.
+- Added a release-metadata check covering package metadata, public docs, changelog, and templates.
+- Made CI and artifact validation derive the version from `pyproject.toml`.
+- Made wheel and sdist validation reject stale PyPI descriptions.
+- Synchronized public candidate documentation on `0.6.0rc1` while retaining `0.5.1` as stable alpha.
+- Added a regression test for the prior `0.1.0` README drift.
 
 ## Try It
 
-Generate a project, then copy `examples/salesforce/dander.yaml`, `connectors/`, and `models/`
-from the packaged Salesforce overlay into the project root. Install the exact plugin pin from the
-example manifest, validate, and run `dander run salesforce_crm --dry-run --project PROJECT_ID`.
+Run `python3 scripts/check_release_metadata.py`. Build with `uv build`, then pass the wheel and
+sdist to `python3 scripts/check_distribution.py`.
 
 ## Checks
 
-- Full Dander suite passed: `764 passed`.
-- Ruff formatting/lint and strict mypy passed.
-- Main and stage-zero Terraform initialization and validation passed with backends disabled.
-- Local Linux container build passed with the packaged Salesforce example in its build context.
-- Wheel/sdist inspection and external, source-free scaffold generation passed.
-- Fresh Dander/plugin wheel installation, four-endpoint validation, and dry-run passed.
+- Ruff lint and format checks passed across the repository.
+- Strict mypy passed across `src` and `tests`.
+- Full test suite passed: `766 passed`.
+- Wheel and sdist built and passed identity, contents, hygiene, and description validation.
+- `git diff --check` passed.
 
 ## Decisions
 
-- New examples use `salesforce_crm`; the retained project keeps its existing pipeline ID.
-- Contact email and phone remain enabled and are explicitly documented as personal data.
-- Beta classification remains gated on published-candidate live acceptance.
+- PyPI release descriptions are immutable, so the live correction must arrive in a new release.
+- `pyproject.toml` is the single version source; publication-facing copy must match it exactly.
+- `0.6.0rc1` is the prepared candidate; `0.5.1` remains the latest stable alpha.
 
 ## Remaining
 
-- Publish the Dander and Salesforce candidates only after explicit approval.
-- Run the fresh-project live proof before changing Alpha to Beta or publishing stable releases.
-- Retained-project deployment, schedule changes, and the seven-day soak remain separately gated.
+- Review and merge the release-metadata pull request after protected CI passes.
+- Publish `0.6.0rc1` only with explicit approval for the full candidate, not merely its metadata.
+- Verify the live PyPI page after publication.
 
 ## Review First
 
-- `examples/salesforce/dander.yaml`
-- `models/marts/fct_salesforce__opportunities.sql`
-- `src/dander/project/scaffold.py`
+- `scripts/check_release_metadata.py`
+- `scripts/check_distribution.py`
+- `.github/workflows/publish.yml`

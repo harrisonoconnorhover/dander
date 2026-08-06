@@ -1,6 +1,6 @@
 # Known limitations
 
-Dander `0.5.x` is alpha and proves a focused GCP-native vertical slice. It is not yet suitable for
+Dander `0.6.x` is alpha and proves a focused GCP-native vertical slice. It is not yet suitable for
 an unattended production system containing business-critical data.
 
 ## Ingestion and schemas
@@ -54,6 +54,6 @@ an unattended production system containing business-critical data.
 
 ## Support boundary
 
-`0.5.x` receives fixes only. New connectors, commands, subsystems, manifest capabilities, and
-broader writer orchestration enter through `0.6.0` or a later minor. Only the latest patch in the
-current public `0.x` minor is supported; see [SECURITY.md](../SECURITY.md).
+`0.6.x` receives candidate fixes only until the minor is promoted. Dander `0.5.1` remains the
+latest stable alpha during candidate acceptance. Only the newest candidate and the latest patch
+in the current stable `0.x` minor are supported; see [SECURITY.md](../SECURITY.md).

@@ -1,6 +1,6 @@
 # Dander Platform Release Audit
 
-Audited on 2026-08-05 against the product promise in `steering/00-project-overview.md`.
+Audited on 2026-08-06 against the product promise in `steering/00-project-overview.md`.
 “Live-proven” means the behavior was observed in a disposable provider account or retained GCP
 project. “Implemented” means automated tests cover the contract while an optional provider or
 cloud path remains outside the live proof.
@@ -23,7 +23,8 @@ cloud path remains outside the live proof.
 
 ## Current release and deployment record
 
-- Public Dander: `0.5.1`; public Salesforce and ServiceNow plugins: `0.2.0`.
+- Public Dander candidate: `0.6.0rc1`; latest stable alpha: `0.5.1`; public Salesforce and
+  ServiceNow plugins: `0.2.0`.
 - Retained source-free Dander image: `sha256:3220623…8995`, built with Dander `0.5.0` and both
   plugin `0.2.0` packages. Dander `0.5.1` changes only catalog recommendations, so the runtime
   image was intentionally not replaced.
@@ -39,8 +40,10 @@ cloud path remains outside the live proof.
 
 - Dander provisions inside an existing billing-linked GCP project; it does not create a project or
   attach billing. Its managed cost guard is simulation-first and is not a spending cap.
-- Salesforce supports one read-only Accounts slice. ServiceNow supports one read-only incidents
-  slice. Provider write-back and broad object/table coverage are not claimed.
+- The `0.6.0rc1` Salesforce example supports read-only Accounts, Contacts, Opportunities, and
+  Users; the retained soak still exercises its existing Accounts pipeline. ServiceNow supports
+  one read-only incidents slice. Provider write-back and broad object/table coverage are not
+  claimed.
 - NetSuite is simulator-validated only; Workday lacks real-tenant acceptance. Live Storage Write
   and optional Dataplex publication are not implied by the retained proof.
 - Druff is a public static browser shell. Its privileged operations remain in an operator-started,

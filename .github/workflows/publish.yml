@@ -17,6 +17,8 @@ jobs:
         run: |
           VERSION="$(uv version --short)"
           test "$GITHUB_REF" = "refs/tags/v$VERSION"
+      - name: Reject stale public release metadata
+        run: python scripts/check_release_metadata.py
       - name: Build wheel and source distribution
         run: uv build
       - name: Validate distribution contents
