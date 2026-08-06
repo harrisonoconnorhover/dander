@@ -6,7 +6,7 @@
 - Added five governed staging/fact models with tests, metrics, relationships, and Dataplex publication.
 - Packaged the Salesforce project overlay in every generated source-free Dander project.
 - Updated Salesforce documentation for personal data, soft deletion, replay, and custom fields.
-- Corrected staging TTL publication and legacy run-history reads found by final review.
+- Corrected final review blockers and prepared the `0.6.0rc1` package metadata.
 
 ## Try It
 
@@ -31,7 +31,6 @@ example manifest, validate, and run `dander run salesforce_crm --dry-run --proje
 
 ## Remaining
 
-- Protected CI and review must pass before this PR merges.
 - Publish the Dander and Salesforce candidates only after explicit approval.
 - Run the fresh-project live proof before changing Alpha to Beta or publishing stable releases.
 - Retained-project deployment, schedule changes, and the seven-day soak remain separately gated.
