@@ -3,6 +3,10 @@
 Dander `0.7.x` is beta and proves a focused GCP-native vertical slice. It remains pre-1.0 software;
 evaluate these limits before using it for an unattended system containing business-critical data.
 
+- AWS ECS/Fargate is not yet a supported Dander launcher. Phase 1B contains an isolated artifact
+  and keyless-identity feasibility stack only; launcher lifecycle, scheduling, alerts, rollback,
+  and parity remain gated on the later portable BigQuery vertical slice.
+
 ## Ingestion and schemas
 
 - Hosted SCD1 and sandbox replacement consume bounded batches. Direct SCD2, snapshot,

@@ -6,6 +6,21 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Added
+
+- Publish source-free runtime images as one `linux/amd64,linux/arm64` OCI index and reject an
+  incomplete registry result before recording publication success.
+- Add an isolated, unscheduled Phase 1B proof for digest-preserving GAR-to-ECR copy and keyless
+  Fargate-to-BigQuery credential refresh. This is feasibility evidence, not Fargate support.
+
+### Fixed
+
+- Adapt Fargate's short-lived ECS task-role credential endpoint to Google Auth's AWS environment
+  chain in-process, and use Google Auth's supported `service_account_impersonation` field so the
+  proof token is actually bounded to 600 seconds.
+- Point the isolated BigQuery probe defaults at the disposable Salesforce Accounts table used by
+  the acceptance project; the probe returns only `COUNT(*)` and never record content.
+
 ## 0.7.0 — 2026-08-07 (beta)
 
 ### Acceptance

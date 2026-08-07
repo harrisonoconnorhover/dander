@@ -9,11 +9,11 @@ import re
 import subprocess
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
 _PROJECT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _BUCKET_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$")
@@ -23,6 +23,7 @@ _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PLATFORM_PART = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
 _ARTIFACT_SCHEMA = "io.dander.runtime.artifact/v1"
 _SOURCE_URL = "https://github.com/harrisonoconnorhover/dander"
+_RUNTIME_PLATFORMS = ("linux/amd64", "linux/arm64")
 
 
 class ProjectBootstrapError(RuntimeError):
@@ -236,7 +237,7 @@ class RuntimeImagePublisher:
                     "buildx",
                     "build",
                     "--platform",
-                    "linux/amd64",
+                    ",".join(_RUNTIME_PLATFORMS),
                     "--build-arg",
                     f"DANDER_BUILD_REVISION={revision}",
                     "--build-arg",
@@ -287,6 +288,18 @@ class RuntimeImagePublisher:
                 text=True,
             )
             platforms = _platform_manifests(inspected.stdout, default_digest=digest)
+            missing_platforms = tuple(
+                required
+                for required in _RUNTIME_PLATFORMS
+                if not any(
+                    actual == required or actual.startswith(f"{required}/") for actual in platforms
+                )
+            )
+            if missing_platforms:
+                raise ProjectBootstrapError(
+                    "Runtime image index is missing required platform manifests: "
+                    + ", ".join(missing_platforms)
+                )
             record_path = self._repository_dir / ".dander" / "runtime-artifact.json"
             _write_artifact_record(
                 record_path,
@@ -343,12 +356,13 @@ class RuntimeImagePublisher:
             )
             if (self._repository_dir / name).is_file()
         ]
+        files.extend(_explicit_docker_context_files(self._repository_dir))
         for root in roots:
             files.extend(
                 path for path in root.rglob("*") if path.is_file() and _is_build_context_file(path)
             )
         try:
-            for path in sorted(files):
+            for path in sorted(set(files)):
                 hasher.update(str(path.relative_to(self._repository_dir)).encode())
                 hasher.update(path.read_bytes())
         except OSError as error:
@@ -366,6 +380,29 @@ def _is_build_context_file(path: Path) -> bool:
         or ".tfstate" in name
         or (name.endswith(".tfvars") and not name.endswith(".tfvars.example"))
     )
+
+
+def _explicit_docker_context_files(repository_dir: Path) -> tuple[Path, ...]:
+    dockerignore = repository_dir / ".dockerignore"
+    if not dockerignore.is_file():
+        return ()
+    try:
+        lines = dockerignore.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise ProjectBootstrapError("Could not read the Docker build-context rules") from error
+    files: list[Path] = []
+    for raw in lines:
+        rule = raw.strip()
+        if not rule.startswith("!") or any(character in rule for character in "*?["):
+            continue
+        relative = rule[1:].lstrip("/")
+        path = Path(relative)
+        if not relative or relative.endswith("/") or ".." in path.parts:
+            continue
+        candidate = repository_dir / path
+        if candidate.is_file() and _is_build_context_file(candidate):
+            files.append(candidate)
+    return tuple(files)
 
 
 def _platform_manifests(raw: str, *, default_digest: str) -> dict[str, str]:
