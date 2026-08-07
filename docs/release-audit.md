@@ -23,8 +23,8 @@ cloud path remains outside the live proof.
 
 ## Current release and deployment record
 
-- Public Dander beta: `0.7.0rc2`; public Salesforce candidate: `0.3.1rc1`; public ServiceNow
-  candidate: `0.2.2rc1`.
+- Public Dander beta: `0.7.0`; public Salesforce connector: `0.3.1`; public ServiceNow connector:
+  `0.2.2`.
 - Isolated portability acceptance used Dander `0.7.0rc2` and the public plugin candidates in a
   source-free image. The same accepted OCI content passed local and Cloud Run conformance.
   Salesforce ingested all four endpoints, published five governed models and Dataplex metadata,

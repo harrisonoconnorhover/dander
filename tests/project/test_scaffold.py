@@ -55,7 +55,7 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     ):
         assert (project / relative).is_file()
     salesforce = load_project_config(project / "examples" / "salesforce" / "dander.yaml")
-    assert salesforce.plugins["salesforce"].version == "0.3.1rc1"
+    assert salesforce.plugins["salesforce"].version == "0.3.1"
     assert set(salesforce.pipelines) == {"salesforce_crm"}
     assert not list(project.rglob("*.tfplan"))
     assert not list(project.rglob("*.tfstate"))
