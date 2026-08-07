@@ -10,7 +10,11 @@ import pytest
 from scripts.portability.oci_copy import CopyVerificationError, copy_and_verify
 from scripts.portability.prepare_phase1b_context import ContextPreparationError, prepare_context
 from scripts.portability.scan_long_lived_credentials import scan
-from scripts.portability.wif_bigquery_probe import ProbeError, run_probe
+from scripts.portability.wif_bigquery_probe import (
+    ProbeError,
+    prepare_fargate_task_credentials,
+    run_probe,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -178,6 +182,41 @@ def test_wif_probe_rejects_an_unbounded_credential_lifetime() -> None:
         )
 
 
+def test_fargate_task_credentials_are_short_lived_and_never_emitted() -> None:
+    relative_uri = "/v2/credentials/12345678-1234-1234-1234-123456789012"
+    access_key = "ASIA" + "A" * 16
+    secret_key = "short-lived-secret"
+    session_token = "short-lived-session-token"
+    environment = {"AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": relative_uri}
+    requested_urls: list[str] = []
+
+    def fetch(url: str) -> object:
+        requested_urls.append(url)
+        return {
+            "AccessKeyId": access_key,
+            "SecretAccessKey": secret_key,
+            "Token": session_token,
+        }
+
+    assert prepare_fargate_task_credentials(environ=environment, fetch=fetch) is True
+    assert requested_urls == [f"http://169.254.170.2{relative_uri}"]
+    assert environment["AWS_ACCESS_KEY_ID"] == access_key
+    assert environment["AWS_SECRET_ACCESS_KEY"] == secret_key
+    assert environment["AWS_SESSION_TOKEN"] == session_token
+
+
+@pytest.mark.parametrize(
+    "relative_uri",
+    ["https://example.invalid/credentials", "/latest/meta-data/iam/security-credentials"],
+)
+def test_fargate_task_credentials_reject_an_untrusted_endpoint(relative_uri: str) -> None:
+    with pytest.raises(ProbeError, match="endpoint is invalid"):
+        prepare_fargate_task_credentials(
+            environ={"AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": relative_uri},
+            fetch=lambda _url: pytest.fail("untrusted endpoint must not be fetched"),
+        )
+
+
 def _write_generated_project(path: Path) -> None:
     path.mkdir()
     (path / "Dockerfile").write_text(
@@ -233,7 +272,8 @@ def test_prepare_context_keeps_the_project_source_free_and_bounds_token_lifetime
     assert not (project / "src").exists()
     rendered = json.loads((project / "gcp-wif.json").read_text(encoding="utf-8"))
     assert rendered["type"] == "external_account"
-    assert rendered["service_account_impersonation_options"] == {"token_lifetime_seconds": 600}
+    assert rendered["service_account_impersonation"] == {"token_lifetime_seconds": 600}
+    assert "service_account_impersonation_options" not in rendered
     assert (project / "Dockerfile").read_text(encoding="utf-8").count(
         "COPY --chown=65532:65532 phase1b_probe.py"
     ) == 1

@@ -35,7 +35,7 @@ variable "ecr_image" {
 variable "proof_dataset" {
   description = "Existing BigQuery dataset the probe may read."
   type        = string
-  default     = "dander_raw"
+  default     = "raw"
 
   validation {
     condition     = length(var.proof_dataset) <= 1024 && can(regex("^[A-Za-z_][A-Za-z0-9_]*$", var.proof_dataset))
@@ -46,7 +46,7 @@ variable "proof_dataset" {
 variable "proof_table" {
   description = "Existing bounded BigQuery table the probe counts twice."
   type        = string
-  default     = "greenhouse_job_board_jobs"
+  default     = "salesforce_accounts"
 
   validation {
     condition     = length(var.proof_table) <= 1024 && can(regex("^[A-Za-z_][A-Za-z0-9_]*$", var.proof_table))

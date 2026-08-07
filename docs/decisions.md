@@ -590,4 +590,8 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   to impersonate a disposable service account with BigQuery job access and read access to one
   proof dataset.
 - A proof-only, source-free probe observes a 600-second impersonated Google credential expire and
-  refresh in one process. This does not make Fargate a supported launcher; that remains Phase 3.
+  refresh in one process. Because Google Auth's AWS supplier does not consume Fargate's ECS
+  credential endpoint directly, the probe validates that fixed link-local endpoint and exposes
+  its short-lived task-role values only in the current process. The generated external-account
+  config uses the library-supported `service_account_impersonation` lifetime field. This does not
+  make Fargate a supported launcher; that remains Phase 3.

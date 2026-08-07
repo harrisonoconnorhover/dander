@@ -2,11 +2,11 @@
 
 ## Finished
 
-- Started Phase 1B from stable `v0.7.0` without touching the docs-only roadmap branch.
-- Made source-free image publication require one `linux/amd64,linux/arm64` OCI index.
-- Added digest-preserving GAR-to-ECR copy verification and a bounded WIF refresh probe.
-- Added isolated ECR and manual Fargate proof roots with separate execution/task roles.
-- Proved the same index on Cloud Run as `x86_64`, deleted the temporary job, and restored no drift.
+- Completed Phase 1B from stable `v0.7.0` without touching the docs-only roadmap branch.
+- Proved one source-free AMD64/ARM64 OCI index locally, on Cloud Run, and after byte-identical ECR copy.
+- Proved ARM64 Fargate can refresh keyless Google credentials and query bounded BigQuery data twice.
+- Corrected Fargate credential sourcing, Google Auth lifetime configuration, and the proof-table default.
+- Destroyed every AWS/GCP proof resource and recorded final isolated Terraform `No changes.`
 
 ## Try It
 
@@ -15,29 +15,26 @@ saved reviewed plans. No live apply is required for local validation.
 
 ## Checks
 
-- All 825 tests, Ruff, and strict mypy passed.
-- Both Phase 1B Terraform roots initialized and validated with locked providers.
-- Package build, distribution inspection, and clean external wheel install passed.
-- Corrected GAR index `sha256:6cd545fa…be81f` passed both platform conformance and key scans; no
-  fixable high/critical CVE was found (four unfixed base-image findings remain visible).
-- Protected PR checks passed; the isolated GCP final plan reported exactly `No changes.`
+- All 828 tests, Ruff, strict mypy, and four Terraform validations passed.
+- Wheel/sdist build, inspection, outside-checkout installs, project generation, and Terraform validation passed.
+- Both image platforms passed runtime conformance and had zero fixable High/Critical findings.
+- Dependency and long-lived-credential scans passed; the GitPython lock is updated to fixed `3.1.58`.
+- Cloud Run and Fargate exited zero; final AWS inventory was empty and isolated GCP reported no drift.
 
 ## Decisions
 
-- A registry digest rewrite fails rather than being accepted as an equivalent image.
-- Fargate receives no service or schedule; the proof task role has no AWS permission policy.
-- Fargate remains feasibility-only until the later portable BigQuery vertical slice.
+- Registry or platform-digest rewrites fail instead of being treated as equivalent packaging.
+- ECS task-role credentials remain short-lived, process-only, and separate from pull/log execution access.
+- Fargate remains feasibility-only until the portable BigQuery vertical slice.
 
 ## Remaining
 
-- Authenticate the new AWS account with short-lived CLI credentials.
-- Copy the accepted source-free index and run the reviewed live Fargate/WIF refresh proof.
-- Run the AWS state, task-definition, log, configuration, and image scans.
-- Destroy AWS proof resources and require isolated GCP `No changes.`
-- Record acceptance, complete protected CI/review, and merge the focused PR.
+- Review the final Phase 1B diff and protected PR checks.
+- Merge focused PR #108 after CI passes.
+- Begin Phase 2 only from merged `main` on a separate branch.
 
 ## Review First
 
-- `src/dander/bootstrap/project.py`
-- `scripts/portability/oci_copy.py`
-- `acceptance/cloud-portability/phase1b/smoke/main.tf`
+- `scripts/portability/wif_bigquery_probe.py`
+- `scripts/portability/prepare_phase1b_context.py`
+- `tickets/DANDER-77-cross-cloud-artifact-identity-feasibility.md`

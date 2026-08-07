@@ -19,8 +19,9 @@ Terraform state, task descriptions, or logs.
 - A disposable billing-linked GCP project containing the bounded proof table.
 - A disposable AWS account. Do not create an AWS access key.
 
-The tested GCP target is project `project-092b24a8-26a3-4438-8cd`, dataset `dander_raw`, table
-`greenhouse_job_board_jobs`. The retained Dander project is out of scope.
+The tested GCP target is project `project-092b24a8-26a3-4438-8cd`, dataset `raw`, table
+`salesforce_accounts`. The probe returns only `COUNT(*)` over disposable test rows; it never logs
+record content. The retained Dander project is out of scope.
 
 ## Reviewed sequence
 
@@ -47,6 +48,12 @@ The tested GCP target is project `project-092b24a8-26a3-4438-8cd`, dataset `dand
      --credential-config "$OPERATOR_DIR/external-account.json"
    ```
 
+   Current Google Auth reads the token lifetime from `service_account_impersonation`; the helper
+   removes the ignored legacy `service_account_impersonation_options` spelling. On Fargate, the
+   probe reads only the short-lived ECS task-role document from the fixed link-local credential
+   origin and exposes it to Google Auth in the current process. It never persists or emits those
+   values.
+
 5. From the generated project, use this branch's `dander image-publish` to build one
    `linux/amd64,linux/arm64` index in staging GAR. Preserve `.dander/runtime-artifact.json` outside
    the repository.
@@ -64,9 +71,11 @@ The tested GCP target is project `project-092b24a8-26a3-4438-8cd`, dataset `dand
 7. Set the verified ECR digest in `smoke/terraform.tfvars`, initialize `smoke/`, save and review its
    plan, then apply only that saved plan. The execution role can pull/log; the separate task role
    has no AWS permission policy and is the only role trusted by Google WIF.
-8. Run exactly one Fargate task using the Terraform outputs for cluster, task definition, subnet,
-   and security group. Wait for terminal status and save `describe-tasks` plus the CloudWatch log
-   stream outside the repository.
+8. For an accepted candidate, run exactly one Fargate task using the Terraform outputs for
+   cluster, task definition, subnet, and security group. Wait for terminal status and save
+   `describe-tasks` plus the CloudWatch log stream outside the repository. Failed candidates are
+   invalidated, corrected, rebuilt once, and rerun from the beginning; they are not acceptance
+   evidence.
 9. Require two `query.completed` events followed by `credential.refresh_observed`. The second
    expiry must be later than the first. No event may contain a token, URL, query body, or record.
 10. Run `scan_long_lived_credentials.py` over the generated config, both Terraform states, task

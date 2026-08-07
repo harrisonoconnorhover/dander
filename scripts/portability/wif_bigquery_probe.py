@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
 import re
 import time
+import urllib.request
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
 
@@ -13,12 +16,15 @@ import google.auth
 from google.cloud import bigquery
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, MutableMapping
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,1023}$")
 _PROJECT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _SCOPES = ("https://www.googleapis.com/auth/cloud-platform",)
 _SCHEMA = "io.dander.portability.identity-probe/v1"
+_ECS_CREDENTIALS_PATH = re.compile(r"^/v2/credentials/[A-Za-z0-9-]{16,128}$")
+_ECS_CREDENTIALS_ORIGIN = "http://169.254.170.2"
+_TEMPORARY_ACCESS_KEY = re.compile(r"^ASIA[A-Z0-9]{16}$")
 
 
 class ProbeError(RuntimeError):
@@ -32,6 +38,62 @@ class ExpiringCredentials(Protocol):
 class QueryClient(Protocol):
     def query_count(self, *, project: str, dataset: str, table: str) -> int:
         """Return a bounded count from the proof relation."""
+
+
+class CredentialFetcher(Protocol):
+    def __call__(self, url: str) -> object:
+        """Return one parsed ECS task-credential response."""
+
+
+def _fetch_ecs_credentials(url: str) -> object:
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(request, timeout=5) as response:  # noqa: S310
+        if response.status != 200:
+            raise ProbeError("ECS task credentials were unavailable")
+        return json.load(response)
+
+
+def prepare_fargate_task_credentials(
+    *,
+    environ: MutableMapping[str, str] = os.environ,
+    fetch: CredentialFetcher = _fetch_ecs_credentials,
+) -> bool:
+    """Expose short-lived ECS task credentials to Google Auth without persisting them."""
+    existing = tuple(
+        environ.get(name)
+        for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN")
+    )
+    if all(existing):
+        return False
+    if any(existing):
+        raise ProbeError("AWS credential environment is incomplete")
+
+    relative_uri = environ.get("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
+    if relative_uri is None:
+        return False
+    if _ECS_CREDENTIALS_PATH.fullmatch(relative_uri) is None:
+        raise ProbeError("ECS task credential endpoint is invalid")
+
+    document = fetch(f"{_ECS_CREDENTIALS_ORIGIN}{relative_uri}")
+    if not isinstance(document, dict):
+        raise ProbeError("ECS task credentials were invalid")
+    access_key = document.get("AccessKeyId")
+    secret_key = document.get("SecretAccessKey")
+    session_token = document.get("Token")
+    if (
+        not isinstance(access_key, str)
+        or _TEMPORARY_ACCESS_KEY.fullmatch(access_key) is None
+        or not isinstance(secret_key, str)
+        or not secret_key
+        or not isinstance(session_token, str)
+        or not session_token
+    ):
+        raise ProbeError("ECS task credentials were invalid")
+
+    environ["AWS_ACCESS_KEY_ID"] = access_key
+    environ["AWS_SECRET_ACCESS_KEY"] = secret_key
+    environ["AWS_SESSION_TOKEN"] = session_token
+    return True
 
 
 class BigQueryProbeClient:
@@ -140,6 +202,17 @@ def main() -> int:
         _emit({"schema": _SCHEMA, "event": "probe.failed", "failure_code": "invalid_target"})
         return 2
     try:
+        task_credentials_loaded = prepare_fargate_task_credentials()
+        _emit(
+            {
+                "schema": _SCHEMA,
+                "event": "runtime.observed",
+                "architecture": platform.machine().lower(),
+                "aws_credential_source": (
+                    "ecs_task_role" if task_credentials_loaded else "aws_default_chain"
+                ),
+            }
+        )
         credentials, _ = google.auth.default(scopes=_SCOPES)
         client = BigQueryProbeClient(bigquery.Client(project=args.project, credentials=credentials))
         run_probe(

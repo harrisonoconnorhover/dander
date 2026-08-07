@@ -39,9 +39,8 @@ def _credential_config(path: Path, *, token_lifetime_seconds: int) -> dict[str, 
         "https://iamcredentials.googleapis.com/"
     ):
         raise ContextPreparationError("Credential configuration must impersonate a service account")
-    config["service_account_impersonation_options"] = {
-        "token_lifetime_seconds": token_lifetime_seconds
-    }
+    config.pop("service_account_impersonation_options", None)
+    config["service_account_impersonation"] = {"token_lifetime_seconds": token_lifetime_seconds}
     return config
 
 

@@ -1,6 +1,6 @@
 aws_region      = "us-east-1"
 gcp_project_id  = "replace-with-disposable-project"
 ecr_image       = "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander-phase1b@sha256:replace"
-proof_dataset   = "dander_raw"
-proof_table     = "greenhouse_job_board_jobs"
+proof_dataset   = "raw"
+proof_table     = "salesforce_accounts"
 cpu_architecture = "ARM64"
