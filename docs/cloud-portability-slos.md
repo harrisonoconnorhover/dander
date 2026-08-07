@@ -38,7 +38,8 @@ can change from unsupported or experimental to supported.
   memory, provider work metrics, and estimated cost. There is no universal throughput or cost
   promise until measured evidence supports one.
 - Paid scale tests require a separately approved ceiling. A provider budget or billing alert is
-  evidence and notification, never described as a hard spending cap.
+  evidence and notification, never described as a hard spending cap. The default unapproved paid
+  test budget is $0; every live proof records its separately approved ceiling before mutation.
 
 ## Promotion rule
 

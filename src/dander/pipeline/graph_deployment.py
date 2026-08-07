@@ -26,7 +26,11 @@ from dander.bootstrap import (
     TerraformBootstrap,
     TerraformBootstrapError,
 )
-from dander.project import ProjectConfigError, load_project_config
+from dander.project import (
+    ProjectConfigError,
+    load_project_config,
+    prepare_version_one_migration,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -286,6 +290,15 @@ def _copy_source_free_project(
     for directory in ("connectors", "graphs", "models"):
         _copy_tree(project_root / directory, destination / directory)
     shutil.copy2(project_config, destination / "dander.yaml")
+    platforms_config = project_config.with_name("dander.platforms.yaml")
+    if platforms_config.is_file() and not platforms_config.is_symlink():
+        shutil.copy2(platforms_config, destination / "dander.platforms.yaml")
+    else:
+        migration = prepare_version_one_migration(project_config)
+        (destination / "dander.platforms.yaml").write_text(
+            migration.platforms_yaml,
+            encoding="utf-8",
+        )
     dockerfile = (
         files("dander").joinpath("templates", "project", "Dockerfile").read_text(encoding="utf-8")
     )
@@ -349,6 +362,11 @@ def _validate_snapshot(
 def _deployment_fingerprint(project_root: Path, project_config: Path) -> str:
     hasher = hashlib.sha256()
     candidates = [project_config]
+    platforms_config = project_config.with_name("dander.platforms.yaml")
+    if platforms_config.is_file():
+        if platforms_config.is_symlink():
+            raise GraphDeploymentError("Deployment preview inputs must not contain symlinks.")
+        candidates.append(platforms_config)
     for directory in ("connectors", "graphs", "models", "infra"):
         root = project_root / directory
         if not root.is_dir() or root.is_symlink():

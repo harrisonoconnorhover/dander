@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Completed Phase 1B from stable `v0.7.0` without touching the docs-only roadmap branch.
-- Proved one source-free AMD64/ARM64 OCI index locally, on Cloud Run, and after byte-identical ECR copy.
-- Proved ARM64 Fargate can refresh keyless Google credentials and query bounded BigQuery data twice.
-- Corrected Fargate credential sourcing, Google Auth lifetime configuration, and the proof-table default.
-- Destroyed every AWS/GCP proof resource and recorded final isolated Terraform `No changes.`
+- Added version 2 logical projects plus named platform/deployment configuration.
+- Kept every version 1 manifest compatible through one resolved `DanderProject` view.
+- Added deterministic `dander config migrate --check` and guarded atomic migration writes.
+- Changed new source-free starter projects to the two-file v2 layout.
+- Proved the isolated GCP deployment plans `No changes` before and after migration.
 
 ## Try It
 
-Follow `acceptance/cloud-portability/phase1b/README.md` only with disposable AWS/GCP accounts and
-saved reviewed plans. No live apply is required for local validation.
+Run `dander config migrate --config dander.yaml --check`. On a version 1 project, review the result
+and then run the command without `--check`; `dander.platforms.yaml` is never overwritten.
 
 ## Checks
 
-- All 828 tests, Ruff, strict mypy, and four Terraform validations passed.
-- Wheel/sdist build, inspection, outside-checkout installs, project generation, and Terraform validation passed.
-- Both image platforms passed runtime conformance and had zero fixable High/Critical findings.
-- Dependency and long-lived-credential scans passed; the GitPython lock is updated to fixed `3.1.58`.
-- Cloud Run and Fargate exited zero; final AWS inventory was empty and isolated GCP reported no drift.
+- All 832 tests, Ruff, strict mypy across 190 files, and both Terraform roots passed.
+- Wheel/sdist build and inspection plus outside-checkout installs and v2 scaffolds passed.
+- Dependency audit and local read-only container conformance passed.
+- Version 1 and migrated version 2 isolated plans each reported exactly `No changes.`
+- Both isolated schedulers remained paused; no apply or retained-project mutation occurred.
 
 ## Decisions
 
-- Registry or platform-digest rewrites fail instead of being treated as equivalent packaging.
-- ECS task-role credentials remain short-lived, process-only, and separate from pull/log execution access.
-- Fargate remains feasibility-only until the portable BigQuery vertical slice.
+- Multiple deployments require explicit selection; one deployment resolves deterministically.
+- GCP/BigQuery/Cloud Run remains the only supported hosted composition in this slice.
+- New provider factories and canonical schemas remain separate Phase 2 PRs.
 
 ## Remaining
 
-- Review the final Phase 1B diff and protected PR checks.
-- Merge focused PR #108 after CI passes.
-- Begin Phase 2 only from merged `main` on a separate branch.
+- Review and merge the focused platform-profile PR after protected CI passes.
+- Add provider registries/factories from merged main in the next separate PR.
+- Keep the repository's retained version 1 manifest unchanged during the compatibility window.
 
 ## Review First
 
-- `scripts/portability/wif_bigquery_probe.py`
-- `scripts/portability/prepare_phase1b_context.py`
-- `tickets/DANDER-77-cross-cloud-artifact-identity-feasibility.md`
+- `src/dander/project/portable_config.py`
+- `src/dander/cli/config_command.py`
+- `tests/project/test_portable_config.py`

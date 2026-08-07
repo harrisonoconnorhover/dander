@@ -326,24 +326,23 @@ method; manually upgrading makes overages beyond remaining credit and free allow
 path separates each mutation from its saved Terraform plan: create the state bucket once, run
 `init-admin-plan`, review and run `init-admin-apply`, publish an immutable source-free image with
 `image-publish`, then run `init-platform-plan`, review, and run `init-platform-apply`. See the
-[hosted quickstart](docs/getting-started.md) for copyable commands. Newly generated projects use the
-ordinary hosted path without the optional managed cost guard:
+[hosted quickstart](docs/getting-started.md) for copyable commands. Newly generated projects keep
+portable pipeline intent in `dander.yaml` and GCP deployment settings in
+`dander.platforms.yaml`. The standard deployment uses the ordinary hosted path without the
+optional managed cost guard:
 
 ```yaml
-platform:
-  region: us-central1
-  bigquery_location: US
-  runtime:
-    cpu: 1
-    memory: 512Mi
-    timeout_seconds: 300
-    max_retries: 1
-    batch_rows: 10000
-  safety:
-    require_guarded_free_tier: false
+deployments:
+  gcp_cloud_run:
+    platform: gcp
+    launcher:
+      provider: cloud_run
+      region: us-central1
+    safety:
+      require_guarded_free_tier: false
 ```
 
-These repository-owned values configure every hosted job. `batch_rows` bounds both hosted SCD1
+The deployment's repository-owned `runtime` values configure every hosted job. `batch_rows` bounds both hosted SCD1
 extraction batches and BigQuery writer requests. Sandbox replacement also consumes the endpoint
 as bounded batches through a run-scoped staging table. When guarded free tier is required,
 initialization rejects a disabled cost guard and hosted jobs receive
@@ -369,7 +368,8 @@ from runtime identities; only it can provision project resources. Guarded instal
 additionally use it to delegate each runtime's read-only billing visibility.
 The default unguarded path does not request billing-account IAM or grant runtime billing/Pub/Sub
 guard permissions. Dander does not manage, limit, or prevent cloud spending in that configuration.
-To opt into the managed guard, set `require_guarded_free_tier: true` and pass
+To opt into the managed guard, set
+`deployments.gcp_cloud_run.safety.require_guarded_free_tier: true` and pass
 `--billing-account ABCDEF-123456-ABCDEF`; the caller then needs the additional billing-account
 permissions required for the reviewed IAM and budget plan.
 
@@ -385,8 +385,11 @@ uv run dander init-platform-plan \
   --failure-alert-email operator@example.com
 ```
 
-The image must use an immutable SHA-256 digest. `dander.yaml` declares every additive pipeline,
-including connector, transform roots, schedule, and secret references. Secret Manager containers
+The image must use an immutable SHA-256 digest. In new projects, `dander.yaml` declares logical
+pipelines and `dander.platforms.yaml` declares schedules, secret references, resources, and the
+selected providers. Version 1 combined manifests remain supported during the compatibility window;
+`dander config migrate --check` proves the deterministic split before `dander config migrate`
+writes it. See [platform profiles](docs/platform-profiles.md). Secret Manager containers
 and per-pipeline runtime access are managed by Terraform, but secret values never enter the
 manifest or Terraform state.
 GitHub Actions authenticates through repository/ref-constrained OIDC rather than a downloaded key.

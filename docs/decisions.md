@@ -1,5 +1,19 @@
 # Engineering Decisions
 
+## 2026-08-07 — Version 2 separates logical projects from named deployments
+
+- **Configuration:** One logical project may be resolved through multiple named platform profiles.
+  `dander.yaml` version 2 owns provider-neutral pipeline intent; `dander.platforms.yaml` owns
+  provider selections and launcher projection. Multiple deployments require explicit selection.
+- **Compatibility:** Version 1 remains loadable. `dander config migrate --check` must prove the
+  deterministic v2 split resolves to identical current GCP settings, pipeline behavior, stable
+  resource names, and Terraform projection before either file is written.
+- **Provider direction:** The release image will contain all first-party adapters while local Python
+  installs may use extras. PostgreSQL 15+ is the minimum. Dataplex and Glue may represent
+  non-native warehouses. OCI uses Container Instances plus a narrow launch Function; OKE remains
+  the Kubernetes path. Qualification uses `docs/cloud-portability-slos.md`, and paid testing has a
+  zero-dollar default until a separate per-proof ceiling is approved.
+
 ## 2026-08-07 — Cloud Run consumes the shared execution projection
 
 - **Decision:** The GCP plan compiler passes `io.dander.execution/v1` templates into Terraform;

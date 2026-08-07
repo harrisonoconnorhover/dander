@@ -1,0 +1,37 @@
+version: 1
+
+platforms:
+  gcp:
+    warehouse:
+      provider: bigquery
+      location: US
+    state:
+      provider: bigquery
+    catalog:
+      provider: dataplex
+    secrets:
+      provider: gcp_secret_manager
+
+deployments:
+  gcp_cloud_run:
+    platform: gcp
+    launcher:
+      provider: cloud_run
+      region: us-central1
+    runtime:
+      cpu: 1
+      memory: 512Mi
+      timeout_seconds: 300
+      max_retries: 1
+      batch_rows: 10000
+    safety:
+      require_guarded_free_tier: false
+    pipelines:
+      greenhouse_jobs:
+        schedule: "0 9 * * *"
+        time_zone: America/New_York
+        paused: true
+        resources:
+          job: dander-greenhouse-public
+          runtime_service_account: dander-runtime
+          scheduler_service_account: dander-scheduler

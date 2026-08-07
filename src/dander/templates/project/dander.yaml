@@ -1,25 +1,6 @@
-version: 1
-
-platform:
-  region: us-central1
-  bigquery_location: US
-  runtime:
-    cpu: 1
-    memory: 512Mi
-    timeout_seconds: 300
-    max_retries: 1
-    batch_rows: 10000
-  safety:
-    require_guarded_free_tier: false
+version: 2
 
 pipelines:
   greenhouse_jobs:
     source: greenhouse_job_board
     models: [stg_greenhouse__jobs]
-    schedule: "0 9 * * *"
-    time_zone: America/New_York
-    paused: true
-    resources:
-      job: dander-greenhouse-public
-      runtime_service_account: dander-runtime
-      scheduler_service_account: dander-scheduler

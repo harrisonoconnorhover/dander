@@ -44,6 +44,7 @@ from dander.catalog import (
     SemanticRegistryPublisher,
     SqliteMetadataStore,
 )
+from dander.cli.config_command import config_app
 from dander.cli.init_command import (
     InitOptions,
     execute_init,
@@ -124,6 +125,7 @@ metadata_app = typer.Typer(help="Inspect the durable metadata spine and run ledg
 graph_app = typer.Typer(help="Open validated pipeline graphs to local visual editors.")
 plugins_app = typer.Typer(help="Install and inspect explicitly pinned connector plugins.")
 connector_app = typer.Typer(help="Inspect and check configured connector capabilities.")
+app.add_typer(config_app, name="config")
 app.add_typer(verify_app, name="verify")
 app.add_typer(metadata_app, name="metadata")
 app.add_typer(graph_app, name="graph")
@@ -179,6 +181,8 @@ def new_project(directory: Path = typer.Argument(...)) -> None:  # noqa: B008
 @app.command("validate")
 def validate_project(
     project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
+    deployment: str | None = typer.Option(None, "--deployment"),
     connectors_dir: Path = typer.Option(  # noqa: B008
         _DEFAULT_CONNECTORS_DIR, "--connectors-dir"
     ),
@@ -186,7 +190,11 @@ def validate_project(
 ) -> None:
     """Validate the project manifest and all configured connector/model references."""
     try:
-        manifest = load_project_config(project_config)
+        manifest = load_project_config(
+            project_config,
+            platforms_path=platforms_config,
+            deployment=deployment,
+        )
         manifest.validate_references(
             project_config.resolve().parent,
             connectors_dir=connectors_dir,

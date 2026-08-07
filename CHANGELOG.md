@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add version 2 logical projects plus named platform/deployment configuration, deterministic v1
+  migration with a read-only compatibility check, and v2 starter projects. The supported hosted
+  composition remains GCP/BigQuery/Cloud Run in this change.
 - Publish source-free runtime images as one `linux/amd64,linux/arm64` OCI index and reject an
   incomplete registry result before recording publication success.
 - Add an isolated, unscheduled Phase 1B proof for digest-preserving GAR-to-ECR copy and keyless
