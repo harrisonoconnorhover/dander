@@ -34,10 +34,11 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
-- On 2026-08-07, the isolated source-free `0.6.0rc2` image completed four-endpoint Salesforce
-  ingestion, governed transforms/tests, updates, soft-deletion tombstones, replay, Dataplex
-  publication, lease and staging cleanup, and a final no-drift plan. ServiceNow also completed a
-  compatibility smoke run in the same image.
+- On 2026-08-07, the isolated source-free `0.7.0rc2` image completed local/Cloud Run OCI parity,
+  four-endpoint Salesforce ingestion, governed transforms/tests, replay, overlap skip,
+  SIGTERM/SIGKILL recovery, Dataplex publication, lease and staging cleanup, and a final no-drift
+  plan. ServiceNow completed its compatibility smoke in the same image. The bounded record is
+  `docs/cloud-portability-phase1-acceptance.md`.
 
 - On 2026-08-05, scheduled executions `dander-greenhouse-public-m2pz2`,
   `dander-hubspot-companies-cmdbz`, `dander-salesforce-accounts-jljwj`, and

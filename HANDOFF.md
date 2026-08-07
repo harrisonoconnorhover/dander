@@ -2,34 +2,36 @@
 
 ## Finished
 
-- Prepared replacement Dander candidate `0.7.0rc2` after rejecting rc1 before deployment.
-- Prevented connector installation from silently downgrading the running Dander package.
-- Published compatible Salesforce `0.3.1rc1` and ServiceNow `0.2.2rc1` candidates.
-- Updated the curated catalog, Salesforce example, and public version references.
+- Accepted the public source-free Dander `0.7.0rc2` OCI artifact locally and on Cloud Run.
+- Proved ServiceNow smoke plus four-endpoint Salesforce ingest, transforms/tests, catalog, replay,
+  overlap skip, interruption recovery, lease release, and staging cleanup.
+- Recorded SIGTERM and SIGKILL behavior without a false successful terminal event.
+- Confirmed the final isolated Terraform plan reported exactly `No changes.`
 
 ## Try It
 
-Tag the merged release commit `v0.7.0rc2`, publish through the protected workflow, and install it
-outside the checkout before any isolated cloud apply.
+Review `docs/cloud-portability-phase1-acceptance.md`, then promote the accepted connector patches
+and Dander `0.7.0` through version-only protected release PRs.
 
 ## Checks
 
-- Release metadata, all 815 tests, Ruff lint/format, strict mypy, and package build passed.
-- Connector candidate workflows and clean external resolution with `0.7.0rc1` passed.
+- Public package install, image inspection, local conformance, Cloud Run conformance: passed.
+- Salesforce: 5 models, 35 assertions, 5 assets; ServiceNow: 1 model, 4 assertions, 1 asset.
+- Replay: zero duplicate IDs and unchanged cursors; final Terraform plan: `No changes.`
 
 ## Decisions
 
-- `0.7.0rc1` is immutable but rejected because its source-free plugin install downgraded Dander.
-- `0.7.0rc2` replaces rc1 without expanding the Phase 1 portability scope.
+- `0.7.0rc2` is the accepted Phase 1 candidate; `0.7.0rc1` remains rejected and undeployed.
+- Phase 1B remains a separate AWS artifact-copy and keyless-identity feasibility gate.
 
 ## Remaining
 
-- Merge the release PR through protected main and publish the immutable candidate.
-- Run source-free local/isolated Cloud Run parity, replay, signals, cleanup, and no-drift proof.
-- Do not touch the retained project during candidate acceptance.
+- Merge this bounded evidence update and publish stable connector/Dander versions.
+- Implement and prove Phase 1B without touching the retained project.
+- Continue later portability phases only through separate provider/backend PRs.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `src/dander/cli/main.py`
+- `docs/cloud-portability-phase1-acceptance.md`
+- `docs/release-audit.md`
+- `docs/session-resume.md`
