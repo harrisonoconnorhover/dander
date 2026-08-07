@@ -2,6 +2,7 @@
 model: stg_hubspot__companies
 description: Invented HubSpot proof companies normalized for the Dander authenticated ingestion path.
 owner: data-eng
+dialect: bigquery
 materialization: incremental
 dataset: staging
 source_system: hubspot_test

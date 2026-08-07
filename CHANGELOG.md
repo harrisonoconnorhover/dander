@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add explicit `portable`, BigQuery, Snowflake, Redshift, and PostgreSQL model dialect metadata;
+  preserve BigQuery as the compatibility default and validate portable models through a closed,
+  deterministic SQL AST before provider rendering.
 - Add canonical relation/schema v1 contracts with explicit decimal, timestamp, array, record, and
   provider-extension semantics plus a fail-closed BigQuery compatibility mapper.
 - Add an API-v1 provider-factory registry for warehouse, state, catalog, secret, and launcher

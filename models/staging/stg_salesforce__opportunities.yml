@@ -1,6 +1,7 @@
 model: stg_salesforce__opportunities
 description: Salesforce Opportunities normalized with revenue, stage, ownership, and tombstones.
 owner: data-eng
+dialect: bigquery
 materialization: incremental
 dataset: staging
 source_system: salesforce

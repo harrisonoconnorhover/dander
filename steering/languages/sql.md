@@ -1,10 +1,11 @@
-# SQL Conventions (BigQuery Standard SQL)
+# SQL Conventions
 
-For the Transform module and any hand-written BigQuery SQL.
+For the Transform module and hand-written model SQL.
 
 ## Dialect & style
 
-- **BigQuery Standard SQL** only (never legacy).
+- Declare `dialect` in every repository-owned model sidecar. Existing models use **BigQuery
+  Standard SQL** (never legacy); new cross-warehouse models may opt into `portable`.
 - Uppercase keywords (`SELECT`, `FROM`, `LEFT JOIN`, `PARTITION BY`); lowercase identifiers.
 - **snake_case** for tables and columns. Datasets: `raw` → `staging` → `marts`.
 - Lead with **CTEs**, not nested subqueries. One transformation per CTE, named for what it produces.
@@ -12,6 +13,11 @@ For the Transform module and any hand-written BigQuery SQL.
 - Trailing commas in `SELECT` lists; one column per line for anything non-trivial.
 - Explicit column lists — no `SELECT *` in models or anything persisted.
 - Qualify columns when more than one table is in scope.
+
+Portable models additionally use only Dander `ref()` relations, lowercase unquoted logical
+identifiers, explicit `NULLS FIRST`/`NULLS LAST`, and deterministic window tie-breakers declared
+unique in model tests. Provider-specific functions or semantics belong in an exact provider model,
+not in the portable subset.
 
 ```sql
 WITH source AS (

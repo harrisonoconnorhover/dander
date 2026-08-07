@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from dander.transform.model import Materialization
+from dander.transform.model import Materialization, SqlDialect
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 type Scalar = str | int | float | bool
@@ -103,6 +103,7 @@ class ModelMetadata(BaseModel):
     model: str = Field(pattern=_IDENTIFIER.pattern)
     description: str = Field(min_length=1)
     owner: str = Field(min_length=1)
+    dialect: SqlDialect = SqlDialect.BIGQUERY
     materialization: Materialization = Materialization.VIEW
     dataset: str = Field(default="staging", pattern=_IDENTIFIER.pattern)
     source_system: str = Field(min_length=1)

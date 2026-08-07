@@ -10,6 +10,8 @@ from dander.transform.config import (
     TransformConfigError,
     load_model_metadata,
 )
+from dander.transform.dialects import PortableSqlError, parse_portable_query, render_portable_query
+from dander.transform.model import SqlDialect
 from dander.transform.project import (
     TransformModel,
     TransformProject,
@@ -24,6 +26,7 @@ __all__ = [
     "MetricAggregation",
     "MetricMetadata",
     "ModelMetadata",
+    "PortableSqlError",
     "RelationshipMetadata",
     "TransformConfigError",
     "TransformModel",
@@ -31,5 +34,8 @@ __all__ = [
     "TransformProjectError",
     "TransformRunError",
     "TransformRunResult",
+    "SqlDialect",
     "load_model_metadata",
+    "parse_portable_query",
+    "render_portable_query",
 ]

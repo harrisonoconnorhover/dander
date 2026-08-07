@@ -1,6 +1,7 @@
 model: stg_salesforce__users
 description: Salesforce Users normalized for owner dimensions while retaining inactive users.
 owner: data-eng
+dialect: bigquery
 materialization: incremental
 dataset: staging
 source_system: salesforce

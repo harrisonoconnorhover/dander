@@ -1,6 +1,7 @@
 model: fct_salesforce__opportunities
 description: Non-deleted Salesforce Opportunity facts with active Account and historical owner data.
 owner: data-eng
+dialect: bigquery
 materialization: table
 dataset: marts
 source_system: salesforce

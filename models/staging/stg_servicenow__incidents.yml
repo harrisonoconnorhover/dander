@@ -1,6 +1,7 @@
 model: stg_servicenow__incidents
 description: ServiceNow incidents normalized from the read-only Table API contract.
 owner: data-eng
+dialect: bigquery
 materialization: incremental
 dataset: staging
 source_system: servicenow

@@ -2,36 +2,39 @@
 
 ## Finished
 
-- Added unrendered `RelationRef` coordinates and the provider `RelationCodec` boundary.
-- Added canonical schema v1 for exact scalars, decimals, timestamps, arrays, and records.
-- Added ordered provider extensions and duplicate/shape validation.
-- Added a fail-closed, one-way mapper for legacy BigQuery raw and writer fields.
-- Exposed canonical views without changing authored schemas or BigQuery runtime behavior.
+- Added explicit exact-provider and portable model dialect metadata.
+- Preserved BigQuery as the compatibility default and marked repository models explicitly.
+- Added a closed portable SQL AST with deterministic ordering, casts, identifiers, and refs.
+- Added BigQuery, Snowflake, Redshift, and PostgreSQL rendering for validated portable queries.
+- Added positive and rejection fixtures plus exact-dialect mismatch coverage.
 
 ## Try It
 
-Call `endpoint.canonical_raw_schema()` or `target.canonical_schema`; use
-`target.relation_ref` to pass coordinates to a future provider codec without rendering SQL.
+Set `dialect: portable` in a model sidecar, use only `{{ ref('...') }}` relations, then call
+`project.compile(model, target_dialect="postgres")`. Existing models need no changes.
 
 ## Checks
 
-- All 861 tests, Ruff, formatting, and strict mypy across 197 source files passed.
-- Wheel/sdist build and inspection plus both Terraform-root validations passed.
+- All 887 tests, Ruff, formatting, and strict mypy across 199 source files passed.
+- Wheel/sdist build, inspection, source-free installs, generated-project validation, and all four
+  Terraform-root validations passed.
+- Local container build and read-only runtime conformance passed as UID 65532.
 - The isolated GCP plan reported `No changes`; both schedules stayed paused and no apply ran.
 
 ## Decisions
 
-- Decimal precision/scale and timestamp timezone semantics are mandatory.
-- BigQuery `REPEATED` maps to a required canonical array while retaining its original mode.
-- Provider-only types require an explicit fallback; silent lossy mapping is forbidden.
+- Existing and undeclared models remain exact BigQuery SQL.
+- Portable AST nodes are closed; new sqlglot nodes fail until explicitly reviewed.
+- Render targets do not imply provider runtime support.
 
 ## Remaining
 
-- Open and merge the focused canonical-schema PR after protected CI passes.
-- Add portable SQL/dialect boundaries from merged main in the next PR.
+- Complete local and isolated GCP validation.
+- Open the focused dialect PR and merge only after protected CI passes.
+- Compile graph operations through the same provider-neutral boundary in the next PR.
 
 ## Review First
 
-- `src/dander/warehouse/contracts.py`
-- `src/dander/warehouse/bigquery_compat.py`
-- `tests/warehouse/test_contracts.py`
+- `src/dander/transform/dialects.py`
+- `src/dander/transform/project.py`
+- `tests/transform/test_dialects.py`

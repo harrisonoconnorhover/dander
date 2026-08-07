@@ -1,6 +1,7 @@
 model: stg_salesforce__accounts
 description: Salesforce Accounts normalized from the read-only QueryAll extraction contract.
 owner: data-eng
+dialect: bigquery
 materialization: incremental
 dataset: staging
 source_system: salesforce
