@@ -59,6 +59,13 @@ jobs:
         run: |
           terraform -chdir=bootstrap-admin init -backend=false -input=false
           terraform -chdir=bootstrap-admin validate
+      - name: Validate cross-cloud feasibility roots
+        run: |
+          terraform fmt -check -recursive ../acceptance/cloud-portability/phase1b
+          terraform -chdir=../acceptance/cloud-portability/phase1b/ecr init -backend=false -input=false
+          terraform -chdir=../acceptance/cloud-portability/phase1b/ecr validate
+          terraform -chdir=../acceptance/cloud-portability/phase1b/smoke init -backend=false -input=false
+          terraform -chdir=../acceptance/cloud-portability/phase1b/smoke validate
       - name: Static security analysis
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:

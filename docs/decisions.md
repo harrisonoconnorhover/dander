@@ -579,3 +579,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - The governed fact excludes deleted Opportunities and Accounts while retaining inactive owner
   dimensions. Existing installations may keep the `salesforce_accounts` pipeline resource ID;
   new examples use `salesforce_crm`.
+
+## 2026-08-07 — Cross-cloud feasibility uses one copied multi-platform artifact
+
+- Runtime image publication now requires both `linux/amd64` and `linux/arm64` manifests in one OCI
+  index. Phase 1B copies that exact index GAR-to-ECR with `crane`; any index or per-platform digest
+  rewrite fails the gate rather than being treated as equivalent packaging.
+- The proof Fargate task has a pull/log execution role and a distinct policy-free task role. Google
+  trusts only the exact assumed task-role ARN through Workload Identity Federation and permits it
+  to impersonate a disposable service account with BigQuery job access and read access to one
+  proof dataset.
+- A proof-only, source-free probe observes a 600-second impersonated Google credential expire and
+  refresh in one process. This does not make Fargate a supported launcher; that remains Phase 3.

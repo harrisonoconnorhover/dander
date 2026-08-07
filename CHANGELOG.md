@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Added
+
+- Publish source-free runtime images as one `linux/amd64,linux/arm64` OCI index and reject an
+  incomplete registry result before recording publication success.
+- Add an isolated, unscheduled Phase 1B proof for digest-preserving GAR-to-ECR copy and keyless
+  Fargate-to-BigQuery credential refresh. This is feasibility evidence, not Fargate support.
+
 ## 0.7.0 — 2026-08-07 (beta)
 
 ### Acceptance

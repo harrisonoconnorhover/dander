@@ -57,6 +57,14 @@ class _Runner:
                                 "platform": {"os": "linux", "architecture": "amd64"},
                             },
                             {
+                                "digest": "sha256:" + "d" * 64,
+                                "platform": {
+                                    "os": "linux",
+                                    "architecture": "arm64",
+                                    "variant": "v8",
+                                },
+                            },
+                            {
                                 "digest": "sha256:" + "c" * 64,
                                 "platform": {"os": "unknown", "architecture": "unknown"},
                             },
@@ -109,7 +117,7 @@ def test_runtime_image_publisher_returns_an_immutable_digest(tmp_path: Path) -> 
     build = next(
         command for command in runner.commands if command[:3] == ("docker", "buildx", "build")
     )
-    assert "--platform" in build and "linux/amd64" in build and "--push" in build
+    assert "--platform" in build and "linux/amd64,linux/arm64" in build and "--push" in build
     assert "--sbom=true" in build
     assert "--provenance=mode=max" in build
     assert any(part.startswith("DANDER_BUILD_REVISION=") for part in build)
@@ -119,7 +127,10 @@ def test_runtime_image_publisher_returns_an_immutable_digest(tmp_path: Path) -> 
     assert record["schema"] == "io.dander.runtime.artifact/v1"
     assert record["image"] == image
     assert record["index_digest"] == "sha256:" + "a" * 64
-    assert record["platform_manifests"] == {"linux/amd64": "sha256:" + "b" * 64}
+    assert record["platform_manifests"] == {
+        "linux/amd64": "sha256:" + "b" * 64,
+        "linux/arm64/v8": "sha256:" + "d" * 64,
+    }
     assert record["sbom_attached"] is True
     assert record["provenance_attached"] is True
 
@@ -138,6 +149,58 @@ def test_runtime_image_publisher_accepts_installed_project_context(tmp_path: Pat
     )
 
     assert image.endswith("@sha256:" + "a" * 64)
+
+
+def test_runtime_image_publisher_rejects_an_incomplete_platform_index(tmp_path: Path) -> None:
+    for name in ("Dockerfile", "README.md", "dander.yaml"):
+        (tmp_path / name).write_text(name, encoding="utf-8")
+    for directory in ("connectors", "models"):
+        path = tmp_path / directory
+        path.mkdir()
+        (path / "content.txt").write_text(directory, encoding="utf-8")
+
+    class _IncompleteIndexRunner(_Runner):
+        def __call__(
+            self,
+            args: tuple[str, ...],
+            *,
+            cwd: Path,
+            check: bool,
+            capture_output: bool = False,
+            text: bool = False,
+            input: str | None = None,
+        ) -> subprocess.CompletedProcess[str]:
+            result = super().__call__(
+                args,
+                cwd=cwd,
+                check=check,
+                capture_output=capture_output,
+                text=text,
+                input=input,
+            )
+            if args[:4] != ("docker", "buildx", "imagetools", "inspect"):
+                return result
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                stdout=json.dumps(
+                    {
+                        "schemaVersion": 2,
+                        "manifests": [
+                            {
+                                "digest": "sha256:" + "b" * 64,
+                                "platform": {"os": "linux", "architecture": "amd64"},
+                            }
+                        ],
+                    }
+                ),
+            )
+
+    with pytest.raises(ProjectBootstrapError, match="missing required.*linux/arm64"):
+        RuntimeImagePublisher(tmp_path, runner=_IncompleteIndexRunner()).publish(
+            project="unit-project",
+            region="us-central1",
+        )
 
 
 def test_runtime_image_publisher_uses_bootstrap_impersonation_without_token_in_args(
@@ -229,6 +292,34 @@ def test_runtime_image_tag_tracks_graph_content(tmp_path: Path) -> None:
     ]
     assert tags[0] != tags[1]
     assert all(":candidate-" in tag for tag in tags)
+
+
+def test_runtime_image_tag_tracks_explicit_extra_build_context_files(tmp_path: Path) -> None:
+    for name in ("Dockerfile", "dander.yaml"):
+        (tmp_path / name).write_text(name, encoding="utf-8")
+    for directory in ("connectors", "models"):
+        path = tmp_path / directory
+        path.mkdir()
+        (path / "content.txt").write_text(directory, encoding="utf-8")
+    (tmp_path / ".dockerignore").write_text(
+        "*\n!Dockerfile\n!dander.yaml\n!connectors/\n!models/\n!phase1b_probe.py\n",
+        encoding="utf-8",
+    )
+    probe = tmp_path / "phase1b_probe.py"
+    probe.write_text("print('before')\n", encoding="utf-8")
+    runner = _Runner()
+    publisher = RuntimeImagePublisher(tmp_path, runner=runner)
+
+    publisher.publish(project="unit-project", region="us-central1", tag_prefix="candidate")
+    probe.write_text("print('after')\n", encoding="utf-8")
+    publisher.publish(project="unit-project", region="us-central1", tag_prefix="candidate")
+
+    tags = [
+        command[command.index("-t") + 1]
+        for command in runner.commands
+        if command[:3] == ("docker", "buildx", "build")
+    ]
+    assert tags[0] != tags[1]
 
 
 def test_active_admin_member_uses_the_authenticated_gcloud_user(tmp_path: Path) -> None:
