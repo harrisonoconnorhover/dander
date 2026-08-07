@@ -208,7 +208,7 @@ def _executor(
     return PipelineExecutor(
         pipeline_id="example_pipeline",
         source_config=source,
-        ingestion=_Ingestion(),  # type: ignore[arg-type]
+        ingestion=_Ingestion(),
         history=history,
         project="valid-project-123",
         models_dir=models_dir,

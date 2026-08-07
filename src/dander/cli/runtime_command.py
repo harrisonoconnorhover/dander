@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from click import ClickException
@@ -21,6 +23,7 @@ from dander.runtime_contract import (
     validate_runtime_contract,
     validate_runtime_identifier,
 )
+from dander.runtime_inspection import inspect_runtime, run_local_conformance
 from dander.state import RunStage, classify_failure
 
 runtime_app = typer.Typer(
@@ -28,6 +31,37 @@ runtime_app = typer.Typer(
     no_args_is_help=True,
 )
 _CONSOLE = Console()
+
+
+@runtime_app.command("inspect")
+def inspect_runtime_command(
+    project_config: Path = typer.Option(Path("dander.yaml"), "--config"),  # noqa: B008
+) -> None:
+    """Report installed runtime, adapter, and plugin metadata without provider access."""
+    try:
+        inspection = inspect_runtime(project_config)
+    except (RuntimeContractError, ValueError) as error:
+        raise typer.BadParameter(str(error)) from error
+    typer.echo(inspection.to_json())
+
+
+@runtime_app.command("conformance")
+def conformance_runtime_command(
+    work_dir: Annotated[
+        Path | None,
+        typer.Option("--work-dir", help="Directory in which the probe may write state.db."),
+    ] = None,
+) -> None:
+    """Run a credential-free local executor, event, filesystem, and signal probe."""
+    try:
+        if work_dir is not None:
+            result = run_local_conformance(work_dir)
+        else:
+            with tempfile.TemporaryDirectory(prefix="dander-runtime-conformance-") as directory:
+                result = run_local_conformance(Path(directory))
+    except RuntimeContractError as error:
+        raise typer.BadParameter(str(error)) from error
+    typer.echo(result.to_json())
 
 
 @runtime_app.command("execute")
