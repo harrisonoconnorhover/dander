@@ -2,39 +2,35 @@
 
 ## Finished
 
-- Added version 2 logical projects plus named platform/deployment configuration.
-- Kept every version 1 manifest compatible through one resolved `DanderProject` view.
-- Added deterministic `dander config migrate --check` and guarded atomic migration writes.
-- Changed new source-free starter projects to the two-file v2 layout.
-- Proved the isolated GCP deployment plans `No changes` before and after migration.
+- Added one API-v1 provider-factory registry for all five platform capability categories.
+- Added strict duplicate, unknown-provider, config-type, identity, and API-version checks.
+- Kept provider implementation imports lazy until the exact provider is built.
+- Added focused fake-provider and import-path tests without moving BigQuery runtime behavior.
 
 ## Try It
 
-Run `dander config migrate --config dander.yaml --check`. On a version 1 project, review the result
-and then run the command without `--check`; `dander.platforms.yaml` is never overwritten.
+Create a `ProviderRegistry`, register a lightweight Pydantic configuration model and lazy factory,
+then call `parse` before `build`. Parsing does not import the implementation module.
 
 ## Checks
 
-- All 832 tests, Ruff, strict mypy across 190 files, and both Terraform roots passed.
-- Wheel/sdist build and inspection plus outside-checkout installs and v2 scaffolds passed.
-- Dependency audit and local read-only container conformance passed.
-- Version 1 and migrated version 2 isolated plans each reported exactly `No changes.`
-- Both isolated schedulers remained paused; no apply or retained-project mutation occurred.
+- All 843 tests, Ruff, formatting, and strict mypy across 193 source files passed.
+- Wheel/sdist build and inspection plus both Terraform-root validations passed.
+- The isolated GCP plan reported `No changes`; both schedules remained paused and no apply ran.
 
 ## Decisions
 
-- Multiple deployments require explicit selection; one deployment resolves deterministically.
-- GCP/BigQuery/Cloud Run remains the only supported hosted composition in this slice.
-- New provider factories and canonical schemas remain separate Phase 2 PRs.
+- One registry contract covers warehouse, state, catalog, secrets, and launcher categories.
+- Factory API version 1 validates construction compatibility independently of config versions.
+- Concrete adapters and support claims remain separate provider PRs.
 
 ## Remaining
 
-- Review and merge the focused platform-profile PR after protected CI passes.
-- Add provider registries/factories from merged main in the next separate PR.
-- Keep the repository's retained version 1 manifest unchanged during the compatibility window.
+- Open and merge the focused provider-registry PR after protected CI passes.
+- Add canonical relation and schema contracts from merged main in the next PR.
 
 ## Review First
 
-- `src/dander/project/portable_config.py`
-- `src/dander/cli/config_command.py`
-- `tests/project/test_portable_config.py`
+- `src/dander/providers/registry.py`
+- `tests/providers/test_registry.py`
+- `tickets/DANDER-79-provider-factory-registry.md`

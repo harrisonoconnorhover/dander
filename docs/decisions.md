@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-07 — Provider factories are explicit and lazy
+
+- **Selection:** Warehouse, state, catalog, secret, and launcher factories use one API-v1 registry
+  keyed by category and validated provider ID. Duplicate and unknown registrations fail clearly.
+- **Loading:** Configuration models remain lightweight. A provider implementation and its SDKs are
+  imported only when that exact provider is built; merely validating another profile does not load
+  unselected providers.
+- **Boundary:** This registry establishes construction and compatibility rules only. A provider is
+  not supported until its concrete adapter, conformance suite, and live profile pass separately.
+
 ## 2026-08-07 — Version 2 separates logical projects from named deployments
 
 - **Configuration:** One logical project may be resolved through multiple named platform profiles.
