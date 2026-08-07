@@ -19,6 +19,7 @@ _OVERVIEW = "dataplex-types.global.overview"
 _CONTACTS = "dataplex-types.global.contacts"
 _SCHEMA = "dataplex-types.global.schema"
 _GENERIC = "dataplex-types.global.generic"
+_BIGQUERY_MANAGED_REQUIRED_ASPECTS = frozenset({_SCHEMA})
 
 
 class CatalogPublishError(RuntimeError):
@@ -91,7 +92,7 @@ class DataplexAspectGenerator:
 
 
 class DataplexCatalogPublisher:
-    """Attach generated aspects to first-party BigQuery catalog entries."""
+    """Attach optional generated aspects to first-party BigQuery catalog entries."""
 
     def __init__(
         self,
@@ -112,7 +113,7 @@ class DataplexCatalogPublisher:
         """Build an aspect-only request that preserves all unrelated aspects."""
         if asset.project != self._project:
             raise CatalogPublishError("Catalog asset belongs to a different project")
-        aspects = self._generator.generate(asset)
+        aspects = self._publishable_aspects(asset)
         entry_name = _bigquery_entry_name(asset, location=self._location)
         entry = dataplex_v1.Entry(
             name=entry_name,
@@ -157,8 +158,16 @@ class DataplexCatalogPublisher:
         return {
             key: _normalize_value(aspect.data)
             for key, aspect in sorted(entry.aspects.items())
-            if key in {generated.key for generated in self._generator.generate(asset)}
+            if key in {generated.key for generated in self._publishable_aspects(asset)}
         }
+
+    def _publishable_aspects(self, asset: CatalogAsset) -> tuple[GeneratedAspect, ...]:
+        """Exclude required aspects that Google manages for BigQuery system entries."""
+        return tuple(
+            aspect
+            for aspect in self._generator.generate(asset)
+            if aspect.key not in _BIGQUERY_MANAGED_REQUIRED_ASPECTS
+        )
 
 
 def _bigquery_entry_name(asset: CatalogAsset, *, location: str) -> str:

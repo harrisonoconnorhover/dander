@@ -118,7 +118,13 @@ def test_publisher_targets_bigquery_system_entry_and_only_generated_aspects() ->
     assert request.name == "projects/valid-project-123/locations/us"
     assert request.update_mask.paths == ["aspects"]
     assert request.delete_missing_aspects is False
+    assert set(request.aspect_keys) == {
+        "dataplex-types.global.contacts",
+        "dataplex-types.global.generic",
+        "dataplex-types.global.overview",
+    }
     assert set(request.aspect_keys) == set(request.entry.aspects)
+    assert "dataplex-types.global.schema" not in request.entry.aspects
     generic = request.entry.aspects["dataplex-types.global.generic"].data
     assert generic["type"] == "dander-view"
     assert generic["system"] == "greenhouse_job_board"
@@ -140,7 +146,6 @@ def test_publisher_reads_back_normalized_aspects() -> None:
         "dataplex-types.global.contacts",
         "dataplex-types.global.generic",
         "dataplex-types.global.overview",
-        "dataplex-types.global.schema",
     }
 
 

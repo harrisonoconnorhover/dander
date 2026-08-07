@@ -558,9 +558,10 @@ uv run dander catalog \
   --output .dander/catalog.json
 ```
 
-Local compilation is the default. `--publish-dataplex` explicitly attaches overview, contacts,
-schema, and generic system aspects to the corresponding BigQuery entry; it can be combined with
-`--guarded-free-tier`. Publication never deletes unrelated aspects. Google currently makes
+Local compilation is the default. `--publish-dataplex` explicitly attaches the optional overview,
+contacts, and generic system aspects to the corresponding BigQuery entry; BigQuery's required
+schema aspect remains Google-managed. It can be combined with `--guarded-free-tier`, and
+publication never deletes unrelated aspects. Google currently makes
 Knowledge Catalog API calls free but charges for stored aspect metadata, so cloud mutation is not
 implicit. See [Knowledge Catalog pricing](https://cloud.google.com/products/knowledge-catalog/pricing)
 and [Dataplex aspect management](https://docs.cloud.google.com/dataplex/docs/enrich-entries-metadata).

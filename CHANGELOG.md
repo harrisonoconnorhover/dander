@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Preserve BigQuery's Google-managed required schema aspect during Dataplex publication while
+  continuing to publish Dander's optional overview, contacts, and generic metadata aspects.
+
 ## 0.6.0rc1 — 2026-08-06 (alpha)
 
 ### Added
