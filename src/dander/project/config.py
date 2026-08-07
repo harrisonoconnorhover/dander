@@ -188,14 +188,22 @@ class PlatformSpec(BaseModel):
 
 
 class DanderProject(BaseModel):
-    """The versioned, repository-owned Dander project manifest."""
+    """A validated project resolved for one deployment.
+
+    Version 1 files populate this model directly. Version 2 logical projects are
+    combined with one named deployment from ``dander.platforms.yaml`` while the
+    compatibility window remains open.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1]
+    version: Literal[1, 2]
     platform: PlatformSpec = Field(default_factory=PlatformSpec)
     plugins: dict[str, PluginSpec] = Field(default_factory=dict)
     pipelines: dict[str, PipelineSpec] = Field(min_length=1)
+    platform_name: str = Field(default="gcp", exclude=True)
+    deployment_name: str = Field(default="gcp_cloud_run", exclude=True)
+    deployed_pipeline_ids: tuple[str, ...] | None = Field(default=None, exclude=True)
 
     @field_validator("plugins")
     @classmethod
@@ -214,11 +222,28 @@ class DanderProject(BaseModel):
             raise ValueError("pipeline ids must use lowercase letters, numbers, and underscores")
         return values
 
+    @model_validator(mode="after")
+    def validate_deployed_pipeline_ids(self) -> DanderProject:
+        if self.deployed_pipeline_ids is None:
+            return self
+        if len(self.deployed_pipeline_ids) != len(set(self.deployed_pipeline_ids)):
+            raise ValueError("deployed pipeline ids must not contain duplicates")
+        unknown = sorted(set(self.deployed_pipeline_ids) - set(self.pipelines))
+        if unknown:
+            raise ValueError(f"deployed pipeline ids contain unknown pipeline {unknown[0]!r}")
+        return self
+
     def terraform_pipelines(self) -> dict[str, dict[str, object]]:
         """Expand human pipeline definitions into the literal Terraform module contract."""
+        selected = (
+            set(self.pipelines)
+            if self.deployed_pipeline_ids is None
+            else set(self.deployed_pipeline_ids)
+        )
         return {
             pipeline_id: _terraform_pipeline(pipeline_id, pipeline)
             for pipeline_id, pipeline in sorted(self.pipelines.items())
+            if pipeline_id in selected
         }
 
     def validate_references(
@@ -296,23 +321,51 @@ class DanderProject(BaseModel):
                 )
 
 
-def load_project_config(path: Path) -> DanderProject:
-    """Load and validate one project manifest without reflecting authored values in errors."""
-    try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as error:
-        raise ProjectConfigError(f"Cannot read Dander project configuration: {path}") from error
-    if not isinstance(raw, dict):
-        raise ProjectConfigError(f"Dander project configuration must be a mapping: {path}")
+def load_project_config(
+    path: Path,
+    *,
+    platforms_path: Path | None = None,
+    deployment: str | None = None,
+) -> DanderProject:
+    """Load one v1 project or resolve one v2 project deployment.
+
+    A v2 project finds ``dander.platforms.yaml`` beside the logical manifest by
+    default. Multiple deployments require an explicit selection so a command can
+    never operate against an arbitrary environment.
+    """
+    raw = _load_yaml_mapping(path, label="Dander project configuration")
+    if raw.get("version") == 2:
+        from dander.project.portable_config import resolve_version_two_project
+
+        return resolve_version_two_project(
+            path,
+            raw,
+            platforms_path=platforms_path,
+            deployment=deployment,
+        )
     try:
         return DanderProject.model_validate(raw)
     except ValidationError as error:
-        locations = sorted(
-            {".".join(str(part) for part in issue["loc"]) or "<root>" for issue in error.errors()}
-        )
-        raise ProjectConfigError(
-            f"Invalid Dander project configuration at {path}; check: {', '.join(locations)}"
-        ) from error
+        raise _project_validation_error(path, error) from error
+
+
+def _load_yaml_mapping(path: Path, *, label: str) -> dict[str, object]:
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as error:
+        raise ProjectConfigError(f"Cannot read {label}: {path}") from error
+    if not isinstance(raw, dict):
+        raise ProjectConfigError(f"{label} must be a mapping: {path}")
+    return raw
+
+
+def _project_validation_error(path: Path, error: ValidationError) -> ProjectConfigError:
+    locations = sorted(
+        {".".join(str(part) for part in issue["loc"]) or "<root>" for issue in error.errors()}
+    )
+    return ProjectConfigError(
+        f"Invalid Dander project configuration at {path}; check: {', '.join(locations)}"
+    )
 
 
 def _terraform_pipeline(pipeline_id: str, pipeline: PipelineSpec) -> dict[str, object]:

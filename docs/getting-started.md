@@ -39,7 +39,7 @@ dander validate
 dander run greenhouse_jobs --dry-run --project "$DANDER_PROJECT"
 ```
 
-The generated manifest keeps the schedule paused. The dry-run performs no credential or network
+The generated `dander.platforms.yaml` keeps the schedule paused. The dry-run performs no credential or network
 access and should identify one Greenhouse endpoint and one selected model.
 
 ## Create the Terraform backend once
@@ -113,7 +113,8 @@ limiting, or preventing cloud spending; disabling the guard does not prevent or 
 
 The managed cost guard is optional. To use its simulation-first budget, Pub/Sub notification path,
 billing-shutoff function, and guarded runtime preflight, set
-`platform.safety.require_guarded_free_tier` to `true` and pass `--billing-account`. That opt-in path
+`deployments.gcp_cloud_run.safety.require_guarded_free_tier` to `true` in
+`dander.platforms.yaml` and pass `--billing-account`. That opt-in path
 requires permission to grant the bootstrap identity Billing Account Administrator on the linked
 billing account. Review those additional billing-account and project-level IAM changes before any
 apply. Selecting GitHub WIF similarly requires Workload Identity Pool Admin during stage zero.
@@ -144,7 +145,8 @@ non-empty raw and staging relation proves the live public extraction and transfo
 
 ## Enable the schedule only after proof
 
-Change only `pipelines.greenhouse_jobs.paused` to `false` in `dander.yaml`, rerun `dander validate`,
+Change only `deployments.gcp_cloud_run.pipelines.greenhouse_jobs.paused` to `false` in
+`dander.platforms.yaml`, rerun `dander validate`,
 then repeat `image-publish`, `init-platform-plan`, plan review, and `init-platform-apply`. The
 expected platform changes are the scheduler state and immutable image. Repeat `init-platform-plan`
 afterward and require Terraform to report `No changes.`

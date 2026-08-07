@@ -14,8 +14,10 @@ dander image-publish --project YOUR_GCP_PROJECT --failure-alert-email OPERATOR_E
 ```
 
 `image-publish` prints the complete `init-platform-plan` command. Review that saved Terraform plan,
-then apply it with `init-platform-apply`. The starter
-manifest keeps its scheduler paused and does not enable Dander's optional managed cost guard.
+then apply it with `init-platform-apply`. `dander.yaml` owns portable pipeline intent;
+`dander.platforms.yaml` owns the GCP profile, Cloud Run deployment, schedule, resources, and secret
+references. The starter deployment keeps its scheduler paused and does not enable Dander's
+optional managed cost guard.
 Disabling the guard does not prevent or cap cloud charges.
 
 Use the public [hosted Greenhouse quickstart](https://github.com/harrisonoconnorhover/dander/blob/main/docs/getting-started.md)
@@ -36,7 +38,7 @@ The public UI stores no graph or credentials; start `dander graph serve --origin
 from this project when you want the browser to open, save, or run one operator-bound graph.
 
 `graphs/greenhouse_jobs.yaml` is an inactive Druff-compatible example. To make a pipeline execute
-that graph instead of SQL models, set its manifest entry to:
+that graph instead of SQL models, set its logical `dander.yaml` entry to:
 
 ```yaml
 source: greenhouse_job_board

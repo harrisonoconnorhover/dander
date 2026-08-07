@@ -51,7 +51,8 @@ dander init-platform-apply \
   --bootstrap-service-account "dander-bootstrap@$DANDER_PROJECT.iam.gserviceaccount.com"
 ```
 
-If `platform.safety.require_guarded_free_tier` remains `true`, also pass the installation's existing
+If the v1 `platform.safety.require_guarded_free_tier` setting or the v2
+`deployments.<name>.safety.require_guarded_free_tier` setting remains `true`, also pass the installation's existing
 `--billing-account "$DANDER_BILLING_ACCOUNT"`. Do not change that safety setting merely to simplify
 an upgrade.
 

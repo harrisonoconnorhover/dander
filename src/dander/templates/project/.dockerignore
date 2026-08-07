@@ -1,6 +1,7 @@
 *
 !Dockerfile
 !dander.yaml
+!dander.platforms.yaml
 !connectors/
 !connectors/**
 !graphs/

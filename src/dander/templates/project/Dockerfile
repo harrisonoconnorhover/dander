@@ -23,6 +23,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir "dander-platform==${DANDER_VERSION}"
 
 COPY --chown=65532:65532 dander.yaml ./dander.yaml
+COPY --chown=65532:65532 dander.platforms.yaml ./dander.platforms.yaml
 
 RUN dander plugins install --config dander.yaml
 

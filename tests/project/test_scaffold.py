@@ -20,10 +20,14 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     manifest.validate_references(project)
     assert manifest.pipelines["greenhouse_jobs"].paused
     assert manifest.platform.safety.require_guarded_free_tier is False
+    assert manifest.version == 2
+    assert manifest.platform_name == "gcp"
+    assert manifest.deployment_name == "gcp_cloud_run"
     dockerfile = (project / "Dockerfile").read_text(encoding="utf-8")
     assert f"ARG DANDER_VERSION={__version__}" in dockerfile
     assert "RUN dander plugins install --config dander.yaml" in dockerfile
     assert "COPY --chown=65532:65532 dander.yaml ./dander.yaml" in dockerfile
+    assert "COPY --chown=65532:65532 dander.platforms.yaml ./dander.platforms.yaml" in dockerfile
     assert "COPY --chown=65532:65532 connectors ./connectors" in dockerfile
     assert "COPY --chown=65532:65532 graphs ./graphs" in dockerfile
     assert "COPY --chown=65532:65532 models ./models" in dockerfile
@@ -39,6 +43,7 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
         ".dockerignore",
         ".gitignore",
         "Dockerfile",
+        "dander.platforms.yaml",
         "connectors/greenhouse_job_board.yaml",
         "graphs/greenhouse_jobs.yaml",
         "infra/main.tf",
