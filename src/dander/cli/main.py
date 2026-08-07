@@ -962,7 +962,8 @@ def image_publish(
     ):
         raise typer.Abort()
     try:
-        image = RuntimeImagePublisher(config.resolve().parent).publish(
+        publisher = RuntimeImagePublisher(config.resolve().parent)
+        image = publisher.publish(
             project=project,
             region=resolved_region,
             tag_prefix=tag_prefix,
@@ -972,6 +973,8 @@ def image_publish(
     except ProjectBootstrapError as error:
         raise ClickException(str(error)) from error
     console.print(f"[green]Published immutable runtime image:[/green] {image}")
+    if publisher.artifact_record_path is not None:
+        console.print(f"Artifact record: {publisher.artifact_record_path}")
     next_command = [
         "dander",
         "init-platform-plan",

@@ -1,0 +1,12 @@
+{
+  "schema": "io.dander.runtime.capabilities/v1",
+  "contract": "io.dander.runtime/v1",
+  "adapters": {
+    "platform_profiles": ["gcp"],
+    "launchers": ["cloud_run", "local"],
+    "warehouses": ["bigquery"],
+    "state_backends": ["bigquery", "sqlite"],
+    "catalogs": ["dataplex", "local_json", "none"],
+    "secret_providers": ["environment", "gcp_secret_manager"]
+  }
+}

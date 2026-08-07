@@ -50,12 +50,51 @@ def test_runtime_inspect_reports_active_metadata_without_provider_access(tmp_pat
     inspection = json.loads(inspect_runtime(_manifest(tmp_path)).to_json())
 
     assert inspection["contract"] == RUNTIME_CONTRACT
+    assert inspection["capability_manifest"] == "io.dander.runtime.capabilities/v1"
     assert inspection["build"]["distribution"] == "dander-platform"
     assert inspection["adapters"]["platform_profiles"] == ["gcp"]
     assert inspection["adapters"]["launchers"] == ["cloud_run", "local"]
     assert "bigquery" in inspection["adapters"]["warehouses"]
     assert "dlt" in inspection["adapters"]["ingestion_engines"]
     assert inspection["plugins"] == []
+
+
+def test_runtime_inspect_reports_validated_build_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DANDER_BUILD_REVISION", "a" * 64)
+    monkeypatch.setenv("DANDER_BUILD_CREATED", "2026-08-07T08:00:00Z")
+    monkeypatch.setenv("DANDER_IMAGE_DIGEST", "sha256:" + "b" * 64)
+
+    build = json.loads(inspect_runtime(_manifest(tmp_path)).to_json())["build"]
+
+    assert build["revision"] == "a" * 64
+    assert build["created"] == "2026-08-07T08:00:00Z"
+    assert build["image_digest"] == "sha256:" + "b" * 64
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        ("DANDER_BUILD_REVISION", "secret revision", "valid OCI revision"),
+        ("DANDER_BUILD_CREATED", "not-a-date", "ISO-8601 timestamp"),
+        ("DANDER_IMAGE_DIGEST", "private digest", "valid sha256 digest"),
+    ],
+)
+def test_runtime_inspect_rejects_invalid_build_metadata_without_echoing_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    value: str,
+    message: str,
+) -> None:
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(RuntimeContractError, match=message) as raised:
+        inspect_runtime(_manifest(tmp_path))
+
+    assert value not in str(raised.value)
 
 
 def test_runtime_inspect_reports_declared_plugin_without_constructing_source(

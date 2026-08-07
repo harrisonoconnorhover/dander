@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import signal
 import sys
 from dataclasses import dataclass
+from datetime import datetime
+from importlib import resources
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -31,12 +35,8 @@ if TYPE_CHECKING:
 
     from dander.concurrency import OwnershipGuard
 
-_PLATFORM_PROFILES = ("gcp",)
-_LAUNCHERS = ("cloud_run", "local")
-_WAREHOUSES = ("bigquery",)
-_STATE_BACKENDS = ("bigquery", "sqlite")
-_CATALOGS = ("dataplex", "local_json", "none")
-_SECRET_PROVIDERS = ("environment", "gcp_secret_manager")
+_REVISION = re.compile(r"^(?:unknown|[0-9a-f]{40}|[0-9a-f]{64})$")
+_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +44,7 @@ class RuntimeInspection:
     """Non-secret installed runtime and plugin metadata."""
 
     contract: str
+    capability_manifest: str
     build: Mapping[str, object]
     adapters: Mapping[str, object]
     plugins: tuple[Mapping[str, object], ...]
@@ -53,6 +54,7 @@ class RuntimeInspection:
         return json.dumps(
             {
                 "contract": self.contract,
+                "capability_manifest": self.capability_manifest,
                 "build": self.build,
                 "adapters": self.adapters,
                 "plugins": self.plugins,
@@ -93,20 +95,16 @@ def inspect_runtime(config: Path) -> RuntimeInspection:
     """Inspect configured packages without constructing sources or contacting providers."""
     manifest = load_project_config(config)
     registry = load_connector_plugins(manifest.plugins)
+    capabilities = _load_capabilities()
+    capability_adapters = capabilities["adapters"]
+    if not isinstance(capability_adapters, dict):
+        raise RuntimeContractError("runtime capability manifest is incompatible")
     return RuntimeInspection(
         contract=RUNTIME_CONTRACT,
-        build={
-            "distribution": "dander-platform",
-            "version": __version__,
-            "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        },
+        capability_manifest=str(capabilities["schema"]),
+        build=_build_metadata(),
         adapters={
-            "platform_profiles": _PLATFORM_PROFILES,
-            "launchers": _LAUNCHERS,
-            "warehouses": _WAREHOUSES,
-            "state_backends": _STATE_BACKENDS,
-            "catalogs": _CATALOGS,
-            "secret_providers": _SECRET_PROVIDERS,
+            **capability_adapters,
             "ingestion_engines": registry.engines,
         },
         plugins=_plugin_metadata(registry),
@@ -218,6 +216,56 @@ def _plugin_metadata(registry: ConnectorPluginRegistry) -> tuple[Mapping[str, ob
         }
         for installed in registry.plugins
     )
+
+
+def _build_metadata() -> dict[str, object]:
+    build: dict[str, object] = {
+        "distribution": "dander-platform",
+        "version": __version__,
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+    }
+    revision = os.environ.get("DANDER_BUILD_REVISION")
+    if revision is not None:
+        if not _REVISION.fullmatch(revision):
+            raise RuntimeContractError("DANDER_BUILD_REVISION is not a valid OCI revision")
+        build["revision"] = revision
+    created = os.environ.get("DANDER_BUILD_CREATED")
+    if created is not None:
+        try:
+            parsed = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise RuntimeContractError(
+                "DANDER_BUILD_CREATED is not an ISO-8601 timestamp"
+            ) from error
+        if parsed.tzinfo is None:
+            raise RuntimeContractError("DANDER_BUILD_CREATED must include a timezone")
+        build["created"] = created
+    digest = os.environ.get("DANDER_IMAGE_DIGEST")
+    if digest is not None:
+        if not _DIGEST.fullmatch(digest):
+            raise RuntimeContractError("DANDER_IMAGE_DIGEST is not a valid sha256 digest")
+        build["image_digest"] = digest
+    return build
+
+
+def _load_capabilities() -> Mapping[str, object]:
+    try:
+        raw = (
+            resources.files("dander")
+            .joinpath("runtime-capabilities.json")
+            .read_text(encoding="utf-8")
+        )
+        capabilities = json.loads(raw)
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeContractError("runtime capability manifest is unavailable") from error
+    if (
+        not isinstance(capabilities, dict)
+        or capabilities.get("schema") != "io.dander.runtime.capabilities/v1"
+        or capabilities.get("contract") != RUNTIME_CONTRACT
+        or not isinstance(capabilities.get("adapters"), dict)
+    ):
+        raise RuntimeContractError("runtime capability manifest is incompatible")
+    return capabilities
 
 
 def _probe_signal_translation() -> str:

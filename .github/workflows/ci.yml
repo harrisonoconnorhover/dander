@@ -120,6 +120,8 @@ jobs:
       - name: Verify runtime contract and bundled proof assets
         run: |
           test "$(docker run --rm --entrypoint /usr/bin/id dander-ci:${{ github.sha }} -u)" = "65532"
+          docker run --rm --read-only --tmpfs /tmp dander-ci:${{ github.sha }} runtime conformance \
+            | grep -F '"status":"succeeded"'
           docker run --rm --entrypoint /usr/bin/test dander-ci:${{ github.sha }} -f /app/connectors/hubspot_test.yaml
           docker run --rm --entrypoint /usr/bin/test dander-ci:${{ github.sha }} -f /app/models/staging/stg_hubspot__companies.yml
       - name: Scan image

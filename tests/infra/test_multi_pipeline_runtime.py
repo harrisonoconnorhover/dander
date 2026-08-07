@@ -99,6 +99,19 @@ def test_container_carries_the_project_manifest() -> None:
     assert "infra/.terraform/" in dockerignore
 
 
+def test_container_declares_the_oci_runtime_artifact_contract() -> None:
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "org.opencontainers.image.source=" in dockerfile
+    assert "org.opencontainers.image.documentation=" in dockerfile
+    assert "org.opencontainers.image.licenses=" in dockerfile
+    assert "org.opencontainers.image.revision=" in dockerfile
+    assert "org.opencontainers.image.created=" in dockerfile
+    assert "DANDER_BUILD_REVISION" in dockerfile
+    assert "DANDER_BUILD_CREATED" in dockerfile
+    assert "USER 65532:65532" in dockerfile
+
+
 def test_bootstrap_identity_can_manage_monitoring_alerts() -> None:
     bootstrap = (ROOT / "infra/bootstrap-admin/main.tf").read_text(encoding="utf-8")
 
