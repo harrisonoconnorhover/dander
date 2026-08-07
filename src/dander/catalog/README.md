@@ -6,7 +6,8 @@ additional representations:
 - an atomic BigQuery/SQLite pipeline snapshot containing source, model, lineage, test, and metric
   definitions;
 - a deterministic, versioned JSON semantic registry for agents and local tooling;
-- Dataplex Knowledge Catalog system aspects for overview, contacts, schema, and generic metadata.
+- Dataplex Knowledge Catalog optional system aspects for overview, contacts, and generic metadata;
+  BigQuery continues to manage its required schema aspect.
 
 Local compilation is the default and requires no catalog API:
 
@@ -41,8 +42,9 @@ uv run dander catalog \
   --guarded-free-tier
 ```
 
-The publisher uses `modifyEntry` for the first-party BigQuery system entry, updates only the four
-generated aspect keys, and leaves unrelated aspects untouched. It does not create custom aspect
-types. Dataplex API calls are free, but Google charges for stored aspect metadata; see the current
+The publisher uses `modifyEntry` for the first-party BigQuery system entry, updates only the three
+optional generated aspect keys, leaves BigQuery's required schema and all unrelated aspects
+untouched, and does not create custom aspect types. Dataplex API calls are free, but Google charges
+for stored aspect metadata; see the current
 [Knowledge Catalog pricing](https://cloud.google.com/products/knowledge-catalog/pricing).
 Therefore Dander never publishes merely because `catalog` was run.

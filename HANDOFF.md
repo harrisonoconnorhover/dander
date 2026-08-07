@@ -2,40 +2,37 @@
 
 ## Finished
 
-- Added a release-metadata check covering package metadata, public docs, changelog, and templates.
-- Made CI and artifact validation derive the version from `pyproject.toml`.
-- Made wheel and sdist validation reject stale PyPI descriptions.
-- Synchronized public candidate documentation on `0.6.0rc1` while retaining `0.5.1` as stable alpha.
-- Added a regression test for the prior `0.1.0` README drift.
+- Kept BigQuery's required `schema` aspect Google-managed during Dataplex publication.
+- Continued publishing Dander's optional `overview`, `contacts`, and `generic` aspects.
+- Added a regression assertion for the exact Dataplex request keys.
+- Corrected the public catalog documentation and changelog.
 
 ## Try It
 
-Run `python3 scripts/check_release_metadata.py`. Build with `uv build`, then pass the wheel and
-sdist to `python3 scripts/check_distribution.py`.
+Run `uv run pytest tests/catalog/test_dataplex.py tests/cli/test_catalog_cli.py -q` and inspect
+`DataplexCatalogPublisher.request_for()` to confirm the schema key is absent.
 
 ## Checks
 
-- Ruff lint and format checks passed across the repository.
+- Ruff lint and format checks passed.
 - Strict mypy passed across `src` and `tests`.
 - Full test suite passed: `776 passed`.
-- Wheel and sdist built and passed identity, contents, hygiene, and description validation.
-- The built wheel installed and started outside the repository checkout.
-- `git diff --check` passed.
+- Terraform platform and stage-zero validation passed.
+- Wheel and sdist built, validated, and the wheel installed and generated a valid project outside the checkout.
 
 ## Decisions
 
-- PyPI release descriptions are immutable, so the live correction must arrive in a new release.
-- `pyproject.toml` is the single version source; publication-facing copy must match it exactly.
-- `0.6.0rc1` is the prepared candidate; `0.5.1` remains the latest stable alpha.
+- Dander's local metadata spine still carries declared column schema.
+- Dataplex publication enriches optional metadata without rewriting BigQuery's required system schema.
 
 ## Remaining
 
-- Review and merge the release-metadata pull request after protected CI passes.
-- Publish `0.6.0rc1` only with explicit approval for the full candidate, not merely its metadata.
-- Verify the live PyPI page after publication.
+- Merge the protected fix PR.
+- Publish `0.6.0rc2` from a release-only commit.
+- Repeat the failed live catalog scenario and the bounded candidate smoke suite.
 
 ## Review First
 
-- `scripts/check_release_metadata.py`
-- `scripts/check_distribution.py`
-- `.github/workflows/publish.yml`
+- `src/dander/catalog/dataplex.py`
+- `tests/catalog/test_dataplex.py`
+- `README.md`
