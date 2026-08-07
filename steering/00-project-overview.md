@@ -6,10 +6,11 @@
 
 ## One-liner
 
-Dander is an open-source, GCP-native EL(T) suite for reading from SaaS systems
+Dander is an open-source, cloud-selectable EL(T) suite for reading from SaaS systems
 (Salesforce, Workday, Greenhouse, NetSuite, Marketo, Xactly, …) and ingesting them
-**efficiently and idempotently into BigQuery** — a focused, self-owned replacement for
-Informatica, and a customizable stand-in for dbt/SQLMesh transformation.
+**efficiently and idempotently into an explicitly supported warehouse profile** — a focused,
+self-owned replacement for Informatica, and a customizable stand-in for dbt/SQLMesh
+transformation. GCP, Cloud Run, and BigQuery remain the primary compatibility profile.
 
 ## Why this exists
 
@@ -17,8 +18,9 @@ Informatica, and a customizable stand-in for dbt/SQLMesh transformation.
 - **dbt Core is free but not fully ours**, and the transformation OSS landscape consolidated
   under one vendor (Fivetran acquired Census, Tobiko/SQLMesh, and dbt Labs across 2025–2026).
   Owning the transform layer removes vendor-consolidation risk.
-- We run on **GCP** and land everything in **BigQuery**. GCP-first, with clean provider
-  abstractions so AWS/Azure can be added later without a rewrite.
+- The proven production profile runs on **GCP** and lands in **BigQuery**. Portability is added
+  through named, separately qualified platform profiles; a new provider is never implied by a
+  generic interface or local mock alone.
 
 ## Modules
 
@@ -28,13 +30,17 @@ Informatica, and a customizable stand-in for dbt/SQLMesh transformation.
 | **Ingestion (hybrid)** | Each source is a **config object** (base URL, auth ref, endpoints, pagination, incremental cursor, field mappings). Standard REST sources run on **dlt**; enterprise sources (Workday/NetSuite/Xactly) use hand-rolled `EnterpriseSource` extractors. Both behind the `Source` interface. Rate limiting/backoff per source; inferred type casting to BigQuery types with per-field overrides. |
 | **BigQuery Writer** | Multiple write patterns: SCD1 (MERGE), SCD2 (versioned rows), daily snapshot (partitioned append), incremental (watermark). Storage Write API vs load jobs per workload. |
 | **Transform** | dbt-replacement: Jinja2 `ref()` templating → parsed dependency DAG → topological execution. Materializations reuse the Writer patterns. Generic tests (not-null/unique/accepted-values/relationships). One YAML per model feeds SQL + Dataplex catalog aspects + semantic registry. |
-| **Bootstrap CLI** | pip-installable; wraps **Terraform** to provision Secret Manager, service accounts + least-privilege IAM (Workload Identity Federation), a compute target (Cloud Run jobs), and BigQuery datasets. Provider-abstracted for future AWS/Azure. |
+| **Bootstrap CLI** | pip-installable; wraps **Terraform** to provision a selected, named platform profile. The current compatibility profile provisions Secret Manager, service accounts + least-privilege IAM (Workload Identity Federation), Cloud Run jobs, and BigQuery datasets. |
 | **Orchestration/State** | `PipelineExecutor` owns ingest → transform/tests → metadata and one truthful lifecycle record; Cloud Scheduler invokes isolated Cloud Run jobs; BigQuery/SQLite persist cursors, run history, and atomic catalog snapshots. |
 | **Metadata spine** | One typed source/model definition projects source endpoints, models, columns, lineage, tests, governed metrics, local JSON, optional Dataplex aspects, and the durable `dander_meta` catalog. |
 
 ## Scope discipline (non-goals)
 
-- Not a general-purpose "everything" tool. We read APIs → land in BigQuery. That's the core.
+- Not a general-purpose "everything" tool. We read APIs into qualified warehouse profiles; the
+  GCP/BigQuery profile remains the compatibility baseline until another profile passes its live
+  release gate.
+- Do not claim a Cartesian mix of launchers, warehouses, state backends, catalogs, and secret
+  providers. Only named combinations in the tested compatibility matrix are supported.
 - Prove the pattern on **low-friction sources first** (Greenhouse, Marketo) end-to-end
   before tackling ugly auth/data shapes (Workday, NetSuite).
 - Borrow vs. build is decided per-module in the Decision Log — don't reinvent pagination/retry
@@ -43,9 +49,10 @@ Informatica, and a customizable stand-in for dbt/SQLMesh transformation.
 ## Tech stack
 
 - **Python 3.12+** — primary application language. See `languages/python.md`.
-- **BigQuery Standard SQL** — transforms. See `languages/sql.md`.
-- **Terraform (HCL)** — infrastructure-as-code. See `languages/terraform.md`.
-- **GCP Secret Manager** — the only place real credentials live.
+- **BigQuery Standard SQL** — the current transform compatibility dialect. See `languages/sql.md`.
+- **Terraform (HCL)** — provider-separated infrastructure-as-code. See `languages/terraform.md`.
+- **GCP Secret Manager** — the current compatibility-profile secret store; later profiles must use
+  an explicitly qualified reference-based secret provider.
 
 ## Compliance note (read before open-sourcing)
 
@@ -65,6 +72,10 @@ material, credentials, or non-public data is introduced.
 
 Append newest at top. Format: `- YYYY-MM-DD — decision — rationale`.
 
+- 2026-08-07 — **Dander becomes cloud-selectable without weakening the GCP contract** — a
+  versioned OCI runtime and named deployment profiles will separate logical pipelines from cloud
+  projection. GCP/Cloud Run/BigQuery remains the primary compatibility profile, and each added
+  combination stays unsupported until its adapter, identity, launcher, and live proof pass.
 - 2026-08-02 — **Workday acceptance begins with a three-operation RaaS contract** — token
   issuance plus workers and organizations custom reports are simulated over real loopback HTTP;
   tenant auth, prompt aliases, and permissions remain unproven until a narrow live acceptance.

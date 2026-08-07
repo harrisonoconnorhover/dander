@@ -2,36 +2,38 @@
 
 ## Finished
 
-- Prepared the Dander `0.6.0` Beta release from the accepted `0.6.0rc2` runtime.
-- Pinned the stable Salesforce `0.3.0` and ServiceNow `0.2.1` connector releases.
-- Updated release metadata, public Beta labeling, acceptance records, and generated-project guidance.
-- Kept runtime behavior unchanged; only curated catalog data and packaged templates changed under `src/dander`.
+- Established Dander `0.6.0` as the frozen GCP/Cloud Run/BigQuery compatibility baseline.
+- Recorded the cloud-selectable product direction without weakening existing version 1 behavior.
+- Added initial correctness, bounded-operation, service, and cost qualification objectives.
+- Added one cross-layer characterization suite for BigQuery fencing/state, Cloud Run projection,
+  CLI identity, and packaged infrastructure.
 
 ## Try It
 
-Run `python3 scripts/check_release_metadata.py`, build with `uv build`, and install the artifacts in
-a temporary environment outside this checkout.
+Run `uv run pytest -q tests/portability/test_gcp_compatibility_baseline.py` to exercise the
+cross-layer baseline before refactoring a portability boundary.
 
 ## Checks
 
-- Release metadata, Ruff lint/format, strict mypy, and all 776 tests passed.
-- Root and stage-zero Terraform format/initialization/validation passed with backends disabled.
-- Wheel and sdist built, passed distribution inspection, and installed source-free outside the checkout.
-- Public Salesforce `0.3.0` and ServiceNow `0.2.1` installed together outside their repositories.
+- Ruff lint/format and strict mypy passed.
+- All 780 tests passed.
+- Root and stage-zero Terraform format, backend-disabled initialization, and validation passed.
+- Release metadata plus wheel/sdist build and distribution inspection passed.
 
 ## Decisions
 
-- Stable `0.6.0` preserves the accepted `rc2` runtime and moves Dander's public status to Beta.
-- The curated catalog now advertises only the stable, Dander-`0.6.x` connector pins.
+- GCP/Cloud Run/BigQuery remains the primary compatibility profile.
+- New combinations remain unsupported until their exact conformance, identity, and live gates pass.
+- Paid scale tests require a separately approved ceiling and publish measured, digest-bound results.
 
 ## Remaining
 
-- Merge the protected release PR, tag and publish `0.6.0`, and create the GitHub Release.
-- Deploy the public stable source-free image in the isolated project and repeat bounded smoke/no-drift checks.
-- Upgrade the retained project only through its separately reviewed plan.
+- Merge this no-runtime-change baseline through protected main.
+- Rebase the isolated OCI runtime-contract ticket onto the merged baseline.
+- Continue Phase 1 as focused invocation, inspection, artifact, projection, and Cloud Run PRs.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `src/dander/plugins/catalog.py`
+- `docs/cloud-portability-slos.md`
+- `tests/portability/test_gcp_compatibility_baseline.py`
+- `steering/00-project-overview.md`

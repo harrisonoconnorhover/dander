@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-07 — Cloud-selectable direction preserves a named GCP compatibility profile
+
+- Portability is introduced through a versioned OCI runtime contract and named, validated platform
+  profiles; logical pipelines do not gain provider conditionals.
+- GCP/Cloud Run/BigQuery/Dataplex/GCP Secret Manager remains the primary compatibility profile.
+  Existing version 1 manifests and resource addresses remain compatible while the new contracts
+  are proven incrementally.
+- A launcher, warehouse, state, catalog, or secret combination is unsupported until the exact
+  combination passes its conformance, identity, failure, and live-profile gates. Interfaces and
+  simulators alone do not create a support claim.
+
 ## 2026-08-04 — Graph deployment preview is artifact-writing but non-applyable
 
 - Graph Save remains a local conditional file write. Candidate creation is a separate explicit
