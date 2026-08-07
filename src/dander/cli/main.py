@@ -213,6 +213,7 @@ def install_plugins(
     if not requirements:
         console.print("No connector plugins are declared in dander.yaml.")
         return
+    plugin_count = len(requirements)
     # Keep the package running this command in the resolver transaction. Plugin
     # compatibility constraints must fail clearly instead of silently replacing
     # Dander with an older release inside a source-free runtime image.
@@ -236,7 +237,7 @@ def install_plugins(
         load_connector_plugins(manifest.plugins)
     except ConnectorPluginError as error:
         raise ClickException(f"Installed connector plugins are incompatible: {error}") from error
-    console.print(f"[green]Installed {len(requirements)} connector plugin(s).[/green]")
+    console.print(f"[green]Installed {plugin_count} connector plugin(s).[/green]")
 
 
 @plugins_app.command("scaffold")
