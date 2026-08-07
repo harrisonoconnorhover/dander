@@ -158,6 +158,7 @@ include = [
   "docs/known-limitations.md",
   "docs/netsuite-simulator.md",
   "docs/operator-soak.md",
+  "docs/oci-artifact-contract.md",
   "docs/rollback.md",
   "docs/upgrading.md",
   "examples",

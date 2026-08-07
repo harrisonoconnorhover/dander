@@ -27,6 +27,9 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     assert "COPY --chown=65532:65532 connectors ./connectors" in dockerfile
     assert "COPY --chown=65532:65532 graphs ./graphs" in dockerfile
     assert "COPY --chown=65532:65532 models ./models" in dockerfile
+    assert "org.opencontainers.image.revision=" in dockerfile
+    assert "org.opencontainers.image.created=" in dockerfile
+    assert "USER 65532:65532" in dockerfile
     assert dockerfile.index("COPY --chown=65532:65532 dander.yaml") < dockerfile.index(
         "dander plugins install"
     )

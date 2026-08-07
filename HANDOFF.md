@@ -2,39 +2,42 @@
 
 ## Finished
 
-- Added provider-free `dander runtime inspect` for installed build, adapter, and plugin metadata.
-- Added `dander runtime conformance`, a credential-free local executor/run-ledger/event probe.
-- Proved the probe writes only its declared SQLite file and refuses to overwrite existing state.
-- Proved graceful SIGTERM translation inside the local conformance path.
-- Narrowed `PipelineExecutor` to an ingestion protocol without changing runtime behavior.
+- Added OCI source, documentation, license, version, revision, and creation annotations.
+- Packaged and validated `io.dander.runtime.capabilities/v1` through `runtime inspect`.
+- Made image publication attach SBOM/provenance and record index plus runnable-platform digests.
+- Made artifact-record writes atomic and exposed their path through `dander image-publish`.
+- Added CI execution of runtime conformance as UID 65532 on a read-only root filesystem.
 
 ## Try It
 
-Run `dander runtime inspect --config dander.yaml`, then `dander runtime conformance`. Supply an
-empty `--work-dir` only when you want to retain the probe's `state.db` for inspection.
+Build the root Dockerfile with `DANDER_BUILD_REVISION` and `DANDER_BUILD_CREATED`, then run
+`docker run --rm --read-only --tmpfs /tmp IMAGE runtime conformance`. A real
+`dander image-publish` writes `.dander/runtime-artifact.json` after registry verification.
 
 ## Checks
 
-- Ruff lint/format and strict mypy passed.
-- All 799 tests passed.
-- Root and stage-zero Terraform format, backend-disabled initialization, and validation passed.
-- Wheel/sdist inspection and source-free wheel conformance passed outside the checkout.
-- A non-root, read-only local OCI image ran conformance and inspection successfully.
+- Ruff format/lint and strict mypy passed.
+- All 804 tests passed.
+- Root and stage-zero Terraform formatting, backend-disabled initialization, and validation passed.
+- Wheel/sdist inspection confirmed the packaged capability manifest.
+- A local OCI image passed inspection and conformance as non-root with a read-only root filesystem.
 
 ## Decisions
 
-- Inspection loads declared plugin metadata but never constructs a source or resolves a secret.
-- The conformance pipeline exercises the real executor and SQLite ledger with a deterministic
-  in-process ingestion summary; it performs no network or provider access.
+- The source-free build-context digest is the artifact revision; the registry digest remains the
+  immutable deployment identity.
+- Attestation descriptors use `unknown/unknown` and are excluded from runnable-platform records.
+- Publication fails closed after push if the registry manifest or local artifact record is invalid.
 
 ## Remaining
 
 - Merge this focused ticket through protected main.
-- Add OCI annotations, digest recording, capability manifest, SBOM, and artifact checks.
-- Add the cloud-neutral execution projection, then make Cloud Run consume it with parity.
+- Add the cloud-neutral execution projection.
+- Make Cloud Run consume the projection and prove GCP parity.
+- Add multi-architecture build/copy support in its separately planned phase.
 
 ## Review First
 
+- `src/dander/bootstrap/project.py`
 - `src/dander/runtime_inspection.py`
-- `src/dander/cli/runtime_command.py`
-- `tests/test_runtime_inspection.py`
+- `.github/workflows/ci.yml`

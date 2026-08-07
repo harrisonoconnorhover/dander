@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import re
 import subprocess
 import time
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -17,6 +20,9 @@ _BUCKET_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$")
 _REGION = re.compile(r"^[a-z][a-z0-9-]{1,62}[a-z0-9]$")
 _ACCOUNT = re.compile(r"^[^\s@]+@[^\s@]+$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_PLATFORM_PART = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
+_ARTIFACT_SCHEMA = "io.dander.runtime.artifact/v1"
+_SOURCE_URL = "https://github.com/harrisonoconnorhover/dander"
 
 
 class ProjectBootstrapError(RuntimeError):
@@ -151,6 +157,12 @@ class RuntimeImagePublisher:
     def __init__(self, repository_dir: Path, *, runner: _Runner | None = None) -> None:
         self._repository_dir = repository_dir.resolve()
         self._runner = runner or _subprocess_runner
+        self._artifact_record_path: Path | None = None
+
+    @property
+    def artifact_record_path(self) -> Path | None:
+        """Return the local artifact record written by the latest successful publication."""
+        return self._artifact_record_path
 
     def publish(
         self,
@@ -161,6 +173,7 @@ class RuntimeImagePublisher:
         impersonate_service_account: str = "",
         require_source_free: bool = False,
     ) -> str:
+        self._artifact_record_path = None
         if not _PROJECT_ID.fullmatch(project) or not _REGION.fullmatch(region):
             raise ProjectBootstrapError("Invalid runtime image project or region")
         if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", tag_prefix):
@@ -173,7 +186,9 @@ class RuntimeImagePublisher:
             )
         host = f"{region}-docker.pkg.dev"
         repository = f"{host}/{project}/dander/dander"
-        tag = f"{tag_prefix}-{self._content_digest()[:12]}"
+        revision = self._content_digest()
+        created = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        tag = f"{tag_prefix}-{revision[:12]}"
         tagged_image = f"{repository}:{tag}"
         try:
             if impersonate_service_account:
@@ -222,6 +237,12 @@ class RuntimeImagePublisher:
                     "build",
                     "--platform",
                     "linux/amd64",
+                    "--build-arg",
+                    f"DANDER_BUILD_REVISION={revision}",
+                    "--build-arg",
+                    f"DANDER_BUILD_CREATED={created}",
+                    "--sbom=true",
+                    "--provenance=mode=max",
                     "--push",
                     "-t",
                     tagged_image,
@@ -256,7 +277,38 @@ class RuntimeImagePublisher:
         digest = described.stdout.strip()
         if not _DIGEST.fullmatch(digest):
             raise ProjectBootstrapError("Artifact Registry returned an invalid image digest")
-        return f"{repository}@{digest}"
+        immutable_image = f"{repository}@{digest}"
+        try:
+            inspected = self._runner(
+                ("docker", "buildx", "imagetools", "inspect", "--raw", tagged_image),
+                cwd=self._repository_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            platforms = _platform_manifests(inspected.stdout, default_digest=digest)
+            record_path = self._repository_dir / ".dander" / "runtime-artifact.json"
+            _write_artifact_record(
+                record_path,
+                {
+                    "schema": _ARTIFACT_SCHEMA,
+                    "image": immutable_image,
+                    "tagged_image": tagged_image,
+                    "index_digest": digest,
+                    "platform_manifests": platforms,
+                    "source": _SOURCE_URL,
+                    "revision": revision,
+                    "created": created,
+                    "sbom_attached": True,
+                    "provenance_attached": True,
+                },
+            )
+        except (OSError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
+            raise ProjectBootstrapError(
+                "Runtime image was pushed but its artifact record could not be verified"
+            ) from error
+        self._artifact_record_path = record_path
+        return immutable_image
 
     def _content_digest(self) -> str:
         hasher = hashlib.sha256()
@@ -314,6 +366,63 @@ def _is_build_context_file(path: Path) -> bool:
         or ".tfstate" in name
         or (name.endswith(".tfvars") and not name.endswith(".tfvars.example"))
     )
+
+
+def _platform_manifests(raw: str, *, default_digest: str) -> dict[str, str]:
+    document = json.loads(raw)
+    if not isinstance(document, dict):
+        raise ProjectBootstrapError("Runtime image manifest is not an OCI document")
+    descriptors = document.get("manifests")
+    if descriptors is None:
+        if not _DIGEST.fullmatch(default_digest):
+            raise ProjectBootstrapError("Runtime image manifest has an invalid digest")
+        return {"linux/amd64": default_digest}
+    if not isinstance(descriptors, list):
+        raise ProjectBootstrapError("Runtime image index has invalid platform manifests")
+
+    platforms: dict[str, str] = {}
+    for descriptor in descriptors:
+        if not isinstance(descriptor, dict) or not isinstance(descriptor.get("platform"), dict):
+            raise ProjectBootstrapError("Runtime image index has an invalid descriptor")
+        platform = descriptor["platform"]
+        operating_system = platform.get("os")
+        architecture = platform.get("architecture")
+        if operating_system == "unknown" and architecture == "unknown":
+            continue
+        digest = descriptor.get("digest")
+        if (
+            not isinstance(operating_system, str)
+            or not _PLATFORM_PART.fullmatch(operating_system)
+            or not isinstance(architecture, str)
+            or not _PLATFORM_PART.fullmatch(architecture)
+            or not isinstance(digest, str)
+            or not _DIGEST.fullmatch(digest)
+        ):
+            raise ProjectBootstrapError("Runtime image index has an invalid platform descriptor")
+        variant = platform.get("variant")
+        if variant is not None and (
+            not isinstance(variant, str) or not _PLATFORM_PART.fullmatch(variant)
+        ):
+            raise ProjectBootstrapError("Runtime image index has an invalid platform variant")
+        key = f"{operating_system}/{architecture}"
+        if variant:
+            key = f"{key}/{variant}"
+        if key in platforms:
+            raise ProjectBootstrapError("Runtime image index repeats a platform")
+        platforms[key] = digest
+    if not platforms:
+        raise ProjectBootstrapError("Runtime image index contains no runnable platform")
+    return dict(sorted(platforms.items()))
+
+
+def _write_artifact_record(path: Path, record: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    try:
+        temporary.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def active_admin_member(*, cwd: Path, runner: _Runner | None = None) -> str:

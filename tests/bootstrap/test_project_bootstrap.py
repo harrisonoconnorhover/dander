@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -42,6 +43,27 @@ class _Runner:
             return subprocess.CompletedProcess(args, 0 if self.bucket_exists else 1, stdout="")
         if args[:4] == ("gcloud", "artifacts", "docker", "images"):
             return subprocess.CompletedProcess(args, 0, stdout="sha256:" + "a" * 64 + "\n")
+        if args[:4] == ("docker", "buildx", "imagetools", "inspect"):
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                stdout=json.dumps(
+                    {
+                        "schemaVersion": 2,
+                        "mediaType": "application/vnd.oci.image.index.v1+json",
+                        "manifests": [
+                            {
+                                "digest": "sha256:" + "b" * 64,
+                                "platform": {"os": "linux", "architecture": "amd64"},
+                            },
+                            {
+                                "digest": "sha256:" + "c" * 64,
+                                "platform": {"os": "unknown", "architecture": "unknown"},
+                            },
+                        ],
+                    }
+                ),
+            )
         if args[:3] == ("gcloud", "auth", "list"):
             return subprocess.CompletedProcess(args, 0, stdout="operator@example.invalid\n")
         if args[:3] == ("gcloud", "auth", "print-access-token"):
@@ -77,7 +99,8 @@ def test_runtime_image_publisher_returns_an_immutable_digest(tmp_path: Path) -> 
         (path / "content.txt").write_text(directory, encoding="utf-8")
     runner = _Runner()
 
-    image = RuntimeImagePublisher(tmp_path, runner=runner).publish(
+    publisher = RuntimeImagePublisher(tmp_path, runner=runner)
+    image = publisher.publish(
         project="unit-project",
         region="us-central1",
     )
@@ -87,6 +110,18 @@ def test_runtime_image_publisher_returns_an_immutable_digest(tmp_path: Path) -> 
         command for command in runner.commands if command[:3] == ("docker", "buildx", "build")
     )
     assert "--platform" in build and "linux/amd64" in build and "--push" in build
+    assert "--sbom=true" in build
+    assert "--provenance=mode=max" in build
+    assert any(part.startswith("DANDER_BUILD_REVISION=") for part in build)
+    assert any(part.startswith("DANDER_BUILD_CREATED=") for part in build)
+    assert publisher.artifact_record_path == tmp_path / ".dander" / "runtime-artifact.json"
+    record = json.loads(publisher.artifact_record_path.read_text(encoding="utf-8"))
+    assert record["schema"] == "io.dander.runtime.artifact/v1"
+    assert record["image"] == image
+    assert record["index_digest"] == "sha256:" + "a" * 64
+    assert record["platform_manifests"] == {"linux/amd64": "sha256:" + "b" * 64}
+    assert record["sbom_attached"] is True
+    assert record["provenance_attached"] is True
 
 
 def test_runtime_image_publisher_accepts_installed_project_context(tmp_path: Path) -> None:
