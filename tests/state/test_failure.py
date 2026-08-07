@@ -42,3 +42,42 @@ def test_unknown_failure_is_stage_specific_and_points_to_run_logs() -> None:
         "Metadata or catalog publication failed. Inspect logs for run run-123."
     )
     assert "customer payload" not in failure.summary
+
+
+def test_runtime_cancellation_is_safe_and_retryable_by_a_fresh_run() -> None:
+    class RuntimeCancelledError(RuntimeError):
+        pass
+
+    failure = classify_failure(
+        RuntimeCancelledError("signal detail must not persist"),
+        stage=RunStage.INGEST,
+        run_id="run-123",
+    )
+
+    assert failure.code == "interrupted_run"
+    assert failure.summary == (
+        "The runtime received a cancellation signal. A fresh run can retry safely; "
+        "inspect logs for run run-123."
+    )
+    assert "signal detail" not in failure.summary
+
+
+def test_wrapped_runtime_stage_errors_keep_stable_codes() -> None:
+    class TransformRunError(RuntimeError):
+        pass
+
+    class CatalogPublishError(RuntimeError):
+        pass
+
+    transform_wrapper = RuntimeError("wrapper")
+    transform_wrapper.__cause__ = TransformRunError("private transform detail")
+    catalog_wrapper = RuntimeError("wrapper")
+    catalog_wrapper.__cause__ = CatalogPublishError("private catalog detail")
+
+    transform = classify_failure(transform_wrapper, stage=RunStage.INGEST, run_id="run-123")
+    catalog = classify_failure(catalog_wrapper, stage=RunStage.INGEST, run_id="run-123")
+
+    assert transform.code == "transform_failed"
+    assert catalog.code == "catalog_failed"
+    assert "private" not in transform.summary
+    assert "private" not in catalog.summary

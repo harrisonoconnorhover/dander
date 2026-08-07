@@ -90,9 +90,9 @@ class PipelineExecutor:
         self._dataplex_publisher = dataplex_publisher
         self._leases = leases
 
-    def execute(self) -> PipelineExecutionResult:
+    def execute(self, *, run_id: str | None = None) -> PipelineExecutionResult:
         """Execute every enabled stage and record one truthful terminal outcome."""
-        run_id = uuid4().hex
+        run_id = run_id or uuid4().hex
         stage = RunStage.INGEST
         endpoints = extracted = affected = models = assertions = assets = 0
         self._history.start(

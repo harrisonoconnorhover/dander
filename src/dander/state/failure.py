@@ -25,6 +25,12 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
     names = {item.__class__.__name__ for item in chain}
     statuses = {status for item in chain if (status := _status_code(item)) is not None}
 
+    if "RuntimeCancelledError" in names:
+        return _details(
+            "interrupted_run",
+            f"The runtime received a cancellation signal. A fresh run can retry safely; "
+            f"inspect logs for run {run_id}.",
+        )
     if 401 in statuses or names & {"Unauthenticated", "Unauthorized"}:
         return _details(
             "authentication_failed",
@@ -54,6 +60,16 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
         return _details(
             "destination_write_failed",
             f"BigQuery rejected a destination write. Inspect logs for run {run_id}.",
+        )
+    if names & {"TransformProjectError", "TransformRunError", "GraphRuntimeError"}:
+        return _details(
+            "transform_failed",
+            f"A transform failed. Inspect logs for run {run_id}.",
+        )
+    if names & {"CatalogPublishError", "SemanticRegistryError"}:
+        return _details(
+            "catalog_failed",
+            f"Metadata or catalog publication failed. Inspect logs for run {run_id}.",
         )
     if stage.value == "transform":
         code = (
