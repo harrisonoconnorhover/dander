@@ -36,6 +36,20 @@ class Materialization(StrEnum):
     INCREMENTAL = "incremental"
 
 
+class SqlDialect(StrEnum):
+    """Authored SQL contract for one transform model.
+
+    ``portable`` is Dander's deliberately small, validated SQL subset. The other values declare
+    provider-exact SQL and are never translated to a different warehouse dialect.
+    """
+
+    PORTABLE = "portable"
+    BIGQUERY = "bigquery"
+    SNOWFLAKE = "snowflake"
+    REDSHIFT = "redshift"
+    POSTGRES = "postgres"
+
+
 @dataclass
 class Model:
     """A single transform model: SQL file + its declared metadata."""

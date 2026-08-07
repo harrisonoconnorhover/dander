@@ -1,6 +1,7 @@
 model: stg_salesforce__contacts
 description: Salesforce Contacts normalized with Account and owner relationships and tombstones.
 owner: data-eng
+dialect: bigquery
 materialization: incremental
 dataset: staging
 source_system: salesforce

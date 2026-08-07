@@ -3,6 +3,7 @@
 model: stg_greenhouse__candidates
 description: Cleaned Greenhouse candidates, one row per candidate.
 owner: data-eng
+dialect: bigquery
 materialization: view
 source_system: greenhouse
 sensitivity: pii            # candidate PII — treat accordingly (steering/01-security.md)

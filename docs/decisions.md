@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-07 — Portable SQL is an explicit, closed contract
+
+- **Compatibility:** Model metadata defaults to exact `bigquery`; repository-owned legacy models
+  state it explicitly. Exact SQL never translates to another provider.
+- **Portability:** `portable` models use only declared `ref()` relations and a closed sqlglot AST.
+  Dander rejects unknown nodes, implicit null ordering, unstable windows, non-canonical identifiers
+  and literals, lossy casts, and provider-specific constructs before rendering.
+- **Scope:** BigQuery, Snowflake, Redshift, and PostgreSQL are render targets, not support claims.
+  Provider variants, graph AST reuse, assertions, materializations, and live equivalence remain
+  independent tickets.
+
 ## 2026-08-07 — Canonical schemas preserve semantics before rendering
 
 - **Relations:** Internal coordinates use `RelationRef(catalog, namespace, name)`. Only a selected

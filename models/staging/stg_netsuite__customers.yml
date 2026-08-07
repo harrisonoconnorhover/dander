@@ -1,6 +1,7 @@
 model: stg_netsuite__customers
 description: NetSuite customers normalized from the simulator-validated SuiteQL contract.
 owner: data-eng
+dialect: bigquery
 materialization: incremental
 dataset: staging
 source_system: netsuite

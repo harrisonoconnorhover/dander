@@ -1,6 +1,7 @@
 model: stg_odoo__partners
 description: Odoo contacts and companies normalized from the read-only JSON-2 contract.
 owner: data-eng
+dialect: bigquery
 materialization: incremental
 dataset: staging
 source_system: odoo

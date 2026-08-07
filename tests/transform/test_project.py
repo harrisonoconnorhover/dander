@@ -16,6 +16,7 @@ def _write_model(
     sql: str,
     *,
     materialization: str = "view",
+    dialect: str | None = None,
     tests: str = "[]",
 ) -> None:
     root.mkdir(parents=True, exist_ok=True)
@@ -26,6 +27,7 @@ def _write_model(
             model: {name}
             description: Safe test model.
             owner: data-eng
+            {f"dialect: {dialect}" if dialect is not None else ""}
             materialization: {materialization}
             dataset: staging
             source_system: fixture
@@ -60,6 +62,49 @@ def test_load_orders_selected_model_dependencies_and_compiles_refs(tmp_path: Pat
         "SELECT CAST(id AS STRING) AS id FROM `valid-project-123.raw.fixture`"
     )
     assert project.compile(ordered[1]) == ("SELECT id FROM `valid-project-123.staging.base`")
+
+
+def test_existing_models_default_to_exact_bigquery_sql(tmp_path: Path) -> None:
+    _write_model(tmp_path, "existing", "SELECT CAST(id AS STRING) AS id")
+    project = TransformProject.load(tmp_path, project_id="valid-project-123")
+    model = project.models["existing"]
+
+    assert model.metadata.dialect.value == "bigquery"
+    with pytest.raises(TransformProjectError, match="cannot target postgres"):
+        project.compile(model, target_dialect="postgres")
+
+
+@pytest.mark.parametrize("target", ["bigquery", "snowflake", "redshift", "postgres"])
+def test_portable_model_compiles_refs_for_selected_target(tmp_path: Path, target: str) -> None:
+    _write_model(
+        tmp_path,
+        "portable_model",
+        "SELECT CAST(id AS STRING) AS id FROM {{ ref('raw_fixture') }}",
+        dialect="portable",
+    )
+    project = TransformProject.load(tmp_path, project_id="valid-project-123")
+
+    compiled = project.compile(project.models["portable_model"], target_dialect=target)
+
+    assert "fixture" in compiled
+    assert "SELECT" in compiled
+
+
+def test_exact_provider_model_compiles_only_for_declared_target(tmp_path: Path) -> None:
+    _write_model(
+        tmp_path,
+        "provider_model",
+        "SELECT CAST(id AS TEXT) AS id FROM {{ ref('raw_fixture') }}",
+        dialect="postgres",
+    )
+    project = TransformProject.load(tmp_path, project_id="valid-project-123")
+
+    assert '"raw"."fixture"' in project.compile(
+        project.models["provider_model"],
+        target_dialect="postgres",
+    )
+    with pytest.raises(TransformProjectError, match="cannot target bigquery"):
+        project.compile(project.models["provider_model"])
 
 
 def test_unknown_reference_fails_during_project_load(tmp_path: Path) -> None:

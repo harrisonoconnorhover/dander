@@ -11,7 +11,8 @@ from jinja2 import Environment, StrictUndefined, TemplateError
 from sqlglot import exp
 
 from dander.transform.config import ModelMetadata, TransformConfigError, load_model_metadata
-from dander.transform.model import parse_refs
+from dander.transform.dialects import PortableSqlError, parse_portable_query, render_portable_query
+from dander.transform.model import SqlDialect, parse_refs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -155,21 +156,67 @@ class TransformProject:
                 return self._relation("raw", table)
         raise TransformProjectError(f"Unknown model reference: {reference}")
 
-    def compile(self, model: TransformModel) -> str:
-        """Render refs and validate that the model is exactly one BigQuery query."""
+    def compile(
+        self,
+        model: TransformModel,
+        *,
+        target_dialect: SqlDialect | str = SqlDialect.BIGQUERY,
+    ) -> str:
+        """Render refs and validate one exact or portable read-only model query."""
+        try:
+            target = SqlDialect(target_dialect)
+        except ValueError as error:
+            raise TransformProjectError(f"Unknown target SQL dialect: {target_dialect}") from error
+        if target is SqlDialect.PORTABLE:
+            raise TransformProjectError("portable is an authored SQL contract, not a target")
+        authored = model.metadata.dialect
+        if authored is not SqlDialect.PORTABLE and authored is not target:
+            raise TransformProjectError(
+                f"Model {model.name} is {authored.value} SQL and cannot target {target.value}"
+            )
+
+        reference_dialect = target if authored is SqlDialect.PORTABLE else authored
         environment = Environment(undefined=StrictUndefined, autoescape=False)
         environment.globals.clear()
         try:
-            compiled = environment.from_string(model.sql).render(ref=self.relation_for_ref).strip()
+            compiled = (
+                environment.from_string(model.sql)
+                .render(
+                    ref=lambda reference: self._relation_for_ref(
+                        reference,
+                        dialect=reference_dialect,
+                    )
+                )
+                .strip()
+            )
         except (TemplateError, TransformProjectError) as error:
             raise TransformProjectError(f"Cannot compile model {model.name}") from error
         if compiled.endswith(";"):
             compiled = compiled[:-1].rstrip()
+        if authored is SqlDialect.PORTABLE:
+            unique_columns = {test.column for test in model.metadata.tests if test.unique}
+            try:
+                allowed_relations = {
+                    self._relation_coordinates_for_ref(reference, dialect=target)
+                    for reference in model.refs
+                }
+                expression = parse_portable_query(
+                    compiled,
+                    unique_columns=unique_columns,
+                    allowed_relations=allowed_relations,
+                )
+                return render_portable_query(expression, target=target)
+            except PortableSqlError as error:
+                raise TransformProjectError(
+                    f"Invalid portable SQL in model {model.name}: {error}"
+                ) from error
         try:
-            expression = sqlglot.parse_one(compiled, read="bigquery")
+            exact_expression = sqlglot.parse_one(compiled, read=authored.value)
         except sqlglot.errors.ParseError as error:
-            raise TransformProjectError(f"Invalid BigQuery SQL in model {model.name}") from error
-        if not isinstance(expression, exp.Query):
+            raise TransformProjectError(
+                f"Invalid {authored.value} SQL in model {model.name}"
+            ) from error
+        if not isinstance(exact_expression, exp.Query):
             raise TransformProjectError(f"Model {model.name} must contain one read-only query")
         return compiled
 
@@ -178,7 +225,52 @@ class TransformProject:
             for reference in model.refs:
                 self.relation_for_ref(reference)
 
+    def _relation_for_ref(self, reference: str, *, dialect: SqlDialect) -> str:
+        if dialect is SqlDialect.BIGQUERY:
+            return self.relation_for_ref(reference)
+        if reference in self.models:
+            model = self.models[reference]
+            return self._relation_for_dialect(model.metadata.dataset, model.name, dialect=dialect)
+        if reference.startswith(_RAW_PREFIX):
+            table = reference.removeprefix(_RAW_PREFIX)
+            if _IDENTIFIER.fullmatch(table):
+                return self._relation_for_dialect("raw", table, dialect=dialect)
+        raise TransformProjectError(f"Unknown model reference: {reference}")
+
     def _relation(self, dataset: str, table: str) -> str:
         if not _IDENTIFIER.fullmatch(dataset) or not _IDENTIFIER.fullmatch(table):
             raise TransformProjectError("Unsafe BigQuery relation identifier")
         return f"`{self.project_id}.{dataset}.{table}`"
+
+    def _relation_for_dialect(self, dataset: str, table: str, *, dialect: SqlDialect) -> str:
+        if not _IDENTIFIER.fullmatch(dataset) or not _IDENTIFIER.fullmatch(table):
+            raise TransformProjectError("Unsafe relation identifier")
+        relation = exp.Table(
+            this=exp.to_identifier(table, quoted=True),
+            db=exp.to_identifier(dataset, quoted=True),
+            catalog=(
+                None
+                if dialect is SqlDialect.POSTGRES
+                else exp.to_identifier(self.project_id, quoted=True)
+            ),
+        )
+        return relation.sql(dialect=dialect.value)
+
+    def _relation_coordinates_for_ref(
+        self,
+        reference: str,
+        *,
+        dialect: SqlDialect,
+    ) -> tuple[str, ...]:
+        if reference in self.models:
+            namespace = self.models[reference].metadata.dataset
+            name = reference
+        elif reference.startswith(_RAW_PREFIX) and _IDENTIFIER.fullmatch(
+            name := reference.removeprefix(_RAW_PREFIX)
+        ):
+            namespace = "raw"
+        else:
+            raise TransformProjectError(f"Unknown model reference: {reference}")
+        if dialect is SqlDialect.POSTGRES:
+            return (namespace, name)
+        return (self.project_id, namespace, name)
