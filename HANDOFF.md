@@ -6,7 +6,7 @@
 - Made source-free image publication require one `linux/amd64,linux/arm64` OCI index.
 - Added digest-preserving GAR-to-ECR copy verification and a bounded WIF refresh probe.
 - Added isolated ECR and manual Fargate proof roots with separate execution/task roles.
-- Built one source-free GAR index; both `amd64` and `arm64` passed local runtime conformance.
+- Proved the same index on Cloud Run as `x86_64`, deleted the temporary job, and restored no drift.
 
 ## Try It
 
@@ -20,6 +20,7 @@ saved reviewed plans. No live apply is required for local validation.
 - Package build, distribution inspection, and clean external wheel install passed.
 - Corrected GAR index `sha256:6cd545fa…be81f` passed both platform conformance and key scans; no
   fixable high/critical CVE was found (four unfixed base-image findings remain visible).
+- Protected PR checks passed; the isolated GCP final plan reported exactly `No changes.`
 
 ## Decisions
 
@@ -30,8 +31,8 @@ saved reviewed plans. No live apply is required for local validation.
 ## Remaining
 
 - Authenticate the new AWS account with short-lived CLI credentials.
-- Build/copy the source-free index and run the reviewed live Fargate/WIF refresh proof.
-- Run image/config/state/log scans and Cloud Run artifact parity.
+- Copy the accepted source-free index and run the reviewed live Fargate/WIF refresh proof.
+- Run the AWS state, task-definition, log, configuration, and image scans.
 - Destroy AWS proof resources and require isolated GCP `No changes.`
 - Record acceptance, complete protected CI/review, and merge the focused PR.
 

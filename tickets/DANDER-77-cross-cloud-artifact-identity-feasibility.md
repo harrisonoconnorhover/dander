@@ -28,6 +28,17 @@ Fargate BigQuery probe across a real Google credential expiry/refresh using only
 - [ ] Both AWS stacks are destroyed, the isolated GCP configuration is restored, and its final
   Terraform plan reports `No changes.`
 
+## Partial live evidence
+
+On 2026-08-07, the accepted GAR index
+`sha256:6cd545fa8975ed6c49cf38786a1fcfeb96eaa8fa104f156974609d84031be81f` ran in
+the isolated project as Cloud Run execution `dander-phase1b-conformance-nwngt`. The container
+reported `x86_64`, emitted a successful `io.dander.runtime/v1` conformance result, and exited zero.
+The temporary unscheduled job was deleted, both managed schedules remained paused, the evidence
+and source-free context contained no recognizable long-lived cloud key, and the final
+manifest-aware Terraform plan reported exactly `No changes.` The combined Cloud Run/Fargate and
+teardown criteria remain open until the AWS half is complete.
+
 ## Boundaries
 
 - This is a feasibility proof, not an ECS/Fargate support claim.
