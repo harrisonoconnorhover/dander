@@ -27,15 +27,15 @@ def _installed_salesforce(version: str = "0.2.0") -> InstalledConnectorPlugin:
     )
 
 
-def test_curated_catalog_has_exact_public_packages_and_dander_06_compatibility() -> None:
-    catalog = build_plugin_catalog(dander_version="0.6.0")
+def test_curated_catalog_has_exact_public_candidates_and_dander_07_compatibility() -> None:
+    catalog = build_plugin_catalog(dander_version="0.7.0rc1")
     connectors = cast("list[dict[str, object]]", catalog["connectors"])
 
     assert catalog["schema_version"] == 1
-    assert catalog["dander_version"] == "0.6.0"
+    assert catalog["dander_version"] == "0.7.0rc1"
     assert {connector["id"] for connector in connectors} == {"salesforce", "servicenow"}
-    assert {connector["version"] for connector in connectors} == {"0.3.0", "0.2.1"}
-    assert all(connector["dander_specifier"] == ">=0.6.0,<0.7" for connector in connectors)
+    assert {connector["version"] for connector in connectors} == {"0.3.1rc1", "0.2.2rc1"}
+    assert all(connector["dander_specifier"] == ">=0.6.0,<0.8" for connector in connectors)
     assert all(connector["compatible"] is True for connector in connectors)
     assert all(connector["support_status"] == "first-party-beta" for connector in connectors)
     assert all(connector["validation_status"] == "provider-validated" for connector in connectors)
@@ -68,7 +68,7 @@ def test_catalog_installation_status_uses_only_validated_manifest_plugins() -> N
 
 
 def test_catalog_marks_unsupported_dander_version_incompatible() -> None:
-    catalog = build_plugin_catalog(dander_version="0.7.0")
+    catalog = build_plugin_catalog(dander_version="0.8.0")
     connectors = cast("list[dict[str, object]]", catalog["connectors"])
 
     assert all(connector["compatible"] is False for connector in connectors)
