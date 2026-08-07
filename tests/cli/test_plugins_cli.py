@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from typer.testing import CliRunner
 
 import dander.cli.main as cli_module
+from dander import __version__
 from dander.cli.main import app
 
 if TYPE_CHECKING:
@@ -64,6 +65,7 @@ def test_plugins_install_uses_exact_manifest_pins(
             "pip",
             "install",
             "dander-connector-salesforce==0.1.0",
+            f"dander-platform=={__version__}",
         )
     ]
 
