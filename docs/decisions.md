@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-07 — Cloud Run consumes the shared execution projection
+
+- **Decision:** The GCP plan compiler passes `io.dander.execution/v1` templates into Terraform;
+  Cloud Run no longer reconstructs runtime commands, limits, schedules, environment, or secret
+  references independently.
+- **Compatibility:** Version 1 manifests and existing Terraform resource addresses remain stable.
+  The runtime command now emits the versioned JSON event contract while preserving ingestion,
+  selected transforms/tests, registry output, Dataplex publication, safety, and batch settings.
+- **Fail closed:** Terraform validates the provider/profile and rejects unsupported networking,
+  ephemeral-storage, task, parallelism, retry, identity, secret, or observability projections.
+
 ## 2026-08-07 — Launchers consume a validated execution projection
 
 - **Decision:** Compile hosted intent into immutable `io.dander.execution/v1` templates containing

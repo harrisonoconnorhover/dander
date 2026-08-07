@@ -12,6 +12,7 @@ from dander.deployment.projection import (
     ResourceProjection,
     ScheduleProjection,
     SecretReference,
+    build_gcp_execution_templates,
     build_gcp_v1_execution_templates,
     validate_launcher_projection,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "ResourceProjection",
     "ScheduleProjection",
     "SecretReference",
+    "build_gcp_execution_templates",
     "build_gcp_v1_execution_templates",
     "validate_launcher_projection",
 ]

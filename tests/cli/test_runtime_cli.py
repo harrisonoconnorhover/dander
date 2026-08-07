@@ -44,6 +44,8 @@ def _invoke(
             "unit-project",
             "--batch-rows",
             "2500",
+            "--catalog-output",
+            "/tmp/dander-catalog.json",
         ],
         env={
             "DANDER_RUN_ID": "cloud-run:execution-42",
@@ -97,6 +99,7 @@ def test_runtime_execute_uses_launcher_run_id_and_emits_json_lines(
     assert options.pipeline_or_source == "greenhouse_jobs"
     assert options.project == "unit-project"
     assert options.batch_rows == 2500
+    assert str(options.catalog_output) == "/tmp/dander-catalog.json"
     assert captured["render"] is False
 
 

@@ -177,67 +177,68 @@ resource "google_cloud_run_v2_job" "ingestion" {
   location            = var.region
   deletion_protection = false
   labels = {
-    module   = "scheduled-job"
-    owner    = "dander"
-    pipeline = replace(each.key, "_", "-")
+    module         = "scheduled-job"
+    owner          = "dander"
+    pipeline       = replace(each.key, "_", "-")
+    profile        = var.execution_projections[each.key].labels.profile
+    dander_version = replace(var.execution_projections[each.key].labels.dander_version, ".", "-")
+    image_revision = substr(trimprefix(var.execution_projections[each.key].labels.image_digest, "sha256:"), 0, 12)
   }
 
   template {
-    task_count  = 1
-    parallelism = 1
+    task_count  = var.execution_projections[each.key].schedule.task_count
+    parallelism = var.execution_projections[each.key].schedule.maximum_parallelism
 
     template {
       service_account = google_service_account.runtime[each.key].email
-      timeout         = "${var.runtime_timeout_seconds}s"
-      max_retries     = var.runtime_max_retries
+      timeout         = "${var.execution_projections[each.key].resources.deadline_seconds}s"
+      max_retries     = var.execution_projections[each.key].resources.launcher_retry_count
 
       containers {
-        image = var.container_image
-        args = concat(
-          ["run", each.key, "--config", "/app/dander.yaml"],
-          var.require_guarded_free_tier ? ["--guarded-free-tier"] : [],
-          ["--batch-rows", tostring(var.runtime_batch_rows)],
-          each.value.build_models ? concat(
-            ["--build-models", "--models-dir", "/app/models"],
-            flatten([
-              for model in each.value.models : ["--select-model", model]
-            ]),
-            ["--catalog-output", "/tmp/dander-catalog.json"],
-          ) : [],
-          each.value.publish_dataplex ? ["--publish-dataplex"] : [],
-        )
+        image = var.execution_projections[each.key].image
+        args  = var.execution_projections[each.key].command
 
         resources {
           limits = {
-            cpu    = tostring(var.runtime_cpu)
-            memory = var.runtime_memory
+            cpu    = tostring(var.execution_projections[each.key].resources.cpu_millis / 1000)
+            memory = "${var.execution_projections[each.key].resources.memory_mib}Mi"
           }
         }
 
-        env {
-          name  = "GCP_PROJECT_ID"
-          value = var.project_id
-        }
-        env {
-          name  = "BQ_DATASET_RAW"
-          value = var.dataset_id
-        }
-        env {
-          name  = "BQ_DATASET_METADATA"
-          value = "dander_meta"
-        }
-        env {
-          name  = "DANDER_PRINCIPAL"
-          value = google_service_account.runtime[each.key].email
-        }
         dynamic "env" {
-          for_each = each.value.secret_env
+          for_each = var.execution_projections[each.key].environment
           content {
             name  = env.key
-            value = "projects/${var.project_id}/secrets/${env.value}/versions/latest"
+            value = env.value
+          }
+        }
+        dynamic "env" {
+          for_each = var.execution_projections[each.key].secret_bindings
+          content {
+            name  = env.key
+            value = trimprefix(env.value.reference, "gcp-sm://")
           }
         }
       }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.execution_projections[each.key].workload_identity == google_service_account.runtime[each.key].email &&
+        var.execution_projections[each.key].observability.log_destination == "cloud_logging" &&
+        var.execution_projections[each.key].observability.metric_namespace == "run.googleapis.com" &&
+        var.execution_projections[each.key].observability.alert_target == (local.failure_alerts_enabled ? var.failure_alert_email : null) &&
+        var.execution_projections[each.key].observability.retention_days == null &&
+        toset(keys(var.execution_projections[each.key].secret_bindings)) == toset(keys(each.value.secret_env)) &&
+        alltrue([
+          for env_name, binding in var.execution_projections[each.key].secret_bindings :
+          binding.provider == "gcp_secret_manager" &&
+          binding.reference == "gcp-sm://projects/${var.project_id}/secrets/${each.value.secret_env[env_name]}/versions/latest"
+        ])
+      )
+      error_message = "Cloud Run cannot honor this execution projection exactly."
     }
   }
 
@@ -269,9 +270,9 @@ resource "google_cloud_scheduler_job" "ingestion" {
   region           = var.region
   name             = "${each.value.job_name}-daily"
   description      = "Run Dander pipeline ${each.key}"
-  schedule         = each.value.schedule
-  time_zone        = each.value.time_zone
-  paused           = each.value.paused
+  schedule         = var.execution_projections[each.key].schedule.expression
+  time_zone        = var.execution_projections[each.key].schedule.time_zone
+  paused           = var.execution_projections[each.key].schedule.paused
   attempt_deadline = "180s"
 
   retry_config {

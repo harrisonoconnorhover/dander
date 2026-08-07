@@ -128,6 +128,76 @@ variable "pipelines" {
   }
 }
 
+variable "execution_projections" {
+  description = "Validated cloud-neutral execution templates keyed by pipeline id."
+  type = map(object({
+    schema                  = string
+    contract                = string
+    pipeline_id             = string
+    profile_id              = string
+    launcher                = string
+    image                   = string
+    command                 = list(string)
+    configuration_reference = string
+    environment             = map(string)
+    secret_bindings = map(object({
+      provider  = string
+      reference = string
+    }))
+    workload_identity = string
+    resources = object({
+      cpu_millis            = number
+      memory_mib            = number
+      ephemeral_storage_mib = number
+      deadline_seconds      = number
+      runtime_retry_count   = number
+      launcher_retry_count  = number
+    })
+    schedule = object({
+      task_count          = number
+      maximum_parallelism = number
+      expression          = string
+      time_zone           = string
+      paused              = bool
+    })
+    network = object({
+      placement  = string
+      extensions = map(string)
+    })
+    labels = map(string)
+    observability = object({
+      log_destination  = string
+      metric_namespace = string
+      alert_target     = string
+      retention_days   = number
+    })
+    extensions = map(string)
+  }))
+
+  validation {
+    condition = (
+      toset(keys(var.execution_projections)) == toset(keys(var.pipelines)) &&
+      alltrue([
+        for id, projection in var.execution_projections :
+        projection.schema == "io.dander.execution/v1" &&
+        projection.contract == "io.dander.runtime/v1" &&
+        projection.pipeline_id == id &&
+        projection.profile_id == "gcp" &&
+        projection.launcher == "cloud_run" &&
+        can(regex("@sha256:[0-9a-f]{64}$", projection.image)) &&
+        projection.resources.ephemeral_storage_mib == null &&
+        projection.resources.runtime_retry_count == 0 &&
+        projection.schedule.task_count == 1 &&
+        projection.schedule.maximum_parallelism == 1 &&
+        projection.network.placement == null &&
+        length(projection.network.extensions) == 0 &&
+        length(projection.extensions) == 0
+      ])
+    )
+    error_message = "Every pipeline requires one supported GCP/Cloud Run execution projection."
+  }
+}
+
 variable "failure_alert_email" {
   type        = string
   description = "Operator email receiving Cloud Run Job failure notifications; empty disables alerting."

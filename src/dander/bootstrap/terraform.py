@@ -8,6 +8,8 @@ from decimal import Decimal, InvalidOperation
 from json import dumps
 from typing import TYPE_CHECKING
 
+from dander.deployment import ExecutionProjectionError, build_gcp_execution_templates
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
@@ -166,6 +168,26 @@ class TerraformBootstrap:
             len(failure_alert_email) > 254 or not _EMAIL_ADDRESS.fullmatch(failure_alert_email)
         ):
             raise TerraformBootstrapError("Invalid failure-alert email address")
+        execution_projections: dict[str, dict[str, object]] = {}
+        if enable_runtime:
+            try:
+                execution_projections = {
+                    pipeline_id: template.as_dict()
+                    for pipeline_id, template in build_gcp_execution_templates(
+                        expanded_pipelines,
+                        image=container_image,
+                        project=project,
+                        cpu=runtime_cpu,
+                        memory=runtime_memory,
+                        deadline_seconds=runtime_timeout_seconds,
+                        launcher_retry_count=runtime_max_retries,
+                        batch_rows=runtime_batch_rows,
+                        require_guarded_free_tier=require_guarded_free_tier,
+                        alert_target=failure_alert_email or None,
+                    ).items()
+                }
+            except ExecutionProjectionError as error:
+                raise TerraformBootstrapError(str(error)) from error
         if billing_account_id and not (enable_runtime or enable_cost_guard):
             raise TerraformBootstrapError(
                 "--billing-account requires --enable-runtime or --enable-cost-guard"
@@ -235,6 +257,8 @@ class TerraformBootstrap:
             f"-var=runtime_container_image={container_image}",
             f"-var=druff_container_image={druff_container_image}",
             f"-var=pipelines={dumps(expanded_pipelines, sort_keys=True, separators=(',', ':'))}",
+            "-var=execution_projections="
+            f"{dumps(execution_projections, sort_keys=True, separators=(',', ':'))}",
             f"-var=failure_alert_email={failure_alert_email}",
             f"-var=secret_ids={dumps(sorted(set(secret_ids)), separators=(',', ':'))}",
             f"-var=github_repository={github_repository}",

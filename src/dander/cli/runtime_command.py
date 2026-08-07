@@ -76,6 +76,7 @@ def execute_runtime(
     project_config: Path = typer.Option(Path("dander.yaml"), "--config"),  # noqa: B008
     connectors_dir: Path = typer.Option(Path("connectors"), "--connectors-dir"),  # noqa: B008
     models_dir: Path = typer.Option(Path("models"), "--models-dir"),  # noqa: B008
+    catalog_output: Path | None = typer.Option(None, "--catalog-output"),  # noqa: B008
     project: str | None = typer.Option(None, "--project", help="Override GCP_PROJECT_ID."),
     dataset: str | None = typer.Option(None, "--dataset", help="Override BQ_DATASET_RAW."),
     guarded_free_tier: bool = typer.Option(False, "--guarded-free-tier"),
@@ -117,7 +118,7 @@ def execute_runtime(
         build_models=False,
         models_dir=models_dir,
         selected_models=None,
-        catalog_output=None,
+        catalog_output=catalog_output,
         publish_dataplex=False,
         dataplex_location="us",
     )

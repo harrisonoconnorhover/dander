@@ -11,6 +11,7 @@ def test_root_passes_pipeline_map_and_scopes_secrets_per_runtime() -> None:
     normalized = "\n".join(" ".join(line.split()) for line in root.splitlines())
 
     assert "pipelines = var.pipelines" in normalized
+    assert "execution_projections = var.execution_projections" in normalized
     assert "failure_alert_email = var.failure_alert_email" in normalized
     assert "runtime_cpu = var.runtime_cpu" in normalized
     assert "runtime_memory = var.runtime_memory" in normalized
@@ -43,12 +44,12 @@ def test_scheduled_module_preserves_greenhouse_and_creates_each_pipeline() -> No
         in normalized
     )
     assert module.count("for_each = local.guarded_runtime_pipelines") == 2
-    assert 'timeout = "${var.runtime_timeout_seconds}s"' in normalized
-    assert "max_retries = var.runtime_max_retries" in normalized
-    assert "cpu = tostring(var.runtime_cpu)" in normalized
-    assert "memory = var.runtime_memory" in normalized
-    assert 'var.require_guarded_free_tier ? ["--guarded-free-tier"] : []' in normalized
-    assert '["--batch-rows", tostring(var.runtime_batch_rows)]' in normalized
+    assert "resources.deadline_seconds}s" in normalized
+    assert "resources.launcher_retry_count" in normalized
+    assert "resources.cpu_millis / 1000" in normalized
+    assert "resources.memory_mib}Mi" in normalized
+    assert "args = var.execution_projections[each.key].command" in normalized
+    assert "secret_bindings" in normalized
     assert 'timeout = "300s"' not in normalized
     assert "max_retries = 1" not in normalized
     assert 'cpu = "1"' not in normalized
@@ -81,7 +82,7 @@ def test_unguarded_runtime_omits_guard_resources_but_keeps_hosted_platform() -> 
         'resource "google_monitoring_alert_policy" "pipeline_failure"',
     ):
         assert resource in module
-    assert 'var.require_guarded_free_tier ? ["--guarded-free-tier"] : []' in normalized_module
+    assert "args = var.execution_projections[each.key].command" in normalized_module
     assert 'module "bigquery"' in root
     assert 'module "secret_manager"' in root
 
