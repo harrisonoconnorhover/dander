@@ -56,6 +56,7 @@ from dander.cli.run_command import (
     build_source_adapter,
     execute_run,
 )
+from dander.cli.runtime_command import runtime_app
 from dander.core.config import Settings
 from dander.evidence import EvidenceBundle, EvidenceManifest, ProofEvidence, ProofStatus
 from dander.ingestion import (
@@ -128,6 +129,7 @@ app.add_typer(metadata_app, name="metadata")
 app.add_typer(graph_app, name="graph")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(connector_app, name="connector")
+app.add_typer(runtime_app, name="runtime")
 console = Console()
 _SOURCE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _DEFAULT_CONNECTORS_DIR = Path("connectors")

@@ -2,38 +2,39 @@
 
 ## Finished
 
-- Established Dander `0.6.0` as the frozen GCP/Cloud Run/BigQuery compatibility baseline.
-- Recorded the cloud-selectable product direction without weakening existing version 1 behavior.
-- Added initial correctness, bounded-operation, service, and cost qualification objectives.
-- Added one cross-layer characterization suite for BigQuery fencing/state, Cloud Run projection,
-  CLI identity, and packaged infrastructure.
+- Added the launcher-neutral `io.dander.runtime/v1` invocation and JSON-Line event contract.
+- Added stable success, invalid, permanent, retryable, and cancellation exit codes.
+- Preserved launcher run IDs through the existing executor and run ledger.
+- Added validated Cloud Run/local context, one-based attempt normalization, and bounded signal cleanup.
+- Kept ordinary `dander run` behavior and the GCP compatibility profile unchanged.
 
 ## Try It
 
-Run `uv run pytest -q tests/portability/test_gcp_compatibility_baseline.py` to exercise the
-cross-layer baseline before refactoring a portability boundary.
+Run `dander runtime execute --contract io.dander.runtime/v1 --pipeline PIPELINE --platform gcp`
+inside a generated project. See `docs/oci-runtime-contract.md` for launcher variables and outputs.
 
 ## Checks
 
 - Ruff lint/format and strict mypy passed.
-- All 780 tests passed.
+- All 790 tests passed.
 - Root and stage-zero Terraform format, backend-disabled initialization, and validation passed.
-- Release metadata plus wheel/sdist build and distribution inspection passed.
+- Wheel/sdist inspection and source-free wheel installation with `dander runtime --help` passed.
 
 ## Decisions
 
-- GCP/Cloud Run/BigQuery remains the primary compatibility profile.
-- New combinations remain unsupported until their exact conformance, identity, and live gates pass.
-- Paid scale tests require a separately approved ceiling and publish measured, digest-bound results.
+- Runtime events contain identifiers and aggregate counts only; unrestricted exception text,
+  cursor values, rows, credentials, and query bodies remain outside the contract.
+- Cloud Run's zero-based task attempt is normalized to Dander's one-based launcher attempt.
+- Phase 1 accepts only the existing `gcp` profile until later profiles pass their own gates.
 
 ## Remaining
 
-- Merge this no-runtime-change baseline through protected main.
-- Rebase the isolated OCI runtime-contract ticket onto the merged baseline.
-- Continue Phase 1 as focused invocation, inspection, artifact, projection, and Cloud Run PRs.
+- Merge this focused runtime-contract ticket through protected main.
+- Add `dander runtime inspect` and the credential-free local OCI conformance command separately.
+- Add artifact metadata/SBOM, execution projection, then Cloud Run projection parity.
 
 ## Review First
 
-- `docs/cloud-portability-slos.md`
-- `tests/portability/test_gcp_compatibility_baseline.py`
-- `steering/00-project-overview.md`
+- `src/dander/runtime_contract.py`
+- `src/dander/cli/runtime_command.py`
+- `tests/cli/test_runtime_cli.py`
