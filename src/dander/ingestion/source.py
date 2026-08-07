@@ -24,6 +24,8 @@ _ENGINE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
+    from dander.warehouse import CanonicalField, RelationSchema
+
 
 class RawField(BaseModel):
     """One complete field declaration for a raw BigQuery relation."""
@@ -68,6 +70,12 @@ class RawField(BaseModel):
         if len(names) != len(set(names)):
             raise ValueError("nested raw schema field names must be unique")
         return self
+
+    def to_canonical(self) -> CanonicalField:
+        """Map this legacy BigQuery declaration to canonical schema v1."""
+        from dander.warehouse import canonical_field_from_bigquery
+
+        return canonical_field_from_bigquery(self)
 
 
 class Endpoint(BaseModel):
@@ -182,6 +190,12 @@ class Endpoint(BaseModel):
                 f"raw schema is missing incremental cursor {self.incremental_cursor!r}"
             )
         return self
+
+    def canonical_raw_schema(self) -> RelationSchema:
+        """Return the declared raw schema through the one-way compatibility mapper."""
+        from dander.warehouse import canonical_schema_from_bigquery
+
+        return canonical_schema_from_bigquery(self.raw_schema)
 
     @field_validator("pagination", mode="before")
     @classmethod

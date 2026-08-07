@@ -46,3 +46,7 @@ launcher categories. Registration loads only a small configuration model; select
 a provider loads its implementation and SDK dependencies. The current GCP resolver is not routed
 through that boundary yet. The registry is a construction contract, not a support claim; concrete
 adapter routing arrives in later, separate portability changes.
+
+Warehouse adapters exchange [canonical relation and schema contracts](canonical-schema.md).
+Existing BigQuery connector/writer declarations remain valid and expose a one-way canonical view;
+the selected provider remains responsible for physical identifier rendering and type mapping.

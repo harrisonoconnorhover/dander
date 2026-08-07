@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from dander.concurrency import FencingToken
+    from dander.warehouse import CanonicalField, RelationRef, RelationSchema
 
 
 class WriteMode(StrEnum):
@@ -51,6 +52,12 @@ class WriteField:
     mode: str = "NULLABLE"
     fields: tuple[WriteField, ...] = field(default_factory=tuple)
 
+    def to_canonical(self) -> CanonicalField:
+        """Map this legacy BigQuery writer field to canonical schema v1."""
+        from dander.warehouse import canonical_field_from_bigquery
+
+        return canonical_field_from_bigquery(self)
+
 
 @dataclass(frozen=True)
 class WriteTarget:
@@ -62,6 +69,20 @@ class WriteTarget:
     business_key: tuple[str, ...] = field(default_factory=tuple)
     schema: tuple[WriteField, ...] = field(default_factory=tuple)
     fence: FencingToken | None = None
+
+    @property
+    def relation_ref(self) -> RelationRef:
+        """Return the target coordinates without rendering BigQuery SQL."""
+        from dander.warehouse import RelationRef
+
+        return RelationRef(catalog=self.project, namespace=self.dataset, name=self.table)
+
+    @property
+    def canonical_schema(self) -> RelationSchema:
+        """Return the target schema through the one-way compatibility mapper."""
+        from dander.warehouse import canonical_schema_from_bigquery
+
+        return canonical_schema_from_bigquery(self.schema)
 
 
 class WritePattern(ABC):

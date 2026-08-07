@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-07 — Canonical schemas preserve semantics before rendering
+
+- **Relations:** Internal coordinates use `RelationRef(catalog, namespace, name)`. Only a selected
+  provider codec may validate provider limits, quote identifiers, or render SQL.
+- **Types:** Schema contract v1 distinguishes numeric bit widths, decimal precision/scale,
+  timestamp timezone/precision semantics, arrays, records, and nullable/required cardinality.
+  Provider annotations are ordered extensions and never credentials.
+- **Compatibility:** Existing BigQuery `RawField` and `WriteField` declarations map one way into the
+  canonical contract. Unsupported types fail unless the caller supplies an explicit fallback;
+  authored BigQuery files and runtime behavior remain unchanged in this slice.
+
 ## 2026-08-07 — Provider factories are explicit and lazy
 
 - **Selection:** Warehouse, state, catalog, secret, and launcher factories use one API-v1 registry

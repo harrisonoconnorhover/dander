@@ -2,35 +2,36 @@
 
 ## Finished
 
-- Added one API-v1 provider-factory registry for all five platform capability categories.
-- Added strict duplicate, unknown-provider, config-type, identity, and API-version checks.
-- Kept provider implementation imports lazy until the exact provider is built.
-- Added focused fake-provider and import-path tests without moving BigQuery runtime behavior.
+- Added unrendered `RelationRef` coordinates and the provider `RelationCodec` boundary.
+- Added canonical schema v1 for exact scalars, decimals, timestamps, arrays, and records.
+- Added ordered provider extensions and duplicate/shape validation.
+- Added a fail-closed, one-way mapper for legacy BigQuery raw and writer fields.
+- Exposed canonical views without changing authored schemas or BigQuery runtime behavior.
 
 ## Try It
 
-Create a `ProviderRegistry`, register a lightweight Pydantic configuration model and lazy factory,
-then call `parse` before `build`. Parsing does not import the implementation module.
+Call `endpoint.canonical_raw_schema()` or `target.canonical_schema`; use
+`target.relation_ref` to pass coordinates to a future provider codec without rendering SQL.
 
 ## Checks
 
-- All 843 tests, Ruff, formatting, and strict mypy across 193 source files passed.
+- All 861 tests, Ruff, formatting, and strict mypy across 197 source files passed.
 - Wheel/sdist build and inspection plus both Terraform-root validations passed.
-- The isolated GCP plan reported `No changes`; both schedules remained paused and no apply ran.
+- The isolated GCP plan reported `No changes`; both schedules stayed paused and no apply ran.
 
 ## Decisions
 
-- One registry contract covers warehouse, state, catalog, secrets, and launcher categories.
-- Factory API version 1 validates construction compatibility independently of config versions.
-- Concrete adapters and support claims remain separate provider PRs.
+- Decimal precision/scale and timestamp timezone semantics are mandatory.
+- BigQuery `REPEATED` maps to a required canonical array while retaining its original mode.
+- Provider-only types require an explicit fallback; silent lossy mapping is forbidden.
 
 ## Remaining
 
-- Open and merge the focused provider-registry PR after protected CI passes.
-- Add canonical relation and schema contracts from merged main in the next PR.
+- Open and merge the focused canonical-schema PR after protected CI passes.
+- Add portable SQL/dialect boundaries from merged main in the next PR.
 
 ## Review First
 
-- `src/dander/providers/registry.py`
-- `tests/providers/test_registry.py`
-- `tickets/DANDER-79-provider-factory-registry.md`
+- `src/dander/warehouse/contracts.py`
+- `src/dander/warehouse/bigquery_compat.py`
+- `tests/warehouse/test_contracts.py`

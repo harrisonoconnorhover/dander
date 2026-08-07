@@ -8,6 +8,8 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add canonical relation/schema v1 contracts with explicit decimal, timestamp, array, record, and
+  provider-extension semantics plus a fail-closed BigQuery compatibility mapper.
 - Add an API-v1 provider-factory registry for warehouse, state, catalog, secret, and launcher
   categories with strict configuration validation and lazy implementation loading.
 - Add version 2 logical projects plus named platform/deployment configuration, deterministic v1
