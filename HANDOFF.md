@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Synchronized Josh's `upstream/main` onto Harrison's current `origin/main` without dropping either tip.
-- Preserved Josh's capability contracts, ticket backlog, and reviewed secret-scan exception.
-- Preserved Dander `0.6.0rc1`, its Salesforce CRM overlay, and the accepted release work on main.
-- Kept connector capability additions additive to the existing source and plugin contracts.
+- Synchronized Josh's accepted capability work into Harrison's protected `main` through PR `#90`.
+- Merged explicit JSONL invocation for optional `get_deleted` feeds through protected PR `#87`.
+- Added confirmed create/update/upsert/delete invocation in stacked PR `#88`.
+- Kept provider writes, scheduled execution, BigQuery deletion, and deployment out of core.
+- Used one stateful fake to prove write dispatch and repeat-safe delete outcomes.
 
 ## Try It
 
-Run `uv run dander validate`, then inspect a configured connector with
-`uv run dander connector inspect PIPELINE`.
+Run `uv run dander connector get-deleted SOURCE ENDPOINT --since CURSOR` for a supported feed.
+Write-back uses `uv run dander connector write SOURCE ENDPOINT OPERATION` with operation-specific
+JSON files and the required `--confirm-write` acknowledgement.
 
 ## Checks
 
-- Ruff lint/format and strict mypy passed.
-- Full test suite passed: `770 passed`.
-- Locked production dependency audit found no known vulnerabilities.
-- Platform and stage-zero Terraform format/init/validation passed with backends disabled.
-- Wheel/sdist inspection and a clean external source-free install/validation passed.
-- The Linux container built and passed CLI, unprivileged-user, and bundled-asset checks.
+- Synchronized `main` passed all five protected CI checks.
+- Pre-synchronization capability suite, Ruff, formatting, and strict mypy passed.
+- The synchronized #87 branch passed its full local suite: `772 passed`.
+- The synchronized #88 full local suite passed: `774 passed`.
 
 ## Decisions
 
-- Use a merge commit so both repositories' existing commit identities remain visible.
-- Keep `0.6.0rc1` as the package version from Harrison's newer release tip.
-- Treat this PR as synchronization only; no release, deployment, or schedule mutation is included.
+- Keep read and mutation entry points explicit rather than adding them to normal pipeline runs.
+- Require file-based JSON and confirmation before loading a source for write-back.
+- Make provider plugins own retry and idempotency behavior; core does not retry capability calls.
 
 ## Remaining
 
-- Merge this synchronization PR after review and protected CI.
-- Rebase or retarget Dander PRs #87 and #88 onto synchronized `main`, preserving their stack order.
-- Publication, live acceptance, retained-project changes, and schedules remain separately gated.
+- Retarget and merge PR `#88` through protected `main`.
+- Update the Salesforce provider stack to the published Dander contract version.
+- Publish candidates and run live acceptance only after the complete protected stack passes.
 
 ## Review First
 
+- `src/dander/cli/main.py`
+- `tests/cli/test_connector_cli.py`
 - `src/dander/ingestion/capabilities.py`
-- `docs/decisions.md`
-- `.gitleaksignore`
