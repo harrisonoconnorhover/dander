@@ -25,10 +25,12 @@ cloud path remains outside the live proof.
 
 - Public Dander beta: `0.7.0rc2`; public Salesforce candidate: `0.3.1rc1`; public ServiceNow
   candidate: `0.2.2rc1`.
-- Isolated candidate acceptance used Dander `0.6.0rc2` and the public plugin candidates in a
-  source-free image. Salesforce ingested all four endpoints, published five governed models and
-  Dataplex metadata, captured update and soft-delete state, replayed without duplicate keys or
-  cursor regression, released its lease, removed staging, and finished with Terraform no-drift.
+- Isolated portability acceptance used Dander `0.7.0rc2` and the public plugin candidates in a
+  source-free image. The same accepted OCI content passed local and Cloud Run conformance.
+  Salesforce ingested all four endpoints, published five governed models and Dataplex metadata,
+  replayed without duplicate keys or cursor regression, skipped an overlapping run, recovered
+  from a bounded interruption, released its lease, removed staging, and finished with Terraform
+  no-drift. See `docs/cloud-portability-phase1-acceptance.md`.
 - Retained source-free Dander image: `sha256:3220623…8995`, built with Dander `0.5.0` and both
   plugin `0.2.0` packages. Dander `0.5.1` changes only catalog recommendations, so the runtime
   image was intentionally not replaced.
