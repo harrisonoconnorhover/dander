@@ -63,7 +63,7 @@ The Python distribution is named `dander-platform` because the `dander` name on 
 different project. The import package and command remain `dander`:
 
 ```bash
-uv tool install dander-platform==0.6.0rc1
+uv tool install dander-platform==0.6.0rc2
 dander --version
 dander new my-data-platform
 cd my-data-platform
@@ -624,7 +624,7 @@ shows each run's agents with their role, ticket, and live PASS/FAIL verdicts:
 
 ## Status
 
-Dander `0.6.0rc1` is the current public candidate: its source-free GCP platform, four retained
+Dander `0.6.0rc2` is the current public candidate: its source-free GCP platform, four retained
 daily pipelines, connector plugins, transform/test engine, run ledger, metadata spine, and Druff
 operator interface have completed bounded live proofs. The limits above still make it
 **unsuitable for production**.
