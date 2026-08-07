@@ -213,6 +213,10 @@ def install_plugins(
     if not requirements:
         console.print("No connector plugins are declared in dander.yaml.")
         return
+    # Keep the package running this command in the resolver transaction. Plugin
+    # compatibility constraints must fail clearly instead of silently replacing
+    # Dander with an older release inside a source-free runtime image.
+    requirements.append(f"dander-platform=={__version__}")
     uv_executable = shutil.which("uv")
     command = (
         (uv_executable, "pip", "install", "--python", sys.executable, *requirements)
