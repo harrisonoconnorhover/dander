@@ -2,41 +2,39 @@
 
 ## Finished
 
-- Added a copyable Salesforce CRM project with Accounts, Contacts, Opportunities, and Users.
-- Added five governed staging/fact models with tests, metrics, relationships, and Dataplex publication.
-- Packaged the Salesforce project overlay in every generated source-free Dander project.
-- Updated Salesforce documentation for personal data, soft deletion, replay, and custom fields.
-- Corrected final review blockers and prepared the `0.6.0rc1` package metadata.
+- Synchronized Josh's `upstream/main` onto Harrison's current `origin/main` without dropping either tip.
+- Preserved Josh's capability contracts, ticket backlog, and reviewed secret-scan exception.
+- Preserved Dander `0.6.0rc1`, its Salesforce CRM overlay, and the accepted release work on main.
+- Kept connector capability additions additive to the existing source and plugin contracts.
 
 ## Try It
 
-Generate a project, then copy `examples/salesforce/dander.yaml`, `connectors/`, and `models/`
-from the packaged Salesforce overlay into the project root. Install the exact plugin pin from the
-example manifest, validate, and run `dander run salesforce_crm --dry-run --project PROJECT_ID`.
+Run `uv run dander validate`, then inspect a configured connector with
+`uv run dander connector inspect PIPELINE`.
 
 ## Checks
 
-- Full Dander suite passed: `764 passed`.
-- Ruff formatting/lint and strict mypy passed.
-- Main and stage-zero Terraform initialization and validation passed with backends disabled.
-- Local Linux container build passed with the packaged Salesforce example in its build context.
-- Wheel/sdist inspection and external, source-free scaffold generation passed.
-- Fresh Dander/plugin wheel installation, four-endpoint validation, and dry-run passed.
+- Ruff lint/format and strict mypy passed.
+- Full test suite passed: `770 passed`.
+- Locked production dependency audit found no known vulnerabilities.
+- Platform and stage-zero Terraform format/init/validation passed with backends disabled.
+- Wheel/sdist inspection and a clean external source-free install/validation passed.
+- The Linux container built and passed CLI, unprivileged-user, and bundled-asset checks.
 
 ## Decisions
 
-- New examples use `salesforce_crm`; the retained project keeps its existing pipeline ID.
-- Contact email and phone remain enabled and are explicitly documented as personal data.
-- Beta classification remains gated on published-candidate live acceptance.
+- Use a merge commit so both repositories' existing commit identities remain visible.
+- Keep `0.6.0rc1` as the package version from Harrison's newer release tip.
+- Treat this PR as synchronization only; no release, deployment, or schedule mutation is included.
 
 ## Remaining
 
-- Publish the Dander and Salesforce candidates only after explicit approval.
-- Run the fresh-project live proof before changing Alpha to Beta or publishing stable releases.
-- Retained-project deployment, schedule changes, and the seven-day soak remain separately gated.
+- Merge this synchronization PR after review and protected CI.
+- Rebase or retarget Dander PRs #87 and #88 onto synchronized `main`, preserving their stack order.
+- Publication, live acceptance, retained-project changes, and schedules remain separately gated.
 
 ## Review First
 
-- `examples/salesforce/dander.yaml`
-- `models/marts/fct_salesforce__opportunities.sql`
-- `src/dander/project/scaffold.py`
+- `src/dander/ingestion/capabilities.py`
+- `docs/decisions.md`
+- `.gitleaksignore`

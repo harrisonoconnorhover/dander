@@ -474,6 +474,61 @@
 - Rename/drop remain edge mappings. Deduplication, arbitrary SQL hooks, deleted feeds, and provider
   write-back require separate product decisions rather than entering through this slice.
 
+## 2026-08-05 — `teammate/main` (Harrison's fork) becomes the trunk; local main resets onto it
+
+- `WagnerJ-Dev/dander@main` was previously synced from the fork by squash-copying a snapshot
+  (`23ef62a`), not merging, so git recorded no shared history past that point. The two lines then
+  diverged for real: the fork advanced through 0.3.0–0.5.1 (this file's entries above), while local
+  `main` gained one further squashed commit (`574d2f0`) independently building the same two seams
+  — a connector capability adapter and a pipeline-operation framework — under different names and
+  with broader scope (write-back, `get_deleted`, SQL hooks, deduplicate).
+- Rather than attempt a mechanical merge across unrelated history, local `main` is reset directly
+  onto `teammate/main` (`e87b03b`) and adopts it as the trunk going forward. The prior local line is
+  preserved at `backup/local-main-pre-reconcile` (`574d2f0`), not deleted.
+- The fork had already reconciled the safe, read-only/schema-preserving subset of `574d2f0` on its
+  own initiative (see the two entries directly above) — confirmed by cross-reading
+  `src/dander/ingestion/capabilities.py` and `src/dander/pipeline/operations.py` against
+  `tickets/DANDER-64..76`. Tickets `64/65/67/68/69/71` are satisfied by the fork's
+  `SourceCapabilities`/`operations.py` implementations (reconciliation notes added to each ticket)
+  and need no further code. Tickets `66` (`get_deleted`), `70` (SQL hooks), `72` (narrowed to
+  `deduplicate`), and `73..76` (write-back `create`/`update`/`upsert`/`delete`) remain genuinely
+  open — the fork explicitly deferred them pending separate cursor/retry/authorization/destination
+  design, which is the actual next step, not a mechanical port.
+- `origin/main` (this repo's own remote) was force-pushed to match (`60dc73b`) after explicit
+  confirmation, since it rewrites shared history rather than fast-forwarding it.
+
+## 2026-08-05 — Write-back and deleted-record-feed semantics
+
+Resolves the "separate product decisions" the two entries above deferred, unblocking
+`tickets/DANDER-66` (`get_deleted`) and `DANDER-73..76` (`create`/`update`/`upsert`/`delete`).
+
+- **Cursor:** `get_deleted(endpoint, *, since=None)` mirrors `Source.extract(endpoint,
+  since=...)` exactly — same per-endpoint keying, same cursor type and meaning — so a downstream
+  consumer can reconcile the insert/update stream and the delete stream off one watermark. No new
+  cursor concept is introduced.
+- **Retry:** `create` is non-idempotent — a caller MUST NOT blindly retry it after an ambiguous
+  failure (e.g. a timeout where the write may or may not have landed) without an out-of-band
+  reconciliation step. `update`, `upsert`, and `delete` are naturally idempotent (re-applying
+  converges to the same source-system state; a repeat `delete` of an absent record returns
+  `DeleteOutcome.NOT_FOUND` rather than raising), so ordinary bounded retry/backoff applies to
+  them the same as any other source call.
+- **Authorization:** no new credential path. Every write-back and `get_deleted` implementation
+  resolves credentials through the source's already-wired `AuthStrategy`
+  (`dander.security.base`), so access stays routed through the existing audited strategy per
+  `steering/01-security.md`. These capabilities add no separate write-scoped credential or token.
+- **Destination:** write-back operations write to the *source system*, not BigQuery — there is no
+  BigQuery destination to decide for `create`/`update`/`upsert`/`delete` themselves. Consuming
+  `get_deleted` to propagate hard deletes into a BigQuery target remains explicitly out of scope
+  here, deferred to future write-pattern work building on `dander.writer`; this decision only
+  makes the feed a typed, detectable capability.
+- **Shape:** `SourceCapabilities` in `src/dander/ingestion/capabilities.py` gains
+  `get_deleted`/`create`/`update`/`upsert`/`delete` accessor methods matching the existing
+  `get_single_object`/`count`/`test_connection` pattern (`require()` guard, `cast` to the
+  matching `Protocol`, result-shape validation raising `InvalidConnectorCapabilityResultError`
+  where the result isn't a lazily-consumed iterator). No concrete source implements any of the
+  five yet — this ships the mechanism and contract only, per the existing `ConnectorOperation`
+  registry's Open/Closed extension pattern.
+
 ## 2026-08-05 — Hosted installation is plan-first by default
 
 - The compatibility `dander init` path remains, while public installation and upgrades separate
