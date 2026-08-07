@@ -56,3 +56,14 @@ terminal event; lease expiry and the next owner reconcile that run.
 
 Launchers own their finite whole-process retry budget. An exit code never permits an unbounded
 retry loop.
+
+## Inspection and local conformance
+
+`dander runtime inspect --config dander.yaml` reports the installed Dander version, active
+compatibility adapters, ingestion engines, and explicitly pinned connector plugins. It validates
+package entry points but never constructs a source, resolves a secret, or contacts a provider.
+
+`dander runtime conformance` runs one deterministic executor lifecycle with local SQLite state,
+parses the versioned start/completion events, and verifies graceful `SIGTERM` translation. With an
+explicit empty `--work-dir`, its only filesystem write is `state.db`; without one it uses and
+removes a temporary directory. The probe uses no credentials, network, or cloud resources.

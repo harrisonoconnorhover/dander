@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from dander.catalog import CatalogAsset, MetadataStore
     from dander.concurrency import OwnershipGuard
     from dander.ingestion import SourceConfig
-    from dander.runtime import PipelineRunner
     from dander.state import LeaseStore, RunHistoryStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,6 +33,16 @@ class _TransformRunner(Protocol):
         ownership: OwnershipGuard | None = None,
     ) -> TransformRunResult:
         """Build models and run their assertions."""
+
+
+class _IngestionRunner(Protocol):
+    def run(
+        self,
+        *,
+        run_id: str | None = None,
+        ownership: OwnershipGuard | None = None,
+    ) -> PipelineRunResult:
+        """Run configured endpoints and return a non-sensitive summary."""
 
 
 class _DataplexPublisher(Protocol):
@@ -62,7 +71,7 @@ class PipelineExecutor:
         *,
         pipeline_id: str,
         source_config: SourceConfig,
-        ingestion: PipelineRunner,
+        ingestion: _IngestionRunner,
         history: RunHistoryStore,
         project: str,
         models_dir: Path,
