@@ -37,13 +37,17 @@ def test_bigquery_state_keeps_lease_and_watermark_compare_and_set() -> None:
 
 def test_cloud_run_projection_keeps_existing_version_one_behavior() -> None:
     module = _normalized(ROOT / "infra/modules/scheduled-job/main.tf")
+    variables = _normalized(ROOT / "infra/modules/scheduled-job/variables.tf")
 
     assert 'resource "google_cloud_run_v2_job" "ingestion" {' in module
-    assert "task_count = 1" in module
-    assert "parallelism = 1" in module
-    assert '["run", each.key, "--config", "/app/dander.yaml"]' in module
-    assert 'var.require_guarded_free_tier ? ["--guarded-free-tier"] : []' in module
-    assert '["--batch-rows", tostring(var.runtime_batch_rows)]' in module
+    assert "task_count = var.execution_projections[each.key].schedule.task_count" in module
+    assert (
+        "parallelism = var.execution_projections[each.key].schedule.maximum_parallelism" in module
+    )
+    assert "image = var.execution_projections[each.key].image" in module
+    assert "args = var.execution_projections[each.key].command" in module
+    assert "launcher_retry_count" in module
+    assert "runtime_retry_count == 0" in variables
 
 
 def test_cli_and_distribution_keep_the_public_gcp_compatibility_surface() -> None:

@@ -56,6 +56,8 @@ def test_v1_gcp_projection_preserves_current_hosted_intent() -> None:
     assert template.schedule.maximum_parallelism == 1
     assert dict(template.environment)["DANDER_IMAGE_DIGEST"] == "sha256:" + "a" * 64
     assert template.secret_bindings == ()
+    assert "--catalog-output" in template.command
+    assert template.command[-1] == "--guarded-free-tier"
     observability = template.as_dict()["observability"]
     assert isinstance(observability, dict)
     assert observability["log_destination"] == "cloud_logging"
@@ -138,6 +140,16 @@ def test_projection_rejects_mutable_image_reference() -> None:
             image="us-central1-docker.pkg.dev/unit-project/dander/dander:latest",
             project="unit-project",
         )
+
+
+def test_graph_projection_does_not_request_model_catalog_output() -> None:
+    templates = build_gcp_v1_execution_templates(
+        load_project_config(Path(__file__).parents[2] / "dander.yaml"),
+        image=_IMAGE,
+        project="unit-project",
+    )
+
+    assert "--catalog-output" not in templates["greenhouse_jobs_graph"].command
 
 
 def test_resource_projection_rejects_negative_runtime_retries() -> None:

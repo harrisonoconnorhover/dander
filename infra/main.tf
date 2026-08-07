@@ -21,6 +21,7 @@ module "scheduled_job" {
   runtime_batch_rows        = var.runtime_batch_rows
   require_guarded_free_tier = var.require_guarded_free_tier
   pipelines                 = var.pipelines
+  execution_projections     = var.execution_projections
   failure_alert_email       = var.failure_alert_email
   transform_dataset_ids = setsubtract(
     toset(var.datasets),

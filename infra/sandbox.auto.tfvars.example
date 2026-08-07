@@ -1,3 +1,5 @@
+# Input-shape reference only. Use `dander init-platform-plan`; the CLI compiles and supplies the
+# required execution_projections value from dander.yaml.
 enable_scheduled_job    = true
 billing_account_id      = "BILLING_ACCOUNT_ID"
 runtime_container_image = "REGION-docker.pkg.dev/PROJECT/dander/dander@sha256:IMAGE_DIGEST"

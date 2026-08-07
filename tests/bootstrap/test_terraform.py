@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -135,6 +136,32 @@ def test_bootstrap_passes_complete_runtime_as_literal_arguments(
     assert '"greenhouse_jobs"' in pipeline_argument
     assert '"paused":false' in pipeline_argument
     assert '"publish_dataplex":true' in pipeline_argument
+    projection_argument = next(
+        argument for argument in plan if argument.startswith("-var=execution_projections=")
+    )
+    projections = json.loads(projection_argument.removeprefix("-var=execution_projections="))
+    projection = projections["greenhouse_jobs"]
+    assert projection["image"].endswith("@sha256:" + digest)
+    assert projection["command"][:8] == [
+        "runtime",
+        "execute",
+        "--contract",
+        "io.dander.runtime/v1",
+        "--pipeline",
+        "greenhouse_jobs",
+        "--platform",
+        "gcp",
+    ]
+    assert projection["resources"] == {
+        "cpu_millis": 2000,
+        "deadline_seconds": 900,
+        "ephemeral_storage_mib": None,
+        "launcher_retry_count": 3,
+        "memory_mib": 1024,
+        "runtime_retry_count": 0,
+    }
+    assert projection["schedule"]["paused"] is False
+    assert projection["environment"]["DANDER_LAUNCHER"] == "cloud_run"
     assert "-var=failure_alert_email=operator@example.invalid" in plan
     assert '-var=secret_ids=["greenhouse-client-id","greenhouse-client-secret"]' in plan
     assert "-var=github_repository=WagnerJ-Dev/dander" in plan

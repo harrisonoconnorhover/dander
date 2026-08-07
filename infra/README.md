@@ -89,13 +89,14 @@ services and delete resources, while delayed billing reports can still exceed th
 amount. Deploying the Gen 2 function uses billable Cloud Build, Cloud Run, Storage, and Artifact
 Registry components; a plan never asserts that the result will cost exactly zero.
 
-For hosted pipelines, copy `sandbox.auto.tfvars.example` to ignored `sandbox.auto.tfvars`, supply an
-immutable Artifact Registry digest, and keep every new pipeline paused for its first apply. Run
-each Cloud Run Job manually, verify its guarded write, selected transform tests, and registry
-compilation, then enable only the proven schedule in a reviewed plan. Each runtime identity can
-create BigQuery jobs, edit the shared Dander datasets, inspect Pub/Sub guard wiring, read billing
-budget metadata, and access only its declared secrets. Each scheduler identity can invoke only its
-pipeline's named Cloud Run Job.
+For hosted pipelines, keep `sandbox.auto.tfvars.example` only as a non-secret Terraform input-shape
+reference. Use `dander init-platform-plan` so Dander compiles the manifest into validated execution
+projections and supplies them to Terraform; do not copy the example into a direct plan. Keep every
+new pipeline paused for its first apply. Run each Cloud Run Job manually, verify its guarded write,
+selected transform tests, and registry compilation, then enable only the proven schedule in a
+reviewed plan. Each runtime identity can create BigQuery jobs, edit the shared Dander datasets,
+inspect Pub/Sub guard wiring, read billing budget metadata, and access only its declared secrets.
+Each scheduler identity can invoke only its pipeline's named Cloud Run Job.
 
 ## Rules (see `steering/01-security.md` and `steering/languages/terraform.md`)
 

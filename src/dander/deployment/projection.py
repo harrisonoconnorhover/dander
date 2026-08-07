@@ -392,11 +392,42 @@ def build_gcp_v1_execution_templates(
     alert_target: str | None = None,
 ) -> dict[str, ExecutionTemplate]:
     """Project the legacy manifest into exact current GCP/Cloud Run execution intent."""
+    return build_gcp_execution_templates(
+        manifest.terraform_pipelines(),
+        image=image,
+        project=project,
+        cpu=manifest.platform.runtime.cpu,
+        memory=manifest.platform.runtime.memory,
+        deadline_seconds=manifest.platform.runtime.timeout_seconds,
+        launcher_retry_count=manifest.platform.runtime.max_retries,
+        batch_rows=manifest.platform.runtime.batch_rows,
+        require_guarded_free_tier=manifest.platform.safety.require_guarded_free_tier,
+        dataset=dataset,
+        metadata_dataset=metadata_dataset,
+        alert_target=alert_target,
+    )
+
+
+def build_gcp_execution_templates(
+    pipelines: Mapping[str, Mapping[str, object]],
+    *,
+    image: str,
+    project: str,
+    cpu: int,
+    memory: str,
+    deadline_seconds: int,
+    launcher_retry_count: int,
+    batch_rows: int,
+    require_guarded_free_tier: bool,
+    dataset: str = "raw",
+    metadata_dataset: str = "dander_meta",
+    alert_target: str | None = None,
+) -> dict[str, ExecutionTemplate]:
+    """Build current GCP templates from already validated deployment inputs."""
     if not _GCP_PROJECT.fullmatch(project):
         raise ExecutionProjectionError("invalid GCP project identifier")
-    expanded = manifest.terraform_pipelines()
     templates: dict[str, ExecutionTemplate] = {}
-    for pipeline_id, pipeline in expanded.items():
+    for pipeline_id, pipeline in sorted(pipelines.items()):
         account_id = str(pipeline["runtime_service_account_id"])
         identity = f"{account_id}@{project}.iam.gserviceaccount.com"
         if not _SERVICE_ACCOUNT.fullmatch(identity):
@@ -415,9 +446,11 @@ def build_gcp_v1_execution_templates(
             "--models-dir",
             "/app/models",
             "--batch-rows",
-            str(manifest.platform.runtime.batch_rows),
+            str(batch_rows),
         )
-        if manifest.platform.safety.require_guarded_free_tier:
+        if bool(pipeline["build_models"]):
+            command = (*command, "--catalog-output", "/tmp/dander-catalog.json")
+        if require_guarded_free_tier:
             command = (*command, "--guarded-free-tier")
         secret_env = pipeline["secret_env"]
         if not isinstance(secret_env, Mapping):
@@ -457,12 +490,12 @@ def build_gcp_v1_execution_templates(
             ),
             workload_identity=identity,
             resources=ResourceProjection(
-                cpu_millis=manifest.platform.runtime.cpu * 1_000,
-                memory_mib=_memory_mib(manifest.platform.runtime.memory),
+                cpu_millis=cpu * 1_000,
+                memory_mib=_memory_mib(memory),
                 ephemeral_storage_mib=None,
-                deadline_seconds=manifest.platform.runtime.timeout_seconds,
+                deadline_seconds=deadline_seconds,
                 runtime_retry_count=0,
-                launcher_retry_count=manifest.platform.runtime.max_retries,
+                launcher_retry_count=launcher_retry_count,
             ),
             schedule=ScheduleProjection(
                 task_count=1,
