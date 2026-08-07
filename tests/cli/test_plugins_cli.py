@@ -58,6 +58,7 @@ def test_plugins_install_uses_exact_manifest_pins(
     result = CliRunner().invoke(app, ["plugins", "install", "--config", str(manifest)])
 
     assert result.exit_code == 0, result.output
+    assert "Installed 1 connector plugin(s)." in result.output
     assert captured == [
         (
             sys.executable,
