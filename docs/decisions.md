@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-07 — Launchers consume a validated execution projection
+
+- **Decision:** Compile hosted intent into immutable `io.dander.execution/v1` templates containing
+  runtime, identity, resource, scheduling, networking, and observability fields. Bind run-specific
+  correlation only when an execution starts.
+- **Validation:** Each launcher declares exact capabilities and rejects unsupported fields before
+  planning; requested values are never silently ignored.
+- **Compatibility:** Version 1 manifests compile to the existing GCP profile. Cloud Run initially
+  advertises only the behavior Dander already provisions, including one task and one parallel worker.
+
 ## 2026-08-07 — Cloud-selectable direction preserves a named GCP compatibility profile
 
 - Portability is introduced through a versioned OCI runtime contract and named, validated platform
