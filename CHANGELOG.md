@@ -6,6 +6,29 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.7.0rc1 — 2026-08-07 (beta)
+
+### Added
+
+- Define the versioned `io.dander.runtime/v1` invocation, event, terminal-result, exit-code, and
+  graceful-signal contract without changing the ordinary `dander run` interface.
+- Add provider-free runtime inspection and a credential-free local executor/run-ledger/event
+  conformance probe.
+- Add standard OCI annotations, a packaged capability manifest, attached SBOM/provenance, and an
+  atomic artifact record containing immutable index and runnable-platform digests.
+- Define immutable `io.dander.execution/v1` templates with separate runtime/launcher retries,
+  identity, secret references, resources, schedules, network intent, and observability settings.
+- Make Cloud Run consume the shared execution projection and reject unsupported fields before
+  planning.
+
+### Compatibility
+
+- Version 1 manifests, GCP/BigQuery behavior, Terraform resource addresses, connector plugin API 1,
+  and the ordinary CLI remain compatible.
+- This candidate adds no non-GCP provider, warehouse, state backend, catalog, or secret resolver.
+- Live source-free local/Cloud Run parity is a promotion gate and is not claimed by this metadata
+  commit.
+
 ## 0.6.0 — 2026-08-07 (beta)
 
 ### Acceptance
