@@ -23,8 +23,8 @@ cloud path remains outside the live proof.
 
 ## Current release and deployment record
 
-- Public Dander beta: `0.7.0rc1`; public Salesforce plugin: `0.3.0`; public ServiceNow plugin:
-  `0.2.1`.
+- Public Dander beta: `0.7.0rc2`; public Salesforce candidate: `0.3.1rc1`; public ServiceNow
+  candidate: `0.2.2rc1`.
 - Isolated candidate acceptance used Dander `0.6.0rc2` and the public plugin candidates in a
   source-free image. Salesforce ingested all four endpoints, published five governed models and
   Dataplex metadata, captured update and soft-delete state, replayed without duplicate keys or

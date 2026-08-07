@@ -6,6 +6,20 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.7.0rc2 — 2026-08-07 (beta)
+
+### Fixed
+
+- Keep the running `dander-platform` version in the connector-plugin resolver transaction so an
+  incompatible plugin fails clearly instead of silently downgrading a source-free runtime image.
+- Recommend the published Salesforce `0.3.1rc1` and ServiceNow `0.2.2rc1` compatibility
+  candidates, which preserve plugin API v1 and extend support through Dander `0.7.x`.
+
+### Acceptance
+
+- Reject `0.7.0rc1` after clean source-free installation exposed the plugin-driven runtime
+  downgrade; no rc1 image was deployed.
+
 ## 0.7.0rc1 — 2026-08-07 (beta)
 
 ### Added
