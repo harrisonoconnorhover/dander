@@ -155,6 +155,7 @@ include = [
   "dander.yaml",
   "docs/getting-started.md",
   "docs/connector-plugins.md",
+  "docs/execution-projection.md",
   "docs/known-limitations.md",
   "docs/netsuite-simulator.md",
   "docs/operator-soak.md",
