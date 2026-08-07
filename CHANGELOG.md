@@ -6,6 +6,16 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.7.0 — 2026-08-07 (beta)
+
+### Acceptance
+
+- Promote the accepted `0.7.0rc2` runtime without functional product-code changes.
+- Complete source-free local and Cloud Run OCI parity, ServiceNow compatibility, four-endpoint
+  Salesforce ingest, transforms/tests/catalog, replay, overlap skip, SIGTERM/SIGKILL recovery,
+  cleanup, and final Terraform no-drift.
+- Recommend stable Salesforce `0.3.1` and ServiceNow `0.2.2`, which preserve plugin API v1.
+
 ## 0.7.0rc2 — 2026-08-07 (beta)
 
 ### Fixed

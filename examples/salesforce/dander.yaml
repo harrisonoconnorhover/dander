@@ -9,7 +9,7 @@ platform:
 plugins:
   salesforce:
     distribution: dander-connector-salesforce
-    version: 0.3.1rc1
+    version: 0.3.1
 
 pipelines:
   salesforce_crm:

@@ -27,14 +27,14 @@ def _installed_salesforce(version: str = "0.2.0") -> InstalledConnectorPlugin:
     )
 
 
-def test_curated_catalog_has_exact_public_candidates_and_dander_07_compatibility() -> None:
+def test_curated_catalog_has_exact_stable_pins_and_dander_07_compatibility() -> None:
     catalog = build_plugin_catalog(dander_version="0.7.0rc1")
     connectors = cast("list[dict[str, object]]", catalog["connectors"])
 
     assert catalog["schema_version"] == 1
     assert catalog["dander_version"] == "0.7.0rc1"
     assert {connector["id"] for connector in connectors} == {"salesforce", "servicenow"}
-    assert {connector["version"] for connector in connectors} == {"0.3.1rc1", "0.2.2rc1"}
+    assert {connector["version"] for connector in connectors} == {"0.3.1", "0.2.2"}
     assert all(connector["dander_specifier"] == ">=0.6.0,<0.8" for connector in connectors)
     assert all(connector["compatible"] is True for connector in connectors)
     assert all(connector["support_status"] == "first-party-beta" for connector in connectors)
