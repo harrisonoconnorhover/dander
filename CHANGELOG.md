@@ -1,10 +1,26 @@
 # Changelog
 
 Release notes for Dander are kept here and copied into the matching GitHub Release. Dander follows
-semantic versioning while it is alpha: released minor lines receive fixes only, and new product
+semantic versioning before 1.0: released minor lines receive fixes only, and new product
 capabilities enter through the next minor release.
 
 ## Unreleased
+
+## 0.6.0 — 2026-08-07 (beta)
+
+### Acceptance
+
+- Promote the accepted `0.6.0rc2` runtime without functional product-code changes.
+- Complete source-free hosted Salesforce ingestion for Accounts, Contacts, Opportunities, and
+  Users, governed transforms and tests, inclusive replay, visible soft-deletion tombstones,
+  released leases, staging cleanup, Dataplex publication, and Terraform no-drift.
+- Confirm the stable Salesforce `0.3.0` and ServiceNow `0.2.1` plugin packages install together
+  outside their repositories and preserve plugin API version 1.
+
+### Classification
+
+- Move Dander's public package and documentation from Alpha to Beta while retaining the explicit
+  pre-1.0 limitations and newest-patch support policy.
 
 ## 0.6.0rc2 — 2026-08-07 (alpha)
 

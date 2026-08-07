@@ -1,6 +1,6 @@
 # Dander Platform Release Audit
 
-Audited on 2026-08-06 against the product promise in `steering/00-project-overview.md`.
+Audited on 2026-08-07 against the product promise in `steering/00-project-overview.md`.
 “Live-proven” means the behavior was observed in a disposable provider account or retained GCP
 project. “Implemented” means automated tests cover the contract while an optional provider or
 cloud path remains outside the live proof.
@@ -12,7 +12,7 @@ cloud path remains outside the live proof.
 | One CLI and typed project manifest | Live-proven | `dander.yaml` declares four daily connector pipelines and one executable graph; `dander validate`, provisioning, execution, and metadata inspection use the same CLI. |
 | Batteries-included GCP infrastructure | Live-proven | Reviewed Terraform owns remote state, Artifact Registry, BigQuery datasets, per-pipeline IAM, Cloud Run jobs, Scheduler jobs, Secret Manager containers, failure alerts, and the optional cost guard. |
 | Additive multi-pipeline hosting | Live-proven | Greenhouse, HubSpot, Salesforce, and ServiceNow coexist with distinct jobs, schedules, and runtime identities. The graph job is separately deployed and paused. |
-| Independently installed connectors | Live-proven | Public Salesforce and ServiceNow `0.2.0` packages are exact-pinned, discovered through Dander plugin API v1, installed into a source-free image, and exercised against disposable provider accounts. |
+| Independently installed connectors | Live-proven | Public Salesforce `0.3.0` and ServiceNow `0.2.1` packages are exact-pinned, discovered through Dander plugin API v1, installed into a source-free image, and exercised against disposable provider accounts. |
 | Shared enterprise authentication | Live-proven for retained plugins | Dander core supplies Salesforce OAuth2 JWT and ServiceNow OAuth2 client credentials while Terraform grants each runtime access only to its declared Secret Manager resources. |
 | Bounded ingestion and idempotent BigQuery writes | Live-proven for hosted SCD1 | Greenhouse, HubSpot, Salesforce, and ServiceNow have completed hosted ingestion and replay checks without duplicate destination keys; Salesforce applies its cursor server-side. |
 | Owned transforms and tests | Live-proven | Retained pipelines execute Dander's `ref()` DAG and declared BigQuery assertions after ingestion. |
@@ -23,8 +23,12 @@ cloud path remains outside the live proof.
 
 ## Current release and deployment record
 
-- Public Dander candidate: `0.6.0rc2`; latest stable alpha: `0.5.1`; public Salesforce and
-  ServiceNow plugins: `0.2.0`.
+- Public Dander beta: `0.6.0`; public Salesforce plugin: `0.3.0`; public ServiceNow plugin:
+  `0.2.1`.
+- Isolated candidate acceptance used Dander `0.6.0rc2` and the public plugin candidates in a
+  source-free image. Salesforce ingested all four endpoints, published five governed models and
+  Dataplex metadata, captured update and soft-delete state, replayed without duplicate keys or
+  cursor regression, released its lease, removed staging, and finished with Terraform no-drift.
 - Retained source-free Dander image: `sha256:3220623…8995`, built with Dander `0.5.0` and both
   plugin `0.2.0` packages. Dander `0.5.1` changes only catalog recommendations, so the runtime
   image was intentionally not replaced.
@@ -40,7 +44,7 @@ cloud path remains outside the live proof.
 
 - Dander provisions inside an existing billing-linked GCP project; it does not create a project or
   attach billing. Its managed cost guard is simulation-first and is not a spending cap.
-- The `0.6.0rc2` Salesforce example supports read-only Accounts, Contacts, Opportunities, and
+- The `0.6.0` Salesforce example supports read-only Accounts, Contacts, Opportunities, and
   Users; the retained soak still exercises its existing Accounts pipeline. ServiceNow supports
   one read-only incidents slice. Provider write-back and broad object/table coverage are not
   claimed.
@@ -51,7 +55,7 @@ cloud path remains outside the live proof.
 
 ## Verdict
 
-Dander demonstrates its intended alpha vertical slice: one manifest and CLI reconcile an owned
+Dander demonstrates its intended beta vertical slice: one manifest and CLI reconcile an owned
 GCP platform, independently installed connectors ingest into BigQuery, Dander transforms and tests
 the data, one metadata spine records what happened, and Druff authors and operates a bounded graph
 without becoming a second runtime. Production hardening and broader connector coverage remain

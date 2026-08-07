@@ -3,7 +3,7 @@
 This project was created by `dander new`. It starts with one paused, credential-free Greenhouse
 Job Board pipeline so infrastructure changes remain reviewable before any schedule is enabled.
 
-> **Alpha:** review Dander's
+> **Beta:** review Dander's
 > [known limitations](https://github.com/harrisonoconnorhover/dander/blob/main/docs/known-limitations.md)
 > and use a disposable GCP project. Only the latest patch in the current `0.x` minor is supported.
 

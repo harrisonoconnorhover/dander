@@ -79,17 +79,20 @@ CURATED_CONNECTORS = (
     CatalogConnector(
         connector_id="salesforce",
         display_name="Salesforce",
-        description="Bounded Salesforce Bulk API 2.0 Accounts ingestion with replay cursors.",
+        description=(
+            "Bounded Salesforce Bulk API 2.0 Accounts, Contacts, Opportunities, and Users "
+            "ingestion with replay cursors."
+        ),
         distribution="dander-connector-salesforce",
-        version="0.2.0",
-        dander_specifier=">=0.5.0,<0.6",
-        support_status="first-party-alpha",
+        version="0.3.0",
+        dander_specifier=">=0.6.0,<0.7",
+        support_status="first-party-beta",
         validation_status="provider-validated",
         documentation_url=(
             "https://github.com/harrisonoconnorhover/"
             "dander-connector-salesforce#dander-salesforce-connector"
         ),
-        pypi_url="https://pypi.org/project/dander-connector-salesforce/0.2.0/",
+        pypi_url="https://pypi.org/project/dander-connector-salesforce/0.3.0/",
         repository_url=("https://github.com/harrisonoconnorhover/dander-connector-salesforce"),
     ),
     CatalogConnector(
@@ -97,15 +100,15 @@ CURATED_CONNECTORS = (
         display_name="ServiceNow",
         description="Read-only ServiceNow Table API incident ingestion with stable paging.",
         distribution="dander-connector-servicenow",
-        version="0.2.0",
-        dander_specifier=">=0.5.0,<0.6",
-        support_status="first-party-alpha",
+        version="0.2.1",
+        dander_specifier=">=0.6.0,<0.7",
+        support_status="first-party-beta",
         validation_status="provider-validated",
         documentation_url=(
             "https://github.com/harrisonoconnorhover/"
             "dander-connector-servicenow#dander-servicenow-connector"
         ),
-        pypi_url="https://pypi.org/project/dander-connector-servicenow/0.2.0/",
+        pypi_url="https://pypi.org/project/dander-connector-servicenow/0.2.1/",
         repository_url=("https://github.com/harrisonoconnorhover/dander-connector-servicenow"),
     ),
 )

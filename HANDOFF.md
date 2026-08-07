@@ -2,36 +2,36 @@
 
 ## Finished
 
-- Prepared Dander `0.6.0rc2` after the protected Dataplex fix merged.
-- Synchronized package metadata, lockfile, install/upgrade examples, candidate records, and release notes.
-- Kept `src/dander` unchanged from the accepted fix on `main`.
+- Prepared the Dander `0.6.0` Beta release from the accepted `0.6.0rc2` runtime.
+- Pinned the stable Salesforce `0.3.0` and ServiceNow `0.2.1` connector releases.
+- Updated release metadata, public Beta labeling, acceptance records, and generated-project guidance.
+- Kept runtime behavior unchanged; only curated catalog data and packaged templates changed under `src/dander`.
 
 ## Try It
 
-Run `python3 scripts/check_release_metadata.py`, then build with `uv build` and inspect the artifacts
-with `python3 scripts/check_distribution.py dist/*.whl dist/*.tar.gz`.
+Run `python3 scripts/check_release_metadata.py`, build with `uv build`, and install the artifacts in
+a temporary environment outside this checkout.
 
 ## Checks
 
-- Release metadata check passed for `0.6.0rc2`.
-- Ruff lint and format checks passed.
-- Strict mypy passed across `src` and `tests`.
-- Full test suite passed: `776 passed`.
-- Wheel and sdist built, validated, and installed outside the checkout.
+- Release metadata, Ruff lint/format, strict mypy, and all 776 tests passed.
+- Root and stage-zero Terraform format/initialization/validation passed with backends disabled.
+- Wheel and sdist built, passed distribution inspection, and installed source-free outside the checkout.
+- Public Salesforce `0.3.0` and ServiceNow `0.2.1` installed together outside their repositories.
 
 ## Decisions
 
-- `0.6.0rc2` replaces `rc1` because live acceptance exposed a packaged Dataplex runtime defect.
-- The release branch changes no runtime source after the protected fix merge.
+- Stable `0.6.0` preserves the accepted `rc2` runtime and moves Dander's public status to Beta.
+- The curated catalog now advertises only the stable, Dander-`0.6.x` connector pins.
 
 ## Remaining
 
-- Merge the protected release PR and publish/tag `0.6.0rc2`.
-- Build and deploy a source-free `rc2` image in the isolated project through a reviewed plan.
-- Repeat the catalog scenario and bounded smoke suite before stable promotion.
+- Merge the protected release PR, tag and publish `0.6.0`, and create the GitHub Release.
+- Deploy the public stable source-free image in the isolated project and repeat bounded smoke/no-drift checks.
+- Upgrade the retained project only through its separately reviewed plan.
 
 ## Review First
 
-- `pyproject.toml`
 - `CHANGELOG.md`
-- `scripts/check_release_metadata.py`
+- `pyproject.toml`
+- `src/dander/plugins/catalog.py`

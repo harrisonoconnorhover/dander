@@ -127,7 +127,7 @@ def _check_metadata(
     description = metadata.get_payload()
     required_description = {
         f"uv tool install dander-platform=={expected_version}",
-        f"Dander `{expected_version}` is the current public candidate",
+        f"Dander `{expected_version}` is the current public beta",
     }
     if not isinstance(description, str):
         raise ValueError("Distribution description is not text")

@@ -3,7 +3,7 @@
 [![CI](https://github.com/harrisonoconnorhover/dander/actions/workflows/ci.yml/badge.svg)](https://github.com/harrisonoconnorhover/dander/actions/workflows/ci.yml)
 
 > [!WARNING]
-> **Alpha software.** Dander is being stabilized through a retained proof project and an
+> **Beta software.** Dander has completed source-free candidate acceptance and continues through a
 > operator trial. Use a disposable GCP project, review every Terraform plan, and read
 > the [known limitations](https://github.com/harrisonoconnorhover/dander/blob/main/docs/known-limitations.md)
 > before relying on it. Only the latest patch in the current `0.x` minor is supported.
@@ -57,13 +57,13 @@ Operator-facing documentation:
 
 Python 3.12 (app + CLI) · BigQuery SQL (transforms) · Terraform/HCL (infra) · YAML (config).
 
-## Install the current public candidate
+## Install the current public release
 
 The Python distribution is named `dander-platform` because the `dander` name on PyPI belongs to a
 different project. The import package and command remain `dander`:
 
 ```bash
-uv tool install dander-platform==0.6.0rc2
+uv tool install dander-platform==0.6.0
 dander --version
 dander new my-data-platform
 cd my-data-platform
@@ -624,10 +624,10 @@ shows each run's agents with their role, ticket, and live PASS/FAIL verdicts:
 
 ## Status
 
-Dander `0.6.0rc2` is the current public candidate: its source-free GCP platform, four retained
-daily pipelines, connector plugins, transform/test engine, run ledger, metadata spine, and Druff
-operator interface have completed bounded live proofs. The limits above still make it
-**unsuitable for production**.
+Dander `0.6.0` is the current public beta: its source-free GCP platform, connector plugins,
+transform/test engine, run ledger, metadata spine, and Druff operator interface have completed
+bounded live proofs. It remains pre-1.0 software; review the documented limitations before using
+business-critical data.
 The named HR, compensation, and customer systems describe connector categories or bounded test
 implementations; they do not imply that this repository came from, connects to, or contains data
 from an existing company. Normal provenance, licensing, and privacy review still applies before
