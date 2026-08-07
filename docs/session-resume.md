@@ -5,9 +5,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Public releases
 
-- Dander `0.6.0rc2` is the newest public candidate. Dander `0.5.1` remains the latest stable alpha
-  while candidate acceptance is in progress.
-- Salesforce and ServiceNow connector plugins are public at `0.2.0` and require Dander `0.5.x`.
+- Dander `0.6.0` is the current public beta.
+- Salesforce `0.3.0` and ServiceNow `0.2.1` are the current public connector releases and support
+  Dander `0.6.x`.
 - Druff's fork contains Josh's reconciled graph-client ancestry and the later persistence,
   execution, catalog, operation-authoring, and deployment-preview work.
 
@@ -33,6 +33,11 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- On 2026-08-07, the isolated source-free `0.6.0rc2` image completed four-endpoint Salesforce
+  ingestion, governed transforms/tests, updates, soft-deletion tombstones, replay, Dataplex
+  publication, lease and staging cleanup, and a final no-drift plan. ServiceNow also completed a
+  compatibility smoke run in the same image.
 
 - On 2026-08-05, scheduled executions `dander-greenhouse-public-m2pz2`,
   `dander-hubspot-companies-cmdbz`, `dander-salesforce-accounts-jljwj`, and

@@ -29,7 +29,7 @@ EXACT_REFERENCES = (
     VersionReference(
         "README.md",
         "README status",
-        re.compile(r"Dander `(?P<version>[^`]+)` is the current public candidate"),
+        re.compile(r"Dander `(?P<version>[^`]+)` is the current public beta"),
     ),
     VersionReference(
         "docs/getting-started.md",
@@ -43,13 +43,13 @@ EXACT_REFERENCES = (
     ),
     VersionReference(
         "docs/session-resume.md",
-        "session public candidate",
-        re.compile(r"Dander `(?P<version>[^`]+)` is the newest public candidate"),
+        "session public release",
+        re.compile(r"Dander `(?P<version>[^`]+)` is the current public beta"),
     ),
     VersionReference(
         "docs/release-audit.md",
-        "release audit public candidate",
-        re.compile(r"Public Dander candidate: `(?P<version>[^`]+)`"),
+        "release audit public release",
+        re.compile(r"Public Dander beta: `(?P<version>[^`]+)`"),
     ),
 )
 
@@ -95,7 +95,7 @@ def release_metadata_errors(root: Path) -> list[str]:
         _check_single_match(
             root / "docs/known-limitations.md",
             "known-limitations release line",
-            re.compile(r"Dander `(?P<version>\d+\.\d+\.x)` is alpha"),
+            re.compile(r"Dander `(?P<version>\d+\.\d+\.x)` is beta"),
             expected=f"{release_line.group('line')}.x",
         )
     )

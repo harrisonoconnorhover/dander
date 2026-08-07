@@ -1,6 +1,6 @@
 # Security Policy
 
-Dander is alpha software. Use a dedicated GCP project, least-privilege credentials, immutable
+Dander is beta software. Use a dedicated GCP project, least-privilege credentials, immutable
 container digests, and reviewed Terraform plans. Never put provider tokens, Terraform state, raw
 source rows, or recovery codes in an issue or pull request.
 

@@ -26,7 +26,7 @@ broadly changes packaging, provisioning, orchestration, state, cursors, concurre
 Tests, evidence tooling, and documentation may change without a new candidate only when packaged
 runtime behavior is unchanged.
 
-## Alpha release lines
+## Pre-1.0 release lines
 
 - Published minor lines contain fixes only: installation, upgrades, drift, cursor/lease
   correctness, schemas, staging cleanup, CLI accuracy, security, and documentation that blocks
@@ -35,7 +35,7 @@ runtime behavior is unchanged.
   next minor release.
 - Only the latest patch in the current `0.x` minor is supported. A functional patch uses its own
   candidate, public-artifact proof, protected publication, and clean upgrade verification.
-- GitHub Release notes must match `CHANGELOG.md`, identify the release as alpha, link the known
+- GitHub Release notes must match `CHANGELOG.md`, identify the release status, link the known
   limitations, and name the exact tag and commit.
 
 ## Initial `0.1.0` gates and post-release soak
