@@ -308,7 +308,7 @@ def inspect_connector(
         "--connectors-dir",
     ),
 ) -> None:
-    """List optional read capabilities without contacting the provider."""
+    """List optional capabilities (read and write-back) without contacting the provider."""
     config, capabilities = _load_connector_capabilities(
         source_or_pipeline,
         project_config=project_config,

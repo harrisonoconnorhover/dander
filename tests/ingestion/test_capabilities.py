@@ -1,4 +1,4 @@
-"""Optional read-only capability discovery and typed invocation."""
+"""Optional capability discovery and typed invocation, including write-back."""
 
 from __future__ import annotations
 
@@ -12,10 +12,14 @@ from dander.ingestion import (
     ConnectorOperation,
     CountPrecision,
     CountResult,
+    DeleteOutcome,
     InvalidConnectorCapabilityResultError,
     Source,
     SourceCapabilities,
     SourceConfig,
+    SupportsCreate,
+    SupportsDelete,
+    SupportsUpdate,
     UnsupportedConnectorOperationError,
 )
 
@@ -60,6 +64,33 @@ class _CapableSource(_PlainSource):
         self.calls.append("test_connection")
         return ConnectionStatus(ok=True)
 
+    def get_deleted(
+        self, endpoint: str, *, since: str | None = None
+    ) -> Iterator[Mapping[str, Any]]:
+        self.calls.append(("get_deleted", endpoint, since))
+        return iter([{"id": "002"}])
+
+    def create(self, endpoint: str, record: Mapping[str, Any]) -> Mapping[str, Any]:
+        self.calls.append(("create", endpoint, record))
+        return {**record, "id": "003"}
+
+    def update(
+        self,
+        endpoint: str,
+        identity: Mapping[str, str],
+        changes: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        self.calls.append(("update", endpoint, identity, changes))
+        return {**identity, **changes}
+
+    def upsert(self, endpoint: str, record: Mapping[str, Any]) -> Mapping[str, Any]:
+        self.calls.append(("upsert", endpoint, record))
+        return record
+
+    def delete(self, endpoint: str, identity: Mapping[str, str]) -> DeleteOutcome:
+        self.calls.append(("delete", endpoint, identity))
+        return DeleteOutcome.NOT_FOUND if identity.get("id") == "missing" else DeleteOutcome.DELETED
+
 
 def _config() -> SourceConfig:
     return SourceConfig(
@@ -94,11 +125,29 @@ def test_capable_source_is_discovered_and_invoked_through_typed_facade() -> None
     assert capabilities.get_single_object("accounts", {"id": "missing"}) is RECORD_NOT_FOUND
     assert capabilities.count("accounts", since="2026-08-01") == CountResult.exact(7)
     assert capabilities.test_connection() == ConnectionStatus(ok=True)
+    assert list(capabilities.get_deleted("accounts", since="2026-08-01")) == [{"id": "002"}]
+    assert capabilities.create("accounts", {"name": "New"}) == {"name": "New", "id": "003"}
+    assert capabilities.update("accounts", {"id": "001"}, {"name": "Renamed"}) == {
+        "id": "001",
+        "name": "Renamed",
+    }
+    assert capabilities.upsert("accounts", {"id": "001", "name": "Upserted"}) == {
+        "id": "001",
+        "name": "Upserted",
+    }
+    assert capabilities.delete("accounts", {"id": "001"}) is DeleteOutcome.DELETED
+    assert capabilities.delete("accounts", {"id": "missing"}) is DeleteOutcome.NOT_FOUND
     assert source.calls == [
         ("get_single_object", "accounts", {"id": "001"}),
         ("get_single_object", "accounts", {"id": "missing"}),
         ("count", "accounts", "2026-08-01"),
         "test_connection",
+        ("get_deleted", "accounts", "2026-08-01"),
+        ("create", "accounts", {"name": "New"}),
+        ("update", "accounts", {"id": "001"}, {"name": "Renamed"}),
+        ("upsert", "accounts", {"id": "001", "name": "Upserted"}),
+        ("delete", "accounts", {"id": "001"}),
+        ("delete", "accounts", {"id": "missing"}),
     ]
 
 
@@ -119,6 +168,10 @@ def test_count_result_preserves_precision() -> None:
         ("get_single_object", "must return a record mapping"),
         ("count", "count must return CountResult"),
         ("test_connection", "must return ConnectionStatus"),
+        ("create", "create must return a record mapping"),
+        ("update", "update must return a record mapping"),
+        ("upsert", "upsert must return a record mapping"),
+        ("delete", "delete must return DeleteOutcome"),
     ],
 )
 def test_facade_rejects_invalid_plugin_results(method: str, match: str) -> None:
@@ -131,13 +184,42 @@ def test_facade_rejects_invalid_plugin_results(method: str, match: str) -> None:
             capabilities.get_single_object("accounts", {"id": "001"})
         elif method == "count":
             capabilities.count("accounts")
-        else:
+        elif method == "test_connection":
             capabilities.test_connection()
+        elif method == "create":
+            capabilities.create("accounts", {"name": "New"})
+        elif method == "update":
+            capabilities.update("accounts", {"id": "001"}, {"name": "New"})
+        elif method == "upsert":
+            capabilities.upsert("accounts", {"id": "001"})
+        else:
+            capabilities.delete("accounts", {"id": "001"})
 
 
-def test_initial_operation_set_is_read_only_and_intentionally_small() -> None:
+def test_get_deleted_does_not_validate_the_lazy_iterator_shape() -> None:
+    source = _CapableSource(_config())
+    capabilities = SourceCapabilities(source)
+
+    assert capabilities.get_deleted("accounts") is not None
+
+
+def test_create_is_documented_as_non_idempotent_and_others_as_idempotent() -> None:
+    assert SupportsCreate.__doc__ is not None
+    assert "non-idempotent" in SupportsCreate.__doc__.lower()
+    assert SupportsUpdate.__doc__ is not None
+    assert "idempotent" in SupportsUpdate.__doc__.lower()
+    assert SupportsDelete.__doc__ is not None
+    assert "idempotent" in SupportsDelete.__doc__.lower()
+
+
+def test_full_operation_set_covers_read_and_write_back() -> None:
     assert {operation.value for operation in ConnectorOperation} == {
-        "count",
         "get_single_object",
+        "get_deleted",
+        "count",
         "test_connection",
+        "create",
+        "update",
+        "upsert",
+        "delete",
     }

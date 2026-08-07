@@ -42,3 +42,15 @@ jobs with offset pagination, and `ashby_job_board` adds a second real ATS respon
 offline tests pin request construction; live data counts are deliberately not asserted because
 public postings change. Static `query_params` may configure non-secret response options, while
 credential-like parameter names fail validation and must be handled by `auth_strategy`.
+
+## Optional capability discovery (`capabilities.py`)
+
+`Source.extract()`/`discover()` remain the one mandatory contract. `SourceCapabilities` wraps a
+concrete `Source` and structurally detects which optional operations it also implements —
+targeted lookup, a deleted-record feed, cheap counts, a connectivity probe, and opt-in write-back
+(`create`/`update`/`upsert`/`delete`) — via `runtime_checkable` Protocols, so callers check
+`capabilities.supports(op)` before dispatch instead of hitting an `AttributeError`. `create` is
+non-idempotent; `update`/`upsert`/`delete` are naturally idempotent. Every write-back
+implementation reuses the source's existing audited `AuthStrategy` rather than a separate
+credential path, and write-back always targets the source system, never BigQuery. See
+`docs/decisions.md`, "2026-08-05 — Write-back and deleted-record-feed semantics."

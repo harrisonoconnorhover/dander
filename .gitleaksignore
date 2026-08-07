@@ -1,0 +1,15 @@
+# Known false positives, reviewed per steering/01-security.md. Each entry below is a
+# deterministic/computed test value or a documented fake placeholder, never a live credential.
+# Format: <commit-sha>:<file>:<rule-id>:<line> (gitleaks fingerprint from `gitleaks detect`).
+
+# tests/security/test_enterprise_auth.py — a deterministic HMAC-SHA1 OAuth1 request signature
+# computed by the test itself, asserting NetSuiteSuiteQLSource's signing logic against a known
+# fixture consumer/token secret. High entropy by construction (it's a signature), not a credential.
+b5ea9389a35354a3da154238abba2446f42069cf:tests/security/test_enterprise_auth.py:generic-api-key:250
+
+# tickets/DANDER-72-row-level-operations.md — already-pushed commit 60dc73b quoted a Stripe-shaped
+# example placeholder (explicitly labeled fake in the surrounding prose) to discuss opaque literal
+# handling in filter_rows predicates. Reworded in the current tree to avoid the sk_live_/sk_test_/
+# rk_live_ prefixes gitleaks's stripe-access-token rule matches on, but the historical commit still
+# contains the original wording and can't be edited after the fact without rewriting pushed history.
+60dc73b90458055b5d8a9d7c7d3e830d283199be:tickets/DANDER-72-row-level-operations.md:stripe-access-token:345
