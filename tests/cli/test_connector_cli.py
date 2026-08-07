@@ -43,6 +43,22 @@ class _CheckableSource(Source):
         return self._status
 
 
+class _DeletedFeedSource(_CheckableSource):
+    def __init__(self, config: SourceConfig) -> None:
+        super().__init__(config, ConnectionStatus(ok=True))
+        self.calls: list[tuple[str, str | None]] = []
+
+    def get_deleted(
+        self,
+        endpoint: str,
+        *,
+        since: str | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        self.calls.append((endpoint, since))
+        yield {"Id": "001000000000001AAA"}
+        yield {"Id": "001000000000002AAA"}
+
+
 def _config() -> SourceConfig:
     return SourceConfig(
         name="example",
@@ -175,3 +191,64 @@ def test_check_reports_core_authentication_failure(
     assert result.exit_code == 1
     assert result.exception is not None
     assert "OAuth token request failed" in str(result.exception)
+
+
+def test_get_deleted_streams_json_lines_and_forwards_cursor(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = _DeletedFeedSource(_config())
+    monkeypatch.setattr(
+        cli_module,
+        "_load_connector_capabilities",
+        lambda *_args, **_kwargs: (source.config, SourceCapabilities(source)),
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "connector",
+            "get-deleted",
+            "example",
+            "accounts",
+            "--since",
+            "2026-08-01T00:00:00Z",
+            "--config",
+            str(tmp_path / "missing.yaml"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == [
+        '{"Id":"001000000000001AAA"}',
+        '{"Id":"001000000000002AAA"}',
+    ]
+    assert source.calls == [("accounts", "2026-08-01T00:00:00Z")]
+
+
+def test_get_deleted_fails_clearly_when_capability_is_absent(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = _CheckableSource(_config(), ConnectionStatus(ok=True))
+    monkeypatch.setattr(
+        cli_module,
+        "_load_connector_capabilities",
+        lambda *_args, **_kwargs: (source.config, SourceCapabilities(source)),
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "connector",
+            "get-deleted",
+            "example",
+            "accounts",
+            "--config",
+            str(tmp_path / "missing.yaml"),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert "does not support operation 'get_deleted'" in str(result.exception)
