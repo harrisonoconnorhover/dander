@@ -36,7 +36,7 @@ def test_release_metadata_check_reports_stale_readme(tmp_path: Path) -> None:
     readme = tmp_path / "README.md"
     readme.write_text(
         readme.read_text(encoding="utf-8").replace(
-            "dander-platform==0.6.0rc1",
+            "dander-platform==0.6.0rc2",
             "dander-platform==0.1.0",
             1,
         ),
@@ -44,5 +44,5 @@ def test_release_metadata_check_reports_stale_readme(tmp_path: Path) -> None:
     )
 
     assert release_metadata_errors(tmp_path) == [
-        "README install command uses 0.1.0; package metadata uses 0.6.0rc1"
+        "README install command uses 0.1.0; package metadata uses 0.6.0rc2"
     ]

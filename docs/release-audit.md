@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 
 ## Current release and deployment record
 
-- Public Dander candidate: `0.6.0rc1`; latest stable alpha: `0.5.1`; public Salesforce and
+- Public Dander candidate: `0.6.0rc2`; latest stable alpha: `0.5.1`; public Salesforce and
   ServiceNow plugins: `0.2.0`.
 - Retained source-free Dander image: `sha256:3220623…8995`, built with Dander `0.5.0` and both
   plugin `0.2.0` packages. Dander `0.5.1` changes only catalog recommendations, so the runtime
@@ -40,7 +40,7 @@ cloud path remains outside the live proof.
 
 - Dander provisions inside an existing billing-linked GCP project; it does not create a project or
   attach billing. Its managed cost guard is simulation-first and is not a spending cap.
-- The `0.6.0rc1` Salesforce example supports read-only Accounts, Contacts, Opportunities, and
+- The `0.6.0rc2` Salesforce example supports read-only Accounts, Contacts, Opportunities, and
   Users; the retained soak still exercises its existing Accounts pipeline. ServiceNow supports
   one read-only incidents slice. Provider write-back and broad object/table coverage are not
   claimed.

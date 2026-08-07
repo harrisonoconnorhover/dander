@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.6.0rc2 — 2026-08-07 (alpha)
+
 ### Fixed
 
 - Preserve BigQuery's Google-managed required schema aspect during Dataplex publication while
