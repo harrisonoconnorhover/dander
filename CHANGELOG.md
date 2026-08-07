@@ -8,6 +8,8 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add an API-v1 provider-factory registry for warehouse, state, catalog, secret, and launcher
+  categories with strict configuration validation and lazy implementation loading.
 - Add version 2 logical projects plus named platform/deployment configuration, deterministic v1
   migration with a read-only compatibility check, and v2 starter projects. The supported hosted
   composition remains GCP/BigQuery/Cloud Run in this change.
