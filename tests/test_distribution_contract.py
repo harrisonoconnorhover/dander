@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tomllib
+from importlib.metadata import version
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -12,7 +13,7 @@ def test_distribution_identity_and_version_are_public_release() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
     assert project["name"] == "dander-platform"
-    assert project["version"] == "0.6.0rc1"
+    assert project["version"] == version("dander-platform")
     assert project["scripts"]["dander"] == "dander.cli.main:app"
 
 
