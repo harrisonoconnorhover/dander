@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add a lazy ECS/Fargate launcher factory that projects the existing BigQuery data-plane runtime
+  onto immutable ECR images, task-role identity, explicit networking, and valid Fargate resource
+  pairs without yet claiming deployable Fargate support.
 - Select Cloud Run execution-template construction through the lazy launcher-provider registry
   while preserving the existing Terraform projection, resource addresses, and runtime behavior.
 - Select GCP Secret Manager and local environment resolvers through the lazy provider registry;

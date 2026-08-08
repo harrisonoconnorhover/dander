@@ -339,6 +339,30 @@ CLOUD_RUN_CAPABILITIES = LauncherCapabilities(
 )
 
 
+FARGATE_CAPABILITIES = LauncherCapabilities(
+    launcher="fargate",
+    cpu_millis=frozenset({1_000, 2_000, 4_000, 8_000, 16_000}),
+    minimum_memory_mib=512,
+    maximum_memory_mib=122_880,
+    maximum_deadline_seconds=86_400,
+    maximum_launcher_retries=10,
+    maximum_task_count=1,
+    maximum_parallelism=1,
+    supports_ephemeral_storage=True,
+    supports_schedules=True,
+    supports_time_zones=True,
+    supports_network_placement=True,
+    extension_names=frozenset(
+        {
+            "fargate_architecture",
+            "fargate_assign_public_ip",
+            "fargate_security_group_ids",
+            "fargate_subnet_ids",
+        }
+    ),
+)
+
+
 def validate_launcher_projection(
     template: ExecutionTemplate,
     capabilities: LauncherCapabilities,

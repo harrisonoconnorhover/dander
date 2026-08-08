@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-08 — Fargate projection precedes infrastructure support
+
+- **Boundary:** The lazy Fargate factory projects the existing BigQuery/GCP runtime onto an
+  immutable ECR image, AWS task role, `awsvpc` placement, and declared CloudWatch destinations.
+- **Fail closed:** Unsupported CPU/memory pairs, guarded-free-tier execution, mutable images, and
+  invalid account/network identifiers fail before any infrastructure operation.
+- **Support:** Factory registration is not a support claim. Terraform, controller lifecycle,
+  keyless identity, and live comparison remain separate promotion gates.
+
 ## 2026-08-08 — Cloud Run construction uses the launcher provider boundary
 
 - **Selection:** Version 1 and migrated version 2 projects retain `cloud_run`; Terraform bootstrap

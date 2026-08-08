@@ -4,6 +4,7 @@ from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConf
 from dander.providers.cloud_run import CloudRunLauncherConfig
 from dander.providers.dataplex import DataplexCatalogConfig
 from dander.providers.environment_secrets import EnvironmentSecretConfig
+from dander.providers.fargate import FargateLauncherConfig
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
 from dander.providers.no_catalog import NoCatalogConfig
 from dander.providers.registry import ProviderKind, ProviderRegistry, lazy_provider_factory
@@ -66,6 +67,14 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=CloudRunLauncherConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.cloud_run.runtime:CLOUD_RUN_LAUNCHER_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.LAUNCHER,
+        provider_id="fargate",
+        config_model=FargateLauncherConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.fargate.runtime:FARGATE_LAUNCHER_FACTORY"
         ),
     )
     return registry
