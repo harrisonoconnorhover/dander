@@ -204,6 +204,37 @@ def test_bootstrap_accepts_empty_models_when_legacy_build_is_disabled(
     assert any(argument.startswith("-var=pipelines=") for argument in commands[1])
 
 
+def test_bootstrap_rejects_an_unknown_launcher_before_terraform(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del args, kwargs
+        nonlocal calls
+        calls += 1
+        return subprocess.CompletedProcess((), 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(TerraformBootstrapError, match="Unknown launcher provider"):
+        TerraformBootstrap(tmp_path).execute(
+            project="unit-project",
+            state_bucket="unit-state",
+            state_prefix="dander/state",
+            bootstrap_service_account=("dander-bootstrap@unit-project.iam.gserviceaccount.com"),
+            apply=False,
+            launcher_provider="missing",
+            require_guarded_free_tier=False,
+            enable_runtime=True,
+            container_image=f"example.invalid/dander@sha256:{'a' * 64}",
+            pipelines=_pipelines(),
+        )
+
+    assert calls == 0
+
+
 def test_bootstrap_passes_simulation_first_cost_guard(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

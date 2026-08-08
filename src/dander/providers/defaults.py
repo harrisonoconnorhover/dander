@@ -1,6 +1,7 @@
 """Built-in provider registrations with lazy implementation loading."""
 
 from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig
+from dander.providers.cloud_run import CloudRunLauncherConfig
 from dander.providers.dataplex import DataplexCatalogConfig
 from dander.providers.environment_secrets import EnvironmentSecretConfig
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
@@ -57,6 +58,14 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=EnvironmentSecretConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.environment_secrets.runtime:ENVIRONMENT_SECRET_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.LAUNCHER,
+        provider_id="cloud_run",
+        config_model=CloudRunLauncherConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.cloud_run.runtime:CLOUD_RUN_LAUNCHER_FACTORY"
         ),
     )
     return registry

@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-08 — Cloud Run construction uses the launcher provider boundary
+
+- **Selection:** Version 1 and migrated version 2 projects retain `cloud_run`; Terraform bootstrap
+  builds its launcher runtime through the shared lazy API-v1 provider registry.
+- **Parity:** The Cloud Run factory delegates to the accepted execution projector, preserving
+  template values, Terraform addresses, schedules, IAM, alerts, and runtime behavior.
+- **Scope:** This change creates a construction seam only. Fargate lifecycle and infrastructure
+  remain a separate vertical slice with their own planning and acceptance.
+
 ## 2026-08-08 — Secret resolution uses an explicit provider runtime
 
 - **Compatibility:** Version 1 and the Cloud Run profile retain GCP Secret Manager plus the

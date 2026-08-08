@@ -24,6 +24,7 @@ from dander.project.config import (
     _load_yaml_mapping,
 )
 from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig  # noqa: TC001
+from dander.providers.cloud_run import CloudRunLauncherConfig  # noqa: TC001
 from dander.providers.dataplex import DataplexCatalogConfig  # noqa: TC001
 from dander.providers.environment_secrets import EnvironmentSecretConfig  # noqa: TC001
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig  # noqa: TC001
@@ -134,15 +135,6 @@ class PlatformProfileSpec(BaseModel):
     secrets: SecretProviderSpec
 
 
-class CloudRunLauncherSpec(BaseModel):
-    """Cloud Run deployment projection for the existing GCP path."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Literal["cloud_run"]
-    region: str = Field(default="us-central1", min_length=1)
-
-
 class DeploymentPipelineSpec(BaseModel):
     """Environment-specific projection for one logical pipeline."""
 
@@ -180,7 +172,7 @@ class DeploymentSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     platform: str = Field(pattern=_NAME.pattern)
-    launcher: CloudRunLauncherSpec
+    launcher: CloudRunLauncherConfig
     runtime: PlatformRuntimeSpec = Field(default_factory=PlatformRuntimeSpec)
     safety: PlatformSafetySpec = Field(default_factory=PlatformSafetySpec)
     pipelines: dict[str, DeploymentPipelineSpec] = Field(min_length=1)
@@ -354,6 +346,7 @@ def _resolve(
         state_provider=profile.state.provider,
         catalog_provider=profile.catalog.provider,
         secret_provider=profile.secrets.provider,
+        launcher_provider=selected.launcher.provider,
         deployed_pipeline_ids=tuple(sorted(selected.pipelines)),
     )
 
@@ -444,6 +437,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
         and legacy.state_provider == migrated.state_provider
         and legacy.catalog_provider == migrated.catalog_provider
         and legacy.secret_provider == migrated.secret_provider
+        and legacy.launcher_provider == migrated.launcher_provider
         and legacy.plugins == migrated.plugins
         and legacy.pipelines == migrated.pipelines
         and legacy.terraform_pipelines() == migrated.terraform_pipelines()

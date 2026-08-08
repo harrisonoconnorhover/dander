@@ -22,7 +22,8 @@ existing GCP/BigQuery compatibility profile. A later configuration migration wil
 pipeline intent from environment-specific deployment settings; it does not change this runtime
 boundary.
 
-The GCP plan path supplies these templates to Terraform. Cloud Run consumes their image, command,
+The selected Cloud Run provider supplies these templates to Terraform. Cloud Run consumes their
+image, command,
 resources, schedule, environment, secret references, identity, labels, and observability contract.
 Run-specific IDs and attempts continue to come from Cloud Run's native execution context and are
 normalized by the OCI runtime contract.
