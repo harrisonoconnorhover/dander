@@ -22,7 +22,6 @@ from dander.core.config import Settings
 from dander.executor import PipelineExecutionResult, PipelineExecutor
 from dander.ingestion import Endpoint, Source, SourceConfig, load_source_config
 from dander.pipeline.runtime import (
-    BigQueryGraphRunner,
     GraphExecutionPlan,
     GraphRuntimeError,
     load_graph_for_execution,
@@ -34,6 +33,11 @@ from dander.plugins import (
     load_connector_plugins,
 )
 from dander.project import ProjectConfigError, load_project_config
+from dander.providers import (
+    ProviderFactoryError,
+    ProviderKind,
+    default_provider_registry,
+)
 from dander.runtime import PipelineRunner
 from dander.sandbox import GuardedFreeTierVerifier, SandboxDataset, SandboxSafetyError
 from dander.security import (
@@ -58,12 +62,9 @@ from dander.state import (
     SqliteRunHistoryStore,
     SqliteWatermarkStore,
 )
-from dander.transform import (
-    BigQueryTransformRunner,
-    TransformProjectError,
-    TransformRunError,
-)
-from dander.writer import BigQueryReplaceWriter, BigQueryScd1Writer, SchemaEvolution
+from dander.transform import TransformProjectError, TransformRunError
+from dander.warehouse import WarehouseRuntime, WarehouseTransformRunner
+from dander.writer import SchemaEvolution
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -111,6 +112,8 @@ class _ResolvedRun:
     selected_models: tuple[str, ...] | None
     build_models: bool
     publish_dataplex: bool
+    warehouse_provider: str
+    warehouse_location: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +164,8 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
     )
     build_models = options.build_models
     publish_dataplex = options.publish_dataplex
+    warehouse_provider = "bigquery"
+    warehouse_location = "US"
     plugin_registry: ConnectorPluginRegistry | None = None
 
     if options.project_config.is_file():
@@ -183,6 +188,8 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
                     selected_models = tuple(pipeline.models)
                 build_models = build_models or pipeline.build_models
                 publish_dataplex = publish_dataplex or pipeline.publish_dataplex
+                warehouse_provider = manifest.warehouse_provider
+                warehouse_location = manifest.platform.bigquery_location
         except (ConnectorPluginError, ProjectConfigError) as error:
             raise ClickException(str(error)) from error
 
@@ -225,6 +232,8 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         selected_models=selected_models,
         build_models=build_models,
         publish_dataplex=publish_dataplex,
+        warehouse_provider=warehouse_provider,
+        warehouse_location=warehouse_location,
     )
 
 
@@ -294,8 +303,9 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         if resolved.publish_dataplex
         else None
     )
-    ingestion = _build_ingestion_runner(options, resolved, source_adapter)
-    transform_runner = _build_transform_runner(resolved)
+    warehouse = _build_warehouse_runtime(resolved)
+    ingestion = _build_ingestion_runner(options, resolved, source_adapter, warehouse)
+    transform_runner = _build_transform_runner(resolved, warehouse)
     return PipelineExecutor(
         pipeline_id=resolved.pipeline_id,
         source_config=resolved.source_config,
@@ -344,17 +354,14 @@ def _build_ingestion_runner(
     options: RunOptions,
     resolved: _ResolvedRun,
     source: Source,
+    warehouse: WarehouseRuntime,
 ) -> PipelineRunner:
-    writer = (
-        BigQueryReplaceWriter(project=resolved.project, max_batch_rows=options.batch_rows)
-        if options.sandbox
-        else BigQueryScd1Writer(
-            project=resolved.project,
-            max_batch_rows=options.batch_rows,
-            schema_evolution=(
-                SchemaEvolution.ADDITIVE if resolved.project_pipeline else SchemaEvolution.STRICT
-            ),
-        )
+    writer = warehouse.writers.build_ingestion_writer(
+        sandbox=options.sandbox,
+        batch_rows=options.batch_rows,
+        schema_evolution=(
+            SchemaEvolution.ADDITIVE if resolved.project_pipeline else SchemaEvolution.STRICT
+        ),
     )
     watermarks = (
         SqliteWatermarkStore(options.state_path)
@@ -377,12 +384,34 @@ def _build_ingestion_runner(
 
 def _build_transform_runner(
     resolved: _ResolvedRun,
-) -> BigQueryGraphRunner | BigQueryTransformRunner | None:
-    if resolved.graph_plan is not None:
-        return BigQueryGraphRunner(plan=resolved.graph_plan, project=resolved.project)
-    if resolved.build_models:
-        return BigQueryTransformRunner(project=resolved.project)
-    return None
+    warehouse: WarehouseRuntime,
+) -> WarehouseTransformRunner | None:
+    return warehouse.transforms.build_transform_runner(
+        graph_plan=resolved.graph_plan,
+        build_models=resolved.build_models,
+    )
+
+
+def _build_warehouse_runtime(resolved: _ResolvedRun) -> WarehouseRuntime:
+    registry = default_provider_registry()
+    try:
+        config = registry.parse(
+            ProviderKind.WAREHOUSE,
+            {
+                "provider": resolved.warehouse_provider,
+                "location": resolved.warehouse_location,
+            },
+        )
+        runtime = registry.build(
+            ProviderKind.WAREHOUSE,
+            config,
+            context={"project": resolved.project},
+        )
+    except ProviderFactoryError as error:
+        raise ClickException(str(error)) from error
+    if not isinstance(runtime, WarehouseRuntime):
+        raise ClickException("Selected warehouse provider returned an invalid runtime")
+    return runtime
 
 
 def build_source_adapter(

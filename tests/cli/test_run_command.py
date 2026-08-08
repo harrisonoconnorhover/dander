@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from typer.testing import CliRunner
 
@@ -30,6 +30,11 @@ class _Built:
     name: str
     args: tuple[object, ...]
     kwargs: dict[str, object]
+
+
+class _ResolvedWarehouse(Protocol):
+    warehouse_provider: str
+    warehouse_location: str
 
 
 def test_hosted_project_run_wires_runtime_without_network(
@@ -86,16 +91,36 @@ def test_hosted_project_run_wires_runtime_without_network(
                 assets=1,
             )
 
+    class _WriterFactory:
+        def build_ingestion_writer(self, **kwargs: object) -> _Built:
+            component = _Built(name="writer", args=(), kwargs=kwargs)
+            captured["writer"] = component
+            return component
+
+    class _TransformFactory:
+        def build_transform_runner(self, **kwargs: object) -> _Built:
+            component = _Built(name="transform", args=(), kwargs=kwargs)
+            captured["transform"] = component
+            return component
+
+    class _Warehouse:
+        writers = _WriterFactory()
+        transforms = _TransformFactory()
+
+    def build_warehouse(resolved: _ResolvedWarehouse) -> _Warehouse:
+        assert resolved.warehouse_provider == "bigquery"
+        assert resolved.warehouse_location == "US"
+        return _Warehouse()
+
     monkeypatch.setattr(run_module, "DefaultSecretStore", recording_factory("secrets"))
     monkeypatch.setattr(run_module, "build_auth", build_auth)
     monkeypatch.setattr(run_module, "build_source_adapter", build_source)
     monkeypatch.setattr(run_module, "BigQueryRunHistoryStore", recording_factory("history"))
     monkeypatch.setattr(run_module, "BigQueryLeaseStore", recording_factory("leases"))
     monkeypatch.setattr(run_module, "BigQueryMetadataStore", recording_factory("metadata"))
-    monkeypatch.setattr(run_module, "BigQueryScd1Writer", recording_factory("writer"))
     monkeypatch.setattr(run_module, "BigQueryWatermarkStore", recording_factory("watermarks"))
     monkeypatch.setattr(run_module, "PipelineRunner", recording_factory("ingestion"))
-    monkeypatch.setattr(run_module, "BigQueryTransformRunner", recording_factory("transform"))
+    monkeypatch.setattr(run_module, "_build_warehouse_runtime", build_warehouse)
     monkeypatch.setattr(run_module, "PipelineExecutor", _Executor)
 
     result = CliRunner().invoke(
@@ -136,8 +161,8 @@ def test_hosted_project_run_wires_runtime_without_network(
     assert ingestion.kwargs["watermarks"] == captured["watermarks"]
     writer = cast("_Built", ingestion.kwargs["writer"])
     assert writer.kwargs == {
-        "project": "unit-project",
-        "max_batch_rows": 10_000,
+        "sandbox": False,
+        "batch_rows": 10_000,
         "schema_evolution": SchemaEvolution.ADDITIVE,
     }
     history = cast("_Built", captured["history"])

@@ -23,6 +23,7 @@ from dander.project.config import (
     ProjectConfigError,
     _load_yaml_mapping,
 )
+from dander.providers.bigquery import BigQueryWarehouseConfig  # noqa: TC001
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _PLUGIN_ID = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -109,15 +110,6 @@ class DanderLogicalProjectV2(BaseModel):
         return values
 
 
-class BigQueryWarehouseSpec(BaseModel):
-    """BigQuery connection identity owned by one named platform profile."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Literal["bigquery"]
-    location: str = Field(default="US", min_length=1)
-
-
 class BigQueryStateSpec(BaseModel):
     """BigQuery durable-state selection for the compatibility profile."""
 
@@ -172,7 +164,7 @@ class PlatformProfileSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    warehouse: BigQueryWarehouseSpec
+    warehouse: BigQueryWarehouseConfig
     state: BigQueryStateSpec
     catalog: CatalogSpec
     secrets: SecretProviderSpec
@@ -390,6 +382,7 @@ def _resolve(
         pipelines=resolved_pipelines,
         platform_name=selected.platform,
         deployment_name=selected_name,
+        warehouse_provider=profile.warehouse.provider,
         deployed_pipeline_ids=tuple(sorted(selected.pipelines)),
     )
 
@@ -476,6 +469,7 @@ def _platforms_document(project: DanderProject) -> dict[str, object]:
 def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
     return (
         legacy.platform == migrated.platform
+        and legacy.warehouse_provider == migrated.warehouse_provider
         and legacy.plugins == migrated.plugins
         and legacy.pipelines == migrated.pipelines
         and legacy.terraform_pipelines() == migrated.terraform_pipelines()

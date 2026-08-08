@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Route BigQuery writer and transform construction through one lazily selected, typed warehouse
+  runtime that also exposes canonical schema, relation rendering, target fencing, normalized job
+  telemetry, and explicit capabilities without changing current GCP behavior.
 - Expose provider dependency extras for BigQuery, Snowflake, Redshift, PostgreSQL, GCP, AWS, Azure,
   and OCI, plus a validated `runtime-all` union used by repository and generated source-free OCI
   images without expanding the supported-adapter capability manifest.
