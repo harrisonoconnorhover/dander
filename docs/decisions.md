@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-08 — External catalog publication is selected independently
+
+- **Selection:** Version 1 retains implicit Dataplex behavior; version 2 carries `dataplex` or
+  `none` into the API-v1 catalog factory while explicit legacy CLI publication still selects
+  Dataplex.
+- **Dataplex parity:** The existing first-party BigQuery entry naming, optional aspect-only updates,
+  unrelated-field preservation, required-schema exclusion, and normalized readback remain intact.
+- **No catalog:** The selected runtime has no publisher and imports no Dataplex implementation;
+  local semantic manifests and durable metadata snapshots remain separate, unchanged stages.
+
 ## 2026-08-08 — Durable state is composed without relocating existing data
 
 - **Selection:** Version 1 projects retain implicit BigQuery state; version 2 resolution carries

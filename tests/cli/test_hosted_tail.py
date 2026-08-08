@@ -70,11 +70,15 @@ def test_post_ingestion_builds_before_registry_and_dataplex(
             events.append("dataplex")
             return "published"
 
+    def build_publisher(*, provider_id: str, project: str, location: str) -> _Dataplex:
+        assert provider_id == "dataplex"
+        return _Dataplex(project=project, location=location)
+
     monkeypatch.setattr("dander.cli.main.BigQueryTransformRunner", _Runner)
     monkeypatch.setattr("dander.cli.main.TransformProject", _Project)
     monkeypatch.setattr("dander.cli.main.MetadataSpine", _Spine)
     monkeypatch.setattr("dander.cli.main.SemanticRegistryPublisher", _Registry)
-    monkeypatch.setattr("dander.cli.main.DataplexCatalogPublisher", _Dataplex)
+    monkeypatch.setattr("dander.cli.main.build_catalog_publisher", build_publisher)
 
     _run_post_ingestion(
         project="unit-project",

@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Select Dataplex or explicit no-catalog behavior through the lazy provider registry; retain
+  Dataplex aspect-only publication and readback semantics while avoiding its SDK and credentials
+  entirely when catalog publication is disabled.
 - Route BigQuery leases, watermarks, run history, and metadata snapshots through one lazily selected
   durable-state runtime with an explicit versioned migration ledger while preserving all existing
   table identities and correctness behavior.

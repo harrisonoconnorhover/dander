@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Protocol, cast
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import dataplex_v1
 
+from dander.catalog.publisher import CatalogPublishError
+
 if TYPE_CHECKING:
     from dander.catalog.spine import CatalogAsset
 
@@ -20,10 +22,6 @@ _CONTACTS = "dataplex-types.global.contacts"
 _SCHEMA = "dataplex-types.global.schema"
 _GENERIC = "dataplex-types.global.generic"
 _BIGQUERY_MANAGED_REQUIRED_ASPECTS = frozenset({_SCHEMA})
-
-
-class CatalogPublishError(RuntimeError):
-    """Raised when a catalog request is invalid or cannot be completed."""
 
 
 class _CatalogClient(Protocol):

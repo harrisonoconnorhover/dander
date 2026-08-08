@@ -205,6 +205,7 @@ class DanderProject(BaseModel):
     deployment_name: str = Field(default="gcp_cloud_run", exclude=True)
     warehouse_provider: Literal["bigquery"] = Field(default="bigquery", exclude=True)
     state_provider: Literal["bigquery"] = Field(default="bigquery", exclude=True)
+    catalog_provider: Literal["dataplex", "none"] = Field(default="dataplex", exclude=True)
     deployed_pipeline_ids: tuple[str, ...] | None = Field(default=None, exclude=True)
 
     @field_validator("plugins")

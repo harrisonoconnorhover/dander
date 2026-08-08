@@ -30,6 +30,11 @@ class _FakeDataplexPublisher:
         return f"entries/{asset.name}"
 
 
+def _build_publisher(*, provider_id: str, project: str, location: str) -> _FakeDataplexPublisher:
+    assert provider_id == "dataplex"
+    return _FakeDataplexPublisher(project=project, location=location)
+
+
 def test_catalog_compiles_locally_without_cloud_publication(tmp_path: Path) -> None:
     output = tmp_path / "catalog.json"
 
@@ -62,8 +67,8 @@ def test_catalog_only_publishes_with_explicit_flag(
 ) -> None:
     _FakeDataplexPublisher.published.clear()
     monkeypatch.setattr(
-        "dander.cli.main.DataplexCatalogPublisher",
-        _FakeDataplexPublisher,
+        "dander.cli.main.build_catalog_publisher",
+        _build_publisher,
     )
 
     result = CliRunner().invoke(
