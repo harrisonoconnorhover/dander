@@ -21,11 +21,24 @@ def test_aws_root_is_separate_and_uses_native_remote_state() -> None:
     assert "azurerm" not in versions
 
 
+def test_aws_stage_zero_uses_customer_encryption_and_scoped_role_passing() -> None:
+    stage_zero = _source(AWS_ROOT / "bootstrap-admin/main.tf")
+
+    assert 'resource "aws_kms_key" "stage_zero"' in stage_zero
+    assert "enable_key_rotation     = true" in stage_zero
+    assert 'sse_algorithm     = "aws:kms"' in stage_zero
+    assert 'sid    = "ManageDanderRoles"' in stage_zero
+    assert '"arn:${local.partition}:iam::${var.aws_account_id}:role/dander-*"' in stage_zero
+    assert 'variable = "aws:PrincipalArn"' in stage_zero
+
+
 def test_fargate_task_is_immutable_nonroot_and_uses_separate_roles() -> None:
     module = _source(MODULE)
+    stage_zero = _source(AWS_ROOT / "bootstrap-admin/main.tf")
 
-    assert 'image_tag_mutability = "IMMUTABLE"' in module
-    assert "scan_on_push = true" in module
+    assert 'data "aws_ecr_repository" "runtime"' in module
+    assert 'image_tag_mutability = "IMMUTABLE"' in stage_zero
+    assert "scan_on_push = true" in stage_zero
     assert "readonlyRootFilesystem = true" in module
     assert 'user                   = "65532:65532"' in module
     assert 'containerPath = "/tmp"' in module

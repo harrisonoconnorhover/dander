@@ -1,10 +1,15 @@
 """Infrastructure bootstrap adapters."""
 
 from dander.bootstrap.admin import AdministrativeBootstrap, AdministrativeBootstrapError
+from dander.bootstrap.aws_admin import (
+    AwsAdministrativeBootstrap,
+    AwsAdministrativeBootstrapError,
+)
 from dander.bootstrap.aws_terraform import AwsTerraformBootstrap, AwsTerraformBootstrapError
 from dander.bootstrap.permissions import require_stage_zero_permissions
 from dander.bootstrap.project import (
     ProjectBootstrapError,
+    RuntimeImagePromoter,
     RuntimeImagePublisher,
     StateBucketBootstrap,
     active_admin_member,
@@ -23,12 +28,15 @@ from dander.bootstrap.verify import (
 __all__ = [
     "AdministrativeBootstrap",
     "AdministrativeBootstrapError",
+    "AwsAdministrativeBootstrap",
+    "AwsAdministrativeBootstrapError",
     "AwsTerraformBootstrap",
     "AwsTerraformBootstrapError",
     "DeploymentSummary",
     "DeploymentVerificationError",
     "DeploymentVerifier",
     "ProjectBootstrapError",
+    "RuntimeImagePromoter",
     "RuntimeImagePublisher",
     "StateBucketBootstrap",
     "TerraformBootstrap",

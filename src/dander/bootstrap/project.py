@@ -21,6 +21,13 @@ _REGION = re.compile(r"^[a-z][a-z0-9-]{1,62}[a-z0-9]$")
 _ACCOUNT = re.compile(r"^[^\s@]+@[^\s@]+$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PLATFORM_PART = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
+_AWS_ACCOUNT_ID = re.compile(r"^[0-9]{12}$")
+_AWS_PROFILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+_ECR_REPOSITORY = re.compile(r"^[a-z0-9]+(?:[._/-][a-z0-9]+)*$")
+_OCI_IMAGE = re.compile(
+    r"^(?P<host>[a-z0-9.-]+(?::[0-9]+)?)/"
+    r"(?P<path>[A-Za-z0-9][A-Za-z0-9._/-]*)@(?P<digest>sha256:[0-9a-f]{64})$"
+)
 _ARTIFACT_SCHEMA = "io.dander.runtime.artifact/v1"
 _SOURCE_URL = "https://github.com/harrisonoconnorhover/dander"
 _RUNTIME_PLATFORMS = ("linux/amd64", "linux/arm64")
@@ -368,6 +375,232 @@ class RuntimeImagePublisher:
         except OSError as error:
             raise ProjectBootstrapError("Could not hash the runtime build context") from error
         return hasher.hexdigest()
+
+
+class RuntimeImagePromoter:
+    """Copy one accepted OCI index into ECR without rebuilding it."""
+
+    def __init__(self, project_dir: Path, *, runner: _Runner | None = None) -> None:
+        self._project_dir = project_dir.resolve()
+        self._runner = runner or _subprocess_runner
+        self._artifact_record_path: Path | None = None
+
+    @property
+    def artifact_record_path(self) -> Path | None:
+        """Return the AWS artifact record written by the latest successful promotion."""
+        return self._artifact_record_path
+
+    def promote(
+        self,
+        *,
+        source_image: str,
+        aws_account_id: str,
+        region: str,
+        repository_name: str,
+        aws_profile: str = "",
+        tag_prefix: str = "promoted",
+    ) -> str:
+        """Promote an accepted source-free image and require byte-identical OCI digests."""
+        self._artifact_record_path = None
+        source_match = _OCI_IMAGE.fullmatch(source_image)
+        if source_match is None:
+            raise ProjectBootstrapError("Source image must be an immutable OCI digest reference")
+        if not _AWS_ACCOUNT_ID.fullmatch(aws_account_id) or not _REGION.fullmatch(region):
+            raise ProjectBootstrapError("Invalid AWS image-promotion account or region")
+        if not _ECR_REPOSITORY.fullmatch(repository_name):
+            raise ProjectBootstrapError("Invalid ECR repository name")
+        if aws_profile and not _AWS_PROFILE.fullmatch(aws_profile):
+            raise ProjectBootstrapError("Invalid AWS profile")
+        if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", tag_prefix):
+            raise ProjectBootstrapError("Invalid ECR promotion tag prefix")
+
+        source_record_path = self._project_dir / ".dander" / "runtime-artifact.json"
+        try:
+            source_record = json.loads(source_record_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ProjectBootstrapError(
+                "A valid source-free runtime artifact record is required before AWS promotion"
+            ) from error
+        expected_digest = source_match.group("digest")
+        if not isinstance(source_record, dict):
+            raise ProjectBootstrapError(
+                "Source image does not match its accepted runtime artifact record"
+            )
+        expected_platforms = source_record.get("platform_manifests")
+        if (
+            source_record.get("schema") != _ARTIFACT_SCHEMA
+            or source_record.get("image") != source_image
+            or source_record.get("index_digest") != expected_digest
+            or not isinstance(expected_platforms, dict)
+            or not expected_platforms
+            or any(
+                not isinstance(key, str)
+                or not isinstance(value, str)
+                or not _DIGEST.fullmatch(value)
+                for key, value in expected_platforms.items()
+            )
+        ):
+            raise ProjectBootstrapError(
+                "Source image does not match its accepted runtime artifact record"
+            )
+
+        aws_prefix = ("aws", "--profile", aws_profile) if aws_profile else ("aws",)
+        host = f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com"
+        destination_repository = f"{host}/{repository_name}"
+        tag = f"{tag_prefix}-{expected_digest.removeprefix('sha256:')[:12]}"
+        tagged_destination = f"{destination_repository}:{tag}"
+        try:
+            repository = self._runner(
+                (
+                    *aws_prefix,
+                    "ecr",
+                    "describe-repositories",
+                    "--region",
+                    region,
+                    "--repository-names",
+                    repository_name,
+                    "--query",
+                    "repositories[0].repositoryUri",
+                    "--output",
+                    "text",
+                ),
+                cwd=self._project_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            if repository != destination_repository:
+                raise ProjectBootstrapError("ECR returned an unexpected repository URI")
+            password = self._runner(
+                (*aws_prefix, "ecr", "get-login-password", "--region", region),
+                cwd=self._project_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            if not password:
+                raise ProjectBootstrapError("AWS returned an empty ECR login password")
+            self._runner(
+                ("docker", "login", host, "--username", "AWS", "--password-stdin"),
+                cwd=self._project_dir,
+                check=True,
+                text=True,
+                input=password,
+            )
+            source_raw = self._runner(
+                ("docker", "buildx", "imagetools", "inspect", "--raw", source_image),
+                cwd=self._project_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+            source_platforms = _platform_manifests(
+                source_raw,
+                default_digest=expected_digest,
+            )
+            if source_platforms != expected_platforms:
+                raise ProjectBootstrapError(
+                    "Source registry content no longer matches the accepted artifact record"
+                )
+            describe_destination = (
+                *aws_prefix,
+                "ecr",
+                "describe-images",
+                "--region",
+                region,
+                "--repository-name",
+                repository_name,
+                "--image-ids",
+                f"imageTag={tag}",
+                "--query",
+                "imageDetails[0].imageDigest",
+                "--output",
+                "text",
+            )
+            existing = self._runner(
+                describe_destination,
+                cwd=self._project_dir,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            created = existing.returncode != 0
+            if existing.returncode == 0:
+                destination_digest = existing.stdout.strip()
+            else:
+                self._runner(
+                    (
+                        "docker",
+                        "buildx",
+                        "imagetools",
+                        "create",
+                        "--prefer-index=false",
+                        "--tag",
+                        tagged_destination,
+                        source_image,
+                    ),
+                    cwd=self._project_dir,
+                    check=True,
+                )
+                destination_digest = self._runner(
+                    describe_destination,
+                    cwd=self._project_dir,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+            if destination_digest != expected_digest:
+                if created:
+                    raise ProjectBootstrapError(
+                        "ECR rewrote the OCI index; the promoted artifact is not byte-identical"
+                    )
+                raise ProjectBootstrapError(
+                    "Existing immutable ECR tag does not match the accepted OCI index"
+                )
+            immutable_destination = f"{destination_repository}@{destination_digest}"
+            destination_raw = self._runner(
+                (
+                    "docker",
+                    "buildx",
+                    "imagetools",
+                    "inspect",
+                    "--raw",
+                    immutable_destination,
+                ),
+                cwd=self._project_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+            destination_platforms = _platform_manifests(
+                destination_raw,
+                default_digest=destination_digest,
+            )
+            if destination_platforms != expected_platforms:
+                raise ProjectBootstrapError(
+                    "ECR platform manifests differ from the accepted source-free artifact"
+                )
+        except (FileNotFoundError, subprocess.CalledProcessError) as error:
+            raise ProjectBootstrapError("Could not promote the runtime image into ECR") from error
+
+        record_path = self._project_dir / ".dander" / "runtime-artifact-aws.json"
+        try:
+            _write_artifact_record(
+                record_path,
+                {
+                    **source_record,
+                    "image": immutable_destination,
+                    "tagged_image": tagged_destination,
+                    "source_image": source_image,
+                    "promotion": "registry-copy",
+                },
+            )
+        except OSError as error:
+            raise ProjectBootstrapError(
+                "Runtime image was promoted but its AWS artifact record could not be written"
+            ) from error
+        self._artifact_record_path = record_path
+        return immutable_destination
 
 
 def _is_build_context_file(path: Path) -> bool:

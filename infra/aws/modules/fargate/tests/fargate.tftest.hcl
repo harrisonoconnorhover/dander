@@ -12,6 +12,15 @@ mock_provider "aws" {
       user_id    = "184463061564"
     }
   }
+
+  mock_data "aws_ecr_repository" {
+    defaults = {
+      arn            = "arn:aws:ecr:us-east-1:184463061564:repository/dander"
+      name           = "dander"
+      registry_id    = "184463061564"
+      repository_url = "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander"
+    }
+  }
 }
 
 variables {
@@ -108,10 +117,7 @@ run "paused_bounded_controller" {
   }
 
   assert {
-    condition = (
-      aws_ecr_repository.runtime.image_tag_mutability == "IMMUTABLE" &&
-      aws_ecr_repository.runtime.image_scanning_configuration[0].scan_on_push == true
-    )
-    error_message = "The runtime repository must reject mutable tags and scan pushed images."
+    condition     = data.aws_ecr_repository.runtime.name == "dander"
+    error_message = "The Fargate stack must consume the stage-zero ECR repository."
   }
 }

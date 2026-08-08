@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-08 — AWS stage zero owns state and artifact prerequisites
+
+- **Ownership:** A separate AWS stage-zero root owns the customer-key-encrypted S3 backend,
+  DynamoDB lock table, immutable ECR repository, and dedicated deployment role. The Fargate
+  platform root consumes the repository instead of attempting to create it after image promotion.
+- **Lifecycle:** The first reviewed stage-zero plan uses secured local operator state. Applying
+  that exact plan creates the remote backend and immediately migrates state into S3; a failed
+  migration preserves the local recovery copy.
+- **Artifact:** AWS publication copies the accepted source-free OCI index without rebuilding and
+  fails unless the index and every platform digest remain identical in ECR.
+
 ## 2026-08-08 — Fargate lifecycle is provider-native and bounded
 
 - **Controller:** One Standard Step Functions state machine per pipeline uses the optimized ECS
