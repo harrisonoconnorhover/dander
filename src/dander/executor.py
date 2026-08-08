@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 from uuid import uuid4
 
 from dander.catalog import MetadataSpine, SemanticRegistryPublisher
 from dander.runtime import PipelineRunResult
 from dander.state import LeaseHeartbeat, RunStage, RunStatus, classify_failure
+from dander.telemetry import RunTelemetry
 from dander.transform import TransformProject, TransformRunResult
 
 if TYPE_CHECKING:
@@ -61,6 +63,7 @@ class PipelineExecutionResult:
     assertions: int
     assets: int
     skipped: bool = False
+    telemetry: RunTelemetry = field(default_factory=RunTelemetry)
 
 
 class PipelineExecutor:
@@ -101,6 +104,7 @@ class PipelineExecutor:
 
     def execute(self, *, run_id: str | None = None) -> PipelineExecutionResult:
         """Execute every enabled stage and record one truthful terminal outcome."""
+        started_ns = time.monotonic_ns()
         run_id = run_id or uuid4().hex
         stage = RunStage.INGEST
         endpoints = extracted = affected = models = assertions = assets = 0
@@ -141,6 +145,7 @@ class PipelineExecutor:
                         assertions=0,
                         assets=0,
                         skipped=True,
+                        telemetry=RunTelemetry(duration_ms=_elapsed_ms(started_ns)),
                     )
                 heartbeat = LeaseHeartbeat(self._leases, lease)
                 heartbeat.__enter__()
@@ -259,10 +264,31 @@ class PipelineExecutor:
                         "run_id": run_id,
                     },
                 )
+            _LOGGER.warning(
+                "pipeline_failed",
+                extra={
+                    "dander_event": "pipeline_failed",
+                    "pipeline_id": self._pipeline_id,
+                    "run_id": run_id,
+                    "stage": stage.value,
+                    "failure_code": failure.code,
+                    "duration_ms": _elapsed_ms(started_ns),
+                },
+            )
             raise
         finally:
             if heartbeat is not None:
                 heartbeat.__exit__()
+        telemetry = RunTelemetry(duration_ms=_elapsed_ms(started_ns))
+        _LOGGER.info(
+            "pipeline_completed",
+            extra={
+                "dander_event": "pipeline_completed",
+                "pipeline_id": self._pipeline_id,
+                "run_id": run_id,
+                "duration_ms": telemetry.duration_ms,
+            },
+        )
         return PipelineExecutionResult(
             run_id=run_id,
             pipeline_id=self._pipeline_id,
@@ -270,6 +296,7 @@ class PipelineExecutor:
             models=transform_result.models,
             assertions=transform_result.assertions,
             assets=len(compiled_assets),
+            telemetry=telemetry,
         )
 
     @property
@@ -303,3 +330,7 @@ class PipelineExecutor:
             models=models,
             assertions=assertions,
         )
+
+
+def _elapsed_ms(started_ns: int) -> int:
+    return max(0, (time.monotonic_ns() - started_ns) // 1_000_000)

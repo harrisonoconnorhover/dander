@@ -43,6 +43,16 @@ def test_unknown_failure_is_stage_specific_and_points_to_run_logs() -> None:
     )
     assert "customer payload" not in failure.summary
 
+    unexpected = classify_failure(
+        RuntimeError("customer payload must never persist"),
+        stage=RunStage.INGEST,
+        run_id="run-123",
+    )
+    assert unexpected.summary == (
+        "The ingest stage failed unexpectedly. Inspect launcher logs for run run-123."
+    )
+    assert "Cloud Run" not in unexpected.summary
+
 
 def test_runtime_cancellation_is_safe_and_retryable_by_a_fresh_run() -> None:
     class RuntimeCancelledError(RuntimeError):
@@ -81,3 +91,41 @@ def test_wrapped_runtime_stage_errors_keep_stable_codes() -> None:
     assert catalog.code == "catalog_failed"
     assert "private" not in transform.summary
     assert "private" not in catalog.summary
+
+
+def test_provider_specific_failures_use_cloud_neutral_summaries() -> None:
+    class PermissionDenied(RuntimeError):  # noqa: N818 - matches provider SDK class name
+        pass
+
+    class BigQueryWriteError(RuntimeError):
+        pass
+
+    class DestinationWriteError(RuntimeError):
+        pass
+
+    permission = classify_failure(
+        PermissionDenied("private permission detail"),
+        stage=RunStage.INGEST,
+        run_id="run-123",
+    )
+    destination = classify_failure(
+        BigQueryWriteError("private row detail"),
+        stage=RunStage.INGEST,
+        run_id="run-123",
+    )
+    portable_destination = classify_failure(
+        DestinationWriteError("private row detail"),
+        stage=RunStage.INGEST,
+        run_id="run-123",
+    )
+
+    assert permission.summary == (
+        "Permission was denied. Verify the selected provider permissions for this pipeline."
+    )
+    assert destination.summary == (
+        "The destination rejected a write. Inspect logs for run run-123."
+    )
+    assert portable_destination.code == "destination_write_failed"
+    assert portable_destination.summary == destination.summary
+    assert "GCP" not in permission.summary
+    assert "BigQuery" not in destination.summary

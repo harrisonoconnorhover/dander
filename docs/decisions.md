@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-07 — Runtime telemetry is normalized before provider reporting
+
+- **Contract:** Terminal runtime events carry one validated `RunTelemetry` shape with whole-run
+  duration and ordered row, byte, retry, query/job, and monetary-cost operation statistics.
+- **Safety:** The closed payload admits only bounded identifiers and numeric aggregates; arbitrary
+  provider metadata, SQL, URLs, request bodies, rows, and exception strings are not telemetry.
+- **Scope:** Core currently measures elapsed time. Concrete warehouse adapters populate detailed
+  operations in their own vertical slices, and zero values do not imply provider billing data.
+
 ## 2026-08-07 — Graph nodes compile to relational expressions before SQL
 
 - **Boundary:** Source relations, CTEs, joins, projections, scalar transforms, and ordered graph

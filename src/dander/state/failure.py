@@ -39,7 +39,7 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
     if 403 in statuses or names & {"Forbidden", "PermissionDenied"}:
         return _details(
             "permission_denied",
-            "Permission was denied. Verify the provider and GCP permissions for this pipeline.",
+            "Permission was denied. Verify the selected provider permissions for this pipeline.",
         )
     if 429 in statuses or names & {"TooManyRequests", "ResourceExhausted"}:
         return _details(
@@ -56,10 +56,10 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
             "source_schema_failed",
             f"A source record did not match the declared schema. Inspect logs for run {run_id}.",
         )
-    if "BigQueryWriteError" in names:
+    if names & {"BigQueryWriteError", "DestinationWriteError", "WarehouseWriteError"}:
         return _details(
             "destination_write_failed",
-            f"BigQuery rejected a destination write. Inspect logs for run {run_id}.",
+            f"The destination rejected a write. Inspect logs for run {run_id}.",
         )
     if names & {"TransformProjectError", "TransformRunError", "GraphRuntimeError"}:
         return _details(
@@ -99,7 +99,7 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
         )
     return _details(
         "unexpected_error",
-        f"The {stage.value} stage failed unexpectedly. Inspect Cloud Run logs for run {run_id}.",
+        f"The {stage.value} stage failed unexpectedly. Inspect launcher logs for run {run_id}.",
     )
 
 

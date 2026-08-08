@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tempfile
+import time
 from pathlib import Path
 from typing import Annotated
 
@@ -96,6 +97,7 @@ def execute_runtime(
     except RuntimeContractError as error:
         raise typer.BadParameter(str(error)) from error
 
+    started_ns = time.monotonic_ns()
     typer.echo(
         RuntimeEvent.started(
             context=context,
@@ -139,6 +141,7 @@ def execute_runtime(
                 stage="cancelled",
                 failure_code="interrupted_run",
                 retryable=True,
+                duration_ms=_elapsed_ms(started_ns),
             ).to_json()
         )
         raise typer.Exit(code=RuntimeExitCode.CANCELLED) from None
@@ -154,6 +157,7 @@ def execute_runtime(
                     stage="runtime",
                     failure_code=failure.code,
                     retryable=retryable,
+                    duration_ms=_elapsed_ms(started_ns),
                 ).to_json()
             )
             code = (
@@ -170,6 +174,7 @@ def execute_runtime(
                 stage="configuration",
                 failure_code="invalid_configuration",
                 retryable=False,
+                duration_ms=_elapsed_ms(started_ns),
             ).to_json()
         )
         raise typer.Exit(code=RuntimeExitCode.INVALID_INVOCATION) from None
@@ -184,10 +189,22 @@ def execute_runtime(
                 stage="runtime",
                 failure_code=failure.code,
                 retryable=retryable,
+                duration_ms=_elapsed_ms(started_ns),
             ).to_json()
         )
         code = RuntimeExitCode.RETRYABLE_FAILURE if retryable else RuntimeExitCode.PERMANENT_FAILURE
         raise typer.Exit(code=code) from None
 
     assert result is not None
-    typer.echo(RuntimeEvent.completed(result, context=context, platform=platform).to_json())
+    typer.echo(
+        RuntimeEvent.completed(
+            result,
+            context=context,
+            platform=platform,
+            duration_ms=_elapsed_ms(started_ns),
+        ).to_json()
+    )
+
+
+def _elapsed_ms(started_ns: int) -> int:
+    return max(0, (time.monotonic_ns() - started_ns) // 1_000_000)
