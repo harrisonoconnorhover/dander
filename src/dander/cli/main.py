@@ -50,7 +50,7 @@ from dander.cli.init_command import (
     execute_platform_bootstrap,
     resolve_platform_config,
 )
-from dander.cli.provider_runtime import build_catalog_publisher
+from dander.cli.provider_runtime import build_catalog_publisher, build_secret_store
 from dander.cli.run_command import (
     RunOptions,
     build_auth,
@@ -95,7 +95,6 @@ from dander.project import (
 )
 from dander.sandbox import GuardedFreeTierVerifier, SandboxSafetyError
 from dander.security import (
-    DefaultSecretStore,
     OAuthTokenError,
     SecretResolutionError,
 )
@@ -1802,10 +1801,12 @@ def _load_connector_capabilities(
 ) -> tuple[SourceConfig, SourceCapabilities]:
     """Resolve one configured source and inspect its optional operations without provider I/O."""
     source = source_or_pipeline
+    secret_provider = "gcp_secret_manager"
     try:
         registry = load_connector_plugins({})
         if project_config.is_file():
             manifest = load_project_config(project_config)
+            secret_provider = manifest.secret_provider
             registry = load_connector_plugins(manifest.plugins)
             pipeline = manifest.pipelines.get(source_or_pipeline)
             if pipeline is not None:
@@ -1819,7 +1820,7 @@ def _load_connector_capabilities(
             raise ConnectorConfigError(
                 f"Connector file declares source {config.name!r}, expected {source!r}"
             )
-        auth = _build_auth(config, DefaultSecretStore())
+        auth = _build_auth(config, build_secret_store(secret_provider))
         return config, registry.build_capabilities(config, auth)
     except (ConnectorConfigError, ConnectorPluginError, ProjectConfigError) as error:
         raise ClickException(str(error)) from error

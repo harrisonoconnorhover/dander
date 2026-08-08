@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import logging
 import os
+from importlib import import_module
 from typing import TYPE_CHECKING, Protocol, cast
-
-from google.cloud import secretmanager
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 _GCP_REFERENCE_PREFIX = "projects/"
@@ -55,7 +55,12 @@ class GcpSecretStore:
     """Resolve secrets from GCP Secret Manager by resource name."""
 
     def __init__(self, client: _SecretManagerClient | None = None) -> None:
-        self._client = client or secretmanager.SecretManagerServiceClient()
+        if client is None:
+            client_type = cast(
+                "Any", import_module("google.cloud.secretmanager")
+            ).SecretManagerServiceClient
+            client = cast("_SecretManagerClient", client_type())
+        self._client = client
 
     def get_secret(self, reference: str) -> str:
         """Return a secret value from a fully-qualified Secret Manager reference.

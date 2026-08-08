@@ -16,7 +16,7 @@ from dander.catalog import (
     SemanticRegistryError,
     SqliteMetadataStore,
 )
-from dander.cli.provider_runtime import build_catalog_publisher
+from dander.cli.provider_runtime import build_catalog_publisher, build_secret_store
 from dander.core.config import Settings
 from dander.executor import PipelineExecutionResult, PipelineExecutor
 from dander.ingestion import Endpoint, Source, SourceConfig, load_source_config
@@ -44,8 +44,6 @@ from dander.security import (
     ApiKeyBearer,
     AuthStrategy,
     ClientCredentialPlacement,
-    DefaultSecretStore,
-    EnvironmentSecretStore,
     NoAuth,
     OAuth1TBA,
     OAuth2ClientCredentials,
@@ -69,6 +67,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from rich.console import Console
+
+    from dander.core.interfaces import SecretStoreProvider
 
 _SOURCE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 
@@ -114,6 +114,7 @@ class _ResolvedRun:
     warehouse_location: str
     state_provider: str
     catalog_provider: str
+    secret_provider: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +170,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
     warehouse_location = "US"
     state_provider = "bigquery"
     catalog_provider = "dataplex"
+    secret_provider = "gcp_secret_manager"
     plugin_registry: ConnectorPluginRegistry | None = None
 
     if options.project_config.is_file():
@@ -197,6 +199,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
                 catalog_provider = (
                     "dataplex" if options.publish_dataplex else manifest.catalog_provider
                 )
+                secret_provider = manifest.secret_provider
         except (ConnectorPluginError, ProjectConfigError) as error:
             raise ClickException(str(error)) from error
 
@@ -243,6 +246,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         warehouse_location=warehouse_location,
         state_provider=state_provider,
         catalog_provider=catalog_provider,
+        secret_provider=secret_provider,
     )
 
 
@@ -292,7 +296,7 @@ def _verify_safety(options: RunOptions, resolved: _ResolvedRun) -> None:
 
 
 def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExecutor:
-    secrets = EnvironmentSecretStore() if options.sandbox else DefaultSecretStore()
+    secrets = build_secret_store("environment" if options.sandbox else resolved.secret_provider)
     auth = build_auth(resolved.source_config, secrets)
     try:
         source_adapter = build_source_adapter(
@@ -455,7 +459,7 @@ def build_source_adapter(
 
 def build_auth(
     config: SourceConfig,
-    secrets: DefaultSecretStore | EnvironmentSecretStore,
+    secrets: SecretStoreProvider,
 ) -> AuthStrategy:
     """Construct a supported authentication strategy from connector metadata."""
     if config.auth_strategy == "none":

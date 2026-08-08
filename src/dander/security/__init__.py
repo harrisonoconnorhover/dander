@@ -11,6 +11,7 @@ from dander.security.oauth import (
 )
 from dander.security.oauth1 import OAuth1TBA
 from dander.security.oauth_jwt import OAuth2JWT
+from dander.security.runtime import SecretCapabilities, SecretRuntime
 from dander.security.secret_manager import (
     DefaultSecretStore,
     EnvironmentSecretStore,
@@ -32,4 +33,6 @@ __all__ = [
     "OAuth1TBA",
     "OAuthTokenError",
     "SecretResolutionError",
+    "SecretCapabilities",
+    "SecretRuntime",
 ]

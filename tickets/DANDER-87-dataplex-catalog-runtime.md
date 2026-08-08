@@ -1,7 +1,7 @@
 ---
 id: DANDER-87
 title: Route Dataplex publication through catalog capabilities
-status: in-review
+status: completed
 component: catalog
 epic: cloud-portability
 depends_on: [DANDER-86]
@@ -25,7 +25,7 @@ selection must become independent without changing the accepted metadata spine o
 - [x] Local semantic-registry and durable metadata-snapshot behavior remains unchanged.
 - [x] Focused provider, Dataplex, CLI, and project-resolution tests pass.
 - [x] Full local validation and isolated GCP no-drift pass.
-- [ ] Protected CI passes.
+- [x] Protected CI passes.
 
 ## Design
 
@@ -35,4 +35,4 @@ construction change only; canonical non-BigQuery catalog assets and Glue remain 
 
 ## Review Log
 
-Pending protected review.
+Merged through protected PR #118 as `7c6c09ccb19a4e2126f3d204dba7b3dbfdd4d2a5`.

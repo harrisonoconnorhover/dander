@@ -3,7 +3,9 @@
 from click import ClickException
 
 from dander.catalog import CatalogPublisher, CatalogRuntime
+from dander.core.interfaces import SecretStoreProvider
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
+from dander.security import SecretRuntime
 
 
 def build_catalog_publisher(
@@ -28,3 +30,16 @@ def build_catalog_publisher(
     if runtime.publisher is None:
         raise ClickException(f"Catalog provider {provider_id!r} does not publish assets")
     return runtime.publisher
+
+
+def build_secret_store(provider_id: str) -> SecretStoreProvider:
+    """Build the selected secret resolver through the shared provider registry."""
+    registry = default_provider_registry()
+    try:
+        config = registry.parse(ProviderKind.SECRETS, {"provider": provider_id})
+        runtime = registry.build(ProviderKind.SECRETS, config)
+    except ProviderFactoryError as error:
+        raise ClickException(str(error)) from error
+    if not isinstance(runtime, SecretRuntime):
+        raise ClickException("Selected secret provider returned an invalid runtime")
+    return runtime.store
