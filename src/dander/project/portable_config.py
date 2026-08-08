@@ -27,6 +27,7 @@ from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConf
 from dander.providers.cloud_run import CloudRunLauncherConfig  # noqa: TC001
 from dander.providers.dataplex import DataplexCatalogConfig  # noqa: TC001
 from dander.providers.environment_secrets import EnvironmentSecretConfig  # noqa: TC001
+from dander.providers.fargate import FargateLauncherConfig  # noqa: TC001
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig  # noqa: TC001
 from dander.providers.no_catalog import NoCatalogConfig  # noqa: TC001
 
@@ -124,6 +125,12 @@ SecretProviderSpec = Annotated[
 ]
 
 
+LauncherSpec = Annotated[
+    CloudRunLauncherConfig | FargateLauncherConfig,
+    Field(discriminator="provider"),
+]
+
+
 class PlatformProfileSpec(BaseModel):
     """One named combination of data-plane provider selections."""
 
@@ -172,7 +179,7 @@ class DeploymentSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     platform: str = Field(pattern=_NAME.pattern)
-    launcher: CloudRunLauncherConfig
+    launcher: LauncherSpec
     runtime: PlatformRuntimeSpec = Field(default_factory=PlatformRuntimeSpec)
     safety: PlatformSafetySpec = Field(default_factory=PlatformSafetySpec)
     pipelines: dict[str, DeploymentPipelineSpec] = Field(min_length=1)
@@ -347,6 +354,7 @@ def _resolve(
         catalog_provider=profile.catalog.provider,
         secret_provider=profile.secrets.provider,
         launcher_provider=selected.launcher.provider,
+        launcher_config=selected.launcher.model_dump(mode="json"),
         deployed_pipeline_ids=tuple(sorted(selected.pipelines)),
     )
 
@@ -438,6 +446,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
         and legacy.catalog_provider == migrated.catalog_provider
         and legacy.secret_provider == migrated.secret_provider
         and legacy.launcher_provider == migrated.launcher_provider
+        and legacy.resolved_launcher_config() == migrated.resolved_launcher_config()
         and legacy.plugins == migrated.plugins
         and legacy.pipelines == migrated.pipelines
         and legacy.terraform_pipelines() == migrated.terraform_pipelines()

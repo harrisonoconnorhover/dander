@@ -164,6 +164,42 @@ def test_cloud_run_rejects_environment_only_secrets(tmp_path: Path) -> None:
         load_project_config(project_path)
 
 
+def test_version_two_resolves_complete_fargate_launcher(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    deployment = platforms["deployments"].pop("gcp_cloud_run")
+    deployment["launcher"] = {
+        "provider": "fargate",
+        "region": "us-east-1",
+        "aws_account_id": "123456789012",
+        "google_workload_identity_audience": (
+            "//iam.googleapis.com/projects/123456789012/locations/global/"
+            "workloadIdentityPools/dander-aws/providers/dander-aws"
+        ),
+        "subnet_ids": ["subnet-0123456789abcdef0"],
+        "security_group_ids": ["sg-0123456789abcdef0"],
+        "architecture": "X86_64",
+        "assign_public_ip": True,
+    }
+    deployment["runtime"]["memory"] = "2Gi"
+    deployment["safety"]["require_guarded_free_tier"] = False
+    platforms["deployments"]["aws_fargate"] = deployment
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    resolved = load_project_config(project_path, deployment="aws_fargate")
+
+    assert resolved.launcher_provider == "fargate"
+    assert resolved.platform.region == "us-east-1"
+    assert resolved.resolved_launcher_config() == deployment["launcher"] | {
+        "ephemeral_storage_mib": 20_480,
+        "stop_timeout_seconds": 120,
+    }
+
+
 def test_config_migrate_check_is_read_only_then_write_is_atomic(tmp_path: Path) -> None:
     project_path = tmp_path / "dander.yaml"
     platforms_path = tmp_path / "dander.platforms.yaml"

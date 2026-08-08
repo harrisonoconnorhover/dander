@@ -8,7 +8,14 @@ from click import unstyle
 from typer.testing import CliRunner
 
 from dander.cli.main import app
-from dander.project import scaffold_project
+from dander.project import (
+    DanderProject,
+    PipelineSpec,
+    PlatformRuntimeSpec,
+    PlatformSafetySpec,
+    PlatformSpec,
+    scaffold_project,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -173,6 +180,81 @@ def test_platform_plan_resolves_complete_manifest_without_applying(
     }
     assert "terraform -chdir=infra show -no-color" in result.output
     assert "init-platform-apply" in result.output
+
+
+def test_aws_plan_resolves_selected_fargate_deployment_without_applying(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+    manifest = DanderProject(
+        version=2,
+        platform=PlatformSpec(
+            region="us-east-1",
+            runtime=PlatformRuntimeSpec(memory="2Gi", timeout_seconds=900),
+            safety=PlatformSafetySpec(require_guarded_free_tier=False),
+        ),
+        pipelines={
+            "greenhouse_jobs": PipelineSpec(
+                source="greenhouse_job_board",
+                models=["stg_greenhouse__jobs"],
+            )
+        },
+        deployment_name="aws_fargate",
+        launcher_provider="fargate",
+        launcher_config={
+            "provider": "fargate",
+            "region": "us-east-1",
+            "aws_account_id": "123456789012",
+            "google_workload_identity_audience": (
+                "//iam.googleapis.com/projects/123456789012/locations/global/"
+                "workloadIdentityPools/dander-aws/providers/dander-aws"
+            ),
+            "subnet_ids": ["subnet-0123456789abcdef0"],
+            "security_group_ids": ["sg-0123456789abcdef0"],
+        },
+    )
+
+    def fake_load(*args: object, **kwargs: object) -> DanderProject:
+        assert kwargs["deployment"] == "aws_fargate"
+        return manifest
+
+    def fake_validate(self: object, root: Path) -> None:
+        del self, root
+
+    def fake_execute(self: object, **kwargs: object) -> Path:
+        captured.update(kwargs)
+        return tmp_path / "dander-aws.tfplan"
+
+    monkeypatch.setattr("dander.cli.main.load_project_config", fake_load)
+    monkeypatch.setattr(DanderProject, "validate_references", fake_validate)
+    monkeypatch.setattr("dander.cli.main.AwsTerraformBootstrap.execute", fake_execute)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "init-aws-plan",
+            "--project",
+            "unit-project",
+            "--state-bucket",
+            "unit-dander-state",
+            "--container-image",
+            "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:" + "a" * 64,
+            "--deployment",
+            "aws_fargate",
+            "--lock-table",
+            "dander-terraform-locks",
+            "--aws-profile",
+            "dander-test",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["apply"] is False
+    assert captured["launcher_config"] == manifest.resolved_launcher_config()
+    assert captured["runtime_memory"] == "2Gi"
+    assert "AWS deployment planned" in result.output
+    assert "init-aws-apply" in result.output
 
 
 def test_admin_plan_runs_read_only_permission_preflight_before_terraform(

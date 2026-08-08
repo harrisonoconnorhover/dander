@@ -5,9 +5,26 @@ Fargate. It creates an immutable ECR repository, ECS task definitions, distinct 
 roles, a Standard Step Functions controller, paused-aware EventBridge schedules, CloudWatch logs,
 and an encrypted failure queue plus notification topic.
 
-This root is construction-ready but is not yet selected by the public Dander plan/apply commands.
-Initialize it with an operator-owned encrypted S3 backend and review a saved plan before any apply.
-The stack accepts existing VPC subnet and security-group IDs; it does not create a network.
+`dander init-aws-plan` selects one version-2 Fargate deployment, renders its complete execution
+projections, and saves a Terraform plan in this root. It requires an existing encrypted S3 state
+bucket, a DynamoDB lock table, and an immutable image digest reference for the selected account and
+region. The command never applies. After reviewing the saved plan, an operator may use
+`dander init-aws-apply` to apply only that plan.
+
+```console
+dander init-aws-plan \
+  --project YOUR_GCP_DATA_PROJECT \
+  --deployment aws_fargate \
+  --state-bucket YOUR_AWS_STATE_BUCKET \
+  --lock-table YOUR_TERRAFORM_LOCK_TABLE \
+  --container-image 123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:DIGEST
+```
+
+The state bucket, lock table, and usable ECR image lifecycle are separate prerequisites until the
+AWS stage-zero and image-publication commands ship. Do not apply this root before those commands
+establish consistent repository ownership and publish the referenced digest. The stack accepts
+existing VPC subnet and security-group IDs; it does not create a network. Use a least-privilege AWS
+role for planning and application rather than the account root identity.
 
 The controller uses `ecs:runTask.sync`. One absolute Step Functions deadline bounds all attempts;
 AWS performs a best-effort `StopTask` when the integration is cancelled or times out. Exit code 75

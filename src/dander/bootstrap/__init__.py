@@ -1,6 +1,7 @@
 """Infrastructure bootstrap adapters."""
 
 from dander.bootstrap.admin import AdministrativeBootstrap, AdministrativeBootstrapError
+from dander.bootstrap.aws_terraform import AwsTerraformBootstrap, AwsTerraformBootstrapError
 from dander.bootstrap.permissions import require_stage_zero_permissions
 from dander.bootstrap.project import (
     ProjectBootstrapError,
@@ -22,6 +23,8 @@ from dander.bootstrap.verify import (
 __all__ = [
     "AdministrativeBootstrap",
     "AdministrativeBootstrapError",
+    "AwsTerraformBootstrap",
+    "AwsTerraformBootstrapError",
     "DeploymentSummary",
     "DeploymentVerificationError",
     "DeploymentVerifier",
