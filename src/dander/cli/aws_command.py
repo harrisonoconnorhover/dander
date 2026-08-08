@@ -63,7 +63,8 @@ def init_aws_admin_plan(
     console.print(f"[green]AWS administrative bootstrap planned.[/green] Saved plan: {plan_path}")
     console.print(
         "Review: "
-        + shlex.join(("terraform", f"-chdir={workspace}", "show", "-no-color", str(plan_path)))
+        + shlex.join(("terraform", f"-chdir={workspace}", "show", "-no-color", str(plan_path))),
+        soft_wrap=True,
     )
     next_command = [
         "dander",
@@ -89,7 +90,7 @@ def init_aws_admin_plan(
     ]
     if aws_profile:
         next_command.extend(("--aws-profile", aws_profile))
-    console.print("Next after review: " + shlex.join(next_command))
+    console.print("Next after review: " + shlex.join(next_command), soft_wrap=True)
 
 
 def init_aws_admin_apply(
@@ -231,7 +232,8 @@ def init_aws_plan(
     console.print(f"[green]AWS deployment planned.[/green] Saved plan: {plan_path}")
     console.print(
         "Review: "
-        + shlex.join(("terraform", f"-chdir={infra_dir}", "show", "-no-color", str(plan_path)))
+        + shlex.join(("terraform", f"-chdir={infra_dir}", "show", "-no-color", str(plan_path))),
+        soft_wrap=True,
     )
     next_command = [
         "dander",
@@ -247,7 +249,7 @@ def init_aws_plan(
     ]
     if aws_profile:
         next_command.extend(("--aws-profile", aws_profile))
-    console.print("Next after review: " + shlex.join(next_command))
+    console.print("Next after review: " + shlex.join(next_command), soft_wrap=True)
 
 
 def init_aws_apply(
