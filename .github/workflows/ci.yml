@@ -59,8 +59,11 @@ jobs:
         run: |
           terraform -chdir=bootstrap-admin init -backend=false -input=false
           terraform -chdir=bootstrap-admin validate
-      - name: Validate AWS Fargate stack
+      - name: Validate AWS Terraform stacks
         run: |
+          terraform -chdir=aws/bootstrap-admin init -backend=false -input=false
+          terraform -chdir=aws/bootstrap-admin validate
+          terraform -chdir=aws/bootstrap-admin test
           terraform -chdir=aws init -backend=false -input=false
           terraform -chdir=aws validate
           terraform -chdir=aws/modules/fargate init -backend=false -input=false

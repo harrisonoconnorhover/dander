@@ -21,8 +21,6 @@ from dander import __version__
 from dander.bootstrap import (
     AdministrativeBootstrap,
     AdministrativeBootstrapError,
-    AwsTerraformBootstrap,
-    AwsTerraformBootstrapError,
     DeploymentSummary,
     DeploymentVerifier,
     ProjectBootstrapError,
@@ -45,6 +43,7 @@ from dander.catalog import (
     SemanticRegistryPublisher,
     SqliteMetadataStore,
 )
+from dander.cli.aws_command import register_aws_commands
 from dander.cli.config_command import config_app
 from dander.cli.init_command import (
     InitOptions,
@@ -133,11 +132,11 @@ app.add_typer(graph_app, name="graph")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(connector_app, name="connector")
 app.add_typer(runtime_app, name="runtime")
+register_aws_commands(app)
 console = Console()
 _SOURCE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _DEFAULT_CONNECTORS_DIR = Path("connectors")
 _DEFAULT_INFRA_DIR = Path("infra")
-_DEFAULT_AWS_INFRA_DIR = Path("infra/aws")
 _DEFAULT_MODELS_DIR = Path("models")
 _DEFAULT_CATALOG_PATH = Path(".dander/catalog.json")
 _DEFAULT_BOOTSTRAP_ADMIN_DIR = Path("infra/bootstrap-admin")
@@ -1120,108 +1119,6 @@ def init_platform_apply(
     except TerraformBootstrapError as error:
         raise ClickException(str(error)) from error
     console.print(f"[green]Platform bootstrap applied.[/green] Saved plan: {plan_path}")
-
-
-@app.command("init-aws-plan")
-def init_aws_plan(
-    project: str = typer.Option(..., "--project", help="GCP BigQuery data-plane project id."),
-    state_bucket: str = typer.Option(..., "--state-bucket", help="Existing S3 state bucket."),
-    container_image: str = typer.Option(
-        ..., "--container-image", help="Immutable ECR image ending in @sha256 digest."
-    ),
-    deployment: str = typer.Option(..., "--deployment"),
-    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
-    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
-    state_key: str = typer.Option("dander/aws/state/terraform.tfstate", "--state-key"),
-    lock_table: str = typer.Option(..., "--lock-table", help="Existing DynamoDB lock table."),
-    state_region: str | None = typer.Option(None, "--state-region"),
-    aws_profile: str = typer.Option("", "--aws-profile"),
-    name: str = typer.Option("dander", "--name"),
-    infra_dir: Path = typer.Option(_DEFAULT_AWS_INFRA_DIR, hidden=True),  # noqa: B008
-) -> None:
-    """Plan one manifest-selected Fargate deployment without applying it."""
-    try:
-        manifest = load_project_config(
-            config,
-            platforms_path=platforms_config,
-            deployment=deployment,
-        )
-        if manifest.launcher_provider != "fargate":
-            raise ProjectConfigError(
-                f"Deployment {deployment!r} does not select launcher.provider='fargate'"
-            )
-        manifest.validate_references(config.resolve().parent)
-        runtime = manifest.platform.runtime
-        plan_path = AwsTerraformBootstrap(infra_dir).execute(
-            project=project,
-            deployment_name=manifest.deployment_name,
-            state_bucket=state_bucket,
-            state_key=state_key,
-            state_region=state_region or manifest.platform.region,
-            lock_table=lock_table,
-            container_image=container_image,
-            launcher_config=manifest.resolved_launcher_config(),
-            runtime_cpu=runtime.cpu,
-            runtime_memory=runtime.memory,
-            runtime_timeout_seconds=runtime.timeout_seconds,
-            runtime_max_retries=runtime.max_retries,
-            runtime_batch_rows=runtime.batch_rows,
-            require_guarded_free_tier=manifest.platform.safety.require_guarded_free_tier,
-            pipelines=manifest.terraform_pipelines(),
-            apply=False,
-            aws_profile=aws_profile,
-            name=name,
-        )
-    except (AwsTerraformBootstrapError, ProjectConfigError) as error:
-        raise ClickException(str(error)) from error
-    console.print(f"[green]AWS deployment planned.[/green] Saved plan: {plan_path}")
-    console.print(
-        "Review: "
-        + shlex.join(("terraform", f"-chdir={infra_dir}", "show", "-no-color", str(plan_path)))
-    )
-    next_command = [
-        "dander",
-        "init-aws-apply",
-        "--state-bucket",
-        state_bucket,
-        "--state-key",
-        state_key,
-        "--state-region",
-        state_region or manifest.platform.region,
-        "--lock-table",
-        lock_table,
-    ]
-    if aws_profile:
-        next_command.extend(("--aws-profile", aws_profile))
-    console.print("Next after review: " + shlex.join(next_command))
-
-
-@app.command("init-aws-apply")
-def init_aws_apply(
-    state_bucket: str = typer.Option(..., "--state-bucket", help="Existing S3 state bucket."),
-    state_key: str = typer.Option("dander/aws/state/terraform.tfstate", "--state-key"),
-    state_region: str = typer.Option(..., "--state-region"),
-    lock_table: str = typer.Option(..., "--lock-table", help="Existing DynamoDB lock table."),
-    aws_profile: str = typer.Option("", "--aws-profile"),
-    infra_dir: Path = typer.Option(_DEFAULT_AWS_INFRA_DIR, hidden=True),  # noqa: B008
-) -> None:
-    """Apply only the previously reviewed AWS Terraform plan."""
-    if not typer.confirm(
-        f"Apply the reviewed AWS deployment plan using state bucket {state_bucket!r}?",
-        default=False,
-    ):
-        raise typer.Abort()
-    try:
-        plan_path = AwsTerraformBootstrap(infra_dir).apply_saved_plan(
-            state_bucket=state_bucket,
-            state_key=state_key,
-            state_region=state_region,
-            lock_table=lock_table,
-            aws_profile=aws_profile,
-        )
-    except AwsTerraformBootstrapError as error:
-        raise ClickException(str(error)) from error
-    console.print(f"[green]AWS deployment applied.[/green] Saved plan: {plan_path}")
 
 
 @verify_app.command("deployment")

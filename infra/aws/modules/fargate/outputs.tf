@@ -1,6 +1,6 @@
 output "runtime_repository_url" {
   description = "ECR repository URL for immutable runtime manifests."
-  value       = aws_ecr_repository.runtime.repository_url
+  value       = data.aws_ecr_repository.runtime.repository_url
 }
 
 output "cluster_arn" {

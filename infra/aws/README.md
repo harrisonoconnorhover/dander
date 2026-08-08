@@ -1,9 +1,9 @@
 # Dander AWS platform stack
 
 This separate Terraform root projects validated `io.dander.execution/v1` templates onto ECS
-Fargate. It creates an immutable ECR repository, ECS task definitions, distinct execution/task
-roles, a Standard Step Functions controller, paused-aware EventBridge schedules, CloudWatch logs,
-and an encrypted failure queue plus notification topic.
+Fargate. It consumes the immutable ECR repository created by AWS stage zero, then creates ECS task
+definitions, distinct execution/task roles, a Standard Step Functions controller, paused-aware
+EventBridge schedules, CloudWatch logs, and an encrypted failure queue plus notification topic.
 
 `dander init-aws-plan` selects one version-2 Fargate deployment, renders its complete execution
 projections, and saves a Terraform plan in this root. It requires an existing encrypted S3 state
@@ -20,11 +20,9 @@ dander init-aws-plan \
   --container-image 123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:DIGEST
 ```
 
-The state bucket, lock table, and usable ECR image lifecycle are separate prerequisites until the
-AWS stage-zero and image-publication commands ship. Do not apply this root before those commands
-establish consistent repository ownership and publish the referenced digest. The stack accepts
-existing VPC subnet and security-group IDs; it does not create a network. Use a least-privilege AWS
-role for planning and application rather than the account root identity.
+Run AWS stage zero and promote the accepted source-free image before planning this root. The stack
+accepts existing VPC subnet and security-group IDs; it does not create a network. Use the dedicated
+stage-zero deployment role for planning and application rather than the account root identity.
 
 The controller uses `ecs:runTask.sync`. One absolute Step Functions deadline bounds all attempts;
 AWS performs a best-effort `StopTask` when the integration is cancelled or times out. Exit code 75

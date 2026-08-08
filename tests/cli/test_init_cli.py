@@ -226,9 +226,9 @@ def test_aws_plan_resolves_selected_fargate_deployment_without_applying(
         captured.update(kwargs)
         return tmp_path / "dander-aws.tfplan"
 
-    monkeypatch.setattr("dander.cli.main.load_project_config", fake_load)
+    monkeypatch.setattr("dander.cli.aws_command.load_project_config", fake_load)
     monkeypatch.setattr(DanderProject, "validate_references", fake_validate)
-    monkeypatch.setattr("dander.cli.main.AwsTerraformBootstrap.execute", fake_execute)
+    monkeypatch.setattr("dander.cli.aws_command.AwsTerraformBootstrap.execute", fake_execute)
 
     result = CliRunner().invoke(
         app,
@@ -255,6 +255,80 @@ def test_aws_plan_resolves_selected_fargate_deployment_without_applying(
     assert captured["runtime_memory"] == "2Gi"
     assert "AWS deployment planned" in result.output
     assert "init-aws-apply" in result.output
+
+
+def test_aws_admin_plan_saves_without_applying_and_prints_exact_next_command(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_execute(self: object, **kwargs: object) -> Path:
+        captured.update(kwargs)
+        return tmp_path / "operator" / "dander-aws-admin-bootstrap.tfplan"
+
+    monkeypatch.setattr("dander.cli.aws_command.AwsAdministrativeBootstrap.execute", fake_execute)
+    operator_dir = tmp_path / "operator"
+    result = CliRunner().invoke(
+        app,
+        [
+            "init-aws-admin-plan",
+            "--aws-account-id",
+            "184463061564",
+            "--state-bucket",
+            "dander-184463061564-state",
+            "--admin-principal-arn",
+            "arn:aws:iam::184463061564:root",
+            "--operator-artifact-dir",
+            str(operator_dir),
+            "--aws-profile",
+            "dander-phase1b",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["aws_account_id"] == "184463061564"
+    assert captured["lock_table"] == "dander-terraform-locks"
+    assert "AWS administrative bootstrap planned" in result.output
+    assert "init-aws-admin-apply" in result.output
+    assert "terraform-workspace" in result.output
+
+
+def test_aws_image_promotion_requires_confirmation_and_does_not_rebuild(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_promote(self: object, **kwargs: object) -> str:
+        captured.update(kwargs)
+        return "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:" + "a" * 64
+
+    monkeypatch.setattr("dander.cli.aws_command.RuntimeImagePromoter.promote", fake_promote)
+    config = tmp_path / "dander.yaml"
+    config.write_text("version: 1\n", encoding="utf-8")
+    source = "us-central1-docker.pkg.dev/unit-project/dander/dander@sha256:" + "a" * 64
+    result = CliRunner().invoke(
+        app,
+        [
+            "image-promote-aws",
+            "--source-image",
+            source,
+            "--aws-account-id",
+            "184463061564",
+            "--aws-profile",
+            "dander-deploy",
+            "--config",
+            str(config),
+        ],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["source_image"] == source
+    assert captured["aws_profile"] == "dander-deploy"
+    assert "Promoted byte-identical runtime image" in result.output
+    assert "init-aws-plan" in result.output
 
 
 def test_admin_plan_runs_read_only_permission_preflight_before_terraform(

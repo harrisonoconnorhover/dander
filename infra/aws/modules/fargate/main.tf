@@ -79,20 +79,8 @@ check "secret_references_match_deployment" {
   }
 }
 
-resource "aws_ecr_repository" "runtime" {
-  name                 = var.ecr_repository_name
-  image_tag_mutability = "IMMUTABLE"
-  force_delete         = false
-
-  encryption_configuration {
-    encryption_type = "AES256"
-  }
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = local.tags
+data "aws_ecr_repository" "runtime" {
+  name = var.ecr_repository_name
 }
 
 resource "aws_ecs_cluster" "runtime" {
@@ -158,7 +146,7 @@ data "aws_iam_policy_document" "execution" {
       "ecr:BatchGetImage",
       "ecr:GetDownloadUrlForLayer",
     ]
-    resources = [aws_ecr_repository.runtime.arn]
+    resources = [data.aws_ecr_repository.runtime.arn]
   }
 
   statement {
@@ -286,7 +274,7 @@ resource "aws_ecs_task_definition" "pipeline" {
     precondition {
       condition = startswith(
         each.value.image,
-        "${aws_ecr_repository.runtime.repository_url}@sha256:",
+        "${data.aws_ecr_repository.runtime.repository_url}@sha256:",
       )
       error_message = "Fargate images must use an immutable digest in this stack's ECR repository."
     }
