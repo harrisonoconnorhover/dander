@@ -150,6 +150,39 @@ def test_version_two_none_catalog_disables_external_publication(tmp_path: Path) 
     assert resolved.pipelines["example_records"].publish_dataplex is False
 
 
+def test_version_two_preserves_postgresql_state_connection_reference(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    platforms["platforms"]["gcp"]["state"] = {
+        "provider": "postgresql",
+        "dsn_env": "DANDER_STATE_DATABASE_URL",
+        "schema_name": "dander_control",
+        "pool_min_size": 2,
+        "pool_max_size": 8,
+        "lease_seconds": 180,
+        "terminal_history_retention_days": 120,
+    }
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    resolved = load_project_config(project_path)
+
+    assert resolved.state_provider == "postgresql"
+    assert resolved.state_config == {
+        "provider": "postgresql",
+        "dsn_env": "DANDER_STATE_DATABASE_URL",
+        "schema_name": "dander_control",
+        "pool_min_size": 2,
+        "pool_max_size": 8,
+        "pool_timeout_seconds": 10.0,
+        "lease_seconds": 180,
+        "terminal_history_retention_days": 120,
+    }
+
+
 def test_cloud_run_rejects_environment_only_secrets(tmp_path: Path) -> None:
     project_path = tmp_path / "dander.yaml"
     platforms_path = tmp_path / "dander.platforms.yaml"

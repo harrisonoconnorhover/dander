@@ -20,6 +20,12 @@ _GCP_RESOURCE_ID = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
 _SERVICE_ACCOUNT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _RUNTIME_MEMORY = re.compile(r"^[1-9][0-9]*(?:Mi|Gi)$")
 _PLUGIN_ID = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def _default_state_config() -> dict[str, object]:
+    return {"provider": "bigquery"}
+
+
 _DISTRIBUTION = re.compile(r"^[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*$")
 
 if TYPE_CHECKING:
@@ -204,7 +210,11 @@ class DanderProject(BaseModel):
     platform_name: str = Field(default="gcp", exclude=True)
     deployment_name: str = Field(default="gcp_cloud_run", exclude=True)
     warehouse_provider: Literal["bigquery"] = Field(default="bigquery", exclude=True)
-    state_provider: Literal["bigquery"] = Field(default="bigquery", exclude=True)
+    state_provider: Literal["bigquery", "postgresql"] = Field(default="bigquery", exclude=True)
+    state_config: dict[str, object] = Field(
+        default_factory=_default_state_config,
+        exclude=True,
+    )
     catalog_provider: Literal["dataplex", "none"] = Field(default="dataplex", exclude=True)
     secret_provider: Literal["gcp_secret_manager", "environment"] = Field(
         default="gcp_secret_manager",

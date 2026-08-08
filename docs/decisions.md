@@ -87,6 +87,16 @@
 - **Compatibility:** Existing table identities, per-pipeline lease tables, server-time leases,
   fencing, watermark CAS, and interrupted-run reconciliation remain unchanged.
 
+## 2026-08-08 — PostgreSQL is the second durable-state implementation
+
+- **Connection boundary:** Version 2 profiles store only an environment-variable name; the
+  PostgreSQL connection string is runtime-injected and never serialized into project manifests.
+- **Correctness:** PostgreSQL 15+ uses one bounded pool, short transactions, server-time leases,
+  monotonic fencing tokens, atomic cursor CAS, sanitized history, deterministic JSONB snapshots,
+  and an advisory-locked version ledger that rejects newer schemas.
+- **Qualification:** The adapter passes live local contention and exhaustion tests, but it does
+  not make a PostgreSQL/Kubernetes profile supported before warehouse and live-profile gates pass.
+
 ## 2026-08-08 — BigQuery enters portability through one composed runtime
 
 - **Selection:** Version 1 projects retain an implicit BigQuery warehouse; version 2 resolution
@@ -103,8 +113,9 @@
   empty while Oracle's SDK requires a cryptography version with a known fixed-in-50 advisory.
 - **Release image:** `runtime-all` is their checked union; repository and generated Dockerfiles
   install and validate it so one immutable multi-platform image has deterministic dependencies.
-  PostgreSQL uses pure-Python Psycopg with Debian's maintained `libpq5`, avoiding a bundled wheel
-  whose embedded native-library SBOM fails the release image scan.
+  Linux uses pure-Python Psycopg with Debian's maintained `libpq5`, avoiding a bundled wheel whose
+  embedded native-library SBOM fails the release image scan. Non-Linux extras use Psycopg's binary
+  package so local provider installation does not require a separately linked `libpq`.
 - **Support boundary:** `runtime-capabilities.json`, concrete adapter conformance, and live profile
   gates remain authoritative. A present SDK or package extra never makes a provider supported.
 

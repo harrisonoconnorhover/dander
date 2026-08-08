@@ -7,8 +7,10 @@ Dander version 2 separates reusable pipeline intent from environment-specific de
   plus runtime limits, schedules, secret references, and provider resource names.
 
 The first supported hosted profile remains BigQuery, BigQuery state, Dataplex (or no cloud
-catalog), GCP Secret Manager, and Cloud Run. A provider name outside the installed and
-supported contract fails validation; configuration does not imply provider support.
+catalog), GCP Secret Manager, and Cloud Run. PostgreSQL 15 or newer is implemented as an
+alternative durable-state backend for version 2 projects, but the complete PostgreSQL/Kubernetes
+profile is not yet live-qualified. A provider name outside the installed and supported contract
+fails validation; configuration alone does not imply profile support.
 
 One logical project may have multiple named platforms and deployments. `dander validate` accepts
 `--deployment`; the Python configuration loader accepts the same explicit selection. Other current
@@ -62,3 +64,43 @@ Provider SDKs can be installed independently with extras such as
 `dander-platform[runtime-all]` so one immutable image can later serve any first-class adapter.
 Installing an extra does not make its provider selectable; configuration remains gated by the
 registered adapter and capability manifest.
+
+## PostgreSQL durable state
+
+Select PostgreSQL only in `dander.platforms.yaml`; keep the connection string out of Git:
+
+```yaml
+platforms:
+  portable:
+    warehouse:
+      provider: bigquery
+      location: US
+    state:
+      provider: postgresql
+      dsn_env: DANDER_POSTGRES_DSN
+      schema_name: dander_meta
+      pool_min_size: 1
+      pool_max_size: 5
+      pool_timeout_seconds: 10
+      lease_seconds: 120
+      terminal_history_retention_days: 90
+    catalog:
+      provider: none
+    secrets:
+      provider: environment
+```
+
+Install `dander-platform[postgres]` for a provider-specific environment, or use the official
+`runtime-all` image. Inject `DANDER_POSTGRES_DSN` through the launcher's existing secret binding;
+the value is never part of either manifest. Dander creates and migrates only the configured schema.
+It uses a bounded pool, PostgreSQL server time for leases, atomic watermark comparison, sanitized
+run history, and deterministic JSONB metadata snapshots.
+
+The current BigQuery warehouse/PostgreSQL state combination fails closed at execution because its
+cross-backend destination fence is the next portability ticket. The state adapter is available for
+conformance and composition work now; it is not a shortcut around that publication boundary.
+
+Terminal `succeeded`, `failed`, and `skipped` history older than the configured retention is
+removed when migrations run. Active runs and `interrupted_run` records are retained. Dander
+refuses a state ledger newer than the running package. Changing state backends is not an online
+migration: keep schedules paused until the destination-fence and cutover workflow is complete.
