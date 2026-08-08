@@ -12,11 +12,11 @@ from rich.table import Table
 
 from dander.catalog import (
     CatalogPublishError,
-    DataplexCatalogPublisher,
     MetadataStore,
     SemanticRegistryError,
     SqliteMetadataStore,
 )
+from dander.cli.provider_runtime import build_catalog_publisher
 from dander.core.config import Settings
 from dander.executor import PipelineExecutionResult, PipelineExecutor
 from dander.ingestion import Endpoint, Source, SourceConfig, load_source_config
@@ -113,6 +113,7 @@ class _ResolvedRun:
     warehouse_provider: str
     warehouse_location: str
     state_provider: str
+    catalog_provider: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +168,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
     warehouse_provider = "bigquery"
     warehouse_location = "US"
     state_provider = "bigquery"
+    catalog_provider = "dataplex"
     plugin_registry: ConnectorPluginRegistry | None = None
 
     if options.project_config.is_file():
@@ -192,6 +194,9 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
                 warehouse_provider = manifest.warehouse_provider
                 warehouse_location = manifest.platform.bigquery_location
                 state_provider = manifest.state_provider
+                catalog_provider = (
+                    "dataplex" if options.publish_dataplex else manifest.catalog_provider
+                )
         except (ConnectorPluginError, ProjectConfigError) as error:
             raise ClickException(str(error)) from error
 
@@ -237,6 +242,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         warehouse_provider=warehouse_provider,
         warehouse_location=warehouse_location,
         state_provider=state_provider,
+        catalog_provider=catalog_provider,
     )
 
 
@@ -299,7 +305,8 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
 
     stores = _build_control_stores(options, resolved)
     dataplex_publisher = (
-        DataplexCatalogPublisher(
+        build_catalog_publisher(
+            provider_id=resolved.catalog_provider,
             project=resolved.project,
             location=options.dataplex_location,
         )

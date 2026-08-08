@@ -2,38 +2,38 @@
 
 ## Finished
 
-- Added a typed `StateRuntime` for leases, watermarks, run history, metadata, and migrations.
-- Registered BigQuery state through a dependency-light config and lazy provider factory.
-- Routed hosted state construction through the selected runtime; SQLite sandbox stays unchanged.
-- Added schema ledger version 1 while preserving every existing BigQuery table identity.
-- Kept server-time leases, fencing, cursor CAS, and interrupted-run reconciliation intact.
+- Added a typed `CatalogRuntime` with explicit publication capabilities.
+- Registered Dataplex and `none` through dependency-light, lazy provider factories.
+- Routed all CLI Dataplex publisher construction through the selected provider boundary.
+- Preserved current aspect-only updates, required-schema exclusion, and normalized readback.
+- Kept local registry and state snapshots independent; `none` loads no Dataplex implementation.
 
 ## Try It
 
-Run an existing v1 or v2 BigQuery project normally. `dander run` selects and migrates the BigQuery
-state runtime internally; public commands and authored configuration are unchanged.
+Run an existing v1 project or v2 `catalog.provider: dataplex` project normally. Select
+`catalog.provider: none` to keep local metadata without external catalog publication.
 
 ## Checks
 
-- All 907 tests, Ruff, formatting, and strict mypy across 212 files passed.
+- All 911 tests, Ruff, formatting, and strict mypy across 221 files passed.
 - Wheel/sdist inspection, source-free installs, runtime-all assembly, and dependency audit passed.
-- The non-root/read-only full runtime image passed conformance and its bundled-asset checks.
-- Trivy and Gitleaks passed; all Terraform roots validated successfully.
+- The non-root/read-only full runtime image passed conformance and bundled-asset checks.
+- Trivy found no high/critical findings, Gitleaks found no leaks, and all Terraform roots validated.
 - Isolated GCP reported `No changes`; Salesforce and ServiceNow schedules remain paused.
 
 ## Decisions
 
-- Preserve current BigQuery stores and table identities behind a small composed runtime.
-- Record a migration only after every shared state table is ready.
-- Keep per-pipeline lease-table creation lazy rather than inventing a data migration.
+- Treat local registry/state snapshots separately from optional external catalog publication.
+- Preserve Dataplex public imports lazily for compatibility.
+- Defer canonical non-BigQuery catalog assets and Glue to their dedicated slices.
 
 ## Remaining
 
-- Open and merge the focused durable-state PR after protected CI passes.
-- Route Dataplex catalog publication through its provider boundary next.
+- Open and merge the focused Dataplex provider PR after protected CI passes.
+- Route GCP Secret Manager through the provider boundary next.
 
 ## Review First
 
-- `src/dander/state/runtime.py`
-- `src/dander/providers/bigquery/state.py`
-- `src/dander/cli/run_command.py`
+- `src/dander/catalog/runtime.py`
+- `src/dander/providers/dataplex/runtime.py`
+- `src/dander/cli/provider_runtime.py`

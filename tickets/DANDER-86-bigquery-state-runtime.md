@@ -1,7 +1,7 @@
 ---
 id: DANDER-86
 title: Route BigQuery durable state through provider capabilities
-status: in-review
+status: completed
 component: state
 epic: cloud-portability
 depends_on: [DANDER-85]
@@ -27,7 +27,7 @@ contract.
 - [x] Hosted CLI composition uses the selected runtime; SQLite sandbox behavior remains unchanged.
 - [x] Focused state, project migration, and CLI composition tests pass.
 - [x] Full local validation and isolated GCP no-drift pass.
-- [ ] Protected CI passes.
+- [x] Protected CI passes.
 
 ## Design
 
@@ -38,4 +38,4 @@ no portability benefit in this slice.
 
 ## Review Log
 
-Pending protected review.
+Merged through protected PR #117 as `825472095efd1a8d5127ac3db16bdc3f2dbfdb2a`.

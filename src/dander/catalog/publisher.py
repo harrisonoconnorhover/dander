@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     from dander.catalog.spine import CatalogAsset
 
 
+class CatalogPublishError(RuntimeError):
+    """Raised when a catalog request is invalid or cannot be completed."""
+
+
 class CatalogPublisher(Protocol):
     """Publishes generated metadata for a catalog asset."""
 

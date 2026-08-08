@@ -36,7 +36,6 @@ from dander.bootstrap import (
 from dander.catalog import (
     BigQueryMetadataStore,
     CatalogPublishError,
-    DataplexCatalogPublisher,
     MetadataSnapshot,
     MetadataSpine,
     MetadataStore,
@@ -51,6 +50,7 @@ from dander.cli.init_command import (
     execute_platform_bootstrap,
     resolve_platform_config,
 )
+from dander.cli.provider_runtime import build_catalog_publisher
 from dander.cli.run_command import (
     RunOptions,
     build_auth,
@@ -1389,7 +1389,8 @@ def _run_post_ingestion(
         if catalog_output is not None:
             SemanticRegistryPublisher().publish(manifest, catalog_output)
         if publish_dataplex:
-            publisher = DataplexCatalogPublisher(
+            publisher = build_catalog_publisher(
+                provider_id="dataplex",
                 project=project,
                 location=dataplex_location,
             )
@@ -1521,7 +1522,8 @@ def catalog(
             budget_name=budget_name,
         )
         try:
-            publisher = DataplexCatalogPublisher(
+            publisher = build_catalog_publisher(
+                provider_id="dataplex",
                 project=resolved_project,
                 location=location,
             )

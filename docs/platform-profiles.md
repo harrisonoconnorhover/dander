@@ -44,10 +44,12 @@ The current runtime continues to support only the GCP compatibility composition.
 factory contract provides one API-v1 registry across warehouse, state, catalog, secret, and
 launcher categories. Registration loads only a small configuration model; selecting and building
 a provider loads its implementation and SDK dependencies. BigQuery writer, transform, lease,
-watermark, run-history, and metadata-store construction now use that boundary. State migrations
-are explicit and versioned, but retain the existing BigQuery table names and semantics. Dataplex,
-GCP secrets, and Cloud Run remain on their proven direct paths until their separate Phase 3
-changes. The registry is a construction contract, not a support claim.
+watermark, run-history, metadata-store, and external catalog-publisher construction now use that
+boundary. State migrations are explicit and versioned, but retain the existing BigQuery table
+names and semantics. Dataplex keeps aspect-only updates and normalized readback; selecting `none`
+loads no Dataplex implementation or credentials. GCP secrets and Cloud Run remain on their proven
+direct paths until their separate Phase 3 changes. The registry is a construction contract, not a
+support claim.
 
 Warehouse adapters exchange [canonical relation and schema contracts](canonical-schema.md).
 Existing BigQuery connector/writer declarations remain valid and expose a one-way canonical view;

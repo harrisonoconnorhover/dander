@@ -24,6 +24,8 @@ from dander.project.config import (
     _load_yaml_mapping,
 )
 from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig  # noqa: TC001
+from dander.providers.dataplex import DataplexCatalogConfig  # noqa: TC001
+from dander.providers.no_catalog import NoCatalogConfig  # noqa: TC001
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _PLUGIN_ID = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -110,23 +112,7 @@ class DanderLogicalProjectV2(BaseModel):
         return values
 
 
-class DataplexCatalogSpec(BaseModel):
-    """Dataplex catalog publication selection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Literal["dataplex"]
-
-
-class NoCatalogSpec(BaseModel):
-    """Explicit cloud-catalog no-op selection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Literal["none"]
-
-
-CatalogSpec = Annotated[DataplexCatalogSpec | NoCatalogSpec, Field(discriminator="provider")]
+CatalogSpec = Annotated[DataplexCatalogConfig | NoCatalogConfig, Field(discriminator="provider")]
 
 
 class GcpSecretManagerSpec(BaseModel):
@@ -376,6 +362,7 @@ def _resolve(
         deployment_name=selected_name,
         warehouse_provider=profile.warehouse.provider,
         state_provider=profile.state.provider,
+        catalog_provider=profile.catalog.provider,
         deployed_pipeline_ids=tuple(sorted(selected.pipelines)),
     )
 
@@ -464,6 +451,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
         legacy.platform == migrated.platform
         and legacy.warehouse_provider == migrated.warehouse_provider
         and legacy.state_provider == migrated.state_provider
+        and legacy.catalog_provider == migrated.catalog_provider
         and legacy.plugins == migrated.plugins
         and legacy.pipelines == migrated.pipelines
         and legacy.terraform_pipelines() == migrated.terraform_pipelines()
