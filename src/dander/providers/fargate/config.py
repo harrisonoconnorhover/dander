@@ -28,6 +28,7 @@ class FargateLauncherConfig(BaseModel):
     architecture: Literal["ARM64", "X86_64"] = "ARM64"
     assign_public_ip: bool = False
     ephemeral_storage_mib: int = Field(default=20_480, ge=20_480, le=204_800)
+    stop_timeout_seconds: int = Field(default=120, ge=2, le=120)
 
     @field_validator("subnet_ids")
     @classmethod

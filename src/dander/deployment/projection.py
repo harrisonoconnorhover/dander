@@ -357,6 +357,7 @@ FARGATE_CAPABILITIES = LauncherCapabilities(
             "fargate_architecture",
             "fargate_assign_public_ip",
             "fargate_security_group_ids",
+            "fargate_stop_timeout_seconds",
             "fargate_subnet_ids",
         }
     ),
