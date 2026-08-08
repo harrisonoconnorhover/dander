@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Select GCP Secret Manager and local environment resolvers through the lazy provider registry;
+  preserve hosted environment-to-resource-name indirection while preventing environment-only
+  secrets from being selected for Cloud Run.
 - Select Dataplex or explicit no-catalog behavior through the lazy provider registry; retain
   Dataplex aspect-only publication and readback semantics while avoiding its SDK and credentials
   entirely when catalog publication is disabled.

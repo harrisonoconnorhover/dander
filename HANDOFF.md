@@ -2,38 +2,38 @@
 
 ## Finished
 
-- Added a typed `CatalogRuntime` with explicit publication capabilities.
-- Registered Dataplex and `none` through dependency-light, lazy provider factories.
-- Routed all CLI Dataplex publisher construction through the selected provider boundary.
-- Preserved current aspect-only updates, required-schema exclusion, and normalized readback.
-- Kept local registry and state snapshots independent; `none` loads no Dataplex implementation.
+- Added a typed `SecretRuntime` with explicit resolution capabilities.
+- Registered GCP Secret Manager and environment stores through lazy provider factories.
+- Routed hosted, sandbox, and connector-capability secret construction through provider selection.
+- Preserved GCP resource names, environment indirection, auditing, IAM, and Terraform behavior.
+- Kept environment-only secrets unavailable to the Cloud Run compatibility profile.
 
 ## Try It
 
-Run an existing v1 project or v2 `catalog.provider: dataplex` project normally. Select
-`catalog.provider: none` to keep local metadata without external catalog publication.
+Run an existing v1 project or v2 GCP profile normally. Sandbox runs select environment variables;
+hosted Cloud Run runs retain GCP Secret Manager through the selected provider runtime.
 
 ## Checks
 
-- All 911 tests, Ruff, formatting, and strict mypy across 221 files passed.
+- All 915 tests, Ruff, formatting, and strict mypy across 229 files passed.
 - Wheel/sdist inspection, source-free installs, runtime-all assembly, and dependency audit passed.
 - The non-root/read-only full runtime image passed conformance and bundled-asset checks.
-- Trivy found no high/critical findings, Gitleaks found no leaks, and all Terraform roots validated.
+- Trivy found no high/critical findings, Gitleaks found no leaks, and every Terraform root validated.
 - Isolated GCP reported `No changes`; Salesforce and ServiceNow schedules remain paused.
 
 ## Decisions
 
-- Treat local registry/state snapshots separately from optional external catalog publication.
-- Preserve Dataplex public imports lazily for compatibility.
-- Defer canonical non-BigQuery catalog assets and Glue to their dedicated slices.
+- Keep the existing `DefaultSecretStore` compatibility behavior behind the GCP factory.
+- Load the Google SDK only when a real GCP client is first needed.
+- Defer AWS secret resolution and explicit URI parsing to the Fargate slice.
 
 ## Remaining
 
-- Open and merge the focused Dataplex provider PR after protected CI passes.
-- Route GCP Secret Manager through the provider boundary next.
+- Open and merge the focused GCP secret-provider PR after protected CI passes.
+- Route Cloud Run through the launcher provider boundary next.
 
 ## Review First
 
-- `src/dander/catalog/runtime.py`
-- `src/dander/providers/dataplex/runtime.py`
-- `src/dander/cli/provider_runtime.py`
+- `src/dander/security/runtime.py`
+- `src/dander/providers/gcp_secret_manager/runtime.py`
+- `src/dander/cli/run_command.py`

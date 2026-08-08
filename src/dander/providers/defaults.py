@@ -2,6 +2,8 @@
 
 from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig
 from dander.providers.dataplex import DataplexCatalogConfig
+from dander.providers.environment_secrets import EnvironmentSecretConfig
+from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
 from dander.providers.no_catalog import NoCatalogConfig
 from dander.providers.registry import ProviderKind, ProviderRegistry, lazy_provider_factory
 
@@ -39,6 +41,22 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=NoCatalogConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.no_catalog.runtime:NO_CATALOG_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.SECRETS,
+        provider_id="gcp_secret_manager",
+        config_model=GcpSecretManagerConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.gcp_secret_manager.runtime:GCP_SECRET_MANAGER_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.SECRETS,
+        provider_id="environment",
+        config_model=EnvironmentSecretConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.environment_secrets.runtime:ENVIRONMENT_SECRET_FACTORY"
         ),
     )
     return registry

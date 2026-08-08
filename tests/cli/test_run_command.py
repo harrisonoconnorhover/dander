@@ -163,7 +163,11 @@ def test_hosted_project_run_wires_runtime_without_network(
             ),
         )
 
-    monkeypatch.setattr(run_module, "DefaultSecretStore", recording_factory("secrets"))
+    def build_secrets(provider_id: str) -> _Built:
+        assert provider_id == "gcp_secret_manager"
+        return recording_factory("secrets")()
+
+    monkeypatch.setattr(run_module, "build_secret_store", build_secrets)
     monkeypatch.setattr(run_module, "build_auth", build_auth)
     monkeypatch.setattr(run_module, "build_source_adapter", build_source)
     monkeypatch.setattr(run_module, "PipelineRunner", recording_factory("ingestion"))

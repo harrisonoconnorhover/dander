@@ -25,6 +25,8 @@ from dander.project.config import (
 )
 from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig  # noqa: TC001
 from dander.providers.dataplex import DataplexCatalogConfig  # noqa: TC001
+from dander.providers.environment_secrets import EnvironmentSecretConfig  # noqa: TC001
+from dander.providers.gcp_secret_manager import GcpSecretManagerConfig  # noqa: TC001
 from dander.providers.no_catalog import NoCatalogConfig  # noqa: TC001
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
@@ -115,24 +117,8 @@ class DanderLogicalProjectV2(BaseModel):
 CatalogSpec = Annotated[DataplexCatalogConfig | NoCatalogConfig, Field(discriminator="provider")]
 
 
-class GcpSecretManagerSpec(BaseModel):
-    """GCP Secret Manager runtime resolution selection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Literal["gcp_secret_manager"]
-
-
-class EnvironmentSecretSpec(BaseModel):
-    """Environment-only runtime secret resolution selection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Literal["environment"]
-
-
 SecretProviderSpec = Annotated[
-    GcpSecretManagerSpec | EnvironmentSecretSpec,
+    GcpSecretManagerConfig | EnvironmentSecretConfig,
     Field(discriminator="provider"),
 ]
 
@@ -322,9 +308,13 @@ def _resolve(
     selected_name = _select_deployment(platforms, deployment)
     selected = platforms.deployments[selected_name]
     profile = platforms.platforms[selected.platform]
-    if profile.secrets.provider != "gcp_secret_manager":
+    if (
+        selected.launcher.provider == "cloud_run"
+        and profile.secrets.provider != "gcp_secret_manager"
+    ):
         raise ProjectConfigError(
-            "The GCP compatibility runtime currently requires secrets.provider='gcp_secret_manager'"
+            "Cloud Run requires secrets.provider='gcp_secret_manager'; "
+            "environment secrets are local or operator-managed Kubernetes only"
         )
     unknown_pipelines = sorted(set(selected.pipelines) - set(logical.pipelines))
     if unknown_pipelines:
@@ -363,6 +353,7 @@ def _resolve(
         warehouse_provider=profile.warehouse.provider,
         state_provider=profile.state.provider,
         catalog_provider=profile.catalog.provider,
+        secret_provider=profile.secrets.provider,
         deployed_pipeline_ids=tuple(sorted(selected.pipelines)),
     )
 
@@ -452,6 +443,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
         and legacy.warehouse_provider == migrated.warehouse_provider
         and legacy.state_provider == migrated.state_provider
         and legacy.catalog_provider == migrated.catalog_provider
+        and legacy.secret_provider == migrated.secret_provider
         and legacy.plugins == migrated.plugins
         and legacy.pipelines == migrated.pipelines
         and legacy.terraform_pipelines() == migrated.terraform_pipelines()

@@ -72,6 +72,8 @@ def test_version_one_migration_is_deterministic_and_behaviorally_equivalent(
     assert migrated.state_provider == "bigquery"
     assert original.catalog_provider == "dataplex"
     assert migrated.catalog_provider == "dataplex"
+    assert original.secret_provider == "gcp_secret_manager"
+    assert migrated.secret_provider == "gcp_secret_manager"
     assert migrated.platform == original.platform
     assert migrated.plugins == original.plugins
     assert migrated.pipelines == original.pipelines
@@ -144,6 +146,20 @@ def test_version_two_none_catalog_disables_external_publication(tmp_path: Path) 
 
     assert resolved.catalog_provider == "none"
     assert resolved.pipelines["example_records"].publish_dataplex is False
+
+
+def test_cloud_run_rejects_environment_only_secrets(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    platforms["platforms"]["gcp"]["secrets"]["provider"] = "environment"
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    with pytest.raises(ProjectConfigError, match="Cloud Run requires"):
+        load_project_config(project_path)
 
 
 def test_config_migrate_check_is_read_only_then_write_is_atomic(tmp_path: Path) -> None:

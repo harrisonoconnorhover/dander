@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-08 — Secret resolution uses an explicit provider runtime
+
+- **Compatibility:** Version 1 and the Cloud Run profile retain GCP Secret Manager plus the
+  existing environment-variable indirection; secret names, resource paths, and audit events do
+  not change.
+- **Selection:** Hosted and connector-capability paths build the manifest-selected API-v1 secret
+  runtime; sandbox execution explicitly selects the environment provider.
+- **Boundary:** Environment-only secrets remain limited to local or future operator-managed
+  Kubernetes execution, and the Google Secret Manager SDK loads only on actual GCP access.
+
 ## 2026-08-08 — External catalog publication is selected independently
 
 - **Selection:** Version 1 retains implicit Dataplex behavior; version 2 carries `dataplex` or
