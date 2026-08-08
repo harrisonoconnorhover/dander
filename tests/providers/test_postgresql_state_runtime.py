@@ -12,7 +12,9 @@ from psycopg import Connection, OperationalError, connect, sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool, PoolTimeout
 
+from dander.concurrency import FencingToken, TargetFenceLostError
 from dander.providers import ProviderKind, default_provider_registry
+from dander.providers.postgresql.fence import PostgreSQLTargetFence
 from dander.providers.postgresql.state import (
     PostgreSQLLeaseStore,
     PostgreSQLMetadataStore,
@@ -21,6 +23,7 @@ from dander.providers.postgresql.state import (
     PostgreSQLWatermarkStore,
 )
 from dander.state import LeaseHandle, RunStage, RunStatus, StateRuntime
+from dander.warehouse import RelationRef
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -54,6 +57,7 @@ def postgresql_runtime() -> Iterator[tuple[StateRuntime, PostgreSQLPool, str]]:
         ProviderKind.STATE,
         {
             "provider": "postgresql",
+            "authority_id": "postgresql:test-state",
             "dsn_env": "DANDER_TEST_POSTGRES_DSN",
             "schema_name": schema_name,
             "lease_seconds": 10,
@@ -85,6 +89,7 @@ def test_postgresql_registration_requires_only_an_environment_reference(
         ProviderKind.STATE,
         {
             "provider": "postgresql",
+            "authority_id": "postgresql:test-state",
             "dsn_env": "DATABASE_URL",
             "schema_name": "dander_control",
             "pool_min_size": 2,
@@ -94,6 +99,8 @@ def test_postgresql_registration_requires_only_an_environment_reference(
 
     assert config.model_dump(mode="json") == {
         "provider": "postgresql",
+        "authority_id": "postgresql:test-state",
+        "authority_epoch": 1,
         "dsn_env": "DATABASE_URL",
         "schema_name": "dander_control",
         "pool_min_size": 2,
@@ -129,6 +136,10 @@ def test_postgresql_state_schema_and_stores_conform(
     first = runtime.leases.acquire("salesforce", "run-1")
     assert first is not None
     assert first.fencing_token == 1
+    assert first.fence is not None
+    assert first.fence.lease_table is None
+    assert first.fence.resolved_authority_id == "postgresql:test-state"
+    assert first.fence.authority_epoch == 1
     assert runtime.leases.acquire("salesforce", "run-2") is None
     assert runtime.leases.heartbeat(first) is True
     stale = LeaseHandle("salesforce", "run-1", 999, 10)
@@ -233,6 +244,94 @@ def test_postgresql_lease_contention_has_one_owner(
     assert owners[0].fencing_token == 1
 
 
+def test_postgresql_destination_fence_rejects_stale_publication(
+    postgresql_runtime: tuple[StateRuntime, PostgreSQLPool, str],
+) -> None:
+    runtime, pool, schema_name = postgresql_runtime
+    runtime.migrator.migrate()
+    with pool.connection() as connection:
+        database_row = connection.execute("SELECT current_database() AS name").fetchone()
+        assert database_row is not None
+        catalog = cast("str", database_row["name"])
+        connection.execute(
+            sql.SQL("CREATE TABLE {} (id TEXT PRIMARY KEY, label TEXT NOT NULL)").format(
+                sql.Identifier(schema_name, "destination_records")
+            )
+        )
+        connection.execute(
+            sql.SQL("INSERT INTO {} VALUES ('one', 'original')").format(
+                sql.Identifier(schema_name, "destination_records")
+            )
+        )
+    capability = PostgreSQLTargetFence(pool=pool, catalog=catalog)
+    relation = RelationRef(
+        catalog=catalog,
+        namespace=schema_name,
+        name="destination_records",
+    )
+    first = FencingToken(
+        lease_table=None,
+        pipeline_id="fenced-pipeline",
+        run_id="run-one",
+        token=1,
+        authority_id="postgresql:test-state",
+    )
+    first_claim = capability.claim(relation, first)
+    assert capability.claim(relation, first) == first_claim
+
+    stale_retry = FencingToken(
+        lease_table=None,
+        pipeline_id="fenced-pipeline",
+        run_id="different-run",
+        token=1,
+        authority_id="postgresql:test-state",
+    )
+    with pytest.raises(TargetFenceLostError, match="rejected stale"):
+        capability.claim(relation, stale_retry)
+
+    second = FencingToken(
+        lease_table=None,
+        pipeline_id="fenced-pipeline",
+        run_id="run-two",
+        token=2,
+        authority_id="postgresql:test-state",
+    )
+    second_claim = capability.claim(relation, second)
+    update = (
+        sql.SQL("UPDATE {} SET label = %s WHERE id = %s")
+        .format(sql.Identifier(schema_name, "destination_records"))
+        .as_string()
+    )
+    with pool.connection() as connection:
+        with pytest.raises(TargetFenceLostError, match="lost before publication"):
+            capability.execute_dml(
+                connection,
+                update,
+                first_claim,
+                ("stale", "one"),
+            )
+        capability.execute_dml(
+            connection,
+            update,
+            second_claim,
+            ("published", "one"),
+        )
+        row = connection.execute(
+            sql.SQL("SELECT label FROM {} WHERE id = 'one'").format(
+                sql.Identifier(schema_name, "destination_records")
+            )
+        ).fetchone()
+        commit = connection.execute(
+            sql.SQL(
+                "SELECT status, run_id, fencing_token FROM {} "
+                "WHERE target_id = %s AND pipeline_id = %s"
+            ).format(sql.Identifier(schema_name, "dander_target_commits")),
+            (".".join(relation.coordinates), "fenced-pipeline"),
+        ).fetchone()
+    assert row == {"label": "published"}
+    assert commit == {"status": "committed", "run_id": "run-two", "fencing_token": 2}
+
+
 def test_postgresql_failed_migration_records_no_version(
     postgresql_runtime: tuple[StateRuntime, PostgreSQLPool, str],
     monkeypatch: pytest.MonkeyPatch,
@@ -308,6 +407,7 @@ def test_postgresql_pool_exhaustion_fails_boundedly(
         ProviderKind.STATE,
         {
             "provider": "postgresql",
+            "authority_id": "postgresql:test-state",
             "dsn_env": "DANDER_TEST_POSTGRES_DSN",
             "schema_name": schema_name,
             "pool_min_size": 1,
@@ -353,6 +453,7 @@ def test_postgresql_pool_replaces_a_lost_connection(
         ProviderKind.STATE,
         {
             "provider": "postgresql",
+            "authority_id": "postgresql:test-state",
             "dsn_env": "DANDER_TEST_POSTGRES_DSN",
             "schema_name": schema_name,
             "pool_min_size": 1,

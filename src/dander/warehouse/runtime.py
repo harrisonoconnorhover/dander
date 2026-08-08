@@ -9,10 +9,10 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from pathlib import Path
 
-    from dander.concurrency import OwnershipGuard
+    from dander.concurrency import FencingToken, OwnershipGuard, TargetFence
     from dander.telemetry import OperationTelemetry, TelemetryOperation
     from dander.transform import TransformRunResult
-    from dander.warehouse.contracts import RelationCodec, RelationSchema
+    from dander.warehouse.contracts import RelationCodec, RelationRef, RelationSchema
     from dander.writer.base import SchemaEvolution, WriteMode, WritePattern, WriteTransport
 
 
@@ -104,9 +104,13 @@ class WarehouseTransformFactory(Protocol):
 
 @runtime_checkable
 class WarehouseTargetFence(Protocol):
-    """Prepare one destination-side fenced DML finalizer."""
+    """Claim and transactionally verify destination publication ownership."""
 
-    def prepare_dml(self, statement: str, fence: object) -> PreparedWarehouseStatement:
+    def claim(self, target: RelationRef, fence: FencingToken) -> TargetFence:
+        """Claim ``target`` before creating run-scoped staging."""
+        ...
+
+    def prepare_dml(self, statement: str, fence: TargetFence) -> PreparedWarehouseStatement:
         """Bind the provider fencing statement and its execution options."""
         ...
 

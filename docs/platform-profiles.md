@@ -77,6 +77,8 @@ platforms:
       location: US
     state:
       provider: postgresql
+      authority_id: postgresql:portable-state
+      authority_epoch: 1
       dsn_env: DANDER_POSTGRES_DSN
       schema_name: dander_meta
       pool_min_size: 1
@@ -95,6 +97,9 @@ Install `dander-platform[postgres]` for a provider-specific environment, or use 
 the value is never part of either manifest. Dander creates and migrates only the configured schema.
 It uses a bounded pool, PostgreSQL server time for leases, atomic watermark comparison, sanitized
 run history, and deterministic JSONB metadata snapshots.
+
+`authority_id` is a stable, non-secret identifier for this state deployment. Do not reuse it for a
+different database or change `authority_epoch` outside a reviewed state-backend cutover.
 
 The current BigQuery warehouse/PostgreSQL state combination fails closed at execution because its
 cross-backend destination fence is the next portability ticket. The state adapter is available for

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 _ENVIRONMENT_NAME = re.compile(r"^[A-Z][A-Z0-9_]{0,126}$")
 _SCHEMA_NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+_AUTHORITY_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$")
 
 
 class PostgreSQLStateConfig(BaseModel):
@@ -21,6 +22,8 @@ class PostgreSQLStateConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     provider: Literal["postgresql"]
+    authority_id: str
+    authority_epoch: int = Field(default=1, ge=1)
     dsn_env: str = "DANDER_POSTGRES_DSN"
     schema_name: str = "dander_meta"
     pool_min_size: int = Field(default=1, ge=1, le=20)
@@ -35,6 +38,8 @@ class PostgreSQLStateConfig(BaseModel):
             raise ValueError("dsn_env must be an uppercase environment-variable name")
         if not _SCHEMA_NAME.fullmatch(self.schema_name):
             raise ValueError("schema_name must be a safe lowercase PostgreSQL identifier")
+        if not _AUTHORITY_ID.fullmatch(self.authority_id):
+            raise ValueError("authority_id must be a stable non-secret deployment identifier")
         if self.pool_min_size > self.pool_max_size:
             raise ValueError("pool_min_size must not exceed pool_max_size")
         return self

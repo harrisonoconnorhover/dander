@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Added a lazy PostgreSQL 15+ durable-state provider selected from version 2 platform profiles.
-- Implemented versioned migrations, server-time leases, monotonic fences, watermark CAS, history, and JSONB metadata.
-- Added bounded pooling, terminal-history retention, interruption reconciliation, and fail-closed BigQuery pairing.
-- Added live PostgreSQL CI conformance for contention, migration rollback, connection loss, and pool exhaustion.
-- Kept version 1 and BigQuery state behavior unchanged.
+- Added provider-neutral state authority/epoch and destination `TargetFence` contracts.
+- Implemented atomic target claims and transactionally fenced DML for BigQuery destinations.
+- Implemented the same claim/publication boundary for PostgreSQL destinations.
+- Made PostgreSQL state issue usable cross-backend tokens with an explicit stable authority ID.
+- Kept PostgreSQL-state/BigQuery execution fail-closed until every runtime caller is wired.
 
 ## Try It
 
-Install `dander-platform[postgres]`, set the manifest's `state.provider: postgresql`, and inject the
-DSN through its configured environment variable. See `docs/platform-profiles.md`. Runtime execution
-with BigQuery intentionally stops until the next destination-fence ticket is merged.
+Run the focused provider tests. PostgreSQL live coverage needs `DANDER_TEST_POSTGRES_DSN` pointing
+to a disposable PostgreSQL 15+ database; the test creates and drops its own schemas.
 
 ## Checks
 
-- Ruff, formatting, strict mypy, and all 998 Python tests passed.
-- Seven live PostgreSQL 15 provider tests passed; manual container restart recovery passed.
-- Terraform formatting, GCP/AWS validation, and provider-mocked AWS tests passed.
-- Wheel/sdist inspection, source-free validation, PostgreSQL-extra installation, and OCI build passed.
-- Linux OCI uses system `libpq`; non-Linux PostgreSQL installs use Psycopg's binary runtime.
+- All 1,001 Python tests passed locally; PostgreSQL tests skip without a configured DSN.
+- Eight PostgreSQL 15 live tests passed against a disposable local container.
+- Repository-wide Ruff, formatting, and strict mypy checks passed.
+- The stale PostgreSQL claimant test proved target data stayed unchanged until the newer owner ran.
+- Distribution inspection/install, dependency audit, and all Terraform validations passed.
 
 ## Decisions
 
-- Manifests retain only the DSN environment-variable name; credentials are runtime-injected.
-- Interrupted history is exempt from terminal retention.
-- PostgreSQL state does not weaken publication fencing while the cross-backend protocol is pending.
+- State authority identity is explicit and non-secret; epoch changes belong to a future cutover.
+- Target claims accept only a newer token or the exact same run/token retry.
+- Destination fencing is not advertised as usable until ingestion and materialization callers bind it.
 
 ## Remaining
 
-- Run protected CI and merge the focused PostgreSQL-state PR if clean.
-- Implement the generic destination target-fence protocol as a separate PR.
-- Implement PostgreSQL warehouse capabilities, then the Kubernetes launcher and live profile.
+- Run protected CI on the focused pull request.
+- Wire the target fence into every supported writer and materialization finalizer.
+- Implement PostgreSQL warehouse schema, loading, transforms, assertions, and telemetry.
+- Then add the Kubernetes launcher and cross-backend matrix proofs.
 
 ## Review First
 
-- `src/dander/providers/postgresql/state.py`
-- `tests/providers/test_postgresql_state_runtime.py`
-- `src/dander/project/portable_config.py`
+- `src/dander/concurrency.py`
+- `src/dander/providers/bigquery/fence.py`
+- `src/dander/providers/postgresql/fence.py`

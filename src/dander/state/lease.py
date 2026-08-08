@@ -87,6 +87,8 @@ class BigQueryLeaseStore(LeaseStore):
         dataset: str,
         client: _BigQueryClient | None = None,
         lease_seconds: int = 120,
+        authority_id: str | None = None,
+        authority_epoch: int = 1,
     ) -> None:
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", project):
             raise ValueError(f"Invalid BigQuery project: {project!r}")
@@ -94,6 +96,8 @@ class BigQueryLeaseStore(LeaseStore):
             raise ValueError(f"Invalid BigQuery dataset: {dataset!r}")
         self._lease_seconds = _validated_lease_seconds(lease_seconds)
         self._table_prefix = f"{project}.{dataset}._dander_lease_"
+        self._authority_id = authority_id or f"bigquery:{project}:{dataset}"
+        self._authority_epoch = authority_epoch
         self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
         self._ready: set[str] = set()
 
@@ -154,6 +158,8 @@ class BigQueryLeaseStore(LeaseStore):
                 pipeline_id=pipeline_id,
                 run_id=run_id,
                 token=token,
+                authority_id=self._authority_id,
+                authority_epoch=self._authority_epoch,
             ),
         )
 

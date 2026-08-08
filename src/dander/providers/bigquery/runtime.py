@@ -5,15 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from dander.concurrency import FencingToken, fenced_dml, fencing_job_config
 from dander.pipeline.runtime import BigQueryGraphRunner, GraphExecutionPlan
 from dander.providers.bigquery.config import BigQueryWarehouseConfig
+from dander.providers.bigquery.fence import BigQueryTargetFence
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import BigQueryTransformRunner
 from dander.warehouse.bigquery_compat import canonical_schema_from_bigquery
 from dander.warehouse.runtime import (
-    PreparedWarehouseStatement,
     WarehouseCapabilities,
     WarehouseRuntime,
     WarehouseTransformRunner,
@@ -102,20 +101,6 @@ class BigQueryTransformFactory:
 
 
 @dataclass(frozen=True, slots=True)
-class BigQueryTargetFence:
-    """Bind BigQuery lease ownership inside the destination transaction."""
-
-    def prepare_dml(self, statement: str, fence: object) -> PreparedWarehouseStatement:
-        """Return the existing conditional DML touch and parameter bindings."""
-        if not isinstance(fence, FencingToken):
-            raise TypeError("BigQuery target fencing requires a FencingToken")
-        return PreparedWarehouseStatement(
-            sql=fenced_dml(statement, fence),
-            options=fencing_job_config(fence),
-        )
-
-
-@dataclass(frozen=True, slots=True)
 class BigQueryTelemetry:
     """Normalize stable BigQuery job counters and identifiers."""
 
@@ -168,7 +153,7 @@ def build_bigquery_warehouse(
         schema_mapper=BigQuerySchemaMapper(),
         writers=BigQueryWriterFactory(project),
         transforms=BigQueryTransformFactory(project),
-        target_fence=BigQueryTargetFence(),
+        target_fence=BigQueryTargetFence(project),
         telemetry=BigQueryTelemetry(),
         capabilities=BIGQUERY_CAPABILITIES,
     )
