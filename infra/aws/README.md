@@ -29,5 +29,24 @@ AWS performs a best-effort `StopTask` when the integration is cancelled or times
 is the only runtime outcome eligible for a bounded launcher retry. Scheduler delivery retries use a
 separate counter and queue.
 
+After a reviewed platform apply, operate one exact manifest-bound pipeline with the dedicated
+short-lived deployment-role profile:
+
+```console
+dander aws run --deployment aws_fargate --pipeline greenhouse_jobs --aws-profile dander-deploy
+dander aws status --deployment aws_fargate --pipeline greenhouse_jobs --aws-profile dander-deploy
+dander aws logs --deployment aws_fargate --pipeline greenhouse_jobs \
+  --execution-arn EXECUTION_ARN --aws-profile dander-deploy
+dander aws replay --deployment aws_fargate --pipeline greenhouse_jobs \
+  --execution-arn TERMINAL_EXECUTION_ARN --aws-profile dander-deploy
+dander aws verify --deployment aws_fargate --pipeline greenhouse_jobs \
+  --expected-image 123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:DIGEST \
+  --aws-profile dander-deploy
+```
+
+`run`, `cancel`, and `replay` require confirmation because they mutate paid AWS execution state.
+Status, logs, and verification are read-only. Commands validate that supplied execution ARNs belong
+to the selected pipeline and print only Dander's normalized operation records.
+
 No AWS deployment is supported until source-free live acceptance proves manual and scheduled runs,
 deadline cancellation, replay, identity refresh, alerts, rollback, and no-change reconciliation.

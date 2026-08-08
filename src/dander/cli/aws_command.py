@@ -18,11 +18,179 @@ from dander.bootstrap import (
     RuntimeImagePromoter,
 )
 from dander.project import ProjectConfigError, load_project_config
+from dander.providers.fargate import FargateBinding, FargateOperationError, FargateOperations
 
 _DEFAULT_AWS_INFRA_DIR = Path("infra/aws")
 _DEFAULT_AWS_BOOTSTRAP_ADMIN_DIR = Path("infra/aws/bootstrap-admin")
 _DEFAULT_PROJECT_CONFIG = Path("dander.yaml")
 console = Console()
+aws_app = typer.Typer(help="Operate and verify manifest-bound AWS Fargate pipelines.")
+
+
+def _fargate_operations(
+    *,
+    config: Path,
+    deployment: str,
+    pipeline: str,
+    name: str,
+    aws_profile: str,
+) -> FargateOperations:
+    binding = FargateBinding.from_project(
+        config=config,
+        deployment=deployment,
+        pipeline_id=pipeline,
+        name=name,
+    )
+    return FargateOperations(binding, aws_profile=aws_profile)
+
+
+@aws_app.command("run")
+def aws_run(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    aws_profile: str = typer.Option("", "--aws-profile"),
+    name: str = typer.Option("dander", "--name"),
+    execution_name: str | None = typer.Option(None, "--execution-name"),
+) -> None:
+    """Start one paid manual Fargate execution after confirmation."""
+    if not typer.confirm(f"Start Fargate pipeline {pipeline!r}?", default=False):
+        raise typer.Abort()
+    try:
+        execution = _fargate_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+            aws_profile=aws_profile,
+        ).start(execution_name=execution_name)
+    except FargateOperationError as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data=execution.as_dict())
+
+
+@aws_app.command("status")
+def aws_status(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    execution_arn: str | None = typer.Option(None, "--execution-arn"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    aws_profile: str = typer.Option("", "--aws-profile"),
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Show sanitized status for one execution, or the latest execution."""
+    try:
+        operations = _fargate_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+            aws_profile=aws_profile,
+        )
+        execution = (
+            operations.describe(execution_arn) if execution_arn is not None else operations.latest()
+        )
+    except FargateOperationError as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data={"execution": execution.as_dict() if execution is not None else None})
+
+
+@aws_app.command("logs")
+def aws_logs(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    execution_arn: str = typer.Option(..., "--execution-arn"),
+    limit: int = typer.Option(100, "--limit", min=1, max=10_000),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    aws_profile: str = typer.Option("", "--aws-profile"),
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Read CloudWatch events correlated to one controller execution."""
+    try:
+        events = _fargate_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+            aws_profile=aws_profile,
+        ).logs(execution_arn, limit=limit)
+    except FargateOperationError as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data={"events": [event.as_dict() for event in events]})
+
+
+@aws_app.command("cancel")
+def aws_cancel(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    execution_arn: str = typer.Option(..., "--execution-arn"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    aws_profile: str = typer.Option("", "--aws-profile"),
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Cancel one running controller execution after confirmation."""
+    if not typer.confirm(f"Cancel Fargate execution {execution_arn!r}?", default=False):
+        raise typer.Abort()
+    try:
+        execution = _fargate_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+            aws_profile=aws_profile,
+        ).cancel(execution_arn)
+    except FargateOperationError as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data=execution.as_dict())
+
+
+@aws_app.command("replay")
+def aws_replay(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    execution_arn: str = typer.Option(..., "--execution-arn"),
+    execution_name: str | None = typer.Option(None, "--execution-name"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    aws_profile: str = typer.Option("", "--aws-profile"),
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Replay one terminal pipeline at its inclusive cursor boundary."""
+    if not typer.confirm(f"Replay Fargate pipeline {pipeline!r}?", default=False):
+        raise typer.Abort()
+    try:
+        execution = _fargate_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+            aws_profile=aws_profile,
+        ).replay(execution_arn, execution_name=execution_name)
+    except FargateOperationError as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data=execution.as_dict())
+
+
+@aws_app.command("verify")
+def aws_verify(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    expected_image: str = typer.Option(..., "--expected-image"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    aws_profile: str = typer.Option("", "--aws-profile"),
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Verify one deployed Fargate pipeline through read-only provider checks."""
+    try:
+        verification = _fargate_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+            aws_profile=aws_profile,
+        ).verify(expected_image=expected_image)
+    except FargateOperationError as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data=verification.as_dict())
 
 
 def init_aws_admin_plan(
@@ -281,6 +449,7 @@ def init_aws_apply(
 
 def register_aws_commands(app: typer.Typer) -> None:
     """Register flat, compatibility-preserving AWS command names on the root CLI."""
+    app.add_typer(aws_app, name="aws")
     app.command("init-aws-admin-plan")(init_aws_admin_plan)
     app.command("init-aws-admin-apply")(init_aws_admin_apply)
     app.command("image-promote-aws")(image_promote_aws)

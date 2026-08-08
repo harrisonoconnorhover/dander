@@ -228,6 +228,44 @@ data "aws_iam_policy_document" "deployment" {
   }
 
   statement {
+    sid    = "OperateDanderControllers"
+    effect = "Allow"
+    actions = [
+      "states:ListExecutions",
+      "states:StartExecution",
+    ]
+    resources = [
+      "arn:${local.partition}:states:${var.region}:${var.aws_account_id}:stateMachine:${var.name}-*"
+    ]
+  }
+
+  statement {
+    sid    = "ObserveAndCancelDanderExecutions"
+    effect = "Allow"
+    actions = [
+      "states:DescribeExecution",
+      "states:GetExecutionHistory",
+      "states:StopExecution",
+    ]
+    resources = [
+      "arn:${local.partition}:states:${var.region}:${var.aws_account_id}:execution:${var.name}-*:*"
+    ]
+  }
+
+  statement {
+    sid    = "ReadDanderTaskLogs"
+    effect = "Allow"
+    actions = [
+      "logs:DescribeLogStreams",
+      "logs:FilterLogEvents",
+      "logs:GetLogEvents",
+    ]
+    resources = [
+      "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:/dander/${var.name}/*:*"
+    ]
+  }
+
+  statement {
     sid    = "UseStageZeroEncryptionKey"
     effect = "Allow"
     actions = [

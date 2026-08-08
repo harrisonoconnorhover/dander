@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-08 — Fargate operations bind to the manifest and controller
+
+- **Ownership:** The validated deployment and pipeline determine the exact state machine, schedule,
+  task definition, log group, and ECR image checks; operators do not supply arbitrary AWS resources.
+- **Lifecycle:** Step Functions remains authoritative for start, status, cancellation, and replay;
+  CloudWatch events are correlated through the execution's exact ECS task identifier.
+- **Output:** Commands expose small normalized records and scoped errors, not unrestricted AWS
+  responses. This completes the operator surface but does not claim support before live acceptance.
+
 ## 2026-08-08 — AWS stage zero owns state and artifact prerequisites
 
 - **Ownership:** A separate AWS stage-zero root owns the customer-key-encrypted S3 backend,
