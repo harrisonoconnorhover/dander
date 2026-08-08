@@ -159,6 +159,7 @@ def test_version_two_preserves_postgresql_state_connection_reference(tmp_path: P
     platforms = yaml.safe_load(migration.platforms_yaml)
     platforms["platforms"]["gcp"]["state"] = {
         "provider": "postgresql",
+        "authority_id": "postgresql:portable-state",
         "dsn_env": "DANDER_STATE_DATABASE_URL",
         "schema_name": "dander_control",
         "pool_min_size": 2,
@@ -173,6 +174,8 @@ def test_version_two_preserves_postgresql_state_connection_reference(tmp_path: P
     assert resolved.state_provider == "postgresql"
     assert resolved.state_config == {
         "provider": "postgresql",
+        "authority_id": "postgresql:portable-state",
+        "authority_epoch": 1,
         "dsn_env": "DANDER_STATE_DATABASE_URL",
         "schema_name": "dander_control",
         "pool_min_size": 2,

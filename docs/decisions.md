@@ -779,3 +779,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   its short-lived task-role values only in the current process. The generated external-account
   config uses the library-supported `service_account_impersonation` lifetime field. This does not
   make Fargate a supported launcher; that remains Phase 3.
+
+## 2026-08-08 — Destination publication has its own fence ledger
+
+- A state lease identifies its immutable authority and epoch, but never assumes that its control
+  table is transactionally reachable from a different destination warehouse.
+- Each destination claims `(pipeline, target)` in `dander_target_commits` before staging. Only a
+  newer token or an exact retry from the current authority/epoch may replace that claim.
+- Final publication touches the exact authority/epoch/pipeline/target/run/token tuple and records
+  completion in the same destination transaction. Cross-backend execution remains fail-closed
+  until every writer and materialization caller uses this boundary.

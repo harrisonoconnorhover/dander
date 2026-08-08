@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from dander.catalog import MetadataSnapshot, MetadataStore
+from dander.concurrency import FencingToken
 from dander.providers.postgresql.config import PostgreSQLStateConfig
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.state import (
@@ -31,8 +32,6 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from pydantic import BaseModel
-
-    from dander.concurrency import FencingToken
 
 _STATE_SCHEMA_VERSION = 1
 _MIGRATIONS = (StateMigration(version=1, name="initial_state_schema"),)
@@ -181,9 +180,18 @@ class PostgreSQLStateMigrator:
 class PostgreSQLLeaseStore(LeaseStore):
     """Coordinate pipeline ownership using PostgreSQL server time and row locks."""
 
-    def __init__(self, database: PostgreSQLStateDatabase, *, lease_seconds: int) -> None:
+    def __init__(
+        self,
+        database: PostgreSQLStateDatabase,
+        *,
+        lease_seconds: int,
+        authority_id: str,
+        authority_epoch: int,
+    ) -> None:
         self._database = database
         self._lease_seconds = lease_seconds
+        self._authority_id = authority_id
+        self._authority_epoch = authority_epoch
 
     @property
     def lease_seconds(self) -> int:
@@ -221,6 +229,14 @@ class PostgreSQLLeaseStore(LeaseStore):
             run_id=run_id,
             fencing_token=token,
             lease_seconds=self._lease_seconds,
+            fence=FencingToken(
+                lease_table=None,
+                pipeline_id=pipeline_id,
+                run_id=run_id,
+                token=token,
+                authority_id=self._authority_id,
+                authority_epoch=self._authority_epoch,
+            ),
         )
 
     def heartbeat(self, lease: LeaseHandle) -> bool:
@@ -598,7 +614,12 @@ def _build_postgresql_state(
     )
     return StateRuntime(
         provider_id="postgresql",
-        leases=PostgreSQLLeaseStore(database, lease_seconds=config.lease_seconds),
+        leases=PostgreSQLLeaseStore(
+            database,
+            lease_seconds=config.lease_seconds,
+            authority_id=config.authority_id,
+            authority_epoch=config.authority_epoch,
+        ),
         watermarks=PostgreSQLWatermarkStore(database),
         history=PostgreSQLRunHistoryStore(database),
         metadata=PostgreSQLMetadataStore(database) if metadata_enabled else None,

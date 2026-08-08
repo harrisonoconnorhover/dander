@@ -6,10 +6,12 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import pytest
 from google.cloud import bigquery
 
-from dander.concurrency import FencingToken
+from dander.concurrency import FencingToken, TargetFence, TargetFenceLostError
 from dander.providers import ProviderKind, default_provider_registry
+from dander.providers.bigquery.fence import BigQueryTargetFence
 from dander.telemetry import TelemetryOperation
 from dander.warehouse import LogicalTypeKind, RelationRef, WarehouseRuntime
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTransport
@@ -62,8 +64,11 @@ def test_bigquery_runtime_exposes_codec_schema_fence_and_telemetry() -> None:
     schema = runtime.schema_mapper.canonical_schema(
         [WriteField(name="id", data_type="STRING", mode="REQUIRED")]
     )
-    fence = FencingToken(
-        lease_table="unit-project.dander_meta._dander_leases",
+    fence = TargetFence(
+        fence_table="unit-project.raw._dander_target_commits",
+        target_id="unit-project.raw.records",
+        authority_id="bigquery:unit-project:dander_meta",
+        authority_epoch=1,
         pipeline_id="records",
         run_id="run-123",
         token=7,
@@ -87,7 +92,8 @@ def test_bigquery_runtime_exposes_codec_schema_fence_and_telemetry() -> None:
 
     assert runtime.relation_codec.render(relation) == "`unit-project`.`raw`.`records`"
     assert schema.fields[0].data_type.kind is LogicalTypeKind.STRING
-    assert "ASSERT @@row_count = 1" in prepared.sql
+    assert prepared.sql.count("ASSERT @@row_count = 1") == 2
+    assert "status = 'committed'" in prepared.sql
     assert isinstance(prepared.options, bigquery.QueryJobConfig)
     assert telemetry.to_payload() == {
         "provider": "bigquery",
@@ -103,6 +109,85 @@ def test_bigquery_runtime_exposes_codec_schema_fence_and_telemetry() -> None:
         "bytes_billed": 2_048,
         "job_id": "job-123",
     }
+
+
+class _FenceJob:
+    def __init__(self, *, affected: int | None = None) -> None:
+        self.num_dml_affected_rows = affected
+
+    def result(self) -> list[object]:
+        return []
+
+
+class _FenceClient:
+    def __init__(self, *, claim_affected: int = 1) -> None:
+        self.claim_affected = claim_affected
+        self.queries: list[tuple[str, bigquery.QueryJobConfig | None]] = []
+
+    def query(
+        self,
+        query: str,
+        *,
+        job_config: bigquery.QueryJobConfig | None = None,
+    ) -> _FenceJob:
+        self.queries.append((query, job_config))
+        return _FenceJob(affected=self.claim_affected if query.startswith("MERGE") else None)
+
+
+def test_bigquery_target_fence_claims_before_preparing_publication() -> None:
+    client = _FenceClient()
+    capability = BigQueryTargetFence(project="unit-project", client=client)
+    relation = RelationRef(catalog="unit-project", namespace="raw", name="records")
+    lease = FencingToken(
+        lease_table=None,
+        pipeline_id="records",
+        run_id="run-123",
+        token=7,
+        authority_id="postgresql:state-primary",
+        authority_epoch=3,
+    )
+
+    claim = capability.claim(relation, lease)
+    prepared = capability.prepare_dml("MERGE `target` USING `stage` ON FALSE", claim)
+
+    assert client.queries[0][0].startswith(
+        "CREATE TABLE IF NOT EXISTS `unit-project.raw._dander_target_commits`"
+    )
+    claim_sql, claim_config = client.queries[1]
+    assert claim_sql.startswith("MERGE `unit-project.raw._dander_target_commits`")
+    assert "incoming.fencing_token > current.fencing_token" in claim_sql
+    assert "incoming.run_id = current.run_id" in claim_sql
+    assert claim_config is not None
+    parameters = {parameter.name: parameter.value for parameter in claim_config.query_parameters}
+    assert parameters == {
+        "dander_target_id": "unit-project.raw.records",
+        "dander_pipeline_id": "records",
+        "dander_authority_id": "postgresql:state-primary",
+        "dander_authority_epoch": 3,
+        "dander_run_id": "run-123",
+        "dander_fencing_token": 7,
+    }
+    assert prepared.sql.startswith("BEGIN TRANSACTION;\nUPDATE")
+    assert "MERGE `target` USING `stage` ON FALSE;" in prepared.sql
+    assert prepared.sql.endswith("COMMIT TRANSACTION;")
+
+
+def test_bigquery_target_fence_rejects_zero_row_claim() -> None:
+    capability = BigQueryTargetFence(
+        project="unit-project",
+        client=_FenceClient(claim_affected=0),
+    )
+    relation = RelationRef(catalog="unit-project", namespace="raw", name="records")
+    lease = FencingToken(
+        lease_table=None,
+        pipeline_id="records",
+        run_id="stale-run",
+        token=2,
+        authority_id="postgresql:state-primary",
+    )
+
+    with pytest.raises(TargetFenceLostError, match="rejected stale"):
+        capability.claim(relation, lease)
 
 
 def test_bigquery_runtime_constructs_writers_through_capability(
