@@ -88,6 +88,10 @@ def _fargate_runtime() -> LauncherRuntime:
             "provider": "fargate",
             "region": "us-east-1",
             "aws_account_id": "184463061564",
+            "google_workload_identity_audience": (
+                "//iam.googleapis.com/projects/1009770943166/locations/global/"
+                "workloadIdentityPools/dander-phase1b-aws/providers/fargate"
+            ),
             "subnet_ids": ["subnet-0123456789abcdef0"],
             "security_group_ids": ["sg-0123456789abcdef0"],
             "architecture": "ARM64",
@@ -109,6 +113,10 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
             "provider": "fargate",
             "region": "us-east-1",
             "aws_account_id": "184463061564",
+            "google_workload_identity_audience": (
+                "//iam.googleapis.com/projects/1009770943166/locations/global/"
+                "workloadIdentityPools/dander-phase1b-aws/providers/fargate"
+            ),
             "subnet_ids": ["subnet-0123456789abcdef0"],
             "security_group_ids": ["sg-0123456789abcdef0"],
         },
@@ -143,6 +151,9 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
         "arn:aws:iam::184463061564:role/dander-runtime-salesforce"
     )
     assert template.resources.ephemeral_storage_mib == 20_480
+    assert dict(template.environment)["DANDER_GCP_SERVICE_ACCOUNT"] == (
+        "dander-runtime-salesforce@unit-project.iam.gserviceaccount.com"
+    )
     assert template.network.placement == "awsvpc"
     assert dict(template.network.extensions) == {
         "fargate_security_group_ids": "sg-0123456789abcdef0",
@@ -182,5 +193,21 @@ def test_fargate_rejects_unhonored_runtime_intent(
             launcher_retry_count=1,
             batch_rows=1_000,
             require_guarded_free_tier=guarded,
+            alert_target=None,
+        )
+
+
+def test_fargate_rejects_a_run_longer_than_the_task_role_session() -> None:
+    with pytest.raises(ExecutionProjectionError, match="deadline"):
+        _fargate_runtime().templates.build(
+            _PIPELINES,
+            image=_FARGATE_IMAGE,
+            project="unit-project",
+            cpu=1,
+            memory="2Gi",
+            deadline_seconds=3_601,
+            launcher_retry_count=1,
+            batch_rows=1_000,
+            require_guarded_free_tier=False,
             alert_target=None,
         )

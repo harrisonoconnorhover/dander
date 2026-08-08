@@ -8,6 +8,11 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add a lazy AWS Secrets Manager runtime that accepts only full, region-matching secret ARNs,
+  retains audited environment indirection, and never loads the AWS SDK until a secret is read.
+- Prepare Fargate's keyless Google identity before runtime construction by adapting only temporary
+  ECS task-role credentials from the fixed link-local endpoint into a non-secret external-account
+  configuration; keep Fargate runs bounded to one hour until renewable credentials are supported.
 - Add a lazy ECS/Fargate launcher factory that projects the existing BigQuery data-plane runtime
   onto immutable ECR images, task-role identity, explicit networking, and valid Fargate resource
   pairs without yet claiming deployable Fargate support.

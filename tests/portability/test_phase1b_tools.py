@@ -12,9 +12,10 @@ from scripts.portability.prepare_phase1b_context import ContextPreparationError,
 from scripts.portability.scan_long_lived_credentials import scan
 from scripts.portability.wif_bigquery_probe import (
     ProbeError,
-    prepare_fargate_task_credentials,
     run_probe,
 )
+
+from dander.identity import FargateIdentityError, prepare_fargate_task_credentials
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -196,9 +197,17 @@ def test_fargate_task_credentials_are_short_lived_and_never_emitted() -> None:
             "AccessKeyId": access_key,
             "SecretAccessKey": secret_key,
             "Token": session_token,
+            "Expiration": "2026-08-07T13:00:00Z",
         }
 
-    assert prepare_fargate_task_credentials(environ=environment, fetch=fetch) is True
+    assert (
+        prepare_fargate_task_credentials(
+            environ=environment,
+            fetch=fetch,
+            now=datetime(2026, 8, 7, 12, 0, tzinfo=UTC),
+        )
+        is True
+    )
     assert requested_urls == [f"http://169.254.170.2{relative_uri}"]
     assert environment["AWS_ACCESS_KEY_ID"] == access_key
     assert environment["AWS_SECRET_ACCESS_KEY"] == secret_key
@@ -210,7 +219,7 @@ def test_fargate_task_credentials_are_short_lived_and_never_emitted() -> None:
     ["https://example.invalid/credentials", "/latest/meta-data/iam/security-credentials"],
 )
 def test_fargate_task_credentials_reject_an_untrusted_endpoint(relative_uri: str) -> None:
-    with pytest.raises(ProbeError, match="endpoint is invalid"):
+    with pytest.raises(FargateIdentityError, match="endpoint"):
         prepare_fargate_task_credentials(
             environ={"AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": relative_uri},
             fetch=lambda _url: pytest.fail("untrusted endpoint must not be fetched"),

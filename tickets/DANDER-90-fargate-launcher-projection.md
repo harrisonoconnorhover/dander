@@ -1,7 +1,7 @@
 ---
 id: DANDER-90
 title: Project the BigQuery runtime onto Fargate
-status: in-review
+status: completed
 component: deployment
 epic: cloud-portability
 depends_on: [DANDER-89]
@@ -26,7 +26,7 @@ execution contract without implying that infrastructure or lifecycle support alr
 - [x] Fargate remains absent from the supported runtime-capability manifest.
 - [x] Focused projection and registry tests pass.
 - [x] Full local validation and isolated GCP no-drift pass.
-- [ ] Protected CI passes.
+- [x] Protected CI passes.
 
 ## Design
 
@@ -36,5 +36,5 @@ Terraform, scheduler/controller behavior, credential assembly, and live executio
 
 ## Review Log
 
-Full local validation and the isolated retained-project no-drift proof passed. Protected review
-remains pending.
+Full local validation, isolated retained-project no-drift, and protected CI passed. PR #121 merged
+as `cff311ce23d6b7ef9dbad8b743bb9a8ae8321ac4`.

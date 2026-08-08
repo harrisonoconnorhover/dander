@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-08 — Fargate identity remains keyless and bounded
+
+- **Identity:** Fargate accepts only temporary `ASIA` task-role credentials from the fixed ECS
+  link-local endpoint. Preconfigured AWS access keys, unsafe endpoints, and nearly expired sessions
+  fail before provider clients are constructed.
+- **Google federation:** Dander writes a non-secret external-account configuration with a 600-second
+  impersonated token lifetime; task credentials remain in process memory and are never logged.
+- **Boundary:** Fargate deadlines are capped at one hour until renewable ECS credential supply and
+  launcher lifecycle are delivered. This remains construction readiness, not a support claim.
+
 ## 2026-08-08 — Fargate projection precedes infrastructure support
 
 - **Boundary:** The lazy Fargate factory projects the existing BigQuery/GCP runtime onto an

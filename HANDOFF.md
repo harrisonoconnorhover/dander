@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Added dependency-light Fargate configuration and lazy launcher registration.
-- Projected immutable ECR images, task-role identity, `awsvpc` placement, and CloudWatch intent.
-- Preserved the BigQuery/GCP runtime command and GCP Secret Manager references.
-- Rejected invalid Fargate sizing and the unsupported guarded-free-tier path before planning.
-- Kept Fargate out of the supported runtime-capability manifest.
+- Added lazy, audited AWS Secrets Manager resolution for full region-matching ARNs.
+- Prepared keyless Fargate-to-Google identity before provider clients are constructed.
+- Reused the hardened Phase 1B ECS credential adapter instead of maintaining a second copy.
+- Sanitized launcher identity failures and bounded Fargate projections to one hour.
+- Preserved the unsupported Fargate capability boundary and all existing GCP behavior.
 
 ## Try It
 
-Build the `fargate` launcher through the provider registry with a disposable AWS account, existing
-subnet/security-group IDs, and a valid ECR digest. It returns an execution template only.
+Build the `aws_secret_manager` provider with a synthetic client or build a Fargate execution
+template with a valid WIF audience. Neither operation contacts or changes cloud infrastructure.
 
 ## Checks
 
-- All 920 tests, Ruff, formatting, and strict mypy across 237 files passed.
-- Wheel/sdist inspection, source-free installs, runtime-all assembly, and dependency audit passed.
-- The non-root/read-only full runtime image passed conformance and bundled-asset checks.
-- Trivy found no high/critical findings, Gitleaks found no leaks, and every Terraform root validated.
-- Isolated GCP reported `No changes`; Salesforce and ServiceNow schedules remain paused.
+- All 933 tests, Ruff, formatting, and strict mypy across 243 source files passed.
+- Wheel, sdist, source-free installs, runtime-all assembly, and dependency audit passed.
+- Container conformance, non-root/read-only checks, and bundled assets passed.
+- Trivy found no high/critical findings; all Terraform roots validated.
+- Isolated GCP reported `No changes`; AWS identity was confirmed read-only in `us-east-1`.
 
 ## Decisions
 
-- Keep this PR to projection and validation; infrastructure and lifecycle are separate slices.
-- Reuse each pipeline's stable runtime identity name as its future AWS task-role name.
-- Reject GCP's guarded-free-tier preflight on Fargate instead of weakening it.
+- Accept only temporary ECS task-role credentials from the fixed link-local endpoint.
+- Keep the generated Google external-account file non-secret and its impersonated token at 600s.
+- Cap Fargate at one hour until the task-role session can be renewed in-process.
 
 ## Remaining
 
-- Merge the focused projection PR after protected CI passes.
-- Add AWS secret resolution and the keyless BigQuery credential runtime.
-- Add reviewed Fargate infrastructure and controller lifecycle.
+- Open the focused PR and let protected CI repeat validation.
+- Add Fargate infrastructure and controller lifecycle in a separate slice.
 
 ## Review First
 
-- `src/dander/providers/fargate/config.py`
-- `src/dander/providers/fargate/runtime.py`
-- `tests/providers/test_launcher_runtime.py`
+- `src/dander/identity/aws_google.py`
+- `src/dander/providers/aws_secrets_manager/runtime.py`
+- `src/dander/cli/runtime_command.py`

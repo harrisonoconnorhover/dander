@@ -31,7 +31,13 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
             f"The runtime received a cancellation signal. A fresh run can retry safely; "
             f"inspect logs for run {run_id}.",
         )
-    if 401 in statuses or names & {"Unauthenticated", "Unauthorized"}:
+    if 401 in statuses or names & {
+        "FargateIdentityError",
+        "NoCredentialsError",
+        "PartialCredentialsError",
+        "Unauthenticated",
+        "Unauthorized",
+    }:
         return _details(
             "authentication_failed",
             "Authentication failed. Verify the configured secret and provider credentials.",
