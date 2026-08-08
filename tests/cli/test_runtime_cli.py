@@ -95,6 +95,7 @@ def test_runtime_execute_uses_launcher_run_id_and_emits_json_lines(
     assert [event["event"] for event in events] == ["runtime.started", "runtime.completed"]
     assert events[-1]["run_id"] == "cloud-run:execution-42"
     assert events[-1]["outputs"]["metrics"]["extracted_rows"] == 4
+    assert events[-1]["outputs"]["telemetry"]["duration_ms"] >= 0
     options = cast("RunOptions", captured["options"])
     assert options.pipeline_or_source == "greenhouse_jobs"
     assert options.project == "unit-project"
@@ -119,6 +120,7 @@ def test_runtime_execute_sanitizes_retryable_failure(monkeypatch: MonkeyPatch) -
     terminal = json.loads(result.output.splitlines()[-1])
     assert terminal["failure_code"] == "rate_limited"
     assert terminal["retryable"] is True
+    assert terminal["outputs"]["telemetry"]["duration_ms"] >= 0
     assert "credential-value" not in result.output
 
 

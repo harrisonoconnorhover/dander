@@ -13,6 +13,8 @@ from enum import IntEnum
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
+from dander.telemetry import RunTelemetry
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
     from types import FrameType
@@ -183,6 +185,7 @@ class RuntimeEvent:
         *,
         context: LauncherContext,
         platform: str,
+        duration_ms: int | None = None,
     ) -> RuntimeEvent:
         """Build the terminal success/overlap record from non-sensitive aggregates."""
         endpoints = [
@@ -194,6 +197,9 @@ class RuntimeEvent:
             }
             for endpoint in result.ingestion.endpoints
         ]
+        telemetry = (
+            result.telemetry if duration_ms is None else result.telemetry.with_duration(duration_ms)
+        )
         return cls(
             event="runtime.completed",
             timestamp=_timestamp(),
@@ -207,6 +213,7 @@ class RuntimeEvent:
                 "source": result.ingestion.source,
                 "endpoints": endpoints,
                 "models": list(result.models),
+                "telemetry": telemetry.to_payload(),
                 "metrics": {
                     "endpoints": len(endpoints),
                     "extracted_rows": sum(
@@ -233,6 +240,7 @@ class RuntimeEvent:
         stage: str,
         failure_code: str,
         retryable: bool,
+        duration_ms: int = 0,
     ) -> RuntimeEvent:
         """Build a terse terminal failure without copying exception text."""
         return cls(
@@ -244,7 +252,7 @@ class RuntimeEvent:
             stage=stage,
             dimensions=context.dimensions(),
             status="failed",
-            outputs={},
+            outputs={"telemetry": RunTelemetry(duration_ms=duration_ms).to_payload()},
             failure_code=failure_code,
             retryable=retryable,
         )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import pytest
@@ -220,10 +221,15 @@ def _executor(
     )
 
 
-def test_executor_records_one_truthful_complete_lifecycle(tmp_path: Path) -> None:
+def test_executor_records_one_truthful_complete_lifecycle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _models(tmp_path)
     history = _History()
     metadata = _Metadata()
+    clock = iter((1_000_000, 8_500_000))
+    monkeypatch.setattr("dander.executor.time.monotonic_ns", lambda: next(clock))
 
     result = _executor(tmp_path, history=history, metadata=metadata).execute()
 
@@ -232,6 +238,7 @@ def test_executor_records_one_truthful_complete_lifecycle(tmp_path: Path) -> Non
     assert history.finished == (RunStatus.SUCCEEDED, None, 1, 2, 1)
     assert result.ingestion.run_id == result.run_id
     assert result.assets == 1
+    assert result.telemetry.duration_ms == 7
     assert metadata.manifest is not None
     assert metadata.manifest["pipeline_id"] == "example_pipeline"
     assets = metadata.manifest["assets"]
@@ -253,9 +260,11 @@ def test_executor_preserves_launcher_supplied_run_id(tmp_path: Path) -> None:
 
 def test_executor_marks_transform_failure_without_claiming_ingestion_only_success(
     tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     _models(tmp_path)
     history = _History()
+    caplog.set_level(logging.WARNING, logger="dander.executor")
 
     with pytest.raises(RuntimeError, match="transform failed"):
         _executor(
@@ -270,6 +279,11 @@ def test_executor_marks_transform_failure_without_claiming_ingestion_only_succes
     assert history.failure is not None
     assert history.failure[0] == "transform_failed"
     assert "Inspect logs for run" in (history.failure[1] or "")
+    terminal = next(record for record in caplog.records if record.msg == "pipeline_failed")
+    assert terminal.__dict__["dander_event"] == "pipeline_failed"
+    assert terminal.__dict__["pipeline_id"] == "example_pipeline"
+    assert terminal.__dict__["failure_code"] == "transform_failed"
+    assert not hasattr(terminal, "exception")
 
 
 def test_executor_records_active_overlap_as_skipped_without_running_pipeline(

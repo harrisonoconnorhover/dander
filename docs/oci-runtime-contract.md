@@ -40,6 +40,17 @@ exactly one `runtime.completed` when the process can terminate normally. The ter
 retryability decision. Cursor values, record contents, credential material, and unrestricted
 exception text are excluded.
 
+Every terminal event includes `outputs.telemetry`. The provider-neutral shape records whole-run
+`duration_ms` and ordered operation statistics for retries, rows, bytes, provider query/job IDs,
+and cost attribution. Fields not reported by the selected adapter remain zero or absent; Dander
+does not infer provider billing. Cost values are decimal strings with an explicit currency and
+`estimated` marker. Query and job IDs are correlation identifiers only—adapters must never put
+SQL, request bodies, record contents, URLs, or credentials in telemetry.
+
+Successful ingestion row counts remain in `outputs.metrics` and `outputs.endpoints` for runtime-v1
+compatibility. Detailed operation telemetry is additive and does not change the stable process
+exit or retry contract.
+
 Invalid contract or identifier input fails before `runtime.started`. `SIGTERM` and `SIGINT` request
 bounded normal cleanup and produce `interrupted_run` when time remains. `SIGKILL` cannot produce a
 terminal event; lease expiry and the next owner reconcile that run.

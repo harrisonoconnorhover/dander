@@ -18,6 +18,7 @@ from dander.runtime_contract import (
     graceful_signal_handlers,
     validate_runtime_contract,
 )
+from dander.telemetry import OperationTelemetry, RunTelemetry, TelemetryOperation
 
 
 def _context() -> LauncherContext:
@@ -55,6 +56,17 @@ def _result(*, skipped: bool = False) -> PipelineExecutionResult:
         assertions=2,
         assets=1,
         skipped=skipped,
+        telemetry=RunTelemetry(
+            duration_ms=17,
+            operations=(
+                OperationTelemetry(
+                    provider="bigquery",
+                    operation=TelemetryOperation.LOAD,
+                    rows_written=2,
+                    bytes_written=128,
+                ),
+            ),
+        ),
     )
 
 
@@ -81,6 +93,9 @@ def test_runtime_events_are_json_lines_without_cursor_values() -> None:
     assert completed["event"] == "runtime.completed"
     assert completed["status"] == "succeeded"
     assert completed["outputs"]["metrics"]["extracted_rows"] == 3
+    assert completed["outputs"]["telemetry"]["duration_ms"] == 17
+    assert completed["outputs"]["telemetry"]["rows_written"] == 2
+    assert completed["outputs"]["telemetry"]["operations"][0]["provider"] == "bigquery"
     assert completed["outputs"]["endpoints"][0]["cursor_committed"] is True
     assert "2026-08-06" not in completed_json
 
@@ -96,13 +111,25 @@ def test_runtime_event_distinguishes_overlap_and_sanitized_failure() -> None:
         stage="runtime",
         failure_code="authentication_failed",
         retryable=False,
+        duration_ms=9,
     ).to_json()
     failed = json.loads(failed_json)
 
     assert skipped["status"] == "skipped"
     assert failed["status"] == "failed"
     assert failed["failure_code"] == "authentication_failed"
-    assert failed["outputs"] == {}
+    assert failed["outputs"]["telemetry"] == {
+        "duration_ms": 9,
+        "retry_count": 0,
+        "rows_read": 0,
+        "rows_written": 0,
+        "rows_affected": 0,
+        "bytes_read": 0,
+        "bytes_written": 0,
+        "bytes_processed": 0,
+        "bytes_billed": 0,
+        "operations": [],
+    }
     assert "credential-value" not in failed_json
 
 

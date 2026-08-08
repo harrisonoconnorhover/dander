@@ -2,38 +2,37 @@
 
 ## Finished
 
-- Replaced graph SQL-fragment construction with one provider-neutral sqlglot relational AST.
-- Compiled relations, CTEs, joins, mappings, conditions, casts, and operations as expressions.
-- Preserved `CompiledTarget.query` as the compatible BigQuery runtime rendering.
-- Added isolated AST access and four-dialect rendering for semantically compatible graphs.
-- Added fail-closed safe-cast target checks and graph/runtime-bridge regression coverage.
+- Added immutable provider-neutral run, operation, and cost telemetry contracts.
+- Emitted normalized telemetry for successful, skipped, and failed OCI runtime terminal events.
+- Measured executor and launcher duration with monotonic clocks.
+- Added cloud-neutral structured terminal logs and operator failure summaries.
+- Preserved existing runtime-v1 row metrics, stable failure codes, and retry behavior.
 
 ## Try It
 
-Call `compile_target(...)` as before. Inspect `compiled.query_ast` or call
-`compiled.render("postgres")`; safe-cast graphs reject targets that cannot preserve semantics.
+Run `dander runtime execute ...` and inspect `outputs.telemetry` in the terminal JSON event. Future
+warehouse adapters can attach ordered `OperationTelemetry` values to `PipelineExecutionResult`.
 
 ## Checks
 
-- All 892 tests, Ruff, formatting, and strict mypy across 199 source files passed.
-- Wheel/sdist build, inspection, source-free installs, generated project, all four Terraform roots,
-  and local non-root container conformance passed.
+- All 896 tests, Ruff, formatting, strict mypy across 201 files, and dependency audit passed.
+- Wheel/sdist build and source-free installs, generation, validation, and Terraform passed.
+- All four Terraform roots and local non-root/read-only container conformance passed.
 - The isolated GCP plan reported `No changes`; both schedules stayed paused and no apply ran.
 
 ## Decisions
 
-- Reuse sqlglot rather than creating another relational AST.
-- Preserve BigQuery runtime behavior while provider execution remains separate.
-- Reject lossy target rendering; syntax generation is not a support claim.
+- Use one closed value contract rather than an exporter or observability subsystem.
+- Record decimal costs exactly and distinguish estimates; never infer missing billing data.
+- Let concrete provider slices populate operation detail after their adapters exist.
 
 ## Remaining
 
-- Complete local and isolated GCP validation.
-- Open and merge the focused graph-AST PR after protected CI passes.
-- Add normalized telemetry, dependency extras, and runtime adapter assembly next.
+- Open and merge the focused telemetry PR after protected CI passes.
+- Add provider dependency extras and full runtime-image assembly next.
 
 ## Review First
 
-- `src/dander/pipeline/compiler.py`
-- `tests/pipeline/test_compiler.py`
-- `tests/pipeline/test_runtime_bridge.py`
+- `src/dander/telemetry.py`
+- `src/dander/runtime_contract.py`
+- `src/dander/executor.py`

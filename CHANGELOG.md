@@ -8,6 +8,11 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add a provider-neutral run telemetry contract for duration, rows, bytes, retries, provider
+  query/job correlation, and explicit decimal cost attribution; emit it on every terminal OCI
+  runtime event without admitting arbitrary provider payloads.
+- Make durable failure summaries and structured pipeline terminal logs cloud-neutral while
+  retaining existing stable failure codes and retry decisions.
 - Compile executable graph mappings, joins, transformations, and ordered operations into one
   provider-neutral relational AST before dialect rendering; preserve BigQuery runtime output and
   fail when another target cannot retain graph safe-cast semantics.
