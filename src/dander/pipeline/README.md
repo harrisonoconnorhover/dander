@@ -7,7 +7,8 @@ future drag-drop UI and fully code-authored pipelines. A graph is a list of `nod
 tasks) and `edges` (connections between them, i.e. how data flows). The package defines the
 on-disk shape (YAML/JSON), validates that a graph is structurally and semantically sound, derives
 read-only structure (adjacency, topological order), safely compiles the supported graph subset to
-BigQuery SQL, and prepares configured target writers. Ingestion, query submission, and scheduled
+a provider-neutral relational AST, renders compatible SQL, and prepares configured target writers.
+Ingestion, query submission, and scheduled
 execution remain in the Ingestion/Transform/Writer/Orchestration layers described in
 `steering/00-project-overview.md`.
 
@@ -23,7 +24,7 @@ code is right and this doc has drifted — please fix it.
 | `dander.pipeline.graph_service` | Loopback-only, single-file bridge for visual editors. Dander validates conditional saves and can bind that exact graph to one already-deployed Cloud Run job selected at startup. |
 | `dander.pipeline.node_config` | The discriminated, per-node-type `Node.config` models — `NodeType`, `NodeConfig`, `SourceNodeConfig`, `TransformNodeConfig`, `TargetNodeConfig` — and the routing function `Node` delegates to. See *Typed per-node-type config* below. |
 | `dander.pipeline.operations` | Typed, ordered, schema-preserving operations for executable transform nodes. |
-| `dander.pipeline.compiler` | Safe compilation of executable linear/two-input graphs to explicit BigQuery SQL, plus side-effect-free target-writer preparation. |
+| `dander.pipeline.compiler` | Safe compilation of executable linear/two-input graphs to one sqlglot relational AST, compatible dialect rendering, and side-effect-free BigQuery target-writer preparation. |
 | `dander.pipeline.request_spec` | `SourceNodeConfig`'s declarative request/payload spec — `HttpMethod`, `RequestSpec` — and the secret/field-reference grammar its header/param/body values must follow. See *Source request/payload spec* below. |
 | `dander.pipeline.errors` | The typed `GraphValidationError` hierarchy raised by `graph_ops`. |
 
@@ -129,7 +130,10 @@ Implementation Notes below for the Decision Log status of this call.)*
 
 ## Executable linear pipelines
 
-`compile_target` turns a validated graph into an explicit-column BigQuery `SELECT`. It supports
+`compile_target` turns a validated graph into one explicit-column sqlglot relational AST and keeps
+the current `query` property as its BigQuery rendering. `CompiledTarget.query_ast` returns an
+isolated copy, and `render()` can render semantically compatible graphs for BigQuery, Snowflake,
+Redshift, or PostgreSQL without recompiling nodes. It supports
 linear mappings plus two-input joins whose output is a distinct transform node, JSON constants,
 scalar expressions, target casts, and the built-in custom-transform registry. Expressions are
 parsed with sqlglot, must reference exactly their declared `inputs`, may use only allow-listed
@@ -140,6 +144,12 @@ passed to Python `eval`.
 incremental, or replace writer and a `WriteTarget`. Constructing it has no network side effect;
 calling its `write()` method performs the configured BigQuery write.
 
+Rendering is intentionally fail-closed. Existing graph `cast_to` means null-on-failure casting;
+Snowflake and PostgreSQL are rejected until Dander proves an exact mapping for that operation.
+PostgreSQL rendering drops the connected database/catalog qualifier and keeps schema/relation
+coordinates. A rendered dialect is not an executable provider claim: graph runtime dispatch and
+writers remain BigQuery-only in this slice.
+
 An executable join is authored on `TransformNodeConfig.join`: `left_input` and `right_input` must
 match its two incoming edges, `keys` name equality columns on those inputs, and the transform node
 is the output. The older `Edge.join` shape remains readable for backward compatibility but fails
@@ -149,7 +159,7 @@ closed during compilation because it makes the edge target both a right input an
 
 An executable `transform` node may declare an ordered `config.operations` list. Each operation
 runs after the node's edge mappings have produced its declared fields and before downstream nodes
-read them. `dander run` compiles the list to explicit BigQuery CTEs after normal connector
+read them. `dander run` compiles the list to relational CTE nodes, then renders BigQuery after normal connector
 ingestion, so raw-table schemas, extraction cursors, and replay behavior remain unchanged.
 
 ```yaml
@@ -592,8 +602,9 @@ This package combines declarative modeling with a bounded execution bridge. It d
 - execute graph field tests or publish graph metadata to Dataplex;
 - combine multiple connector YAML files in one hosted graph pipeline.
 
-`compile_target` parses allow-listed scalar expressions and emits explicit-column SQL for the
-supported graph subset. `prepare_target_writer` constructs a concrete writer; only a later call to
+`compile_target` parses allow-listed scalar expressions and emits one explicit-column relational
+AST plus the compatible BigQuery rendering for the supported graph subset. `prepare_target_writer`
+constructs a concrete writer; only a later call to
 that writer's `write()` method performs I/O. Ingestion, transform submission, hosted scheduling,
 and write execution otherwise remain in their named modules.
 

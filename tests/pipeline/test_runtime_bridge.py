@@ -142,7 +142,7 @@ def test_plan_binds_only_declared_connector_endpoint() -> None:
     assert plan.bindings.endpoint_names == ("jobs",)
     assert plan.bindings.source_relations == {"jobs": "unit-project.raw.greenhouse_job_board_jobs"}
     assert plan.targets[0].target.table == "graph_jobs"
-    assert "unit-project.raw.greenhouse_job_board_jobs" in plan.targets[0].query
+    assert "`unit-project`.`raw`.`greenhouse_job_board_jobs`" in plan.targets[0].query
 
 
 def test_plan_compiles_operations_for_the_post_ingestion_transform_stage() -> None:
@@ -234,9 +234,9 @@ def test_plan_compiles_operations_for_the_post_ingestion_transform_stage() -> No
     )
 
     query = plan.targets[0].query
-    assert "FROM `unit-project.raw.greenhouse_job_board_jobs`" in query
+    assert "FROM `unit-project`.`raw`.`greenhouse_job_board_jobs`" in query
     assert "TRIM(source.`title`) AS `title`" in query
-    assert "WHERE (source.`title` IS NOT NULL)" in query
+    assert "NOT source.`title` IS NULL" in query
 
 
 def test_plan_fails_closed_for_writer_mode_not_yet_executable() -> None:

@@ -1,9 +1,10 @@
-"""Compile the executable subset of a visual pipeline graph to BigQuery SQL."""
+"""Compile the executable visual-graph subset to a provider-neutral relational AST."""
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import reduce
 from typing import TYPE_CHECKING, Any, cast
 
 import sqlglot
@@ -26,6 +27,8 @@ from dander.pipeline.operations import (
     TrimWhitespaceParams,
     TruncateStringParams,
 )
+from dander.transform.model import SqlDialect
+from dander.warehouse import RelationRef
 from dander.writer import (
     BigQueryIncrementalWriter,
     BigQueryReplaceWriter,
@@ -104,6 +107,18 @@ class CompiledTarget:
     query: str
     write_mode: WriteMode
     target: WriteTarget
+    _query_ast: exp.Query = field(repr=False, compare=False)
+
+    @property
+    def query_ast(self) -> exp.Query:
+        """Return an isolated copy of the provider-neutral relational plan."""
+        copied = self._query_ast.copy()
+        assert isinstance(copied, exp.Query)
+        return copied
+
+    def render(self, target_dialect: SqlDialect | str) -> str:
+        """Render the graph AST for one warehouse without recompiling graph nodes."""
+        return render_graph_query(self._query_ast, target_dialect=target_dialect)
 
 
 @dataclass(frozen=True)
@@ -158,12 +173,12 @@ def compile_target(
         raise PipelineCompileError(
             f"Target node {target_node_id!r} must set destination.project for compilation"
         )
-    query = (
-        "WITH\n"
-        + ",\n".join(compiler.ctes)
-        + f"\nSELECT {', '.join(_quote(field.name) for field in target.fields)}\n"
-        + f"FROM {_quote(final_alias)}"
+    query_ast = exp.Select(
+        expressions=[_column(field.name) for field in target.fields],
+        from_=exp.From(this=_cte_table(final_alias)),
     )
+    query_ast.set("with_", exp.With(expressions=compiler.ctes))
+    query = render_graph_query(query_ast, target_dialect=SqlDialect.BIGQUERY)
     return CompiledTarget(
         node_id=target_node_id,
         query=query,
@@ -178,7 +193,40 @@ def compile_target(
                 for field in target.fields
             ),
         ),
+        _query_ast=query_ast,
     )
+
+
+def render_graph_query(
+    expression: exp.Query,
+    *,
+    target_dialect: SqlDialect | str,
+) -> str:
+    """Render a compiled graph AST, rejecting semantics a target cannot preserve."""
+    try:
+        target = SqlDialect(target_dialect)
+    except ValueError as error:
+        raise PipelineCompileError(f"Unknown graph SQL target: {target_dialect}") from error
+    if target is SqlDialect.PORTABLE:
+        raise PipelineCompileError("portable is a graph contract, not a render target")
+    if target in {SqlDialect.SNOWFLAKE, SqlDialect.POSTGRES} and expression.find(exp.TryCast):
+        raise PipelineCompileError(
+            f"Graph safe-cast semantics are not yet exact for {target.value}"
+        )
+    rendered = expression.copy()
+    if target is SqlDialect.POSTGRES:
+        transformed = rendered.transform(_postgres_relation)
+        assert isinstance(transformed, exp.Query)
+        rendered = transformed
+    return rendered.sql(dialect=target.value, pretty=True)
+
+
+def _postgres_relation(node: exp.Expression) -> exp.Expression:
+    if isinstance(node, exp.Table) and node.catalog:
+        updated = node.copy()
+        updated.set("catalog", None)
+        return updated
+    return node
 
 
 class _GraphSqlCompiler:
@@ -195,7 +243,7 @@ class _GraphSqlCompiler:
         self._incoming = incoming
         self._source_relations = source_relations
         self._aliases: dict[str, str] = {}
-        self.ctes: list[str] = []
+        self.ctes: list[exp.CTE] = []
 
     def compile_node(self, node_id: str) -> str:
         """Compile dependencies first and return this node's CTE alias."""
@@ -223,7 +271,7 @@ class _GraphSqlCompiler:
             return self._append_projection(
                 node,
                 [(edges[0], "source")],
-                from_sql=f"{_quote(upstream)} AS source",
+                from_table=_cte_table(upstream, alias="source"),
             )
         if (
             len(edges) == 2
@@ -245,11 +293,13 @@ class _GraphSqlCompiler:
             raise PipelineCompileError(
                 f"Source relation for node {node.id!r} must be project.dataset.table"
             )
-        columns = ", ".join(_compile_source_field(field) for field in node.fields)
+        columns = [_compile_source_field(field) for field in node.fields]
         if not columns:
             raise PipelineCompileError(f"Source node {node.id!r} must declare fields")
         alias = self._next_alias()
-        self.ctes.append(f"{_quote(alias)} AS (\n  SELECT {columns} FROM `{relation}`\n)")
+        relation_ref = _parse_relation(relation)
+        query = exp.Select(expressions=columns, from_=exp.From(this=_relation_table(relation_ref)))
+        self.ctes.append(_cte(alias, query))
         self._aliases[node.id] = alias
         return alias
 
@@ -274,18 +324,22 @@ class _GraphSqlCompiler:
                 )
         left_alias = self.compile_node(join.left_input)
         right_alias = self.compile_node(join.right_input)
-        join_keyword = {
-            ExecutableJoinType.INNER: "INNER JOIN",
-            ExecutableJoinType.LEFT: "LEFT JOIN",
-            ExecutableJoinType.RIGHT: "RIGHT JOIN",
-            ExecutableJoinType.FULL: "FULL OUTER JOIN",
+        side, kind = {
+            ExecutableJoinType.INNER: (None, "INNER"),
+            ExecutableJoinType.LEFT: ("LEFT", None),
+            ExecutableJoinType.RIGHT: ("RIGHT", None),
+            ExecutableJoinType.FULL: ("FULL", "OUTER"),
         }[join.type]
-        condition = " AND ".join(
-            f"lhs.{_quote(key.left)} = rhs.{_quote(key.right)}" for key in join.keys
-        )
-        from_sql = (
-            f"{_quote(left_alias)} AS lhs\n"
-            f"  {join_keyword} {_quote(right_alias)} AS rhs ON {condition}"
+        conditions: list[exp.Expression] = [
+            exp.EQ(this=_column(key.left, table="lhs"), expression=_column(key.right, table="rhs"))
+            for key in join.keys
+        ]
+        condition = reduce(_and, conditions)
+        join_expression = exp.Join(
+            this=_cte_table(right_alias, alias="rhs"),
+            side=side,
+            kind=kind,
+            on=condition,
         )
         return self._append_projection(
             node,
@@ -293,7 +347,8 @@ class _GraphSqlCompiler:
                 (by_source[join.left_input], "lhs"),
                 (by_source[join.right_input], "rhs"),
             ],
-            from_sql=from_sql,
+            from_table=_cte_table(left_alias, alias="lhs"),
+            joins=[join_expression],
         )
 
     def _append_projection(
@@ -301,7 +356,8 @@ class _GraphSqlCompiler:
         node: Node,
         edge_aliases: list[tuple[Edge, str]],
         *,
-        from_sql: str,
+        from_table: exp.Table,
+        joins: list[exp.Join] | None = None,
     ) -> str:
         mappings: dict[str, tuple[FieldMapping, str]] = {}
         mapping_count = 0
@@ -328,9 +384,13 @@ class _GraphSqlCompiler:
             )
             for field in node.fields
         ]
-        select_list = ",\n    ".join(projected)
         alias = self._next_alias()
-        self.ctes.append(f"{_quote(alias)} AS (\n  SELECT\n    {select_list}\n  FROM {from_sql}\n)")
+        query = exp.Select(
+            expressions=projected,
+            from_=exp.From(this=from_table),
+            joins=joins or [],
+        )
+        self.ctes.append(_cte(alias, query))
         self._aliases[node.id] = alias
         if isinstance(node.config, TransformNodeConfig) and node.config.operations:
             return self._append_operations(node, alias, node.config.operations)
@@ -348,15 +408,14 @@ class _GraphSqlCompiler:
         for operation in operations:
             params = operation.params
             if isinstance(params, FilterRowsParams):
-                select_list = ",\n    ".join(
-                    f"source.{_quote(field.name)} AS {_quote(field.name)}" for field in node.fields
-                )
+                select_list = [
+                    _alias(_column(field.name, table="source"), field.name) for field in node.fields
+                ]
                 predicate = _compile_filter(params)
-                cte_sql = (
-                    "SELECT\n"
-                    f"    {select_list}\n"
-                    f"  FROM {_quote(alias)} AS source\n"
-                    f"  WHERE {predicate}"
+                query = exp.Select(
+                    expressions=select_list,
+                    from_=exp.From(this=_cte_table(alias, alias="source")),
+                    where=exp.Where(this=predicate),
                 )
             else:
                 if not isinstance(
@@ -366,29 +425,40 @@ class _GraphSqlCompiler:
                     raise AssertionError(f"Unexpected operation params: {type(params).__name__}")
                 field_name = params.field
                 field = fields[field_name]
-                source = f"source.{_quote(field_name)}"
+                source = _column(field_name, table="source")
                 if isinstance(params, TrimWhitespaceParams):
                     _require_string_operation(node.id, field_name, field.cast_to or field.type)
-                    replacement = f"TRIM({source})"
+                    replacement: exp.Expression = exp.Trim(this=source)
                 elif isinstance(params, TruncateStringParams):
                     _require_string_operation(node.id, field_name, field.cast_to or field.type)
-                    replacement = f"SUBSTR({source}, 1, {params.max_length})"
+                    replacement = exp.Substring(
+                        this=source,
+                        start=exp.Literal.number(1),
+                        length=exp.Literal.number(params.max_length),
+                    )
                 elif isinstance(params, DefaultValueParams):
                     data_type = _operation_type(node.id, field_name, field.cast_to or field.type)
-                    replacement = (
-                        f"COALESCE({source}, CAST({_literal(params.default)} AS {data_type}))"
+                    replacement = exp.Coalesce(
+                        this=source,
+                        expressions=[
+                            exp.Cast(this=exp.convert(params.default), to=_data_type(data_type))
+                        ],
                     )
-                select_list = ",\n    ".join(
-                    (
-                        f"{replacement} AS {_quote(declared.name)}"
+                select_list = [
+                    _alias(
+                        replacement
                         if declared.name == field_name
-                        else f"source.{_quote(declared.name)} AS {_quote(declared.name)}"
+                        else _column(declared.name, table="source"),
+                        declared.name,
                     )
                     for declared in node.fields
+                ]
+                query = exp.Select(
+                    expressions=select_list,
+                    from_=exp.From(this=_cte_table(alias, alias="source")),
                 )
-                cte_sql = f"SELECT\n    {select_list}\n  FROM {_quote(alias)} AS source"
             alias = self._next_alias()
-            self.ctes.append(f"{_quote(alias)} AS (\n  {cte_sql}\n)")
+            self.ctes.append(_cte(alias, query))
             self._aliases[node.id] = alias
         return alias
 
@@ -487,14 +557,19 @@ def prepare_target_writer(
     )
 
 
-def _compile_mapping(mapping: FieldMapping, cast_to: str | None, *, alias: str) -> str:
+def _compile_mapping(
+    mapping: FieldMapping,
+    cast_to: str | None,
+    *,
+    alias: str,
+) -> exp.Expression:
     transformation = mapping.transformation
     if transformation is None or transformation.kind is TransformationKind.DIRECT:
         if mapping.source is None:
             raise PipelineCompileError("A direct mapping must name its source field")
-        expression = f"{alias}.{_quote(mapping.source)}"
+        expression: exp.Expression = _column(mapping.source, table=alias)
     elif transformation.kind is TransformationKind.CONSTANT:
-        expression = exp.convert(transformation.constant).sql(dialect="bigquery")
+        expression = cast("exp.Expression", exp.convert(transformation.constant))
     elif transformation.kind is TransformationKind.EXPRESSION:
         expression = _compile_expression(transformation, alias=alias)
     else:
@@ -502,20 +577,23 @@ def _compile_mapping(mapping: FieldMapping, cast_to: str | None, *, alias: str) 
     if cast_to is not None:
         if not _TYPE.fullmatch(cast_to):
             raise PipelineCompileError(f"Unsupported target cast type {cast_to!r}")
-        expression = f"SAFE_CAST({expression} AS {cast_to.upper()})"
-    return f"{expression} AS {_quote(mapping.target)}"
+        expression = exp.TryCast(this=expression, to=_data_type(cast_to))
+    return _alias(expression, mapping.target)
 
 
-def _compile_source_field(field: NodeField) -> str:
-    column = _quote(field.name)
+def _compile_source_field(field: NodeField) -> exp.Expression:
+    column = _column(field.name)
     if field.cast_to is None:
         return column
     if not _TYPE.fullmatch(field.cast_to):
         raise PipelineCompileError(f"Unsupported source cast type {field.cast_to!r}")
-    return f"SAFE_CAST({column} AS {field.cast_to.upper()}) AS {column}"
+    return _alias(
+        exp.TryCast(this=column, to=_data_type(field.cast_to)),
+        field.name,
+    )
 
 
-def _compile_expression(transformation: Transformation, *, alias: str) -> str:
+def _compile_expression(transformation: Transformation, *, alias: str) -> exp.Expression:
     assert transformation.expression is not None
     try:
         parsed = sqlglot.parse_one(transformation.expression, read="bigquery")
@@ -541,25 +619,25 @@ def _compile_expression(transformation: Transformation, *, alias: str) -> str:
     qualified = parsed.transform(
         lambda node: exp.column(node.name, table=alias) if isinstance(node, exp.Column) else node
     )
-    return qualified.sql(dialect="bigquery")
+    return cast("exp.Expression", qualified)
 
 
-def _compile_custom(transformation: Transformation, *, alias: str) -> str:
-    inputs = [f"{alias}.{_quote(name)}" for name in transformation.inputs]
+def _compile_custom(transformation: Transformation, *, alias: str) -> exp.Expression:
+    inputs = [_column(name, table=alias) for name in transformation.inputs]
     arguments = [
-        exp.convert(value).sql(dialect="bigquery") for value in transformation.arguments.values()
+        cast("exp.Expression", exp.convert(value)) for value in transformation.arguments.values()
     ]
-    values = [*inputs, *arguments]
+    values: list[exp.Expression] = [*inputs, *arguments]
     match transformation.function:
         case "transforms.lower":
             _require_arity(transformation.function, values, 1)
-            return f"LOWER({values[0]})"
+            return exp.Lower(this=values[0])
         case "transforms.upper":
             _require_arity(transformation.function, values, 1)
-            return f"UPPER({values[0]})"
+            return exp.Upper(this=values[0])
         case "transforms.trim":
             _require_arity(transformation.function, values, 1)
-            return f"TRIM({values[0]})"
+            return exp.Trim(this=values[0])
         case "transforms.normalize_phone":
             if len(inputs) != 1:
                 raise PipelineCompileError(
@@ -569,43 +647,53 @@ def _compile_custom(transformation: Transformation, *, alias: str) -> str:
                 raise PipelineCompileError(
                     "Custom transform 'transforms.normalize_phone' does not accept arguments"
                 )
-            return f"REGEXP_REPLACE(CAST({inputs[0]} AS STRING), r'[^0-9+]', '')"
+            return exp.RegexpReplace(
+                this=exp.Cast(this=inputs[0], to=_data_type("STRING")),
+                expression=exp.Literal.string("[^0-9+]"),
+                replacement=exp.Literal.string(""),
+            )
         case _:
             raise PipelineCompileError(
                 f"Custom transform {transformation.function!r} is not allow-listed"
             )
 
 
-def _compile_filter(params: FilterRowsParams) -> str:
-    joiner = " AND " if params.logic is MatchLogic.ALL else " OR "
-    return joiner.join(f"({_compile_condition(condition)})" for condition in params.conditions)
+def _compile_filter(params: FilterRowsParams) -> exp.Expression:
+    combinator = _and if params.logic is MatchLogic.ALL else _or
+    return reduce(combinator, (_compile_condition(condition) for condition in params.conditions))
 
 
-def _compile_condition(condition: FieldCondition) -> str:
-    field = f"source.{_quote(condition.field)}"
+def _compile_condition(condition: FieldCondition) -> exp.Expression:
+    field = _column(condition.field, table="source")
     if condition.op is ComparisonOperator.IS_NULL:
-        return f"{field} IS NULL"
+        return exp.Is(this=field, expression=exp.Null())
     if condition.op is ComparisonOperator.IS_NOT_NULL:
-        return f"{field} IS NOT NULL"
+        return exp.Not(this=exp.Is(this=field, expression=exp.Null()))
     if condition.op in {ComparisonOperator.IN, ComparisonOperator.NOT_IN}:
         assert isinstance(condition.value, list)
-        keyword = "IN" if condition.op is ComparisonOperator.IN else "NOT IN"
-        values = ", ".join(_literal(value) for value in condition.value)
-        return f"{field} {keyword} ({values})"
+        contained: exp.Expression = exp.In(
+            this=field,
+            expressions=[exp.convert(value) for value in condition.value],
+        )
+        return exp.Not(this=contained) if condition.op is ComparisonOperator.NOT_IN else contained
     assert condition.value is not None and not isinstance(condition.value, list)
-    operator = {
-        ComparisonOperator.EQ: "=",
-        ComparisonOperator.NE: "!=",
-        ComparisonOperator.GT: ">",
-        ComparisonOperator.GTE: ">=",
-        ComparisonOperator.LT: "<",
-        ComparisonOperator.LTE: "<=",
+    operator: type[exp.Binary] = {
+        ComparisonOperator.EQ: exp.EQ,
+        ComparisonOperator.NE: exp.NEQ,
+        ComparisonOperator.GT: exp.GT,
+        ComparisonOperator.GTE: exp.GTE,
+        ComparisonOperator.LT: exp.LT,
+        ComparisonOperator.LTE: exp.LTE,
     }[condition.op]
-    return f"{field} {operator} {_literal(condition.value)}"
+    return cast("exp.Expression", operator(this=field, expression=exp.convert(condition.value)))
 
 
-def _literal(value: object) -> str:
-    return exp.convert(value).sql(dialect="bigquery")
+def _and(left: exp.Expression, right: exp.Expression) -> exp.Expression:
+    return exp.And(this=left, expression=right)
+
+
+def _or(left: exp.Expression, right: exp.Expression) -> exp.Expression:
+    return exp.Or(this=left, expression=right)
 
 
 def _require_string_operation(node_id: str, field_name: str, data_type: str) -> None:
@@ -624,12 +712,59 @@ def _operation_type(node_id: str, field_name: str, data_type: str) -> str:
     return data_type.upper()
 
 
-def _require_arity(function: str | None, values: list[str], count: int) -> None:
+def _require_arity(function: str | None, values: list[exp.Expression], count: int) -> None:
     if len(values) != count:
         raise PipelineCompileError(f"Custom transform {function!r} requires {count} argument")
 
 
-def _quote(identifier: str) -> str:
+def _identifier(identifier: str, *, quoted: bool = True) -> exp.Identifier:
     if not _IDENTIFIER.fullmatch(identifier):
-        raise PipelineCompileError(f"Unsafe BigQuery identifier {identifier!r}")
-    return f"`{identifier}`"
+        raise PipelineCompileError(f"Unsafe graph identifier {identifier!r}")
+    return exp.to_identifier(identifier, quoted=quoted)
+
+
+def _column(name: str, *, table: str | None = None) -> exp.Column:
+    return exp.Column(
+        this=_identifier(name),
+        table=_identifier(table, quoted=False) if table is not None else None,
+    )
+
+
+def _alias(expression: exp.Expression, name: str) -> exp.Alias:
+    return exp.Alias(this=expression, alias=_identifier(name))
+
+
+def _cte_table(name: str, *, alias: str | None = None) -> exp.Table:
+    return exp.Table(
+        this=_identifier(name),
+        alias=(
+            exp.TableAlias(this=_identifier(alias, quoted=False)) if alias is not None else None
+        ),
+    )
+
+
+def _relation_table(relation: RelationRef) -> exp.Table:
+    return exp.Table(
+        this=_identifier(relation.name),
+        db=_identifier(relation.namespace),
+        catalog=exp.to_identifier(relation.catalog, quoted=True),
+    )
+
+
+def _cte(name: str, query: exp.Query) -> exp.CTE:
+    return exp.CTE(
+        this=query,
+        alias=exp.TableAlias(this=_identifier(name)),
+    )
+
+
+def _parse_relation(value: str) -> RelationRef:
+    catalog, namespace, name = value.split(".", maxsplit=2)
+    return RelationRef(catalog=catalog, namespace=namespace, name=name)
+
+
+def _data_type(value: str) -> exp.DataType:
+    try:
+        return exp.DataType.build(value, dialect="bigquery")
+    except (TypeError, ValueError) as error:
+        raise PipelineCompileError(f"Unsupported graph type {value!r}") from error
