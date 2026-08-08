@@ -1,7 +1,7 @@
 ---
 id: DANDER-85
 title: Route BigQuery execution through warehouse capabilities
-status: in-review
+status: completed
 component: warehouse
 epic: cloud-portability
 depends_on: [DANDER-84]
@@ -26,7 +26,7 @@ the same review.
 - [x] The CLI no longer constructs a BigQuery writer or transform runner directly.
 - [x] Focused provider, migration, warehouse, and CLI composition tests pass.
 - [x] Full local validation and isolated GCP no-drift pass.
-- [ ] Protected CI passes.
+- [x] Protected CI passes.
 
 ## Design
 
@@ -37,4 +37,4 @@ their own Phase 3 tickets.
 
 ## Review Log
 
-Pending protected review.
+Merged through protected PR #116 as `5478e1ba5ad7aaa66c4258f23ea01949942221d1`.

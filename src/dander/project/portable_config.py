@@ -23,7 +23,7 @@ from dander.project.config import (
     ProjectConfigError,
     _load_yaml_mapping,
 )
-from dander.providers.bigquery import BigQueryWarehouseConfig  # noqa: TC001
+from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig  # noqa: TC001
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _PLUGIN_ID = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -110,14 +110,6 @@ class DanderLogicalProjectV2(BaseModel):
         return values
 
 
-class BigQueryStateSpec(BaseModel):
-    """BigQuery durable-state selection for the compatibility profile."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Literal["bigquery"]
-
-
 class DataplexCatalogSpec(BaseModel):
     """Dataplex catalog publication selection."""
 
@@ -165,7 +157,7 @@ class PlatformProfileSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     warehouse: BigQueryWarehouseConfig
-    state: BigQueryStateSpec
+    state: BigQueryStateConfig
     catalog: CatalogSpec
     secrets: SecretProviderSpec
 
@@ -383,6 +375,7 @@ def _resolve(
         platform_name=selected.platform,
         deployment_name=selected_name,
         warehouse_provider=profile.warehouse.provider,
+        state_provider=profile.state.provider,
         deployed_pipeline_ids=tuple(sorted(selected.pipelines)),
     )
 
@@ -470,6 +463,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
     return (
         legacy.platform == migrated.platform
         and legacy.warehouse_provider == migrated.warehouse_provider
+        and legacy.state_provider == migrated.state_provider
         and legacy.plugins == migrated.plugins
         and legacy.pipelines == migrated.pipelines
         and legacy.terraform_pipelines() == migrated.terraform_pipelines()

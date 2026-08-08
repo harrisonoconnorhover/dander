@@ -68,6 +68,8 @@ def test_version_one_migration_is_deterministic_and_behaviorally_equivalent(
     assert migrated.deployment_name == "gcp_cloud_run"
     assert original.warehouse_provider == "bigquery"
     assert migrated.warehouse_provider == "bigquery"
+    assert original.state_provider == "bigquery"
+    assert migrated.state_provider == "bigquery"
     assert migrated.platform == original.platform
     assert migrated.plugins == original.plugins
     assert migrated.pipelines == original.pipelines

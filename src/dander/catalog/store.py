@@ -76,6 +76,10 @@ class BigQueryMetadataStore(MetadataStore):
         self._client = client or cast("_Client", bigquery.Client(project=project))
         self._ready = False
 
+    def migrate(self) -> None:
+        """Idempotently ensure the current metadata schema exists."""
+        self._ensure_table()
+
     def publish(
         self,
         *,

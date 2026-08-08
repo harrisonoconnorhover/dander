@@ -150,6 +150,10 @@ class BigQueryRunHistoryStore(RunHistoryStore):
         self._initialize_on_read = initialize_on_read
         self._ready = False
 
+    def migrate(self) -> None:
+        """Idempotently ensure the current run-history schema exists."""
+        self._ensure_table()
+
     def start(self, run_id: str, source: str, *, pipeline_id: str | None = None) -> None:
         self._ensure_table()
         config = bigquery.QueryJobConfig(

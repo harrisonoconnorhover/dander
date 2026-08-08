@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-08 — Durable state is composed without relocating existing data
+
+- **Selection:** Version 1 projects retain implicit BigQuery state; version 2 resolution carries
+  the named state provider into the same lazy API-v1 factory registry as the warehouse.
+- **Migration:** One `_dander_state_schema` ledger records completed provider schema versions only
+  after the existing watermark, history, and catalog tables are ready. Re-entry is idempotent.
+- **Compatibility:** Existing table identities, per-pipeline lease tables, server-time leases,
+  fencing, watermark CAS, and interrupted-run reconciliation remain unchanged.
+
 ## 2026-08-08 — BigQuery enters portability through one composed runtime
 
 - **Selection:** Version 1 projects retain an implicit BigQuery warehouse; version 2 resolution

@@ -83,6 +83,10 @@ class BigQueryWatermarkStore(WatermarkStore):
         self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
         self._table_ready = False
 
+    def migrate(self) -> None:
+        """Idempotently ensure the current watermark schema exists."""
+        self._ensure_table()
+
     def get(self, source: str, entity: str) -> str | None:
         """Return the most recently committed cursor for `(source, entity)`."""
         self._ensure_table()

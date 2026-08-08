@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Route BigQuery leases, watermarks, run history, and metadata snapshots through one lazily selected
+  durable-state runtime with an explicit versioned migration ledger while preserving all existing
+  table identities and correctness behavior.
 - Route BigQuery writer and transform construction through one lazily selected, typed warehouse
   runtime that also exposes canonical schema, relation rendering, target fencing, normalized job
   telemetry, and explicit capabilities without changing current GCP behavior.
