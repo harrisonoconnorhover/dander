@@ -30,6 +30,7 @@ from dander.providers.environment_secrets import EnvironmentSecretConfig  # noqa
 from dander.providers.fargate import FargateLauncherConfig  # noqa: TC001
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig  # noqa: TC001
 from dander.providers.no_catalog import NoCatalogConfig  # noqa: TC001
+from dander.providers.postgresql import PostgreSQLStateConfig  # noqa: TC001
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _PLUGIN_ID = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -131,13 +132,19 @@ LauncherSpec = Annotated[
 ]
 
 
+StateSpec = Annotated[
+    BigQueryStateConfig | PostgreSQLStateConfig,
+    Field(discriminator="provider"),
+]
+
+
 class PlatformProfileSpec(BaseModel):
     """One named combination of data-plane provider selections."""
 
     model_config = ConfigDict(extra="forbid")
 
     warehouse: BigQueryWarehouseConfig
-    state: BigQueryStateConfig
+    state: StateSpec
     catalog: CatalogSpec
     secrets: SecretProviderSpec
 
@@ -351,6 +358,7 @@ def _resolve(
         deployment_name=selected_name,
         warehouse_provider=profile.warehouse.provider,
         state_provider=profile.state.provider,
+        state_config=profile.state.model_dump(mode="json"),
         catalog_provider=profile.catalog.provider,
         secret_provider=profile.secrets.provider,
         launcher_provider=selected.launcher.provider,
@@ -443,6 +451,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
         legacy.platform == migrated.platform
         and legacy.warehouse_provider == migrated.warehouse_provider
         and legacy.state_provider == migrated.state_provider
+        and legacy.state_config == migrated.state_config
         and legacy.catalog_provider == migrated.catalog_provider
         and legacy.secret_provider == migrated.secret_provider
         and legacy.launcher_provider == migrated.launcher_provider

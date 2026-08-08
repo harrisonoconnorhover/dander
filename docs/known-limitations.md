@@ -10,8 +10,11 @@ evaluate these limits before using it for an unattended system containing busine
   task-role session into process memory and therefore caps a Fargate projection at one hour;
   renewable credentials and live parity remain later gates.
 - Provider package extras and the full runtime image contain planned provider SDK dependencies,
-  but do not by themselves implement or qualify Snowflake, Redshift, PostgreSQL, AWS, Azure, or
-  OCI profiles. The packaged capability manifest is the support boundary.
+  but do not by themselves qualify Snowflake, Redshift, AWS, Azure, or OCI profiles. PostgreSQL
+  durable state is implemented and locally conformance-tested, but no PostgreSQL warehouse or
+  Kubernetes live profile is qualified yet. BigQuery execution with PostgreSQL state fails closed
+  until cross-backend destination fencing is enabled. The packaged capability manifest is the
+  support boundary.
 - The reserved `oci` extra is empty because Oracle's current SDK requires a `cryptography` version
   below Dander's audited fixed line. OCI implementation must resolve that dependency boundary or
   use a reviewed direct signed-HTTP client before it can enter the full image.

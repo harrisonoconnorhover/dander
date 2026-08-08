@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
+import pytest
+from click import ClickException
 from typer.testing import CliRunner
 
 import dander.cli.run_command as run_module
@@ -219,3 +221,16 @@ def test_hosted_project_run_wires_runtime_without_network(
     }
     migrator = cast("_Migrator", captured["migrator"])
     assert migrator.calls == 1
+
+
+def test_postgresql_state_fails_closed_before_cross_backend_fencing() -> None:
+    with pytest.raises(ClickException, match="cross-backend destination fence"):
+        run_module._require_supported_state_pair(
+            state_provider="postgresql",
+            warehouse_provider="bigquery",
+        )
+
+    run_module._require_supported_state_pair(
+        state_provider="bigquery",
+        warehouse_provider="bigquery",
+    )

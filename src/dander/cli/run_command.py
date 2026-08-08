@@ -113,6 +113,7 @@ class _ResolvedRun:
     warehouse_provider: str
     warehouse_location: str
     state_provider: str
+    state_config: dict[str, object]
     catalog_provider: str
     secret_provider: str
 
@@ -169,6 +170,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
     warehouse_provider = "bigquery"
     warehouse_location = "US"
     state_provider = "bigquery"
+    state_config: dict[str, object] = {"provider": "bigquery"}
     catalog_provider = "dataplex"
     secret_provider = "gcp_secret_manager"
     plugin_registry: ConnectorPluginRegistry | None = None
@@ -196,6 +198,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
                 warehouse_provider = manifest.warehouse_provider
                 warehouse_location = manifest.platform.bigquery_location
                 state_provider = manifest.state_provider
+                state_config = manifest.state_config
                 catalog_provider = (
                     "dataplex" if options.publish_dataplex else manifest.catalog_provider
                 )
@@ -245,6 +248,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         warehouse_provider=warehouse_provider,
         warehouse_location=warehouse_location,
         state_provider=state_provider,
+        state_config=state_config,
         catalog_provider=catalog_provider,
         secret_provider=secret_provider,
     )
@@ -422,11 +426,15 @@ def _build_warehouse_runtime(resolved: _ResolvedRun) -> WarehouseRuntime:
 
 
 def _build_state_runtime(resolved: _ResolvedRun) -> StateRuntime:
+    _require_supported_state_pair(
+        state_provider=resolved.state_provider,
+        warehouse_provider=resolved.warehouse_provider,
+    )
     registry = default_provider_registry()
     try:
         config = registry.parse(
             ProviderKind.STATE,
-            {"provider": resolved.state_provider},
+            resolved.state_config,
         )
         runtime = registry.build(
             ProviderKind.STATE,
@@ -444,6 +452,14 @@ def _build_state_runtime(resolved: _ResolvedRun) -> StateRuntime:
     if not isinstance(runtime, StateRuntime):
         raise ClickException("Selected state provider returned an invalid runtime")
     return runtime
+
+
+def _require_supported_state_pair(*, state_provider: str, warehouse_provider: str) -> None:
+    if state_provider == "postgresql" and warehouse_provider == "bigquery":
+        raise ClickException(
+            "PostgreSQL state with BigQuery execution is not available until the "
+            "cross-backend destination fence is enabled"
+        )
 
 
 def build_source_adapter(
