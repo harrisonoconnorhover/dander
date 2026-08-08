@@ -8,7 +8,7 @@ from dander.providers.environment_secrets import EnvironmentSecretConfig
 from dander.providers.fargate import FargateLauncherConfig
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
 from dander.providers.no_catalog import NoCatalogConfig
-from dander.providers.postgresql import PostgreSQLStateConfig
+from dander.providers.postgresql import PostgreSQLStateConfig, PostgreSQLWarehouseConfig
 from dander.providers.registry import ProviderKind, ProviderRegistry, lazy_provider_factory
 
 
@@ -29,6 +29,14 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=BigQueryStateConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.bigquery.state:BIGQUERY_STATE_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.WAREHOUSE,
+        provider_id="postgresql",
+        config_model=PostgreSQLWarehouseConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.postgresql.runtime:POSTGRESQL_WAREHOUSE_FACTORY"
         ),
     )
     registry.register(

@@ -54,7 +54,9 @@ def test_default_registry_loads_bigquery_runtime_only_after_selection() -> None:
     assert isinstance(runtime, WarehouseRuntime)
     assert module_name in sys.modules
     assert runtime.capabilities.write_modes == frozenset(WriteMode)
-    assert runtime.capabilities.transports == frozenset(WriteTransport)
+    assert runtime.capabilities.transports == frozenset(
+        {WriteTransport.LOAD_JOB, WriteTransport.STORAGE_WRITE}
+    )
 
 
 def test_bigquery_runtime_exposes_codec_schema_fence_and_telemetry() -> None:

@@ -45,4 +45,30 @@ class PostgreSQLStateConfig(BaseModel):
         return self
 
 
-__all__ = ["PostgreSQLStateConfig"]
+class PostgreSQLWarehouseConfig(BaseModel):
+    """PostgreSQL warehouse connection, pool, and transaction limits."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    provider: Literal["postgresql"]
+    database: str
+    dsn_env: str = "DANDER_POSTGRES_DSN"
+    pool_min_size: int = Field(default=1, ge=1, le=20)
+    pool_max_size: int = Field(default=5, ge=1, le=50)
+    pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    statement_timeout_ms: int = Field(default=300_000, ge=1_000, le=3_600_000)
+    lock_timeout_ms: int = Field(default=30_000, ge=100, le=300_000)
+    idle_transaction_timeout_ms: int = Field(default=60_000, ge=1_000, le=600_000)
+
+    @model_validator(mode="after")
+    def validate_settings(self) -> PostgreSQLWarehouseConfig:
+        if not _SCHEMA_NAME.fullmatch(self.database):
+            raise ValueError("database must be a safe lowercase PostgreSQL identifier")
+        if not _ENVIRONMENT_NAME.fullmatch(self.dsn_env):
+            raise ValueError("dsn_env must be an uppercase environment-variable name")
+        if self.pool_min_size > self.pool_max_size:
+            raise ValueError("pool_min_size must not exceed pool_max_size")
+        return self
+
+
+__all__ = ["PostgreSQLStateConfig", "PostgreSQLWarehouseConfig"]

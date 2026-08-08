@@ -145,7 +145,7 @@ def _postgresql_target_match_sql() -> str:
     return (
         "target_id = %s AND pipeline_id = %s AND authority_id = %s "
         "AND authority_epoch = %s AND run_id = %s AND fencing_token = %s "
-        "AND status = 'claimed'"
+        "AND status IN ('claimed', 'committed')"
     )
 
 

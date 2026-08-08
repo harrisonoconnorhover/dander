@@ -157,7 +157,7 @@ def _target_match_sql() -> str:
         "AND authority_id = @dander_authority_id "
         "AND authority_epoch = @dander_authority_epoch "
         "AND run_id = @dander_run_id AND fencing_token = @dander_fencing_token "
-        "AND status = 'claimed'"
+        "AND status IN ('claimed', 'committed')"
     )
 
 
