@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-08 — BigQuery enters portability through one composed runtime
+
+- **Selection:** Version 1 projects retain an implicit BigQuery warehouse; version 2 resolution
+  carries the selected provider and location into execution.
+- **Composition:** One lazily built `WarehouseRuntime` owns small relation, schema, writer,
+  transform, fence, telemetry, and capability surfaces; the CLI does not branch on BigQuery.
+- **Scope:** Existing BigQuery classes remain behaviorally intact. State, catalog, secrets, and
+  launchers move through their own focused Phase 3 changes.
+
 ## 2026-08-07 — Provider dependencies are assembled separately from support claims
 
 - **Local installs:** Public extras group BigQuery, Snowflake, Redshift, PostgreSQL, GCP, AWS, and

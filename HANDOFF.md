@@ -2,38 +2,38 @@
 
 ## Finished
 
-- Added eight public provider extras and a deterministic 12-distribution `runtime-all` union.
-- Made repository and generated source-free images install and verify the full dependency set.
-- Added metadata-only dependency inspection that never imports provider SDKs.
-- Preserved the capability manifest as the support boundary; only GCP/BigQuery remains advertised.
-- Added package, scaffold, missing-dependency, and lazy-inspection regression coverage.
+- Added a typed `WarehouseRuntime` composed from small provider capabilities.
+- Registered BigQuery through a dependency-light config and lazy runtime factory.
+- Routed hosted/sandbox writers and model/graph runners through the selected warehouse.
+- Exposed BigQuery relation, canonical schema, fencing, telemetry, and capability adapters.
+- Preserved implicit v1 and explicit v2 BigQuery selection without moving other providers.
 
 ## Try It
 
-Install one SDK set with `pip install 'dander-platform[postgres]'`. Official images use
-`dander-platform[runtime-all]`; package presence does not make an adapter supported.
+Run an existing v1 or v2 BigQuery project normally. `dander run` now selects the BigQuery
+warehouse runtime internally; public commands and configuration are unchanged.
 
 ## Checks
 
-- All 900 tests, Ruff, formatting, strict mypy, and the full dependency audit passed.
-- Wheel/sdist source-free installs, generation, validation, and full-runtime installation passed.
-- Linux amd64/arm64 builds and local non-root/read-only container conformance passed.
-- Trivy reported zero high/critical findings; the branch secret scan passed.
+- All 903 tests, Ruff, formatting, and strict mypy across 209 files passed.
+- Wheel/sdist build, metadata/distribution validation, and dependency audit passed.
+- The non-root/read-only full runtime image passed conformance and its BigQuery factory probe.
+- Trivy found no high/critical issues; the focused secret scan passed.
 - All Terraform roots passed; GCP reported `No changes` and both schedules stayed paused.
 
 ## Decisions
 
-- Keep base installation backward compatible while making provider SDK groups explicit.
-- Build one checked full image; keep implementation loading lazy.
-- Reserve OCI without its currently incompatible SDK; never weaken the dependency audit.
+- Compose small capabilities instead of adding a large warehouse-provider interface.
+- Keep the BigQuery implementation lazy and behaviorally unchanged behind the new factory.
+- Move state, catalog, secrets, and launchers only in their own focused tickets.
 
 ## Remaining
 
-- Open and merge the focused dependency-assembly PR after protected CI passes.
-- Implement the portable BigQuery vertical slice next.
+- Open and merge the focused BigQuery runtime PR after protected CI passes.
+- Route BigQuery durable state through the shared state contract next.
 
 ## Review First
 
-- `pyproject.toml`
-- `src/dander/providers/dependencies.py`
-- `src/dander/templates/project/Dockerfile`
+- `src/dander/warehouse/runtime.py`
+- `src/dander/providers/bigquery/runtime.py`
+- `src/dander/cli/run_command.py`

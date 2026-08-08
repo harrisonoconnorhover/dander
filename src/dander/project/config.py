@@ -203,6 +203,7 @@ class DanderProject(BaseModel):
     pipelines: dict[str, PipelineSpec] = Field(min_length=1)
     platform_name: str = Field(default="gcp", exclude=True)
     deployment_name: str = Field(default="gcp_cloud_run", exclude=True)
+    warehouse_provider: Literal["bigquery"] = Field(default="bigquery", exclude=True)
     deployed_pipeline_ids: tuple[str, ...] | None = Field(default=None, exclude=True)
 
     @field_validator("plugins")
