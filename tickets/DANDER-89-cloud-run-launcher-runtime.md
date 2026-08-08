@@ -1,7 +1,7 @@
 ---
 id: DANDER-89
 title: Route Cloud Run projection through the launcher provider boundary
-status: in-review
+status: completed
 component: deployment
 epic: cloud-portability
 depends_on: [DANDER-88]
@@ -24,7 +24,7 @@ accepted template value, Terraform address, or live resource.
 - [x] Existing direct projection APIs remain compatible.
 - [x] Focused launcher, bootstrap, project, and projection tests pass.
 - [x] Full local validation and isolated GCP no-drift pass.
-- [ ] Protected CI passes.
+- [x] Protected CI passes.
 
 ## Design
 
@@ -34,5 +34,5 @@ projector. Keep Terraform modules, resource addresses, schedules, IAM, and runti
 
 ## Review Log
 
-Full local validation and the isolated retained-project no-drift proof passed. Protected review
-remains pending.
+Full local validation, isolated retained-project no-drift, and protected CI passed. PR #120 merged
+as `2d8837d4a59c45c9b33b3ca211c9303b8fb1a16f`.

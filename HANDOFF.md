@@ -2,20 +2,20 @@
 
 ## Finished
 
-- Added a typed launcher runtime and execution-template factory boundary.
-- Registered Cloud Run through the lazy API-v1 provider registry.
-- Routed Terraform bootstrap through the selected launcher without changing projection output.
-- Preserved version 1 and migrated version 2 Cloud Run selection.
-- Added exact projection-parity and pre-Terraform rejection coverage.
+- Added dependency-light Fargate configuration and lazy launcher registration.
+- Projected immutable ECR images, task-role identity, `awsvpc` placement, and CloudWatch intent.
+- Preserved the BigQuery/GCP runtime command and GCP Secret Manager references.
+- Rejected invalid Fargate sizing and the unsupported guarded-free-tier path before planning.
+- Kept Fargate out of the supported runtime-capability manifest.
 
 ## Try It
 
-Run an existing GCP project normally. Its Cloud Run templates now come through the provider
-registry while the rendered Terraform remains unchanged.
+Build the `fargate` launcher through the provider registry with a disposable AWS account, existing
+subnet/security-group IDs, and a valid ECR digest. It returns an execution template only.
 
 ## Checks
 
-- All 917 tests, Ruff, formatting, and strict mypy across 234 files passed.
+- All 920 tests, Ruff, formatting, and strict mypy across 237 files passed.
 - Wheel/sdist inspection, source-free installs, runtime-all assembly, and dependency audit passed.
 - The non-root/read-only full runtime image passed conformance and bundled-asset checks.
 - Trivy found no high/critical findings, Gitleaks found no leaks, and every Terraform root validated.
@@ -23,17 +23,18 @@ registry while the rendered Terraform remains unchanged.
 
 ## Decisions
 
-- Keep the accepted Cloud Run projector as the implementation behind the provider boundary.
-- Carry launcher selection as resolved internal configuration without changing manifest v1.
-- Leave Fargate infrastructure and lifecycle to the next isolated vertical slice.
+- Keep this PR to projection and validation; infrastructure and lifecycle are separate slices.
+- Reuse each pipeline's stable runtime identity name as its future AWS task-role name.
+- Reject GCP's guarded-free-tier preflight on Fargate instead of weakening it.
 
 ## Remaining
 
-- Open and merge the focused Cloud Run launcher PR after protected CI passes.
-- Begin the Fargate vertical slice using the ready AWS account.
+- Merge the focused projection PR after protected CI passes.
+- Add AWS secret resolution and the keyless BigQuery credential runtime.
+- Add reviewed Fargate infrastructure and controller lifecycle.
 
 ## Review First
 
-- `src/dander/deployment/runtime.py`
-- `src/dander/providers/cloud_run/runtime.py`
-- `src/dander/bootstrap/terraform.py`
+- `src/dander/providers/fargate/config.py`
+- `src/dander/providers/fargate/runtime.py`
+- `tests/providers/test_launcher_runtime.py`

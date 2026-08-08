@@ -27,3 +27,9 @@ image, command,
 resources, schedule, environment, secret references, identity, labels, and observability contract.
 Run-specific IDs and attempts continue to come from Cloud Run's native execution context and are
 normalized by the OCI runtime contract.
+
+The Fargate provider can build the same BigQuery data-plane intent with an immutable ECR image,
+AWS task-role identity, `awsvpc` placement, CloudWatch destinations, and explicit Fargate resource
+limits. This provider projection is an internal construction gate: provisioning, controller
+lifecycle, AWS-to-Google credential assembly, and live acceptance must pass before Fargate is a
+supported launcher.

@@ -3,6 +3,7 @@
 from dander.deployment.projection import (
     CLOUD_RUN_CAPABILITIES,
     EXECUTION_PROJECTION_SCHEMA,
+    FARGATE_CAPABILITIES,
     ExecutionProjectionError,
     ExecutionRequest,
     ExecutionTemplate,
@@ -21,6 +22,7 @@ from dander.deployment.runtime import ExecutionTemplateFactory, LauncherRuntime
 __all__ = [
     "CLOUD_RUN_CAPABILITIES",
     "EXECUTION_PROJECTION_SCHEMA",
+    "FARGATE_CAPABILITIES",
     "ExecutionProjectionError",
     "ExecutionRequest",
     "ExecutionTemplate",
