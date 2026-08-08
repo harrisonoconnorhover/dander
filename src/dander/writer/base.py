@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from dander.concurrency import FencingToken
+    from dander.concurrency import FencingToken, TargetFence
     from dander.warehouse import CanonicalField, RelationRef, RelationSchema
 
 
@@ -41,6 +41,7 @@ class WriteTransport(StrEnum):
 
     LOAD_JOB = "load_job"
     STORAGE_WRITE = "storage_write"
+    COPY = "copy"
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ class WriteTarget:
     business_key: tuple[str, ...] = field(default_factory=tuple)
     schema: tuple[WriteField, ...] = field(default_factory=tuple)
     fence: FencingToken | None = None
+    publication_fence: TargetFence | None = None
 
     @property
     def relation_ref(self) -> RelationRef:

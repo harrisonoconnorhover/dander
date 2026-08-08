@@ -7,10 +7,10 @@ Dander version 2 separates reusable pipeline intent from environment-specific de
   plus runtime limits, schedules, secret references, and provider resource names.
 
 The first supported hosted profile remains BigQuery, BigQuery state, Dataplex (or no cloud
-catalog), GCP Secret Manager, and Cloud Run. PostgreSQL 15 or newer is implemented as an
-alternative durable-state backend for version 2 projects, but the complete PostgreSQL/Kubernetes
-profile is not yet live-qualified. A provider name outside the installed and supported contract
-fails validation; configuration alone does not imply profile support.
+catalog), GCP Secret Manager, and Cloud Run. PostgreSQL 15 or newer has conformance adapters for
+durable state and bounded SCD1 warehouse writes, but the version 2 profile schema does not yet
+select a complete PostgreSQL/Kubernetes composition. A provider name outside the installed and
+supported contract fails validation; adapter registration alone does not imply profile support.
 
 One logical project may have multiple named platforms and deployments. `dander validate` accepts
 `--deployment`; the Python configuration loader accepts the same explicit selection. Other current
@@ -101,11 +101,26 @@ run history, and deterministic JSONB metadata snapshots.
 `authority_id` is a stable, non-secret identifier for this state deployment. Do not reuse it for a
 different database or change `authority_epoch` outside a reviewed state-backend cutover.
 
-The current BigQuery warehouse/PostgreSQL state combination fails closed at execution because its
-cross-backend destination fence is the next portability ticket. The state adapter is available for
-conformance and composition work now; it is not a shortcut around that publication boundary.
+The current BigQuery warehouse/PostgreSQL state combination remains fail-closed at execution.
+Destination-side target fencing now exists for both systems, but every execution caller must bind
+the selected state's token to its warehouse target before any cross-backend combination can be
+enabled.
 
 Terminal `succeeded`, `failed`, and `skipped` history older than the configured retention is
 removed when migrations run. Active runs and `interrupted_run` records are retained. Dander
 refuses a state ledger newer than the running package. Changing state backends is not an online
 migration: keep schedules paused until the destination-fence and cutover workflow is complete.
+
+## PostgreSQL warehouse adapter
+
+The PostgreSQL warehouse adapter is an implementation and conformance boundary, not yet a hosted
+profile. It accepts declared schemas, creates database-local schemas and relations, streams each
+bounded Dander batch through PostgreSQL `COPY`, and performs deterministic last-record-wins SCD1
+publication inside a transactionally verified destination fence. Temporary staging uses
+`ON COMMIT DROP`; nullable top-level columns may be added when additive evolution is selected.
+
+The configured database must already exist. Runtime-created connections require TLS, and the DSN
+is supplied only through the configured environment variable. The first slice supports PostgreSQL
+15+, SCD1, and canonical scalar/array/JSON mappings. Transform execution, assertions, launcher
+projection, and version 2 profile selection remain separate follow-up work; until then this adapter
+must not be represented as an end-to-end supported PostgreSQL deployment.

@@ -789,3 +789,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - Final publication touches the exact authority/epoch/pipeline/target/run/token tuple and records
   completion in the same destination transaction. Cross-backend execution remains fail-closed
   until every writer and materialization caller uses this boundary.
+
+## 2026-08-08 — PostgreSQL warehouse starts with bounded SCD1 publication
+
+- PostgreSQL's first warehouse slice supports only the existing SCD1 contract. Dander supplies
+  bounded batches; the adapter streams each batch through `COPY` into an `ON COMMIT DROP` temporary
+  relation and selects the final ordinal per business key before upsert.
+- The destination target fence is touched and committed in the same transaction as each batch.
+  An exact run/token claim may therefore finalize multiple batches, while an older token remains
+  unable to publish after a newer claim.
+- PostgreSQL types derive from canonical schema v1. Only declared nullable additions evolve
+  automatically; extra columns, type or nullability drift, required additions, and malformed
+  records fail before target DML. Profile selection and transforms remain separate milestones.
