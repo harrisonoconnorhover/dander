@@ -12,6 +12,8 @@ import pytest
 
 from dander.bootstrap import AwsAdministrativeBootstrap, AwsAdministrativeBootstrapError
 
+_REPO_ROOT = Path(__file__).parents[2]
+
 
 class _Arguments(TypedDict):
     aws_account_id: str
@@ -45,6 +47,25 @@ def _layout(tmp_path: Path) -> tuple[Path, Path]:
     infra_dir.mkdir(parents=True)
     (infra_dir / "main.tf").write_text('resource "terraform_data" "unit" {}\n')
     return infra_dir, tmp_path / "operator"
+
+
+def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None:
+    terraform = (_REPO_ROOT / "infra/aws/bootstrap-admin/main.tf").read_text(encoding="utf-8")
+
+    for action in (
+        "states:StartExecution",
+        "states:ListExecutions",
+        "states:DescribeExecution",
+        "states:GetExecutionHistory",
+        "states:StopExecution",
+        "logs:FilterLogEvents",
+    ):
+        assert f'"{action}"' in terraform
+    assert "stateMachine:${var.name}-*" in terraform
+    assert "execution:${var.name}-*:*" in terraform
+    assert "log-group:/dander/${var.name}/*:*" in terraform
+    assert '"states:*"' not in terraform
+    assert '"logs:*"' not in terraform
 
 
 def test_aws_admin_plan_uses_secured_local_state_without_applying(

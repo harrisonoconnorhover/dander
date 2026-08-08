@@ -2,41 +2,41 @@
 
 ## Finished
 
-- Added saved-plan-only AWS stage-zero commands with post-apply local-to-S3 state migration.
-- Added customer-key-encrypted S3 state, DynamoDB locking, immutable ECR, and a dedicated deployment role.
-- Added idempotent source-free OCI promotion into ECR with exact index/platform digest verification.
-- Moved ECR ownership out of the Fargate platform root and into stage zero.
-- Packaged the new root, extended existing CI validation, and corrected AWS support documentation.
+- Added manifest-bound Fargate run, status, logs, cancel, replay, and verify commands.
+- Correlated exact Step Functions executions, ECS tasks, and `runtime/dander/...` log streams.
+- Normalized successful and failed controller results without returning unrestricted AWS payloads.
+- Scoped the stage-zero deployment role to Dander controllers, executions, and task logs.
+- Updated AWS operator documentation, decisions, limitations, tests, and DANDER-95.
 
 ## Try It
 
-Run `dander init-aws-admin-plan --help` and `dander image-promote-aws --help`. A real reviewed plan
-exists in `/tmp/dander-aws-bootstrap-plan`; do not apply it without separate approval.
+Run `dander aws --help`. The commands require a validated Fargate deployment and the short-lived
+AWS deployment-role profile; mutating commands require confirmation.
 
 ## Checks
 
-- Ruff, formatting, strict typing, and all 972 Python tests passed.
-- Stage-zero and Fargate provider-mocked plans passed; protected Linux validation remains pending.
-- Credentialed AWS stage-zero plan: 12 creates, 0 updates, 0 deletes; the bucket name is available.
-- Wheel/sdist, source-free install, container conformance, dependency audit, focused Trivy scans, and Gitleaks passed.
-- Retained GCP platform plan reported exactly `No changes.`; no cloud apply occurred.
+- Ruff, formatting, strict typing, and all 989 Python tests passed.
+- All Terraform validation and both provider-mocked AWS plans passed.
+- Wheel/sdist inspection, source-free installs, full runtime dependencies, and container contract passed.
+- Dependency audit and Terraform HIGH/CRITICAL scan passed; protected image and Git secret scans remain pending.
+- AWS stage-zero plan: 12 creates, 0 updates, 0 deletes. Retained GCP plan: exactly `No changes.`
 
 ## Decisions
 
-- Stage zero exclusively owns AWS state, registry, encryption, and the deployment role.
-- The first plan uses secured local state; only a successful apply migrates it to encrypted S3.
-- Promote the accepted OCI artifact byte-for-byte; never rebuild separately for ECR.
+- The manifest, not operator-supplied AWS identifiers, owns every Fargate resource binding.
+- Step Functions remains the lifecycle authority; failed status reads history only for allow-listed fields.
+- Fargate remains unsupported until the source-free keyless live proof passes.
 
 ## Remaining
 
-- Let protected Linux CI repeat validation and merge the focused PR if clean.
+- Let protected CI repeat Linux, image, and Git-history security checks.
+- Merge the focused PR if protected CI remains clean.
 - Obtain separate approval before applying the 12-resource AWS stage-zero plan.
-- Configure a short-lived deployment-role profile and promote the accepted source-free image.
-- Add AWS status, logs, cancellation, replay, and verification operations.
-- Keep Fargate unsupported until live keyless BigQuery parity passes.
+- Complete the Fargate live comparison before claiming AWS support.
+- Continue the portability roadmap with PostgreSQL state and warehouse.
 
 ## Review First
 
-- `src/dander/bootstrap/aws_admin.py`
-- `src/dander/bootstrap/project.py`
+- `src/dander/providers/fargate/operations.py`
 - `src/dander/cli/aws_command.py`
+- `infra/aws/bootstrap-admin/main.tf`
