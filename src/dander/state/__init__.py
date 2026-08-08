@@ -17,6 +17,12 @@ from dander.state.run_history import (
     RunStatus,
     SqliteRunHistoryStore,
 )
+from dander.state.runtime import (
+    StateCapabilities,
+    StateMigration,
+    StateMigrator,
+    StateRuntime,
+)
 from dander.state.watermark import BigQueryWatermarkStore, SqliteWatermarkStore, WatermarkStore
 
 __all__ = [
@@ -35,6 +41,10 @@ __all__ = [
     "SqliteRunHistoryStore",
     "SqliteLeaseStore",
     "SqliteWatermarkStore",
+    "StateCapabilities",
+    "StateMigration",
+    "StateMigrator",
+    "StateRuntime",
     "WatermarkStore",
     "classify_failure",
 ]

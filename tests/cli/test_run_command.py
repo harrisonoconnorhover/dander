@@ -13,6 +13,7 @@ from dander.cli.main import app
 from dander.executor import PipelineExecutionResult
 from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.security import NoAuth
+from dander.state import StateCapabilities, StateMigration, StateRuntime
 from dander.writer import SchemaEvolution
 
 if TYPE_CHECKING:
@@ -20,7 +21,9 @@ if TYPE_CHECKING:
 
     from pytest import MonkeyPatch
 
+    from dander.catalog import MetadataStore
     from dander.ingestion import SourceConfig
+    from dander.state import LeaseStore, RunHistoryStore, WatermarkStore
 
 _REPO_ROOT = Path(__file__).parents[2]
 
@@ -35,6 +38,27 @@ class _Built:
 class _ResolvedWarehouse(Protocol):
     warehouse_provider: str
     warehouse_location: str
+
+
+class _ResolvedState(Protocol):
+    state_provider: str
+    project: str
+    dataset: str
+    metadata_dataset: str
+
+
+class _Migrator:
+    migrations = (StateMigration(version=1, name="existing_control_tables"),)
+
+    def current_version(self) -> int:
+        return 0
+
+    def migrate(self) -> int:
+        self.calls += 1
+        return 1
+
+    def __init__(self) -> None:
+        self.calls = 0
 
 
 def test_hosted_project_run_wires_runtime_without_network(
@@ -112,15 +136,39 @@ def test_hosted_project_run_wires_runtime_without_network(
         assert resolved.warehouse_location == "US"
         return _Warehouse()
 
+    def build_state(resolved: _ResolvedState) -> StateRuntime:
+        assert resolved.state_provider == "bigquery"
+        assert resolved.project == "unit-project"
+        assert resolved.dataset == "raw"
+        assert resolved.metadata_dataset == "dander_meta"
+        migrator = _Migrator()
+        captured["migrator"] = migrator
+        for name in ("history", "leases", "metadata", "watermarks"):
+            captured[name] = _Built(name=name, args=(), kwargs={})
+        return StateRuntime(
+            provider_id="bigquery",
+            leases=cast("LeaseStore", captured["leases"]),
+            watermarks=cast("WatermarkStore", captured["watermarks"]),
+            history=cast("RunHistoryStore", captured["history"]),
+            metadata=cast("MetadataStore", captured["metadata"]),
+            migrator=migrator,
+            capabilities=StateCapabilities(
+                provider_id="bigquery",
+                schema_version=1,
+                server_time=True,
+                atomic_leases=True,
+                monotonic_fencing=True,
+                atomic_watermark_cas=True,
+                interrupted_run_reconciliation=True,
+            ),
+        )
+
     monkeypatch.setattr(run_module, "DefaultSecretStore", recording_factory("secrets"))
     monkeypatch.setattr(run_module, "build_auth", build_auth)
     monkeypatch.setattr(run_module, "build_source_adapter", build_source)
-    monkeypatch.setattr(run_module, "BigQueryRunHistoryStore", recording_factory("history"))
-    monkeypatch.setattr(run_module, "BigQueryLeaseStore", recording_factory("leases"))
-    monkeypatch.setattr(run_module, "BigQueryMetadataStore", recording_factory("metadata"))
-    monkeypatch.setattr(run_module, "BigQueryWatermarkStore", recording_factory("watermarks"))
     monkeypatch.setattr(run_module, "PipelineRunner", recording_factory("ingestion"))
     monkeypatch.setattr(run_module, "_build_warehouse_runtime", build_warehouse)
+    monkeypatch.setattr(run_module, "_build_state_runtime", build_state)
     monkeypatch.setattr(run_module, "PipelineExecutor", _Executor)
 
     result = CliRunner().invoke(
@@ -165,7 +213,5 @@ def test_hosted_project_run_wires_runtime_without_network(
         "batch_rows": 10_000,
         "schema_evolution": SchemaEvolution.ADDITIVE,
     }
-    history = cast("_Built", captured["history"])
-    metadata = cast("_Built", captured["metadata"])
-    assert history.kwargs["dataset"] == "dander_meta"
-    assert metadata.kwargs["dataset"] == "dander_meta"
+    migrator = cast("_Migrator", captured["migrator"])
+    assert migrator.calls == 1

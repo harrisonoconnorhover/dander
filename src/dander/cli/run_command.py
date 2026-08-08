@@ -11,7 +11,6 @@ from click import ClickException
 from rich.table import Table
 
 from dander.catalog import (
-    BigQueryMetadataStore,
     CatalogPublishError,
     DataplexCatalogPublisher,
     MetadataStore,
@@ -53,14 +52,13 @@ from dander.security import (
     OAuth2JWT,
 )
 from dander.state import (
-    BigQueryLeaseStore,
-    BigQueryRunHistoryStore,
-    BigQueryWatermarkStore,
     LeaseStore,
     RunHistoryStore,
     SqliteLeaseStore,
     SqliteRunHistoryStore,
     SqliteWatermarkStore,
+    StateRuntime,
+    WatermarkStore,
 )
 from dander.transform import TransformProjectError, TransformRunError
 from dander.warehouse import WarehouseRuntime, WarehouseTransformRunner
@@ -114,12 +112,14 @@ class _ResolvedRun:
     publish_dataplex: bool
     warehouse_provider: str
     warehouse_location: str
+    state_provider: str
 
 
 @dataclass(frozen=True, slots=True)
 class _ControlStores:
     history: RunHistoryStore
     leases: LeaseStore
+    watermarks: WatermarkStore
     metadata: MetadataStore | None
 
 
@@ -166,6 +166,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
     publish_dataplex = options.publish_dataplex
     warehouse_provider = "bigquery"
     warehouse_location = "US"
+    state_provider = "bigquery"
     plugin_registry: ConnectorPluginRegistry | None = None
 
     if options.project_config.is_file():
@@ -190,6 +191,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
                 publish_dataplex = publish_dataplex or pipeline.publish_dataplex
                 warehouse_provider = manifest.warehouse_provider
                 warehouse_location = manifest.platform.bigquery_location
+                state_provider = manifest.state_provider
         except (ConnectorPluginError, ProjectConfigError) as error:
             raise ClickException(str(error)) from error
 
@@ -234,6 +236,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         publish_dataplex=publish_dataplex,
         warehouse_provider=warehouse_provider,
         warehouse_location=warehouse_location,
+        state_provider=state_provider,
     )
 
 
@@ -304,7 +307,7 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         else None
     )
     warehouse = _build_warehouse_runtime(resolved)
-    ingestion = _build_ingestion_runner(options, resolved, source_adapter, warehouse)
+    ingestion = _build_ingestion_runner(options, resolved, source_adapter, warehouse, stores)
     transform_runner = _build_transform_runner(resolved, warehouse)
     return PipelineExecutor(
         pipeline_id=resolved.pipeline_id,
@@ -326,28 +329,25 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
 
 
 def _build_control_stores(options: RunOptions, resolved: _ResolvedRun) -> _ControlStores:
-    control_dataset = resolved.metadata_dataset if resolved.project_pipeline else resolved.dataset
-    history: RunHistoryStore = (
-        SqliteRunHistoryStore(options.state_path)
-        if options.sandbox
-        else BigQueryRunHistoryStore(project=resolved.project, dataset=control_dataset)
-    )
-    leases: LeaseStore = (
-        SqliteLeaseStore(options.state_path)
-        if options.sandbox
-        else BigQueryLeaseStore(project=resolved.project, dataset=control_dataset)
-    )
-    metadata: MetadataStore | None = None
-    if resolved.project_pipeline and resolved.graph_plan is None:
-        metadata = (
-            SqliteMetadataStore(options.state_path)
-            if options.sandbox
-            else BigQueryMetadataStore(
-                project=resolved.project,
-                dataset=resolved.metadata_dataset,
-            )
+    if options.sandbox:
+        return _ControlStores(
+            history=SqliteRunHistoryStore(options.state_path),
+            leases=SqliteLeaseStore(options.state_path),
+            watermarks=SqliteWatermarkStore(options.state_path),
+            metadata=(
+                SqliteMetadataStore(options.state_path)
+                if resolved.project_pipeline and resolved.graph_plan is None
+                else None
+            ),
         )
-    return _ControlStores(history=history, leases=leases, metadata=metadata)
+    runtime = _build_state_runtime(resolved)
+    runtime.migrator.migrate()
+    return _ControlStores(
+        history=runtime.history,
+        leases=runtime.leases,
+        watermarks=runtime.watermarks,
+        metadata=runtime.metadata,
+    )
 
 
 def _build_ingestion_runner(
@@ -355,6 +355,7 @@ def _build_ingestion_runner(
     resolved: _ResolvedRun,
     source: Source,
     warehouse: WarehouseRuntime,
+    stores: _ControlStores,
 ) -> PipelineRunner:
     writer = warehouse.writers.build_ingestion_writer(
         sandbox=options.sandbox,
@@ -363,15 +364,10 @@ def _build_ingestion_runner(
             SchemaEvolution.ADDITIVE if resolved.project_pipeline else SchemaEvolution.STRICT
         ),
     )
-    watermarks = (
-        SqliteWatermarkStore(options.state_path)
-        if options.sandbox
-        else BigQueryWatermarkStore(project=resolved.project, dataset=resolved.dataset)
-    )
     return PipelineRunner(
         source=source,
         writer=writer,
-        watermarks=watermarks,
+        watermarks=stores.watermarks,
         project=resolved.project,
         dataset=resolved.dataset,
         resume_from_watermark=not options.sandbox,
@@ -411,6 +407,31 @@ def _build_warehouse_runtime(resolved: _ResolvedRun) -> WarehouseRuntime:
         raise ClickException(str(error)) from error
     if not isinstance(runtime, WarehouseRuntime):
         raise ClickException("Selected warehouse provider returned an invalid runtime")
+    return runtime
+
+
+def _build_state_runtime(resolved: _ResolvedRun) -> StateRuntime:
+    registry = default_provider_registry()
+    try:
+        config = registry.parse(
+            ProviderKind.STATE,
+            {"provider": resolved.state_provider},
+        )
+        runtime = registry.build(
+            ProviderKind.STATE,
+            config,
+            context={
+                "project": resolved.project,
+                "raw_dataset": resolved.dataset,
+                "metadata_dataset": resolved.metadata_dataset,
+                "project_pipeline": resolved.project_pipeline,
+                "metadata_enabled": (resolved.project_pipeline and resolved.graph_plan is None),
+            },
+        )
+    except ProviderFactoryError as error:
+        raise ClickException(str(error)) from error
+    if not isinstance(runtime, StateRuntime):
+        raise ClickException("Selected state provider returned an invalid runtime")
     return runtime
 
 
