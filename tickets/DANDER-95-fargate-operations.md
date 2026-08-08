@@ -24,7 +24,7 @@ without copying AWS resource identifiers by hand or exposing provider response d
 - [x] Verify the controller, cluster, schedule, task image, log group, and immutable ECR policy.
 - [x] Scope deployment-role operation permissions to Dander state machines, executions, and logs.
 - [x] Keep Fargate unsupported until source-free live acceptance passes.
-- [ ] Protected CI passes.
+- [x] Protected CI passes.
 
 ## Design
 
