@@ -162,7 +162,9 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
     assert dict(template.extensions) == {
         "fargate_architecture": "ARM64",
         "fargate_assign_public_ip": "disabled",
+        "fargate_stop_timeout_seconds": "120",
     }
+    assert template.schedule.expression == "cron(0 9 * * ? *)"
     secret = dict(template.secret_bindings)["SALESFORCE_KEY"]
     assert secret.reference.endswith("/secrets/salesforce-private-key/versions/latest")
     serialized = repr(template.as_dict())
@@ -206,6 +208,50 @@ def test_fargate_rejects_a_run_longer_than_the_task_role_session() -> None:
             cpu=1,
             memory="2Gi",
             deadline_seconds=3_601,
+            launcher_retry_count=1,
+            batch_rows=1_000,
+            require_guarded_free_tier=False,
+            alert_target=None,
+        )
+
+
+def test_fargate_rejects_cron_semantics_eventbridge_cannot_preserve() -> None:
+    pipelines = {
+        "greenhouse_jobs": {
+            **_PIPELINES["greenhouse_jobs"],
+            "schedule": "0 9 1 * MON",
+        }
+    }
+    with pytest.raises(ExecutionProjectionError, match="both day fields"):
+        _fargate_runtime().templates.build(
+            pipelines,
+            image=_FARGATE_IMAGE,
+            project="unit-project",
+            cpu=1,
+            memory="2Gi",
+            deadline_seconds=900,
+            launcher_retry_count=1,
+            batch_rows=1_000,
+            require_guarded_free_tier=False,
+            alert_target=None,
+        )
+
+
+def test_fargate_rejects_provider_specific_cron_syntax() -> None:
+    pipelines = {
+        "greenhouse_jobs": {
+            **_PIPELINES["greenhouse_jobs"],
+            "schedule": "0 9 * * ?",
+        }
+    }
+    with pytest.raises(ExecutionProjectionError, match="valid five-field"):
+        _fargate_runtime().templates.build(
+            pipelines,
+            image=_FARGATE_IMAGE,
+            project="unit-project",
+            cpu=1,
+            memory="2Gi",
+            deadline_seconds=900,
             launcher_retry_count=1,
             batch_rows=1_000,
             require_guarded_free_tier=False,

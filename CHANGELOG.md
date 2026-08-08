@@ -8,6 +8,10 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add a separately packaged AWS Terraform stack for immutable ECR images, non-root Fargate task
+  definitions, distinct task/execution roles, paused-aware EventBridge schedules, and encrypted
+  failure routing. A Standard Step Functions controller enforces one absolute deadline, retries
+  only runtime exit code 75, and keeps scheduler delivery retries separate from launcher attempts.
 - Add a lazy AWS Secrets Manager runtime that accepts only full, region-matching secret ARNs,
   retains audited environment indirection, and never loads the AWS SDK until a secret is read.
 - Prepare Fargate's keyless Google identity before runtime construction by adapting only temporary

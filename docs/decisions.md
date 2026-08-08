@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-08 — Fargate lifecycle is provider-native and bounded
+
+- **Controller:** One Standard Step Functions state machine per pipeline uses the optimized ECS
+  `.sync` integration. Its workflow timeout bounds all whole-runtime attempts and AWS owns
+  best-effort `StopTask` behavior on timeout or cancellation.
+- **Retries:** Exit code 75 is the only runtime result eligible for a launcher retry. EventBridge
+  delivery retries remain a distinct counter and both exhausted paths reach an encrypted queue.
+- **Boundary:** The AWS stack is packaged separately with native S3 backend configuration and
+  remains outside the public support manifest until CLI lifecycle and live parity are proven.
+
 ## 2026-08-08 — Fargate identity remains keyless and bounded
 
 - **Identity:** Fargate accepts only temporary `ASIA` task-role credentials from the fixed ECS

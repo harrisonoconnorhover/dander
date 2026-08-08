@@ -2,38 +2,39 @@
 
 ## Finished
 
-- Added lazy, audited AWS Secrets Manager resolution for full region-matching ARNs.
-- Prepared keyless Fargate-to-Google identity before provider clients are constructed.
-- Reused the hardened Phase 1B ECS credential adapter instead of maintaining a second copy.
-- Sanitized launcher identity failures and bounded Fargate projections to one hour.
-- Preserved the unsupported Fargate capability boundary and all existing GCP behavior.
+- Added a separate packaged AWS Terraform root and product Fargate module.
+- Projected immutable ECR images into non-root, read-only Fargate task definitions.
+- Separated execution, per-pipeline task, controller, and scheduler IAM roles.
+- Added an absolute-deadline Step Functions controller with exit-75-only retries.
+- Added paused-aware scheduling, controller logs, encrypted failure queue, and a customer-key-encrypted notification topic.
 
 ## Try It
 
-Build the `aws_secret_manager` provider with a synthetic client or build a Fargate execution
-template with a valid WIF audience. Neither operation contacts or changes cloud infrastructure.
+Run `terraform -chdir=infra/aws/modules/fargate test` for a provider-mocked plan. The example stack
+is paused and no Terraform apply has been performed.
 
 ## Checks
 
-- All 933 tests, Ruff, formatting, and strict mypy across 243 source files passed.
-- Wheel, sdist, source-free installs, runtime-all assembly, and dependency audit passed.
-- Container conformance, non-root/read-only checks, and bundled assets passed.
-- Trivy found no high/critical findings; all Terraform roots validated.
-- Isolated GCP reported `No changes`; AWS identity was confirmed read-only in `us-east-1`.
+- Ruff, formatting, strict typing, and all 941 Python tests passed.
+- Every Terraform root validated; the provider-mocked Fargate plan passed.
+- Wheel/sdist installs, source-free generation, container conformance, dependency audit, and Trivy scans passed.
+- Read-only AWS plan: 23 add, 0 change, 0 destroy; schedule disabled and nothing applied.
+- Existing isolated GCP platform plan reported exactly `No changes.`
 
 ## Decisions
 
-- Accept only temporary ECS task-role credentials from the fixed link-local endpoint.
-- Keep the generated Google external-account file non-secret and its impersonated token at 600s.
-- Cap Fargate at one hour until the task-role session can be renewed in-process.
+- Use Standard Step Functions and its optimized ECS `.sync` integration.
+- Retry only Dander exit code 75; keep scheduler delivery retries separate.
+- Keep Fargate outside the support manifest until CLI lifecycle and live parity pass.
 
 ## Remaining
 
-- Open the focused PR and let protected CI repeat validation.
-- Add Fargate infrastructure and controller lifecycle in a separate slice.
+- Let protected Linux CI repeat validation and merge the focused PR if clean.
+- Add manifest-aware AWS planning and CLI lifecycle in a separate slice.
+- Apply only after a separately reviewed plan; then prove live Fargate parity.
 
 ## Review First
 
-- `src/dander/identity/aws_google.py`
-- `src/dander/providers/aws_secrets_manager/runtime.py`
-- `src/dander/cli/runtime_command.py`
+- `infra/aws/modules/fargate/main.tf`
+- `infra/aws/modules/fargate/tests/fargate.tftest.hcl`
+- `src/dander/providers/fargate/runtime.py`

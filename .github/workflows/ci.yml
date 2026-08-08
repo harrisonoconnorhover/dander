@@ -59,6 +59,12 @@ jobs:
         run: |
           terraform -chdir=bootstrap-admin init -backend=false -input=false
           terraform -chdir=bootstrap-admin validate
+      - name: Validate AWS Fargate stack
+        run: |
+          terraform -chdir=aws init -backend=false -input=false
+          terraform -chdir=aws validate
+          terraform -chdir=aws/modules/fargate init -backend=false -input=false
+          terraform -chdir=aws/modules/fargate test
       - name: Validate cross-cloud feasibility roots
         run: |
           terraform fmt -check -recursive ../acceptance/cloud-portability/phase1b

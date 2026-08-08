@@ -140,7 +140,7 @@ class FargateTemplateFactory:
                 schedule=ScheduleProjection(
                     task_count=1,
                     maximum_parallelism=1,
-                    expression=str(pipeline["schedule"]),
+                    expression=_aws_schedule(str(pipeline["schedule"])),
                     time_zone=str(pipeline["time_zone"]),
                     paused=bool(pipeline["paused"]),
                 ),
@@ -169,6 +169,7 @@ class FargateTemplateFactory:
                         "fargate_assign_public_ip",
                         "enabled" if self.config.assign_public_ip else "disabled",
                     ),
+                    ("fargate_stop_timeout_seconds", str(self.config.stop_timeout_seconds)),
                 ),
             )
             validate_launcher_projection(template, FARGATE_CAPABILITIES)
@@ -210,6 +211,23 @@ def _validate_fargate_size(*, cpu_millis: int, memory_mib: int) -> None:
     }
     if memory_mib not in ranges.get(cpu_millis, range(0)):
         raise ExecutionProjectionError("Fargate does not support the requested CPU/memory pair")
+
+
+def _aws_schedule(value: str) -> str:
+    """Translate the compatible five-field cron subset to EventBridge Scheduler."""
+    parts = value.split()
+    if len(parts) != 5 or any(re.fullmatch(r"[A-Za-z0-9*/,\-]+", part) is None for part in parts):
+        raise ExecutionProjectionError("Fargate requires a valid five-field cron schedule")
+    minute, hour, day_of_month, month, day_of_week = parts
+    if day_of_month != "*" and day_of_week != "*":
+        raise ExecutionProjectionError(
+            "Fargate cannot preserve a cron schedule that constrains both day fields"
+        )
+    if day_of_week == "*":
+        day_of_week = "?"
+    else:
+        day_of_month = "?"
+    return f"cron({minute} {hour} {day_of_month} {month} {day_of_week} *)"
 
 
 FARGATE_LAUNCHER_FACTORY: ProviderFactory[LauncherRuntime] = ProviderFactory(
