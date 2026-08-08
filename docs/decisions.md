@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-07 — Graph nodes compile to relational expressions before SQL
+
+- **Boundary:** Source relations, CTEs, joins, projections, scalar transforms, and ordered graph
+  operations are sqlglot expressions. Graph nodes no longer concatenate BigQuery SQL fragments.
+- **Compatibility:** `CompiledTarget.query` remains the BigQuery rendering and the existing
+  BigQuery writer path is unchanged. Its AST is exposed only as an isolated copy.
+- **Fail closed:** Other dialects render only when their semantics are exact. Current safe-cast
+  nodes reject Snowflake and PostgreSQL instead of silently becoming strict casts; rendering alone
+  does not claim executable provider support.
+
 ## 2026-08-07 — Portable SQL is an explicit, closed contract
 
 - **Compatibility:** Model metadata defaults to exact `bigquery`; repository-owned legacy models

@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Compile executable graph mappings, joins, transformations, and ordered operations into one
+  provider-neutral relational AST before dialect rendering; preserve BigQuery runtime output and
+  fail when another target cannot retain graph safe-cast semantics.
 - Add explicit `portable`, BigQuery, Snowflake, Redshift, and PostgreSQL model dialect metadata;
   preserve BigQuery as the compatibility default and validate portable models through a closed,
   deterministic SQL AST before provider rendering.

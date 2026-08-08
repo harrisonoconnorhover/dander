@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 import sqlglot
+from sqlglot import exp
 
 from dander.pipeline import PipelineCompileError, compile_target, prepare_target_writer
 from dander.pipeline.graph import (
@@ -153,11 +154,11 @@ def test_compiles_linear_graph_to_explicit_bigquery_sql() -> None:
 
     assert compiled.write_mode is WriteMode.SCD1
     assert compiled.target.business_key == ("person_id",)
-    assert "FROM `dander-test.raw.people`" in compiled.query
+    assert "FROM `dander-test`.`raw`.`people`" in compiled.query
     assert "SAFE_CAST(`id` AS STRING) AS `id`" in compiled.query
     assert "CONCAT(source.first_name, ' ', source.last_name) AS `full_name`" in compiled.query
     assert (
-        "REGEXP_REPLACE(CAST(source.`phone` AS STRING), r'[^0-9+]', '') AS `phone_normalized`"
+        "REGEXP_REPLACE(CAST(source.`phone` AS STRING), '[^0-9+]', '') AS `phone_normalized`"
     ) in compiled.query
     assert "SAFE_CAST(source.`status` AS STRING) AS `status`" in compiled.query
     assert "SELECT *" not in compiled.query
@@ -202,17 +203,77 @@ def test_compiles_ordered_schema_preserving_transform_operations() -> None:
 
     assert "TRIM(source.`full_name`) AS `full_name`" in query
     assert "FROM `_node_1` AS source" in query
-    assert "SUBSTR(source.`full_name`, 1, 80) AS `full_name`" in query
+    assert "SUBSTRING(source.`full_name`, 1, 80) AS `full_name`" in query
     assert "FROM `_node_2` AS source" in query
     assert "COALESCE(source.`status`, CAST('unknown' AS STRING)) AS `status`" in query
     assert "FROM `_node_3` AS source" in query
-    assert (
-        "WHERE (source.`status` NOT IN ('archived', 'deleted')) AND "
-        "(source.`full_name` IS NOT NULL)"
-    ) in query
+    assert "NOT source.`status` IN ('archived', 'deleted')" in query
+    assert "NOT source.`full_name` IS NULL" in query
     assert "FROM `_node_4` AS source" in query
     assert "SELECT *" not in query
     assert sqlglot.parse_one(query, read="bigquery") is not None
+
+
+def test_graph_compiles_to_one_provider_neutral_relational_ast() -> None:
+    compiled = compile_target(
+        _linear_graph(),
+        "target",
+        source_relations={"source": "dander-test.raw.people"},
+    )
+
+    assert isinstance(compiled.query_ast, exp.Query)
+    assert len(tuple(compiled.query_ast.find_all(exp.CTE))) == 3
+    assert len(tuple(compiled.query_ast.find_all(exp.TryCast))) == 2
+    assert compiled.render("bigquery") == compiled.query
+    assert 'FROM "dander-test"."raw"."people"' in compiled.render("redshift")
+
+
+def test_cast_free_graph_ast_renders_for_all_declared_targets() -> None:
+    graph = _linear_graph()
+    graph.nodes[0].fields[0].cast_to = None
+    graph.nodes[-1].fields[-1].cast_to = None
+    compiled = compile_target(
+        graph,
+        "target",
+        source_relations={"source": "dander-test.raw.people"},
+    )
+
+    rendered = {
+        target: compiled.render(target)
+        for target in ("bigquery", "snowflake", "redshift", "postgres")
+    }
+
+    assert "`dander-test`.`raw`.`people`" in rendered["bigquery"]
+    assert '"dander-test"."raw"."people"' in rendered["snowflake"]
+    assert '"dander-test"."raw"."people"' in rendered["redshift"]
+    assert '"raw"."people"' in rendered["postgres"]
+    for target, query in rendered.items():
+        assert sqlglot.parse_one(query, read=target) is not None
+
+
+def test_returned_graph_ast_is_an_isolated_copy() -> None:
+    compiled = compile_target(
+        _linear_graph(),
+        "target",
+        source_relations={"source": "dander-test.raw.people"},
+    )
+    external = compiled.query_ast
+    external.set("with_", None)
+
+    assert compiled.query_ast.args.get("with_") is not None
+    assert compiled.render("bigquery") == compiled.query
+
+
+@pytest.mark.parametrize("target", ["snowflake", "postgres"])
+def test_graph_render_fails_when_target_cannot_preserve_safe_cast(target: str) -> None:
+    compiled = compile_target(
+        _linear_graph(),
+        "target",
+        source_relations={"source": "dander-test.raw.people"},
+    )
+
+    with pytest.raises(PipelineCompileError, match="safe-cast semantics"):
+        compiled.render(target)
 
 
 def test_string_operation_rejects_non_string_declared_field() -> None:

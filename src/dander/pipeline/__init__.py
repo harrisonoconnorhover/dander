@@ -4,9 +4,9 @@ Validation (uniqueness, dangling edges, self-loops, DAG/cycle detection), field-
 (duplicate field names, unresolved mapping/transformation/join/operation field references), and
 derived
 graph algorithms (adjacency, topological order) build on top of these models in
-`dander.pipeline.graph_ops`. `compile_target` compiles the supported graph subset to explicit
-BigQuery SQL, while `prepare_target_writer` binds a configured target to a concrete writer without
-performing a network call.
+`dander.pipeline.graph_ops`. `compile_target` compiles the supported graph subset to a relational
+AST and its compatible BigQuery SQL, while `prepare_target_writer` binds a configured target to a
+concrete writer without performing a network call.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from dander.pipeline.compiler import (
     PreparedTargetWriter,
     compile_target,
     prepare_target_writer,
+    render_graph_query,
 )
 from dander.pipeline.errors import (
     DanglingEdgeError,
@@ -120,6 +121,7 @@ __all__ = [
     "load_graph_from_yaml",
     "topological_order",
     "prepare_target_writer",
+    "render_graph_query",
     "validate",
     "validate_field_wiring",
 ]
