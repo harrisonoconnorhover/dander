@@ -20,7 +20,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir "dander-platform==${DANDER_VERSION}"
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir "dander-platform[runtime-all]==${DANDER_VERSION}" \
+    && python -c "from dander.providers.dependencies import require_full_runtime; require_full_runtime()"
 
 COPY --chown=65532:65532 dander.yaml ./dander.yaml
 COPY --chown=65532:65532 dander.platforms.yaml ./dander.platforms.yaml

@@ -22,6 +22,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv==0.12.0
 
 COPY pyproject.toml uv.lock README.md LICENSE ./
@@ -31,7 +34,8 @@ COPY graphs ./graphs
 COPY models ./models
 COPY examples ./examples
 COPY infra ./infra
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev --no-editable --extra runtime-all \
+    && .venv/bin/python -c "from dander.providers.dependencies import require_full_runtime; require_full_runtime()"
 
 COPY dander.yaml ./dander.yaml
 

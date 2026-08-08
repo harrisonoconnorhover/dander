@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Expose provider dependency extras for BigQuery, Snowflake, Redshift, PostgreSQL, GCP, AWS, Azure,
+  and OCI, plus a validated `runtime-all` union used by repository and generated source-free OCI
+  images without expanding the supported-adapter capability manifest.
 - Add a provider-neutral run telemetry contract for duration, rows, bytes, retries, provider
   query/job correlation, and explicit decimal cost attribution; emit it on every terminal OCI
   runtime event without admitting arbitrary provider payloads.
