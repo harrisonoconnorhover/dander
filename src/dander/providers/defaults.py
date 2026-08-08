@@ -1,5 +1,6 @@
 """Built-in provider registrations with lazy implementation loading."""
 
+from dander.providers.aws_secrets_manager import AwsSecretsManagerConfig
 from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig
 from dander.providers.cloud_run import CloudRunLauncherConfig
 from dander.providers.dataplex import DataplexCatalogConfig
@@ -59,6 +60,14 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=EnvironmentSecretConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.environment_secrets.runtime:ENVIRONMENT_SECRET_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.SECRETS,
+        provider_id="aws_secret_manager",
+        config_model=AwsSecretsManagerConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.aws_secrets_manager.runtime:AWS_SECRET_MANAGER_FACTORY"
         ),
     )
     registry.register(

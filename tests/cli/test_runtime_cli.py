@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 import dander.cli.runtime_command as runtime_module
 from dander.cli.main import app
 from dander.executor import PipelineExecutionResult
+from dander.identity import FargateIdentityError
 from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.runtime_contract import RuntimeCancelledError, RuntimeExitCode
 
@@ -188,3 +189,31 @@ def test_runtime_execute_rejects_unknown_contract_before_start() -> None:
     assert result.exit_code == RuntimeExitCode.INVALID_INVOCATION
     assert "unsupported runtime contract" in result.output
     assert "runtime.started" not in result.output
+
+
+def test_runtime_execute_sanitizes_fargate_identity_failure(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    def identity_failure(_context: object) -> None:
+        raise FargateIdentityError("temporary credential detail")
+
+    monkeypatch.setattr(runtime_module, "prepare_launcher_identity", identity_failure)
+    result = CliRunner().invoke(
+        app,
+        [
+            "runtime",
+            "execute",
+            "--contract",
+            "io.dander.runtime/v1",
+            "--pipeline",
+            "greenhouse_jobs",
+            "--platform",
+            "gcp",
+        ],
+        env={"DANDER_RUN_ID": "fargate:task-42", "DANDER_LAUNCHER": "fargate"},
+    )
+
+    assert result.exit_code == RuntimeExitCode.PERMANENT_FAILURE
+    terminal = json.loads(result.output.splitlines()[-1])
+    assert terminal["failure_code"] == "authentication_failed"
+    assert "temporary credential detail" not in result.output

@@ -38,7 +38,7 @@ class _SecretManagerClient(Protocol):
         """Access one Secret Manager version."""
 
 
-def _audit_access(reference: str, backend: str) -> None:
+def audit_secret_access(reference: str, backend: str) -> None:
     """Emit a credential-access audit event without exposing secret material."""
     _LOGGER.info(
         "credential_access",
@@ -83,7 +83,7 @@ class GcpSecretStore:
             self._client.access_secret_version(request={"name": reference}),
         )
         value = response.payload.data.decode("utf-8")
-        _audit_access(reference, "gcp_secret_manager")
+        audit_secret_access(reference, "gcp_secret_manager")
         return value
 
 
@@ -104,7 +104,7 @@ class EnvironmentSecretStore:
             raise SecretResolutionError(
                 f"Secret environment reference {reference!r} is missing or empty"
             )
-        _audit_access(reference, "environment")
+        audit_secret_access(reference, "environment")
         return value
 
 

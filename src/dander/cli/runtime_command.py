@@ -12,6 +12,7 @@ from click import ClickException
 from rich.console import Console
 
 from dander.cli.run_command import RunOptions, execute_run
+from dander.identity import prepare_launcher_identity
 from dander.runtime_contract import (
     RUNTIME_CONTRACT,
     LauncherContext,
@@ -126,6 +127,7 @@ def execute_runtime(
     )
     try:
         with graceful_signal_handlers():
+            prepare_launcher_identity(context)
             result = execute_run(
                 options,
                 console=_CONSOLE,

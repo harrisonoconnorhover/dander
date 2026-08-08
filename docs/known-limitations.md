@@ -4,8 +4,10 @@ Dander `0.7.x` is beta and proves a focused GCP-native vertical slice. It remain
 evaluate these limits before using it for an unattended system containing business-critical data.
 
 - AWS ECS/Fargate is not yet a supported Dander launcher. Phase 1B contains an isolated artifact
-  and keyless-identity feasibility stack only; launcher lifecycle, scheduling, alerts, rollback,
-  and parity remain gated on the later portable BigQuery vertical slice.
+  and keyless-identity feasibility stack only. The current runtime bridge copies one temporary ECS
+  task-role session into process memory and therefore caps a Fargate projection at one hour;
+  renewable credentials, launcher lifecycle, scheduling, alerts, rollback, and parity remain gated
+  on the later portable BigQuery vertical slice.
 - Provider package extras and the full runtime image contain planned provider SDK dependencies,
   but do not by themselves implement or qualify Snowflake, Redshift, PostgreSQL, AWS, Azure, or
   OCI profiles. The packaged capability manifest is the support boundary.

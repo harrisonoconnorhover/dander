@@ -104,6 +104,12 @@ class FargateTemplateFactory:
                             "BQ_DATASET_METADATA": "dander_meta",
                             "BQ_DATASET_RAW": "raw",
                             "DANDER_IMAGE_DIGEST": image.rsplit("@", maxsplit=1)[-1],
+                            "DANDER_GCP_SERVICE_ACCOUNT": (
+                                f"{role_name}@{project}.iam.gserviceaccount.com"
+                            ),
+                            "DANDER_GCP_WIF_AUDIENCE": (
+                                self.config.google_workload_identity_audience
+                            ),
                             "DANDER_LAUNCHER": "fargate",
                             "DANDER_PRINCIPAL": identity,
                             "GCP_PROJECT_ID": project,
