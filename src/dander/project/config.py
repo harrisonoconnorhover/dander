@@ -210,7 +210,8 @@ class DanderProject(BaseModel):
         default="gcp_secret_manager",
         exclude=True,
     )
-    launcher_provider: Literal["cloud_run"] = Field(default="cloud_run", exclude=True)
+    launcher_provider: Literal["cloud_run", "fargate"] = Field(default="cloud_run", exclude=True)
+    launcher_config: dict[str, object] = Field(default_factory=dict, exclude=True)
     deployed_pipeline_ids: tuple[str, ...] | None = Field(default=None, exclude=True)
 
     @field_validator("plugins")
@@ -232,6 +233,10 @@ class DanderProject(BaseModel):
 
     @model_validator(mode="after")
     def validate_deployed_pipeline_ids(self) -> DanderProject:
+        if self.launcher_config:
+            configured_provider = self.launcher_config.get("provider")
+            if configured_provider != self.launcher_provider:
+                raise ValueError("launcher config provider must match launcher_provider")
         if self.deployed_pipeline_ids is None:
             return self
         if len(self.deployed_pipeline_ids) != len(set(self.deployed_pipeline_ids)):
@@ -240,6 +245,15 @@ class DanderProject(BaseModel):
         if unknown:
             raise ValueError(f"deployed pipeline ids contain unknown pipeline {unknown[0]!r}")
         return self
+
+    def resolved_launcher_config(self) -> dict[str, object]:
+        """Return the complete selected launcher block for projection and planning."""
+        if self.launcher_config:
+            return dict(self.launcher_config)
+        return {
+            "provider": self.launcher_provider,
+            "region": self.platform.region,
+        }
 
     def terraform_pipelines(self) -> dict[str, dict[str, object]]:
         """Expand human pipeline definitions into the literal Terraform module contract."""

@@ -8,7 +8,7 @@ terraform {
     }
   }
 
-  # Supply bucket, key, region, encryption, and native lockfile settings through
+  # Supply bucket, key, region, encryption, and DynamoDB locking through
   # `terraform init -backend-config`. Provider credentials never belong in this file.
   backend "s3" {}
 }

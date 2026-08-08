@@ -128,7 +128,7 @@ class TerraformBootstrap:
                 "Platform bootstrap requires --bootstrap-service-account with a valid "
                 "service-account email"
             )
-        _validate_runtime(
+        validate_runtime_settings(
             cpu=runtime_cpu,
             memory=runtime_memory,
             timeout_seconds=runtime_timeout_seconds,
@@ -164,7 +164,7 @@ class TerraformBootstrap:
                 )
             if not enable_runtime:
                 raise TerraformBootstrapError("--druff-container-image requires --enable-runtime")
-        _validate_pipelines(expanded_pipelines)
+        validate_terraform_pipelines(expanded_pipelines)
         if failure_alert_email and not enable_runtime:
             raise TerraformBootstrapError("--failure-alert-email requires --enable-runtime")
         if failure_alert_email and (
@@ -174,7 +174,7 @@ class TerraformBootstrap:
         execution_projections: dict[str, dict[str, object]] = {}
         if enable_runtime:
             try:
-                launcher = _build_launcher_runtime(
+                launcher = build_launcher_runtime(
                     provider_id=launcher_provider,
                     region=region,
                 )
@@ -329,12 +329,22 @@ class TerraformBootstrap:
             ) from error
 
 
-def _build_launcher_runtime(*, provider_id: str, region: str) -> LauncherRuntime:
+def build_launcher_runtime(
+    *,
+    provider_id: str | None = None,
+    region: str | None = None,
+    launcher_config: Mapping[str, object] | None = None,
+) -> LauncherRuntime:
     """Build one launcher through the shared lazy provider registry."""
+    raw_config = dict(launcher_config or {})
+    if not raw_config:
+        if provider_id is None or region is None:
+            raise ProviderFactoryError("Launcher provider and region are required")
+        raw_config = {"provider": provider_id, "region": region}
     registry = default_provider_registry()
     config = registry.parse(
         ProviderKind.LAUNCHER,
-        {"provider": provider_id, "region": region},
+        raw_config,
     )
     runtime = registry.build(ProviderKind.LAUNCHER, config)
     if not isinstance(runtime, LauncherRuntime):
@@ -342,7 +352,7 @@ def _build_launcher_runtime(*, provider_id: str, region: str) -> LauncherRuntime
     return runtime
 
 
-def _validate_pipelines(pipelines: Mapping[str, Mapping[str, object]]) -> None:
+def validate_terraform_pipelines(pipelines: Mapping[str, Mapping[str, object]]) -> None:
     """Defensively validate the expanded project manifest before invoking Terraform."""
     required = {
         "job_name",
@@ -387,7 +397,7 @@ def _validate_pipelines(pipelines: Mapping[str, Mapping[str, object]]) -> None:
             raise TerraformBootstrapError(f"Pipeline {pipeline_id!r} has invalid secret bindings")
 
 
-def _validate_runtime(
+def validate_runtime_settings(
     *,
     cpu: int,
     memory: str,
