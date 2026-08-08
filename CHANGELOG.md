@@ -8,6 +8,8 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Select Cloud Run execution-template construction through the lazy launcher-provider registry
+  while preserving the existing Terraform projection, resource addresses, and runtime behavior.
 - Select GCP Secret Manager and local environment resolvers through the lazy provider registry;
   preserve hosted environment-to-resource-name indirection while preventing environment-only
   secrets from being selected for Cloud Run.

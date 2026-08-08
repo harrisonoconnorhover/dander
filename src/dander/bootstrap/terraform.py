@@ -8,7 +8,8 @@ from decimal import Decimal, InvalidOperation
 from json import dumps
 from typing import TYPE_CHECKING
 
-from dander.deployment import ExecutionProjectionError, build_gcp_execution_templates
+from dander.deployment import ExecutionProjectionError, LauncherRuntime
+from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -52,6 +53,7 @@ class TerraformBootstrap:
         state_prefix: str,
         bootstrap_service_account: str,
         apply: bool,
+        launcher_provider: str = "cloud_run",
         region: str = "us-central1",
         bigquery_location: str = "US",
         runtime_cpu: int = 1,
@@ -82,6 +84,7 @@ class TerraformBootstrap:
             state_prefix: Object prefix for the Dander state.
             bootstrap_service_account: Existing service account that Terraform must impersonate.
             apply: Whether to apply the saved plan after planning.
+            launcher_provider: Selected launcher provider ID from the deployment profile.
             region: GCP region for regional resources.
             bigquery_location: BigQuery dataset location.
             runtime_cpu: Cloud Run CPU count shared by hosted jobs.
@@ -171,9 +174,13 @@ class TerraformBootstrap:
         execution_projections: dict[str, dict[str, object]] = {}
         if enable_runtime:
             try:
+                launcher = _build_launcher_runtime(
+                    provider_id=launcher_provider,
+                    region=region,
+                )
                 execution_projections = {
                     pipeline_id: template.as_dict()
-                    for pipeline_id, template in build_gcp_execution_templates(
+                    for pipeline_id, template in launcher.templates.build(
                         expanded_pipelines,
                         image=container_image,
                         project=project,
@@ -186,7 +193,7 @@ class TerraformBootstrap:
                         alert_target=failure_alert_email or None,
                     ).items()
                 }
-            except ExecutionProjectionError as error:
+            except (ExecutionProjectionError, ProviderFactoryError) as error:
                 raise TerraformBootstrapError(str(error)) from error
         if billing_account_id and not (enable_runtime or enable_cost_guard):
             raise TerraformBootstrapError(
@@ -320,6 +327,19 @@ class TerraformBootstrap:
             raise TerraformBootstrapError(
                 f"{command} failed with exit code {error.returncode}"
             ) from error
+
+
+def _build_launcher_runtime(*, provider_id: str, region: str) -> LauncherRuntime:
+    """Build one launcher through the shared lazy provider registry."""
+    registry = default_provider_registry()
+    config = registry.parse(
+        ProviderKind.LAUNCHER,
+        {"provider": provider_id, "region": region},
+    )
+    runtime = registry.build(ProviderKind.LAUNCHER, config)
+    if not isinstance(runtime, LauncherRuntime):
+        raise ProviderFactoryError("Selected launcher provider returned an invalid runtime")
+    return runtime
 
 
 def _validate_pipelines(pipelines: Mapping[str, Mapping[str, object]]) -> None:

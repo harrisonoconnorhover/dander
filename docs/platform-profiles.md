@@ -49,9 +49,9 @@ now use that boundary. State migrations are explicit and versioned, but retain t
 BigQuery table names and semantics. Dataplex keeps aspect-only updates and normalized readback;
 selecting `none` loads no Dataplex implementation or credentials. GCP Secret Manager preserves its
 existing environment indirection and audit behavior; environment-only resolution remains local
-because Cloud Run requires managed secret references. Cloud Run itself remains on its proven
-direct path until its separate Phase 3 change. The registry is a construction contract, not a
-support claim.
+because Cloud Run requires managed secret references. Cloud Run execution templates now pass
+through the same lazy provider boundary while delegating to the accepted projection unchanged.
+The registry is a construction contract, not a support claim.
 
 Warehouse adapters exchange [canonical relation and schema contracts](canonical-schema.md).
 Existing BigQuery connector/writer declarations remain valid and expose a one-way canonical view;

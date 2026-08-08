@@ -1,7 +1,7 @@
 ---
 id: DANDER-88
 title: Route GCP secret resolution through provider capabilities
-status: in-review
+status: completed
 component: security
 epic: cloud-portability
 depends_on: [DANDER-87]
@@ -26,7 +26,7 @@ the shared provider boundary without changing the accepted GCP runtime or Terraf
 - [x] Cloud Run continues to reject environment-only secret profiles.
 - [x] Focused provider, resolution, CLI, and project-profile tests pass.
 - [x] Full local validation and isolated GCP no-drift pass.
-- [ ] Protected CI passes.
+- [x] Protected CI passes.
 
 ## Design
 
@@ -36,5 +36,5 @@ and leave secret references, IAM, Terraform, and launcher projection unchanged.
 
 ## Review Log
 
-Full local validation and the isolated retained-project no-drift proof passed. Pending protected
-review.
+Full local validation, isolated retained-project no-drift, and protected CI passed. PR #119 merged
+as `c57c948dd4af83f51ec3385487429e0472049dd5`.

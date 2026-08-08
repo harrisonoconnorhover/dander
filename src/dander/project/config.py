@@ -210,6 +210,7 @@ class DanderProject(BaseModel):
         default="gcp_secret_manager",
         exclude=True,
     )
+    launcher_provider: Literal["cloud_run"] = Field(default="cloud_run", exclude=True)
     deployed_pipeline_ids: tuple[str, ...] | None = Field(default=None, exclude=True)
 
     @field_validator("plugins")

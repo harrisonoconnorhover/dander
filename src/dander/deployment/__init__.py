@@ -16,6 +16,7 @@ from dander.deployment.projection import (
     build_gcp_v1_execution_templates,
     validate_launcher_projection,
 )
+from dander.deployment.runtime import ExecutionTemplateFactory, LauncherRuntime
 
 __all__ = [
     "CLOUD_RUN_CAPABILITIES",
@@ -23,7 +24,9 @@ __all__ = [
     "ExecutionProjectionError",
     "ExecutionRequest",
     "ExecutionTemplate",
+    "ExecutionTemplateFactory",
     "LauncherCapabilities",
+    "LauncherRuntime",
     "NetworkPlacement",
     "ObservabilityProjection",
     "ResourceProjection",

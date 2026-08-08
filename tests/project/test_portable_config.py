@@ -74,6 +74,8 @@ def test_version_one_migration_is_deterministic_and_behaviorally_equivalent(
     assert migrated.catalog_provider == "dataplex"
     assert original.secret_provider == "gcp_secret_manager"
     assert migrated.secret_provider == "gcp_secret_manager"
+    assert original.launcher_provider == "cloud_run"
+    assert migrated.launcher_provider == "cloud_run"
     assert migrated.platform == original.platform
     assert migrated.plugins == original.plugins
     assert migrated.pipelines == original.pipelines
