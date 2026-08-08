@@ -49,6 +49,48 @@ dander = "dander.cli.main:app"
 dander-synthetic-api = "dander.dev.synthetic_vendor:main"
 
 [project.optional-dependencies]
+bigquery = [
+  "dlt[bigquery]>=1.0",
+  "google-cloud-bigquery>=3.25",
+  "google-cloud-bigquery-storage>=2.30",
+]
+snowflake = [
+  "snowflake-connector-python>=3.12,<5",
+]
+redshift = [
+  "boto3>=1.35,<2",
+  "redshift-connector>=2.1,<3",
+]
+postgres = [
+  "psycopg[pool]>=3.2,<4",
+]
+gcp = [
+  "google-auth>=2.35",
+  "google-cloud-dataplex>=2.20,<3",
+  "google-cloud-secret-manager>=2.20",
+]
+aws = [
+  "boto3>=1.35,<2",
+]
+azure = [
+  "azure-identity>=1.19,<2",
+  "azure-keyvault-secrets>=4.9,<5",
+]
+oci = []
+runtime-all = [
+  "azure-identity>=1.19,<2",
+  "azure-keyvault-secrets>=4.9,<5",
+  "boto3>=1.35,<2",
+  "dlt[bigquery]>=1.0",
+  "google-auth>=2.35",
+  "google-cloud-bigquery>=3.25",
+  "google-cloud-bigquery-storage>=2.30",
+  "google-cloud-dataplex>=2.20,<3",
+  "google-cloud-secret-manager>=2.20",
+  "psycopg[pool]>=3.2,<4",
+  "redshift-connector>=2.1,<3",
+  "snowflake-connector-python>=3.12,<5",
+]
 dev = [
   "fastapi>=0.115",
   "ruff>=0.6",

@@ -1,5 +1,17 @@
 # Engineering Decisions
 
+## 2026-08-07 — Provider dependencies are assembled separately from support claims
+
+- **Local installs:** Public extras group BigQuery, Snowflake, Redshift, PostgreSQL, GCP, AWS, and
+  Azure SDK dependencies without importing or registering an adapter. The OCI name is reserved but
+  empty while Oracle's SDK requires a cryptography version with a known fixed-in-50 advisory.
+- **Release image:** `runtime-all` is their checked union; repository and generated Dockerfiles
+  install and validate it so one immutable multi-platform image has deterministic dependencies.
+  PostgreSQL uses pure-Python Psycopg with Debian's maintained `libpq5`, avoiding a bundled wheel
+  whose embedded native-library SBOM fails the release image scan.
+- **Support boundary:** `runtime-capabilities.json`, concrete adapter conformance, and live profile
+  gates remain authoritative. A present SDK or package extra never makes a provider supported.
+
 ## 2026-08-07 — Runtime telemetry is normalized before provider reporting
 
 - **Contract:** Terminal runtime events carry one validated `RunTelemetry` shape with whole-run

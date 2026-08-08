@@ -6,6 +6,12 @@ evaluate these limits before using it for an unattended system containing busine
 - AWS ECS/Fargate is not yet a supported Dander launcher. Phase 1B contains an isolated artifact
   and keyless-identity feasibility stack only; launcher lifecycle, scheduling, alerts, rollback,
   and parity remain gated on the later portable BigQuery vertical slice.
+- Provider package extras and the full runtime image contain planned provider SDK dependencies,
+  but do not by themselves implement or qualify Snowflake, Redshift, PostgreSQL, AWS, Azure, or
+  OCI profiles. The packaged capability manifest is the support boundary.
+- The reserved `oci` extra is empty because Oracle's current SDK requires a `cryptography` version
+  below Dander's audited fixed line. OCI implementation must resolve that dependency boundary or
+  use a reviewed direct signed-HTTP client before it can enter the full image.
 
 ## Ingestion and schemas
 

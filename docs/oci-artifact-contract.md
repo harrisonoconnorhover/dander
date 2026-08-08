@@ -22,3 +22,20 @@ platform-manifest map; registries that rewrite the index fail verification.
 The runtime executes as UID/GID `65532:65532`. CI runs the local conformance probe with a read-only
 root filesystem and a temporary `/tmp`, so runtime code must declare durable state through an
 adapter rather than writing into the image filesystem.
+
+## Provider dependency assembly
+
+Python installations expose `bigquery`, `snowflake`, `redshift`, `postgres`, `gcp`, `aws`,
+`azure`, and `oci` extras. These install provider SDKs only; an extra is not an adapter or a support
+claim. Provider implementation imports remain lazy until that provider is selected. The `oci`
+extra is currently an empty reserved name: Oracle's available SDK constrains `cryptography` below
+the audited fixed version, so it is excluded until a compatible SDK or direct signed-HTTP adapter
+passes its own review.
+
+The `runtime-all` extra is the deterministic union of those dependency sets. Repository and
+generated source-free Dockerfiles install it, then validate every required distribution from
+package metadata without importing an SDK. This catches an incomplete build before an image can be
+published. The packaged capability manifest remains authoritative about adapters actually present
+and supported in that image; it continues to list only the proven GCP/BigQuery composition today.
+The image uses the maintained Debian `libpq5` package with pure-Python Psycopg instead of bundling
+an opaque database client library inside a wheel.

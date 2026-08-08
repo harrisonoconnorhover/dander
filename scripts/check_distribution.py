@@ -69,6 +69,17 @@ def _check_wheel(path: Path, *, expected_name: str, expected_version: str) -> No
             expected_name=expected_name,
             expected_version=expected_version,
         )
+        starter_dockerfile = archive.read("dander/templates/project/Dockerfile").decode("utf-8")
+        required_runtime_markers = {
+            "dander-platform[runtime-all]==${DANDER_VERSION}",
+            "require_full_runtime",
+        }
+        if missing := sorted(
+            marker for marker in required_runtime_markers if marker not in starter_dockerfile
+        ):
+            raise ValueError(
+                "Starter Dockerfile does not install the full runtime: " + ", ".join(missing)
+            )
 
 
 def _check_sdist(path: Path, *, expected_name: str, expected_version: str) -> None:
@@ -124,6 +135,14 @@ def _check_metadata(
     version = metadata["Version"]
     if name != expected_name or version != expected_version:
         raise ValueError(f"Unexpected distribution identity: {name} {version}")
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    expected_extras = set(config["project"]["optional-dependencies"])
+    provided_extras = set(metadata.get_all("Provides-Extra") or ())
+    if provided_extras != expected_extras:
+        raise ValueError(
+            "Distribution extras differ from pyproject.toml: "
+            f"expected {sorted(expected_extras)}, received {sorted(provided_extras)}"
+        )
     description = metadata.get_payload()
     required_description = {
         f"uv tool install dander-platform=={expected_version}",

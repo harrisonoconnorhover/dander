@@ -50,3 +50,9 @@ adapter routing arrives in later, separate portability changes.
 Warehouse adapters exchange [canonical relation and schema contracts](canonical-schema.md).
 Existing BigQuery connector/writer declarations remain valid and expose a one-way canonical view;
 the selected provider remains responsible for physical identifier rendering and type mapping.
+
+Provider SDKs can be installed independently with extras such as
+`dander-platform[postgres]` or `dander-platform[aws]`. The official OCI runtime installs
+`dander-platform[runtime-all]` so one immutable image can later serve any first-class adapter.
+Installing an extra does not make its provider selectable; configuration remains gated by the
+registered adapter and capability manifest.

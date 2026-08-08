@@ -34,7 +34,7 @@ jobs:
         run: uv run pytest
       - name: Dependency audit
         run: |
-          uv export --frozen --format requirements.txt --no-dev --no-emit-project \
+          uv export --frozen --extra runtime-all --format requirements.txt --no-dev --no-emit-project \
             --output-file /tmp/dander-requirements.txt
           uv run --with pip-audit pip-audit --strict -r /tmp/dander-requirements.txt
 
@@ -111,6 +111,11 @@ jobs:
             )
             INDEX=$((INDEX + 1))
           done
+          FULL_ENV="$TEMP_DIR/venv-runtime-all"
+          uv venv "$FULL_ENV"
+          uv pip install --python "$FULL_ENV/bin/python" "dist/dander_platform-${VERSION}-py3-none-any.whl[runtime-all]"
+          "$FULL_ENV/bin/python" -c \
+            'from dander.providers.dependencies import require_full_runtime; require_full_runtime()'
           terraform -chdir="$TEMP_DIR/project-0/infra" init -backend=false -input=false
           terraform -chdir="$TEMP_DIR/project-0/infra" validate
 

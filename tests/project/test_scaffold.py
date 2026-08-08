@@ -25,6 +25,9 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     assert manifest.deployment_name == "gcp_cloud_run"
     dockerfile = (project / "Dockerfile").read_text(encoding="utf-8")
     assert f"ARG DANDER_VERSION={__version__}" in dockerfile
+    assert "apt-get install --yes --no-install-recommends libpq5" in dockerfile
+    assert "dander-platform[runtime-all]==${DANDER_VERSION}" in dockerfile
+    assert "require_full_runtime" in dockerfile
     assert "RUN dander plugins install --config dander.yaml" in dockerfile
     assert "COPY --chown=65532:65532 dander.yaml ./dander.yaml" in dockerfile
     assert "COPY --chown=65532:65532 dander.platforms.yaml ./dander.platforms.yaml" in dockerfile
