@@ -29,13 +29,17 @@ record content. The retained Dander project is out of scope.
    `repository_url`.
 2. Generate a fresh project from the public package into an operator temp directory. Confirm it
    has no `src/` directory.
-3. Generate an AWS external-account file for the deterministic provider name and probe service
-   account. This command writes configuration, not a secret:
+3. Select one deterministic `proof_name` for the complete smoke proof. The default is
+   `dander-phase1b`; use a new value such as `dander-phase1b-r2` when a previous Workload Identity
+   Pool with the default ID is still soft-deleted. Keep the value with the saved Terraform inputs.
+   Generate an AWS external-account file for the matching provider name and probe service account.
+   This command writes configuration, not a secret:
 
    ```console
+   PROOF_NAME=dander-phase1b-r2
    gcloud iam workload-identity-pools create-cred-config \
-     projects/1009770943166/locations/global/workloadIdentityPools/dander-phase1b-aws/providers/fargate \
-     --service-account=dander-phase1b-aws@project-092b24a8-26a3-4438-8cd.iam.gserviceaccount.com \
+     "projects/1009770943166/locations/global/workloadIdentityPools/${PROOF_NAME}-aws/providers/fargate" \
+     --service-account="${PROOF_NAME}-aws@project-092b24a8-26a3-4438-8cd.iam.gserviceaccount.com" \
      --aws --output-file="$OPERATOR_DIR/external-account.json"
    ```
 
@@ -68,9 +72,11 @@ record content. The retained Dander project is out of scope.
 
    The command fails unless the index digest and both runnable platform-manifest digests are
    identical after the copy.
-7. Set the verified ECR digest in `smoke/terraform.tfvars`, initialize `smoke/`, save and review its
-   plan, then apply only that saved plan. The execution role can pull/log; the separate task role
-   has no AWS permission policy and is the only role trusted by Google WIF.
+7. Set the verified ECR digest and the same `proof_name` in `smoke/terraform.tfvars`, initialize
+   `smoke/`, save and review its plan, then apply only that saved plan. The execution role can
+   pull/log; the separate task role has no AWS permission policy and is the only role trusted by
+   Google WIF. A changed name creates an independent disposable proof; it does not adopt or restore
+   a soft-deleted identity pool.
 8. For an accepted candidate, run exactly one Fargate task using the Terraform outputs for
    cluster, task definition, subnet, and security group. Wait for terminal status and save
    `describe-tasks` plus the CloudWatch log stream outside the repository. Failed candidates are

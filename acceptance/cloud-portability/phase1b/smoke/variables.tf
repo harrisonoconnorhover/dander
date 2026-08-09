@@ -9,6 +9,21 @@ variable "aws_region" {
   }
 }
 
+variable "proof_name" {
+  description = "Unique deterministic name for one disposable Phase 1B smoke proof."
+  type        = string
+  default     = "dander-phase1b"
+
+  validation {
+    condition = (
+      length(var.proof_name) >= 6 &&
+      length(var.proof_name) <= 26 &&
+      can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.proof_name))
+    )
+    error_message = "proof_name must be 6-26 lowercase letters, numbers, or hyphens, starting with a letter and ending with a letter or number."
+  }
+}
+
 variable "gcp_project_id" {
   description = "Disposable GCP project containing the bounded proof table."
   type        = string
