@@ -16,12 +16,13 @@ settings, then use the normal run path with SCD1. No AWS live profile was create
 
 ## Checks
 
-- Ruff, formatting, and strict mypy passed; all 1,063 tests passed with PostgreSQL 15 integration.
+- Ruff, formatting, and strict mypy passed; protected CI ran 1,083 tests with PostgreSQL 15.
 - Wheel/sdist build, inspection, outside-checkout installs, source-free generation, and full runtime
   dependency loading passed; strict dependency audit found no known vulnerabilities.
 - The exact final container built and passed non-root, read-only, runtime, and bundled-asset checks.
 - GCP/AWS Terraform roots and module tests, cross-cloud feasibility roots, and Helm checks passed.
 - Protected Linux CI passed Python, Terraform, distribution, container/security, and secret scans.
+- A refreshed retained-project plan from current `main` reported exactly `No changes.`
 
 ## Decisions
 
@@ -33,7 +34,7 @@ settings, then use the normal run path with SCD1. No AWS live profile was create
 
 ## Remaining
 
-- Resolve the pre-existing retained GCP no-drift baseline before merging provider work.
+- Merge the focused PR only through the protected-main process.
 - Qualify Redshift transforms, other write modes, and one live disposable AWS profile separately.
 
 ## Review First
