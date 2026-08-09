@@ -340,6 +340,7 @@ def test_admin_plan_runs_read_only_permission_preflight_before_terraform(
     def fake_preflight(**kwargs: object) -> None:
         events.append("preflight")
         assert kwargs["project"] == "unit-project"
+        assert kwargs["state_bucket"] == "unit-state"
 
     def fake_execute(self: object, **kwargs: object) -> Path:
         events.append("terraform")

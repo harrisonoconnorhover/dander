@@ -1,5 +1,12 @@
 # Engineering Decisions
 
+## 2026-08-09 — Permission checks follow the resource that owns the permission
+
+- **Project:** Stage zero tests project-scoped create and IAM permissions through Resource Manager.
+- **Bucket:** An existing state bucket's get/update permissions are tested through Cloud Storage's
+  bucket-specific endpoint; a 404 leaves creation and its authoritative checks to Terraform.
+- **Scope:** Billing-account and Workload Identity permission checks remain unchanged.
+
 ## 2026-08-09 — Phase 1B proof identities are repeatable after teardown
 
 - **Naming:** The disposable smoke root accepts one validated `proof_name`; its default preserves
