@@ -225,22 +225,22 @@ def test_hosted_project_run_wires_runtime_without_network(
     assert migrator.calls == 1
 
 
-def test_only_unfenced_postgresql_state_bigquery_warehouse_pair_fails_closed() -> None:
+def test_only_unsupported_postgresql_state_bigquery_warehouse_pair_fails_closed() -> None:
     with pytest.raises(ClickException, match="BigQuery write mode"):
-        run_module._require_supported_state_pair(
+        run_module._require_executable_state_pair(
             state_provider="postgresql",
             warehouse_provider="bigquery",
         )
 
-    run_module._require_supported_state_pair(
+    run_module._require_executable_state_pair(
         state_provider="bigquery",
         warehouse_provider="bigquery",
     )
-    run_module._require_supported_state_pair(
+    run_module._require_executable_state_pair(
         state_provider="postgresql",
         warehouse_provider="postgresql",
     )
-    run_module._require_supported_state_pair(
+    run_module._require_executable_state_pair(
         state_provider="bigquery",
         warehouse_provider="postgresql",
     )

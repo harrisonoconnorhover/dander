@@ -1,0 +1,60 @@
+"""The installed backend matrix is explicit, deterministic, and fail-closed."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+from typer.testing import CliRunner
+
+from dander.cli.main import app
+from dander.compatibility import (
+    CompatibilityError,
+    CompatibilityStatus,
+    load_runtime_compatibility,
+)
+
+
+def test_state_warehouse_matrix_covers_every_current_pair() -> None:
+    matrix = load_runtime_compatibility()
+
+    assert matrix.schema == "io.dander.runtime.compatibility/v1"
+    assert {(pair.state, pair.warehouse): pair.status for pair in matrix.state_warehouse_pairs} == {
+        ("bigquery", "bigquery"): CompatibilityStatus.SUPPORTED,
+        ("bigquery", "postgresql"): CompatibilityStatus.EXPERIMENTAL,
+        ("postgresql", "bigquery"): CompatibilityStatus.UNSUPPORTED,
+        ("postgresql", "postgresql"): CompatibilityStatus.EXPERIMENTAL,
+    }
+
+
+@pytest.mark.parametrize(
+    ("state", "warehouse"),
+    [
+        ("bigquery", "bigquery"),
+        ("bigquery", "postgresql"),
+        ("postgresql", "postgresql"),
+    ],
+)
+def test_executable_pairs_are_admitted(state: str, warehouse: str) -> None:
+    pair = load_runtime_compatibility().require_executable(state=state, warehouse=warehouse)
+
+    assert pair.status is not CompatibilityStatus.UNSUPPORTED
+
+
+def test_unsupported_and_unlisted_pairs_fail_with_a_reason() -> None:
+    matrix = load_runtime_compatibility()
+
+    with pytest.raises(CompatibilityError, match="every BigQuery write mode"):
+        matrix.require_executable(state="postgresql", warehouse="bigquery")
+    with pytest.raises(CompatibilityError, match="not in the installed compatibility matrix"):
+        matrix.require_executable(state="sqlite", warehouse="postgresql")
+
+
+def test_runtime_compatibility_cli_prints_one_deterministic_document() -> None:
+    result = CliRunner().invoke(app, ["runtime", "compatibility"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["schema"] == "io.dander.runtime.compatibility/v1"
+    assert len(payload["state_warehouse_pairs"]) == 4
+    assert result.output.strip() == load_runtime_compatibility().to_json()

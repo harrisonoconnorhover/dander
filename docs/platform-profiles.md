@@ -101,7 +101,8 @@ different database or change `authority_epoch` outside a reviewed state-backend 
 PostgreSQL state with a PostgreSQL warehouse is executable. BigQuery state with PostgreSQL is also
 transactionally fenced, although it is not a qualified hosted profile. PostgreSQL state with a
 BigQuery warehouse remains fail-closed until every BigQuery write mode uses the destination-side
-target fence rather than only the state-side lease transaction.
+target fence rather than only the state-side lease transaction. Run `dander runtime compatibility`
+to inspect this package's exact matrix; see [Runtime compatibility matrix](compatibility-matrix.md).
 
 Terminal `succeeded`, `failed`, and `skipped` history older than the configured retention is
 removed when migrations run. Active runs and `interrupted_run` records are retained. Dander
@@ -126,3 +127,5 @@ Graph execution remains follow-up work. The packaged existing-cluster Kubernetes
 render and verify this profile without cloud-specific identity assumptions, but no live cluster
 qualification has passed. Until that acceptance does, this adapter must not be represented as a
 supported hosted PostgreSQL deployment. See [Kubernetes existing-cluster launcher](kubernetes.md).
+The reproducible local scale harness and its non-qualification boundary are documented in
+[PostgreSQL portability benchmarks](postgresql-benchmarks.md).

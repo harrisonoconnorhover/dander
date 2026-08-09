@@ -17,6 +17,7 @@ from dander.catalog import (
     SqliteMetadataStore,
 )
 from dander.cli.provider_runtime import build_catalog_publisher, build_secret_store
+from dander.compatibility import CompatibilityError, load_runtime_compatibility
 from dander.core.config import Settings
 from dander.executor import PipelineExecutionResult, PipelineExecutor
 from dander.ingestion import Endpoint, Source, SourceConfig, load_source_config
@@ -437,7 +438,7 @@ def _build_warehouse_runtime(resolved: _ResolvedRun) -> WarehouseRuntime:
 
 
 def _build_state_runtime(resolved: _ResolvedRun) -> StateRuntime:
-    _require_supported_state_pair(
+    _require_executable_state_pair(
         state_provider=resolved.state_provider,
         warehouse_provider=resolved.warehouse_provider,
     )
@@ -465,12 +466,14 @@ def _build_state_runtime(resolved: _ResolvedRun) -> StateRuntime:
     return runtime
 
 
-def _require_supported_state_pair(*, state_provider: str, warehouse_provider: str) -> None:
-    if state_provider == "postgresql" and warehouse_provider == "bigquery":
-        raise ClickException(
-            "PostgreSQL state with BigQuery execution remains unavailable until every "
-            "BigQuery write mode uses the destination-side target fence"
+def _require_executable_state_pair(*, state_provider: str, warehouse_provider: str) -> None:
+    try:
+        load_runtime_compatibility().require_executable(
+            state=state_provider,
+            warehouse=warehouse_provider,
         )
+    except CompatibilityError as error:
+        raise ClickException(str(error)) from error
 
 
 def _requires_gcp_project(resolved: _ResolvedRun) -> bool:
