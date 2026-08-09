@@ -43,8 +43,11 @@ def kubernetes_plan(
         )
     except KubernetesOperationError as error:
         raise ClickException(str(error)) from error
-    console.print(f"[green]Kubernetes release rendered.[/green] Manifests: {plan.manifests}")
-    console.print(f"Review values: {plan.values}")
+    console.print(
+        f"[green]Kubernetes release rendered.[/green] Manifests: {plan.manifests}",
+        soft_wrap=True,
+    )
+    console.print(f"Review values: {plan.values}", soft_wrap=True)
     next_command = (
         "helm",
         "--kube-context",
