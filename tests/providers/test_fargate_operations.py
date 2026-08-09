@@ -191,7 +191,7 @@ def test_start_uses_exact_state_machine_and_operator_correlation(tmp_path: Path)
     operations, runner = _operations(
         tmp_path,
         {
-            ("states", "start-execution"): [
+            ("stepfunctions", "start-execution"): [
                 {"executionArn": started_arn, "startDate": "2026-08-08T21:00:00Z"}
             ]
         },
@@ -202,7 +202,13 @@ def test_start_uses_exact_state_machine_and_operator_correlation(tmp_path: Path)
     assert execution.execution_arn == started_arn
     assert execution.state == "running"
     command = runner.commands[0]
-    assert command[:5] == ("aws", "--profile", "dander-deploy", "states", "start-execution")
+    assert command[:5] == (
+        "aws",
+        "--profile",
+        "dander-deploy",
+        "stepfunctions",
+        "start-execution",
+    )
     assert command[command.index("--state-machine-arn") + 1] == MACHINE
     request = json.loads(command[command.index("--input") + 1])
     assert request == {
@@ -217,8 +223,8 @@ def test_latest_status_normalizes_runtime_output_without_provider_noise(tmp_path
     operations, _runner = _operations(
         tmp_path,
         {
-            ("states", "list-executions"): [{"executions": [{"executionArn": EXECUTION}]}],
-            ("states", "describe-execution"): [
+            ("stepfunctions", "list-executions"): [{"executions": [{"executionArn": EXECUTION}]}],
+            ("stepfunctions", "describe-execution"): [
                 _describe(
                     output={
                         "status": "succeeded",
@@ -253,8 +259,8 @@ def test_failed_status_recovers_only_normalized_fields_from_execution_history(
     operations, _runner = _operations(
         tmp_path,
         {
-            ("states", "describe-execution"): [_describe(status="FAILED")],
-            ("states", "get-execution-history"): [
+            ("stepfunctions", "describe-execution"): [_describe(status="FAILED")],
+            ("stepfunctions", "get-execution-history"): [
                 {"events": [{"stateExitedEventDetails": {"output": json.dumps(failure)}}]}
             ],
         },
@@ -274,8 +280,8 @@ def test_logs_find_the_task_in_execution_history_and_use_its_exact_stream(tmp_pa
     operations, runner = _operations(
         tmp_path,
         {
-            ("states", "describe-execution"): [_describe(status="RUNNING")],
-            ("states", "get-execution-history"): [
+            ("stepfunctions", "describe-execution"): [_describe(status="RUNNING")],
+            ("stepfunctions", "get-execution-history"): [
                 {
                     "events": [
                         {
@@ -305,8 +311,8 @@ def test_cancel_only_stops_an_owned_running_execution(tmp_path: Path) -> None:
     operations, runner = _operations(
         tmp_path,
         {
-            ("states", "describe-execution"): [_describe(status="RUNNING")],
-            ("states", "stop-execution"): [{"stopDate": "2026-08-08T21:00:30Z"}],
+            ("stepfunctions", "describe-execution"): [_describe(status="RUNNING")],
+            ("stepfunctions", "stop-execution"): [{"stopDate": "2026-08-08T21:00:30Z"}],
         },
     )
 
@@ -314,7 +320,10 @@ def test_cancel_only_stops_an_owned_running_execution(tmp_path: Path) -> None:
 
     assert cancelled.state == "cancelled"
     assert cancelled.failure_code == "operator_cancelled"
-    assert (runner.commands[-1][3], runner.commands[-1][4]) == ("states", "stop-execution")
+    assert (runner.commands[-1][3], runner.commands[-1][4]) == (
+        "stepfunctions",
+        "stop-execution",
+    )
 
 
 def test_replay_requires_terminal_execution_and_starts_a_fresh_name(tmp_path: Path) -> None:
@@ -322,8 +331,8 @@ def test_replay_requires_terminal_execution_and_starts_a_fresh_name(tmp_path: Pa
     operations, runner = _operations(
         tmp_path,
         {
-            ("states", "describe-execution"): [_describe()],
-            ("states", "start-execution"): [
+            ("stepfunctions", "describe-execution"): [_describe()],
+            ("stepfunctions", "start-execution"): [
                 {"executionArn": replay_arn, "startDate": "2026-08-08T21:02:00Z"}
             ],
         },
@@ -339,7 +348,7 @@ def test_replay_requires_terminal_execution_and_starts_a_fresh_name(tmp_path: Pa
 def test_replay_rejects_a_running_execution_without_starting_another(tmp_path: Path) -> None:
     operations, runner = _operations(
         tmp_path,
-        {("states", "describe-execution"): [_describe(status="RUNNING")]},
+        {("stepfunctions", "describe-execution"): [_describe(status="RUNNING")]},
     )
 
     with pytest.raises(FargateOperationError, match="terminal"):
@@ -363,7 +372,7 @@ def test_verify_checks_controller_schedule_image_logs_cluster_and_registry(tmp_p
     operations, _runner = _operations(
         tmp_path,
         {
-            ("states", "describe-state-machine"): [{"status": "ACTIVE"}],
+            ("stepfunctions", "describe-state-machine"): [{"status": "ACTIVE"}],
             ("ecs", "describe-clusters"): [
                 {
                     "clusters": [
@@ -427,7 +436,7 @@ def test_verify_fails_when_schedule_state_differs_from_manifest(tmp_path: Path) 
     operations, _runner = _operations(
         tmp_path,
         {
-            ("states", "describe-state-machine"): [{"status": "ACTIVE"}],
+            ("stepfunctions", "describe-state-machine"): [{"status": "ACTIVE"}],
             ("ecs", "describe-clusters"): [
                 {"clusters": [{"clusterArn": "cluster", "status": "ACTIVE"}], "failures": []}
             ],
