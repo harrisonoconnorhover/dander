@@ -834,3 +834,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   final concurrency defense.
 - **Qualification:** Plan rendering and read-only cluster verification are implemented. Kubernetes
   plus native PostgreSQL remains unsupported until an existing-cluster end-to-end proof passes.
+
+## 2026-08-08 — Backend compatibility is package-owned and qualification stays explicit
+
+- **Matrix:** The installed package publishes every current BigQuery/PostgreSQL state/warehouse
+  pair through `dander runtime compatibility`; absent and unsupported pairs fail before provider
+  construction.
+- **Evidence:** BigQuery-state/PostgreSQL-warehouse accepts the resolved BigQuery authority in the
+  PostgreSQL destination fence and rejects the older token after a newer claim. PostgreSQL native
+  remains experimental until its Kubernetes live profile passes.
+- **Scale:** The repository benchmark exercises bounded batches, independent pipeline concurrency,
+  stale-fence rejection, and staging cleanup. A local smoke cannot claim the controlled-memory SLO.

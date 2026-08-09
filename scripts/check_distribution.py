@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 WHEEL_REQUIRED = {
+    "dander/runtime-compatibility.json",
     "dander/templates/project/.dockerignore",
     "dander/templates/project/.gitignore",
     "dander/templates/project/Dockerfile",
@@ -40,10 +41,13 @@ WHEEL_REQUIRED = {
 SDIST_REQUIRED = {
     "LICENSE",
     "README.md",
+    "docs/compatibility-matrix.md",
+    "docs/postgresql-benchmarks.md",
     "examples/salesforce/dander.yaml",
     "infra/main.tf",
     "infra/kubernetes/chart/dander/Chart.yaml",
     "pyproject.toml",
+    "scripts/benchmarks/postgresql.py",
     "src/dander/project/scaffold.py",
 }
 

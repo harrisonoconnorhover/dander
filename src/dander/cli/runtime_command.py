@@ -12,6 +12,7 @@ from click import ClickException
 from rich.console import Console
 
 from dander.cli.run_command import RunOptions, execute_run
+from dander.compatibility import CompatibilityError, load_runtime_compatibility
 from dander.identity import prepare_launcher_identity
 from dander.runtime_contract import (
     RUNTIME_CONTRACT,
@@ -33,6 +34,16 @@ runtime_app = typer.Typer(
     no_args_is_help=True,
 )
 _CONSOLE = Console()
+
+
+@runtime_app.command("compatibility")
+def compatibility_runtime_command() -> None:
+    """Print the package-owned provider compatibility matrix without provider access."""
+    try:
+        compatibility = load_runtime_compatibility()
+    except CompatibilityError as error:
+        raise ClickException(str(error)) from error
+    typer.echo(compatibility.to_json())
 
 
 @runtime_app.command("inspect")

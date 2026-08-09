@@ -15,7 +15,9 @@ evaluate these limits before using it for an unattended system containing busine
   chart now renders the Kubernetes launcher against an existing cluster, but no Kubernetes live
   profile is qualified yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse
   execution remains fail-closed until every BigQuery write mode uses destination-side fencing. The
-  packaged capability manifest is the support boundary.
+  package publishes this pair matrix through `dander runtime compatibility`, while the packaged
+  capability manifest remains the support boundary. Local PostgreSQL benchmark results are
+  regression evidence, not a paid or controlled-memory scale qualification.
 - The reserved `oci` extra is empty because Oracle's current SDK requires a `cryptography` version
   below Dander's audited fixed line. OCI implementation must resolve that dependency boundary or
   use a reviewed direct signed-HTTP client before it can enter the full image.

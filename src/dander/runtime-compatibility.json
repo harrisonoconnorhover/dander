@@ -1,0 +1,29 @@
+{
+  "schema": "io.dander.runtime.compatibility/v1",
+  "state_warehouse_pairs": [
+    {
+      "state": "bigquery",
+      "warehouse": "bigquery",
+      "status": "supported",
+      "reason": "Released GCP profile with destination-side BigQuery fencing."
+    },
+    {
+      "state": "bigquery",
+      "warehouse": "postgresql",
+      "status": "experimental",
+      "reason": "Locally conformance-tested with destination-side PostgreSQL fencing; no live hosted profile is qualified."
+    },
+    {
+      "state": "postgresql",
+      "warehouse": "bigquery",
+      "status": "unsupported",
+      "reason": "PostgreSQL state with BigQuery execution remains unavailable until every BigQuery write mode uses the destination-side target fence."
+    },
+    {
+      "state": "postgresql",
+      "warehouse": "postgresql",
+      "status": "experimental",
+      "reason": "Local native-profile conformance passed; Kubernetes live qualification remains pending."
+    }
+  ]
+}
