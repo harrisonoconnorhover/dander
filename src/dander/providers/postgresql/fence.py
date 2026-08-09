@@ -12,6 +12,8 @@ from dander.concurrency import FencingToken, TargetFence, TargetFenceLostError
 from dander.warehouse.runtime import PreparedWarehouseStatement
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from dander.warehouse.contracts import RelationRef
 
 PostgreSQLPool = ConnectionPool[Connection[dict[str, object]]]
@@ -69,14 +71,9 @@ class PostgreSQLTargetFence:
     def prepare_dml(self, statement: str, fence: TargetFence) -> PreparedWarehouseStatement:
         """Return DML plus the exact transactional fence operations it requires."""
         finalizer = statement.strip().removesuffix(";")
-        table = _postgresql_fence_identifier(fence.fence_table)
         return PreparedWarehouseStatement(
             sql=finalizer,
-            options=PostgreSQLFencePlan(
-                touch_sql=_postgresql_target_touch_sql(table),
-                commit_sql=_postgresql_target_commit_sql(table),
-                parameters=_postgresql_claim_parameters(fence),
-            ),
+            options=self._plan(fence),
         )
 
     def execute_dml(
@@ -97,6 +94,36 @@ class PostgreSQLTargetFence:
             if connection.execute(plan.commit_sql, plan.parameters).fetchone() is None:
                 raise TargetFenceLostError("Dander destination fence lost during publication")
         return result
+
+    def execute_statements(
+        self,
+        connection: Connection[dict[str, object]],
+        statements: Sequence[sql.SQL | sql.Composed],
+        fence: TargetFence,
+    ) -> Cursor[dict[str, object]]:
+        """Publish one ordered PostgreSQL statement group behind an exact target fence."""
+        if not statements:
+            raise ValueError("PostgreSQL fenced publication requires at least one statement")
+        plan = self._plan(fence)
+        with connection.transaction():
+            if connection.execute(plan.touch_sql, plan.parameters).fetchone() is None:
+                raise TargetFenceLostError("Dander destination fence lost before publication")
+            result: Cursor[dict[str, object]] | None = None
+            for statement in statements:
+                result = connection.execute(statement)
+            if connection.execute(plan.commit_sql, plan.parameters).fetchone() is None:
+                raise TargetFenceLostError("Dander destination fence lost during publication")
+        assert result is not None
+        return result
+
+    @staticmethod
+    def _plan(fence: TargetFence) -> PostgreSQLFencePlan:
+        table = _postgresql_fence_identifier(fence.fence_table)
+        return PostgreSQLFencePlan(
+            touch_sql=_postgresql_target_touch_sql(table),
+            commit_sql=_postgresql_target_commit_sql(table),
+            parameters=_postgresql_claim_parameters(fence),
+        )
 
 
 def _postgresql_target_fence_table_sql(table: sql.Identifier) -> sql.Composed:

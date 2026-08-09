@@ -120,7 +120,9 @@ publication inside a transactionally verified destination fence. Temporary stagi
 `ON COMMIT DROP`; nullable top-level columns may be added when additive evolution is selected.
 
 The configured database must already exist. Runtime-created connections require TLS, and the DSN
-is supplied only through the configured environment variable. The first slice supports PostgreSQL
-15+, SCD1, and canonical scalar/array/JSON mappings. Transform execution, assertions, launcher
-projection, and version 2 profile selection remain separate follow-up work; until then this adapter
-must not be represented as an end-to-end supported PostgreSQL deployment.
+is supplied only through the configured environment variable. The adapter supports PostgreSQL
+15+, SCD1 ingestion, canonical scalar/array/JSON mappings, portable or PostgreSQL-exact model SQL,
+table/view/incremental materialization, and the four generic assertions. Every materialization is
+claimed and published through its destination target fence. Graph execution, launcher projection,
+and version 2 profile selection remain separate follow-up work; until then this adapter must not be
+represented as an end-to-end supported PostgreSQL deployment.

@@ -13,6 +13,7 @@ from psycopg_pool import ConnectionPool
 
 from dander.providers.postgresql.config import PostgreSQLWarehouseConfig
 from dander.providers.postgresql.fence import PostgreSQLTargetFence
+from dander.providers.postgresql.transform import PostgreSQLTransformRunner
 from dander.providers.postgresql.writer import PostgreSQLScd1Writer, PostgreSQLTimeouts
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.telemetry import OperationTelemetry, TelemetryOperation
@@ -94,17 +95,29 @@ class PostgreSQLWriterFactory:
 
 @dataclass(frozen=True, slots=True)
 class PostgreSQLTransformFactory:
-    """Fail clearly until the PostgreSQL transform runner lands."""
+    """Construct PostgreSQL model execution while rejecting graph plans."""
+
+    database: str
+    pool: PostgreSQLPool
+    target_fence: PostgreSQLTargetFence
+    timeouts: PostgreSQLTimeouts
 
     def build_transform_runner(
         self,
         *,
         graph_plan: object | None,
         build_models: bool,
-    ) -> None:
-        if graph_plan is not None or build_models:
-            raise ValueError("PostgreSQL transforms are not available in this adapter slice")
-        return None
+    ) -> PostgreSQLTransformRunner | None:
+        if graph_plan is not None:
+            raise ValueError("PostgreSQL graph execution is not available")
+        if not build_models:
+            return None
+        return PostgreSQLTransformRunner(
+            database=self.database,
+            pool=self.pool,
+            target_fence=self.target_fence,
+            timeouts=self.timeouts,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,7 +148,7 @@ POSTGRESQL_CAPABILITIES = WarehouseCapabilities(
     schema_contract_version=1,
     write_modes=frozenset({WriteMode.SCD1}),
     transports=frozenset({WriteTransport.COPY}),
-    supports_transforms=False,
+    supports_transforms=True,
     supports_graphs=False,
     supports_target_fencing=True,
 )
@@ -188,7 +201,7 @@ def build_postgresql_warehouse(
         relation_codec=PostgreSQLRelationCodec(config.database),
         schema_mapper=PostgreSQLSchemaMapper(),
         writers=PostgreSQLWriterFactory(config.database, pool, target_fence, timeouts),
-        transforms=PostgreSQLTransformFactory(),
+        transforms=PostgreSQLTransformFactory(config.database, pool, target_fence, timeouts),
         target_fence=target_fence,
         telemetry=PostgreSQLTelemetry(),
         capabilities=POSTGRESQL_CAPABILITIES,

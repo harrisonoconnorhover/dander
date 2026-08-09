@@ -134,7 +134,7 @@ def test_postgresql_runtime_exposes_codec_schema_capabilities_and_telemetry(
     assert schema.fields[2].data_type.kind is LogicalTypeKind.ARRAY
     assert runtime.capabilities.write_modes == frozenset({WriteMode.SCD1})
     assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
-    assert runtime.capabilities.supports_transforms is False
+    assert runtime.capabilities.supports_transforms is True
     assert telemetry.rows_affected == 9
 
 
