@@ -31,6 +31,11 @@ cloud path remains outside the live proof.
   replayed without duplicate keys or cursor regression, skipped an overlapping run, recovered
   from a bounded interruption, released its lease, removed staging, and finished with Terraform
   no-drift. See `docs/cloud-portability-phase1-acceptance.md`.
+- Public Dander `0.8.0rc1` passed the separate Phase 1B feasibility gate: one source-free
+  multi-platform index remained byte-identical across GAR and ECR, completed Cloud Run
+  conformance on AMD64, and queried BigQuery from one ARM64 Fargate task before and after keyless
+  Google credential refresh. All proof resources were removed, and Fargate remains experimental.
+  See `docs/cloud-portability-phase1b-acceptance.md`.
 - Retained source-free Dander image: `sha256:3220623…8995`, built with Dander `0.5.0` and both
   plugin `0.2.0` packages. Dander `0.5.1` changes only catalog recommendations, so the runtime
   image was intentionally not replaced.

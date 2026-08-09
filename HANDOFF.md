@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Prepared metadata-only Dander `0.8.0rc1` from current protected main.
-- Recorded the rejected public-`0.7.0` Phase 1B image and complete teardown.
-- Updated release-facing version references, lockfile, and generated-project assertions.
-- Corrected the retained runtime record to Dander `0.7.1` with the stable connector pins.
+- Published public Dander `0.8.0rc1` from protected main.
+- Passed Phase 1B with byte-identical GAR/ECR AMD64 and ARM64 image content.
+- Proved one ARM64 Fargate task queried BigQuery before and after keyless credential refresh.
+- Proved the same OCI index on Cloud Run AMD64 and removed every temporary proof resource.
+- Added the sanitized acceptance record and exact-hash public-fixture handling.
 
 ## Try It
 
-After explicit publication approval, tag the merged commit `v0.8.0rc1`, publish through the
-protected workflow, and install it outside the checkout before rebuilding Phase 1B.
+Review `docs/cloud-portability-phase1b-acceptance.md`; run
+`uv run pytest tests/portability/test_phase1b_tools.py -q` for focused tooling checks.
 
 ## Checks
 
-- Ruff, format, strict mypy, dependency audit, and 1,113 tests passed against PostgreSQL 15.
-- Wheel/sdist inspection, isolated source-free and runtime-all installs, generated-project
-  validation, Terraform, Helm, and non-root/read-only container conformance passed.
-- Retained stage zero and the unchanged `main` runtime/infra planner each reported exactly
-  `No changes.` The candidate planner proposed only five expected `dander_version` label updates;
-  no plan was applied.
+- Ruff, format, strict mypy, dependency audit, release metadata, and 1,114 tests passed against PostgreSQL 15.
+- Public package install, source-free generation, validation, Terraform validation, and image build passed.
+- Fargate exited 0 after two 17-row queries and observed a later credential expiry; Cloud Run exited 0.
+- Credential scans passed; Docker Scout found zero application-layer or fixable high/critical findings.
+- All proof destroy plans applied; the isolated GCP platform reported exactly `No changes.`
 
 ## Decisions
 
-- Use the next minor candidate because public `0.7.0` is immutable and current main adds features.
-- Keep this PR metadata-only; the accepted candidate must contain the already-reviewed main code.
-- Treat the candidate's planner-version labels as release metadata, not live infrastructure drift.
+- Phase 1B is feasibility evidence, not a Fargate support promotion.
+- Exact public boto fixture contents are recognized by hash; modified content fails scanning.
+- Unfixed base-image advisories are recorded, not hidden or represented as application findings.
 
 ## Remaining
 
-- Let protected CI repeat Linux packaging, container, configuration, and secret scans.
-- Merge through protected main, then obtain explicit tag/PyPI publication approval.
-- Rebuild Phase 1B once from the public candidate using a fresh proof identity.
+- Let protected CI repeat Linux tests, packaging, container, and secret checks.
+- Merge this evidence-only PR through protected main after review.
+- Continue the roadmap's next uncompleted live qualification gate; do not publish another candidate automatically.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `acceptance/cloud-portability/phase1b/README.md`
+- `docs/cloud-portability-phase1b-acceptance.md`
+- `scripts/portability/scan_long_lived_credentials.py`
+- `tests/portability/test_phase1b_tools.py`

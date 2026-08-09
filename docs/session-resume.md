@@ -33,6 +33,11 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-09, public Dander `0.8.0rc1` passed the isolated Phase 1B feasibility gate. One
+  source-free multi-platform OCI index retained identical GAR/ECR and per-platform digests;
+  Cloud Run completed on AMD64 and one ARM64 Fargate task queried BigQuery before and after a
+  keyless Google credential refresh. All proof resources were destroyed and the isolated GCP
+  platform finished at no drift. See `docs/cloud-portability-phase1b-acceptance.md`.
 - On 2026-08-07, the isolated source-free `0.7.0rc2` image completed local/Cloud Run OCI parity,
   four-endpoint Salesforce ingestion, governed transforms/tests, replay, overlap skip,
   SIGTERM/SIGKILL recovery, Dataplex publication, lease and staging cleanup, and a final no-drift
