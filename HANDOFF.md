@@ -2,35 +2,36 @@
 
 ## Finished
 
-- Merged the focused Fargate SNS policy correction through protected main as PR #152.
-- Prepared release-only metadata for `dander-platform==0.8.0rc3`.
-- Kept `src/dander`, Terraform, manifests, and provider support declarations unchanged.
+- Reproduced the public rc3 Fargate verification failure against the live proof stack.
+- Corrected all six Fargate AWS CLI operations to use the `stepfunctions` namespace.
+- Preserved Step Functions ARN service names, IAM actions, Terraform, and runtime semantics.
+- Updated focused command and fake-response tests.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate.
+Run `uv run pytest -q tests/providers/test_fargate_operations.py`.
 
 ## Checks
 
-- PR #152 passed Python, Terraform, packaging, container, and secret checks.
-- The isolated recovery plan reported exactly one add, zero changes, and zero destroys.
-- Release metadata validation and focused tests passed.
+- A source-free built wheel verified both deployed Fargate controllers and paused schedules.
+- Focused Fargate operation tests passed.
+- Ruff lint/format and strict MyPy passed.
+- Full Python and protected Terraform checks passed.
 - Wheel/sdist inspection and source-free installation passed outside the checkout.
 
 ## Decisions
 
-- `0.8.0rc3` replaces rc2 for complete Fargate lifecycle acceptance.
-- Fargate remains experimental until the lifecycle gate passes.
+- Only the AWS CLI namespace changes; ARN and IAM vocabulary correctly remains `states`.
+- A replacement candidate is required because rc3 live operator commands cannot run.
 
 ## Remaining
 
-- Merge this release-only PR after protected checks pass.
-- Tag and publish `0.8.0rc3` from the exact merge commit.
-- Re-plan the partial proof stack from the public package and require only the expected resource.
+- Merge this focused fix through protected main.
+- Prepare, tag, and publish `0.8.0rc4` from the exact protected merge.
+- Reinstall rc4 source-free and rerun read-only Fargate verification.
 - Record replay, interruption, scheduling, alert, rollback, cleanup, and no-drift evidence.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `docs/session-resume.md`
+- `src/dander/providers/fargate/operations.py`
+- `tests/providers/test_fargate_operations.py`

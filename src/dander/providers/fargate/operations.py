@@ -238,7 +238,7 @@ class FargateOperations:
     def latest(self) -> FargateExecution | None:
         """Return the latest controller execution, if one exists."""
         payload = self._json(
-            "states",
+            "stepfunctions",
             "list-executions",
             "--state-machine-arn",
             self.binding.state_machine_arn,
@@ -258,7 +258,9 @@ class FargateOperations:
     def describe(self, execution_arn: str) -> FargateExecution:
         """Return normalized status for one owned execution."""
         name = self.binding.validate_execution_arn(execution_arn)
-        payload = self._json("states", "describe-execution", "--execution-arn", execution_arn)
+        payload = self._json(
+            "stepfunctions", "describe-execution", "--execution-arn", execution_arn
+        )
         if payload.get("executionArn") != execution_arn:
             raise FargateOperationError("AWS returned an unexpected execution")
         status = payload.get("status")
@@ -331,7 +333,7 @@ class FargateOperations:
         if execution.state != "running":
             raise FargateOperationError("Only a running execution can be cancelled")
         payload = self._json(
-            "states",
+            "stepfunctions",
             "stop-execution",
             "--execution-arn",
             execution_arn,
@@ -363,7 +365,7 @@ class FargateOperations:
                 "Expected image is not an immutable ECR image in this deployment"
             )
         machine = self._json(
-            "states",
+            "stepfunctions",
             "describe-state-machine",
             "--state-machine-arn",
             self.binding.state_machine_arn,
@@ -477,7 +479,7 @@ class FargateOperations:
             "scheduler_execution_id": correlation,
         }
         payload = self._json(
-            "states",
+            "stepfunctions",
             "start-execution",
             "--state-machine-arn",
             self.binding.state_machine_arn,
@@ -507,7 +509,7 @@ class FargateOperations:
         """Return one owned execution's bounded history for allow-listed field extraction."""
         self.binding.validate_execution_arn(execution_arn)
         payload = self._json(
-            "states",
+            "stepfunctions",
             "get-execution-history",
             "--execution-arn",
             execution_arn,
