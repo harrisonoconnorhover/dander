@@ -26,11 +26,11 @@ PROVIDER_DEPENDENCY_SETS = (
     ),
     ProviderDependencySet(
         extra="snowflake",
-        distributions=("snowflake-connector-python",),
+        distributions=("pyarrow", "snowflake-connector-python"),
     ),
     ProviderDependencySet(
         extra="redshift",
-        distributions=("boto3", "redshift-connector"),
+        distributions=("boto3", "pyarrow", "redshift-connector"),
     ),
     ProviderDependencySet(
         extra="postgres",

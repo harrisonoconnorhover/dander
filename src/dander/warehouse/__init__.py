@@ -26,6 +26,12 @@ from dander.warehouse.runtime import (
     WarehouseTransformRunner,
     WarehouseWriterFactory,
 )
+from dander.warehouse.staging import (
+    ParquetStagingSession,
+    StagedArtifact,
+    StagingArtifactError,
+    StagingManifest,
+)
 
 __all__ = [
     "BigQuerySchemaCompatibilityError",
@@ -33,11 +39,15 @@ __all__ = [
     "CanonicalType",
     "FieldCardinality",
     "LogicalTypeKind",
+    "ParquetStagingSession",
     "ProviderExtension",
     "PreparedWarehouseStatement",
     "RelationCodec",
     "RelationRef",
     "RelationSchema",
+    "StagedArtifact",
+    "StagingArtifactError",
+    "StagingManifest",
     "WarehouseCapabilities",
     "WarehouseRuntime",
     "WarehouseSchemaMapper",

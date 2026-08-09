@@ -845,3 +845,12 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   remains experimental until its Kubernetes live profile passes.
 - **Scale:** The repository benchmark exercises bounded batches, independent pipeline concurrency,
   stale-fence rejection, and staging cleanup. A local smoke cannot claim the controlled-memory SLO.
+
+## 2026-08-08 — Snowflake and Redshift share bounded Parquet artifacts, not loaders
+
+- **Boundary:** One run-scoped session maps canonical schema v1 to bounded, compressed Parquet
+  parts. Provider upload, remote stage lifecycle, `COPY`, and publication remain separate adapters.
+- **Integrity:** Every part is owner-only and content-addressed with SHA-256; the deterministic
+  manifest exposes counts and fingerprints but no row values, credentials, or provider locations.
+- **Cleanup:** Normal exit removes only the exact owned run directory. One oversized record may
+  exceed the logical-byte target but stays a singleton; remote adapters must enforce service limits.
