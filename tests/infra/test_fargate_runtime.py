@@ -83,6 +83,18 @@ def test_scheduler_delivery_is_separate_paused_aware_and_dead_lettered() -> None
     assert 'resource "aws_kms_key" "failure_topic"' in module
     assert "enable_key_rotation     = true" in module
     assert "kms_master_key_id = aws_kms_key.failure_topic.arn" in module
+    assert '"sns:*"' not in module.lower()
+    for topic_action in (
+        "sns:AddPermission",
+        "sns:DeleteTopic",
+        "sns:GetTopicAttributes",
+        "sns:ListSubscriptionsByTopic",
+        "sns:Publish",
+        "sns:RemovePermission",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+    ):
+        assert f'"{topic_action}"' in module
 
 
 def test_aws_stack_contains_no_static_cloud_credentials_or_apply_path() -> None:
