@@ -6,6 +6,14 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.8.0rc3 — 2026-08-09 (beta)
+
+### Fixed
+
+- Replace an invalid wildcard in the Fargate failure-topic resource policy with the explicit
+  topic-scoped SNS actions accepted by AWS. This allows a fresh or resumed Fargate platform apply
+  to finish without changing runtime behavior or the restricted EventBridge failure publisher.
+
 ## 0.8.0rc2 — 2026-08-09 (beta)
 
 ### Candidate
