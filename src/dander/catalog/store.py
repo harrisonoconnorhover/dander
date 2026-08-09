@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 from google.cloud import bigquery
 
+from dander.identity import google_client_options
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
@@ -73,7 +75,10 @@ class BigQueryMetadataStore(MetadataStore):
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dataset):
             raise ValueError(f"Invalid BigQuery dataset: {dataset!r}")
         self._table = f"{project}.{dataset}._dander_catalog"
-        self._client = client or cast("_Client", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_Client",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._ready = False
 
     def migrate(self) -> None:

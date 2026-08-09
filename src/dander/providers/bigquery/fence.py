@@ -10,6 +10,7 @@ from google.cloud import bigquery
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import FencingToken, TargetFence, TargetFenceLostError
+from dander.identity import google_client_options
 from dander.warehouse.runtime import PreparedWarehouseStatement
 
 if TYPE_CHECKING:
@@ -94,7 +95,10 @@ class BigQueryTargetFence:
 
     def _required_client(self) -> _FenceClient:
         if self.client is None:
-            self.client = cast("_FenceClient", bigquery.Client(project=self.project))
+            self.client = cast(
+                "_FenceClient",
+                bigquery.Client(project=self.project, **google_client_options()),
+            )
         return self.client
 
 

@@ -13,7 +13,7 @@ from rich.console import Console
 
 from dander.cli.run_command import RunOptions, execute_run
 from dander.compatibility import CompatibilityError, load_runtime_compatibility
-from dander.identity import prepare_launcher_identity
+from dander.identity import launcher_identity
 from dander.runtime_contract import (
     RUNTIME_CONTRACT,
     LauncherContext,
@@ -144,8 +144,7 @@ def execute_runtime(
         dataplex_location="us",
     )
     try:
-        with graceful_signal_handlers():
-            prepare_launcher_identity(context)
+        with graceful_signal_handlers(), launcher_identity(context):
             result = execute_run(
                 options,
                 console=_CONSOLE,

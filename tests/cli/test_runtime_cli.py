@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, cast
 
 from click import ClickException
@@ -16,7 +17,7 @@ from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.runtime_contract import RuntimeCancelledError, RuntimeExitCode
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from pytest import MonkeyPatch
     from rich.console import Console
@@ -238,10 +239,12 @@ def test_runtime_execute_rejects_unknown_contract_before_start() -> None:
 def test_runtime_execute_sanitizes_fargate_identity_failure(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    def identity_failure(_context: object) -> None:
+    @contextmanager
+    def identity_failure(_context: object) -> Iterator[None]:
         raise FargateIdentityError("temporary credential detail")
+        yield
 
-    monkeypatch.setattr(runtime_module, "prepare_launcher_identity", identity_failure)
+    monkeypatch.setattr(runtime_module, "launcher_identity", identity_failure)
     result = CliRunner().invoke(
         app,
         [

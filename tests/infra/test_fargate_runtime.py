@@ -50,9 +50,11 @@ def test_fargate_task_is_immutable_nonroot_and_uses_separate_roles() -> None:
 
 def test_controller_owns_deadline_and_only_runtime_exit_75_retries() -> None:
     module = _source(MODULE)
+    variables = _source(AWS_ROOT / "modules/fargate/variables.tf")
 
     assert module.count('Resource       = "arn:${local.partition}:states:::ecs:runTask.sync"') == 1
     assert "TimeoutSeconds = each.value.resources.deadline_seconds" in module
+    assert "projection.resources.deadline_seconds <= 86400" in variables
     assert "NumericEquals = 75" in module
     assert 'failure_code            = "runtime_retry_exhausted"' in module
     assert 'failure_code         = "launcher_deadline_exceeded"' in module

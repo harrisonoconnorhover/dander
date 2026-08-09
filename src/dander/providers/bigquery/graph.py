@@ -11,6 +11,7 @@ from google.cloud import bigquery
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import fenced_dml, fencing_job_config
+from dander.identity import google_client_options
 from dander.pipeline.compiler import (
     CompiledTarget,
     PipelineCompileError,
@@ -78,7 +79,10 @@ class BigQueryGraphRunner:
             _validate_target(target, project)
         self._plan = plan
         self._project = project
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
 
     def build(
         self,

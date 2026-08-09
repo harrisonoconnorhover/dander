@@ -6,9 +6,10 @@ evaluate these limits before using it for an unattended system containing busine
 - AWS ECS/Fargate is not yet a supported Dander launcher. Packaged stage-zero and platform roots
   now have public saved-plan/apply commands, and accepted OCI artifacts can be copied into ECR
   without rebuilding. Manifest-bound status, logs, cancellation, replay, and deployment
-  verification are implemented but not live-qualified. The runtime bridge copies one temporary ECS
-  task-role session into process memory and therefore caps a Fargate projection at one hour;
-  renewable credentials and live parity remain later gates.
+  verification are implemented but not live-qualified. The runtime bridge now renews its AWS
+  task-role input from the fixed ECS endpoint for each Google federation refresh without persisting
+  task credentials. Complete pipeline parity, interruption, replay, schedule, alert, rollback, and
+  no-drift acceptance remain later gates.
 - Provider package extras and the full runtime image do not by themselves qualify Snowflake,
   Redshift, AWS, Azure, or OCI profiles. Snowflake has an experimental scalar SCD1 adapter with
   bounded Parquet upload, temporary remote staging, schema checks, destination fencing, and fenced

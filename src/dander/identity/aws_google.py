@@ -1,4 +1,4 @@
-"""Adapt short-lived Fargate task-role credentials for Google workload federation."""
+"""Adapt renewable Fargate task-role credentials for Google workload federation."""
 
 from __future__ import annotations
 
@@ -6,12 +6,14 @@ import json
 import os
 import re
 import urllib.request
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from collections.abc import MutableMapping
+    from collections.abc import Callable, Iterator, MutableMapping
+    from typing import Any
 
     from dander.runtime_contract import LauncherContext
 
@@ -23,6 +25,7 @@ _AWS_CREDENTIAL_NAMES = (
     "AWS_SECRET_ACCESS_KEY",
     "AWS_SESSION_TOKEN",
 )
+_AWS_REGION = re.compile(r"^[a-z]{2}(?:-gov)?-[a-z]+-[0-9]+$")
 _WIF_AUDIENCE = re.compile(
     r"^//iam\.googleapis\.com/projects/[0-9]{6,20}/locations/global/"
     r"workloadIdentityPools/[a-z][a-z0-9-]{3,31}/providers/[a-z][a-z0-9-]{3,31}$"
@@ -31,7 +34,12 @@ _SERVICE_ACCOUNT = re.compile(
     r"^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]"
     r"\.iam\.gserviceaccount\.com$"
 )
-_DEFAULT_CREDENTIAL_PATH = Path("/tmp/dander-gcp-wif.json")
+_AWS_SUBJECT_TOKEN_TYPE = "urn:ietf:params:aws:token-type:aws4_request"
+_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
+_RUNTIME_GOOGLE_CREDENTIALS: ContextVar[object | None] = ContextVar(
+    "dander_runtime_google_credentials",
+    default=None,
+)
 
 
 class FargateIdentityError(RuntimeError):
@@ -43,6 +51,17 @@ class CredentialFetcher(Protocol):
         """Return one parsed ECS task-credential response."""
 
 
+class GoogleCredentialFactory(Protocol):
+    def __call__(
+        self,
+        *,
+        audience: str,
+        service_account: str,
+        supplier: _FargateCredentialSupplier,
+    ) -> object:
+        """Build renewable Google credentials from one task-role supplier."""
+
+
 def _fetch_ecs_credentials(url: str) -> object:
     request = urllib.request.Request(url, headers={"Accept": "application/json"})
     with urllib.request.urlopen(request, timeout=5) as response:  # noqa: S310
@@ -51,20 +70,81 @@ def _fetch_ecs_credentials(url: str) -> object:
         return json.load(response)
 
 
-def prepare_launcher_identity(context: LauncherContext) -> None:
-    """Prepare only the selected launcher's ambient identity before provider clients start."""
+class _FargateCredentialSupplier:
+    """Supply a fresh ECS task-role session whenever Google Auth refreshes."""
+
+    def __init__(
+        self,
+        *,
+        environ: MutableMapping[str, str],
+        fetch: CredentialFetcher,
+        clock: Callable[[], datetime],
+    ) -> None:
+        self._environ = environ
+        self._fetch = fetch
+        self._clock = clock
+        self._relative_uri = _validated_relative_uri(environ)
+        self._region = _validated_region(environ)
+        _reject_preconfigured_credentials(environ)
+
+    def validate(self) -> None:
+        """Fail before provider construction if the current task session is unusable."""
+        self._current_values()
+
+    def get_aws_region(self, context: object, request: object) -> str:
+        """Return the validated task region without provider metadata calls."""
+        del context, request
+        return self._region
+
+    def get_aws_security_credentials(self, context: object, request: object) -> object:
+        """Fetch the current ECS session for one Google subject-token refresh."""
+        del context, request
+        access_key, secret_key, session_token = self._current_values()
+        try:
+            from google.auth.aws import AwsSecurityCredentials
+        except ImportError as error:  # pragma: no cover - packaging contract covers this path
+            raise FargateIdentityError(
+                "Fargate Google workload identity dependencies are unavailable"
+            ) from error
+        return AwsSecurityCredentials(access_key, secret_key, session_token)
+
+    def _current_values(self) -> tuple[str, str, str]:
+        document = self._fetch(f"{_ECS_CREDENTIALS_ORIGIN}{self._relative_uri}")
+        return _validated_credentials(document, current=self._clock().astimezone(UTC))
+
+
+@contextmanager
+def launcher_identity(context: LauncherContext) -> Iterator[None]:
+    """Scope launcher-specific credentials to one runtime execution."""
+    credentials = prepare_launcher_identity(context)
+    token = _RUNTIME_GOOGLE_CREDENTIALS.set(credentials)
+    try:
+        yield
+    finally:
+        _RUNTIME_GOOGLE_CREDENTIALS.reset(token)
+
+
+def prepare_launcher_identity(context: LauncherContext) -> object | None:
+    """Prepare only the selected launcher's ambient identity before clients start."""
     if context.launcher == "fargate":
-        prepare_fargate_google_identity()
+        return prepare_fargate_google_identity()
+    return None
+
+
+def google_client_options() -> dict[str, Any]:
+    """Return explicit Google client credentials only inside a launcher identity scope."""
+    credentials = _RUNTIME_GOOGLE_CREDENTIALS.get()
+    return {} if credentials is None else {"credentials": credentials}
 
 
 def prepare_fargate_google_identity(
     *,
     environ: MutableMapping[str, str] = os.environ,
     fetch: CredentialFetcher = _fetch_ecs_credentials,
-    credential_path: Path = _DEFAULT_CREDENTIAL_PATH,
-    now: datetime | None = None,
-) -> None:
-    """Prepare task-role credentials and a non-secret Google external-account file."""
+    clock: Callable[[], datetime] | None = None,
+    credential_factory: GoogleCredentialFactory | None = None,
+) -> object:
+    """Build renewable Google credentials without copying or persisting task secrets."""
     audience = environ.get("DANDER_GCP_WIF_AUDIENCE", "")
     service_account = environ.get("DANDER_GCP_SERVICE_ACCOUNT", "")
     if (
@@ -72,41 +152,44 @@ def prepare_fargate_google_identity(
         or _SERVICE_ACCOUNT.fullmatch(service_account) is None
     ):
         raise FargateIdentityError("Fargate Google workload identity is invalid")
-    prepare_fargate_task_credentials(environ=environ, fetch=fetch, now=now)
-    config: dict[str, object] = {
-        "audience": audience,
-        "credential_source": {
-            "environment_id": "aws1",
-            "region_url": ("http://169.254.169.254/latest/meta-data/placement/availability-zone"),
-            "regional_cred_verification_url": (
-                "https://sts.{region}.amazonaws.com?Action=GetCallerIdentity&Version=2011-06-15"
-            ),
-            "url": "http://169.254.169.254/latest/meta-data/iam/security-credentials",
-        },
-        "service_account_impersonation": {"token_lifetime_seconds": 600},
-        "service_account_impersonation_url": (
+    supplier = _FargateCredentialSupplier(
+        environ=environ,
+        fetch=fetch,
+        clock=clock or (lambda: datetime.now(UTC)),
+    )
+    supplier.validate()
+    factory = credential_factory or _build_google_credentials
+    return factory(
+        audience=audience,
+        service_account=service_account,
+        supplier=supplier,
+    )
+
+
+def _build_google_credentials(
+    *,
+    audience: str,
+    service_account: str,
+    supplier: _FargateCredentialSupplier,
+) -> object:
+    try:
+        from google.auth.aws import Credentials
+    except ImportError as error:  # pragma: no cover - packaging contract covers this path
+        raise FargateIdentityError(
+            "Fargate Google workload identity dependencies are unavailable"
+        ) from error
+    return Credentials(  # type: ignore[no-untyped-call]
+        audience=audience,
+        subject_token_type=_AWS_SUBJECT_TOKEN_TYPE,
+        token_url="https://sts.googleapis.com/v1/token",
+        aws_security_credentials_supplier=supplier,
+        service_account_impersonation_url=(
             "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/"
             f"{service_account}:generateAccessToken"
         ),
-        "subject_token_type": "urn:ietf:params:aws:token-type:aws4_request",
-        "token_url": "https://sts.googleapis.com/v1/token",
-        "type": "external_account",
-    }
-    temporary = credential_path.with_suffix(credential_path.suffix + ".tmp")
-    try:
-        temporary.write_text(
-            json.dumps(config, sort_keys=True, separators=(",", ":")) + "\n",
-            encoding="utf-8",
-        )
-        temporary.chmod(0o600)
-        os.replace(temporary, credential_path)
-    except OSError as error:
-        raise FargateIdentityError(
-            "Fargate Google workload identity configuration could not be prepared"
-        ) from error
-    finally:
-        temporary.unlink(missing_ok=True)
-    environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(credential_path)
+        service_account_impersonation_options={"token_lifetime_seconds": 600},
+        scopes=(_CLOUD_PLATFORM_SCOPE,),
+    )
 
 
 def prepare_fargate_task_credentials(
@@ -115,22 +198,44 @@ def prepare_fargate_task_credentials(
     fetch: CredentialFetcher = _fetch_ecs_credentials,
     now: datetime | None = None,
 ) -> bool:
-    """Expose one bounded ECS task-role session to Google Auth in the current process."""
-    existing = tuple(environ.get(name) for name in _AWS_CREDENTIAL_NAMES)
-    if any(existing):
+    """Expose one bounded ECS session for the retained Phase 1B probe helper."""
+    _reject_preconfigured_credentials(environ)
+    relative_uri = _validated_relative_uri(environ)
+    values = _validated_credentials(
+        fetch(f"{_ECS_CREDENTIALS_ORIGIN}{relative_uri}"),
+        current=(now or datetime.now(UTC)).astimezone(UTC),
+    )
+    for name, value in zip(_AWS_CREDENTIAL_NAMES, values, strict=True):
+        environ[name] = value
+    return True
+
+
+def _reject_preconfigured_credentials(environ: MutableMapping[str, str]) -> None:
+    if any(environ.get(name) for name in _AWS_CREDENTIAL_NAMES):
         raise FargateIdentityError("Fargate does not accept preconfigured AWS credentials")
 
+
+def _validated_relative_uri(environ: MutableMapping[str, str]) -> str:
     relative_uri = environ.get("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
     if relative_uri is None or _ECS_CREDENTIALS_PATH.fullmatch(relative_uri) is None:
         raise FargateIdentityError("Fargate task credential endpoint is unavailable")
-    document = fetch(f"{_ECS_CREDENTIALS_ORIGIN}{relative_uri}")
+    return relative_uri
+
+
+def _validated_region(environ: MutableMapping[str, str]) -> str:
+    region = environ.get("AWS_REGION") or environ.get("AWS_DEFAULT_REGION", "")
+    if _AWS_REGION.fullmatch(region) is None:
+        raise FargateIdentityError("Fargate task region is invalid")
+    return region
+
+
+def _validated_credentials(document: object, *, current: datetime) -> tuple[str, str, str]:
     if not isinstance(document, dict):
         raise FargateIdentityError("Fargate task credentials were invalid")
     access_key = document.get("AccessKeyId")
     secret_key = document.get("SecretAccessKey")
     session_token = document.get("Token")
     expiration = _expiration(document.get("Expiration"))
-    current = (now or datetime.now(UTC)).astimezone(UTC)
     if (
         not isinstance(access_key, str)
         or _TEMPORARY_ACCESS_KEY.fullmatch(access_key) is None
@@ -141,11 +246,7 @@ def prepare_fargate_task_credentials(
         or expiration <= current + timedelta(minutes=5)
     ):
         raise FargateIdentityError("Fargate task credentials were invalid")
-
-    environ["AWS_SECRET_ACCESS_KEY"] = secret_key
-    environ["AWS_SESSION_TOKEN"] = session_token
-    environ["AWS_ACCESS_KEY_ID"] = access_key
-    return True
+    return access_key, secret_key, session_token
 
 
 def _expiration(value: object) -> datetime:
