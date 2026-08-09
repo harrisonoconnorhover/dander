@@ -30,6 +30,35 @@ class _Job:
         return self._rows
 
 
+class _Field:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class _Table:
+    schema = tuple(
+        _Field(name)
+        for name in (
+            "run_id",
+            "pipeline_id",
+            "source_name",
+            "status",
+            "stage",
+            "started_at",
+            "finished_at",
+            "endpoints",
+            "extracted",
+            "affected",
+            "models",
+            "assertions",
+            "assets",
+            "failure_stage",
+            "failure_code",
+            "failure_summary",
+        )
+    )
+
+
 class _Client:
     def __init__(self, *, version: int = 0) -> None:
         self.version = version
@@ -43,6 +72,10 @@ class _Client:
         if query.startswith("MERGE `") and "._dander_state_schema`" in query:
             self.version = 1
         return _Job()
+
+    def get_table(self, table: str) -> _Table:
+        assert table == "unit-project.dander_meta._dander_runs"
+        return _Table()
 
 
 def _build(client: _Client, *, metadata_enabled: bool = True) -> StateRuntime:

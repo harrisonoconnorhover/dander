@@ -124,6 +124,21 @@ class _Client(Protocol):
     ) -> _Job:
         """Run a parameterized statement."""
 
+    def get_table(self, table: str) -> _Table:
+        """Return the current table schema."""
+
+
+class _SchemaField(Protocol):
+    @property
+    def name(self) -> str:
+        """Return the warehouse column name."""
+
+
+class _Table(Protocol):
+    @property
+    def schema(self) -> Iterable[_SchemaField]:
+        """Return the current warehouse schema."""
+
 
 class _Row(Protocol):
     def __getitem__(self, key: str) -> object:
@@ -293,7 +308,7 @@ class BigQueryRunHistoryStore(RunHistoryStore):
             "failure_stage STRING, failure_code STRING, failure_summary STRING) "
             "CLUSTER BY pipeline_id, status"
         ).result()
-        for column, data_type in (
+        additive_columns = (
             ("pipeline_id", "STRING"),
             ("stage", "STRING"),
             ("models", "INT64"),
@@ -302,10 +317,21 @@ class BigQueryRunHistoryStore(RunHistoryStore):
             ("failure_stage", "STRING"),
             ("failure_code", "STRING"),
             ("failure_summary", "STRING"),
-        ):
-            self._client.query(
-                f"ALTER TABLE `{self._table}` ADD COLUMN IF NOT EXISTS {column} {data_type}"
-            ).result()
+        )
+        existing_columns = {
+            field.name.casefold() for field in self._client.get_table(self._table).schema
+        }
+        missing_columns = tuple(
+            (column, data_type)
+            for column, data_type in additive_columns
+            if column.casefold() not in existing_columns
+        )
+        if missing_columns:
+            clauses = ", ".join(
+                f"ADD COLUMN IF NOT EXISTS {column} {data_type}"
+                for column, data_type in missing_columns
+            )
+            self._client.query(f"ALTER TABLE `{self._table}` {clauses}").result()
         self._ready = True
 
     def recent(
