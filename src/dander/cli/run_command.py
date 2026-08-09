@@ -82,6 +82,8 @@ class RunOptions:
     dataset: str | None
     connectors_dir: Path
     project_config: Path
+    platforms_config: Path | None
+    deployment: str | None
     dry_run: bool
     sandbox: bool
     guarded_free_tier: bool
@@ -111,7 +113,8 @@ class _ResolvedRun:
     build_models: bool
     publish_dataplex: bool
     warehouse_provider: str
-    warehouse_location: str
+    warehouse_config: dict[str, object]
+    warehouse_catalog: str
     state_provider: str
     state_config: dict[str, object]
     catalog_provider: str
@@ -138,7 +141,7 @@ def execute_run(
     if options.dry_run:
         _render_dry_run(options, resolved, console=console)
         return None
-    if not resolved.project:
+    if _requires_gcp_project(resolved) and not resolved.project:
         raise ClickException("GCP project is required via --project or GCP_PROJECT_ID")
 
     _verify_safety(options, resolved)
@@ -168,7 +171,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
     build_models = options.build_models
     publish_dataplex = options.publish_dataplex
     warehouse_provider = "bigquery"
-    warehouse_location = "US"
+    warehouse_config: dict[str, object] = {"provider": "bigquery", "location": "US"}
     state_provider = "bigquery"
     state_config: dict[str, object] = {"provider": "bigquery"}
     catalog_provider = "dataplex"
@@ -177,7 +180,11 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
 
     if options.project_config.is_file():
         try:
-            manifest = load_project_config(options.project_config)
+            manifest = load_project_config(
+                options.project_config,
+                platforms_path=options.platforms_config,
+                deployment=options.deployment,
+            )
             plugin_registry = load_connector_plugins(manifest.plugins)
             pipeline = manifest.pipelines.get(options.pipeline_or_source)
             if pipeline is not None:
@@ -196,7 +203,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
                 build_models = build_models or pipeline.build_models
                 publish_dataplex = publish_dataplex or pipeline.publish_dataplex
                 warehouse_provider = manifest.warehouse_provider
-                warehouse_location = manifest.platform.bigquery_location
+                warehouse_config = manifest.warehouse_config
                 state_provider = manifest.state_provider
                 state_config = manifest.state_config
                 catalog_provider = (
@@ -220,12 +227,17 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
     settings = Settings()
     resolved_project = options.project or settings.gcp_project_id
     resolved_dataset = options.dataset or settings.bq_dataset_raw
+    warehouse_catalog = (
+        str(warehouse_config["database"])
+        if warehouse_provider == "postgresql"
+        else resolved_project
+    )
     if options.sandbox and options.guarded_free_tier:
         raise ClickException("--sandbox and --guarded-free-tier are mutually exclusive")
     graph_plan = _resolve_graph_plan(
         graph_file,
         config,
-        project=resolved_project,
+        project=warehouse_catalog,
         dataset=resolved_dataset,
         build_models=build_models,
         selected_models=selected_models,
@@ -246,7 +258,8 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         build_models=build_models,
         publish_dataplex=publish_dataplex,
         warehouse_provider=warehouse_provider,
-        warehouse_location=warehouse_location,
+        warehouse_config=warehouse_config,
+        warehouse_catalog=warehouse_catalog,
         state_provider=state_provider,
         state_config=state_config,
         catalog_provider=catalog_provider,
@@ -329,7 +342,7 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         source_config=resolved.source_config,
         ingestion=ingestion,
         history=stores.history,
-        project=resolved.project,
+        project=resolved.warehouse_catalog,
         models_dir=(
             resolved.graph_file.parent if resolved.graph_file is not None else options.models_dir
         ),
@@ -383,13 +396,14 @@ def _build_ingestion_runner(
         source=source,
         writer=writer,
         watermarks=stores.watermarks,
-        project=resolved.project,
+        project=resolved.warehouse_catalog,
         dataset=resolved.dataset,
         resume_from_watermark=not options.sandbox,
         batch_rows=options.batch_rows,
         endpoint_names=(
             resolved.graph_plan.bindings.endpoint_names if resolved.graph_plan is not None else None
         ),
+        target_fence=warehouse.target_fence,
     )
 
 
@@ -408,10 +422,7 @@ def _build_warehouse_runtime(resolved: _ResolvedRun) -> WarehouseRuntime:
     try:
         config = registry.parse(
             ProviderKind.WAREHOUSE,
-            {
-                "provider": resolved.warehouse_provider,
-                "location": resolved.warehouse_location,
-            },
+            resolved.warehouse_config,
         )
         runtime = registry.build(
             ProviderKind.WAREHOUSE,
@@ -457,9 +468,21 @@ def _build_state_runtime(resolved: _ResolvedRun) -> StateRuntime:
 def _require_supported_state_pair(*, state_provider: str, warehouse_provider: str) -> None:
     if state_provider == "postgresql" and warehouse_provider == "bigquery":
         raise ClickException(
-            "PostgreSQL state with BigQuery execution is not available until the "
-            "cross-backend destination fence is enabled"
+            "PostgreSQL state with BigQuery execution remains unavailable until every "
+            "BigQuery write mode uses the destination-side target fence"
         )
+
+
+def _requires_gcp_project(resolved: _ResolvedRun) -> bool:
+    """Return whether one selected runtime profile needs a GCP project identifier."""
+    return any(
+        (
+            resolved.warehouse_provider == "bigquery",
+            resolved.state_provider == "bigquery",
+            resolved.catalog_provider == "dataplex",
+            resolved.secret_provider == "gcp_secret_manager",
+        )
+    )
 
 
 def build_source_adapter(

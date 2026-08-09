@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Made transform-project relation rendering target-dialect aware without changing BigQuery defaults.
-- Added fenced PostgreSQL table, view, and incremental materializations.
-- Added PostgreSQL-native not-null, unique, accepted-values, and relationship assertions.
-- Wired PostgreSQL transform construction into the warehouse capability bundle.
-- Added live PostgreSQL 15 replay, stale-owner, and sanitized-failure coverage.
+- Made PostgreSQL warehouse/state selectable together through a version 2 deployment.
+- Added named deployment selection to `dander run` and the OCI runtime.
+- Claimed required ingestion targets before extraction without changing BigQuery writer behavior.
+- Made metadata compilation use the selected warehouse dialect.
+- Added one complete PostgreSQL 15 ingestion, transform, metadata, replay, cursor, history, and lease proof.
 
 ## Try It
 
 Set `DANDER_TEST_POSTGRES_DSN` to a disposable PostgreSQL 15+ database and run
-`tests/providers/test_postgresql_transform_runtime.py`.
+`tests/integration/test_postgresql_native_profile.py`.
 
 ## Checks
 
-- Twenty-nine focused PostgreSQL and transform tests passed locally.
-- All 1,006 tests, repository-wide Ruff/formatting, and strict mypy passed locally.
-- Wheel and sdist inspection passed and includes the PostgreSQL transform adapter.
-- Protected CI remains to run before merge.
+- All 1,010 repository tests passed locally, including the real PostgreSQL 15 integration.
+- Repository-wide Ruff and strict mypy passed locally.
+- Wheel/sdist inspection, source-free installation, and dependency audit passed.
+- Terraform validation/tests and the full-runtime container build/conformance probe passed.
 
 ## Decisions
 
-- PostgreSQL table replacement keeps a stable table and uses fenced truncate/insert in one transaction.
-- Every model output has its own destination target-fence claim.
-- PostgreSQL graphs and selectable hosted profiles remain separate slices.
+- Writers explicitly declare when the neutral runner must claim a destination target fence.
+- A native PostgreSQL/no-catalog/environment-secret profile needs no GCP project identifier.
+- PostgreSQL-state/BigQuery-warehouse remains fail-closed until all BigQuery writers adopt target fencing.
 
 ## Remaining
 
-- Run all repository checks and protected CI.
-- Add version 2 PostgreSQL profile selection and runtime target-claim assembly.
-- Add Kubernetes/Helm projection and an existing-cluster verification path.
-- Run the PostgreSQL native and cross-backend matrices.
+- Open, review, and merge the focused protected PR.
+- Let protected CI repeat Linux container/security/secret checks.
+- Add Kubernetes/Helm projection and existing-cluster verification separately.
+- Run the PostgreSQL native and cross-backend benchmark matrix.
 
 ## Review First
 
-- `src/dander/providers/postgresql/transform.py`
-- `src/dander/transform/project.py`
-- `tests/providers/test_postgresql_transform_runtime.py`
+- `src/dander/cli/run_command.py`
+- `src/dander/runtime.py`
+- `tests/integration/test_postgresql_native_profile.py`

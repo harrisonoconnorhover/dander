@@ -12,7 +12,7 @@ from dander.catalog import MetadataSpine, SemanticRegistryPublisher
 from dander.runtime import PipelineRunResult
 from dander.state import LeaseHeartbeat, RunStage, RunStatus, classify_failure
 from dander.telemetry import RunTelemetry
-from dander.transform import TransformProject, TransformRunResult
+from dander.transform import SqlDialect, TransformProject, TransformRunResult
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -197,6 +197,11 @@ class PipelineExecutor:
                 transform_project = TransformProject.load(
                     self._models_dir,
                     project_id=self._project,
+                    target_dialect=getattr(
+                        self._transform_runner,
+                        "target_dialect",
+                        SqlDialect.BIGQUERY,
+                    ),
                 )
                 spine = MetadataSpine()
                 compiled_assets = spine.compile(

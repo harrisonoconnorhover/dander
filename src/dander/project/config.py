@@ -26,6 +26,10 @@ def _default_state_config() -> dict[str, object]:
     return {"provider": "bigquery"}
 
 
+def _default_warehouse_config() -> dict[str, object]:
+    return {"provider": "bigquery", "location": "US"}
+
+
 _DISTRIBUTION = re.compile(r"^[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*$")
 
 if TYPE_CHECKING:
@@ -209,7 +213,11 @@ class DanderProject(BaseModel):
     pipelines: dict[str, PipelineSpec] = Field(min_length=1)
     platform_name: str = Field(default="gcp", exclude=True)
     deployment_name: str = Field(default="gcp_cloud_run", exclude=True)
-    warehouse_provider: Literal["bigquery"] = Field(default="bigquery", exclude=True)
+    warehouse_provider: Literal["bigquery", "postgresql"] = Field(default="bigquery", exclude=True)
+    warehouse_config: dict[str, object] = Field(
+        default_factory=_default_warehouse_config,
+        exclude=True,
+    )
     state_provider: Literal["bigquery", "postgresql"] = Field(default="bigquery", exclude=True)
     state_config: dict[str, object] = Field(
         default_factory=_default_state_config,
@@ -243,6 +251,15 @@ class DanderProject(BaseModel):
 
     @model_validator(mode="after")
     def validate_deployed_pipeline_ids(self) -> DanderProject:
+        if self.version == 1 and self.warehouse_provider == "bigquery":
+            self.warehouse_config = {
+                "provider": "bigquery",
+                "location": self.platform.bigquery_location,
+            }
+        if self.warehouse_config.get("provider") != self.warehouse_provider:
+            raise ValueError("warehouse config provider must match warehouse_provider")
+        if self.state_config.get("provider") != self.state_provider:
+            raise ValueError("state config provider must match state_provider")
         if self.launcher_config:
             configured_provider = self.launcher_config.get("provider")
             if configured_provider != self.launcher_provider:

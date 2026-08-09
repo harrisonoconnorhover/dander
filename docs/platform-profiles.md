@@ -7,14 +7,15 @@ Dander version 2 separates reusable pipeline intent from environment-specific de
   plus runtime limits, schedules, secret references, and provider resource names.
 
 The first supported hosted profile remains BigQuery, BigQuery state, Dataplex (or no cloud
-catalog), GCP Secret Manager, and Cloud Run. PostgreSQL 15 or newer has conformance adapters for
-durable state and bounded SCD1 warehouse writes, but the version 2 profile schema does not yet
-select a complete PostgreSQL/Kubernetes composition. A provider name outside the installed and
-supported contract fails validation; adapter registration alone does not imply profile support.
+catalog), GCP Secret Manager, and Cloud Run. Version 2 may select PostgreSQL 15+ for both durable
+state and the warehouse, but that composition remains locally qualified until the Kubernetes
+launcher and live-profile gates pass. A provider name outside the installed contract fails
+validation; adapter registration alone does not imply hosted support.
 
-One logical project may have multiple named platforms and deployments. `dander validate` accepts
-`--deployment`; the Python configuration loader accepts the same explicit selection. Other current
-GCP commands require a single deployment until the shared provider factories are introduced.
+One logical project may have multiple named platforms and deployments. `dander validate` and
+`dander run` accept `--deployment`; the OCI runtime's `--platform` value selects the named
+deployment and may use an explicit `--platforms-config` path. Other current GCP commands require a
+single deployment until their provider-neutral planning path is introduced.
 When a project has exactly one deployment, Dander selects it deterministically; multiple
 deployments never fall back to an arbitrary default.
 
@@ -42,18 +43,13 @@ Migration refuses to overwrite an existing `dander.platforms.yaml`. Commit and r
 together. Existing Terraform addresses do not change merely because the equivalent configuration
 is represented in two files.
 
-The current runtime continues to support only the GCP compatibility composition. The internal
-factory contract provides one API-v1 registry across warehouse, state, catalog, secret, and
-launcher categories. Registration loads only a small configuration model; selecting and building
-a provider loads its implementation and SDK dependencies. BigQuery writer, transform, lease,
-watermark, run-history, metadata-store, external catalog-publisher, and secret-store construction
-now use that boundary. State migrations are explicit and versioned, but retain the existing
-BigQuery table names and semantics. Dataplex keeps aspect-only updates and normalized readback;
-selecting `none` loads no Dataplex implementation or credentials. GCP Secret Manager preserves its
-existing environment indirection and audit behavior; environment-only resolution remains local
-because Cloud Run requires managed secret references. Cloud Run execution templates now pass
-through the same lazy provider boundary while delegating to the accepted projection unchanged.
-The registry is a construction contract, not a support claim.
+The runtime composes the selected warehouse and state through one API-v1 provider registry.
+Registration loads only a small configuration model; selecting and building a provider loads its
+implementation and SDK dependencies. BigQuery behavior and names remain unchanged. Dataplex keeps
+aspect-only updates and normalized readback; selecting `none` loads no Dataplex implementation or
+credentials. GCP Secret Manager preserves its existing environment indirection and audit behavior;
+environment-only resolution remains local or launcher-injected because Cloud Run requires managed
+secret references. The registry is a construction contract, not a support claim.
 
 Warehouse adapters exchange [canonical relation and schema contracts](canonical-schema.md).
 Existing BigQuery connector/writer declarations remain valid and expose a one-way canonical view;
@@ -73,8 +69,9 @@ Select PostgreSQL only in `dander.platforms.yaml`; keep the connection string ou
 platforms:
   portable:
     warehouse:
-      provider: bigquery
-      location: US
+      provider: postgresql
+      database: dander
+      dsn_env: DANDER_POSTGRES_DSN
     state:
       provider: postgresql
       authority_id: postgresql:portable-state
@@ -101,10 +98,10 @@ run history, and deterministic JSONB metadata snapshots.
 `authority_id` is a stable, non-secret identifier for this state deployment. Do not reuse it for a
 different database or change `authority_epoch` outside a reviewed state-backend cutover.
 
-The current BigQuery warehouse/PostgreSQL state combination remains fail-closed at execution.
-Destination-side target fencing now exists for both systems, but every execution caller must bind
-the selected state's token to its warehouse target before any cross-backend combination can be
-enabled.
+PostgreSQL state with a PostgreSQL warehouse is executable. BigQuery state with PostgreSQL is also
+transactionally fenced, although it is not a qualified hosted profile. PostgreSQL state with a
+BigQuery warehouse remains fail-closed until every BigQuery write mode uses the destination-side
+target fence rather than only the state-side lease transaction.
 
 Terminal `succeeded`, `failed`, and `skipped` history older than the configured retention is
 removed when migrations run. Active runs and `interrupted_run` records are retained. Dander
@@ -113,8 +110,8 @@ migration: keep schedules paused until the destination-fence and cutover workflo
 
 ## PostgreSQL warehouse adapter
 
-The PostgreSQL warehouse adapter is an implementation and conformance boundary, not yet a hosted
-profile. It accepts declared schemas, creates database-local schemas and relations, streams each
+The PostgreSQL warehouse adapter is selectable but not yet a supported hosted profile. It accepts
+declared schemas, creates database-local schemas and relations, streams each
 bounded Dander batch through PostgreSQL `COPY`, and performs deterministic last-record-wins SCD1
 publication inside a transactionally verified destination fence. Temporary staging uses
 `ON COMMIT DROP`; nullable top-level columns may be added when additive evolution is selected.
@@ -123,6 +120,7 @@ The configured database must already exist. Runtime-created connections require 
 is supplied only through the configured environment variable. The adapter supports PostgreSQL
 15+, SCD1 ingestion, canonical scalar/array/JSON mappings, portable or PostgreSQL-exact model SQL,
 table/view/incremental materialization, and the four generic assertions. Every materialization is
-claimed and published through its destination target fence. Graph execution, launcher projection,
-and version 2 profile selection remain separate follow-up work; until then this adapter must not be
-represented as an end-to-end supported PostgreSQL deployment.
+claimed and published through its destination target fence. The local native-profile proof covers
+bounded ingestion, replay, transforms, assertions, metadata, run history, watermarks, and leases.
+Graph execution and the Kubernetes launcher remain follow-up work; until live qualification passes,
+this adapter must not be represented as a supported hosted PostgreSQL deployment.

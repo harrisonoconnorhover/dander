@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from dander.concurrency import FencingToken, TargetFence
 from dander.ingestion import load_source_config
 from dander.ingestion.source import Endpoint, RawField, Source, SourceConfig
 from dander.runtime import PipelineRunner, RawSchemaError, WatermarkConflictError
@@ -17,7 +18,7 @@ from dander.writer import WriteMode, WritePattern, WriteTarget
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
-    from dander.concurrency import FencingToken
+    from dander.warehouse import PreparedWarehouseStatement, RelationRef
 
 
 class _Source(Source):
@@ -93,6 +94,34 @@ class _BatchedWriter(WritePattern):
         for record in batch:
             self.state[str(record["id"])] = record
         return len(batch)
+
+
+class _FencedWriter(_Writer):
+    requires_publication_fence = True
+
+    def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
+        assert target.publication_fence is not None
+        return super().write(records, target)
+
+
+class _TargetFence:
+    def __init__(self, events: list[str]) -> None:
+        self._events = events
+
+    def claim(self, target: RelationRef, fence: FencingToken) -> TargetFence:
+        self._events.append("claim")
+        return TargetFence(
+            fence_table=f"{target.namespace}.dander_target_commits",
+            target_id=".".join(target.coordinates),
+            authority_id=fence.resolved_authority_id,
+            authority_epoch=fence.authority_epoch,
+            pipeline_id=fence.pipeline_id,
+            run_id=fence.run_id,
+            token=fence.token,
+        )
+
+    def prepare_dml(self, statement: str, fence: TargetFence) -> PreparedWarehouseStatement:
+        raise NotImplementedError
 
 
 class _DeclaredSource(Source):
@@ -201,6 +230,20 @@ class _Ownership:
             raise LeaseLostError("Pipeline lease ownership was lost")
 
 
+class _FencedOwnership:
+    fence = FencingToken(
+        lease_table=None,
+        authority_id="postgresql:test-state",
+        authority_epoch=1,
+        pipeline_id="example_pipeline",
+        run_id="run-fenced",
+        token=7,
+    )
+
+    def verify(self) -> None:
+        return None
+
+
 class _History(RunHistoryStore):
     def __init__(self) -> None:
         self.started: tuple[str, str] | None = None
@@ -259,6 +302,22 @@ def test_runner_commits_maximum_cursor_after_write() -> None:
     assert events == ["get", "extract", "write", "set"]
     assert watermarks.committed == "2026-01-03T00:00:00Z"
     assert result.endpoints[0].affected == 2
+
+
+def test_runner_claims_required_destination_before_extraction() -> None:
+    events: list[str] = []
+    runner = PipelineRunner(
+        source=_Source(events),
+        writer=_FencedWriter(events),
+        watermarks=_Watermarks(events),
+        project="dander_test",
+        dataset="raw",
+        target_fence=_TargetFence(events),
+    )
+
+    runner.run(run_id="run-fenced", ownership=_FencedOwnership())
+
+    assert events == ["get", "claim", "extract", "write", "set"]
 
 
 def test_runner_extracts_only_selected_configured_endpoints() -> None:

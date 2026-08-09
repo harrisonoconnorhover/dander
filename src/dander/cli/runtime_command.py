@@ -73,9 +73,10 @@ def execute_runtime(
     platform: str = typer.Option(
         ...,
         "--platform",
-        help="Compatibility profile; Phase 1 supports the existing 'gcp' profile.",
+        help="Named deployment/profile selected for this runtime execution.",
     ),
     project_config: Path = typer.Option(Path("dander.yaml"), "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
     connectors_dir: Path = typer.Option(Path("connectors"), "--connectors-dir"),  # noqa: B008
     models_dir: Path = typer.Option(Path("models"), "--models-dir"),  # noqa: B008
     catalog_output: Path | None = typer.Option(None, "--catalog-output"),  # noqa: B008
@@ -90,10 +91,6 @@ def execute_runtime(
         validate_runtime_contract(contract)
         validate_runtime_identifier(pipeline, label="pipeline id")
         validate_runtime_identifier(platform, label="platform")
-        if platform != "gcp":
-            raise RuntimeContractError(
-                "runtime contract v1 currently supports only the 'gcp' compatibility profile"
-            )
         context = LauncherContext.from_environment()
     except RuntimeContractError as error:
         raise typer.BadParameter(str(error)) from error
@@ -112,6 +109,8 @@ def execute_runtime(
         dataset=dataset,
         connectors_dir=connectors_dir,
         project_config=project_config,
+        platforms_config=platforms_config,
+        deployment=platform,
         dry_run=False,
         sandbox=False,
         guarded_free_tier=guarded_free_tier,

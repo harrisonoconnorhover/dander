@@ -6,7 +6,7 @@ import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import yaml
 from packaging.utils import canonicalize_name
@@ -30,7 +30,13 @@ from dander.providers.environment_secrets import EnvironmentSecretConfig  # noqa
 from dander.providers.fargate import FargateLauncherConfig  # noqa: TC001
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig  # noqa: TC001
 from dander.providers.no_catalog import NoCatalogConfig  # noqa: TC001
-from dander.providers.postgresql import PostgreSQLStateConfig  # noqa: TC001
+from dander.providers.postgresql import (  # noqa: TC001
+    PostgreSQLStateConfig,
+    PostgreSQLWarehouseConfig,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _PLUGIN_ID = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -138,12 +144,18 @@ StateSpec = Annotated[
 ]
 
 
+WarehouseSpec = Annotated[
+    BigQueryWarehouseConfig | PostgreSQLWarehouseConfig,
+    Field(discriminator="provider"),
+]
+
+
 class PlatformProfileSpec(BaseModel):
     """One named combination of data-plane provider selections."""
 
     model_config = ConfigDict(extra="forbid")
 
-    warehouse: BigQueryWarehouseConfig
+    warehouse: WarehouseSpec
     state: StateSpec
     catalog: CatalogSpec
     secrets: SecretProviderSpec
@@ -348,7 +360,11 @@ def _resolve(
         version=2,
         platform=PlatformSpec(
             region=selected.launcher.region,
-            bigquery_location=profile.warehouse.location,
+            bigquery_location=(
+                profile.warehouse.location
+                if isinstance(profile.warehouse, BigQueryWarehouseConfig)
+                else "US"
+            ),
             runtime=selected.runtime,
             safety=selected.safety,
         ),
@@ -357,6 +373,7 @@ def _resolve(
         platform_name=selected.platform,
         deployment_name=selected_name,
         warehouse_provider=profile.warehouse.provider,
+        warehouse_config=profile.warehouse.model_dump(mode="json"),
         state_provider=profile.state.provider,
         state_config=profile.state.model_dump(mode="json"),
         catalog_provider=profile.catalog.provider,
@@ -369,9 +386,22 @@ def _resolve(
 
 def _select_deployment(platforms: DanderPlatforms, requested: str | None) -> str:
     if requested is not None:
-        if requested not in platforms.deployments:
-            raise ProjectConfigError(f"Unknown deployment {requested!r}")
-        return requested
+        if requested in platforms.deployments:
+            return requested
+        profile_matches = tuple(
+            name
+            for name, deployment in platforms.deployments.items()
+            if deployment.platform == requested
+        )
+        if len(profile_matches) == 1:
+            return profile_matches[0]
+        if len(profile_matches) > 1:
+            choices = ", ".join(sorted(profile_matches))
+            raise ProjectConfigError(
+                f"Platform {requested!r} has multiple deployments ({choices}); "
+                "select one by deployment name"
+            )
+        raise ProjectConfigError(f"Unknown deployment or platform {requested!r}")
     if len(platforms.deployments) != 1:
         choices = ", ".join(sorted(platforms.deployments))
         raise ProjectConfigError(
@@ -450,6 +480,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
     return (
         legacy.platform == migrated.platform
         and legacy.warehouse_provider == migrated.warehouse_provider
+        and legacy.warehouse_config == migrated.warehouse_config
         and legacy.state_provider == migrated.state_provider
         and legacy.state_config == migrated.state_config
         and legacy.catalog_provider == migrated.catalog_provider
@@ -468,7 +499,12 @@ def _validation_error(
     *,
     label: str,
 ) -> ProjectConfigError:
-    locations = sorted(
-        {".".join(str(part) for part in issue["loc"]) or "<root>" for issue in error.errors()}
-    )
+    locations = sorted({_validation_location(issue) for issue in error.errors()})
     return ProjectConfigError(f"Invalid {label} at {path}; check: {', '.join(locations)}")
+
+
+def _validation_location(issue: Mapping[str, Any]) -> str:
+    location = ".".join(str(part) for part in issue["loc"]) or "<root>"
+    if issue.get("type") == "union_tag_invalid":
+        return f"{location}.provider"
+    return location

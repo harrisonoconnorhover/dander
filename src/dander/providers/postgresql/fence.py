@@ -42,6 +42,9 @@ class PostgreSQLTargetFence:
         table = sql.Identifier(target.namespace, "dander_target_commits")
         target_id = ".".join(target.coordinates)
         with self.pool.connection() as connection, connection.transaction():
+            connection.execute(
+                sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(target.namespace))
+            )
             connection.execute(_postgresql_target_fence_table_sql(table))
             row = connection.execute(
                 _postgresql_target_claim_sql(table),
