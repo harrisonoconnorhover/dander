@@ -6,6 +6,15 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.8.0rc5 — 2026-08-09 (beta)
+
+### Fixed
+
+- Preserve Fargate's configured disk-backed `/tmp` capacity while making the anonymous volume
+  writable to Dander's non-root runtime. Generated images now seed mode `1777` volume metadata,
+  Fargate uses `/tmp` for home and temporary files, and deployment verification checks the full
+  scratch-storage contract.
+
 ## 0.8.0rc4 — 2026-08-09 (beta)
 
 ### Fixed
