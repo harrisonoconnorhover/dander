@@ -909,3 +909,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Canonical database/schema/relation coordinates survive compilation, while the
   provider renders database-local target DML. Views, graphs, automatic transform-schema evolution,
   `SUPER`, and support promotion remain separate gates.
+
+## 2026-08-09 — Glue projects the canonical catalog directly without crawlers
+
+- **Coordinates:** One deterministic lowercase Glue database represents canonical
+  `catalog + namespace`; one Glue table represents the relation. Lossy name normalization receives
+  a stable digest instead of collapsing distinct warehouse objects.
+- **Ownership:** Dander updates descriptions, columns, `classification`, and `dander.*` parameters
+  while preserving unrelated database/table/storage/column metadata. It never deletes catalog
+  objects or makes crawlers authoritative.
+- **Boundary:** Ambient AWS identity and direct API readback are implemented. IAM infrastructure,
+  Glue connections, Lake Formation, tags, live proof, and support promotion remain separate work.

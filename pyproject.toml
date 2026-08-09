@@ -230,6 +230,7 @@ include = [
   "connectors",
   "dander.yaml",
   "docs/getting-started.md",
+  "docs/aws-glue.md",
   "docs/connector-plugins.md",
   "docs/compatibility-matrix.md",
   "docs/execution-projection.md",

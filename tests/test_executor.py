@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
 
+    from dander.catalog import CatalogAsset, CatalogPublisher
     from dander.concurrency import OwnershipGuard
 
 
@@ -132,6 +133,15 @@ class _Metadata(MetadataStore):
         return ()
 
 
+class _CatalogPublisher:
+    def __init__(self) -> None:
+        self.assets: list[CatalogAsset] = []
+
+    def publish(self, asset: CatalogAsset) -> str:
+        self.assets.append(asset)
+        return f"catalog://{asset.relation}"
+
+
 class _Leases(LeaseStore):
     def __init__(self, *, available: bool, heartbeat: bool = True) -> None:
         self._available = available
@@ -195,6 +205,7 @@ def _executor(
     leases: LeaseStore | None = None,
     raw_namespace: str = "raw",
     source_relations: dict[str, RelationRef] | None = None,
+    catalog_publisher: CatalogPublisher | None = None,
 ) -> PipelineExecutor:
     source = SourceConfig(
         name="example",
@@ -222,6 +233,7 @@ def _executor(
         build_models=True,
         transform_runner=_Transform(fail=fail_transform),
         metadata_store=metadata,
+        catalog_publisher=catalog_publisher,
         leases=leases,
     )
 
@@ -261,6 +273,23 @@ def test_executor_preserves_launcher_supplied_run_id(tmp_path: Path) -> None:
 
     assert result.run_id == "launcher-run-42"
     assert history.started == ("launcher-run-42", "example", "example_pipeline")
+
+
+def test_executor_publishes_through_provider_neutral_catalog_boundary(tmp_path: Path) -> None:
+    _models(tmp_path)
+    publisher = _CatalogPublisher()
+
+    result = _executor(
+        tmp_path,
+        history=_History(),
+        metadata=_Metadata(),
+        catalog_publisher=publisher,
+    ).execute()
+
+    assert result.assets == 1
+    assert [asset.relation for asset in publisher.assets] == [
+        "valid-project-123.staging.stg_widgets"
+    ]
 
 
 def test_executor_keeps_custom_raw_namespace_in_models_and_metadata(tmp_path: Path) -> None:

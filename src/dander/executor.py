@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
 
-    from dander.catalog import CatalogAsset, MetadataStore
+    from dander.catalog import CatalogAsset, CatalogPublisher, MetadataStore
     from dander.concurrency import OwnershipGuard
     from dander.ingestion import SourceConfig
     from dander.state import LeaseStore, RunHistoryStore
@@ -46,11 +46,6 @@ class _IngestionRunner(Protocol):
         ownership: OwnershipGuard | None = None,
     ) -> PipelineRunResult:
         """Run configured endpoints and return a non-sensitive summary."""
-
-
-class _DataplexPublisher(Protocol):
-    def publish(self, asset: CatalogAsset) -> str:
-        """Project one canonical asset into Dataplex."""
 
 
 @dataclass(frozen=True)
@@ -87,7 +82,8 @@ class PipelineExecutor:
         transform_runner: _TransformRunner | None = None,
         metadata_store: MetadataStore | None = None,
         registry_output: Path | None = None,
-        dataplex_publisher: _DataplexPublisher | None = None,
+        catalog_publisher: CatalogPublisher | None = None,
+        dataplex_publisher: CatalogPublisher | None = None,
         leases: LeaseStore | None = None,
     ) -> None:
         if build_models and transform_runner is None:
@@ -98,6 +94,10 @@ class PipelineExecutor:
             raise ValueError("catalog and legacy project must match")
         if catalog is None:
             raise ValueError("PipelineExecutor requires a warehouse catalog")
+        if catalog_publisher is not None and dataplex_publisher is not None:
+            raise ValueError(
+                "catalog_publisher and legacy dataplex_publisher are mutually exclusive"
+            )
         self._pipeline_id = pipeline_id
         self._source_config = source_config
         self._ingestion = ingestion
@@ -118,7 +118,7 @@ class PipelineExecutor:
         self._transform_runner = transform_runner
         self._metadata_store = metadata_store
         self._registry_output = registry_output
-        self._dataplex_publisher = dataplex_publisher
+        self._catalog_publisher = catalog_publisher or dataplex_publisher
         self._leases = leases
 
     def execute(self, *, run_id: str | None = None) -> PipelineExecutionResult:
@@ -247,11 +247,11 @@ class PipelineExecutor:
                     if heartbeat is not None:
                         heartbeat.verify()
                     SemanticRegistryPublisher().publish(manifest, self._registry_output)
-                if self._dataplex_publisher is not None:
+                if self._catalog_publisher is not None:
                     for asset in compiled_assets:
                         if heartbeat is not None:
                             heartbeat.verify()
-                        self._dataplex_publisher.publish(asset)
+                        self._catalog_publisher.publish(asset)
 
             if heartbeat is not None:
                 heartbeat.verify()
@@ -332,7 +332,7 @@ class PipelineExecutor:
             for value in (
                 self._metadata_store,
                 self._registry_output,
-                self._dataplex_publisher,
+                self._catalog_publisher,
             )
         )
 

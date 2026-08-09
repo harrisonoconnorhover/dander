@@ -7,6 +7,7 @@ from dander.providers.dataplex import DataplexCatalogConfig
 from dander.providers.environment_secrets import EnvironmentSecretConfig
 from dander.providers.fargate import FargateLauncherConfig
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
+from dander.providers.glue import GlueCatalogConfig
 from dander.providers.kubernetes import KubernetesLauncherConfig
 from dander.providers.no_catalog import NoCatalogConfig
 from dander.providers.postgresql import PostgreSQLStateConfig, PostgreSQLWarehouseConfig
@@ -81,6 +82,12 @@ def default_provider_registry() -> ProviderRegistry:
         load_factory=lazy_provider_factory(
             "dander.providers.no_catalog.runtime:NO_CATALOG_FACTORY"
         ),
+    )
+    registry.register(
+        kind=ProviderKind.CATALOG,
+        provider_id="glue",
+        config_model=GlueCatalogConfig,
+        load_factory=lazy_provider_factory("dander.providers.glue.runtime:GLUE_CATALOG_FACTORY"),
     )
     registry.register(
         kind=ProviderKind.SECRETS,

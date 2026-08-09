@@ -283,6 +283,31 @@ def test_version_two_resolves_native_redshift_warehouse_coordinates(tmp_path: Pa
     assert "password" not in resolved.warehouse_config
 
 
+def test_version_two_resolves_glue_catalog_and_enables_generic_publication(
+    tmp_path: Path,
+) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    platforms["platforms"]["gcp"]["catalog"] = {
+        "provider": "glue",
+        "region": "us-east-1",
+        "catalog_id": "123456789012",
+        "database_prefix": "dander",
+        "connection_name": "analytics-redshift",
+    }
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    resolved = load_project_config(project_path)
+
+    assert resolved.catalog_provider == "glue"
+    assert resolved.catalog_config == platforms["platforms"]["gcp"]["catalog"]
+    assert resolved.pipelines["example_records"].publish_dataplex is True
+
+
 def test_cloud_run_rejects_environment_only_secrets(tmp_path: Path) -> None:
     project_path = tmp_path / "dander.yaml"
     platforms_path = tmp_path / "dander.platforms.yaml"

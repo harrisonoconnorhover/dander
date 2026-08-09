@@ -264,7 +264,7 @@ def test_postgresql_rejects_bigquery_safety_before_external_clients(
     )
     resolved = SimpleNamespace(
         warehouse_provider="postgresql",
-        publish_dataplex=False,
+        publish_catalog=False,
         catalog_provider="none",
     )
     monkeypatch.setattr(run_module, "_resolve_run", lambda _options: resolved)
@@ -286,7 +286,7 @@ def test_postgresql_dataplex_publication_fails_before_executor(
     options = SimpleNamespace(sandbox=False, guarded_free_tier=False, dry_run=False)
     resolved = SimpleNamespace(
         warehouse_provider="postgresql",
-        publish_dataplex=True,
+        publish_catalog=True,
         catalog_provider="dataplex",
     )
     monkeypatch.setattr(run_module, "_resolve_run", lambda _options: resolved)

@@ -2,44 +2,49 @@
 
 ## Finished
 
-- Added experimental Redshift portable/provider-exact table and incremental model execution.
-- Preflighted the complete selected DAG, schemas, SQL, materializations, and assertions before any
-  provider connection, claim, or mutation.
-- Published through session-temporary CTAS plus fenced table replacement or cursor-monotonic
-  `UPDATE`/`INSERT`; target DML and the exact fence touch share one transaction.
-- Added generic assertions, stale-fence/cleanup/replay coverage, and a packaged Redshift guide.
-- Kept views, graphs, schema evolution, `SUPER`, other write modes, and support promotion blocked.
+- Added a lazy, explicitly configured AWS Glue Data Catalog provider.
+- Published canonical relation, schema, lineage, tests, metrics, ownership, and sensitivity through
+  direct database/table APIs with deterministic readback.
+- Preserved unrelated database, table, storage-descriptor, partition, and column metadata.
+- Replaced provider-neutral executor/runtime use of “Dataplex publisher” with a generic catalog
+  publisher while retaining the legacy constructor and CLI compatibility inputs.
+- Added focused configuration, lazy-loading, create/update/readback, preservation, and sanitization
+  coverage plus operator documentation.
 
 ## Try It
 
-Configure a v2 `warehouse.provider: redshift` profile as shown in `docs/redshift.md`, author a
-portable or Redshift-exact table/incremental model, and use the normal hosted run path. This slice
-was conformance-tested locally; no AWS warehouse was created or contacted.
+Select `catalog.provider: glue` in a version 2 platform profile as shown in `docs/aws-glue.md`, set
+`publish_catalog: true` on a model pipeline, and run with an ambient AWS identity. This slice has
+not contacted AWS and is not a support claim.
 
 ## Checks
 
-- Ruff and strict mypy passed; focused Redshift/transform tests passed.
-- Full suite passed with 1,086 tests against an ephemeral PostgreSQL 15 service.
-- Wheel/sdist inspection, outside-checkout generation/install, full-runtime install, dependency
-  audit, Terraform/AWS/Helm validation, and generated-project Terraform validation passed.
-- The final source-free container passed non-root, read-only, runtime, and bundled-asset checks.
+- Ruff, 34 focused tests, strict mypy across 303 files, and the full 1,094-test suite passed;
+  the full suite included ephemeral PostgreSQL 15 integration.
+- Wheel, sdist, source-free installation, runtime-all installation, dependency audit, and the final
+  non-root/read-only container conformance checks passed.
+- GCP/AWS Terraform validation and tests plus Helm lint/template passed. The retained GCP project
+  produced exactly `No changes.` using its reviewed 600-second runtime override; no apply ran.
 
 ## Decisions
 
-- Redshift incremental publication uses documented `UPDATE ... FROM` plus `INSERT ... WHERE NOT
-  EXISTS`; Redshift does not support Snowflake-style conditional `WHEN MATCHED` clauses.
-- Canonical database/schema/relation coordinates survive compilation; Redshift renders local
-  schema/table target DML only at its provider boundary.
-- Existing destination fencing and strict transform schemas are reused without a parallel runtime.
+- Glue databases encode canonical catalog and namespace coordinates; a digest is added only when
+  lowercase normalization would be lossy.
+- Dander owns descriptions, columns, classification, and `dander.*` parameters; unrelated metadata
+  is retained and catalog objects are never deleted.
+- Glue uses direct APIs and ambient AWS identity; crawlers, IAM provisioning, Lake Formation, tags,
+  live proof, and support promotion remain separate gates.
 
 ## Remaining
 
-- Run the retained GCP no-drift plan; never apply it.
-- Push the focused branch, let protected CI validate it, and merge only if every check is green.
-- Continue the cloud-portability roadmap with a separate next slice.
+- Let protected CI repeat Linux tests, packaging, container scanning, and secret scanning.
+- Reconcile the tracked 300-second job default and retained 600-second operator override in a
+  separate change; do not mix it into the Glue catalog slice.
+- Continue the cloud-portability plan in a separate branch after merge; do not deploy or mutate
+  AWS/GCP resources in this slice.
 
 ## Review First
 
-- `src/dander/providers/redshift/transform.py`
-- `tests/providers/test_redshift_warehouse_runtime.py`
-- `docs/redshift.md`
+- `src/dander/catalog/glue.py`
+- `src/dander/providers/glue/`
+- `tests/catalog/test_glue.py`

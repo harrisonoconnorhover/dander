@@ -29,6 +29,7 @@ from dander.providers.dataplex import DataplexCatalogConfig  # noqa: TC001
 from dander.providers.environment_secrets import EnvironmentSecretConfig  # noqa: TC001
 from dander.providers.fargate import FargateLauncherConfig  # noqa: TC001
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig  # noqa: TC001
+from dander.providers.glue import GlueCatalogConfig  # noqa: TC001
 from dander.providers.kubernetes import KubernetesLauncherConfig  # noqa: TC001
 from dander.providers.no_catalog import NoCatalogConfig  # noqa: TC001
 from dander.providers.postgresql import (  # noqa: TC001
@@ -126,7 +127,10 @@ class DanderLogicalProjectV2(BaseModel):
         return values
 
 
-CatalogSpec = Annotated[DataplexCatalogConfig | NoCatalogConfig, Field(discriminator="provider")]
+CatalogSpec = Annotated[
+    DataplexCatalogConfig | GlueCatalogConfig | NoCatalogConfig,
+    Field(discriminator="provider"),
+]
 
 
 SecretProviderSpec = Annotated[
@@ -354,7 +358,9 @@ def _resolve(
             graph=pipeline.graph,
             models=pipeline.models,
             build_models=pipeline.build_models,
-            publish_dataplex=(pipeline.publish_catalog and profile.catalog.provider == "dataplex"),
+            # ``publish_dataplex`` is the version-1 compatibility field. In a resolved
+            # version-2 project it means publication through the selected catalog provider.
+            publish_dataplex=(pipeline.publish_catalog and profile.catalog.provider != "none"),
             schedule=deployment_pipeline.schedule,
             time_zone=deployment_pipeline.time_zone,
             paused=deployment_pipeline.paused,
@@ -383,6 +389,7 @@ def _resolve(
         state_provider=profile.state.provider,
         state_config=profile.state.model_dump(mode="json"),
         catalog_provider=profile.catalog.provider,
+        catalog_config=profile.catalog.model_dump(mode="json", exclude_none=True),
         secret_provider=profile.secrets.provider,
         launcher_provider=selected.launcher.provider,
         launcher_config=selected.launcher.model_dump(mode="json"),
@@ -490,6 +497,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
         and legacy.state_provider == migrated.state_provider
         and legacy.state_config == migrated.state_config
         and legacy.catalog_provider == migrated.catalog_provider
+        and legacy.catalog_config == migrated.catalog_config
         and legacy.secret_provider == migrated.secret_provider
         and legacy.launcher_provider == migrated.launcher_provider
         and legacy.resolved_launcher_config() == migrated.resolved_launcher_config()

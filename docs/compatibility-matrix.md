@@ -25,3 +25,7 @@ before provider construction when a pair is absent or marked `unsupported`.
 claim. The packaged `runtime-capabilities.json` remains the supported launcher/profile boundary.
 Promotion requires the named live profile, identity, failure, rollback, and no-drift evidence from
 the cloud-portability plan. Adding an adapter does not silently add a matrix row.
+
+Catalog selection is independent from this state/warehouse matrix. Dataplex is supported only in
+the released GCP profile, `none` is a complete no-cloud-mutation provider, and AWS Glue is an
+experimental direct API projection with local create/update/readback conformance only.

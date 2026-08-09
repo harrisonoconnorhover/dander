@@ -11,6 +11,8 @@ from dander.security import SecretRuntime
 def build_catalog_publisher(
     *,
     provider_id: str,
+    provider_config: dict[str, object] | None = None,
+    warehouse_provider: str = "bigquery",
     catalog: str | None = None,
     project: str | None = None,
     location: str,
@@ -22,13 +24,22 @@ def build_catalog_publisher(
         raise ClickException("catalog and legacy project must match")
     if catalog is None:
         raise ClickException("Catalog provider requires a warehouse catalog")
+    if provider_config is not None and provider_config.get("provider") != provider_id:
+        raise ClickException("Catalog provider id and configuration must match")
     registry = default_provider_registry()
     try:
-        config = registry.parse(ProviderKind.CATALOG, {"provider": provider_id})
+        config = registry.parse(
+            ProviderKind.CATALOG,
+            provider_config or {"provider": provider_id},
+        )
         runtime = registry.build(
             ProviderKind.CATALOG,
             config,
-            context={"catalog": catalog, "location": location},
+            context={
+                "catalog": catalog,
+                "location": location,
+                "warehouse_provider": warehouse_provider,
+            },
         )
     except ProviderFactoryError as error:
         raise ClickException(str(error)) from error

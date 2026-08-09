@@ -30,6 +30,10 @@ def _default_warehouse_config() -> dict[str, object]:
     return {"provider": "bigquery", "location": "US"}
 
 
+def _default_catalog_config() -> dict[str, object]:
+    return {"provider": "dataplex"}
+
+
 _DISTRIBUTION = re.compile(r"^[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*$")
 
 if TYPE_CHECKING:
@@ -104,6 +108,11 @@ class PipelineSpec(BaseModel):
     publish_dataplex: bool = False
     secrets: dict[str, str] = Field(default_factory=dict)
     resources: PipelineResourceNames = Field(default_factory=PipelineResourceNames)
+
+    @property
+    def publish_catalog(self) -> bool:
+        """Return the provider-neutral meaning of the legacy v1 publication flag."""
+        return self.publish_dataplex
 
     @field_validator("models")
     @classmethod
@@ -226,7 +235,11 @@ class DanderProject(BaseModel):
         default_factory=_default_state_config,
         exclude=True,
     )
-    catalog_provider: Literal["dataplex", "none"] = Field(default="dataplex", exclude=True)
+    catalog_provider: Literal["dataplex", "glue", "none"] = Field(default="dataplex", exclude=True)
+    catalog_config: dict[str, object] = Field(
+        default_factory=_default_catalog_config,
+        exclude=True,
+    )
     secret_provider: Literal["gcp_secret_manager", "environment"] = Field(
         default="gcp_secret_manager",
         exclude=True,
@@ -265,6 +278,8 @@ class DanderProject(BaseModel):
             raise ValueError("warehouse config provider must match warehouse_provider")
         if self.state_config.get("provider") != self.state_provider:
             raise ValueError("state config provider must match state_provider")
+        if self.catalog_config.get("provider") != self.catalog_provider:
+            raise ValueError("catalog config provider must match catalog_provider")
         if self.launcher_config:
             configured_provider = self.launcher_config.get("provider")
             if configured_provider != self.launcher_provider:
