@@ -45,6 +45,8 @@ variables {
       environment = {
         DANDER_LAUNCHER = "fargate"
         GCP_PROJECT_ID  = "unit-project"
+        HOME            = "/tmp"
+        TMPDIR          = "/tmp"
       }
       secret_bindings   = {}
       workload_identity = "arn:aws:iam::184463061564:role/dander-runtime"
@@ -103,6 +105,9 @@ run "paused_bounded_controller" {
     condition = (
       jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].readonlyRootFilesystem == true &&
       jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].user == "65532:65532" &&
+      contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment, { name = "HOME", value = "/tmp" }) &&
+      contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment, { name = "TMPDIR", value = "/tmp" }) &&
+      contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].mountPoints, { sourceVolume = "dander-tmp", containerPath = "/tmp", readOnly = false }) &&
       jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].stopTimeout == 120
     )
     error_message = "The Fargate task must remain non-root, read-only, and explicitly stoppable."

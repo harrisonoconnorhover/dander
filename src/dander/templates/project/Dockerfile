@@ -26,6 +26,11 @@ RUN apt-get update \
 RUN pip install --no-cache-dir "dander-platform[runtime-all]==${DANDER_VERSION}" \
     && python -c "from dander.providers.dependencies import require_full_runtime; require_full_runtime()"
 
+# ECS/Fargate copies the image directory metadata into a matching anonymous
+# volume. Keep the disk-backed scratch mount writable for the non-root runtime.
+RUN chmod 1777 /tmp
+VOLUME ["/tmp"]
+
 COPY --chown=65532:65532 dander.yaml ./dander.yaml
 COPY --chown=65532:65532 dander.platforms.yaml ./dander.platforms.yaml
 

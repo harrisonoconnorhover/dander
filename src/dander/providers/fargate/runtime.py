@@ -116,6 +116,8 @@ class FargateTemplateFactory:
                             "DANDER_LAUNCHER": "fargate",
                             "DANDER_PRINCIPAL": identity,
                             "GCP_PROJECT_ID": project,
+                            "HOME": "/tmp",
+                            "TMPDIR": "/tmp",
                         }.items()
                     )
                 ),
