@@ -6,6 +6,8 @@ import sqlite3
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+import pytest
+
 from dander.state import BigQueryRunHistoryStore, RunStage, RunStatus, SqliteRunHistoryStore
 
 if TYPE_CHECKING:
@@ -127,6 +129,26 @@ class _QueryJob:
 @dataclass
 class _BigQueryClient:
     queries: list[str] = field(default_factory=list)
+    existing_columns: set[str] = field(
+        default_factory=lambda: {
+            "run_id",
+            "pipeline_id",
+            "source_name",
+            "status",
+            "stage",
+            "started_at",
+            "finished_at",
+            "endpoints",
+            "extracted",
+            "affected",
+            "models",
+            "assertions",
+            "assets",
+            "failure_stage",
+            "failure_code",
+            "failure_summary",
+        }
+    )
 
     def query(
         self,
@@ -137,6 +159,93 @@ class _BigQueryClient:
         del job_config
         self.queries.append(query)
         return _QueryJob()
+
+    def get_table(self, table: str) -> _BigQueryTable:
+        assert table == "proof-project.dander_meta._dander_runs"
+        return _BigQueryTable(
+            schema=tuple(_BigQuerySchemaField(name=name) for name in self.existing_columns)
+        )
+
+
+@dataclass(frozen=True)
+class _BigQuerySchemaField:
+    name: str
+
+
+@dataclass(frozen=True)
+class _BigQueryTable:
+    schema: tuple[_BigQuerySchemaField, ...]
+
+
+def test_bigquery_history_current_schema_emits_no_alter() -> None:
+    client = _BigQueryClient()
+    store = BigQueryRunHistoryStore(
+        project="proof-project",
+        dataset="dander_meta",
+        client=client,
+    )
+
+    store.start("run-1", "greenhouse", pipeline_id="greenhouse_jobs")
+    first_queries = tuple(client.queries)
+    store.start("run-2", "greenhouse", pipeline_id="greenhouse_jobs")
+
+    assert len(first_queries) == 2
+    assert first_queries[0].startswith("CREATE TABLE IF NOT EXISTS")
+    assert first_queries[1].startswith("INSERT INTO")
+    assert len(client.queries) == len(first_queries) + 1
+    assert client.queries[-1].startswith("INSERT INTO")
+
+
+def test_bigquery_history_batches_sparse_legacy_schema_migration() -> None:
+    client = _BigQueryClient(existing_columns={"RUN_ID", "SOURCE_NAME", "STATUS"})
+    store = BigQueryRunHistoryStore(
+        project="proof-project",
+        dataset="dander_meta",
+        client=client,
+    )
+
+    store.start("run-1", "greenhouse", pipeline_id="greenhouse_jobs")
+
+    alters = [query for query in client.queries if query.startswith("ALTER TABLE")]
+    assert len(alters) == 1
+    assert "ADD COLUMN IF NOT EXISTS pipeline_id STRING" in alters[0]
+    assert "ADD COLUMN IF NOT EXISTS stage STRING" in alters[0]
+    assert "ADD COLUMN IF NOT EXISTS failure_summary STRING" in alters[0]
+    assert alters[0].count("ADD COLUMN IF NOT EXISTS") == 8
+
+
+class _FailingQueryJob(_QueryJob):
+    def result(self) -> tuple[object, ...]:
+        raise RuntimeError("schema migration failed")
+
+
+@dataclass
+class _FailingBigQueryClient(_BigQueryClient):
+    def query(
+        self,
+        query: str,
+        *,
+        job_config: bigquery.QueryJobConfig | None = None,
+    ) -> _QueryJob:
+        del job_config
+        self.queries.append(query)
+        if query.startswith("ALTER TABLE"):
+            return _FailingQueryJob()
+        return _QueryJob()
+
+
+def test_bigquery_history_migration_propagates_schema_failure() -> None:
+    client = _FailingBigQueryClient(existing_columns={"run_id"})
+    store = BigQueryRunHistoryStore(
+        project="proof-project",
+        dataset="dander_meta",
+        client=client,
+    )
+
+    with pytest.raises(RuntimeError, match="schema migration failed"):
+        store.start("run-1", "greenhouse", pipeline_id="greenhouse_jobs")
+
+    assert len([query for query in client.queries if query.startswith("ALTER TABLE")]) == 1
 
 
 def test_bigquery_history_can_read_without_creating_or_altering_tables() -> None:
