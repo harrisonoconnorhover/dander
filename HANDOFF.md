@@ -2,37 +2,36 @@
 
 ## Finished
 
-- Merged renewable Fargate-to-Google identity through protected main as PR #150.
-- Prepared release-facing metadata for `dander-platform==0.8.0rc2`.
-- Preserved the accepted public-rc1 evidence as a historical record.
-- Kept `src/dander`, Terraform, manifests, and provider support declarations unchanged.
+- Reproduced the public `0.8.0rc2` Fargate apply failure in the isolated proof account.
+- Replaced the invalid SNS topic-policy wildcard with topic-scoped SNS actions.
+- Added a focused regression assertion for the rendered Fargate Terraform.
+- Kept runtime behavior, provider support, schedules, and retained GCP resources unchanged.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py`, then build and install the candidate outside the checkout.
+Run `uv run pytest -q tests/infra/test_fargate_runtime.py`, then validate `infra/aws` with Terraform.
 
 ## Checks
 
-- PR #150 and post-merge main CI passed Python, Terraform, packaging, container, and secret checks.
-- Retained GCP stage-zero and deployed-platform plans each reported exactly `No changes.`
-- Release metadata validation and its two focused tests passed; Ruff found no issue.
-- Wheel/sdist inspection and source-free install, generation, and validation passed outside the checkout.
-- Generated GCP, stage-zero, and AWS Terraform validated; Helm lint/template passed with the repository fixture.
+- Focused Fargate tests passed: 7 tests.
+- Ruff lint/format and strict MyPy passed.
+- Full Python suite passed: 1,104 tests, 13 skipped.
+- AWS Terraform formatting, initialization, validation, and tests passed.
+- Wheel/sdist inspection and source-free scaffold verification passed.
 
 ## Decisions
 
-- `0.8.0rc2` replaces rc1 for the complete Fargate lifecycle proof because packaged runtime behavior changed.
-- Fargate remains experimental until full lifecycle acceptance passes.
+- The restricted EventBridge `sns:Publish` policy remains unchanged.
+- A replacement release candidate is required because rc2 cannot finish a fresh AWS apply.
 
 ## Remaining
 
-- Merge the release-only PR after protected checks pass.
-- Obtain explicit approval, then tag and publish `0.8.0rc2` from the exact merge commit.
-- Restart the source-free Fargate lifecycle proof against the public candidate.
+- Merge this fix through protected main after review and CI.
+- Prepare and explicitly approve a replacement release candidate.
+- Re-plan the partial proof stack and require only the expected remaining resource.
 - Record replay, interruption, scheduling, alert, rollback, cleanup, and no-drift evidence.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `docs/session-resume.md`
+- `infra/aws/modules/fargate/main.tf`
+- `tests/infra/test_fargate_runtime.py`

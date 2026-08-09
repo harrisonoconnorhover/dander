@@ -846,9 +846,18 @@ resource "aws_sqs_queue_policy" "failures" {
 
 data "aws_iam_policy_document" "failure_topic" {
   statement {
-    sid       = "AccountOwner"
-    effect    = "Allow"
-    actions   = ["SNS:*"]
+    sid    = "AccountOwner"
+    effect = "Allow"
+    actions = [
+      "sns:AddPermission",
+      "sns:DeleteTopic",
+      "sns:GetTopicAttributes",
+      "sns:ListSubscriptionsByTopic",
+      "sns:Publish",
+      "sns:RemovePermission",
+      "sns:SetTopicAttributes",
+      "sns:Subscribe",
+    ]
     resources = [aws_sns_topic.failures.arn]
 
     principals {
