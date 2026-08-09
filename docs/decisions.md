@@ -801,3 +801,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - PostgreSQL types derive from canonical schema v1. Only declared nullable additions evolve
   automatically; extra columns, type or nullability drift, required additions, and malformed
   records fail before target DML. Profile selection and transforms remain separate milestones.
+
+## 2026-08-08 — PostgreSQL materializations use stable relations and transactional fencing
+
+- Portable and explicitly PostgreSQL-authored models render through the existing transform
+  project. A PostgreSQL project uses database-local `schema.relation` names without changing the
+  default BigQuery compilation path.
+- Table materialization keeps a stable relation and transactionally performs create-if-absent,
+  truncate, and insert behind the exact target fence. Views use transactional
+  `CREATE OR REPLACE`; incremental models use a unique index and deterministic
+  `INSERT ... ON CONFLICT`.
+- Generic not-null, unique, accepted-values, and relationship assertions share the model metadata
+  but render PostgreSQL-native SQL. Graph execution and profile selection remain out of scope.

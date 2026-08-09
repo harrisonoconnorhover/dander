@@ -107,6 +107,25 @@ def test_exact_provider_model_compiles_only_for_declared_target(tmp_path: Path) 
         project.compile(project.models["provider_model"])
 
 
+def test_postgresql_project_uses_database_local_relations_by_default(tmp_path: Path) -> None:
+    _write_model(
+        tmp_path,
+        "portable_model",
+        "SELECT id FROM {{ ref('raw_fixture') }}",
+        dialect="portable",
+    )
+    project = TransformProject.load(
+        tmp_path,
+        project_id="dander_test",
+        target_dialect="postgres",
+    )
+
+    model = project.models["portable_model"]
+    assert project.relation_for_model(model) == '"staging"."portable_model"'
+    assert project.relation_for_ref("raw_fixture") == '"raw"."fixture"'
+    assert '"raw"."fixture"' in project.compile(model)
+
+
 def test_unknown_reference_fails_during_project_load(tmp_path: Path) -> None:
     _write_model(tmp_path, "broken", "SELECT id FROM {{ ref('missing') }}")
 
