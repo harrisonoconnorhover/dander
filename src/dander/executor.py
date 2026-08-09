@@ -74,7 +74,7 @@ class PipelineExecutor:
         history: RunHistoryStore,
         catalog: str | None = None,
         project: str | None = None,
-        raw_namespace: str = "raw",
+        raw_namespace: str | None = None,
         source_relations: dict[str, RelationRef] | None = None,
         models_dir: Path,
         selected_models: Iterable[str] | None,
@@ -92,26 +92,54 @@ class PipelineExecutor:
             catalog = project
         elif project is not None and project != catalog:
             raise ValueError("catalog and legacy project must match")
-        if catalog is None:
-            raise ValueError("PipelineExecutor requires a warehouse catalog")
         if catalog_publisher is not None and dataplex_publisher is not None:
             raise ValueError(
                 "catalog_publisher and legacy dataplex_publisher are mutually exclusive"
             )
+        configured_endpoints = {endpoint.name for endpoint in source_config.endpoints}
+        if source_relations is not None:
+            if missing := sorted(configured_endpoints - source_relations.keys()):
+                raise ValueError(f"Missing source relation for endpoint: {missing[0]!r}")
+            if unknown := sorted(source_relations.keys() - configured_endpoints):
+                raise ValueError(f"Unknown source relation endpoint: {unknown[0]!r}")
+            if not source_relations:
+                raise ValueError("PipelineExecutor requires at least one source relation")
+            canonical = next(iter(source_relations.values()))
+            if any(
+                (relation.catalog, relation.namespace) != (canonical.catalog, canonical.namespace)
+                for relation in source_relations.values()
+            ):
+                raise ValueError(
+                    "Pipeline source relations must share one catalog and raw namespace"
+                )
+            if catalog is not None and catalog != canonical.catalog:
+                raise ValueError("catalog conflicts with canonical source relations")
+            if raw_namespace is not None and raw_namespace != canonical.namespace:
+                raise ValueError("raw_namespace conflicts with canonical source relations")
+            catalog = canonical.catalog
+            raw_namespace = canonical.namespace
+            resolved_source_relations = dict(source_relations)
+        else:
+            if catalog is None:
+                raise ValueError("PipelineExecutor requires a warehouse catalog")
+            raw_namespace = raw_namespace or "raw"
+            resolved_source_relations = {
+                endpoint.name: RelationRef(
+                    catalog=catalog,
+                    namespace=raw_namespace,
+                    name=f"{source_config.name}_{endpoint.name}",
+                )
+                for endpoint in source_config.endpoints
+            }
+        assert catalog is not None
+        assert raw_namespace is not None
         self._pipeline_id = pipeline_id
         self._source_config = source_config
         self._ingestion = ingestion
         self._history = history
         self._catalog = catalog
         self._raw_namespace = raw_namespace
-        self._source_relations = source_relations or {
-            endpoint.name: RelationRef(
-                catalog=catalog,
-                namespace=raw_namespace,
-                name=f"{source_config.name}_{endpoint.name}",
-            )
-            for endpoint in source_config.endpoints
-        }
+        self._source_relations = resolved_source_relations
         self._models_dir = models_dir
         self._selected_models = tuple(selected_models) if selected_models is not None else None
         self._build_models = build_models

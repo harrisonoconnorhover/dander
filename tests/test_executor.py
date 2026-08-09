@@ -203,7 +203,9 @@ def _executor(
     metadata: _Metadata,
     fail_transform: bool = False,
     leases: LeaseStore | None = None,
-    raw_namespace: str = "raw",
+    catalog: str | None = None,
+    project: str | None = "valid-project-123",
+    raw_namespace: str | None = "raw",
     source_relations: dict[str, RelationRef] | None = None,
     catalog_publisher: CatalogPublisher | None = None,
 ) -> PipelineExecutor:
@@ -225,7 +227,8 @@ def _executor(
         source_config=source,
         ingestion=_Ingestion(),
         history=history,
-        project="valid-project-123",
+        catalog=catalog,
+        project=project,
         raw_namespace=raw_namespace,
         source_relations=source_relations,
         models_dir=models_dir,
@@ -305,7 +308,9 @@ def test_executor_keeps_custom_raw_namespace_in_models_and_metadata(tmp_path: Pa
         tmp_path,
         history=_History(),
         metadata=metadata,
-        raw_namespace="landing",
+        catalog=None,
+        project=None,
+        raw_namespace=None,
         source_relations={"widgets": source_relation},
     ).execute()
 
@@ -318,6 +323,98 @@ def test_executor_keeps_custom_raw_namespace_in_models_and_metadata(tmp_path: Pa
     assets = metadata.manifest["assets"]
     assert isinstance(assets, list)
     assert assets[0]["upstream_relations"] == ["valid-project-123.landing.example_widgets"]
+
+
+@pytest.mark.parametrize(
+    ("catalog", "raw_namespace", "message"),
+    [
+        ("other-catalog", None, "catalog conflicts with canonical source relations"),
+        (None, "other_namespace", "raw_namespace conflicts with canonical source relations"),
+    ],
+)
+def test_executor_rejects_legacy_coordinates_that_conflict_with_source_relations(
+    tmp_path: Path,
+    *,
+    catalog: str | None,
+    raw_namespace: str | None,
+    message: str,
+) -> None:
+    _models(tmp_path)
+    source_relation = RelationRef(
+        catalog="canonical_catalog",
+        namespace="canonical_namespace",
+        name="example_widgets",
+    )
+
+    with pytest.raises(ValueError, match=message):
+        _executor(
+            tmp_path,
+            history=_History(),
+            metadata=_Metadata(),
+            catalog=catalog,
+            project=None,
+            raw_namespace=raw_namespace,
+            source_relations={"widgets": source_relation},
+        )
+
+
+@pytest.mark.parametrize(
+    ("source_relations", "message"),
+    [
+        (
+            {
+                "widgets": RelationRef(
+                    catalog="warehouse",
+                    namespace="landing",
+                    name="example_widgets",
+                )
+            },
+            "Missing source relation for endpoint: 'gadgets'",
+        ),
+        (
+            {
+                "widgets": RelationRef(
+                    catalog="warehouse",
+                    namespace="landing",
+                    name="example_widgets",
+                ),
+                "gadgets": RelationRef(
+                    catalog="warehouse",
+                    namespace="other_namespace",
+                    name="example_gadgets",
+                ),
+            },
+            "must share one catalog and raw namespace",
+        ),
+    ],
+)
+def test_executor_requires_one_complete_canonical_source_location(
+    tmp_path: Path,
+    *,
+    source_relations: dict[str, RelationRef],
+    message: str,
+) -> None:
+    source = SourceConfig(
+        name="example",
+        base_url="https://example.test",
+        auth_strategy="none",
+        endpoints=[
+            Endpoint(name="widgets", path="/widgets", primary_key=["id"]),
+            Endpoint(name="gadgets", path="/gadgets", primary_key=["id"]),
+        ],
+    )
+
+    with pytest.raises(ValueError, match=message):
+        PipelineExecutor(
+            pipeline_id="example_pipeline",
+            source_config=source,
+            ingestion=_Ingestion(),
+            history=_History(),
+            source_relations=source_relations,
+            models_dir=tmp_path,
+            selected_models=None,
+            build_models=False,
+        )
 
 
 def test_executor_marks_transform_failure_without_claiming_ingestion_only_success(

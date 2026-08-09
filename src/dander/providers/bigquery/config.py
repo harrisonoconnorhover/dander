@@ -32,14 +32,13 @@ class BigQueryWarehouseConfig(BaseModel):
         *,
         compatibility_catalog: str | None,
         compatibility_namespace: str | None,
-        default_namespace: str,
     ) -> RelationRef:
         """Translate legacy project/dataset inputs at the BigQuery boundary."""
         if not compatibility_catalog:
             raise ValueError("BigQuery warehouse requires a catalog")
         return RelationRef(
             catalog=compatibility_catalog,
-            namespace=compatibility_namespace or self.dataset or default_namespace,
+            namespace=compatibility_namespace or self.dataset or "raw",
             name=name,
         )
 

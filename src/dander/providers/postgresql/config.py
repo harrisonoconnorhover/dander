@@ -86,10 +86,9 @@ class PostgreSQLWarehouseConfig(BaseModel):
         *,
         compatibility_catalog: str | None,
         compatibility_namespace: str | None,
-        default_namespace: str,
     ) -> RelationRef:
         """Translate the legacy namespace option into database/schema coordinates."""
-        del compatibility_catalog, default_namespace
+        del compatibility_catalog
         return RelationRef(
             catalog=self.database,
             namespace=compatibility_namespace or self.schema_name,

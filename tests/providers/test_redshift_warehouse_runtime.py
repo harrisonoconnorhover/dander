@@ -305,7 +305,6 @@ def test_redshift_registration_is_lazy_and_uses_native_coordinates() -> None:
         "records",
         compatibility_catalog="ignored-gcp-project",
         compatibility_namespace=None,
-        default_namespace="ignored_bigquery_default",
     )
     assert relation == RelationRef(catalog="analytics", namespace="raw", name="records")
     assert "password" not in config.model_dump_json()

@@ -229,7 +229,6 @@ def test_snowflake_registration_is_lazy_and_credentials_remain_references() -> N
         "records",
         compatibility_catalog="ignored-gcp-project",
         compatibility_namespace=None,
-        default_namespace="ignored_bigquery_default",
     )
     assert relation == RelationRef(catalog="DANDER_TEST", namespace="raw", name="records")
 

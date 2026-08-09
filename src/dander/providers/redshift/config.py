@@ -102,10 +102,9 @@ class RedshiftWarehouseConfig(BaseModel):
         *,
         compatibility_catalog: str | None,
         compatibility_namespace: str | None,
-        default_namespace: str,
     ) -> RelationRef:
         """Translate compatibility inputs into Redshift database/schema coordinates."""
-        del compatibility_catalog, default_namespace
+        del compatibility_catalog
         relation = RelationRef(
             catalog=self.database,
             namespace=compatibility_namespace or self.schema_name,
