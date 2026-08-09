@@ -113,12 +113,10 @@ class _ResolvedRun:
     graph_file: Path | None
     graph_plan: GraphExecutionPlan | None
     gcp_project: str
-    catalog: str
-    raw_namespace: str
-    metadata_namespace: str
     endpoint_relations: dict[str, RelationRef]
     state_catalog: str | None
     state_namespace: str | None
+    metadata_namespace: str | None
     selected_models: tuple[str, ...] | None
     build_models: bool
     publish_catalog: bool
@@ -131,24 +129,19 @@ class _ResolvedRun:
     secret_provider: str
 
     @property
-    def project(self) -> str:
-        """Return the v1 CLI compatibility project value."""
-        return self.gcp_project
+    def raw_relation(self) -> RelationRef:
+        """Return one canonical relation carrying the shared raw location."""
+        return next(iter(self.endpoint_relations.values()))
 
     @property
-    def dataset(self) -> str:
-        """Return the v1 CLI compatibility dataset value."""
-        return self.raw_namespace
+    def catalog(self) -> str:
+        """Return the provider-neutral warehouse catalog."""
+        return self.raw_relation.catalog
 
     @property
-    def metadata_dataset(self) -> str:
-        """Return the v1 BigQuery metadata namespace alias."""
-        return self.metadata_namespace
-
-    @property
-    def warehouse_catalog(self) -> str:
-        """Return the former internal warehouse-catalog shim."""
-        return self.catalog
+    def raw_namespace(self) -> str:
+        """Return the provider-neutral raw namespace."""
+        return self.raw_relation.namespace
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,33 +255,37 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         raise ClickException(str(error)) from error
 
     settings = Settings()
-    resolved_project = options.project or settings.gcp_project_id
-    state_catalog = (resolved_project or None) if state_provider == "bigquery" else None
+    gcp_project = options.project or settings.gcp_project_id
+    state_catalog = (gcp_project or None) if state_provider == "bigquery" else None
     state_namespace = (
         (options.dataset or settings.bq_dataset_raw) if state_provider == "bigquery" else None
     )
+    metadata_namespace = settings.bq_dataset_metadata if state_provider == "bigquery" else None
     registry = default_provider_registry()
     try:
-        coordinate_config = registry.parse(ProviderKind.WAREHOUSE, warehouse_config)
+        coordinate_values = _warehouse_coordinate_values(
+            provider=warehouse_provider,
+            config=warehouse_config,
+            compatibility_namespace=options.dataset,
+            bigquery_default_namespace=settings.bq_dataset_raw,
+        )
+        coordinate_config = registry.parse(ProviderKind.WAREHOUSE, coordinate_values)
         if not isinstance(coordinate_config, WarehouseCoordinateConfig):
             raise ProviderFactoryError(
                 f"Warehouse provider {warehouse_provider!r} cannot resolve relation coordinates"
             )
-        coordinate = coordinate_config.raw_relation(
-            "_dander_coordinate",
-            compatibility_catalog=resolved_project or "dander-dry-run",
-            compatibility_namespace=options.dataset,
-            default_namespace=settings.bq_dataset_raw,
+        compatibility_catalog = (
+            gcp_project or "dander-dry-run" if warehouse_provider == "bigquery" else None
         )
         endpoint_relations = {
             endpoint.name: coordinate_config.raw_relation(
                 f"{config.name}_{endpoint.name}",
-                compatibility_catalog=resolved_project or "dander-dry-run",
+                compatibility_catalog=compatibility_catalog,
                 compatibility_namespace=options.dataset,
-                default_namespace=settings.bq_dataset_raw,
             )
             for endpoint in config.endpoints
         }
+        _require_common_raw_location(endpoint_relations)
     except (ProviderFactoryError, ValueError) as error:
         raise ClickException(str(error)) from error
     if options.sandbox and options.guarded_free_tier:
@@ -309,13 +306,11 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         project_pipeline=project_pipeline,
         graph_file=graph_file,
         graph_plan=graph_plan,
-        gcp_project=resolved_project,
-        catalog=coordinate.catalog,
-        raw_namespace=coordinate.namespace,
-        metadata_namespace=settings.bq_dataset_metadata,
+        gcp_project=gcp_project,
         endpoint_relations=endpoint_relations,
         state_catalog=state_catalog,
         state_namespace=state_namespace,
+        metadata_namespace=metadata_namespace,
         selected_models=selected_models,
         build_models=build_models,
         publish_catalog=publish_catalog,
@@ -327,6 +322,32 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         catalog_config=catalog_config,
         secret_provider=secret_provider,
     )
+
+
+def _require_common_raw_location(relations: dict[str, RelationRef]) -> None:
+    """Require one catalog/namespace pair for a pipeline's raw relations."""
+    if not relations:
+        raise ValueError("Warehouse coordinate resolution returned no endpoint relations")
+    first = next(iter(relations.values()))
+    if any(
+        (relation.catalog, relation.namespace) != (first.catalog, first.namespace)
+        for relation in relations.values()
+    ):
+        raise ValueError("Pipeline endpoint relations must share one catalog and raw namespace")
+
+
+def _warehouse_coordinate_values(
+    *,
+    provider: str,
+    config: dict[str, object],
+    compatibility_namespace: str | None,
+    bigquery_default_namespace: str,
+) -> dict[str, object]:
+    """Resolve the legacy BigQuery namespace default before neutral orchestration."""
+    values = dict(config)
+    if provider == "bigquery" and compatibility_namespace is None and values.get("dataset") is None:
+        values["dataset"] = bigquery_default_namespace
+    return values
 
 
 def _resolve_graph_plan(
@@ -415,8 +436,6 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         source_config=resolved.source_config,
         ingestion=ingestion,
         history=stores.history,
-        catalog=resolved.catalog,
-        raw_namespace=resolved.raw_namespace,
         source_relations=resolved.endpoint_relations,
         models_dir=(
             resolved.graph_file.parent if resolved.graph_file is not None else options.models_dir

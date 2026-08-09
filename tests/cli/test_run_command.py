@@ -47,11 +47,10 @@ class _ResolvedWarehouse(Protocol):
 
 class _ResolvedState(Protocol):
     state_provider: str
-    project: str
-    dataset: str
-    metadata_dataset: str
+    gcp_project: str
     state_catalog: str | None
     state_namespace: str | None
+    metadata_namespace: str | None
 
 
 class _Migrator:
@@ -146,11 +145,10 @@ def test_hosted_project_run_wires_runtime_without_network(
 
     def build_state(resolved: _ResolvedState) -> StateRuntime:
         assert resolved.state_provider == "bigquery"
-        assert resolved.project == "unit-project"
-        assert resolved.dataset == "landing"
-        assert resolved.metadata_dataset == "dander_meta"
+        assert resolved.gcp_project == "unit-project"
         assert resolved.state_catalog == "unit-project"
         assert resolved.state_namespace == "landing"
+        assert resolved.metadata_namespace == "dander_meta"
         migrator = _Migrator()
         captured["migrator"] = migrator
         for name in ("history", "leases", "metadata", "watermarks"):
@@ -207,8 +205,8 @@ def test_hosted_project_run_wires_runtime_without_network(
     assert "Dander run run-123" in result.output
     executor = cast("dict[str, object]", captured["executor"])
     assert executor["pipeline_id"] == "greenhouse_jobs"
-    assert executor["catalog"] == "unit-project"
-    assert executor["raw_namespace"] == "landing"
+    assert "catalog" not in executor
+    assert "raw_namespace" not in executor
     assert executor["source_relations"] == {
         "jobs": RelationRef(
             catalog="unit-project",
@@ -316,6 +314,34 @@ def test_bigquery_state_location_stays_independent_from_postgresql_warehouse() -
     assert context["catalog"] == "gcp-control-project"
     assert context["raw_namespace"] == "dander_state"
     assert context["metadata_namespace"] == "dander_meta"
+
+
+def test_bigquery_default_namespace_is_resolved_only_for_bigquery() -> None:
+    assert run_module._warehouse_coordinate_values(
+        provider="bigquery",
+        config={"provider": "bigquery", "location": "US"},
+        compatibility_namespace=None,
+        bigquery_default_namespace="environment_raw",
+    ) == {
+        "provider": "bigquery",
+        "location": "US",
+        "dataset": "environment_raw",
+    }
+    assert (
+        run_module._warehouse_coordinate_values(
+            provider="bigquery",
+            config={"provider": "bigquery", "location": "US", "dataset": "profile_raw"},
+            compatibility_namespace=None,
+            bigquery_default_namespace="environment_raw",
+        )["dataset"]
+        == "profile_raw"
+    )
+    assert run_module._warehouse_coordinate_values(
+        provider="postgresql",
+        config={"provider": "postgresql", "database": "warehouse"},
+        compatibility_namespace=None,
+        bigquery_default_namespace="environment_raw",
+    ) == {"provider": "postgresql", "database": "warehouse"}
 
 
 def test_snowflake_coordinates_resolve_from_database_and_schema(tmp_path: Path) -> None:

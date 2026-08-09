@@ -235,7 +235,6 @@ class WarehouseCoordinateConfig(Protocol):
         *,
         compatibility_catalog: str | None,
         compatibility_namespace: str | None,
-        default_namespace: str,
     ) -> RelationRef:
         """Return one raw relation for a configured endpoint."""
         ...

@@ -2,49 +2,45 @@
 
 ## Finished
 
-- Added a lazy, explicitly configured AWS Glue Data Catalog provider.
-- Published canonical relation, schema, lineage, tests, metrics, ownership, and sensitivity through
-  direct database/table APIs with deterministic readback.
-- Preserved unrelated database, table, storage-descriptor, partition, and column metadata.
-- Replaced provider-neutral executor/runtime use of “Dataplex publisher” with a generic catalog
-  publisher while retaining the legacy constructor and CLI compatibility inputs.
-- Added focused configuration, lazy-loading, create/update/readback, preservation, and sanitization
-  coverage plus operator documentation.
+- Removed the BigQuery-derived namespace fallback from the provider-neutral warehouse coordinate
+  protocol; each provider now accepts only canonical compatibility inputs.
+- Kept BigQuery namespace precedence exactly `--dataset`, profile `warehouse.dataset`, then
+  `BQ_DATASET_RAW`, resolved before neutral orchestration.
+- Made the endpoint `RelationRef` map authoritative through CLI composition and
+  `PipelineExecutor`, including complete-map and shared catalog/namespace validation.
+- Removed unused internal `project`, `dataset`, `metadata_dataset`, and `warehouse_catalog` aliases
+  while retaining public v1/CLI compatibility entry points.
 
 ## Try It
 
-Select `catalog.provider: glue` in a version 2 platform profile as shown in `docs/aws-glue.md`, set
-`publish_catalog: true` on a model pipeline, and run with an ambient AWS identity. This slice has
-not contacted AWS and is not a support claim.
+Run `uv run pytest -q tests/cli/test_run_command.py tests/test_executor.py` to exercise compatibility
+translation and canonical relation flow without contacting a warehouse.
 
 ## Checks
 
-- Ruff, 34 focused tests, strict mypy across 303 files, and the full 1,094-test suite passed;
-  the full suite included ephemeral PostgreSQL 15 integration.
-- Wheel, sdist, source-free installation, runtime-all installation, dependency audit, and the final
-  non-root/read-only container conformance checks passed.
-- GCP/AWS Terraform validation and tests plus Helm lint/template passed. The retained GCP project
-  produced exactly `No changes.` using its reviewed 600-second runtime override; no apply ran.
+- Ruff passed; strict mypy passed across 303 source files.
+- The full suite passed: 1,100 tests with an ephemeral pinned PostgreSQL 15 service.
+- Wheel, sdist, outside-checkout source-free installs, runtime-all install, generated-project
+  validation, dependency audit, and non-root/read-only container conformance passed.
+- GCP/AWS Terraform validation and tests plus Helm lint/template passed.
 
 ## Decisions
 
-- Glue databases encode canonical catalog and namespace coordinates; a digest is added only when
-  lowercase normalization would be lossy.
-- Dander owns descriptions, columns, classification, and `dander.*` parameters; unrelated metadata
-  is retained and catalog objects are never deleted.
-- Glue uses direct APIs and ambient AWS identity; crawlers, IAM provisioning, Lake Formation, tags,
-  live proof, and support promotion remain separate gates.
+- Canonical endpoint relations are the single warehouse-location authority once CLI compatibility
+  inputs have been translated.
+- Mixed catalogs or raw namespaces fail before execution instead of selecting one relation
+  implicitly.
+- Provider registry, capabilities, fencing, schema contracts, v1 resources, and Terraform remain
+  unchanged.
 
 ## Remaining
 
-- Let protected CI repeat Linux tests, packaging, container scanning, and secret scanning.
-- Reconcile the tracked 300-second job default and retained 600-second operator override in a
-  separate change; do not mix it into the Glue catalog slice.
-- Continue the cloud-portability plan in a separate branch after merge; do not deploy or mutate
-  AWS/GCP resources in this slice.
+- Let protected CI repeat Linux packaging, image scanning, and secret scanning before merge.
+- Keep the separate warehouse-capability worktree and future provider work out of this slice.
+- Do not deploy, apply Terraform, publish packages, or expand provider support from this branch.
 
 ## Review First
 
-- `src/dander/catalog/glue.py`
-- `src/dander/providers/glue/`
-- `tests/catalog/test_glue.py`
+- `src/dander/cli/run_command.py`
+- `src/dander/executor.py`
+- `src/dander/warehouse/contracts.py`

@@ -69,7 +69,6 @@ def test_postgresql_config_uses_database_and_schema_coordinates_directly() -> No
         "accounts",
         compatibility_catalog="ignored-gcp-project",
         compatibility_namespace=None,
-        default_namespace="ignored_bigquery_dataset",
     )
 
     assert relation == RelationRef(

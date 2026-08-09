@@ -61,11 +61,10 @@ def test_default_registry_loads_bigquery_runtime_only_after_selection() -> None:
 
 
 def test_bigquery_config_translates_legacy_cli_coordinates() -> None:
-    relation = BigQueryWarehouseConfig(provider="bigquery").raw_relation(
+    relation = BigQueryWarehouseConfig(provider="bigquery", dataset="profile_raw").raw_relation(
         "accounts",
         compatibility_catalog="unit-project",
         compatibility_namespace="landing",
-        default_namespace="raw",
     )
 
     assert relation == RelationRef(
@@ -73,6 +72,16 @@ def test_bigquery_config_translates_legacy_cli_coordinates() -> None:
         namespace="landing",
         name="accounts",
     )
+
+
+def test_bigquery_config_uses_its_native_namespace_when_cli_alias_is_absent() -> None:
+    relation = BigQueryWarehouseConfig(provider="bigquery", dataset="profile_raw").raw_relation(
+        "accounts",
+        compatibility_catalog="unit-project",
+        compatibility_namespace=None,
+    )
+
+    assert relation.namespace == "profile_raw"
 
 
 def test_bigquery_runtime_exposes_codec_schema_fence_and_telemetry() -> None:
