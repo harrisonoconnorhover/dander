@@ -31,7 +31,7 @@ gcloud auth application-default set-quota-project "$DANDER_PROJECT"
 ## Install and scaffold
 
 ```bash
-uv tool install dander-platform==0.7.1rc1
+uv tool install dander-platform==0.7.1
 dander --version
 dander new my-dander-project
 cd my-dander-project

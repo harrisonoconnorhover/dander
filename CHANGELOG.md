@@ -6,6 +6,22 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.7.1 — 2026-08-09 (beta)
+
+### Fixed
+
+- Promote the accepted `0.7.1rc1` run-history migration and dependency-maintenance candidate
+  without changing packaged runtime behavior.
+
+### Acceptance
+
+- Complete source-free retained-project smoke runs for Greenhouse, HubSpot, four-endpoint
+  Salesforce, ServiceNow, and the executable graph; Salesforce built five models, passed 35
+  assertions, published five catalog assets, replayed without duplicate keys, and preserved all
+  four watermarks.
+- Verify interruption recording, released leases, removed run-scoped staging, enabled failure
+  alerts, restored tracked scheduler state, and exact stage-zero and platform Terraform no-drift.
+
 ## 0.7.1rc1 — 2026-08-09 (beta)
 
 ### Fixed

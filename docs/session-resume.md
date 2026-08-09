@@ -1,11 +1,11 @@
-# Session Resume — 2026-08-07
+# Session Resume — 2026-08-09
 
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
 
 ## Public releases
 
-- Dander `0.7.1rc1` is the current public beta.
+- Dander `0.7.1` is the current public beta.
 - Salesforce `0.3.1` and ServiceNow `0.2.2` are the current stable connector releases for Dander
   `0.7.x`; their accepted release candidates remain recorded in the Phase 1 evidence.
 - Druff's fork contains Josh's reconciled graph-client ancestry and the later persistence,
@@ -15,9 +15,10 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 - Project `dander-proof-harrison-20260801`, region `us-central1`, remote states `dander/state` and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
-- The source-free runtime is pinned to Dander `0.5.0` with Salesforce and ServiceNow plugins
-  `0.2.0`, at immutable digest `sha256:3220623bf82a81d625db9e611c305694204e25ae312c06a8e8b1ea883bfd8995`.
-  Dander `0.5.1` does not require a runtime rollout because its only change is catalog metadata.
+- The accepted source-free runtime is pinned to Dander `0.7.1rc1`, Salesforce `0.3.1`, and
+  ServiceNow `0.2.2`, at immutable digest
+  `sha256:5f9db33a09cd486a5e426f3012e3925bb10b2ea23336b9a2c61460d84f5bb7d2`.
+  Stable `0.7.1` retains identical runtime source and requires only the final package-version image.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -34,19 +35,22 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-09, retained manual executions completed for Greenhouse
+  (`dander-greenhouse-public-rh4cc`), HubSpot (`dander-hubspot-companies-sq8d6`), Salesforce
+  (`dander-salesforce-accounts-5pw68`), ServiceNow (`dander-servicenow-incidents-qhnvn`), and the
+  graph (`dander-greenhouse-graph-djf4t`). Salesforce passed 35 assertions, published five assets,
+  retained monotonic cursors, and had zero duplicate IDs across all four endpoints.
+- The accepted timeout-recovery run left no active lease or run-scoped staging. All five failure
+  alerts remain enabled, four schedules are restored, and the graph remains paused.
+- Refreshed final Terraform plans reported no changes across 28 stage-zero and 113 platform
+  resources.
+
 - On 2026-08-07, the isolated source-free `0.7.0rc2` image completed local/Cloud Run OCI parity,
   four-endpoint Salesforce ingestion, governed transforms/tests, replay, overlap skip,
   SIGTERM/SIGKILL recovery, Dataplex publication, lease and staging cleanup, and a final no-drift
   plan. ServiceNow completed its compatibility smoke in the same image. The bounded record is
   `docs/cloud-portability-phase1-acceptance.md`.
 
-- On 2026-08-05, scheduled executions `dander-greenhouse-public-m2pz2`,
-  `dander-hubspot-companies-cmdbz`, `dander-salesforce-accounts-jljwj`, and
-  `dander-servicenow-incidents-6g72x` all completed successfully.
-- The latest manual executable-graph run, `dander-greenhouse-graph-7gn9z`, completed successfully
-  on 2026-08-04; its schedule remains intentionally paused.
-- The most recent reviewed platform plan reported `0` add, `0` change, and `0` destroy across
-  `111` no-op resources after Druff deployment.
 - Continue the 30-day operating record in GitHub issue #26. The next normal scheduled runs are the
   remaining observation point for the reconciled stable image.
 
