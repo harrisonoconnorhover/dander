@@ -898,3 +898,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Correctness:** Claims serialize on the destination ledger. One publication transaction locks
   and DML-touches the exact authority/run/token, evolves declared nullable columns, performs the
   deterministic ordinal MERGE, records replay identity, and commits the fence or rolls back all.
+
+## 2026-08-09 — Redshift transforms reuse native transactions and canonical relations
+
+- **Preflight:** The complete selected model DAG, declared scalar schemas, SQL, materializations,
+  and assertions compile before Redshift receives a connection, destination claim, or mutation.
+- **Publication:** Session-temporary CTAS staging feeds table replacement or deterministic,
+  cursor-monotonic incremental `UPDATE`/`INSERT`; target DML and the exact fence touch commit
+  together.
+- **Boundary:** Canonical database/schema/relation coordinates survive compilation, while the
+  provider renders database-local target DML. Views, graphs, automatic transform-schema evolution,
+  `SUPER`, and support promotion remain separate gates.

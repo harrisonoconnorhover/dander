@@ -239,6 +239,7 @@ include = [
   "docs/postgresql-benchmarks.md",
   "docs/oci-artifact-contract.md",
   "docs/rollback.md",
+  "docs/redshift.md",
   "docs/snowflake.md",
   "docs/upgrading.md",
   "docs/warehouse-staging.md",
