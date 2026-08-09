@@ -91,8 +91,16 @@ def execute_runtime(
     connectors_dir: Path = typer.Option(Path("connectors"), "--connectors-dir"),  # noqa: B008
     models_dir: Path = typer.Option(Path("models"), "--models-dir"),  # noqa: B008
     catalog_output: Path | None = typer.Option(None, "--catalog-output"),  # noqa: B008
-    project: str | None = typer.Option(None, "--project", help="Override GCP_PROJECT_ID."),
-    dataset: str | None = typer.Option(None, "--dataset", help="Override BQ_DATASET_RAW."),
+    project: str | None = typer.Option(
+        None,
+        "--project",
+        help="Override the BigQuery/GCP project for profiles that use GCP.",
+    ),
+    dataset: str | None = typer.Option(
+        None,
+        "--dataset",
+        help="Override the raw warehouse dataset or schema.",
+    ),
     guarded_free_tier: bool = typer.Option(False, "--guarded-free-tier"),
     batch_rows: int = typer.Option(10_000, "--batch-rows", min=1, max=100_000),
     budget_name: str = typer.Option("dander-sbx-cap", "--budget-name", hidden=True),

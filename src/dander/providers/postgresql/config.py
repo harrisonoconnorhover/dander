@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from dander.warehouse.contracts import RelationRef
+
 _ENVIRONMENT_NAME = re.compile(r"^[A-Z][A-Z0-9_]{0,126}$")
 _SCHEMA_NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 _AUTHORITY_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$")
@@ -48,10 +50,16 @@ class PostgreSQLStateConfig(BaseModel):
 class PostgreSQLWarehouseConfig(BaseModel):
     """PostgreSQL warehouse connection, pool, and transaction limits."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        populate_by_name=True,
+        serialize_by_alias=True,
+    )
 
     provider: Literal["postgresql"]
     database: str
+    schema_name: str = Field(default="raw", alias="schema")
     dsn_env: str = "DANDER_POSTGRES_DSN"
     pool_min_size: int = Field(default=1, ge=1, le=20)
     pool_max_size: int = Field(default=5, ge=1, le=50)
@@ -64,11 +72,29 @@ class PostgreSQLWarehouseConfig(BaseModel):
     def validate_settings(self) -> PostgreSQLWarehouseConfig:
         if not _SCHEMA_NAME.fullmatch(self.database):
             raise ValueError("database must be a safe lowercase PostgreSQL identifier")
+        if not _SCHEMA_NAME.fullmatch(self.schema_name):
+            raise ValueError("schema must be a safe lowercase PostgreSQL identifier")
         if not _ENVIRONMENT_NAME.fullmatch(self.dsn_env):
             raise ValueError("dsn_env must be an uppercase environment-variable name")
         if self.pool_min_size > self.pool_max_size:
             raise ValueError("pool_min_size must not exceed pool_max_size")
         return self
+
+    def raw_relation(
+        self,
+        name: str,
+        *,
+        compatibility_catalog: str | None,
+        compatibility_namespace: str | None,
+        default_namespace: str,
+    ) -> RelationRef:
+        """Translate the legacy namespace option into database/schema coordinates."""
+        del compatibility_catalog, default_namespace
+        return RelationRef(
+            catalog=self.database,
+            namespace=compatibility_namespace or self.schema_name,
+            name=name,
+        )
 
 
 __all__ = ["PostgreSQLStateConfig", "PostgreSQLWarehouseConfig"]

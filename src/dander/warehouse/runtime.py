@@ -97,6 +97,7 @@ class WarehouseTransformFactory(Protocol):
         *,
         graph_plan: object | None,
         build_models: bool,
+        raw_namespace: str = "raw",
     ) -> WarehouseTransformRunner | None:
         """Return the selected provider runner or ``None`` when transforms are disabled."""
         ...

@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from dander.pipeline.runtime import BigQueryGraphRunner, GraphExecutionPlan
+from dander.pipeline.runtime import GraphExecutionPlan
 from dander.providers.bigquery.config import BigQueryWarehouseConfig
 from dander.providers.bigquery.fence import BigQueryTargetFence
+from dander.providers.bigquery.graph import BigQueryGraphRunner
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import BigQueryTransformRunner
@@ -89,6 +90,7 @@ class BigQueryTransformFactory:
         *,
         graph_plan: object | None,
         build_models: bool,
+        raw_namespace: str = "raw",
     ) -> WarehouseTransformRunner | None:
         """Preserve graph precedence and model-build behavior."""
         if graph_plan is not None:
@@ -96,7 +98,10 @@ class BigQueryTransformFactory:
                 raise TypeError("BigQuery graph plan has the wrong type")
             return BigQueryGraphRunner(plan=graph_plan, project=self.project)
         if build_models:
-            return BigQueryTransformRunner(project=self.project)
+            return BigQueryTransformRunner(
+                project=self.project,
+                raw_namespace=raw_namespace,
+            )
         return None
 
 
@@ -144,9 +149,9 @@ def build_bigquery_warehouse(
     """Build the selected BigQuery runtime after provider validation."""
     if not isinstance(config, BigQueryWarehouseConfig):
         raise TypeError("BigQuery warehouse factory received the wrong configuration")
-    project = context.get("project")
+    project = context.get("catalog", context.get("project"))
     if not isinstance(project, str) or not project:
-        raise ValueError("BigQuery warehouse factory requires a project context")
+        raise ValueError("BigQuery warehouse factory requires a catalog context")
     return WarehouseRuntime(
         provider_id="bigquery",
         relation_codec=BigQueryRelationCodec(),

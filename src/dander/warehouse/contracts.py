@@ -8,7 +8,7 @@ from typing import Literal, Protocol, Self, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-_CATALOG = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,254}$")
+_CATALOG = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,254}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,254}$")
 _PROVIDER = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _EXTENSION_NAME = re.compile(r"^[a-z][a-z0-9_.-]{0,126}$")
@@ -219,6 +219,26 @@ class RelationRef(BaseModel):
     def coordinates(self) -> tuple[str, str, str]:
         """Return stable coordinates without choosing provider quoting or separators."""
         return (self.catalog, self.namespace, self.name)
+
+
+@runtime_checkable
+class WarehouseCoordinateConfig(Protocol):
+    """Resolve compatibility CLI inputs into canonical warehouse coordinates.
+
+    Provider configuration owns the translation from its native vocabulary. Shared
+    orchestration only receives the resulting ``RelationRef`` values.
+    """
+
+    def raw_relation(
+        self,
+        name: str,
+        *,
+        compatibility_catalog: str | None,
+        compatibility_namespace: str | None,
+        default_namespace: str,
+    ) -> RelationRef:
+        """Return one raw relation for a configured endpoint."""
+        ...
 
 
 @runtime_checkable

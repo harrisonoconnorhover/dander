@@ -11,17 +11,24 @@ from dander.security import SecretRuntime
 def build_catalog_publisher(
     *,
     provider_id: str,
-    project: str,
+    catalog: str | None = None,
+    project: str | None = None,
     location: str,
 ) -> CatalogPublisher:
     """Build the selected external catalog publisher or fail when it is disabled."""
+    if catalog is None:
+        catalog = project
+    elif project is not None and project != catalog:
+        raise ClickException("catalog and legacy project must match")
+    if catalog is None:
+        raise ClickException("Catalog provider requires a warehouse catalog")
     registry = default_provider_registry()
     try:
         config = registry.parse(ProviderKind.CATALOG, {"provider": provider_id})
         runtime = registry.build(
             ProviderKind.CATALOG,
             config,
-            context={"project": project, "location": location},
+            context={"catalog": catalog, "location": location},
         )
     except ProviderFactoryError as error:
         raise ClickException(str(error)) from error

@@ -13,6 +13,7 @@ from dander.runtime import PipelineRunResult
 from dander.state import LeaseHeartbeat, RunStage, RunStatus, classify_failure
 from dander.telemetry import RunTelemetry
 from dander.transform import SqlDialect, TransformProject, TransformRunResult
+from dander.warehouse import RelationRef
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -76,7 +77,10 @@ class PipelineExecutor:
         source_config: SourceConfig,
         ingestion: _IngestionRunner,
         history: RunHistoryStore,
-        project: str,
+        catalog: str | None = None,
+        project: str | None = None,
+        raw_namespace: str = "raw",
+        source_relations: dict[str, RelationRef] | None = None,
         models_dir: Path,
         selected_models: Iterable[str] | None,
         build_models: bool,
@@ -88,11 +92,26 @@ class PipelineExecutor:
     ) -> None:
         if build_models and transform_runner is None:
             raise ValueError("A transform runner is required when build_models is enabled")
+        if catalog is None:
+            catalog = project
+        elif project is not None and project != catalog:
+            raise ValueError("catalog and legacy project must match")
+        if catalog is None:
+            raise ValueError("PipelineExecutor requires a warehouse catalog")
         self._pipeline_id = pipeline_id
         self._source_config = source_config
         self._ingestion = ingestion
         self._history = history
-        self._project = project
+        self._catalog = catalog
+        self._raw_namespace = raw_namespace
+        self._source_relations = source_relations or {
+            endpoint.name: RelationRef(
+                catalog=catalog,
+                namespace=raw_namespace,
+                name=f"{source_config.name}_{endpoint.name}",
+            )
+            for endpoint in source_config.endpoints
+        }
         self._models_dir = models_dir
         self._selected_models = tuple(selected_models) if selected_models is not None else None
         self._build_models = build_models
@@ -196,7 +215,8 @@ class PipelineExecutor:
                 )
                 transform_project = TransformProject.load(
                     self._models_dir,
-                    project_id=self._project,
+                    catalog=self._catalog,
+                    raw_namespace=self._raw_namespace,
                     target_dialect=getattr(
                         self._transform_runner,
                         "target_dialect",
@@ -212,6 +232,7 @@ class PipelineExecutor:
                     pipeline_id=self._pipeline_id,
                     source=self._source_config,
                     assets=compiled_assets,
+                    source_relations=self._source_relations,
                 )
                 assets = len(compiled_assets)
                 if self._metadata_store is not None:

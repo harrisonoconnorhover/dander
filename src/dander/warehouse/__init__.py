@@ -14,6 +14,7 @@ from dander.warehouse.contracts import (
     RelationCodec,
     RelationRef,
     RelationSchema,
+    WarehouseCoordinateConfig,
 )
 from dander.warehouse.runtime import (
     PreparedWarehouseStatement,
@@ -45,6 +46,7 @@ __all__ = [
     "RelationCodec",
     "RelationRef",
     "RelationSchema",
+    "WarehouseCoordinateConfig",
     "StagedArtifact",
     "StagingArtifactError",
     "StagingManifest",

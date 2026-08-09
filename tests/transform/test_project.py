@@ -8,6 +8,7 @@ from textwrap import dedent
 import pytest
 
 from dander.transform import TransformProject, TransformProjectError
+from dander.warehouse import RelationRef
 
 
 def _write_model(
@@ -124,6 +125,33 @@ def test_postgresql_project_uses_database_local_relations_by_default(tmp_path: P
     assert project.relation_for_model(model) == '"staging"."portable_model"'
     assert project.relation_for_ref("raw_fixture") == '"raw"."fixture"'
     assert '"raw"."fixture"' in project.compile(model)
+
+
+def test_postgresql_project_preserves_database_and_custom_raw_schema(tmp_path: Path) -> None:
+    _write_model(
+        tmp_path,
+        "portable_model",
+        "SELECT id FROM {{ ref('raw_fixture') }}",
+        dialect="portable",
+    )
+    project = TransformProject.load(
+        tmp_path,
+        catalog="warehouse_db",
+        raw_namespace="landing",
+        target_dialect="postgres",
+    )
+
+    assert project.relation_ref_for_ref("raw_fixture") == RelationRef(
+        catalog="warehouse_db",
+        namespace="landing",
+        name="fixture",
+    )
+    assert project.relation_ref_for_model(project.models["portable_model"]) == RelationRef(
+        catalog="warehouse_db",
+        namespace="staging",
+        name="portable_model",
+    )
+    assert '"landing"."fixture"' in project.compile(project.models["portable_model"])
 
 
 def test_unknown_reference_fails_during_project_load(tmp_path: Path) -> None:

@@ -202,6 +202,7 @@ def test_version_two_resolves_native_postgresql_profile(tmp_path: Path) -> None:
     profile["warehouse"] = {
         "provider": "postgresql",
         "database": "dander_portable",
+        "schema": "raw",
         "dsn_env": "DANDER_POSTGRES_DSN",
     }
     profile["state"] = {
@@ -234,6 +235,7 @@ def test_version_two_resolves_native_postgresql_profile(tmp_path: Path) -> None:
     assert resolved.warehouse_config == {
         "provider": "postgresql",
         "database": "dander_portable",
+        "schema": "raw",
         "dsn_env": "DANDER_POSTGRES_DSN",
         "pool_min_size": 1,
         "pool_max_size": 5,

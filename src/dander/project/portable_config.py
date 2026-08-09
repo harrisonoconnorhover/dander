@@ -374,7 +374,7 @@ def _resolve(
         platform_name=selected.platform,
         deployment_name=selected_name,
         warehouse_provider=profile.warehouse.provider,
-        warehouse_config=profile.warehouse.model_dump(mode="json"),
+        warehouse_config=profile.warehouse.model_dump(mode="json", exclude_none=True),
         state_provider=profile.state.provider,
         state_config=profile.state.model_dump(mode="json"),
         catalog_provider=profile.catalog.provider,

@@ -114,6 +114,11 @@ class ModelMetadata(BaseModel):
     unique_key: list[str] = Field(default_factory=list)
     incremental_cursor: str | None = None
 
+    @property
+    def namespace(self) -> str:
+        """Return the canonical namespace for the legacy model dataset field."""
+        return self.dataset
+
     @model_validator(mode="after")
     def validate_columns_and_tests(self) -> ModelMetadata:
         """Require unique columns and test references that resolve within the model."""
