@@ -1,8 +1,8 @@
 # Experimental Snowflake warehouse
 
 Snowflake is an experimental warehouse adapter, not a supported Dander profile. The current slice
-exists to prove the provider boundary with native database/schema coordinates and a real bounded
-bulk path before transforms or additional write modes are added.
+exists to prove the provider boundary with native database/schema coordinates, a real bounded
+bulk path, and fenced table/incremental models before additional write modes are added.
 
 ## Configuration
 
@@ -46,6 +46,9 @@ variable reference. Do not put a token, private key, password, or connection str
   destination fencing-token touch.
 - Only declared nullable columns may be added automatically. Extra columns, required additions,
   type drift, nullability drift, malformed rows, and oversized singleton parts fail closed.
+- Portable or Snowflake-authored table models replace rows through fenced `DELETE`/`INSERT` DML.
+- Incremental models collapse duplicate keys deterministically and accept only rows whose declared
+  cursor is at least as new as the stored row. Generic model assertions run after publication.
 
 The Snowflake role needs usage on its database and warehouse plus permission to create and operate
 schemas, tables, and temporary stages in the selected namespace. Use a dedicated disposable role
@@ -53,7 +56,8 @@ until a live least-privilege profile is qualified.
 
 ## Deliberate limits
 
-Only scalar SCD1 ingestion is implemented. Models, tests, graphs, replace, SCD2, snapshot,
-incremental writes, semi-structured fields, live concurrency proof, infrastructure provisioning,
-and support promotion remain separate work. Use `build_models: false` and `catalog.provider: none`
-for this experimental path.
+Only scalar SCD1 ingestion plus table and incremental model materializations are implemented.
+Views remain unavailable because Snowflake permanent DDL cannot share the destination-fence
+transaction. Graphs, replace, SCD2, snapshot, semi-structured fields, live concurrency proof,
+infrastructure provisioning, and support promotion remain separate work. Use
+`catalog.provider: none` for this experimental path.

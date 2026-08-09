@@ -877,3 +877,12 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   remote staging.
 - **Boundary:** Only scalar SCD1 ingestion is admitted. Transforms, graphs, semi-structured types,
   other write modes, and a support claim remain blocked on their own implementation and live proof.
+
+## 2026-08-09 — Snowflake transforms admit only transactionally fenced materializations
+
+- **Preflight:** The complete selected model DAG, schemas, SQL, materializations, and assertions
+  compile before any Snowflake session or destination claim is opened.
+- **Publication:** Table replacement and deterministic cursor-monotonic incremental merge use
+  session-temporary staging and DML in the same transaction as the exact destination-fence touch.
+- **Boundary:** Permanent view DDL, graph execution, and automatic transform-schema evolution fail
+  closed. They cannot enter this slice without preserving the same publication guarantee.

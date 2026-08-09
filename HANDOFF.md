@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Added an experimental Snowflake provider with native database/schema coordinates.
-- Added bounded Parquet `PUT`/`COPY`, scalar SCD1 merge, schema evolution, and telemetry.
-- Explicitly committed fence claims and fenced publication/load history in Snowflake transactions.
-- Made remote staging session-temporary and rejected oversized parts before upload.
-- Kept Snowflake experimental with transforms, graphs, other modes, and live support excluded.
+- Added experimental Snowflake table and incremental model execution.
+- Preflights the full selected DAG before provider mutation and rejects views/graphs fail-closed.
+- Publishes through session-temporary staging and exact transactional destination fencing.
+- Preserves canonical database/schema/relation coordinates, including hyphenated databases.
+- Updated Snowflake capability and limitation documentation without a support promotion.
 
 ## Try It
 
-Configure a version 2 Snowflake profile from `docs/snowflake.md`, select `build_models: false`, and
-use either BigQuery or PostgreSQL state. No live Snowflake proof is claimed.
+Configure the experimental profile in `docs/snowflake.md`; portable table and incremental models
+may now run with active lease ownership. No live Snowflake qualification is claimed.
 
 ## Checks
 
-- Full suite passed: 1,061 tests with PostgreSQL 15; Ruff and strict mypy also passed.
-- Wheel/sdist inspection, source-free installs, generated-project validation, and runtime-all import passed.
-- Container build/conformance, Terraform/AWS tests, Helm validation, and dependency audit passed.
-- Retained stage-zero plan: no changes; no cloud apply or mutation occurred.
-- Retained platform plan matched clean `origin/main`: 2 adds/5 updates already pending, no deletes.
+- Full suite passed: 1,065 tests with PostgreSQL 15; Ruff and strict mypy passed.
+- Wheel/sdist inspection, source-free installs, generated-project validation, and Terraform validation passed.
+- Container build/conformance, Terraform/AWS tests, and dependency audit passed.
+- Protected CI passed Python/PostgreSQL, Terraform/static, distribution, container, and secret jobs.
+- No cloud plan/apply, deployment mutation, or package publication occurred.
 
 ## Decisions
 
-- Snowflake translates native database/schema values into canonical `RelationRef` coordinates.
-- Explicit Parquet logical/binary settings are part of every effective `COPY` file format.
-- Scalar SCD1 is the smallest honest experimental slice; other capabilities remain fail-closed.
+- Snowflake view DDL remains excluded because it cannot share the destination-fence transaction.
+- Transform targets permit create-if-absent with exact schema; automatic ALTER is not allowed.
+- Incremental duplicates resolve by cursor descending, then stable declared-column ordering.
 
 ## Remaining
 
-- Review the known retained-platform baseline drift before any future apply.
-- Open the focused draft PR and require protected CI.
-- Merge only after review; do not claim live Snowflake qualification.
+- Review stacked draft PR #137 after its Snowflake foundation PR #136.
+- Keep both Snowflake PRs unmerged while retained GCP baseline drift remains unresolved.
 
 ## Review First
 
-- `src/dander/providers/snowflake/writer.py`
-- `src/dander/providers/snowflake/fence.py`
-- `src/dander/providers/snowflake/config.py`
+- `src/dander/providers/snowflake/transform.py`
+- `tests/providers/test_snowflake_warehouse_runtime.py`
+- `src/dander/providers/snowflake/runtime.py`
