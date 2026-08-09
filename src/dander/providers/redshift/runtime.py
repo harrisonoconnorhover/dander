@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -241,7 +242,7 @@ def build_redshift_warehouse(
 def _sdk_connection_factory(config: RedshiftWarehouseConfig) -> RedshiftConnectionFactory:
     def connect() -> object:
         try:
-            import redshift_connector
+            redshift_connector = importlib.import_module("redshift_connector")
         except ModuleNotFoundError as error:
             raise ProviderFactoryError(
                 "Redshift warehouse requires the dander-platform[redshift] extra"
@@ -276,7 +277,7 @@ def _sdk_connection_factory(config: RedshiftWarehouseConfig) -> RedshiftConnecti
 
 def _sdk_s3_client(region: str) -> RedshiftS3Client:
     try:
-        import boto3  # type: ignore[import-untyped]
+        boto3 = importlib.import_module("boto3")
     except ModuleNotFoundError as error:
         raise ProviderFactoryError(
             "Redshift warehouse requires the dander-platform[redshift] extra"
