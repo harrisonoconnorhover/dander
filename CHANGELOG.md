@@ -6,6 +6,14 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.8.0rc4 — 2026-08-09 (beta)
+
+### Fixed
+
+- Invoke Step Functions through the AWS CLI's `stepfunctions` service namespace for manual run,
+  status, logs, replay, cancellation, and verification. Step Functions ARN and IAM service names
+  correctly remain `states`.
+
 ## 0.8.0rc3 — 2026-08-09 (beta)
 
 ### Fixed
