@@ -14,6 +14,7 @@ from dander.providers.redshift.session import (
     execute,
     open_connection,
 )
+from dander.providers.redshift.transform import RedshiftTransformRunner
 from dander.providers.redshift.writer import (
     RedshiftS3Client,
     RedshiftScd1Writer,
@@ -99,7 +100,12 @@ class RedshiftWriterFactory:
 
 @dataclass(frozen=True, slots=True)
 class RedshiftTransformFactory:
-    """Fail clearly until the Redshift transform slice is implemented."""
+    """Construct fenced Redshift model execution while rejecting graph plans."""
+
+    database: str
+    connection_factory: RedshiftConnectionFactory
+    target_fence: RedshiftTargetFence
+    statement_timeout_ms: int
 
     def build_transform_runner(
         self,
@@ -107,11 +113,18 @@ class RedshiftTransformFactory:
         graph_plan: object | None,
         build_models: bool,
         raw_namespace: str = "raw",
-    ) -> None:
-        del raw_namespace
-        if graph_plan is not None or build_models:
-            raise ValueError("Redshift transforms are not available in this experimental slice")
-        return None
+    ) -> RedshiftTransformRunner | None:
+        if graph_plan is not None:
+            raise ValueError("Redshift graph execution is not available in this experimental slice")
+        if not build_models:
+            return None
+        return RedshiftTransformRunner(
+            database=self.database,
+            connection_factory=self.connection_factory,
+            target_fence=self.target_fence,
+            statement_timeout_ms=self.statement_timeout_ms,
+            raw_namespace=raw_namespace,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,7 +157,7 @@ REDSHIFT_CAPABILITIES = WarehouseCapabilities(
     schema_contract_version=1,
     write_modes=frozenset({WriteMode.SCD1}),
     transports=frozenset({WriteTransport.COPY}),
-    supports_transforms=False,
+    supports_transforms=True,
     supports_graphs=False,
     supports_target_fencing=True,
 )
@@ -232,7 +245,12 @@ def build_redshift_warehouse(
             target_fence,
             staging,
         ),
-        transforms=RedshiftTransformFactory(),
+        transforms=RedshiftTransformFactory(
+            config.database,
+            connection_factory,
+            target_fence,
+            config.statement_timeout_ms,
+        ),
         target_fence=target_fence,
         telemetry=RedshiftTelemetry(),
         capabilities=REDSHIFT_CAPABILITIES,
