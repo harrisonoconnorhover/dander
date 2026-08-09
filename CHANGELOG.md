@@ -6,6 +6,17 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.8.0rc1 — 2026-08-09 (beta)
+
+### Candidate
+
+- Package the merged cloud-portability foundation, including the keyless Fargate-to-Google
+  identity adapter, for isolated Phase 1B acceptance. Fargate, Snowflake, Redshift, Glue, and
+  Kubernetes remain experimental until their applicable live gates pass.
+- Reject the first Phase 1B image built from public Dander `0.7.0`: that immutable wheel predates
+  the merged `dander.identity` package, so the proof exited before credential exchange. The task,
+  smoke stack, ECR repository, and rejected GAR image were removed before this candidate.
+
 ### Added
 
 - Publish exact write-mode, transport, transform, graph, fencing, logical-type, decimal, and

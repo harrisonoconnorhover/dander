@@ -51,6 +51,11 @@ EXACT_REFERENCES = (
         "release audit public release",
         re.compile(r"Public Dander beta: `(?P<version>[^`]+)`"),
     ),
+    VersionReference(
+        "acceptance/cloud-portability/phase1b/README.md",
+        "Phase 1B prerequisite",
+        re.compile(r"Dander `(?P<version>[^`]+)`, Docker Buildx"),
+    ),
 )
 
 

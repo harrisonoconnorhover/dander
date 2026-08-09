@@ -2,36 +2,39 @@
 
 ## Finished
 
-- Corrected stage-zero permission checks to evaluate bucket permissions on the state bucket.
-- Preserved project, billing-account, and optional Workload Identity permission checks.
-- Kept new-bucket creation plan-first by letting Terraform handle a not-yet-existing bucket.
+- Prepared metadata-only Dander `0.8.0rc1` from current protected main.
+- Recorded the rejected public-`0.7.0` Phase 1B image and complete teardown.
+- Updated release-facing version references, lockfile, and generated-project assertions.
+- Corrected the retained runtime record to Dander `0.7.1` with the stable connector pins.
 
 ## Try It
 
-Run `dander init-admin-plan` with an existing state bucket. Authorized operators now reach the
-saved Terraform plan; missing existing-bucket permissions are reported explicitly.
+After explicit publication approval, tag the merged commit `v0.8.0rc1`, publish through the
+protected workflow, and install it outside the checkout before rebuilding Phase 1B.
 
 ## Checks
 
-- Ruff/format and strict mypy passed; 1,113 tests passed against PostgreSQL 15; dependency audit
-  found no known vulnerabilities.
-- Wheel/sdist inspection, source-free and runtime-all installs, generated Terraform, GCP/AWS
-  Terraform, Helm, and non-root/read-only container conformance passed.
-- Retained stage-zero and platform CLI plans each reported exactly `No changes.`; no apply ran.
+- Ruff, format, strict mypy, dependency audit, and 1,113 tests passed against PostgreSQL 15.
+- Wheel/sdist inspection, isolated source-free and runtime-all installs, generated-project
+  validation, Terraform, Helm, and non-root/read-only container conformance passed.
+- Retained stage zero and the unchanged `main` runtime/infra planner each reported exactly
+  `No changes.` The candidate planner proposed only five expected `dander_version` label updates;
+  no plan was applied.
 
 ## Decisions
 
-- Test each permission on the GCP resource to which it applies.
-- Treat a 404 state bucket as a planned new bucket, not a permission denial.
+- Use the next minor candidate because public `0.7.0` is immutable and current main adds features.
+- Keep this PR metadata-only; the accepted candidate must contain the already-reviewed main code.
+- Treat the candidate's planner-version labels as release metadata, not live infrastructure drift.
 
 ## Remaining
 
-- Let protected CI repeat Linux tests, packaging, container, and security checks.
-- Merge the focused PR through protected main if clean.
-- Regenerate the disposable Phase 1B proof plans from merged `main`.
+- Let protected CI repeat Linux packaging, container, configuration, and secret scans.
+- Merge through protected main, then obtain explicit tag/PyPI publication approval.
+- Rebuild Phase 1B once from the public candidate using a fresh proof identity.
 
 ## Review First
 
-- `src/dander/bootstrap/permissions.py`
-- `tests/bootstrap/test_permissions.py`
-- `tests/cli/test_init_cli.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `acceptance/cloud-portability/phase1b/README.md`
