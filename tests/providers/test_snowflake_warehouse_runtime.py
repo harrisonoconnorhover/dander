@@ -13,8 +13,10 @@ import pytest
 from dander.concurrency import FencingToken, TargetFenceLostError
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
 from dander.providers.snowflake import SnowflakeWarehouseConfig
+from dander.providers.snowflake.transform import SnowflakeTransformRunner
 from dander.providers.snowflake.writer import SnowflakeWriteError
 from dander.telemetry import TelemetryOperation
+from dander.transform import SqlDialect, TransformProject, TransformProjectError, TransformRunError
 from dander.warehouse import RelationRef, WarehouseRuntime
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget, WriteTransport
 
@@ -46,6 +48,9 @@ class _FakeSnowflake:
     closes: int = 0
     committed_claims: int = 0
     discarded_claims: int = 0
+    transform_source_rows: list[dict[str, object]] | None = None
+    transform_rows: dict[str, dict[str, object]] = field(default_factory=dict)
+    assertion_failure_count: int = 0
 
     def connect(self) -> _FakeConnection:
         return _FakeConnection(self)
@@ -55,6 +60,7 @@ class _FakeConnection:
     def __init__(self, backend: _FakeSnowflake) -> None:
         self.backend = backend
         self.pending_claim = False
+        self.temporary_rows: list[dict[str, object]] = []
 
     def cursor(self) -> _FakeCursor:
         return _FakeCursor(self)
@@ -110,8 +116,41 @@ class _FakeCursor:
             assert len(parameters) == 10
             self.backend.committed_checksums.add(checksum)
             self.rowcount = 1
+        elif compact.startswith("CREATE OR REPLACE TEMPORARY TABLE"):
+            rows = self.backend.transform_source_rows
+            if rows is not None:
+                self.connection.temporary_rows = [dict(row) for row in rows]
+                if "ROW_NUMBER() OVER" in compact:
+                    selected: dict[str, dict[str, object]] = {}
+                    for row in sorted(
+                        self.connection.temporary_rows,
+                        key=lambda item: (
+                            _integer(item, "updated_at"),
+                            str(item.get("label", "")),
+                        ),
+                        reverse=True,
+                    ):
+                        selected.setdefault(str(row["id"]), row)
+                    self.connection.temporary_rows = list(selected.values())
+        elif compact.startswith("DELETE FROM") and self.backend.transform_source_rows is not None:
+            self.backend.transform_rows.clear()
+        elif compact.startswith("INSERT INTO") and self.backend.transform_source_rows is not None:
+            self.backend.transform_rows = {
+                str(row["id"]): dict(row) for row in self.connection.temporary_rows
+            }
         elif compact.startswith("MERGE INTO"):
             self.rowcount = self.backend.merge_rowcount
+            if self.backend.transform_source_rows is not None:
+                assert 'incoming."updated_at" >= target."updated_at"' in compact
+                for row in self.connection.temporary_rows:
+                    key = str(row["id"])
+                    current = self.backend.transform_rows.get(key)
+                    if current is None or _integer(row, "updated_at") >= _integer(
+                        current, "updated_at"
+                    ):
+                        self.backend.transform_rows[key] = dict(row)
+        elif compact.startswith("SELECT COUNT"):
+            self._row = (self.backend.assertion_failure_count,)
         return self
 
     def fetchone(self) -> object | None:
@@ -140,6 +179,12 @@ def _config() -> dict[str, object]:
         "max_rows_per_file": 2,
         "max_logical_bytes_per_file": 1_048_576,
     }
+
+
+def _integer(row: dict[str, object], field_name: str) -> int:
+    value = row[field_name]
+    assert isinstance(value, int) and not isinstance(value, bool)
+    return value
 
 
 @pytest.fixture
@@ -290,8 +335,266 @@ def test_snowflake_stages_bounded_parts_merges_last_record_and_cleans(
     assert len(backend.committed_checksums) == 2
     assert runtime.capabilities.write_modes == frozenset({WriteMode.SCD1})
     assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
-    assert runtime.capabilities.supports_transforms is False
+    assert runtime.capabilities.supports_transforms is True
     assert runtime.relation_codec.render(relation) == '"DANDER_TEST"."raw"."records"'
+
+
+@dataclass
+class _Ownership:
+    fence: FencingToken
+    verifications: int = 0
+
+    def verify(self) -> None:
+        self.verifications += 1
+
+
+def test_snowflake_builds_fenced_table_and_incremental_models(
+    tmp_path: Path,
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=None,
+        build_models=True,
+        raw_namespace="raw",
+    )
+    assert isinstance(runner, SnowflakeTransformRunner)
+    _write_snowflake_model(
+        tmp_path,
+        name="table_model",
+        materialization="table",
+        with_tests=True,
+    )
+    backend.describe_rows = [
+        ("id", "VARCHAR(16777216)", "COLUMN", "Y"),
+        ("label", "VARCHAR(16777216)", "COLUMN", "Y"),
+        ("updated_at", "NUMBER(38,0)", "COLUMN", "Y"),
+    ]
+    backend.transform_rows = {"stale": {"id": "stale", "label": "old-target", "updated_at": 0}}
+    backend.transform_source_rows = [{"id": "fresh", "label": "new-target", "updated_at": 1}]
+    table_ownership = _ownership("run-table", 1)
+
+    result = runner.build(tmp_path, selected=["table_model"], ownership=table_ownership)
+
+    assert result.models == ("table_model",)
+    assert result.assertions == 4
+    sql = [statement for statement, _parameters in backend.statements]
+    assert any(
+        statement.startswith("DELETE FROM") and "table_model" in statement for statement in sql
+    )
+    assert any(
+        statement.startswith("INSERT INTO") and "table_model" in statement for statement in sql
+    )
+    assert not any(statement.startswith("ALTER TABLE") for statement in sql)
+    assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in sql)
+    assert backend.transform_rows == {
+        "fresh": {"id": "fresh", "label": "new-target", "updated_at": 1}
+    }
+    backend.assertion_failure_count = 1
+    with pytest.raises(TransformRunError, match=r"table_model\.id\.not_null") as error:
+        runner.test(tmp_path, selected=["table_model"])
+    assert "older" not in str(error.value)
+    backend.assertion_failure_count = 0
+    backend.transform_rows.clear()
+
+    before_incremental = len(backend.statements)
+    _write_snowflake_model(tmp_path, name="incremental_model", materialization="incremental")
+    backend.describe_rows = [
+        ("id", "VARCHAR(16777216)", "COLUMN", "N"),
+        ("label", "VARCHAR(16777216)", "COLUMN", "Y"),
+        ("updated_at", "NUMBER(38,0)", "COLUMN", "N"),
+    ]
+    backend.transform_source_rows = [
+        {"id": "one", "label": "older", "updated_at": 1},
+        {"id": "one", "label": "aaa-equal", "updated_at": 2},
+        {"id": "one", "label": "zzz-equal", "updated_at": 2},
+        {"id": "two", "label": "second", "updated_at": 1},
+    ]
+    incremental_ownership = _ownership("run-incremental", 2)
+    result = runner.build(
+        tmp_path,
+        selected=["incremental_model"],
+        ownership=incremental_ownership,
+    )
+
+    assert result.models == ("incremental_model",)
+    incremental_sql = [
+        statement for statement, _parameters in backend.statements[before_incremental:]
+    ]
+    temporary = next(
+        statement
+        for statement in incremental_sql
+        if statement.startswith("CREATE OR REPLACE TEMPORARY TABLE")
+    )
+    assert (
+        'ROW_NUMBER() OVER (PARTITION BY source."id" ORDER BY '
+        'source."updated_at" DESC NULLS LAST, source."label" DESC NULLS LAST)' in temporary
+    )
+    merge = next(
+        statement
+        for statement in incremental_sql
+        if statement.startswith("MERGE INTO") and "dander_target_commits" not in statement
+    )
+    assert 'incoming."updated_at" >= target."updated_at"' in merge
+    assert 'target."label" = incoming."label"' in merge
+    assert backend.transform_rows == {
+        "one": {"id": "one", "label": "zzz-equal", "updated_at": 2},
+        "two": {"id": "two", "label": "second", "updated_at": 1},
+    }
+    backend.transform_source_rows = [{"id": "one", "label": "stale-replay", "updated_at": 1}]
+    runner.build(
+        tmp_path,
+        selected=["incremental_model"],
+        ownership=_ownership("run-replay", 3),
+    )
+    assert backend.transform_rows["one"] == {
+        "id": "one",
+        "label": "zzz-equal",
+        "updated_at": 2,
+    }
+    assert backend.rollbacks == 0
+
+
+def test_snowflake_preflights_whole_dag_before_provider_mutation(
+    tmp_path: Path,
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    runner = runtime.transforms.build_transform_runner(graph_plan=None, build_models=True)
+    assert isinstance(runner, SnowflakeTransformRunner)
+    _write_snowflake_model(tmp_path, name="good_model", materialization="table")
+    _write_snowflake_model(tmp_path, name="unsupported_view", materialization="view")
+    before = list(backend.statements)
+
+    with pytest.raises(TransformProjectError, match="view materialization is unavailable"):
+        runner.build(
+            tmp_path,
+            ownership=_ownership("run-preflight", 3),
+        )
+
+    assert backend.statements == before
+
+
+def test_snowflake_transform_coordinates_are_canonical_and_graphs_fail_closed(
+    tmp_path: Path,
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, _backend, _staging_root = snowflake_runtime
+    _write_snowflake_model(tmp_path, name="coordinate_model", materialization="table")
+    project = TransformProject.load(
+        tmp_path,
+        catalog="DANDER-TEST",
+        raw_namespace="RAW_DATA",
+        target_dialect=SqlDialect.SNOWFLAKE,
+    )
+    model = project.ordered(["coordinate_model"])[0]
+
+    assert project.relation_ref_for_model(model).coordinates == (
+        "DANDER-TEST",
+        "analytics",
+        "coordinate_model",
+    )
+    assert '"DANDER-TEST"."RAW_DATA"."records"' in project.compile(model)
+    with pytest.raises(ValueError, match="graph execution is not available"):
+        runtime.transforms.build_transform_runner(graph_plan=object(), build_models=False)
+    assert runtime.transforms.build_transform_runner(graph_plan=None, build_models=False) is None
+
+
+def test_snowflake_transform_requires_ownership_and_fails_closed_after_staging(
+    tmp_path: Path,
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    runner = runtime.transforms.build_transform_runner(graph_plan=None, build_models=True)
+    assert isinstance(runner, SnowflakeTransformRunner)
+    _write_snowflake_model(tmp_path, name="owned_model", materialization="table")
+    with pytest.raises(TransformRunError, match="require active lease ownership"):
+        runner.build(tmp_path)
+    backend.transform_source_rows = [
+        {"id": "blocked", "label": "must-not-publish", "updated_at": 1}
+    ]
+    backend.describe_rows = [
+        ("id", "VARCHAR(16777216)", "COLUMN", "Y"),
+        ("label", "VARCHAR(16777216)", "COLUMN", "Y"),
+        ("updated_at", "NUMBER(38,0)", "COLUMN", "Y"),
+    ]
+    backend.fence_touch_rowcount = 0
+    before_publication = len(backend.statements)
+    rollbacks = backend.rollbacks
+
+    with pytest.raises(TargetFenceLostError, match="lost before publication"):
+        runner.build(tmp_path, ownership=_ownership("run-stale", 1))
+
+    attempted = [statement for statement, _ in backend.statements[before_publication:]]
+    assert any(statement.startswith("CREATE OR REPLACE TEMPORARY TABLE") for statement in attempted)
+    assert not any(statement.startswith(("DELETE FROM", "INSERT INTO")) for statement in attempted)
+    assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in attempted)
+    assert backend.rollbacks == rollbacks + 1
+    assert backend.transform_rows == {}
+
+
+def _ownership(run_id: str, token: int) -> _Ownership:
+    return _Ownership(
+        FencingToken(
+            lease_table=None,
+            pipeline_id="snowflake_transforms",
+            run_id=run_id,
+            token=token,
+            authority_id="postgresql:test-state",
+        )
+    )
+
+
+def _write_snowflake_model(
+    root: Path,
+    *,
+    name: str,
+    materialization: str,
+    with_tests: bool = False,
+) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{name}.sql").write_text("SELECT id, label, updated_at FROM {{ ref('raw_records') }}")
+    incremental = (
+        "unique_key: [id]\nincremental_cursor: updated_at\n"
+        if materialization == "incremental"
+        else ""
+    )
+    tests = (
+        "tests:\n"
+        "  - column: id\n"
+        "    not_null: true\n"
+        "    unique: true\n"
+        "  - column: label\n"
+        "    accepted_values: [older, newer, second]\n"
+        "  - column: id\n"
+        "    relationships:\n"
+        "      to: raw_parent_records\n"
+        "      field: id\n"
+        if with_tests
+        else "tests: []\n"
+    )
+    (root / f"{name}.yml").write_text(
+        f"model: {name}\n"
+        "description: Portable Snowflake transform fixture.\n"
+        "owner: data-eng\n"
+        "dialect: portable\n"
+        f"materialization: {materialization}\n"
+        "dataset: analytics\n"
+        "source_system: fixture\n"
+        "sensitivity: public\n"
+        f"{incremental}"
+        "columns:\n"
+        "  - name: id\n"
+        "    type: STRING\n"
+        "    description: Stable fixture identifier.\n"
+        "  - name: label\n"
+        "    type: STRING\n"
+        "    description: Deterministic tie breaker.\n"
+        "  - name: updated_at\n"
+        "    type: INT64\n"
+        "    description: Monotonic fixture cursor.\n"
+        f"{tests}"
+    )
 
 
 def test_snowflake_retry_skips_committed_files_but_still_touches_fence(

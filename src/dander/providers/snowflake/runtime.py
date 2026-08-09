@@ -24,6 +24,7 @@ from dander.providers.snowflake.session import (
     execute,
     open_connection,
 )
+from dander.providers.snowflake.transform import SnowflakeTransformRunner
 from dander.providers.snowflake.writer import (
     SnowflakeScd1Writer,
     SnowflakeStagingSettings,
@@ -99,7 +100,11 @@ class SnowflakeWriterFactory:
 
 @dataclass(frozen=True, slots=True)
 class SnowflakeTransformFactory:
-    """Fail clearly until the provider's transform slice is implemented."""
+    """Construct the experimental fenced Snowflake transform runner."""
+
+    database: str
+    connection_factory: SnowflakeConnectionFactory
+    target_fence: SnowflakeTargetFence
 
     def build_transform_runner(
         self,
@@ -107,11 +112,19 @@ class SnowflakeTransformFactory:
         graph_plan: object | None,
         build_models: bool,
         raw_namespace: str = "raw",
-    ) -> None:
-        del raw_namespace
-        if graph_plan is not None or build_models:
-            raise ValueError("Snowflake transforms are not available in this experimental slice")
-        return None
+    ) -> SnowflakeTransformRunner | None:
+        if graph_plan is not None:
+            raise ValueError(
+                "Snowflake graph execution is not available in this experimental slice"
+            )
+        if not build_models:
+            return None
+        return SnowflakeTransformRunner(
+            database=self.database,
+            connection_factory=self.connection_factory,
+            target_fence=self.target_fence,
+            raw_namespace=raw_namespace,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +159,7 @@ SNOWFLAKE_CAPABILITIES = WarehouseCapabilities(
     schema_contract_version=1,
     write_modes=frozenset({WriteMode.SCD1}),
     transports=frozenset({WriteTransport.COPY}),
-    supports_transforms=False,
+    supports_transforms=True,
     supports_graphs=False,
     supports_target_fencing=True,
 )
@@ -215,7 +228,11 @@ def build_snowflake_warehouse(
             target_fence,
             staging,
         ),
-        transforms=SnowflakeTransformFactory(),
+        transforms=SnowflakeTransformFactory(
+            config.database,
+            connection_factory,
+            target_fence,
+        ),
         target_fence=target_fence,
         telemetry=SnowflakeTelemetry(config.warehouse),
         capabilities=SNOWFLAKE_CAPABILITIES,

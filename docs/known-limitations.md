@@ -11,9 +11,9 @@ evaluate these limits before using it for an unattended system containing busine
   renewable credentials and live parity remain later gates.
 - Provider package extras and the full runtime image do not by themselves qualify Snowflake,
   Redshift, AWS, Azure, or OCI profiles. Snowflake has an experimental scalar SCD1 adapter with
-  bounded Parquet upload, temporary remote staging, schema checks, and destination fencing. It has
-  no live Snowflake qualification, transforms, graph execution, semi-structured types, or other
-  write modes. Redshift has no warehouse adapter yet. PostgreSQL state and warehouse execution are
+  bounded Parquet upload, temporary remote staging, schema checks, destination fencing, and fenced
+  table/incremental transforms. It has no live Snowflake qualification, views, graph execution,
+  semi-structured types, or other write modes. Redshift has no warehouse adapter yet. PostgreSQL state and warehouse execution are
   implemented and locally conformance-tested. A packaged Helm
   chart now renders the Kubernetes launcher against an existing cluster, but no Kubernetes live
   profile is qualified yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import sqlglot
 from jinja2 import Environment, StrictUndefined, TemplateError
+from pydantic import ValidationError
 from sqlglot import exp
 
 from dander.transform.config import ModelMetadata, TransformConfigError, load_model_metadata
@@ -72,9 +73,16 @@ class TransformProject:
         elif self.target_dialect is SqlDialect.POSTGRES:
             if not _POSTGRESQL_CATALOG.fullmatch(catalog):
                 raise TransformProjectError("Invalid PostgreSQL database name")
-        elif not _IDENTIFIER.fullmatch(catalog):
-            raise TransformProjectError("Invalid warehouse catalog identifier")
-        if not _IDENTIFIER.fullmatch(raw_namespace):
+        else:
+            try:
+                RelationRef(catalog=catalog, namespace=raw_namespace, name="dander_validation")
+            except ValidationError as error:
+                raise TransformProjectError("Invalid warehouse relation coordinates") from error
+        legacy_namespace = self.target_dialect in {
+            SqlDialect.BIGQUERY,
+            SqlDialect.POSTGRES,
+        }
+        if legacy_namespace and not _IDENTIFIER.fullmatch(raw_namespace):
             raise TransformProjectError("Invalid raw namespace identifier")
         indexed: dict[str, TransformModel] = {}
         for model in models:
