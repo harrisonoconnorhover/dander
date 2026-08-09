@@ -50,5 +50,6 @@ project was not changed.
 - No credential, provider response, source row, Terraform state, or alert address is retained in
   this record.
 
-Phase 1 is accepted. Phase 1B remains a separate artifact-copy and keyless AWS-to-BigQuery proof;
-this record makes no AWS support claim.
+Phase 1 is accepted. The separate [Phase 1B artifact-copy and keyless AWS-to-BigQuery
+proof](cloud-portability-phase1b-acceptance.md) also passed; neither record makes an AWS support
+claim.

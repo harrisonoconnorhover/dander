@@ -86,7 +86,9 @@ record content. The retained Dander project is out of scope.
    expiry must be later than the first. No event may contain a token, URL, query body, or record.
 10. Run `scan_long_lived_credentials.py` over the generated config, both Terraform states, task
     definition/description, exported logs, and an extracted image filesystem. Run the normal image
-    vulnerability and secret scans as well.
+    vulnerability and secret scans as well. The scanner recognizes only the exact SHA-256 content
+    of three public boto3/botocore example documents that contain published placeholder keys; any
+    dependency or content change is scanned normally.
 11. Run the same GAR index in the isolated Cloud Run proof job and confirm its selected `amd64`
     manifest matches the recorded index. Restore the isolated project through its reviewed
     manifest-aware plan and require `No changes.`
@@ -101,3 +103,6 @@ record content. The retained Dander project is out of scope.
 - No Google service-account key, AWS access key, or secret value appears in inputs, state, task
   definition, logs, or image.
 - Both proof roots are destroyed and the isolated GCP platform finishes with no Terraform drift.
+
+The accepted public-candidate result is recorded in
+[`docs/cloud-portability-phase1b-acceptance.md`](../../../docs/cloud-portability-phase1b-acceptance.md).

@@ -6,6 +6,18 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Acceptance
+
+- Record the successful public-`0.8.0rc1` Phase 1B proof: identical GAR/ECR multi-platform
+  content, Cloud Run/AMD64 conformance, ARM64 Fargate-to-BigQuery access before and after keyless
+  credential refresh, complete proof teardown, and final isolated-platform no-drift.
+
+### Fixed
+
+- Make the Phase 1B credential scanner recognize only the exact content hashes of three public
+  boto3/botocore example documents containing published placeholder keys. Changed content and all
+  other files continue to fail closed.
+
 ## 0.8.0rc1 — 2026-08-09 (beta)
 
 ### Candidate

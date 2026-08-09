@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-09 — Phase 1B accepts only exact public dependency fixtures
+
+- **Evidence:** The accepted image contains three boto3/botocore example files with AWS-published
+  placeholder keys; neither architecture contains a cloud credential.
+- **Control:** The proof scanner recognizes only those files' exact SHA-256 content. A dependency
+  update or modified file loses the exception and is scanned normally.
+- **Boundary:** This changes acceptance evidence tooling only. It does not alter the published
+  `0.8.0rc1` runtime or weaken scanning of configuration, state, task output, logs, or other image
+  content.
+
 ## 2026-08-09 — Permission checks follow the resource that owns the permission
 
 - **Project:** Stage zero tests project-scoped create and IAM permissions through Resource Manager.

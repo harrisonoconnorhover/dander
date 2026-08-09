@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -323,3 +324,20 @@ def test_long_lived_credential_scan_reports_only_path_and_pattern(tmp_path: Path
         {"path": str(unsafe), "pattern": "gcp_private_key"},
     ]
     assert "redacted" not in json.dumps(findings)
+
+
+def test_long_lived_credential_scan_accepts_only_exact_public_fixture_content(
+    tmp_path: Path,
+) -> None:
+    fixture = tmp_path / "public-example.txt"
+    placeholder_key = "AKIA" + "A" * 16
+    content = f"public vendor example: {placeholder_key}\n"
+    fixture.write_text(content, encoding="utf-8")
+    allowed_hash = hashlib.sha256(content.encode()).hexdigest()
+
+    assert scan([fixture], public_fixture_sha256={allowed_hash}) == []
+
+    fixture.write_text(content + "changed\n", encoding="utf-8")
+    assert scan([fixture], public_fixture_sha256={allowed_hash}) == [
+        {"path": str(fixture), "pattern": "aws_static_access_key"}
+    ]
