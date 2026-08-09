@@ -2,37 +2,34 @@
 
 ## Finished
 
-- Reproduced the rc4 Fargate failure as a non-root write failure on its `/tmp` volume.
-- Made the generated image declare `/tmp` as mode `1777` volume-backed scratch.
-- Made Fargate set `HOME` and `TMPDIR` to `/tmp` and verify the complete scratch contract.
-- Preserved the read-only root filesystem, UID/GID `65532`, and 20–200 GiB disk-backed scratch.
+- Merged the writable Fargate scratch correction through protected main as PR #156.
+- Prepared release-only metadata for `dander-platform==0.8.0rc5`.
+- Kept the accepted runtime fix unchanged from merge commit `3dd5efc568fc14c5542cffbf29f606a60c11887f`.
 
 ## Try It
 
-Generate a project, build its image, and inspect `Config.Volumes` for `/tmp`; Fargate tasks should mount `dander-tmp` there and run as `65532:65532`.
+Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate artifacts.
 
 ## Checks
 
-- Focused Python tests: 29 passed.
-- Full Python suite: 1,104 passed, 13 skipped; Ruff and strict mypy passed.
-- Terraform formatting, validation, AWS module tests, and portability roots passed.
-- Wheel/sdist inspection and source-free installation passed outside the checkout.
-- Exact ARM64 image succeeded on Fargate: 19 rows, 3 assertions, 1 model, exit code 0.
+- PR #156 passed Python, Terraform, packaging, container, and secret checks.
+- The exact pre-release ARM64 fix image passed a live Fargate Greenhouse run.
+- Release metadata, wheel/sdist inspection, and source-free install passed outside the checkout.
 
 ## Decisions
 
-- Do not use `/dev/shm`: it would bypass the configured Fargate scratch capacity.
-- Keep the existing anonymous volume and seed its permissions from Docker image metadata.
-- A replacement release candidate is required because this changes packaged runtime behavior.
+- `0.8.0rc5` replaces rc4 for complete Fargate lifecycle acceptance.
+- Fargate remains experimental until the complete lifecycle gate passes.
 
 ## Remaining
 
-- Open and merge the focused fix through protected CI.
-- Publish a replacement candidate and rerun complete Fargate lifecycle acceptance.
+- Merge this release-only PR after protected checks pass.
+- Tag and publish `0.8.0rc5` from the exact protected merge.
+- Reinstall rc5 source-free and rerun complete Fargate lifecycle acceptance.
 - Finish replay, interruption, scheduling, alert, rollback, cleanup, and no-drift evidence.
 
 ## Review First
 
-- `src/dander/templates/project/Dockerfile`
-- `src/dander/providers/fargate/runtime.py`
-- `src/dander/providers/fargate/operations.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `docs/session-resume.md`
