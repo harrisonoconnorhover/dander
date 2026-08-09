@@ -886,3 +886,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   session-temporary staging and DML in the same transaction as the exact destination-fence touch.
 - **Boundary:** Permanent view DDL, graph execution, and automatic transform-schema evolution fail
   closed. They cannot enter this slice without preserving the same publication guarantee.
+
+## 2026-08-09 — Redshift begins with IAM-only bounded SCD1 publication
+
+- **Boundary:** Provisioned and Serverless profiles map native database/schema coordinates into
+  canonical relations. The first slice supports scalar-schema SCD1 only; transforms, graphs,
+  other write modes, SUPER fallback, infrastructure, and live qualification remain unavailable.
+- **Loading:** Bounded Parquet parts use a mandatory, content-length S3 manifest in the warehouse
+  region. Ambient AWS credentials upload and clean owned objects; SQL receives only a validated
+  cluster/workgroup COPY-role ARN and never an AWS access key.
+- **Correctness:** Claims serialize on the destination ledger. One publication transaction locks
+  and DML-touches the exact authority/run/token, evolves declared nullable columns, performs the
+  deterministic ordinal MERGE, records replay identity, and commits the fence or rolls back all.

@@ -249,6 +249,40 @@ def test_version_two_resolves_native_postgresql_profile(tmp_path: Path) -> None:
     assert resolved.secret_provider == "environment"
 
 
+def test_version_two_resolves_native_redshift_warehouse_coordinates(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    profile = platforms["platforms"]["gcp"]
+    profile["warehouse"] = {
+        "provider": "redshift",
+        "deployment": "provisioned",
+        "host": "example.abc123.us-east-1.redshift.amazonaws.com",
+        "database": "analytics",
+        "schema": "landing",
+        "db_user": "dander_user",
+        "region": "us-east-1",
+        "cluster_identifier": "dander-test",
+        "copy_role_arn": "arn:aws:iam::123456789012:role/DanderRedshiftCopy",
+        "staging_bucket": "dander-redshift-staging",
+    }
+    profile["catalog"] = {"provider": "none"}
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    resolved = load_project_config(project_path)
+
+    assert resolved.warehouse_provider == "redshift"
+    assert resolved.warehouse_config["database"] == "analytics"
+    assert resolved.warehouse_config["schema"] == "landing"
+    assert resolved.warehouse_config["copy_role_arn"] == (
+        "arn:aws:iam::123456789012:role/DanderRedshiftCopy"
+    )
+    assert "password" not in resolved.warehouse_config
+
+
 def test_cloud_run_rejects_environment_only_secrets(tmp_path: Path) -> None:
     project_path = tmp_path / "dander.yaml"
     platforms_path = tmp_path / "dander.platforms.yaml"

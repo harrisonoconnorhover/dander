@@ -25,6 +25,8 @@ or string representation. Decimal precision above Parquet/Arrow's 76-digit limit
 file is published. Missing/extra fields, required nulls, malformed JSON, and Arrow conversion errors
 produce row-indexed messages without echoing record contents.
 
-This is a prerequisite, not a support claim. Snowflake and Redshift remain unavailable until their
-upload, idempotency, target fencing, schema, transform, telemetry, cleanup, and live-profile gates
-pass independently.
+Redshift's experimental SCD1 adapter consumes this contract through same-region S3 manifest `COPY`,
+with IAM-role authentication, deterministic replay history, target fencing, and owned-object
+cleanup. Transforms, executable graphs, other write modes, semi-structured `SUPER` mapping, and a
+live Redshift profile remain unavailable. Snowflake remains unavailable until its independent
+upload, idempotency, fencing, schema, transform, telemetry, cleanup, and live-profile gates pass.

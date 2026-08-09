@@ -15,6 +15,12 @@
     },
     {
       "state": "bigquery",
+      "warehouse": "redshift",
+      "status": "experimental",
+      "reason": "Locally conformance-tested with destination-side Redshift fencing; no live hosted profile is qualified."
+    },
+    {
+      "state": "bigquery",
       "warehouse": "snowflake",
       "status": "experimental",
       "reason": "Snowflake staged SCD1 ingestion and destination fencing pass local conformance; no live Snowflake profile is qualified."
@@ -30,6 +36,12 @@
       "warehouse": "postgresql",
       "status": "experimental",
       "reason": "Local native-profile conformance passed; Kubernetes live qualification remains pending."
+    },
+    {
+      "state": "postgresql",
+      "warehouse": "redshift",
+      "status": "experimental",
+      "reason": "Locally conformance-tested with destination-side Redshift fencing; no live hosted profile is qualified."
     },
     {
       "state": "postgresql",

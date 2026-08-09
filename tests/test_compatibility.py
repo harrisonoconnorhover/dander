@@ -23,9 +23,11 @@ def test_state_warehouse_matrix_covers_every_current_pair() -> None:
         ("bigquery", "bigquery"): CompatibilityStatus.SUPPORTED,
         ("bigquery", "postgresql"): CompatibilityStatus.EXPERIMENTAL,
         ("bigquery", "snowflake"): CompatibilityStatus.EXPERIMENTAL,
+        ("bigquery", "redshift"): CompatibilityStatus.EXPERIMENTAL,
         ("postgresql", "bigquery"): CompatibilityStatus.UNSUPPORTED,
         ("postgresql", "postgresql"): CompatibilityStatus.EXPERIMENTAL,
         ("postgresql", "snowflake"): CompatibilityStatus.EXPERIMENTAL,
+        ("postgresql", "redshift"): CompatibilityStatus.EXPERIMENTAL,
     }
 
 
@@ -35,8 +37,10 @@ def test_state_warehouse_matrix_covers_every_current_pair() -> None:
         ("bigquery", "bigquery"),
         ("bigquery", "postgresql"),
         ("bigquery", "snowflake"),
+        ("bigquery", "redshift"),
         ("postgresql", "postgresql"),
         ("postgresql", "snowflake"),
+        ("postgresql", "redshift"),
     ],
 )
 def test_executable_pairs_are_admitted(state: str, warehouse: str) -> None:
@@ -60,5 +64,5 @@ def test_runtime_compatibility_cli_prints_one_deterministic_document() -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["schema"] == "io.dander.runtime.compatibility/v1"
-    assert len(payload["state_warehouse_pairs"]) == 6
+    assert len(payload["state_warehouse_pairs"]) == 8
     assert result.output.strip() == load_runtime_compatibility().to_json()

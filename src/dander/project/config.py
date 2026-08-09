@@ -213,8 +213,9 @@ class DanderProject(BaseModel):
     pipelines: dict[str, PipelineSpec] = Field(min_length=1)
     platform_name: str = Field(default="gcp", exclude=True)
     deployment_name: str = Field(default="gcp_cloud_run", exclude=True)
-    warehouse_provider: Literal["bigquery", "postgresql", "snowflake"] = Field(
-        default="bigquery", exclude=True
+    warehouse_provider: Literal["bigquery", "postgresql", "snowflake", "redshift"] = Field(
+        default="bigquery",
+        exclude=True,
     )
     warehouse_config: dict[str, object] = Field(
         default_factory=_default_warehouse_config,

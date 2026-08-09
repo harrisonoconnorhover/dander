@@ -13,8 +13,12 @@ evaluate these limits before using it for an unattended system containing busine
   Redshift, AWS, Azure, or OCI profiles. Snowflake has an experimental scalar SCD1 adapter with
   bounded Parquet upload, temporary remote staging, schema checks, destination fencing, and fenced
   table/incremental transforms. It has no live Snowflake qualification, views, graph execution,
-  semi-structured types, or other write modes. Redshift has no warehouse adapter yet. PostgreSQL state and warehouse execution are
-  implemented and locally conformance-tested. A packaged Helm
+  semi-structured types, or other write modes.
+  Redshift has an experimental, locally conformance-tested scalar SCD1 adapter using bounded
+  Parquet parts, same-region S3 manifest `COPY`, IAM roles, replay history, and destination fencing;
+  it has no live qualification, transforms, executable graphs, non-SCD1 modes, or semi-structured
+  `SUPER` mapping. PostgreSQL state and warehouse execution are implemented and locally
+  conformance-tested. A packaged Helm
   chart now renders the Kubernetes launcher against an existing cluster, but no Kubernetes live
   profile is qualified yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse
   execution remains fail-closed until every BigQuery write mode uses destination-side fencing. The
