@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from dander.warehouse.contracts import CanonicalType, LogicalTypeKind, RelationSchema
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from pathlib import Path
@@ -12,7 +14,7 @@ if TYPE_CHECKING:
     from dander.concurrency import FencingToken, OwnershipGuard, TargetFence
     from dander.telemetry import OperationTelemetry, TelemetryOperation
     from dander.transform import TransformRunResult
-    from dander.warehouse.contracts import RelationCodec, RelationRef, RelationSchema
+    from dander.warehouse.contracts import RelationCodec, RelationRef
     from dander.writer.base import SchemaEvolution, WriteMode, WritePattern, WriteTransport
 
 
@@ -28,6 +30,73 @@ class PreparedWarehouseStatement:
             raise ValueError("prepared warehouse statement must not be blank")
 
 
+class WarehouseSchemaSupportError(ValueError):
+    """A canonical schema cannot be represented by the selected warehouse."""
+
+
+@dataclass(frozen=True, slots=True)
+class WarehouseSchemaSupport:
+    """Fail-closed canonical type support advertised by one warehouse."""
+
+    provider_id: str
+    logical_types: frozenset[LogicalTypeKind]
+    max_decimal_precision: int
+    max_temporal_precision: int
+    supports_nested_arrays: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.provider_id:
+            raise ValueError("warehouse schema support provider_id must not be blank")
+        if not self.logical_types:
+            raise ValueError("warehouse schema support must declare logical types")
+        if self.max_decimal_precision < 1:
+            raise ValueError("warehouse decimal precision limit must be positive")
+        if not 0 <= self.max_temporal_precision <= 9:
+            raise ValueError("warehouse temporal precision limit must be between 0 and 9")
+
+    def require(self, schema: RelationSchema) -> RelationSchema:
+        """Return ``schema`` after validating every field before extraction or mutation."""
+        for field in schema.fields:
+            self._require_type(field.data_type, path=field.name)
+        return schema
+
+    def _require_type(self, data_type: CanonicalType, *, path: str) -> None:
+        if data_type.kind not in self.logical_types:
+            raise WarehouseSchemaSupportError(
+                f"{self.provider_id} warehouse does not support canonical type "
+                f"{data_type.kind.value!r} at field {path!r}"
+            )
+        if (
+            data_type.kind is LogicalTypeKind.DECIMAL
+            and data_type.precision is not None
+            and data_type.precision > self.max_decimal_precision
+        ):
+            raise WarehouseSchemaSupportError(
+                f"{self.provider_id} warehouse supports decimal precision up to "
+                f"{self.max_decimal_precision}; field {path!r} declares {data_type.precision}"
+            )
+        if (
+            data_type.kind in {LogicalTypeKind.TIME, LogicalTypeKind.TIMESTAMP}
+            and data_type.fractional_second_precision is not None
+            and data_type.fractional_second_precision > self.max_temporal_precision
+        ):
+            raise WarehouseSchemaSupportError(
+                f"{self.provider_id} warehouse supports temporal precision up to "
+                f"{self.max_temporal_precision}; field {path!r} declares "
+                f"{data_type.fractional_second_precision}"
+            )
+        if data_type.kind is LogicalTypeKind.ARRAY:
+            assert data_type.element is not None
+            if data_type.element.kind is LogicalTypeKind.ARRAY and not self.supports_nested_arrays:
+                raise WarehouseSchemaSupportError(
+                    f"{self.provider_id} warehouse does not support nested arrays at field {path!r}"
+                )
+            self._require_type(data_type.element, path=f"{path}[]")
+        if data_type.kind is LogicalTypeKind.RECORD:
+            for field in data_type.fields:
+                self._require_type(field.data_type, path=f"{path}.{field.name}")
+
+
 @dataclass(frozen=True, slots=True)
 class WarehouseCapabilities:
     """Closed support declaration for one concrete warehouse implementation."""
@@ -39,6 +108,7 @@ class WarehouseCapabilities:
     supports_transforms: bool
     supports_graphs: bool
     supports_target_fencing: bool
+    schema_support: WarehouseSchemaSupport
 
     def __post_init__(self) -> None:
         if not self.provider_id:
@@ -47,6 +117,8 @@ class WarehouseCapabilities:
             raise ValueError("warehouse schema contract version must be 1")
         if not self.write_modes:
             raise ValueError("warehouse capabilities must declare at least one write mode")
+        if self.provider_id != self.schema_support.provider_id:
+            raise ValueError("warehouse schema support provider does not match capabilities")
 
 
 @runtime_checkable
@@ -144,6 +216,7 @@ class WarehouseRuntime:
     target_fence: WarehouseTargetFence
     telemetry: WarehouseTelemetry
     capabilities: WarehouseCapabilities
+    ingestion_schema_mapper: WarehouseSchemaMapper | None = None
 
     def __post_init__(self) -> None:
         if self.provider_id != self.relation_codec.provider_id:

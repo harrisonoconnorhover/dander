@@ -13,6 +13,10 @@ from dander.compatibility import (
     CompatibilityStatus,
     load_runtime_compatibility,
 )
+from dander.providers.bigquery.runtime import BIGQUERY_CAPABILITIES
+from dander.providers.postgresql.runtime import POSTGRESQL_CAPABILITIES
+from dander.providers.redshift.runtime import REDSHIFT_CAPABILITIES
+from dander.providers.snowflake.runtime import SNOWFLAKE_CAPABILITIES
 
 
 def test_state_warehouse_matrix_covers_every_current_pair() -> None:
@@ -65,4 +69,37 @@ def test_runtime_compatibility_cli_prints_one_deterministic_document() -> None:
     payload = json.loads(result.output)
     assert payload["schema"] == "io.dander.runtime.compatibility/v1"
     assert len(payload["state_warehouse_pairs"]) == 8
+    assert [warehouse["provider"] for warehouse in payload["warehouses"]] == [
+        "bigquery",
+        "postgresql",
+        "redshift",
+        "snowflake",
+    ]
     assert result.output.strip() == load_runtime_compatibility().to_json()
+
+
+def test_published_warehouse_capabilities_match_runtime_declarations() -> None:
+    runtime_capabilities = {
+        capability.provider_id: capability
+        for capability in (
+            BIGQUERY_CAPABILITIES,
+            POSTGRESQL_CAPABILITIES,
+            REDSHIFT_CAPABILITIES,
+            SNOWFLAKE_CAPABILITIES,
+        )
+    }
+
+    for report in load_runtime_compatibility().warehouses:
+        capability = runtime_capabilities[report.provider]
+        assert report.write_modes == tuple(sorted(mode.value for mode in capability.write_modes))
+        assert report.transports == tuple(
+            sorted(transport.value for transport in capability.transports)
+        )
+        assert report.logical_types == tuple(
+            sorted(kind.value for kind in capability.schema_support.logical_types)
+        )
+        assert report.max_decimal_precision == capability.schema_support.max_decimal_precision
+        assert report.max_temporal_precision == capability.schema_support.max_temporal_precision
+        assert report.supports_transforms is capability.supports_transforms
+        assert report.supports_graphs is capability.supports_graphs
+        assert report.supports_target_fencing is capability.supports_target_fencing

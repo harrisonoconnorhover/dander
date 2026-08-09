@@ -57,10 +57,11 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
             "lease_failed",
             "Pipeline ownership or cursor fencing was lost. A fresh run can retry safely.",
         )
-    if names & {"RawSchemaError", "CursorValueError"}:
+    if names & {"RawSchemaError", "CursorValueError", "WarehouseSchemaSupportError"}:
         return _details(
             "source_schema_failed",
-            f"A source record did not match the declared schema. Inspect logs for run {run_id}.",
+            f"The declared source schema is unsupported or a record did not match it. "
+            f"Inspect logs for run {run_id}.",
         )
     if names & {"BigQueryWriteError", "DestinationWriteError", "WarehouseWriteError"}:
         return _details(

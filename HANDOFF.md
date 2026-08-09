@@ -2,45 +2,42 @@
 
 ## Finished
 
-- Removed the BigQuery-derived namespace fallback from the provider-neutral warehouse coordinate
-  protocol; each provider now accepts only canonical compatibility inputs.
-- Kept BigQuery namespace precedence exactly `--dataset`, profile `warehouse.dataset`, then
-  `BQ_DATASET_RAW`, resolved before neutral orchestration.
-- Made the endpoint `RelationRef` map authoritative through CLI composition and
-  `PipelineExecutor`, including complete-map and shared catalog/namespace validation.
-- Removed unused internal `project`, `dataset`, `metadata_dataset`, and `warehouse_catalog` aliases
-  while retaining public v1/CLI compatibility entry points.
+- Added exact packaged capability reports for BigQuery, PostgreSQL, Redshift, and Snowflake.
+- Added fail-closed canonical schema validation before extraction and destination mutation.
+- Added field-path diagnostics for unsupported types, precision, and nested arrays.
+- Kept the compatibility schema additive and the supported-profile manifest unchanged.
+- Documented the implemented capability surface without promoting experimental providers.
 
 ## Try It
 
-Run `uv run pytest -q tests/cli/test_run_command.py tests/test_executor.py` to exercise compatibility
-translation and canonical relation flow without contacting a warehouse.
+Run `dander runtime compatibility` and inspect the `warehouses` array. Portable-provider schemas
+now fail through the selected provider's schema mapper before extraction or destination mutation.
 
 ## Checks
 
-- Ruff passed; strict mypy passed across 303 source files.
-- The full suite passed: 1,100 tests with an ephemeral pinned PostgreSQL 15 service.
-- Wheel, sdist, outside-checkout source-free installs, runtime-all install, generated-project
-  validation, dependency audit, and non-root/read-only container conformance passed.
-- GCP/AWS Terraform validation and tests plus Helm lint/template passed.
+- Ruff and strict mypy across 304 source files passed; 1,110 tests passed with PostgreSQL 15.
+- Wheel, sdist, source-free installs, runtime-all install, generated-project validation, dependency
+  audit, and non-root/read-only container conformance passed.
+- GCP/AWS Terraform validation/tests and Helm lint/template passed. The retained GCP read-only plan
+  reported exactly `No changes.` with its reviewed 600-second override; no apply ran.
 
 ## Decisions
 
-- Canonical endpoint relations are the single warehouse-location authority once CLI compatibility
-  inputs have been translated.
-- Mixed catalogs or raw namespaces fail before execution instead of selecting one relation
-  implicitly.
-- Provider registry, capabilities, fencing, schema contracts, v1 resources, and Terraform remain
-  unchanged.
+- Runtime capability declarations are authoritative; packaged JSON is checked against them.
+- Unsupported semi-structured mappings remain fail-closed instead of silently selecting VARIANT
+  or SUPER.
+- This slice reports current behavior only; it adds no provider feature or support claim.
 
 ## Remaining
 
-- Let protected CI repeat Linux packaging, image scanning, and secret scanning before merge.
-- Keep the separate warehouse-capability worktree and future provider work out of this slice.
-- Do not deploy, apply Terraform, publish packages, or expand provider support from this branch.
+- Repeat the protected-quality-equivalent suite after the provider-neutral coordinate rebase.
+- Reconcile the tracked 300-second job default and retained 600-second operator override in a
+  separate change rather than mixing it into this capability slice.
+- Continue provider write modes and live qualification separately; do not deploy or publish a
+  package from this branch.
 
 ## Review First
 
-- `src/dander/cli/run_command.py`
-- `src/dander/executor.py`
-- `src/dander/warehouse/contracts.py`
+- `src/dander/warehouse/runtime.py`
+- `src/dander/compatibility.py`
+- `tests/warehouse/test_schema_support.py`

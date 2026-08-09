@@ -17,9 +17,9 @@ from dander.warehouse import RelationRef
 from dander.writer import WriteMode, WritePattern, WriteTarget
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
-    from dander.warehouse import PreparedWarehouseStatement
+    from dander.warehouse import PreparedWarehouseStatement, RelationSchema
 
 
 class _Source(Source):
@@ -837,6 +837,67 @@ def test_runner_rejects_stale_watermark_commit_after_successful_write() -> None:
         runner.run()
 
     assert watermarks.committed is None
+
+
+def test_runner_validates_declared_schema_before_state_source_or_writer_io() -> None:
+    events: list[str] = []
+
+    class _DeclaredIncrementalSource(Source):
+        def __init__(self) -> None:
+            super().__init__(
+                SourceConfig(
+                    name="example",
+                    base_url="https://example.test",
+                    auth_strategy="none",
+                    endpoints=[
+                        Endpoint(
+                            name="widgets",
+                            path="/widgets",
+                            incremental_cursor="updated_at",
+                            primary_key=["id"],
+                            raw_schema=[
+                                RawField(name="id", data_type="STRING", mode="REQUIRED"),
+                                RawField(name="updated_at", data_type="TIMESTAMP"),
+                            ],
+                        )
+                    ],
+                )
+            )
+
+        def discover(self) -> Mapping[str, Any]:
+            return {}
+
+        def extract(
+            self,
+            endpoint: str,
+            *,
+            since: str | None = None,
+        ) -> Iterator[Mapping[str, Any]]:
+            del endpoint, since
+            events.append("extract")
+            yield {"id": "one"}
+
+    class _RejectingSchemaMapper:
+        def canonical_schema(self, fields: Sequence[object]) -> RelationSchema:
+            assert fields
+            events.append("schema")
+            raise ValueError("synthetic unsupported schema")
+
+    writer = _BatchedWriter()
+    runner = PipelineRunner(
+        source=_DeclaredIncrementalSource(),
+        writer=writer,
+        watermarks=_Watermarks(events),
+        project="unit-project",
+        dataset="raw",
+        schema_mapper=_RejectingSchemaMapper(),
+    )
+
+    with pytest.raises(ValueError, match="synthetic unsupported schema"):
+        runner.run()
+
+    assert events == ["schema"]
+    assert writer.batches == []
 
 
 @pytest.mark.parametrize("batch_rows", [0, 100_001, True])

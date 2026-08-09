@@ -31,14 +31,38 @@ from dander.providers.snowflake.writer import (
     default_staging_settings,
 )
 from dander.telemetry import OperationTelemetry, TelemetryOperation
-from dander.warehouse import CanonicalField, RelationRef, RelationSchema
-from dander.warehouse.runtime import WarehouseCapabilities, WarehouseRuntime
+from dander.warehouse import CanonicalField, LogicalTypeKind, RelationRef, RelationSchema
+from dander.warehouse.runtime import (
+    WarehouseCapabilities,
+    WarehouseRuntime,
+    WarehouseSchemaSupport,
+)
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WritePattern, WriteTransport
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
     from pydantic import BaseModel
+
+
+SNOWFLAKE_SCHEMA_SUPPORT = WarehouseSchemaSupport(
+    provider_id="snowflake",
+    logical_types=frozenset(
+        {
+            LogicalTypeKind.BOOLEAN,
+            LogicalTypeKind.INTEGER,
+            LogicalTypeKind.DECIMAL,
+            LogicalTypeKind.FLOAT,
+            LogicalTypeKind.STRING,
+            LogicalTypeKind.BINARY,
+            LogicalTypeKind.DATE,
+            LogicalTypeKind.TIME,
+            LogicalTypeKind.TIMESTAMP,
+        }
+    ),
+    max_decimal_precision=38,
+    max_temporal_precision=9,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,7 +91,7 @@ class SnowflakeSchemaMapper:
                 canonical.append(field)
             else:
                 raise TypeError("Snowflake schema mapper received an unsupported field")
-        return RelationSchema(fields=tuple(canonical))
+        return SNOWFLAKE_SCHEMA_SUPPORT.require(RelationSchema(fields=tuple(canonical)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +186,7 @@ SNOWFLAKE_CAPABILITIES = WarehouseCapabilities(
     supports_transforms=True,
     supports_graphs=False,
     supports_target_fencing=True,
+    schema_support=SNOWFLAKE_SCHEMA_SUPPORT,
 )
 
 
@@ -218,10 +243,11 @@ def build_snowflake_warehouse(
             max_logical_bytes_per_file=staging.max_logical_bytes_per_file,
             compression=staging.compression,
         )
+    schema_mapper = SnowflakeSchemaMapper()
     return WarehouseRuntime(
         provider_id="snowflake",
         relation_codec=SnowflakeRelationCodec(config.database),
-        schema_mapper=SnowflakeSchemaMapper(),
+        schema_mapper=schema_mapper,
         writers=SnowflakeWriterFactory(
             config.database,
             connection_factory,
@@ -236,6 +262,7 @@ def build_snowflake_warehouse(
         target_fence=target_fence,
         telemetry=SnowflakeTelemetry(config.warehouse),
         capabilities=SNOWFLAKE_CAPABILITIES,
+        ingestion_schema_mapper=schema_mapper,
     )
 
 
@@ -305,6 +332,7 @@ def _quote(identifier: str) -> str:
 
 __all__ = [
     "SNOWFLAKE_CAPABILITIES",
+    "SNOWFLAKE_SCHEMA_SUPPORT",
     "SNOWFLAKE_WAREHOUSE_FACTORY",
     "SnowflakeRelationCodec",
     "SnowflakeSchemaMapper",

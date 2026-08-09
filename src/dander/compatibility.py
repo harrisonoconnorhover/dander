@@ -41,17 +41,49 @@ class StateWarehousePair:
 
 
 @dataclass(frozen=True, slots=True)
+class WarehouseCapabilityReport:
+    """Credential-free capability declaration for one packaged warehouse adapter."""
+
+    provider: str
+    write_modes: tuple[str, ...]
+    transports: tuple[str, ...]
+    logical_types: tuple[str, ...]
+    max_decimal_precision: int
+    max_temporal_precision: int
+    supports_transforms: bool
+    supports_graphs: bool
+    supports_target_fencing: bool
+    limitations: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "provider": self.provider,
+            "write_modes": list(self.write_modes),
+            "transports": list(self.transports),
+            "logical_types": list(self.logical_types),
+            "max_decimal_precision": self.max_decimal_precision,
+            "max_temporal_precision": self.max_temporal_precision,
+            "supports_transforms": self.supports_transforms,
+            "supports_graphs": self.supports_graphs,
+            "supports_target_fencing": self.supports_target_fencing,
+            "limitations": list(self.limitations),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeCompatibility:
     """Validated, deterministic compatibility report for the installed runtime."""
 
     schema: str
     state_warehouse_pairs: tuple[StateWarehousePair, ...]
+    warehouses: tuple[WarehouseCapabilityReport, ...]
 
     def to_json(self) -> str:
         return json.dumps(
             {
                 "schema": self.schema,
                 "state_warehouse_pairs": [pair.as_dict() for pair in self.state_warehouse_pairs],
+                "warehouses": [warehouse.as_dict() for warehouse in self.warehouses],
             },
             separators=(",", ":"),
             sort_keys=True,
@@ -110,7 +142,37 @@ def load_runtime_compatibility() -> RuntimeCompatibility:
         raise CompatibilityError(
             "runtime compatibility pairs must be unique and sorted by state/warehouse"
         )
-    return RuntimeCompatibility(schema=_SCHEMA, state_warehouse_pairs=tuple(pairs))
+    raw_warehouses = payload.get("warehouses")
+    if not isinstance(raw_warehouses, list) or not raw_warehouses:
+        raise CompatibilityError("runtime compatibility matrix has no warehouse capabilities")
+    warehouses = tuple(_warehouse_capability(item) for item in raw_warehouses)
+    providers = [warehouse.provider for warehouse in warehouses]
+    if len(providers) != len(set(providers)) or providers != sorted(providers):
+        raise CompatibilityError(
+            "runtime warehouse capabilities must be unique and sorted by provider"
+        )
+    return RuntimeCompatibility(
+        schema=_SCHEMA,
+        state_warehouse_pairs=tuple(pairs),
+        warehouses=warehouses,
+    )
+
+
+def _warehouse_capability(raw: object) -> WarehouseCapabilityReport:
+    if not isinstance(raw, dict):
+        raise CompatibilityError("runtime compatibility matrix contains an invalid warehouse")
+    return WarehouseCapabilityReport(
+        provider=_required_text(raw, "provider"),
+        write_modes=_required_sorted_texts(raw, "write_modes"),
+        transports=_required_sorted_texts(raw, "transports"),
+        logical_types=_required_sorted_texts(raw, "logical_types"),
+        max_decimal_precision=_required_positive_int(raw, "max_decimal_precision"),
+        max_temporal_precision=_required_nonnegative_int(raw, "max_temporal_precision"),
+        supports_transforms=_required_bool(raw, "supports_transforms"),
+        supports_graphs=_required_bool(raw, "supports_graphs"),
+        supports_target_fencing=_required_bool(raw, "supports_target_fencing"),
+        limitations=_required_sorted_texts(raw, "limitations", allow_empty=True),
+    )
 
 
 def _required_text(payload: dict[object, object], name: str) -> str:
@@ -120,10 +182,49 @@ def _required_text(payload: dict[object, object], name: str) -> str:
     return value
 
 
+def _required_sorted_texts(
+    payload: dict[object, object],
+    name: str,
+    *,
+    allow_empty: bool = False,
+) -> tuple[str, ...]:
+    value = payload.get(name)
+    if (
+        not isinstance(value, list)
+        or (not value and not allow_empty)
+        or any(not isinstance(item, str) or not item.strip() for item in value)
+        or value != sorted(set(value))
+    ):
+        raise CompatibilityError(f"runtime warehouse capability has invalid {name}")
+    return tuple(value)
+
+
+def _required_positive_int(payload: dict[object, object], name: str) -> int:
+    value = payload.get(name)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise CompatibilityError(f"runtime warehouse capability has invalid {name}")
+    return value
+
+
+def _required_nonnegative_int(payload: dict[object, object], name: str) -> int:
+    value = payload.get(name)
+    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 9:
+        raise CompatibilityError(f"runtime warehouse capability has invalid {name}")
+    return value
+
+
+def _required_bool(payload: dict[object, object], name: str) -> bool:
+    value = payload.get(name)
+    if not isinstance(value, bool):
+        raise CompatibilityError(f"runtime warehouse capability has invalid {name}")
+    return value
+
+
 __all__ = [
     "CompatibilityError",
     "CompatibilityStatus",
     "RuntimeCompatibility",
     "StateWarehousePair",
+    "WarehouseCapabilityReport",
     "load_runtime_compatibility",
 ]

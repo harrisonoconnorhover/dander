@@ -17,8 +17,12 @@ from dander.providers.postgresql.transform import PostgreSQLTransformRunner
 from dander.providers.postgresql.writer import PostgreSQLScd1Writer, PostgreSQLTimeouts
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.telemetry import OperationTelemetry, TelemetryOperation
-from dander.warehouse import CanonicalField, RelationRef, RelationSchema
-from dander.warehouse.runtime import WarehouseCapabilities, WarehouseRuntime
+from dander.warehouse import CanonicalField, LogicalTypeKind, RelationRef, RelationSchema
+from dander.warehouse.runtime import (
+    WarehouseCapabilities,
+    WarehouseRuntime,
+    WarehouseSchemaSupport,
+)
 from dander.writer import (
     SchemaEvolution,
     WriteField,
@@ -34,6 +38,14 @@ if TYPE_CHECKING:
 
 PostgreSQLRow = dict[str, object]
 PostgreSQLPool = ConnectionPool[Connection[PostgreSQLRow]]
+
+POSTGRESQL_SCHEMA_SUPPORT = WarehouseSchemaSupport(
+    provider_id="postgresql",
+    logical_types=frozenset(LogicalTypeKind),
+    max_decimal_precision=1_000,
+    max_temporal_precision=6,
+    supports_nested_arrays=True,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +74,7 @@ class PostgreSQLSchemaMapper:
                 canonical.append(field)
             else:
                 raise TypeError("PostgreSQL schema mapper received an unsupported field")
-        return RelationSchema(fields=tuple(canonical))
+        return POSTGRESQL_SCHEMA_SUPPORT.require(RelationSchema(fields=tuple(canonical)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +165,7 @@ POSTGRESQL_CAPABILITIES = WarehouseCapabilities(
     supports_transforms=True,
     supports_graphs=False,
     supports_target_fencing=True,
+    schema_support=POSTGRESQL_SCHEMA_SUPPORT,
 )
 
 
@@ -198,15 +211,17 @@ def build_postgresql_warehouse(
         lock_ms=config.lock_timeout_ms,
         idle_transaction_ms=config.idle_transaction_timeout_ms,
     )
+    schema_mapper = PostgreSQLSchemaMapper()
     return WarehouseRuntime(
         provider_id="postgresql",
         relation_codec=PostgreSQLRelationCodec(config.database),
-        schema_mapper=PostgreSQLSchemaMapper(),
+        schema_mapper=schema_mapper,
         writers=PostgreSQLWriterFactory(config.database, pool, target_fence, timeouts),
         transforms=PostgreSQLTransformFactory(config.database, pool, target_fence, timeouts),
         target_fence=target_fence,
         telemetry=PostgreSQLTelemetry(),
         capabilities=POSTGRESQL_CAPABILITIES,
+        ingestion_schema_mapper=schema_mapper,
     )
 
 
@@ -232,6 +247,7 @@ def _required_sslmode(dsn: str) -> str:
 
 __all__ = [
     "POSTGRESQL_CAPABILITIES",
+    "POSTGRESQL_SCHEMA_SUPPORT",
     "POSTGRESQL_WAREHOUSE_FACTORY",
     "PostgreSQLRelationCodec",
     "PostgreSQLSchemaMapper",

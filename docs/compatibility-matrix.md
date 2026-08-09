@@ -29,3 +29,22 @@ the cloud-portability plan. Adding an adapter does not silently add a matrix row
 Catalog selection is independent from this state/warehouse matrix. Dataplex is supported only in
 the released GCP profile, `none` is a complete no-cloud-mutation provider, and AWS Glue is an
 experimental direct API projection with local create/update/readback conformance only.
+
+## Warehouse capabilities
+
+The same command publishes the exact implemented warehouse surface. These declarations are
+capabilities, not support promotion: Snowflake, Redshift, and PostgreSQL remain experimental until
+their named live profiles pass.
+
+| Warehouse | Ingestion modes | Transport | Canonical schema | Models | Graphs | Fence |
+|---|---|---|---|---|---|---|
+| BigQuery | all five | load job, Storage Write | all v1 types; decimal 38, time 6; no nested arrays | yes | yes | yes |
+| PostgreSQL | SCD1 | COPY | all v1 types; decimal 1000, time 6 | yes | no | yes |
+| Redshift | SCD1 | COPY | scalar types; decimal 38, time 6; no SUPER fallback | yes | no | yes |
+| Snowflake | SCD1 | COPY | scalar types; decimal 38, time 9; no VARIANT fallback | yes | no | yes |
+
+Portable-provider schema validation uses these declarations before source extraction, staging
+upload, or destination mutation. BigQuery retains its existing provider-native v1 schema path so
+types without lossless canonical mappings remain compatible. An unsupported portable field reports
+the provider, field path, type or precision, and supported limit. The packaged JSON and runtime
+capability constants are checked for drift in the test suite.

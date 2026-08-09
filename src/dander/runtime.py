@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from dander.concurrency import OwnershipGuard
     from dander.ingestion.source import Endpoint, RawField, Source
     from dander.state.watermark import WatermarkStore
-    from dander.warehouse import WarehouseTargetFence
+    from dander.warehouse import WarehouseSchemaMapper, WarehouseTargetFence
     from dander.writer.base import WritePattern
 
 _LOGGER = logging.getLogger(__name__)
@@ -70,6 +70,7 @@ class PipelineRunner:
         batch_rows: int = 10_000,
         endpoint_names: Iterable[str] | None = None,
         target_fence: WarehouseTargetFence | None = None,
+        schema_mapper: WarehouseSchemaMapper | None = None,
     ) -> None:
         self._source = source
         self._writer = writer
@@ -77,6 +78,7 @@ class PipelineRunner:
         self._resume_from_watermark = resume_from_watermark
         self._history = history
         self._target_fence = target_fence
+        self._schema_mapper = schema_mapper
         if isinstance(batch_rows, bool) or not 1 <= batch_rows <= 100_000:
             raise ValueError("batch_rows must be an integer from 1 to 100000")
         self._batch_rows = batch_rows
@@ -181,6 +183,14 @@ class PipelineRunner:
         ownership: OwnershipGuard | None,
     ) -> EndpointRunResult:
         source_name = self._source.config.name
+        target = WriteTarget(
+            relation=self._endpoint_relations[endpoint.name],
+            business_key=tuple(endpoint.primary_key),
+            schema=tuple(_write_field(field) for field in endpoint.raw_schema),
+            fence=ownership.fence if ownership is not None else None,
+        )
+        if target.schema and self._schema_mapper is not None:
+            self._schema_mapper.canonical_schema(target.schema)
         stored_cursor = (
             self._watermarks.get(source_name, endpoint.name)
             if endpoint.incremental_cursor
@@ -189,12 +199,6 @@ class PipelineRunner:
         cursor = stored_cursor if self._resume_from_watermark else None
         if ownership is not None:
             ownership.verify()
-        target = WriteTarget(
-            relation=self._endpoint_relations[endpoint.name],
-            business_key=tuple(endpoint.primary_key),
-            schema=tuple(_write_field(field) for field in endpoint.raw_schema),
-            fence=ownership.fence if ownership is not None else None,
-        )
         if self._writer.requires_publication_fence:
             if ownership is None or ownership.fence is None or self._target_fence is None:
                 raise RuntimeError("Hosted destination writes require target-fence ownership")

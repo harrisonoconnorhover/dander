@@ -118,6 +118,7 @@ def test_bigquery_runtime_exposes_codec_schema_fence_and_telemetry() -> None:
     )
 
     assert runtime.relation_codec.render(relation) == "`unit-project`.`raw`.`records`"
+    assert runtime.ingestion_schema_mapper is None
     assert schema.fields[0].data_type.kind is LogicalTypeKind.STRING
     assert prepared.sql.count("ASSERT @@row_count = 1") == 2
     assert "status = 'committed'" in prepared.sql
@@ -136,6 +137,14 @@ def test_bigquery_runtime_exposes_codec_schema_fence_and_telemetry() -> None:
         "bytes_billed": 2_048,
         "job_id": "job-123",
     }
+
+
+def test_bigquery_keeps_provider_native_types_out_of_portable_ingestion_preflight() -> None:
+    runtime = _runtime()
+
+    assert runtime.ingestion_schema_mapper is None
+    with pytest.raises(ValueError, match="explicit canonical fallback"):
+        runtime.schema_mapper.canonical_schema([WriteField(name="location", data_type="GEOGRAPHY")])
 
 
 class _FenceJob:

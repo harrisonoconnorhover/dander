@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from dander.state import RunStage, classify_failure
+from dander.warehouse import WarehouseSchemaSupportError
 
 
 @dataclass
@@ -91,6 +92,21 @@ def test_wrapped_runtime_stage_errors_keep_stable_codes() -> None:
     assert catalog.code == "catalog_failed"
     assert "private" not in transform.summary
     assert "private" not in catalog.summary
+
+
+def test_warehouse_schema_support_failures_keep_the_source_schema_code() -> None:
+    failure = classify_failure(
+        WarehouseSchemaSupportError("private provider schema detail"),
+        stage=RunStage.INGEST,
+        run_id="run-123",
+    )
+
+    assert failure.code == "source_schema_failed"
+    assert failure.summary == (
+        "The declared source schema is unsupported or a record did not match it. "
+        "Inspect logs for run run-123."
+    )
+    assert "private" not in failure.summary
 
 
 def test_provider_specific_failures_use_cloud_neutral_summaries() -> None:

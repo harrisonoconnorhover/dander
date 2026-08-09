@@ -8,6 +8,10 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Publish exact write-mode, transport, transform, graph, fencing, logical-type, decimal, and
+  temporal limits for every packaged warehouse through `dander runtime compatibility`. Selected
+  portable warehouse schema mappers now reject unsupported types and precision before extraction
+  or destination mutation without changing BigQuery's provider-native v1 schema behavior.
 - Add an experimental AWS Glue Data Catalog provider with canonical relation mapping, direct
   database/table API publication, Dander-owned parameters, unrelated-field preservation, and
   normalized readback. No crawler, deletion, IAM provisioning, or live-support claim is included.

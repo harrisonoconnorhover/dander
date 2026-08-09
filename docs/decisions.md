@@ -920,3 +920,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   objects or makes crawlers authoritative.
 - **Boundary:** Ambient AWS identity and direct API readback are implemented. IAM infrastructure,
   Glue connections, Lake Formation, tags, live proof, and support promotion remain separate work.
+
+## 2026-08-09 — Warehouse capabilities are exact and schema validation is fail-early
+
+- **Contract:** Every warehouse runtime declares its implemented write modes, transports, model,
+  graph, fencing, logical-type, decimal, and temporal support. The credential-free compatibility
+  report mirrors those declarations and tests prevent drift.
+- **Failure boundary:** Provider schema mappers reject unsupported types, precision, and nested
+  arrays before source extraction, staging, or destination mutation. BigQuery retains its native
+  v1 schema path because types such as GEOGRAPHY have no lossless canonical mapping. Diagnostics
+  name the provider and
+  exact field path without including provider responses or record values.
+- **Scope:** The declaration reports implemented behavior only. It does not promote experimental
+  providers, add write modes, introduce semi-structured fallbacks, or widen the supported profile
+  manifest.

@@ -204,6 +204,7 @@ def snowflake_runtime(
         },
     )
     assert isinstance(runtime, WarehouseRuntime)
+    assert runtime.ingestion_schema_mapper is runtime.schema_mapper
     return runtime, backend, tmp_path
 
 
