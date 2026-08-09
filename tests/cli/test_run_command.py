@@ -422,3 +422,11 @@ def test_only_unsupported_postgresql_state_bigquery_warehouse_pair_fails_closed(
         state_provider="bigquery",
         warehouse_provider="postgresql",
     )
+    run_module._require_executable_state_pair(
+        state_provider="bigquery",
+        warehouse_provider="redshift",
+    )
+    run_module._require_executable_state_pair(
+        state_provider="postgresql",
+        warehouse_provider="redshift",
+    )

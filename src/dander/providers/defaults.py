@@ -10,6 +10,7 @@ from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
 from dander.providers.kubernetes import KubernetesLauncherConfig
 from dander.providers.no_catalog import NoCatalogConfig
 from dander.providers.postgresql import PostgreSQLStateConfig, PostgreSQLWarehouseConfig
+from dander.providers.redshift import RedshiftWarehouseConfig
 from dander.providers.registry import ProviderKind, ProviderRegistry, lazy_provider_factory
 from dander.providers.snowflake import SnowflakeWarehouseConfig
 
@@ -39,6 +40,14 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=SnowflakeWarehouseConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.snowflake.runtime:SNOWFLAKE_WAREHOUSE_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.WAREHOUSE,
+        provider_id="redshift",
+        config_model=RedshiftWarehouseConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.redshift.runtime:REDSHIFT_WAREHOUSE_FACTORY"
         ),
     )
     registry.register(

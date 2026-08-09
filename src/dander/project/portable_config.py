@@ -35,6 +35,7 @@ from dander.providers.postgresql import (  # noqa: TC001
     PostgreSQLStateConfig,
     PostgreSQLWarehouseConfig,
 )
+from dander.providers.redshift import RedshiftWarehouseConfig  # noqa: TC001
 from dander.providers.snowflake import SnowflakeWarehouseConfig  # noqa: TC001
 
 if TYPE_CHECKING:
@@ -147,7 +148,10 @@ StateSpec = Annotated[
 
 
 WarehouseSpec = Annotated[
-    BigQueryWarehouseConfig | PostgreSQLWarehouseConfig | SnowflakeWarehouseConfig,
+    BigQueryWarehouseConfig
+    | PostgreSQLWarehouseConfig
+    | SnowflakeWarehouseConfig
+    | RedshiftWarehouseConfig,
     Field(discriminator="provider"),
 ]
 
