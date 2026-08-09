@@ -2,36 +2,39 @@
 
 ## Finished
 
-- Forward-ported the accepted `0.7.1` BigQuery run-history migration fix to current main.
-- Read the immediate table schema before considering additive history columns.
-- Skip no-op migration DDL when the schema is already current.
-- Batch all genuinely missing nullable columns into one race-safe `ALTER TABLE` statement.
-- Preserve fail-closed behavior when the single migration statement fails.
+- Added an experimental Snowflake provider with native database/schema coordinates.
+- Added bounded Parquet `PUT`/`COPY`, scalar SCD1 merge, schema evolution, and telemetry.
+- Explicitly committed fence claims and fenced publication/load history in Snowflake transactions.
+- Made remote staging session-temporary and rejected oversized parts before upload.
+- Kept Snowflake experimental with transforms, graphs, other modes, and live support excluded.
 
 ## Try It
 
-Run `uv run pytest tests/state/test_run_history.py -q`; current schemas emit no ALTER and sparse
-legacy schemas emit one bounded additive migration.
+Configure a version 2 Snowflake profile from `docs/snowflake.md`, select `build_models: false`, and
+use either BigQuery or PostgreSQL state. No live Snowflake proof is claimed.
 
 ## Checks
 
-- Full suite passed (`1,038` passed, `13` environment-selected skips); Ruff lint/format and strict
-  mypy passed.
-- Stable `0.7.1` candidate protected CI and retained GCP acceptance passed before this forward-port.
-- Current main already locks GitPython `3.1.58`; no dependency change was needed.
+- Full suite passed: 1,061 tests with PostgreSQL 15; Ruff and strict mypy also passed.
+- Wheel/sdist inspection, source-free installs, generated-project validation, and runtime-all import passed.
+- Container build/conformance, Terraform/AWS tests, Helm validation, and dependency audit passed.
+- Retained stage-zero plan: no changes; no cloud apply or mutation occurred.
+- Retained platform plan matched clean `origin/main`: 2 adds/5 updates already pending, no deletes.
 
 ## Decisions
 
-- Keep the functional fix identical to the accepted maintenance release.
-- Do not mix release metadata or provider implementation work into the forward-port.
-- Preserve immediate schema failure propagation rather than masking migration errors.
+- Snowflake translates native database/schema values into canonical `RelationRef` coordinates.
+- Explicit Parquet logical/binary settings are part of every effective `COPY` file format.
+- Scalar SCD1 is the smallest honest experimental slice; other capabilities remain fail-closed.
 
 ## Remaining
 
-- Run protected Linux CI and merge the focused PR if clean.
-- Rebase the provider PR stack on the corrected main before merging it.
+- Review the known retained-platform baseline drift before any future apply.
+- Open the focused draft PR and require protected CI.
+- Merge only after review; do not claim live Snowflake qualification.
 
 ## Review First
 
-- `src/dander/state/run_history.py`
-- `tests/state/test_run_history.py`
+- `src/dander/providers/snowflake/writer.py`
+- `src/dander/providers/snowflake/fence.py`
+- `src/dander/providers/snowflake/config.py`

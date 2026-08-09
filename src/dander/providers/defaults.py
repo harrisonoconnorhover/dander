@@ -11,6 +11,7 @@ from dander.providers.kubernetes import KubernetesLauncherConfig
 from dander.providers.no_catalog import NoCatalogConfig
 from dander.providers.postgresql import PostgreSQLStateConfig, PostgreSQLWarehouseConfig
 from dander.providers.registry import ProviderKind, ProviderRegistry, lazy_provider_factory
+from dander.providers.snowflake import SnowflakeWarehouseConfig
 
 
 def default_provider_registry() -> ProviderRegistry:
@@ -30,6 +31,14 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=BigQueryStateConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.bigquery.state:BIGQUERY_STATE_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.WAREHOUSE,
+        provider_id="snowflake",
+        config_model=SnowflakeWarehouseConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.snowflake.runtime:SNOWFLAKE_WAREHOUSE_FACTORY"
         ),
     )
     registry.register(

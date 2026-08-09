@@ -9,11 +9,12 @@ evaluate these limits before using it for an unattended system containing busine
   verification are implemented but not live-qualified. The runtime bridge copies one temporary ECS
   task-role session into process memory and therefore caps a Fargate projection at one hour;
   renewable credentials and live parity remain later gates.
-- Provider package extras and the full runtime image contain planned provider SDK dependencies,
-  but do not by themselves qualify Snowflake, Redshift, AWS, Azure, or OCI profiles. A shared
-  bounded Parquet staging contract exists for future Snowflake/Redshift bulk loaders, but no remote
-  upload or warehouse adapter uses it yet. PostgreSQL
-  state and warehouse execution are implemented and locally conformance-tested. A packaged Helm
+- Provider package extras and the full runtime image do not by themselves qualify Snowflake,
+  Redshift, AWS, Azure, or OCI profiles. Snowflake has an experimental scalar SCD1 adapter with
+  bounded Parquet upload, temporary remote staging, schema checks, and destination fencing. It has
+  no live Snowflake qualification, transforms, graph execution, semi-structured types, or other
+  write modes. Redshift has no warehouse adapter yet. PostgreSQL state and warehouse execution are
+  implemented and locally conformance-tested. A packaged Helm
   chart now renders the Kubernetes launcher against an existing cluster, but no Kubernetes live
   profile is qualified yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse
   execution remains fail-closed until every BigQuery write mode uses destination-side fencing. The

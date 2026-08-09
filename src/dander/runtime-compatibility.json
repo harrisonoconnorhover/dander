@@ -14,6 +14,12 @@
       "reason": "Locally conformance-tested with destination-side PostgreSQL fencing; no live hosted profile is qualified."
     },
     {
+      "state": "bigquery",
+      "warehouse": "snowflake",
+      "status": "experimental",
+      "reason": "Snowflake staged SCD1 ingestion and destination fencing pass local conformance; no live Snowflake profile is qualified."
+    },
+    {
       "state": "postgresql",
       "warehouse": "bigquery",
       "status": "unsupported",
@@ -24,6 +30,12 @@
       "warehouse": "postgresql",
       "status": "experimental",
       "reason": "Local native-profile conformance passed; Kubernetes live qualification remains pending."
+    },
+    {
+      "state": "postgresql",
+      "warehouse": "snowflake",
+      "status": "experimental",
+      "reason": "Cross-backend execution is admitted only for locally conformance-tested Snowflake staged SCD1 writes; live qualification remains pending."
     }
   ]
 }
