@@ -2,36 +2,35 @@
 
 ## Finished
 
-- Reproduced the public rc3 Fargate verification failure against the live proof stack.
-- Corrected all six Fargate AWS CLI operations to use the `stepfunctions` namespace.
-- Preserved Step Functions ARN service names, IAM actions, Terraform, and runtime semantics.
-- Updated focused command and fake-response tests.
+- Merged the Step Functions CLI namespace correction through protected main as PR #154.
+- Prepared release-only metadata for `dander-platform==0.8.0rc4`.
+- Kept `src/dander`, Terraform, manifests, and provider support declarations unchanged.
 
 ## Try It
 
-Run `uv run pytest -q tests/providers/test_fargate_operations.py`.
+Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate.
 
 ## Checks
 
+- PR #154 passed Python, Terraform, packaging, container, and secret checks.
 - A source-free built wheel verified both deployed Fargate controllers and paused schedules.
-- Focused Fargate operation tests passed.
-- Ruff lint/format and strict MyPy passed.
-- Full Python and protected Terraform checks passed.
+- Release metadata validation and focused tests passed.
 - Wheel/sdist inspection and source-free installation passed outside the checkout.
 
 ## Decisions
 
-- Only the AWS CLI namespace changes; ARN and IAM vocabulary correctly remains `states`.
-- A replacement candidate is required because rc3 live operator commands cannot run.
+- `0.8.0rc4` replaces rc3 for complete Fargate lifecycle acceptance.
+- Fargate remains experimental until the lifecycle gate passes.
 
 ## Remaining
 
-- Merge this focused fix through protected main.
-- Prepare, tag, and publish `0.8.0rc4` from the exact protected merge.
-- Reinstall rc4 source-free and rerun read-only Fargate verification.
+- Merge this release-only PR after protected checks pass.
+- Tag and publish `0.8.0rc4` from the exact protected merge.
+- Reinstall rc4 source-free and rerun Fargate verification and lifecycle acceptance.
 - Record replay, interruption, scheduling, alert, rollback, cleanup, and no-drift evidence.
 
 ## Review First
 
-- `src/dander/providers/fargate/operations.py`
-- `tests/providers/test_fargate_operations.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `docs/session-resume.md`
