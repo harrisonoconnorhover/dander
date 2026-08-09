@@ -676,6 +676,7 @@ postgres = [
 ]
 redshift = [
     { name = "boto3" },
+    { name = "pyarrow" },
     { name = "redshift-connector" },
 ]
 runtime-all = [
@@ -690,10 +691,12 @@ runtime-all = [
     { name = "google-cloud-secret-manager" },
     { name = "psycopg", extra = ["binary"], marker = "sys_platform != 'linux'" },
     { name = "psycopg", extra = ["pool"] },
+    { name = "pyarrow" },
     { name = "redshift-connector" },
     { name = "snowflake-connector-python" },
 ]
 snowflake = [
+    { name = "pyarrow" },
     { name = "snowflake-connector-python" },
 ]
 
@@ -733,6 +736,9 @@ requires-dist = [
     { name = "psycopg", extras = ["binary", "pool"], marker = "sys_platform != 'linux' and extra == 'runtime-all'", specifier = ">=3.2,<4" },
     { name = "psycopg", extras = ["pool"], marker = "sys_platform == 'linux' and extra == 'postgres'", specifier = ">=3.2,<4" },
     { name = "psycopg", extras = ["pool"], marker = "sys_platform == 'linux' and extra == 'runtime-all'", specifier = ">=3.2,<4" },
+    { name = "pyarrow", marker = "extra == 'redshift'", specifier = ">=19,<26" },
+    { name = "pyarrow", marker = "extra == 'runtime-all'", specifier = ">=19,<26" },
+    { name = "pyarrow", marker = "extra == 'snowflake'", specifier = ">=19,<26" },
     { name = "pydantic", specifier = ">=2.12" },
     { name = "pydantic-settings", specifier = ">=2.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },

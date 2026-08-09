@@ -43,6 +43,7 @@ SDIST_REQUIRED = {
     "README.md",
     "docs/compatibility-matrix.md",
     "docs/postgresql-benchmarks.md",
+    "docs/warehouse-staging.md",
     "examples/salesforce/dander.yaml",
     "infra/main.tf",
     "infra/kubernetes/chart/dander/Chart.yaml",
