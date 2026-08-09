@@ -5,7 +5,7 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Public releases
 
-- Dander `0.7.0` is the current public beta.
+- Dander `0.8.0rc1` is the current public beta candidate.
 - Salesforce `0.3.1` and ServiceNow `0.2.2` are the current stable connector releases for Dander
   `0.7.x`; their accepted release candidates remain recorded in the Phase 1 evidence.
 - Druff's fork contains Josh's reconciled graph-client ancestry and the later persistence,
@@ -15,9 +15,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 - Project `dander-proof-harrison-20260801`, region `us-central1`, remote states `dander/state` and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
-- The source-free runtime is pinned to Dander `0.5.0` with Salesforce and ServiceNow plugins
-  `0.2.0`, at immutable digest `sha256:3220623bf82a81d625db9e611c305694204e25ae312c06a8e8b1ea883bfd8995`.
-  Dander `0.5.1` does not require a runtime rollout because its only change is catalog metadata.
+- The source-free runtime is pinned to Dander `0.7.1`, Salesforce `0.3.1`, and ServiceNow `0.2.2`
+  at immutable digest `sha256:68e112c43b365018b735be7934446e15dfe6169fc64062b62b8bb97ea4f93b96`.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained

@@ -1,6 +1,6 @@
 # Known limitations
 
-Dander `0.7.x` is beta and proves a focused GCP-native vertical slice. It remains pre-1.0 software;
+Dander `0.8.x` is beta and proves a focused GCP-native vertical slice. It remains pre-1.0 software;
 evaluate these limits before using it for an unattended system containing business-critical data.
 
 - AWS ECS/Fargate is not yet a supported Dander launcher. Packaged stage-zero and platform roots
