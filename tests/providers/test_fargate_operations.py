@@ -400,11 +400,23 @@ def test_verify_checks_controller_schedule_image_logs_cluster_and_registry(tmp_p
                             f"arn:aws:ecs:{REGION}:{ACCOUNT}:task-definition/{RESOURCE}:1"
                         ),
                         "status": "ACTIVE",
+                        "volumes": [{"name": "dander-tmp"}],
                         "containerDefinitions": [
                             {
                                 "image": IMAGE,
                                 "readonlyRootFilesystem": True,
                                 "user": "65532:65532",
+                                "environment": [
+                                    {"name": "HOME", "value": "/tmp"},
+                                    {"name": "TMPDIR", "value": "/tmp"},
+                                ],
+                                "mountPoints": [
+                                    {
+                                        "sourceVolume": "dander-tmp",
+                                        "containerPath": "/tmp",
+                                        "readOnly": False,
+                                    }
+                                ],
                             }
                         ],
                     }

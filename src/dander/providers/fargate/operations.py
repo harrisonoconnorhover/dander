@@ -413,10 +413,38 @@ class FargateOperations:
         ):
             raise FargateOperationError("Fargate task definition has invalid containers")
         container = containers[0]
+        environment = container.get("environment")
+        environment_values = (
+            {
+                item.get("name"): item.get("value")
+                for item in environment
+                if isinstance(item, dict)
+                and isinstance(item.get("name"), str)
+                and isinstance(item.get("value"), str)
+            }
+            if isinstance(environment, list)
+            else {}
+        )
+        mount_points = container.get("mountPoints")
+        volumes = task.get("volumes")
         if (
             container.get("image") != expected_image
             or container.get("readonlyRootFilesystem") is not True
             or container.get("user") != "65532:65532"
+            or environment_values.get("HOME") != "/tmp"
+            or environment_values.get("TMPDIR") != "/tmp"
+            or not isinstance(mount_points, list)
+            or {
+                "sourceVolume": "dander-tmp",
+                "containerPath": "/tmp",
+                "readOnly": False,
+            }
+            not in mount_points
+            or not isinstance(volumes, list)
+            or not any(
+                isinstance(volume, dict) and volume.get("name") == "dander-tmp"
+                for volume in volumes
+            )
         ):
             raise FargateOperationError(
                 "Fargate task does not match the immutable runtime contract"

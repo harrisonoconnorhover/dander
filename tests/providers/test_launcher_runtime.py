@@ -154,6 +154,8 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
     assert dict(template.environment)["DANDER_GCP_SERVICE_ACCOUNT"] == (
         "dander-runtime-salesforce@unit-project.iam.gserviceaccount.com"
     )
+    assert dict(template.environment)["HOME"] == "/tmp"
+    assert dict(template.environment)["TMPDIR"] == "/tmp"
     assert template.network.placement == "awsvpc"
     assert dict(template.network.extensions) == {
         "fargate_security_group_ids": "sg-0123456789abcdef0",
