@@ -100,9 +100,53 @@ def test_runtime_execute_uses_launcher_run_id_and_emits_json_lines(
     options = cast("RunOptions", captured["options"])
     assert options.pipeline_or_source == "greenhouse_jobs"
     assert options.project == "unit-project"
+    assert options.deployment == "gcp"
     assert options.batch_rows == 2500
     assert str(options.catalog_output) == "/tmp/dander-catalog.json"
     assert captured["render"] is False
+
+
+def test_runtime_execute_selects_named_version_two_deployment(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def execute(options: RunOptions, **_: object) -> PipelineExecutionResult:
+        captured["options"] = options
+        return PipelineExecutionResult(
+            run_id="postgres-run",
+            pipeline_id=options.pipeline_or_source,
+            ingestion=PipelineRunResult(
+                run_id="postgres-run",
+                source="fixture",
+                endpoints=(),
+            ),
+            models=(),
+            assertions=0,
+            assets=0,
+        )
+
+    monkeypatch.setattr(runtime_module, "execute_run", execute)
+    result = CliRunner().invoke(
+        app,
+        [
+            "runtime",
+            "execute",
+            "--contract",
+            "io.dander.runtime/v1",
+            "--pipeline",
+            "postgresql_fixture",
+            "--platform",
+            "postgres_fargate",
+            "--platforms-config",
+            "/app/dander.platforms.yaml",
+        ],
+    )
+
+    assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
+    options = cast("RunOptions", captured["options"])
+    assert options.deployment == "postgres_fargate"
+    assert str(options.platforms_config) == "/app/dander.platforms.yaml"
 
 
 def test_runtime_execute_sanitizes_retryable_failure(monkeypatch: MonkeyPatch) -> None:

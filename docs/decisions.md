@@ -813,3 +813,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   `INSERT ... ON CONFLICT`.
 - Generic not-null, unique, accepted-values, and relationship assertions share the model metadata
   but render PostgreSQL-native SQL. Graph execution and profile selection remain out of scope.
+
+## 2026-08-08 — PostgreSQL is selectable as one native runtime composition
+
+- Version 2 warehouse configuration is a discriminated BigQuery/PostgreSQL contract. `dander run`
+  and the OCI runtime select one named deployment without requiring a GCP project for a fully
+  PostgreSQL, no-catalog, environment-secret composition.
+- A writer explicitly declares whether destination publication fencing is required. The neutral
+  runner claims those targets before extraction; legacy BigQuery writers retain their existing
+  state-side fence path unchanged.
+- PostgreSQL state/warehouse and BigQuery-state/PostgreSQL-warehouse pairs are executable.
+  PostgreSQL-state/BigQuery-warehouse remains fail-closed until all BigQuery write modes adopt the
+  destination-side fence. Hosted support still requires the Kubernetes and live-profile gates.

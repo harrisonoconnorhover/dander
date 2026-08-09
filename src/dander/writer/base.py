@@ -93,6 +93,7 @@ class WritePattern(ABC):
     mode: WriteMode
     supports_batched_writes = False
     accepts_streaming_input = False
+    requires_publication_fence = False
 
     @abstractmethod
     def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:

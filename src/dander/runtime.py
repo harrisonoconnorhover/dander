@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from itertools import batched
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from dander.concurrency import OwnershipGuard
     from dander.ingestion.source import Endpoint, RawField, Source
     from dander.state.watermark import WatermarkStore
+    from dander.warehouse import WarehouseTargetFence
     from dander.writer.base import WritePattern
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class PipelineRunner:
         history: RunHistoryStore | None = None,
         batch_rows: int = 10_000,
         endpoint_names: Iterable[str] | None = None,
+        target_fence: WarehouseTargetFence | None = None,
     ) -> None:
         self._source = source
         self._writer = writer
@@ -74,6 +76,7 @@ class PipelineRunner:
         self._dataset = dataset
         self._resume_from_watermark = resume_from_watermark
         self._history = history
+        self._target_fence = target_fence
         if isinstance(batch_rows, bool) or not 1 <= batch_rows <= 100_000:
             raise ValueError("batch_rows must be an integer from 1 to 100000")
         self._batch_rows = batch_rows
@@ -172,6 +175,16 @@ class PipelineRunner:
             schema=tuple(_write_field(field) for field in endpoint.raw_schema),
             fence=ownership.fence if ownership is not None else None,
         )
+        if self._writer.requires_publication_fence:
+            if ownership is None or ownership.fence is None or self._target_fence is None:
+                raise RuntimeError("Hosted destination writes require target-fence ownership")
+            target = replace(
+                target,
+                publication_fence=self._target_fence.claim(
+                    target.relation_ref,
+                    ownership.fence,
+                ),
+            )
         if not endpoint.raw_schema:
             _LOGGER.warning(
                 "undeclared_raw_schema_deprecated",

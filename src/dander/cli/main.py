@@ -210,6 +210,8 @@ def validate_project(
 @plugins_app.command("install")
 def install_plugins(
     project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
+    deployment: str | None = typer.Option(None, "--deployment"),
 ) -> None:
     """Install the manifest's exact connector-plugin package pins."""
     try:
@@ -1287,12 +1289,22 @@ def run(
     pipeline_or_source: str = typer.Argument(
         ..., help="Pipeline name from dander.yaml (or a legacy source name from connectors/)."
     ),
-    project: str | None = typer.Option(None, "--project", help="Override GCP_PROJECT_ID."),
-    dataset: str | None = typer.Option(None, "--dataset", help="Override BQ_DATASET_RAW."),
+    project: str | None = typer.Option(
+        None,
+        "--project",
+        help="Override the BigQuery/GCP project for profiles that use GCP.",
+    ),
+    dataset: str | None = typer.Option(
+        None,
+        "--dataset",
+        help="Override the raw warehouse dataset or schema.",
+    ),
     connectors_dir: Path = typer.Option(  # noqa: B008
         _DEFAULT_CONNECTORS_DIR, "--connectors-dir"
     ),
     project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
+    deployment: str | None = typer.Option(None, "--deployment"),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -1313,7 +1325,7 @@ def run(
         "--batch-rows",
         min=1,
         max=100_000,
-        help="Maximum rows sent in one BigQuery writer request.",
+        help="Maximum rows sent in one bounded warehouse writer request.",
     ),
     budget_name: str = typer.Option("dander-sbx-cap", "--budget-name", hidden=True),
     state_path: Path = typer.Option(Path(".dander/state.db"), hidden=True),  # noqa: B008
@@ -1348,6 +1360,8 @@ def run(
             dataset=dataset,
             connectors_dir=connectors_dir,
             project_config=project_config,
+            platforms_config=platforms_config,
+            deployment=deployment,
             dry_run=dry_run,
             sandbox=sandbox,
             guarded_free_tier=guarded_free_tier,

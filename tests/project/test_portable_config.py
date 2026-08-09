@@ -61,11 +61,13 @@ def test_version_one_migration_is_deterministic_and_behaviorally_equivalent(
     project_path.write_text(first.logical_yaml, encoding="utf-8")
     platforms_path.write_text(first.platforms_yaml, encoding="utf-8")
     migrated = load_project_config(project_path)
+    selected_by_profile = load_project_config(project_path, deployment="gcp")
 
     assert first == second
     assert migrated.version == 2
     assert migrated.platform_name == "gcp"
     assert migrated.deployment_name == "gcp_cloud_run"
+    assert selected_by_profile.deployment_name == "gcp_cloud_run"
     assert original.warehouse_provider == "bigquery"
     assert migrated.warehouse_provider == "bigquery"
     assert original.state_provider == "bigquery"
@@ -102,6 +104,9 @@ def test_version_two_requires_explicit_selection_with_multiple_deployments(
 
     with pytest.raises(ProjectConfigError, match="Multiple deployments"):
         load_project_config(project_path)
+
+    with pytest.raises(ProjectConfigError, match="Platform 'gcp' has multiple deployments"):
+        load_project_config(project_path, deployment="gcp")
 
     resolved = load_project_config(project_path, deployment="shadow_cloud_run")
     assert resolved.deployment_name == "shadow_cloud_run"
@@ -184,6 +189,62 @@ def test_version_two_preserves_postgresql_state_connection_reference(tmp_path: P
         "lease_seconds": 180,
         "terminal_history_retention_days": 120,
     }
+
+
+def test_version_two_resolves_native_postgresql_profile(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    profile = platforms["platforms"].pop("gcp")
+    profile["warehouse"] = {
+        "provider": "postgresql",
+        "database": "dander_portable",
+        "dsn_env": "DANDER_POSTGRES_DSN",
+    }
+    profile["state"] = {
+        "provider": "postgresql",
+        "authority_id": "postgresql:portable-state",
+        "dsn_env": "DANDER_POSTGRES_DSN",
+    }
+    profile["catalog"] = {"provider": "none"}
+    profile["secrets"] = {"provider": "environment"}
+    platforms["platforms"]["postgres"] = profile
+    deployment = platforms["deployments"].pop("gcp_cloud_run")
+    deployment["platform"] = "postgres"
+    deployment["launcher"] = {
+        "provider": "fargate",
+        "region": "us-east-1",
+        "aws_account_id": "123456789012",
+        "google_workload_identity_audience": (
+            "//iam.googleapis.com/projects/123456789012/locations/global/"
+            "workloadIdentityPools/dander-aws/providers/dander-aws"
+        ),
+        "subnet_ids": ["subnet-0123456789abcdef0"],
+        "security_group_ids": ["sg-0123456789abcdef0"],
+    }
+    platforms["deployments"]["postgres_fargate"] = deployment
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    resolved = load_project_config(project_path, deployment="postgres_fargate")
+
+    assert resolved.warehouse_provider == "postgresql"
+    assert resolved.warehouse_config == {
+        "provider": "postgresql",
+        "database": "dander_portable",
+        "dsn_env": "DANDER_POSTGRES_DSN",
+        "pool_min_size": 1,
+        "pool_max_size": 5,
+        "pool_timeout_seconds": 10.0,
+        "statement_timeout_ms": 300_000,
+        "lock_timeout_ms": 30_000,
+        "idle_transaction_timeout_ms": 60_000,
+    }
+    assert resolved.state_provider == "postgresql"
+    assert resolved.catalog_provider == "none"
+    assert resolved.secret_provider == "environment"
 
 
 def test_cloud_run_rejects_environment_only_secrets(tmp_path: Path) -> None:

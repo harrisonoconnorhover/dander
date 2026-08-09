@@ -11,8 +11,12 @@ from google.cloud import bigquery
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import OwnershipGuard, fenced_dml, fencing_job_config
-from dander.transform.model import Materialization
-from dander.transform.project import TransformModel, TransformProject, TransformProjectError
+from dander.transform.model import Materialization, SqlDialect
+from dander.transform.project import (
+    TransformModel,
+    TransformProject,
+    TransformProjectError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -67,6 +71,8 @@ class _MaterializationStatement:
 
 class BigQueryTransformRunner:
     """Build and test selected transform models with an injected BigQuery client."""
+
+    target_dialect = SqlDialect.BIGQUERY
 
     def __init__(self, *, project: str, client: _BigQueryClient | None = None) -> None:
         self._project = project

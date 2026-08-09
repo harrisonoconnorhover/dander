@@ -39,7 +39,7 @@ class _Built:
 
 class _ResolvedWarehouse(Protocol):
     warehouse_provider: str
-    warehouse_location: str
+    warehouse_config: dict[str, object]
 
 
 class _ResolvedState(Protocol):
@@ -132,10 +132,11 @@ def test_hosted_project_run_wires_runtime_without_network(
     class _Warehouse:
         writers = _WriterFactory()
         transforms = _TransformFactory()
+        target_fence = _Built(name="target-fence", args=(), kwargs={})
 
     def build_warehouse(resolved: _ResolvedWarehouse) -> _Warehouse:
         assert resolved.warehouse_provider == "bigquery"
-        assert resolved.warehouse_location == "US"
+        assert resolved.warehouse_config == {"provider": "bigquery", "location": "US"}
         return _Warehouse()
 
     def build_state(resolved: _ResolvedState) -> StateRuntime:
@@ -213,6 +214,7 @@ def test_hosted_project_run_wires_runtime_without_network(
     assert ingestion.kwargs["resume_from_watermark"] is True
     assert ingestion.kwargs["batch_rows"] == 10_000
     assert ingestion.kwargs["watermarks"] == captured["watermarks"]
+    assert ingestion.kwargs["target_fence"] == _Warehouse.target_fence
     writer = cast("_Built", ingestion.kwargs["writer"])
     assert writer.kwargs == {
         "sandbox": False,
@@ -223,8 +225,8 @@ def test_hosted_project_run_wires_runtime_without_network(
     assert migrator.calls == 1
 
 
-def test_postgresql_state_fails_closed_before_cross_backend_fencing() -> None:
-    with pytest.raises(ClickException, match="cross-backend destination fence"):
+def test_only_unfenced_postgresql_state_bigquery_warehouse_pair_fails_closed() -> None:
+    with pytest.raises(ClickException, match="BigQuery write mode"):
         run_module._require_supported_state_pair(
             state_provider="postgresql",
             warehouse_provider="bigquery",
@@ -233,4 +235,12 @@ def test_postgresql_state_fails_closed_before_cross_backend_fencing() -> None:
     run_module._require_supported_state_pair(
         state_provider="bigquery",
         warehouse_provider="bigquery",
+    )
+    run_module._require_supported_state_pair(
+        state_provider="postgresql",
+        warehouse_provider="postgresql",
+    )
+    run_module._require_supported_state_pair(
+        state_provider="bigquery",
+        warehouse_provider="postgresql",
     )

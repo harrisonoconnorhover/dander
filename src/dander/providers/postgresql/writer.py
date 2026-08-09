@@ -49,6 +49,7 @@ class PostgreSQLScd1Writer(WritePattern):
 
     mode = WriteMode.SCD1
     supports_batched_writes = True
+    requires_publication_fence = True
 
     def __init__(
         self,

@@ -43,6 +43,8 @@ class _PostgreSQLAssertion:
 class PostgreSQLTransformRunner:
     """Build provider-exact or portable models in PostgreSQL 15 or newer."""
 
+    target_dialect = SqlDialect.POSTGRES
+
     def __init__(
         self,
         *,
