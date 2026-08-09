@@ -18,6 +18,7 @@ may now run with active lease ownership. No live Snowflake qualification is clai
 - Full suite passed: 1,065 tests with PostgreSQL 15; Ruff and strict mypy passed.
 - Wheel/sdist inspection, source-free installs, generated-project validation, and Terraform validation passed.
 - Container build/conformance, Terraform/AWS tests, and dependency audit passed.
+- Protected CI passed Python/PostgreSQL, Terraform/static, distribution, container, and secret jobs.
 - No cloud plan/apply, deployment mutation, or package publication occurred.
 
 ## Decisions
@@ -28,9 +29,7 @@ may now run with active lease ownership. No live Snowflake qualification is clai
 
 ## Remaining
 
-- Complete independent adversarial review.
-- Push the stacked branch and open a draft PR against the Snowflake foundation branch.
-- Let protected CI repeat Linux, packaging, container, security, and Terraform checks.
+- Review stacked draft PR #137 after its Snowflake foundation PR #136.
 - Keep both Snowflake PRs unmerged while retained GCP baseline drift remains unresolved.
 
 ## Review First
