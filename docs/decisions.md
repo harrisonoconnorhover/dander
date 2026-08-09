@@ -825,3 +825,12 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - PostgreSQL state/warehouse and BigQuery-state/PostgreSQL-warehouse pairs are executable.
   PostgreSQL-state/BigQuery-warehouse remains fail-closed until all BigQuery write modes adopt the
   destination-side fence. Hosted support still requires the Kubernetes and live-profile gates.
+## 2026-08-08 — Kubernetes targets existing clusters through a versioned Helm chart
+
+- **Boundary:** Dander renders a named deployment into one packaged chart; it does not create a
+  cluster, database, registry, external Secret, observability stack, or cloud-specific identity.
+- **Safety:** CronJobs forbid overlap, Jobs have bounded deadlines/retries and TTL cleanup, and the
+  runtime uses a read-only non-root pod with explicit resources. Durable Dander leases remain the
+  final concurrency defense.
+- **Qualification:** Plan rendering and read-only cluster verification are implemented. Kubernetes
+  plus native PostgreSQL remains unsupported until an existing-cluster end-to-end proof passes.

@@ -2,39 +2,42 @@
 
 ## Finished
 
-- Made PostgreSQL warehouse/state selectable together through a version 2 deployment.
-- Added named deployment selection to `dander run` and the OCI runtime.
-- Claimed required ingestion targets before extraction without changing BigQuery writer behavior.
-- Made metadata compilation use the selected warehouse dialect.
-- Added one complete PostgreSQL 15 ingestion, transform, metadata, replay, cursor, history, and lease proof.
+- Added a lazy Kubernetes launcher for version 2 named deployments, using the deployment name
+  as the unambiguous runtime selector.
+- Packaged a Helm chart for existing Kubernetes 1.27+ clusters in every generated project.
+- Added non-mutating `dander kubernetes plan` and read-only drift verification.
+- Rendered bounded CronJobs with external Secret refs, `Forbid` overlap, explicit resources,
+  deadlines/retries, read-only pods, history limits, and Job TTL cleanup.
+- Documented configuration, manual runs, upgrades, rollback, uninstall, and the unqualified boundary.
 
 ## Try It
 
-Set `DANDER_TEST_POSTGRES_DSN` to a disposable PostgreSQL 15+ database and run
-`tests/integration/test_postgresql_native_profile.py`.
+Run `dander kubernetes plan --deployment NAME --container-image REGISTRY/IMAGE@sha256:DIGEST`,
+review both saved artifacts, then use the printed Helm command only against an approved cluster.
 
 ## Checks
 
-- All 1,010 repository tests passed locally, including the real PostgreSQL 15 integration.
-- Repository-wide Ruff and strict mypy passed locally.
-- Wheel/sdist inspection, source-free installation, and dependency audit passed.
-- Terraform validation/tests and the full-runtime container build/conformance probe passed.
+- All 1,022 tests passed with PostgreSQL 15; repository Ruff and strict mypy passed.
+- Helm lint/template passed, including optional RBAC and ConfigMap-retention rendering.
+- A disposable Kind cluster passed install, read-only verify, manual Job/duplicate rejection,
+  upgrade, rollback, and uninstall; its external Secret survived and the cluster was deleted.
+- Wheel/sdist inspection, two source-free installs/scaffolds, dependency audit, Terraform
+  validation/tests, full-runtime container build, and read-only runtime conformance passed.
 
 ## Decisions
 
-- Writers explicitly declare when the neutral runner must claim a destination target fence.
-- A native PostgreSQL/no-catalog/environment-secret profile needs no GCP project identifier.
-- PostgreSQL-state/BigQuery-warehouse remains fail-closed until all BigQuery writers adopt target fencing.
+- Kubernetes targets an existing cluster; Dander does not create clusters or own external Secrets.
+- Operator-managed environment injection is the first Secret path; cloud identity remains metadata.
+- Kubernetes/PostgreSQL remains unsupported until the separate live end-to-end profile gate passes.
 
 ## Remaining
 
-- Open, review, and merge the focused protected PR.
-- Let protected CI repeat Linux container/security/secret checks.
-- Add Kubernetes/Helm projection and existing-cluster verification separately.
-- Run the PostgreSQL native and cross-backend benchmark matrix.
+- Open and merge the focused protected PR after Linux CI and security scans pass.
+- Run the native and cross-backend PostgreSQL matrix and bounded/concurrent benchmarks separately.
+- Qualify one real existing-cluster PostgreSQL pipeline before changing the support manifest.
 
 ## Review First
 
-- `src/dander/cli/run_command.py`
-- `src/dander/runtime.py`
-- `tests/integration/test_postgresql_native_profile.py`
+- `src/dander/providers/kubernetes/operations.py`
+- `infra/kubernetes/chart/dander/templates/cronjobs.yaml`
+- `docs/kubernetes.md`

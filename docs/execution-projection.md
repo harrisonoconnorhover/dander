@@ -38,3 +38,10 @@ hour.
 
 This provider projection is an internal construction gate: provisioning, controller lifecycle,
 renewable credential supply, and live acceptance must pass before Fargate is a supported launcher.
+
+The Kubernetes provider projects a selected named profile into a packaged Helm chart for an
+existing Kubernetes 1.27+ cluster. Its immutable template uses stdout, operator-owned Secret key
+references, optional cloud-neutral ServiceAccount annotations, explicit pod resources, schedules,
+deadlines, and bounded retries. The chart adds `Forbid` schedule concurrency and completed-Job TTL
+cleanup while Dander leases remain the final overlap defense. Rendering and read-only verification
+do not qualify a hosted Kubernetes profile; a real cluster and PostgreSQL acceptance run remain.

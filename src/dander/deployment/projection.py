@@ -364,6 +364,22 @@ FARGATE_CAPABILITIES = LauncherCapabilities(
 )
 
 
+KUBERNETES_CAPABILITIES = LauncherCapabilities(
+    launcher="kubernetes",
+    cpu_millis=frozenset({1_000, 2_000, 4_000, 6_000, 8_000}),
+    minimum_memory_mib=128,
+    maximum_memory_mib=1_048_576,
+    maximum_deadline_seconds=86_400,
+    maximum_launcher_retries=10,
+    maximum_task_count=1,
+    maximum_parallelism=1,
+    supports_ephemeral_storage=True,
+    supports_schedules=True,
+    supports_time_zones=True,
+    supports_network_placement=False,
+)
+
+
 def validate_launcher_projection(
     template: ExecutionTemplate,
     capabilities: LauncherCapabilities,

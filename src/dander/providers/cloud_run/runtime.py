@@ -37,8 +37,11 @@ class CloudRunTemplateFactory:
         batch_rows: int,
         require_guarded_free_tier: bool,
         alert_target: str | None,
+        profile_id: str = "gcp",
     ) -> dict[str, ExecutionTemplate]:
         """Build byte-equivalent Cloud Run templates through the existing projector."""
+        if profile_id != "gcp":
+            raise ValueError("Cloud Run compatibility projection requires profile_id='gcp'")
         return build_gcp_execution_templates(
             pipelines,
             image=image,

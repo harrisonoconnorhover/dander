@@ -1,0 +1,9 @@
+The Dander schedules were rendered with concurrencyPolicy=Forbid. Dander leases remain the final
+overlap defense.
+
+Create a one-time manual execution from a rendered CronJob:
+  kubectl --context {{ .Values.context | default "CURRENT_CONTEXT" }} --namespace {{ .Release.Namespace }} \
+    create job --from=cronjob/PIPELINE_RESOURCE_NAME MANUAL_JOB_NAME
+
+Inspect standard output:
+  kubectl --namespace {{ .Release.Namespace }} logs job/MANUAL_JOB_NAME

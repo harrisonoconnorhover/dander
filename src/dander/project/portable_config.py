@@ -29,6 +29,7 @@ from dander.providers.dataplex import DataplexCatalogConfig  # noqa: TC001
 from dander.providers.environment_secrets import EnvironmentSecretConfig  # noqa: TC001
 from dander.providers.fargate import FargateLauncherConfig  # noqa: TC001
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig  # noqa: TC001
+from dander.providers.kubernetes import KubernetesLauncherConfig  # noqa: TC001
 from dander.providers.no_catalog import NoCatalogConfig  # noqa: TC001
 from dander.providers.postgresql import (  # noqa: TC001
     PostgreSQLStateConfig,
@@ -133,7 +134,7 @@ SecretProviderSpec = Annotated[
 
 
 LauncherSpec = Annotated[
-    CloudRunLauncherConfig | FargateLauncherConfig,
+    CloudRunLauncherConfig | FargateLauncherConfig | KubernetesLauncherConfig,
     Field(discriminator="provider"),
 ]
 

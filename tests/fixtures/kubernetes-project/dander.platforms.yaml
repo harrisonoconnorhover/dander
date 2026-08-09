@@ -1,0 +1,42 @@
+version: 1
+platforms:
+  postgres:
+    warehouse:
+      provider: postgresql
+      database: dander
+    state:
+      provider: postgresql
+      authority_id: kubernetes:test
+    catalog:
+      provider: none
+    secrets:
+      provider: environment
+deployments:
+  test_cluster:
+    platform: postgres
+    launcher:
+      provider: kubernetes
+      context: kind-dander-portability
+      namespace: dander-test
+      release_name: dander
+      service_account_name: dander-runtime
+      existing_secret_name: dander-runtime
+      workload_identity_annotations:
+        example.com/workload-identity: dander-test
+      pod_labels:
+        team: analytics
+    runtime:
+      cpu: 1
+      memory: 512Mi
+      timeout_seconds: 300
+      max_retries: 1
+      batch_rows: 2
+    safety:
+      require_guarded_free_tier: false
+    pipelines:
+      records:
+        schedule: "0 9 * * *"
+        time_zone: America/New_York
+        paused: true
+        secret_bindings:
+          DANDER_POSTGRES_DSN: postgres-dsn

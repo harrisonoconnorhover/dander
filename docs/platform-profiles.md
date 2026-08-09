@@ -122,5 +122,7 @@ is supplied only through the configured environment variable. The adapter suppor
 table/view/incremental materialization, and the four generic assertions. Every materialization is
 claimed and published through its destination target fence. The local native-profile proof covers
 bounded ingestion, replay, transforms, assertions, metadata, run history, watermarks, and leases.
-Graph execution and the Kubernetes launcher remain follow-up work; until live qualification passes,
-this adapter must not be represented as a supported hosted PostgreSQL deployment.
+Graph execution remains follow-up work. The packaged existing-cluster Kubernetes/Helm launcher can
+render and verify this profile without cloud-specific identity assumptions, but no live cluster
+qualification has passed. Until that acceptance does, this adapter must not be represented as a
+supported hosted PostgreSQL deployment. See [Kubernetes existing-cluster launcher](kubernetes.md).

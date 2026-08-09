@@ -7,6 +7,7 @@ from dander.providers.dataplex import DataplexCatalogConfig
 from dander.providers.environment_secrets import EnvironmentSecretConfig
 from dander.providers.fargate import FargateLauncherConfig
 from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
+from dander.providers.kubernetes import KubernetesLauncherConfig
 from dander.providers.no_catalog import NoCatalogConfig
 from dander.providers.postgresql import PostgreSQLStateConfig, PostgreSQLWarehouseConfig
 from dander.providers.registry import ProviderKind, ProviderRegistry, lazy_provider_factory
@@ -101,6 +102,14 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=FargateLauncherConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.fargate.runtime:FARGATE_LAUNCHER_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.LAUNCHER,
+        provider_id="kubernetes",
+        config_model=KubernetesLauncherConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.kubernetes.runtime:KUBERNETES_LAUNCHER_FACTORY"
         ),
     )
     return registry

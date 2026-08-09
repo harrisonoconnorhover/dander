@@ -51,6 +51,7 @@ from dander.cli.init_command import (
     execute_platform_bootstrap,
     resolve_platform_config,
 )
+from dander.cli.kubernetes_command import register_kubernetes_commands
 from dander.cli.provider_runtime import build_catalog_publisher, build_secret_store
 from dander.cli.run_command import (
     RunOptions,
@@ -133,6 +134,7 @@ app.add_typer(plugins_app, name="plugins")
 app.add_typer(connector_app, name="connector")
 app.add_typer(runtime_app, name="runtime")
 register_aws_commands(app)
+register_kubernetes_commands(app)
 console = Console()
 _SOURCE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _DEFAULT_CONNECTORS_DIR = Path("connectors")

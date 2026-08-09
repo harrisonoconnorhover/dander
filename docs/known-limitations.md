@@ -11,10 +11,11 @@ evaluate these limits before using it for an unattended system containing busine
   renewable credentials and live parity remain later gates.
 - Provider package extras and the full runtime image contain planned provider SDK dependencies,
   but do not by themselves qualify Snowflake, Redshift, AWS, Azure, or OCI profiles. PostgreSQL
-  state and warehouse execution are implemented and locally conformance-tested, but no Kubernetes
-  live profile is qualified yet. PostgreSQL-state/BigQuery-warehouse execution remains fail-closed
-  until every BigQuery write mode uses destination-side fencing. The packaged capability manifest
-  is the support boundary.
+  state and warehouse execution are implemented and locally conformance-tested. A packaged Helm
+  chart now renders the Kubernetes launcher against an existing cluster, but no Kubernetes live
+  profile is qualified yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse
+  execution remains fail-closed until every BigQuery write mode uses destination-side fencing. The
+  packaged capability manifest is the support boundary.
 - The reserved `oci` extra is empty because Oracle's current SDK requires a `cryptography` version
   below Dander's audited fixed line. OCI implementation must resolve that dependency boundary or
   use a reviewed direct signed-HTTP client before it can enter the full image.

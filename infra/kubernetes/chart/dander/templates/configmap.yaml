@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-config" .Release.Name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "dander.labels" . | nindent 4 }}
+  {{- if .Values.configMap.keepOnUninstall }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+data:
+  DANDER_DEPLOYMENT: {{ .Values.deployment | quote }}
+  DANDER_PLATFORM_PROFILE: {{ .Values.profile | quote }}
+  DANDER_IMAGE_REFERENCE: {{ .Values.image.reference | quote }}

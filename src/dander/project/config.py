@@ -228,7 +228,9 @@ class DanderProject(BaseModel):
         default="gcp_secret_manager",
         exclude=True,
     )
-    launcher_provider: Literal["cloud_run", "fargate"] = Field(default="cloud_run", exclude=True)
+    launcher_provider: Literal["cloud_run", "fargate", "kubernetes"] = Field(
+        default="cloud_run", exclude=True
+    )
     launcher_config: dict[str, object] = Field(default_factory=dict, exclude=True)
     deployed_pipeline_ids: tuple[str, ...] | None = Field(default=None, exclude=True)
 
