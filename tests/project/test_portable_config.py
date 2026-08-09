@@ -121,7 +121,7 @@ def test_version_two_rejects_unknown_provider_and_unknown_pipeline(tmp_path: Pat
     migration = prepare_version_one_migration(project_path)
     project_path.write_text(migration.logical_yaml, encoding="utf-8")
     platforms = yaml.safe_load(migration.platforms_yaml)
-    platforms["platforms"]["gcp"]["warehouse"]["provider"] = "snowflake"
+    platforms["platforms"]["gcp"]["warehouse"]["provider"] = "unknown_warehouse"
     platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
 
     with pytest.raises(

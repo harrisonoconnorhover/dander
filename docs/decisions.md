@@ -866,3 +866,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Correctness:** A selected raw namespace is shared by ingestion, transforms, and metadata;
   canonical source coordinates are preserved rather than reconstructed from BigQuery defaults.
   State backends keep their own control catalog and namespace in mixed-provider compositions.
+
+## 2026-08-08 — Snowflake begins as an explicitly experimental scalar SCD1 slice
+
+- **Coordinates:** Snowflake configuration translates native `database` and `schema` values into
+  canonical relations. The neutral runtime never treats them as a GCP project or dataset.
+- **Publication:** Each bounded batch becomes checksummed Parquet parts, loads through a temporary
+  stage and temporary table, and merges behind the exact destination fencing token. Parquet logical
+  types and binary values use explicit `COPY` settings; oversized singleton parts fail before
+  remote staging.
+- **Boundary:** Only scalar SCD1 ingestion is admitted. Transforms, graphs, semi-structured types,
+  other write modes, and a support claim remain blocked on their own implementation and live proof.

@@ -8,6 +8,10 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add an experimental Snowflake warehouse adapter with native database/schema coordinates,
+  bounded Parquet staging, scalar SCD1 `COPY`/`MERGE`, additive nullable schema evolution,
+  destination-side fencing, sanitized telemetry, and process-death-safe temporary staging. This
+  is local conformance evidence, not a Snowflake support claim.
 - Add a separately packaged AWS Terraform stack for immutable ECR images, non-root Fargate task
   definitions, distinct task/execution roles, paused-aware EventBridge schedules, and encrypted
   failure routing. A Standard Step Functions controller enforces one absolute deadline, retries

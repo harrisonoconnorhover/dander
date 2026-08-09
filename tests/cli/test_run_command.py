@@ -318,6 +318,91 @@ def test_bigquery_state_location_stays_independent_from_postgresql_warehouse() -
     assert context["metadata_namespace"] == "dander_meta"
 
 
+def test_snowflake_coordinates_resolve_from_database_and_schema(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(
+        """\
+version: 2
+pipelines:
+  greenhouse_jobs:
+    source: greenhouse_job_board
+    models: [stg_greenhouse__jobs]
+""",
+        encoding="utf-8",
+    )
+    platforms_path.write_text(
+        """\
+version: 1
+platforms:
+  snowflake:
+    warehouse:
+      provider: snowflake
+      account: org-account
+      user: dander_user
+      database: DANDER_DB
+      schema: LANDING
+      warehouse: DANDER_WH
+      auth:
+        method: oauth
+        token_env: DANDER_SNOWFLAKE_TOKEN
+    state:
+      provider: bigquery
+    catalog:
+      provider: none
+    secrets:
+      provider: environment
+deployments:
+  snowflake_kubernetes:
+    platform: snowflake
+    launcher:
+      provider: kubernetes
+      context: test-context
+    safety:
+      require_guarded_free_tier: false
+    pipelines:
+      greenhouse_jobs:
+        paused: true
+""",
+        encoding="utf-8",
+    )
+    options = run_module.RunOptions(
+        pipeline_or_source="greenhouse_jobs",
+        project="control-project",
+        dataset=None,
+        connectors_dir=_REPO_ROOT / "connectors",
+        project_config=project_path,
+        platforms_config=platforms_path,
+        deployment="snowflake_kubernetes",
+        dry_run=True,
+        sandbox=False,
+        guarded_free_tier=False,
+        batch_rows=10_000,
+        budget_name="dander-sandbox-budget",
+        state_path=tmp_path / "state.sqlite3",
+        build_models=False,
+        models_dir=_REPO_ROOT / "models",
+        selected_models=None,
+        catalog_output=None,
+        publish_dataplex=False,
+        dataplex_location="us-central1",
+    )
+
+    resolved = run_module._resolve_run(options)
+
+    assert resolved.catalog == "DANDER_DB"
+    assert resolved.raw_namespace == "LANDING"
+    assert resolved.endpoint_relations == {
+        "jobs": RelationRef(
+            catalog="DANDER_DB",
+            namespace="LANDING",
+            name="greenhouse_job_board_jobs",
+        )
+    }
+    assert resolved.state_catalog == "control-project"
+    assert resolved.state_namespace == "raw"
+
+
 def test_only_unsupported_postgresql_state_bigquery_warehouse_pair_fails_closed() -> None:
     with pytest.raises(ClickException, match="BigQuery write mode"):
         run_module._require_executable_state_pair(
