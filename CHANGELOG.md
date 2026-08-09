@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.8.0rc2 — 2026-08-09 (beta)
+
+### Candidate
+
+- Package renewable Fargate-to-Google workload identity for the complete source-free lifecycle
+  acceptance gate. Fargate remains experimental until that gate passes.
+
 ### Acceptance
 
 - Record the successful public-`0.8.0rc1` Phase 1B proof: identical GAR/ECR multi-platform
@@ -14,6 +21,9 @@ capabilities enter through the next minor release.
 
 ### Fixed
 
+- Refetch the current ECS task-role session whenever Google Auth refreshes its AWS subject token,
+  scope the resulting credential to one OCI invocation, and avoid persisting or globally exporting
+  task secrets. The validated Fargate deadline is now 24 hours instead of one hour.
 - Make the Phase 1B credential scanner recognize only the exact content hashes of three public
   boto3/botocore example documents containing published placeholder keys. Changed content and all
   other files continue to fail closed.
