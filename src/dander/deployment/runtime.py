@@ -28,6 +28,7 @@ class ExecutionTemplateFactory(Protocol):
         batch_rows: int,
         require_guarded_free_tier: bool,
         alert_target: str | None,
+        profile_id: str = "gcp",
     ) -> dict[str, ExecutionTemplate]:
         """Return validated execution templates keyed by pipeline ID."""
         ...

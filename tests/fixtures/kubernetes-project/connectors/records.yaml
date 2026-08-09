@@ -1,0 +1,11 @@
+name: records
+base_url: https://example.invalid
+auth_strategy: none
+endpoints:
+  - name: records
+    path: /records
+    primary_key: [id]
+    raw_schema:
+      - name: id
+        type: STRING
+        mode: REQUIRED

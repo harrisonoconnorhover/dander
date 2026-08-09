@@ -83,6 +83,12 @@ jobs:
           terraform -chdir=aws validate
           terraform -chdir=aws/modules/fargate init -backend=false -input=false
           terraform -chdir=aws/modules/fargate test
+      - name: Validate Kubernetes Helm chart
+        run: |
+          helm lint kubernetes/chart/dander --values ../tests/fixtures/kubernetes-values.yaml
+          helm template dander kubernetes/chart/dander \
+            --namespace dander-test \
+            --values ../tests/fixtures/kubernetes-values.yaml >/tmp/dander-kubernetes.yaml
       - name: Validate cross-cloud feasibility roots
         run: |
           terraform fmt -check -recursive ../acceptance/cloud-portability/phase1b

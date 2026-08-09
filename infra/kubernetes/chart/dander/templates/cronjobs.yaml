@@ -1,0 +1,83 @@
+{{- range $pipelineID, $pipeline := .Values.pipelines }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $pipeline.resourceName }}
+  labels:
+    {{- include "dander.labels" $ | nindent 4 }}
+    dander.io/pipeline: {{ $pipelineID | quote }}
+    {{- with $pipeline.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  schedule: {{ $pipeline.schedule | quote }}
+  timeZone: {{ $pipeline.timeZone | quote }}
+  suspend: {{ $pipeline.suspend }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ $pipeline.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $pipeline.failedJobsHistoryLimit }}
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "dander.labels" $ | nindent 8 }}
+        dander.io/pipeline: {{ $pipelineID | quote }}
+    spec:
+      backoffLimit: {{ $pipeline.backoffLimit }}
+      activeDeadlineSeconds: {{ $pipeline.activeDeadlineSeconds }}
+      ttlSecondsAfterFinished: {{ $pipeline.ttlSecondsAfterFinished }}
+      template:
+        metadata:
+          labels:
+            {{- include "dander.labels" $ | nindent 12 }}
+            dander.io/pipeline: {{ $pipelineID | quote }}
+            {{- with $.Values.podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            dander.io/image-digest: {{ $.Values.image.reference | quote }}
+            {{- with $.Values.podAnnotations }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        spec:
+          serviceAccountName: {{ include "dander.serviceAccountName" $ }}
+          automountServiceAccountToken: {{ $.Values.rbac.create }}
+          restartPolicy: Never
+          terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: runtime
+              image: {{ $.Values.image.reference | quote }}
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                readOnlyRootFilesystem: true
+              args:
+                {{- toYaml $pipeline.command | nindent 16 }}
+              env:
+                {{- range $item := $pipeline.environment }}
+                - name: {{ $item.name }}
+                  value: {{ $item.value | quote }}
+                {{- end }}
+                {{- range $item := $pipeline.secretEnvironment }}
+                - name: {{ $item.name }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "existingSecret.name is required by secret bindings" $.Values.existingSecret.name }}
+                      key: {{ $item.key }}
+                {{- end }}
+              resources:
+                {{- toYaml $pipeline.resources | nindent 16 }}
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: {{ index $pipeline.resources.limits "ephemeral-storage" }}
+---
+{{- end }}

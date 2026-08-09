@@ -18,6 +18,9 @@ WHEEL_REQUIRED = {
     "dander/templates/project/README.md",
     "dander/templates/project/connectors/greenhouse_job_board.yaml",
     "dander/templates/project/dander.yaml",
+    "dander/templates/project/infra/kubernetes/chart/dander/Chart.yaml",
+    "dander/templates/project/infra/kubernetes/chart/dander/templates/cronjobs.yaml",
+    "dander/templates/project/infra/kubernetes/chart/dander/values.schema.json",
     "dander/templates/project/infra/main.tf",
     "dander/templates/project/models/staging/stg_greenhouse__jobs.sql",
     "dander/templates/project/models/staging/stg_greenhouse__jobs.yml",
@@ -39,6 +42,7 @@ SDIST_REQUIRED = {
     "README.md",
     "examples/salesforce/dander.yaml",
     "infra/main.tf",
+    "infra/kubernetes/chart/dander/Chart.yaml",
     "pyproject.toml",
     "src/dander/project/scaffold.py",
 }

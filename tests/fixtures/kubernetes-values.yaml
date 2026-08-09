@@ -1,0 +1,68 @@
+deployment: test_cluster
+profile: postgres
+image:
+  reference: ghcr.io/example/dander@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+serviceAccount:
+  create: true
+  name: dander-runtime
+  annotations:
+    example.com/workload-identity: dander-test
+existingSecret:
+  name: dander-runtime
+podLabels:
+  team: analytics
+podAnnotations:
+  prometheus.io/scrape: "false"
+terminationGracePeriodSeconds: 120
+configMap:
+  keepOnUninstall: false
+rbac:
+  create: false
+pipelines:
+  records:
+    resourceName: dander-records
+    command:
+      - runtime
+      - execute
+      - --contract
+      - io.dander.runtime/v1
+      - --pipeline
+      - records
+      - --platform
+      - test_cluster
+      - --config
+      - /app/dander.yaml
+      - --models-dir
+      - /app/models
+      - --batch-rows
+      - "2"
+    environment:
+      - name: DANDER_IMAGE_DIGEST
+        value: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      - name: DANDER_LAUNCHER
+        value: kubernetes
+      - name: DANDER_PRINCIPAL
+        value: kubernetes://dander-test/serviceaccounts/dander-runtime
+    secretEnvironment:
+      - name: DANDER_POSTGRES_DSN
+        key: postgres-dsn
+    schedule: "0 9 * * *"
+    timeZone: America/New_York
+    suspend: true
+    backoffLimit: 1
+    activeDeadlineSeconds: 300
+    ttlSecondsAfterFinished: 3600
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 3
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 512Mi
+        ephemeral-storage: 1024Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+        ephemeral-storage: 1024Mi
+    labels:
+      pipeline: records
+      profile: postgres

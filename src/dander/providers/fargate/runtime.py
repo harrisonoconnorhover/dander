@@ -51,8 +51,11 @@ class FargateTemplateFactory:
         batch_rows: int,
         require_guarded_free_tier: bool,
         alert_target: str | None,
+        profile_id: str = "gcp",
     ) -> dict[str, ExecutionTemplate]:
         """Build fail-closed Fargate templates for the portable BigQuery proof."""
+        if profile_id != "gcp":
+            raise ExecutionProjectionError("Fargate compatibility projection requires gcp")
         if require_guarded_free_tier:
             raise ExecutionProjectionError("Fargate cannot run the GCP guarded-free-tier preflight")
         if _GCP_PROJECT.fullmatch(project) is None:

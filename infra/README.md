@@ -13,6 +13,7 @@ call sites (mirrors the `SecretStoreProvider` / `ComputeProvider` abstractions i
 | `modules/secret-manager` | Named secret containers and per-secret runtime access; never secret values. **Implemented.** |
 | `modules/github-wif` | Repository/ref-scoped GitHub OIDC and a keyless deployment identity. **Implemented.** |
 | `modules/cost-guard` | Project budget, Pub/Sub, and simulation-first Gen 2 billing kill switch. **Implemented.** |
+| `kubernetes/chart/dander` | Versioned Helm chart for an existing conforming cluster. **Locally validated; not live-qualified.** |
 
 The main root always calls `modules/bigquery` and can opt into the remaining workload modules. The
 one-time `infra/bootstrap-admin` root creates the remote-state bucket, the Artifact Registry

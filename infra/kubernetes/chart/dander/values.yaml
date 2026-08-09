@@ -1,0 +1,27 @@
+deployment: ""
+profile: ""
+
+image:
+  reference: ""
+
+serviceAccount:
+  create: true
+  name: dander-runtime
+  annotations: {}
+
+existingSecret:
+  name: ""
+
+podLabels: {}
+podAnnotations: {}
+terminationGracePeriodSeconds: 120
+
+configMap:
+  keepOnUninstall: false
+
+# Dander does not need Kubernetes API access while running. Leave this false unless
+# an operator intentionally wants the runtime identity to inspect its own Jobs.
+rbac:
+  create: false
+
+pipelines: {}

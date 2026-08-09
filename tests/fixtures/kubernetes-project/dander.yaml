@@ -1,0 +1,6 @@
+version: 2
+pipelines:
+  records:
+    source: records
+    models: []
+    build_models: false
