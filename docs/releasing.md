@@ -1,13 +1,15 @@
 # Python release candidates
 
 Dander publishes the `dander-platform` distribution while preserving `dander` as its import
-package and CLI. Releases are immutable and come only from an exact `v<version>` tag on protected
-`main`.
+package and CLI. Releases are immutable and come only from an exact `v<version>` tag whose commit
+is the tested tip of protected `main` or the matching approved maintenance branch. The `0.7.x`
+maintenance line publishes only from protected `release/0.7`.
 
 ## Candidate gate
 
 1. Merge the packaging commit and wait for post-merge CI, including `Distribution install`.
-2. Confirm `git status --short` is empty and the tag target is the tested `origin/main` commit.
+2. Confirm `git status --short` is empty and the tag target is the tested tip of `origin/main`, or
+   `origin/release/0.7` for a `0.7.x` maintenance release.
 3. Confirm the GitHub `pypi` environment requires review and PyPI trusts this repository's
    `publish.yml` workflow for the `dander-platform` project.
 4. Create and push the exact `v<version>` tag only after explicit publication approval.
@@ -16,7 +18,8 @@ package and CLI. Releases are immutable and come only from an exact `v<version>`
    `dander --version`, `dander new`, `dander validate`, and Terraform validation.
 
 The workflow builds fresh artifacts from the tag, validates their identity and contents, and uses
-PyPI trusted publishing. It has no long-lived package token and refuses a branch or mismatched tag.
+PyPI trusted publishing. It has no long-lived package token and refuses a branch, mismatched tag,
+or tag that is not the protected release-line tip.
 
 Phase 6 is acceptance-only for product code. If any functional runtime change is required after a
 candidate is published, stop the proof and publish the corrected commit as the next candidate

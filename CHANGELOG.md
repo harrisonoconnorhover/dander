@@ -6,6 +6,19 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.7.1rc1 — 2026-08-09 (beta)
+
+### Fixed
+
+- Avoid BigQuery run-history metadata quota failures by reading the current table schema and
+  batching only missing nullable columns into one additive migration statement.
+- Update the locked GitPython maintenance release to clear current dependency advisories.
+
+### Compatibility
+
+- Preserve the accepted `0.7.0` runtime, manifest, CLI, Terraform, connector API, and GCP resource
+  identities; this fix-only candidate contains no portability or provider implementation work.
+
 ## 0.7.0 — 2026-08-07 (beta)
 
 ### Acceptance
