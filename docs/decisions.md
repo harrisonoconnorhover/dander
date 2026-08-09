@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-09 — Phase 1B proof identities are repeatable after teardown
+
+- **Naming:** The disposable smoke root accepts one validated `proof_name`; its default preserves
+  the original AWS, log, Google Workload Identity, and service-account identities.
+- **Reruns:** Operators select a new deterministic name when Google's soft-delete window prevents
+  immediate reuse of a destroyed Workload Identity Pool ID.
+- **Boundary:** A new name creates an independent proof. Dander does not undelete, import, or adopt
+  remnants from an earlier proof automatically.
+
 ## 2026-08-08 — Fargate operations bind to the manifest and controller
 
 - **Ownership:** The validated deployment and pipeline determine the exact state machine, schedule,

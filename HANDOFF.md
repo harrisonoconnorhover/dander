@@ -2,42 +2,39 @@
 
 ## Finished
 
-- Added exact packaged capability reports for BigQuery, PostgreSQL, Redshift, and Snowflake.
-- Added fail-closed canonical schema validation before extraction and destination mutation.
-- Added field-path diagnostics for unsupported types, precision, and nested arrays.
-- Kept the compatibility schema additive and the supported-profile manifest unchanged.
-- Documented the implemented capability surface without promoting experimental providers.
+- Made the disposable Phase 1B smoke proof name configurable while preserving its existing default.
+- Derived AWS, CloudWatch, Google Workload Identity, and service-account names from one input.
+- Documented safe reruns during Google's soft-delete retention window.
 
 ## Try It
 
-Run `dander runtime compatibility` and inspect the `warehouses` array. Portable-provider schemas
-now fail through the selected provider's schema mapper before extraction or destination mutation.
+Set `proof_name = "dander-phase1b-r2"` in the smoke root's reviewed inputs and use the same value
+when generating the external-account credential configuration.
 
 ## Checks
 
-- Ruff and strict mypy across 304 source files passed; 1,110 tests passed with PostgreSQL 15.
-- Wheel, sdist, source-free installs, runtime-all install, generated-project validation, dependency
-  audit, and non-root/read-only container conformance passed.
-- GCP/AWS Terraform validation/tests and Helm lint/template passed. The retained GCP read-only plan
-  reported exactly `No changes.` with its reviewed 600-second override; no apply ran.
+- Default and `dander-phase1b-r2` smoke plans each produced 18 creates; default resource names were
+  unchanged, custom names were isolated, and invalid names failed before planning.
+- Ruff/format and strict mypy passed; 1,110 tests passed against PostgreSQL 15; dependency audit
+  found no known vulnerabilities.
+- Wheel/sdist inspection, source-free installs, runtime-all installation, generated Terraform,
+  GCP/AWS Terraform, Helm, and non-root/read-only container conformance passed.
+- Retained stage-zero and platform plans each reported exactly `No changes.`; no apply ran.
 
 ## Decisions
 
-- Runtime capability declarations are authoritative; packaged JSON is checked against them.
-- Unsupported semi-structured mappings remain fail-closed instead of silently selecting VARIANT
-  or SUPER.
-- This slice reports current behavior only; it adds no provider feature or support claim.
+- Keep `dander-phase1b` as the compatibility default.
+- Use a new deterministic name rather than automatically undeleting or adopting prior resources.
 
 ## Remaining
 
-- Repeat the protected-quality-equivalent suite after the provider-neutral coordinate rebase.
-- Reconcile the tracked 300-second job default and retained 600-second operator override in a
-  separate change rather than mixing it into this capability slice.
-- Continue provider write modes and live qualification separately; do not deploy or publish a
-  package from this branch.
+- Let protected CI repeat Linux security and container scans, then merge if clean.
+- Correct the unrelated stage-zero permission preflight's bucket-level check in a separate PR.
+- Regenerate the live proof plans from merged `main`.
+- Apply only after explicit paid-action approval.
 
 ## Review First
 
-- `src/dander/warehouse/runtime.py`
-- `src/dander/compatibility.py`
-- `tests/warehouse/test_schema_support.py`
+- `acceptance/cloud-portability/phase1b/smoke/variables.tf`
+- `acceptance/cloud-portability/phase1b/smoke/main.tf`
+- `acceptance/cloud-portability/phase1b/README.md`

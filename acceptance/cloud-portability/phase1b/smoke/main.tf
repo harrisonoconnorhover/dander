@@ -1,11 +1,12 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  name = "dander-phase1b"
+  name       = var.proof_name
+  short_name = trimprefix(var.proof_name, "dander-")
 }
 
 resource "aws_cloudwatch_log_group" "probe" {
-  name              = "/dander/phase1b"
+  name              = "/dander/${local.short_name}"
   retention_in_days = 7
 }
 
@@ -92,7 +93,7 @@ resource "aws_security_group" "task" {
 }
 
 resource "google_iam_workload_identity_pool" "aws" {
-  workload_identity_pool_id = "dander-phase1b-aws"
+  workload_identity_pool_id = "${local.name}-aws"
   display_name              = "Dander Phase 1B AWS"
   description               = "Disposable keyless Fargate-to-Google identity proof"
 }
@@ -115,7 +116,7 @@ resource "google_iam_workload_identity_pool_provider" "aws" {
 }
 
 resource "google_service_account" "probe" {
-  account_id   = "dander-phase1b-aws"
+  account_id   = "${local.name}-aws"
   display_name = "Dander Phase 1B AWS probe"
   description  = "Disposable BigQuery reader impersonated by the isolated Fargate task"
 }
