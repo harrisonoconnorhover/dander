@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from google.cloud import bigquery
 
 from dander.catalog import BigQueryMetadataStore
+from dander.identity import google_client_options
 from dander.providers.bigquery.config import BigQueryStateConfig
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.state import (
@@ -143,7 +144,9 @@ def _build_bigquery_state(
     control_dataset = metadata_dataset if project_pipeline else raw_dataset
     supplied_client = context.get("client")
     client: Any = (
-        supplied_client if supplied_client is not None else bigquery.Client(project=project)
+        supplied_client
+        if supplied_client is not None
+        else bigquery.Client(project=project, **google_client_options())
     )
 
     watermarks = BigQueryWatermarkStore(project=project, dataset=raw_dataset, client=client)

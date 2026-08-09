@@ -31,13 +31,13 @@ normalized by the OCI runtime contract.
 The Fargate provider can build the same BigQuery data-plane intent with an immutable ECR image,
 AWS task-role identity, `awsvpc` placement, CloudWatch destinations, and explicit Fargate resource
 limits. At runtime, Dander accepts only temporary credentials obtained from the fixed ECS task-role
-endpoint, then prepares a non-secret Google external-account configuration before any provider
-client is constructed. The Google impersonated token is limited to 600 seconds. Because this first
-runtime bridge does not yet renew the copied ECS session, Fargate projections are limited to one
-hour.
+endpoint. A process-local Google credential supplier fetches the current ECS session whenever
+Google Auth refreshes its signed AWS subject token; task secrets are neither copied into global
+environment variables nor written to disk. The impersonated Google token remains limited to 600
+seconds, while the launcher may enforce a deadline of up to 24 hours.
 
-This provider projection is an internal construction gate: provisioning, controller lifecycle,
-renewable credential supply, and live acceptance must pass before Fargate is a supported launcher.
+This provider projection is an internal construction gate: complete pipeline lifecycle and live
+acceptance must still pass before Fargate is a supported launcher.
 
 The Kubernetes provider projects a selected named profile into a packaged Helm chart for an
 existing Kubernetes 1.27+ cluster. Its immutable template uses stdout, operator-owned Secret key

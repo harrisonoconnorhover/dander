@@ -11,6 +11,7 @@ from google.cloud import bigquery
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import OwnershipGuard, fenced_dml, fencing_job_config
+from dander.identity import google_client_options
 from dander.transform.model import Materialization, SqlDialect
 from dander.transform.project import (
     TransformModel,
@@ -72,7 +73,10 @@ class BigQueryTransformRunner:
     ) -> None:
         self._project = project
         self._raw_namespace = raw_namespace
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
 
     def build(
         self,

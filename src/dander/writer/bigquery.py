@@ -15,6 +15,7 @@ from google.cloud import bigquery
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import fenced_dml, fencing_job_config, fencing_touch_sql
+from dander.identity import google_client_options
 from dander.schema import BIGQUERY_FIELD_MODES, BIGQUERY_FIELD_TYPES, normalize_bigquery_type
 from dander.writer.base import SchemaEvolution, WriteField, WriteMode, WritePattern, WriteTarget
 
@@ -97,7 +98,10 @@ class BigQueryScd1Writer(WritePattern):
         schema_evolution: SchemaEvolution = SchemaEvolution.STRICT,
     ) -> None:
         self._project = _validated_identifier(project, "project", allow_dash=True)
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
         self._schema_evolution = schema_evolution
 
@@ -244,7 +248,10 @@ class BigQuerySnapshotWriter(WritePattern):
     ) -> None:
         self._project = _validated_identifier(project, "project", allow_dash=True)
         self._snapshot_field = _validated_identifier(snapshot_field, "snapshot column")
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
         self._schema_evolution = schema_evolution
 
@@ -331,7 +338,10 @@ class BigQueryScd2Writer(WritePattern):
         schema_evolution: SchemaEvolution = SchemaEvolution.STRICT,
     ) -> None:
         self._project = _validated_identifier(project, "project", allow_dash=True)
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
         self._schema_evolution = schema_evolution
 
@@ -406,7 +416,10 @@ class BigQueryReplaceWriter(WritePattern):
         max_batch_rows: int = 10_000,
     ) -> None:
         self._project = _validated_identifier(project, "project", allow_dash=True)
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
 
     def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:

@@ -16,6 +16,7 @@ from google.cloud import bigquery
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import FencingToken
+from dander.identity import google_client_options
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -98,7 +99,10 @@ class BigQueryLeaseStore(LeaseStore):
         self._table_prefix = f"{project}.{dataset}._dander_lease_"
         self._authority_id = authority_id or f"bigquery:{project}:{dataset}"
         self._authority_epoch = authority_epoch
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._ready: set[str] = set()
 
     @property

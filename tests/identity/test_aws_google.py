@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
+from google.auth.aws import Credentials
 
 from dander.identity import (
     FargateIdentityError,
+    google_client_options,
+    launcher_identity,
     prepare_fargate_google_identity,
     prepare_fargate_task_credentials,
 )
+from dander.runtime_contract import LauncherContext
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from pytest import MonkeyPatch
+
+    from dander.identity.aws_google import GoogleCredentialFactory
 
 _RELATIVE_URI = "/v2/credentials/12345678-1234-1234-1234-123456789abc"
 _NOW = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
@@ -49,10 +54,55 @@ def test_fargate_identity_uses_only_the_fixed_ecs_credential_origin() -> None:
     assert environment["AWS_SESSION_TOKEN"]
 
 
-def test_fargate_google_identity_writes_only_non_secret_external_config(tmp_path: Path) -> None:
-    credential_path = tmp_path / "wif.json"
+def test_fargate_google_identity_renews_from_the_fixed_ecs_endpoint() -> None:
     environment = {
         "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": _RELATIVE_URI,
+        "AWS_REGION": "us-east-1",
+        "DANDER_GCP_SERVICE_ACCOUNT": ("dander-runtime@unit-project.iam.gserviceaccount.com"),
+        "DANDER_GCP_WIF_AUDIENCE": (
+            "//iam.googleapis.com/projects/1009770943166/locations/global/"
+            "workloadIdentityPools/dander-phase1b-aws/providers/fargate"
+        ),
+    }
+    urls: list[str] = []
+    sequence = iter(("A", "B", "C"))
+
+    def fetch(url: str) -> object:
+        urls.append(url)
+        marker = next(sequence)
+        return {
+            "AccessKeyId": "ASIA" + marker * 16,
+            "SecretAccessKey": f"temporary-secret-{marker}",
+            "Token": f"temporary-session-{marker}",
+            "Expiration": "2026-08-08T13:00:00Z",
+        }
+
+    def capture_factory(**values: object) -> object:
+        assert values["audience"] == environment["DANDER_GCP_WIF_AUDIENCE"]
+        assert values["service_account"] == environment["DANDER_GCP_SERVICE_ACCOUNT"]
+        return values["supplier"]
+
+    supplier = prepare_fargate_google_identity(
+        environ=environment,
+        fetch=fetch,
+        clock=lambda: _NOW,
+        credential_factory=cast("GoogleCredentialFactory", capture_factory),
+    )
+    first = supplier.get_aws_security_credentials(None, None)  # type: ignore[attr-defined]
+    second = supplier.get_aws_security_credentials(None, None)  # type: ignore[attr-defined]
+
+    assert first.access_key_id == "ASIA" + "B" * 16
+    assert second.access_key_id == "ASIA" + "C" * 16
+    assert urls == [f"http://169.254.170.2{_RELATIVE_URI}"] * 3
+    assert not set(environment).intersection(
+        {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"}
+    )
+
+
+def test_fargate_google_identity_builds_scoped_impersonated_credentials() -> None:
+    environment = {
+        "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": _RELATIVE_URI,
+        "AWS_REGION": "us-east-1",
         "DANDER_GCP_SERVICE_ACCOUNT": ("dander-runtime@unit-project.iam.gserviceaccount.com"),
         "DANDER_GCP_WIF_AUDIENCE": (
             "//iam.googleapis.com/projects/1009770943166/locations/global/"
@@ -60,23 +110,35 @@ def test_fargate_google_identity_writes_only_non_secret_external_config(tmp_path
         ),
     }
 
-    prepare_fargate_google_identity(
+    credentials = prepare_fargate_google_identity(
         environ=environment,
         fetch=lambda _url: _document(),
-        credential_path=credential_path,
-        now=_NOW,
+        clock=lambda: _NOW,
     )
 
-    config = json.loads(credential_path.read_text(encoding="utf-8"))
-    assert config["type"] == "external_account"
-    assert config["credential_source"]["environment_id"] == "aws1"
-    assert config["service_account_impersonation"] == {"token_lifetime_seconds": 600}
-    assert environment["GOOGLE_APPLICATION_CREDENTIALS"] == str(credential_path)
-    assert credential_path.stat().st_mode & 0o777 == 0o600
-    serialized = credential_path.read_text(encoding="utf-8")
-    assert "private_key" not in serialized
-    assert "client_secret" not in serialized
-    assert environment["AWS_SECRET_ACCESS_KEY"] not in serialized
+    assert isinstance(credentials, Credentials)
+    assert credentials._scopes == ("https://www.googleapis.com/auth/cloud-platform",)
+    assert credentials._service_account_impersonation_options == {"token_lifetime_seconds": 600}
+    assert credentials._credential_source is None
+    assert "GOOGLE_APPLICATION_CREDENTIALS" not in environment
+
+
+def test_launcher_identity_scopes_google_credentials(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    sentinel = object()
+    context = LauncherContext.from_environment(
+        {"DANDER_LAUNCHER": "fargate", "DANDER_RUN_ID": "run-123"}
+    )
+    monkeypatch.setattr(
+        "dander.identity.aws_google.prepare_launcher_identity",
+        lambda _context: sentinel,
+    )
+
+    assert google_client_options() == {}
+    with launcher_identity(context):
+        assert google_client_options() == {"credentials": sentinel}
+    assert google_client_options() == {}
 
 
 @pytest.mark.parametrize(

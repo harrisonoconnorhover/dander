@@ -13,6 +13,8 @@ import os
 from importlib import import_module
 from typing import TYPE_CHECKING, Protocol, cast
 
+from dander.identity import google_client_options
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import Any
@@ -59,7 +61,7 @@ class GcpSecretStore:
             client_type = cast(
                 "Any", import_module("google.cloud.secretmanager")
             ).SecretManagerServiceClient
-            client = cast("_SecretManagerClient", client_type())
+            client = cast("_SecretManagerClient", client_type(**google_client_options()))
         self._client = client
 
     def get_secret(self, reference: str) -> str:

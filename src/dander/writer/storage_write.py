@@ -11,6 +11,7 @@ from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import fenced_dml, fencing_job_config
+from dander.identity import google_client_options
 from dander.writer.base import SchemaEvolution, WriteMode, WritePattern, WriteTarget
 from dander.writer.bigquery import (
     BigQueryWriteError,
@@ -82,7 +83,9 @@ class BigQueryPendingStreamBackend:
         *,
         max_batch_rows: int,
     ) -> None:
-        client = self._client or bigquery_storage_v1.BigQueryWriteClient()  # type: ignore[no-untyped-call]
+        client = self._client or bigquery_storage_v1.BigQueryWriteClient(  # type: ignore[no-untyped-call]
+            **google_client_options()
+        )
         parent = f"projects/{target.project}/datasets/{target.dataset}/tables/{target.table}"
         stream = client.create_write_stream(
             parent=parent,
@@ -136,7 +139,10 @@ class BigQueryStorageScd1Writer(WritePattern):
         schema_evolution: SchemaEvolution = SchemaEvolution.STRICT,
     ) -> None:
         self._project = project
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._backend = backend or BigQueryPendingStreamBackend()
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
         self._schema_evolution = schema_evolution

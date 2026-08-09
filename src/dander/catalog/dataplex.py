@@ -11,6 +11,7 @@ from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import dataplex_v1
 
 from dander.catalog.publisher import CatalogPublishError
+from dander.identity import google_client_options
 
 if TYPE_CHECKING:
     from dander.catalog.spine import CatalogAsset
@@ -104,7 +105,10 @@ class DataplexCatalogPublisher:
             raise CatalogPublishError("Invalid Dataplex location")
         self._project = project
         self._location = location
-        self._client = client or cast("_CatalogClient", dataplex_v1.CatalogServiceClient())
+        self._client = client or cast(
+            "_CatalogClient",
+            dataplex_v1.CatalogServiceClient(**google_client_options()),
+        )
         self._generator = generator or DataplexAspectGenerator()
 
     def request_for(self, asset: CatalogAsset) -> dataplex_v1.ModifyEntryRequest:

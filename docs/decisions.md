@@ -960,3 +960,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Scope:** The declaration reports implemented behavior only. It does not promote experimental
   providers, add write modes, introduce semi-structured fallbacks, or widen the supported profile
   manifest.
+
+## 2026-08-09 — Fargate-to-Google identity renews at the client boundary
+
+- **Identity:** Google Auth receives a process-local AWS credential supplier that refetches the
+  current temporary task-role session from Fargate's fixed link-local endpoint for every subject
+  token refresh. Dander no longer copies task secrets into global environment variables or writes
+  an external-account file for normal runtime execution.
+- **Boundary:** The credential is scoped to one OCI runtime invocation and passed explicitly only
+  when existing Google clients are constructed. Cloud Run and local execution continue to use
+  normal Application Default Credentials without changed resource or IAM behavior.
+- **Support:** Renewable identity removes the one-hour credential limit and permits an enforced
+  24-hour launcher deadline, but does not promote Fargate before the complete live lifecycle gate.

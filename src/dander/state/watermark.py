@@ -15,6 +15,7 @@ from google.cloud import bigquery
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import FencingToken, fenced_dml, fencing_job_config
+from dander.identity import google_client_options
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -80,7 +81,10 @@ class BigQueryWatermarkStore(WatermarkStore):
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dataset):
             raise ValueError(f"Invalid BigQuery dataset: {dataset!r}")
         self._table_id = f"{project}.{dataset}._dander_watermarks"
-        self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_BigQueryClient",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._table_ready = False
 
     def migrate(self) -> None:

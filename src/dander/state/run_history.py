@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 from google.cloud import bigquery
 
+from dander.identity import google_client_options
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
@@ -161,7 +163,10 @@ class BigQueryRunHistoryStore(RunHistoryStore):
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dataset):
             raise ValueError(f"Invalid BigQuery dataset: {dataset!r}")
         self._table = f"{project}.{dataset}._dander_runs"
-        self._client = client or cast("_Client", bigquery.Client(project=project))
+        self._client = client or cast(
+            "_Client",
+            bigquery.Client(project=project, **google_client_options()),
+        )
         self._initialize_on_read = initialize_on_read
         self._ready = False
 

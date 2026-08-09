@@ -82,7 +82,7 @@ variable "execution_projections" {
       projection.resources.runtime_retry_count == 0 &&
       contains([1000, 2000, 4000, 8000, 16000], projection.resources.cpu_millis) &&
       projection.resources.deadline_seconds >= 1 &&
-      projection.resources.deadline_seconds <= 3600 &&
+      projection.resources.deadline_seconds <= 86400 &&
       projection.resources.launcher_retry_count >= 0 &&
       projection.resources.launcher_retry_count <= 10 &&
       projection.resources.ephemeral_storage_mib >= 20480 &&

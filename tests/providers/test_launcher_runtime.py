@@ -199,7 +199,24 @@ def test_fargate_rejects_unhonored_runtime_intent(
         )
 
 
-def test_fargate_rejects_a_run_longer_than_the_task_role_session() -> None:
+def test_fargate_accepts_a_run_longer_than_one_task_role_session() -> None:
+    template = _fargate_runtime().templates.build(
+        _PIPELINES,
+        image=_FARGATE_IMAGE,
+        project="unit-project",
+        cpu=1,
+        memory="2Gi",
+        deadline_seconds=3_601,
+        launcher_retry_count=1,
+        batch_rows=1_000,
+        require_guarded_free_tier=False,
+        alert_target=None,
+    )["greenhouse_jobs"]
+
+    assert template.resources.deadline_seconds == 3_601
+
+
+def test_fargate_rejects_a_run_longer_than_one_day() -> None:
     with pytest.raises(ExecutionProjectionError, match="deadline"):
         _fargate_runtime().templates.build(
             _PIPELINES,
@@ -207,7 +224,7 @@ def test_fargate_rejects_a_run_longer_than_the_task_role_session() -> None:
             project="unit-project",
             cpu=1,
             memory="2Gi",
-            deadline_seconds=3_601,
+            deadline_seconds=86_401,
             launcher_retry_count=1,
             batch_rows=1_000,
             require_guarded_free_tier=False,
