@@ -2,36 +2,35 @@
 
 ## Finished
 
-- Reproduced the public `0.8.0rc2` Fargate apply failure in the isolated proof account.
-- Replaced the invalid SNS topic-policy wildcard with topic-scoped SNS actions.
-- Added a focused regression assertion for the rendered Fargate Terraform.
-- Kept runtime behavior, provider support, schedules, and retained GCP resources unchanged.
+- Merged the focused Fargate SNS policy correction through protected main as PR #152.
+- Prepared release-only metadata for `dander-platform==0.8.0rc3`.
+- Kept `src/dander`, Terraform, manifests, and provider support declarations unchanged.
 
 ## Try It
 
-Run `uv run pytest -q tests/infra/test_fargate_runtime.py`, then validate `infra/aws` with Terraform.
+Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate.
 
 ## Checks
 
-- Focused Fargate tests passed: 7 tests.
-- Ruff lint/format and strict MyPy passed.
-- Full Python suite passed: 1,104 tests, 13 skipped.
-- AWS Terraform formatting, initialization, validation, and tests passed.
-- Wheel/sdist inspection and source-free scaffold verification passed.
+- PR #152 passed Python, Terraform, packaging, container, and secret checks.
+- The isolated recovery plan reported exactly one add, zero changes, and zero destroys.
+- Release metadata validation and focused tests passed.
+- Wheel/sdist inspection and source-free installation passed outside the checkout.
 
 ## Decisions
 
-- The restricted EventBridge `sns:Publish` policy remains unchanged.
-- A replacement release candidate is required because rc2 cannot finish a fresh AWS apply.
+- `0.8.0rc3` replaces rc2 for complete Fargate lifecycle acceptance.
+- Fargate remains experimental until the lifecycle gate passes.
 
 ## Remaining
 
-- Merge this fix through protected main after review and CI.
-- Prepare and explicitly approve a replacement release candidate.
-- Re-plan the partial proof stack and require only the expected remaining resource.
+- Merge this release-only PR after protected checks pass.
+- Tag and publish `0.8.0rc3` from the exact merge commit.
+- Re-plan the partial proof stack from the public package and require only the expected resource.
 - Record replay, interruption, scheduling, alert, rollback, cleanup, and no-drift evidence.
 
 ## Review First
 
-- `infra/aws/modules/fargate/main.tf`
-- `tests/infra/test_fargate_runtime.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `docs/session-resume.md`
