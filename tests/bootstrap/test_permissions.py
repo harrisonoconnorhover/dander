@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 import pytest
@@ -37,6 +37,15 @@ class _Runner:
 
 def _response(url: str, payload: dict[str, Any]) -> httpx.Response:
     return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+
+def _get_response(url: str, payload: dict[str, Any], *, status_code: int = 200) -> httpx.Response:
+    return httpx.Response(status_code, json=payload, request=httpx.Request("GET", url))
+
+
+def _allow_all_post(url: str, **kwargs: object) -> httpx.Response:
+    payload = json.loads(str(kwargs["content"]))
+    return _response(url, {"permissions": payload["permissions"]})
 
 
 def test_preflight_checks_only_core_project_permissions_by_default(tmp_path: Path) -> None:
@@ -106,4 +115,61 @@ def test_preflight_reports_exact_missing_permissions_without_running_terraform(
             cwd=tmp_path,
             runner=_Runner(),
             post=post,
+        )
+
+
+def test_preflight_checks_existing_state_bucket_on_the_bucket_resource(tmp_path: Path) -> None:
+    requested: list[tuple[str, tuple[tuple[str, str], ...]]] = []
+
+    def get(url: str, **kwargs: object) -> httpx.Response:
+        params = tuple(cast("list[tuple[str, str]]", kwargs["params"]))
+        requested.append((url, params))
+        return _get_response(url, {"permissions": [value for _key, value in params]})
+
+    require_stage_zero_permissions(
+        project="unit-project",
+        cwd=tmp_path,
+        state_bucket="unit-state",
+        runner=_Runner(),
+        post=_allow_all_post,
+        get=get,
+    )
+
+    assert requested == [
+        (
+            "https://storage.googleapis.com/storage/v1/b/unit-state/iam/testPermissions",
+            (
+                ("permissions", "storage.buckets.get"),
+                ("permissions", "storage.buckets.update"),
+            ),
+        )
+    ]
+
+
+def test_preflight_allows_terraform_to_create_a_missing_state_bucket(tmp_path: Path) -> None:
+    require_stage_zero_permissions(
+        project="unit-project",
+        cwd=tmp_path,
+        state_bucket="new-state",
+        runner=_Runner(),
+        post=_allow_all_post,
+        get=lambda url, **_kwargs: _get_response(url, {}, status_code=404),
+    )
+
+
+def test_preflight_reports_exact_missing_existing_bucket_permission(tmp_path: Path) -> None:
+    with pytest.raises(
+        AdministrativeBootstrapError,
+        match=r"missing state bucket: storage\.buckets\.update",
+    ):
+        require_stage_zero_permissions(
+            project="unit-project",
+            cwd=tmp_path,
+            state_bucket="existing-state",
+            runner=_Runner(),
+            post=_allow_all_post,
+            get=lambda url, **_kwargs: _get_response(
+                url,
+                {"permissions": ["storage.buckets.get"]},
+            ),
         )

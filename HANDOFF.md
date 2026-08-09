@@ -2,39 +2,36 @@
 
 ## Finished
 
-- Made the disposable Phase 1B smoke proof name configurable while preserving its existing default.
-- Derived AWS, CloudWatch, Google Workload Identity, and service-account names from one input.
-- Documented safe reruns during Google's soft-delete retention window.
+- Corrected stage-zero permission checks to evaluate bucket permissions on the state bucket.
+- Preserved project, billing-account, and optional Workload Identity permission checks.
+- Kept new-bucket creation plan-first by letting Terraform handle a not-yet-existing bucket.
 
 ## Try It
 
-Set `proof_name = "dander-phase1b-r2"` in the smoke root's reviewed inputs and use the same value
-when generating the external-account credential configuration.
+Run `dander init-admin-plan` with an existing state bucket. Authorized operators now reach the
+saved Terraform plan; missing existing-bucket permissions are reported explicitly.
 
 ## Checks
 
-- Default and `dander-phase1b-r2` smoke plans each produced 18 creates; default resource names were
-  unchanged, custom names were isolated, and invalid names failed before planning.
-- Ruff/format and strict mypy passed; 1,110 tests passed against PostgreSQL 15; dependency audit
+- Ruff/format and strict mypy passed; 1,113 tests passed against PostgreSQL 15; dependency audit
   found no known vulnerabilities.
-- Wheel/sdist inspection, source-free installs, runtime-all installation, generated Terraform,
-  GCP/AWS Terraform, Helm, and non-root/read-only container conformance passed.
-- Retained stage-zero and platform plans each reported exactly `No changes.`; no apply ran.
+- Wheel/sdist inspection, source-free and runtime-all installs, generated Terraform, GCP/AWS
+  Terraform, Helm, and non-root/read-only container conformance passed.
+- Retained stage-zero and platform CLI plans each reported exactly `No changes.`; no apply ran.
 
 ## Decisions
 
-- Keep `dander-phase1b` as the compatibility default.
-- Use a new deterministic name rather than automatically undeleting or adopting prior resources.
+- Test each permission on the GCP resource to which it applies.
+- Treat a 404 state bucket as a planned new bucket, not a permission denial.
 
 ## Remaining
 
-- Let protected CI repeat Linux security and container scans, then merge if clean.
-- Correct the unrelated stage-zero permission preflight's bucket-level check in a separate PR.
-- Regenerate the live proof plans from merged `main`.
-- Apply only after explicit paid-action approval.
+- Let protected CI repeat Linux tests, packaging, container, and security checks.
+- Merge the focused PR through protected main if clean.
+- Regenerate the disposable Phase 1B proof plans from merged `main`.
 
 ## Review First
 
-- `acceptance/cloud-portability/phase1b/smoke/variables.tf`
-- `acceptance/cloud-portability/phase1b/smoke/main.tf`
-- `acceptance/cloud-portability/phase1b/README.md`
+- `src/dander/bootstrap/permissions.py`
+- `tests/bootstrap/test_permissions.py`
+- `tests/cli/test_init_cli.py`

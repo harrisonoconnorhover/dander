@@ -858,6 +858,7 @@ def init_admin_plan(
         require_stage_zero_permissions(
             project=project,
             cwd=infra_dir.resolve().parent.parent,
+            state_bucket=state_bucket,
             billing_account_id=billing_account_id,
             github_repository=github_repository,
         )
