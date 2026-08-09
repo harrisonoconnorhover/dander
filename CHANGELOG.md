@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add an experimental AWS Glue Data Catalog provider with canonical relation mapping, direct
+  database/table API publication, Dander-owned parameters, unrelated-field preservation, and
+  normalized readback. No crawler, deletion, IAM provisioning, or live-support claim is included.
 - Extend the experimental Redshift warehouse adapter with whole-DAG-preflighted portable and
   Redshift-authored table/incremental models, strict declared schemas, generic assertions, and
   transactionally fenced DML publication. Views, graphs, other write modes, and support promotion

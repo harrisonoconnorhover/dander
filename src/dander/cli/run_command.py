@@ -121,12 +121,13 @@ class _ResolvedRun:
     state_namespace: str | None
     selected_models: tuple[str, ...] | None
     build_models: bool
-    publish_dataplex: bool
+    publish_catalog: bool
     warehouse_provider: str
     warehouse_config: dict[str, object]
     state_provider: str
     state_config: dict[str, object]
     catalog_provider: str
+    catalog_config: dict[str, object]
     secret_provider: str
 
     @property
@@ -199,12 +200,13 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         tuple(options.selected_models) if options.selected_models is not None else None
     )
     build_models = options.build_models
-    publish_dataplex = options.publish_dataplex
+    publish_catalog = options.publish_dataplex
     warehouse_provider = "bigquery"
     warehouse_config: dict[str, object] = {"provider": "bigquery", "location": "US"}
     state_provider = "bigquery"
     state_config: dict[str, object] = {"provider": "bigquery"}
     catalog_provider = "dataplex"
+    catalog_config: dict[str, object] = {"provider": "dataplex"}
     secret_provider = "gcp_secret_manager"
     plugin_registry: ConnectorPluginRegistry | None = None
 
@@ -231,13 +233,18 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
                 elif selected_models is None:
                     selected_models = tuple(pipeline.models)
                 build_models = build_models or pipeline.build_models
-                publish_dataplex = publish_dataplex or pipeline.publish_dataplex
+                publish_catalog = publish_catalog or pipeline.publish_catalog
                 warehouse_provider = manifest.warehouse_provider
                 warehouse_config = manifest.warehouse_config
                 state_provider = manifest.state_provider
                 state_config = manifest.state_config
                 catalog_provider = (
                     "dataplex" if options.publish_dataplex else manifest.catalog_provider
+                )
+                catalog_config = (
+                    {"provider": "dataplex"}
+                    if options.publish_dataplex
+                    else manifest.catalog_config
                 )
                 secret_provider = manifest.secret_provider
         except (ConnectorPluginError, ProjectConfigError) as error:
@@ -293,7 +300,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         build_models=build_models,
         selected_models=selected_models,
         catalog_output=options.catalog_output,
-        publish_dataplex=publish_dataplex,
+        publish_catalog=publish_catalog,
     )
     return _ResolvedRun(
         pipeline_id=options.pipeline_or_source,
@@ -311,12 +318,13 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         state_namespace=state_namespace,
         selected_models=selected_models,
         build_models=build_models,
-        publish_dataplex=publish_dataplex,
+        publish_catalog=publish_catalog,
         warehouse_provider=warehouse_provider,
         warehouse_config=warehouse_config,
         state_provider=state_provider,
         state_config=state_config,
         catalog_provider=catalog_provider,
+        catalog_config=catalog_config,
         secret_provider=secret_provider,
     )
 
@@ -329,13 +337,13 @@ def _resolve_graph_plan(
     build_models: bool,
     selected_models: Sequence[str] | None,
     catalog_output: Path | None,
-    publish_dataplex: bool,
+    publish_catalog: bool,
 ) -> GraphExecutionPlan | None:
     if graph_file is None:
         return None
     if build_models or selected_models is not None:
         raise ClickException("Graph pipelines do not accept --build-models or --select-model")
-    if catalog_output is not None or publish_dataplex:
+    if catalog_output is not None or publish_catalog:
         raise ClickException("Graph metadata publication is not supported yet")
     try:
         graph = load_graph_for_execution(graph_file)
@@ -371,7 +379,7 @@ def _require_provider_compatible_options(options: RunOptions, resolved: _Resolve
             raise ClickException("--sandbox is available only with a BigQuery warehouse")
         if options.guarded_free_tier:
             raise ClickException("--guarded-free-tier is available only with a BigQuery warehouse")
-        if resolved.publish_dataplex and resolved.catalog_provider == "dataplex":
+        if resolved.publish_catalog and resolved.catalog_provider == "dataplex":
             raise ClickException("Dataplex publication currently requires a BigQuery warehouse")
 
 
@@ -388,13 +396,15 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         raise ClickException(str(error)) from error
 
     stores = _build_control_stores(options, resolved)
-    dataplex_publisher = (
+    catalog_publisher = (
         build_catalog_publisher(
             provider_id=resolved.catalog_provider,
+            provider_config=resolved.catalog_config,
+            warehouse_provider=resolved.warehouse_provider,
             catalog=resolved.catalog,
             location=options.dataplex_location,
         )
-        if resolved.publish_dataplex
+        if resolved.publish_catalog
         else None
     )
     warehouse = _build_warehouse_runtime(resolved)
@@ -416,7 +426,7 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         transform_runner=transform_runner,
         metadata_store=stores.metadata,
         registry_output=options.catalog_output,
-        dataplex_publisher=dataplex_publisher,
+        catalog_publisher=catalog_publisher,
         leases=stores.leases,
     )
 

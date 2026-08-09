@@ -10,7 +10,8 @@ The first supported hosted profile remains BigQuery, BigQuery state, Dataplex (o
 catalog), GCP Secret Manager, and Cloud Run. Version 2 may select PostgreSQL 15+ for both durable
 state and the warehouse, but that composition remains locally qualified until the Kubernetes
 launcher and live-profile gates pass. A provider name outside the installed contract fails
-validation; adapter registration alone does not imply hosted support.
+validation; adapter registration alone does not imply hosted support. AWS Glue is available as an
+experimental catalog projection only.
 
 One logical project may have multiple named platforms and deployments. `dander validate` and
 `dander run` accept `--deployment`; the OCI runtime's `--platform` value selects the named
@@ -47,7 +48,9 @@ The runtime composes the selected warehouse and state through one API-v1 provide
 Registration loads only a small configuration model; selecting and building a provider loads its
 implementation and SDK dependencies. BigQuery behavior and names remain unchanged. Dataplex keeps
 aspect-only updates and normalized readback; selecting `none` loads no Dataplex implementation or
-credentials. GCP Secret Manager preserves its existing environment indirection and audit behavior;
+credentials. Glue uses exact region/account configuration, ambient AWS identity, direct
+database/table APIs, and normalized readback; see [AWS Glue](aws-glue.md). GCP Secret Manager
+preserves its existing environment indirection and audit behavior;
 environment-only resolution remains local or launcher-injected because Cloud Run requires managed
 secret references. The registry is a construction contract, not a support claim.
 

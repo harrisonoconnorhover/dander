@@ -77,6 +77,9 @@ evaluate these limits before using it for an unattended system containing busine
   authenticated administrator.
 - Dataplex and Storage Write remain optional paths and are not exercised by the retained operator
   trial.
+- AWS Glue publication is experimental and locally conformance-tested only. It does not provision
+  IAM, Glue connections, Lake Formation permissions, crawlers, or tags, and it has not completed a
+  live AWS catalog proof. Warehouse-backed entries intentionally have no inferred S3 location.
 
 ## Support boundary
 
