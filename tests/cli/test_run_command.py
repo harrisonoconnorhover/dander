@@ -137,6 +137,8 @@ def test_hosted_project_run_wires_runtime_without_network(
         writers = _WriterFactory()
         transforms = _TransformFactory()
         target_fence = _Built(name="target-fence", args=(), kwargs={})
+        schema_mapper = _Built(name="schema-mapper", args=(), kwargs={})
+        ingestion_schema_mapper = None
 
     def build_warehouse(resolved: _ResolvedWarehouse) -> _Warehouse:
         assert resolved.warehouse_provider == "bigquery"
@@ -227,6 +229,7 @@ def test_hosted_project_run_wires_runtime_without_network(
     assert ingestion.kwargs["batch_rows"] == 10_000
     assert ingestion.kwargs["watermarks"] == captured["watermarks"]
     assert ingestion.kwargs["target_fence"] == _Warehouse.target_fence
+    assert ingestion.kwargs["schema_mapper"] is None
     writer = cast("_Built", ingestion.kwargs["writer"])
     assert writer.kwargs == {
         "sandbox": False,

@@ -124,6 +124,7 @@ def postgresql_warehouse() -> Iterator[tuple[WarehouseRuntime, PostgreSQLPool, s
     )
     runtime = registry.build(ProviderKind.WAREHOUSE, config, context={"pool": pool})
     assert isinstance(runtime, WarehouseRuntime)
+    assert runtime.ingestion_schema_mapper is runtime.schema_mapper
     try:
         yield runtime, pool, database, schema_name
     finally:

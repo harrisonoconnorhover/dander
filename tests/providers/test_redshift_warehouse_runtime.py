@@ -266,6 +266,7 @@ def redshift_runtime(
         },
     )
     assert isinstance(runtime, WarehouseRuntime)
+    assert runtime.ingestion_schema_mapper is runtime.schema_mapper
     return runtime, backend, s3, tmp_path
 
 

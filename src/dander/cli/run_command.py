@@ -497,6 +497,7 @@ def _build_ingestion_runner(
             resolved.graph_plan.bindings.endpoint_names if resolved.graph_plan is not None else None
         ),
         target_fence=warehouse.target_fence,
+        schema_mapper=warehouse.ingestion_schema_mapper,
     )
 
 

@@ -28,14 +28,38 @@ from dander.providers.registry import (
     ProviderKind,
 )
 from dander.telemetry import OperationTelemetry, TelemetryOperation
-from dander.warehouse import CanonicalField, RelationRef, RelationSchema
-from dander.warehouse.runtime import WarehouseCapabilities, WarehouseRuntime
+from dander.warehouse import CanonicalField, LogicalTypeKind, RelationRef, RelationSchema
+from dander.warehouse.runtime import (
+    WarehouseCapabilities,
+    WarehouseRuntime,
+    WarehouseSchemaSupport,
+)
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WritePattern, WriteTransport
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
     from pydantic import BaseModel
+
+
+REDSHIFT_SCHEMA_SUPPORT = WarehouseSchemaSupport(
+    provider_id="redshift",
+    logical_types=frozenset(
+        {
+            LogicalTypeKind.BOOLEAN,
+            LogicalTypeKind.INTEGER,
+            LogicalTypeKind.DECIMAL,
+            LogicalTypeKind.FLOAT,
+            LogicalTypeKind.STRING,
+            LogicalTypeKind.BINARY,
+            LogicalTypeKind.DATE,
+            LogicalTypeKind.TIME,
+            LogicalTypeKind.TIMESTAMP,
+        }
+    ),
+    max_decimal_precision=38,
+    max_temporal_precision=6,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,7 +89,7 @@ class RedshiftSchemaMapper:
                 canonical.append(field)
             else:
                 raise TypeError("Redshift schema mapper received an unsupported field")
-        return RelationSchema(fields=tuple(canonical))
+        return REDSHIFT_SCHEMA_SUPPORT.require(RelationSchema(fields=tuple(canonical)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +184,7 @@ REDSHIFT_CAPABILITIES = WarehouseCapabilities(
     supports_transforms=True,
     supports_graphs=False,
     supports_target_fencing=True,
+    schema_support=REDSHIFT_SCHEMA_SUPPORT,
 )
 
 
@@ -234,10 +259,11 @@ def build_redshift_warehouse(
             compression=staging.compression,
             statement_timeout_ms=staging.statement_timeout_ms,
         )
+    schema_mapper = RedshiftSchemaMapper()
     return WarehouseRuntime(
         provider_id="redshift",
         relation_codec=RedshiftRelationCodec(config.database),
-        schema_mapper=RedshiftSchemaMapper(),
+        schema_mapper=schema_mapper,
         writers=RedshiftWriterFactory(
             config.database,
             connection_factory,
@@ -254,6 +280,7 @@ def build_redshift_warehouse(
         target_fence=target_fence,
         telemetry=RedshiftTelemetry(),
         capabilities=REDSHIFT_CAPABILITIES,
+        ingestion_schema_mapper=schema_mapper,
     )
 
 
@@ -321,6 +348,7 @@ def _matches_iam_user(actual: str, configured: str) -> bool:
 
 __all__ = [
     "REDSHIFT_CAPABILITIES",
+    "REDSHIFT_SCHEMA_SUPPORT",
     "REDSHIFT_WAREHOUSE_FACTORY",
     "RedshiftRelationCodec",
     "RedshiftSchemaMapper",

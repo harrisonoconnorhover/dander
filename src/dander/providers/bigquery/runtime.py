@@ -13,9 +13,11 @@ from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, Pro
 from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import BigQueryTransformRunner
 from dander.warehouse.bigquery_compat import canonical_schema_from_bigquery
+from dander.warehouse.contracts import LogicalTypeKind
 from dander.warehouse.runtime import (
     WarehouseCapabilities,
     WarehouseRuntime,
+    WarehouseSchemaSupport,
     WarehouseTransformRunner,
 )
 from dander.writer import (
@@ -36,6 +38,15 @@ if TYPE_CHECKING:
     from dander.warehouse.contracts import RelationRef, RelationSchema
 
 
+BIGQUERY_SCHEMA_SUPPORT = WarehouseSchemaSupport(
+    provider_id="bigquery",
+    logical_types=frozenset(LogicalTypeKind),
+    max_decimal_precision=38,
+    max_temporal_precision=6,
+    supports_nested_arrays=False,
+)
+
+
 @dataclass(frozen=True, slots=True)
 class BigQueryRelationCodec:
     """Render validated canonical coordinates as quoted BigQuery identifiers."""
@@ -53,7 +64,8 @@ class BigQuerySchemaMapper:
 
     def canonical_schema(self, fields: Sequence[object]) -> RelationSchema:
         """Map a complete legacy BigQuery declaration to canonical schema v1."""
-        return canonical_schema_from_bigquery(cast("Sequence[BigQueryFieldLike]", fields))
+        schema = canonical_schema_from_bigquery(cast("Sequence[BigQueryFieldLike]", fields))
+        return BIGQUERY_SCHEMA_SUPPORT.require(schema)
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +151,7 @@ BIGQUERY_CAPABILITIES = WarehouseCapabilities(
     supports_transforms=True,
     supports_graphs=True,
     supports_target_fencing=True,
+    schema_support=BIGQUERY_SCHEMA_SUPPORT,
 )
 
 
