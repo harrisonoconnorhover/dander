@@ -20,6 +20,7 @@ from dander.state import (
     RunStatus,
 )
 from dander.transform import TransformRunResult
+from dander.warehouse import RelationRef
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -192,6 +193,8 @@ def _executor(
     metadata: _Metadata,
     fail_transform: bool = False,
     leases: LeaseStore | None = None,
+    raw_namespace: str = "raw",
+    source_relations: dict[str, RelationRef] | None = None,
 ) -> PipelineExecutor:
     source = SourceConfig(
         name="example",
@@ -212,6 +215,8 @@ def _executor(
         ingestion=_Ingestion(),
         history=history,
         project="valid-project-123",
+        raw_namespace=raw_namespace,
+        source_relations=source_relations,
         models_dir=models_dir,
         selected_models=("stg_widgets",),
         build_models=True,
@@ -256,6 +261,34 @@ def test_executor_preserves_launcher_supplied_run_id(tmp_path: Path) -> None:
 
     assert result.run_id == "launcher-run-42"
     assert history.started == ("launcher-run-42", "example", "example_pipeline")
+
+
+def test_executor_keeps_custom_raw_namespace_in_models_and_metadata(tmp_path: Path) -> None:
+    _models(tmp_path)
+    metadata = _Metadata()
+    source_relation = RelationRef(
+        catalog="valid-project-123",
+        namespace="landing",
+        name="example_widgets",
+    )
+
+    _executor(
+        tmp_path,
+        history=_History(),
+        metadata=metadata,
+        raw_namespace="landing",
+        source_relations={"widgets": source_relation},
+    ).execute()
+
+    assert metadata.manifest is not None
+    source = metadata.manifest["source"]
+    assert isinstance(source, dict)
+    endpoints = source["endpoints"]
+    assert isinstance(endpoints, list)
+    assert endpoints[0]["relation"] == "valid-project-123.landing.example_widgets"
+    assets = metadata.manifest["assets"]
+    assert isinstance(assets, list)
+    assert assets[0]["upstream_relations"] == ["valid-project-123.landing.example_widgets"]
 
 
 def test_executor_marks_transform_failure_without_claiming_ingestion_only_success(

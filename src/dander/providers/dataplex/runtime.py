@@ -23,10 +23,10 @@ def build_dataplex_catalog(
     """Build Dataplex only after its catalog provider is selected."""
     if not isinstance(config, DataplexCatalogConfig):
         raise TypeError("Dataplex catalog factory received the wrong configuration")
-    project = context.get("project")
+    project = context.get("catalog", context.get("project"))
     location = context.get("location")
     if not isinstance(project, str) or not project:
-        raise ValueError("Dataplex catalog factory requires a project context")
+        raise ValueError("Dataplex catalog factory requires a catalog context")
     if not isinstance(location, str) or not location:
         raise ValueError("Dataplex catalog factory requires a location context")
     client: Any = context.get("client")

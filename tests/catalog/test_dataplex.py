@@ -16,6 +16,7 @@ from dander.catalog import (
     MetadataSpine,
 )
 from dander.transform import TransformProject
+from dander.warehouse import RelationRef
 
 if TYPE_CHECKING:
     from google.cloud import dataplex_v1
@@ -157,7 +158,16 @@ def test_request_rejects_asset_from_different_project() -> None:
     )
 
     with pytest.raises(CatalogPublishError, match="different project"):
-        publisher.request_for(replace(_asset(), project="other-project-123"))
+        publisher.request_for(
+            replace(
+                _asset(),
+                relation_ref=RelationRef(
+                    catalog="other-project-123",
+                    namespace="staging",
+                    name="stg_greenhouse__jobs",
+                ),
+            )
+        )
 
 
 def test_location_is_validated_before_client_creation() -> None:

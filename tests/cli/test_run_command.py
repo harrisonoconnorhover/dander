@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, cast
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import pytest
 from click import ClickException
+from rich.console import Console
 from typer.testing import CliRunner
 
 import dander.cli.run_command as run_module
@@ -16,6 +18,7 @@ from dander.executor import PipelineExecutionResult
 from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.security import NoAuth
 from dander.state import StateCapabilities, StateMigration, StateRuntime
+from dander.warehouse import RelationRef
 from dander.writer import SchemaEvolution
 
 if TYPE_CHECKING:
@@ -47,6 +50,8 @@ class _ResolvedState(Protocol):
     project: str
     dataset: str
     metadata_dataset: str
+    state_catalog: str | None
+    state_namespace: str | None
 
 
 class _Migrator:
@@ -142,8 +147,10 @@ def test_hosted_project_run_wires_runtime_without_network(
     def build_state(resolved: _ResolvedState) -> StateRuntime:
         assert resolved.state_provider == "bigquery"
         assert resolved.project == "unit-project"
-        assert resolved.dataset == "raw"
+        assert resolved.dataset == "landing"
         assert resolved.metadata_dataset == "dander_meta"
+        assert resolved.state_catalog == "unit-project"
+        assert resolved.state_namespace == "landing"
         migrator = _Migrator()
         captured["migrator"] = migrator
         for name in ("history", "leases", "metadata", "watermarks"):
@@ -186,7 +193,7 @@ def test_hosted_project_run_wires_runtime_without_network(
             "--project",
             "unit-project",
             "--dataset",
-            "raw",
+            "landing",
             "--config",
             str(_REPO_ROOT / "dander.yaml"),
             "--connectors-dir",
@@ -200,7 +207,15 @@ def test_hosted_project_run_wires_runtime_without_network(
     assert "Dander run run-123" in result.output
     executor = cast("dict[str, object]", captured["executor"])
     assert executor["pipeline_id"] == "greenhouse_jobs"
-    assert executor["project"] == "unit-project"
+    assert executor["catalog"] == "unit-project"
+    assert executor["raw_namespace"] == "landing"
+    assert executor["source_relations"] == {
+        "jobs": RelationRef(
+            catalog="unit-project",
+            namespace="landing",
+            name="greenhouse_job_board_jobs",
+        )
+    }
     assert executor["selected_models"] == ("stg_greenhouse__jobs",)
     assert executor["build_models"] is True
     assert executor["history"] == captured["history"]
@@ -209,8 +224,7 @@ def test_hosted_project_run_wires_runtime_without_network(
     assert executor["transform_runner"] == captured["transform"]
 
     ingestion = cast("_Built", executor["ingestion"])
-    assert ingestion.kwargs["project"] == "unit-project"
-    assert ingestion.kwargs["dataset"] == "raw"
+    assert ingestion.kwargs["endpoint_relations"] == executor["source_relations"]
     assert ingestion.kwargs["resume_from_watermark"] is True
     assert ingestion.kwargs["batch_rows"] == 10_000
     assert ingestion.kwargs["watermarks"] == captured["watermarks"]
@@ -223,6 +237,85 @@ def test_hosted_project_run_wires_runtime_without_network(
     }
     migrator = cast("_Migrator", captured["migrator"])
     assert migrator.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("sandbox", "guarded_free_tier", "message"),
+    [
+        (True, False, "--sandbox is available only with a BigQuery warehouse"),
+        (
+            False,
+            True,
+            "--guarded-free-tier is available only with a BigQuery warehouse",
+        ),
+    ],
+)
+def test_postgresql_rejects_bigquery_safety_before_external_clients(
+    monkeypatch: MonkeyPatch,
+    *,
+    sandbox: bool,
+    guarded_free_tier: bool,
+    message: str,
+) -> None:
+    options = SimpleNamespace(
+        sandbox=sandbox,
+        guarded_free_tier=guarded_free_tier,
+        dry_run=False,
+    )
+    resolved = SimpleNamespace(
+        warehouse_provider="postgresql",
+        publish_dataplex=False,
+        catalog_provider="none",
+    )
+    monkeypatch.setattr(run_module, "_resolve_run", lambda _options: resolved)
+
+    class _ForbiddenExternalClient:
+        def __init__(self) -> None:
+            raise AssertionError("provider guard must run before constructing a GCP client")
+
+    monkeypatch.setattr(run_module, "SandboxDataset", _ForbiddenExternalClient)
+    monkeypatch.setattr(run_module, "GuardedFreeTierVerifier", _ForbiddenExternalClient)
+
+    with pytest.raises(ClickException, match=message):
+        run_module.execute_run(cast("Any", options), console=Console())
+
+
+def test_postgresql_dataplex_publication_fails_before_executor(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    options = SimpleNamespace(sandbox=False, guarded_free_tier=False, dry_run=False)
+    resolved = SimpleNamespace(
+        warehouse_provider="postgresql",
+        publish_dataplex=True,
+        catalog_provider="dataplex",
+    )
+    monkeypatch.setattr(run_module, "_resolve_run", lambda _options: resolved)
+    monkeypatch.setattr(
+        run_module,
+        "_build_executor",
+        lambda *_args, **_kwargs: pytest.fail("executor must not be constructed"),
+    )
+
+    with pytest.raises(ClickException, match="requires a BigQuery warehouse"):
+        run_module.execute_run(cast("Any", options), console=Console())
+
+
+def test_bigquery_state_location_stays_independent_from_postgresql_warehouse() -> None:
+    resolved = SimpleNamespace(
+        state_catalog="gcp-control-project",
+        state_namespace="dander_state",
+        metadata_namespace="dander_meta",
+        project_pipeline=True,
+        graph_plan=None,
+        catalog="postgres_database",
+        raw_namespace="landing",
+    )
+
+    context = run_module._state_runtime_context(cast("Any", resolved))
+
+    assert context["catalog"] == "gcp-control-project"
+    assert context["raw_namespace"] == "dander_state"
+    assert context["metadata_namespace"] == "dander_meta"
 
 
 def test_only_unsupported_postgresql_state_bigquery_warehouse_pair_fails_closed() -> None:

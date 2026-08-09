@@ -13,12 +13,13 @@ from dander.ingestion import load_source_config
 from dander.ingestion.source import Endpoint, RawField, Source, SourceConfig
 from dander.runtime import PipelineRunner, RawSchemaError, WatermarkConflictError
 from dander.state import LeaseLostError, RunHistoryStore, RunStage, RunStatus, WatermarkStore
+from dander.warehouse import RelationRef
 from dander.writer import WriteMode, WritePattern, WriteTarget
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
-    from dander.warehouse import PreparedWarehouseStatement, RelationRef
+    from dander.warehouse import PreparedWarehouseStatement
 
 
 class _Source(Source):
@@ -302,6 +303,32 @@ def test_runner_commits_maximum_cursor_after_write() -> None:
     assert events == ["get", "extract", "write", "set"]
     assert watermarks.committed == "2026-01-03T00:00:00Z"
     assert result.endpoints[0].affected == 2
+
+
+def test_runner_preserves_endpoint_relation_without_provider_reinterpretation() -> None:
+    captured: list[RelationRef] = []
+
+    class RelationWriter(_Writer):
+        def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
+            captured.append(target.relation_ref)
+            return super().write(records, target)
+
+    events: list[str] = []
+    relation = RelationRef(
+        catalog="warehouse_db",
+        namespace="landing",
+        name="example_widgets",
+    )
+    runner = PipelineRunner(
+        source=_Source(events),
+        writer=RelationWriter(events),
+        watermarks=_Watermarks(events),
+        endpoint_relations={"widgets": relation},
+    )
+
+    runner.run()
+
+    assert captured == [relation]
 
 
 def test_runner_claims_required_destination_before_extraction() -> None:

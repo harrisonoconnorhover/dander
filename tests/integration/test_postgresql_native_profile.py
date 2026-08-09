@@ -17,7 +17,7 @@ from dander.ingestion import Endpoint, RawField, Source, SourceConfig
 from dander.providers import ProviderKind, ProviderRegistry, default_provider_registry
 from dander.runtime import PipelineRunner
 from dander.state import RunStatus, StateRuntime
-from dander.warehouse import WarehouseRuntime
+from dander.warehouse import RelationRef, WarehouseRuntime
 from dander.writer import SchemaEvolution
 
 if TYPE_CHECKING:
@@ -85,7 +85,7 @@ def test_postgresql_native_profile_runs_and_replays(
     assert row is not None
     database = cast("str", row["database"])
     suffix = uuid.uuid4().hex[:12]
-    raw_schema = "raw"
+    raw_schema = f"landing_{suffix}"
     source_name = f"fixture_{suffix}"
     raw_table = f"{source_name}_widgets"
     model_schema = f"models_{suffix}"
@@ -97,7 +97,6 @@ def test_postgresql_native_profile_runs_and_replays(
     _write_model(
         tmp_path,
         source_name=source_name,
-        raw_schema=raw_schema,
         model_schema=model_schema,
     )
     source = _FixtureSource(source_name)
@@ -110,14 +109,20 @@ def test_postgresql_native_profile_runs_and_replays(
         source=source,
         writer=writer,
         watermarks=state.watermarks,
-        project=database,
-        dataset=raw_schema,
+        endpoint_relations={
+            "widgets": RelationRef(
+                catalog=database,
+                namespace=raw_schema,
+                name=raw_table,
+            )
+        },
         batch_rows=1,
         target_fence=warehouse.target_fence,
     )
     transform = warehouse.transforms.build_transform_runner(
         graph_plan=None,
         build_models=True,
+        raw_namespace=raw_schema,
     )
     assert transform is not None
     executor = PipelineExecutor(
@@ -125,7 +130,15 @@ def test_postgresql_native_profile_runs_and_replays(
         source_config=source.config,
         ingestion=ingestion,
         history=state.history,
-        project=database,
+        catalog=database,
+        raw_namespace=raw_schema,
+        source_relations={
+            "widgets": RelationRef(
+                catalog=database,
+                namespace=raw_schema,
+                name=raw_table,
+            )
+        },
         models_dir=tmp_path,
         selected_models=("stg_fixture__widgets",),
         build_models=True,
@@ -240,11 +253,10 @@ def _write_model(
     root: Path,
     *,
     source_name: str,
-    raw_schema: str,
     model_schema: str,
 ) -> None:
     (root / "stg_fixture__widgets.sql").write_text(
-        f"SELECT id, name, updated_at FROM {{{{ ref('{raw_schema}_{source_name}_widgets') }}}}",
+        f"SELECT id, name, updated_at FROM {{{{ ref('raw_{source_name}_widgets') }}}}",
         encoding="utf-8",
     )
     (root / "stg_fixture__widgets.yml").write_text(

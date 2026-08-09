@@ -16,6 +16,7 @@ from psycopg_pool import ConnectionPool
 
 from dander.concurrency import FencingToken
 from dander.providers import ProviderKind, default_provider_registry
+from dander.providers.postgresql.config import PostgreSQLWarehouseConfig
 from dander.providers.postgresql.writer import PostgreSQLWriteError
 from dander.telemetry import TelemetryOperation
 from dander.warehouse import LogicalTypeKind, RelationRef, WarehouseRuntime
@@ -46,6 +47,7 @@ def test_postgresql_warehouse_registration_is_lazy_and_explicit() -> None:
     assert config.model_dump(mode="json") == {
         "provider": "postgresql",
         "database": "dander_test",
+        "schema": "raw",
         "dsn_env": "DANDER_TEST_POSTGRES_DSN",
         "pool_min_size": 1,
         "pool_max_size": 5,
@@ -55,6 +57,29 @@ def test_postgresql_warehouse_registration_is_lazy_and_explicit() -> None:
         "idle_transaction_timeout_ms": 60_000,
     }
 
+
+def test_postgresql_config_uses_database_and_schema_coordinates_directly() -> None:
+    config = PostgreSQLWarehouseConfig(
+        provider="postgresql",
+        database="warehouse_db",
+        schema_name="landing",
+    )
+
+    relation = config.raw_relation(
+        "accounts",
+        compatibility_catalog="ignored-gcp-project",
+        compatibility_namespace=None,
+        default_namespace="ignored_bigquery_dataset",
+    )
+
+    assert relation == RelationRef(
+        catalog="warehouse_db",
+        namespace="landing",
+        name="accounts",
+    )
+
+
+def test_postgresql_sslmode_requires_encrypted_connections() -> None:
     from dander.providers.postgresql.runtime import _required_sslmode
 
     assert _required_sslmode("postgresql://example.invalid/db") == "require"

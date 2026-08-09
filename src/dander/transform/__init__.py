@@ -1,5 +1,9 @@
 """Transform engine — our owned dbt-replacement (ref() DAG, materializations, tests)."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from dander.transform.config import (
     ColumnMetadata,
     GenericTestMetadata,
@@ -17,7 +21,20 @@ from dander.transform.project import (
     TransformProject,
     TransformProjectError,
 )
-from dander.transform.runner import BigQueryTransformRunner, TransformRunError, TransformRunResult
+from dander.transform.result import TransformRunError, TransformRunResult
+
+if TYPE_CHECKING:
+    from dander.transform.runner import BigQueryTransformRunner
+
+
+def __getattr__(name: str) -> object:
+    """Load the BigQuery runner only when that compatibility export is requested."""
+    if name == "BigQueryTransformRunner":
+        from dander.transform.runner import BigQueryTransformRunner
+
+        return BigQueryTransformRunner
+    raise AttributeError(name)
+
 
 __all__ = [
     "BigQueryTransformRunner",

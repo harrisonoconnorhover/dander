@@ -131,9 +131,13 @@ def _build_bigquery_state(
 ) -> StateRuntime:
     if not isinstance(config, BigQueryStateConfig):
         raise TypeError("BigQuery state factory received the wrong configuration")
-    project = _required_text(context, "project")
-    raw_dataset = _required_text(context, "raw_dataset")
-    metadata_dataset = _required_text(context, "metadata_dataset")
+    project = _required_text(context, "catalog", legacy="project")
+    raw_dataset = _required_text(context, "raw_namespace", legacy="raw_dataset")
+    metadata_dataset = _required_text(
+        context,
+        "metadata_namespace",
+        legacy="metadata_dataset",
+    )
     project_pipeline = _required_bool(context, "project_pipeline")
     metadata_enabled = _required_bool(context, "metadata_enabled")
     control_dataset = metadata_dataset if project_pipeline else raw_dataset
@@ -177,8 +181,13 @@ def _build_bigquery_state(
     )
 
 
-def _required_text(context: Mapping[str, object], name: str) -> str:
-    value = context.get(name)
+def _required_text(
+    context: Mapping[str, object],
+    name: str,
+    *,
+    legacy: str | None = None,
+) -> str:
+    value = context.get(name, context.get(legacy) if legacy is not None else None)
     if not isinstance(value, str) or not value:
         raise ValueError(f"BigQuery state runtime requires a non-empty {name}")
     return value

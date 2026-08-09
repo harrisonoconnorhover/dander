@@ -118,9 +118,10 @@ class PostgreSQLScd1Writer(WritePattern):
 
 
 def _validate_target(target: WriteTarget, *, database: str) -> None:
-    if target.project != database:
+    relation = target.relation_ref
+    if relation.catalog != database:
         raise PostgreSQLWriteError(
-            f"Writer database {database!r} does not match target catalog {target.project!r}"
+            f"Writer database {database!r} does not match target catalog {relation.catalog!r}"
         )
     if not target.business_key:
         raise PostgreSQLWriteError("PostgreSQL SCD1 writes require a business key")
@@ -130,7 +131,7 @@ def _validate_target(target: WriteTarget, *, database: str) -> None:
     if publication_fence is None:
         raise PostgreSQLWriteError("PostgreSQL hosted writes require a destination target fence")
     expected_target = ".".join(target.relation_ref.coordinates)
-    expected_fence_table = f"{target.dataset}.dander_target_commits"
+    expected_fence_table = f"{relation.namespace}.dander_target_commits"
     if (
         publication_fence.target_id != expected_target
         or publication_fence.fence_table != expected_fence_table
@@ -158,7 +159,9 @@ def _ensure_target(
     evolution: SchemaEvolution,
 ) -> None:
     connection.execute(
-        sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(target.dataset))
+        sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(
+            sql.Identifier(target.relation_ref.namespace)
+        )
     )
     definitions = [
         sql.SQL("{} {}{}").format(
@@ -228,7 +231,7 @@ def _deployed_columns(
         "JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace "
         "WHERE namespace.nspname = %s AND relation.relname = %s "
         "AND attribute.attnum > 0 AND NOT attribute.attisdropped",
-        (target.dataset, target.table),
+        (target.relation_ref.namespace, target.relation_ref.name),
     ).fetchall()
     deployed: dict[str, tuple[str, bool]] = {}
     for row in rows:
@@ -343,14 +346,17 @@ def _scd1_sql(
 
 
 def _target_identifier(target: WriteTarget) -> sql.Identifier:
-    return sql.Identifier(target.dataset, target.table)
+    return sql.Identifier(target.relation_ref.namespace, target.relation_ref.name)
 
 
 def _unique_index_name(target: WriteTarget) -> str:
     digest = hashlib.sha256(
-        f"{target.dataset}.{target.table}:{','.join(target.business_key)}".encode()
+        (
+            f"{target.relation_ref.namespace}.{target.relation_ref.name}:"
+            f"{','.join(target.business_key)}"
+        ).encode()
     ).hexdigest()[:10]
-    prefix = f"dander_uq_{target.table}"[:51]
+    prefix = f"dander_uq_{target.relation_ref.name}"[:51]
     return f"{prefix}_{digest}"
 
 

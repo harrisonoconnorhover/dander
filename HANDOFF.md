@@ -2,37 +2,39 @@
 
 ## Finished
 
-- Added one bounded, compressed Parquet staging contract for Snowflake and Redshift loaders.
-- Mapped canonical scalar, decimal, temporal, JSON, array, and record types explicitly to Arrow.
-- Added per-part SHA-256, schema fingerprinting, row/byte counts, and deterministic manifest JSON.
-- Added owner-only run directories and fail-closed cleanup limited to exact owned regular files.
-- Made PyArrow an explicit Snowflake, Redshift, and full-runtime dependency.
+- Made `RelationRef(catalog, namespace, name)` the dependency-light coordinate passed through run,
+  graph, transform, metadata, and writer orchestration.
+- Moved BigQuery project/dataset and PostgreSQL database/schema translation to provider boundaries.
+- Kept legacy CLI and Python compatibility inputs while translating them before neutral execution.
+- Fixed non-default raw namespaces so ingestion, transforms, and metadata use the same relation.
+- Kept mixed-provider state coordinates independent and rejected BigQuery-only safety/Dataplex
+  operations before external clients are created.
 
 ## Try It
 
-Use `ParquetStagingSession` as a context manager, call `stage(records, canonical_schema)`, upload the
-returned immutable parts inside the context, and let normal exit remove local artifacts.
+Run an existing BigQuery command unchanged, or select a PostgreSQL profile. Neutral internals now
+receive canonical relations; provider configuration still uses its native vocabulary.
 
 ## Checks
 
-- All 1,036 tests passed with PostgreSQL 15; repository Ruff and strict mypy passed.
-- Staging round-trip, row/byte splitting, redaction, cleanup, and dependency tests passed.
-- Wheel/sdist inspection and Snowflake/Redshift/runtime-all PyArrow metadata checks passed.
+- All 1,048 tests passed with PostgreSQL 15; Ruff and strict mypy passed.
+- Wheel/sdist build, inspection, outside-checkout installs, generation, and validation passed.
+- Source-free container conformance, proof assets, dependency audit, and Helm checks passed.
+- Repository and generated-project GCP/AWS Terraform validation and module tests passed.
 
 ## Decisions
 
-- Shared code owns local artifacts only; provider adapters own remote stages and publication.
-- JSON uses deterministic compact text; provider-native semi-structured mapping remains explicit.
-- A singleton oversized row may exceed the soft byte target so staging always makes progress.
+- Canonical relations are the neutral contract; provider-shaped names are compatibility aliases.
+- Provider configs own native-to-canonical translation; provider runtimes own translation back.
+- Serialized v1/GCP catalog output and resource identities remain unchanged.
 
 ## Remaining
 
-- Open and merge the focused protected PR if Linux package, container, Terraform, and scans pass.
-- Build Snowflake upload/COPY/fencing against this contract in a separate branch.
-- Build Redshift S3/COPY/fencing only after the shared contract merges.
+- Run protected Linux CI, image/secret scans, and merge the focused PR if clean.
+- Resume Snowflake and Redshift runtime work only after this cleanup merges.
 
 ## Review First
 
-- `src/dander/warehouse/staging.py`
-- `tests/warehouse/test_staging.py`
-- `docs/warehouse-staging.md`
+- `src/dander/cli/run_command.py`
+- `src/dander/runtime.py`
+- `src/dander/pipeline/runtime.py`

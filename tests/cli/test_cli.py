@@ -21,16 +21,14 @@ def test_greenhouse_dry_run_needs_no_credentials_or_gcp() -> None:
             "run",
             "greenhouse",
             "--dry-run",
-            "--project",
-            "unit-project",
             "--connectors-dir",
             str(_REPO_ROOT / "connectors"),
         ],
     )
 
     assert result.exit_code == 0, result.output
-    assert "greenhouse_candidates" in result.output
-    assert "greenhouse_jobs" in result.output
+    assert "<unset>.raw.greenhouse_candidates" in result.output
+    assert "<unset>.raw.greenhouse_jobs" in result.output
     assert "SCD1" in result.output
 
 

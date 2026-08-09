@@ -60,7 +60,12 @@ from dander.state import (
     WatermarkStore,
 )
 from dander.transform import TransformProjectError, TransformRunError
-from dander.warehouse import WarehouseRuntime, WarehouseTransformRunner
+from dander.warehouse import (
+    RelationRef,
+    WarehouseCoordinateConfig,
+    WarehouseRuntime,
+    WarehouseTransformRunner,
+)
 from dander.writer import SchemaEvolution
 
 if TYPE_CHECKING:
@@ -107,19 +112,42 @@ class _ResolvedRun:
     project_pipeline: bool
     graph_file: Path | None
     graph_plan: GraphExecutionPlan | None
-    project: str
-    dataset: str
-    metadata_dataset: str
+    gcp_project: str
+    catalog: str
+    raw_namespace: str
+    metadata_namespace: str
+    endpoint_relations: dict[str, RelationRef]
+    state_catalog: str | None
+    state_namespace: str | None
     selected_models: tuple[str, ...] | None
     build_models: bool
     publish_dataplex: bool
     warehouse_provider: str
     warehouse_config: dict[str, object]
-    warehouse_catalog: str
     state_provider: str
     state_config: dict[str, object]
     catalog_provider: str
     secret_provider: str
+
+    @property
+    def project(self) -> str:
+        """Return the v1 CLI compatibility project value."""
+        return self.gcp_project
+
+    @property
+    def dataset(self) -> str:
+        """Return the v1 CLI compatibility dataset value."""
+        return self.raw_namespace
+
+    @property
+    def metadata_dataset(self) -> str:
+        """Return the v1 BigQuery metadata namespace alias."""
+        return self.metadata_namespace
+
+    @property
+    def warehouse_catalog(self) -> str:
+        """Return the former internal warehouse-catalog shim."""
+        return self.catalog
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,10 +167,11 @@ def execute_run(
 ) -> PipelineExecutionResult | None:
     """Resolve, execute, and render one ``dander run`` request."""
     resolved = _resolve_run(options)
+    _require_provider_compatible_options(options, resolved)
     if options.dry_run:
         _render_dry_run(options, resolved, console=console)
         return None
-    if _requires_gcp_project(resolved) and not resolved.project:
+    if _requires_gcp_project(resolved) and not resolved.gcp_project:
         raise ClickException("GCP project is required via --project or GCP_PROJECT_ID")
 
     _verify_safety(options, resolved)
@@ -227,19 +256,40 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
 
     settings = Settings()
     resolved_project = options.project or settings.gcp_project_id
-    resolved_dataset = options.dataset or settings.bq_dataset_raw
-    warehouse_catalog = (
-        str(warehouse_config["database"])
-        if warehouse_provider == "postgresql"
-        else resolved_project
+    state_catalog = (resolved_project or None) if state_provider == "bigquery" else None
+    state_namespace = (
+        (options.dataset or settings.bq_dataset_raw) if state_provider == "bigquery" else None
     )
+    registry = default_provider_registry()
+    try:
+        coordinate_config = registry.parse(ProviderKind.WAREHOUSE, warehouse_config)
+        if not isinstance(coordinate_config, WarehouseCoordinateConfig):
+            raise ProviderFactoryError(
+                f"Warehouse provider {warehouse_provider!r} cannot resolve relation coordinates"
+            )
+        coordinate = coordinate_config.raw_relation(
+            "_dander_coordinate",
+            compatibility_catalog=resolved_project or "dander-dry-run",
+            compatibility_namespace=options.dataset,
+            default_namespace=settings.bq_dataset_raw,
+        )
+        endpoint_relations = {
+            endpoint.name: coordinate_config.raw_relation(
+                f"{config.name}_{endpoint.name}",
+                compatibility_catalog=resolved_project or "dander-dry-run",
+                compatibility_namespace=options.dataset,
+                default_namespace=settings.bq_dataset_raw,
+            )
+            for endpoint in config.endpoints
+        }
+    except (ProviderFactoryError, ValueError) as error:
+        raise ClickException(str(error)) from error
     if options.sandbox and options.guarded_free_tier:
         raise ClickException("--sandbox and --guarded-free-tier are mutually exclusive")
     graph_plan = _resolve_graph_plan(
         graph_file,
         config,
-        project=warehouse_catalog,
-        dataset=resolved_dataset,
+        endpoint_relations=endpoint_relations,
         build_models=build_models,
         selected_models=selected_models,
         catalog_output=options.catalog_output,
@@ -252,15 +302,18 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         project_pipeline=project_pipeline,
         graph_file=graph_file,
         graph_plan=graph_plan,
-        project=resolved_project,
-        dataset=resolved_dataset,
-        metadata_dataset=settings.bq_dataset_metadata,
+        gcp_project=resolved_project,
+        catalog=coordinate.catalog,
+        raw_namespace=coordinate.namespace,
+        metadata_namespace=settings.bq_dataset_metadata,
+        endpoint_relations=endpoint_relations,
+        state_catalog=state_catalog,
+        state_namespace=state_namespace,
         selected_models=selected_models,
         build_models=build_models,
         publish_dataplex=publish_dataplex,
         warehouse_provider=warehouse_provider,
         warehouse_config=warehouse_config,
-        warehouse_catalog=warehouse_catalog,
         state_provider=state_provider,
         state_config=state_config,
         catalog_provider=catalog_provider,
@@ -272,8 +325,7 @@ def _resolve_graph_plan(
     graph_file: Path | None,
     config: SourceConfig,
     *,
-    project: str,
-    dataset: str,
+    endpoint_relations: dict[str, RelationRef],
     build_models: bool,
     selected_models: Sequence[str] | None,
     catalog_output: Path | None,
@@ -290,8 +342,7 @@ def _resolve_graph_plan(
         return plan_graph_execution(
             graph,
             config,
-            project=project or "dander-dry-run",
-            dataset=dataset,
+            endpoint_relations=endpoint_relations,
         )
     except GraphRuntimeError as error:
         raise ClickException(str(error)) from error
@@ -300,17 +351,28 @@ def _resolve_graph_plan(
 def _verify_safety(options: RunOptions, resolved: _ResolvedRun) -> None:
     if options.sandbox:
         try:
-            SandboxDataset().prepare(resolved.project, resolved.dataset)
+            SandboxDataset().prepare(resolved.gcp_project, resolved.raw_namespace)
         except SandboxSafetyError as error:
             raise ClickException(str(error)) from error
     elif options.guarded_free_tier:
         try:
             GuardedFreeTierVerifier().require_guarded(
-                resolved.project,
+                resolved.gcp_project,
                 budget_name=options.budget_name,
             )
         except SandboxSafetyError as error:
             raise ClickException(str(error)) from error
+
+
+def _require_provider_compatible_options(options: RunOptions, resolved: _ResolvedRun) -> None:
+    """Reject BigQuery-only operations before any external client can be constructed."""
+    if resolved.warehouse_provider != "bigquery":
+        if options.sandbox:
+            raise ClickException("--sandbox is available only with a BigQuery warehouse")
+        if options.guarded_free_tier:
+            raise ClickException("--guarded-free-tier is available only with a BigQuery warehouse")
+        if resolved.publish_dataplex and resolved.catalog_provider == "dataplex":
+            raise ClickException("Dataplex publication currently requires a BigQuery warehouse")
 
 
 def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExecutor:
@@ -329,7 +391,7 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
     dataplex_publisher = (
         build_catalog_publisher(
             provider_id=resolved.catalog_provider,
-            project=resolved.project,
+            catalog=resolved.catalog,
             location=options.dataplex_location,
         )
         if resolved.publish_dataplex
@@ -343,7 +405,9 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         source_config=resolved.source_config,
         ingestion=ingestion,
         history=stores.history,
-        project=resolved.warehouse_catalog,
+        catalog=resolved.catalog,
+        raw_namespace=resolved.raw_namespace,
+        source_relations=resolved.endpoint_relations,
         models_dir=(
             resolved.graph_file.parent if resolved.graph_file is not None else options.models_dir
         ),
@@ -397,8 +461,7 @@ def _build_ingestion_runner(
         source=source,
         writer=writer,
         watermarks=stores.watermarks,
-        project=resolved.warehouse_catalog,
-        dataset=resolved.dataset,
+        endpoint_relations=resolved.endpoint_relations,
         resume_from_watermark=not options.sandbox,
         batch_rows=options.batch_rows,
         endpoint_names=(
@@ -415,6 +478,7 @@ def _build_transform_runner(
     return warehouse.transforms.build_transform_runner(
         graph_plan=resolved.graph_plan,
         build_models=resolved.build_models,
+        raw_namespace=resolved.raw_namespace,
     )
 
 
@@ -428,7 +492,7 @@ def _build_warehouse_runtime(resolved: _ResolvedRun) -> WarehouseRuntime:
         runtime = registry.build(
             ProviderKind.WAREHOUSE,
             config,
-            context={"project": resolved.project},
+            context={"catalog": resolved.catalog},
         )
     except ProviderFactoryError as error:
         raise ClickException(str(error)) from error
@@ -451,19 +515,24 @@ def _build_state_runtime(resolved: _ResolvedRun) -> StateRuntime:
         runtime = registry.build(
             ProviderKind.STATE,
             config,
-            context={
-                "project": resolved.project,
-                "raw_dataset": resolved.dataset,
-                "metadata_dataset": resolved.metadata_dataset,
-                "project_pipeline": resolved.project_pipeline,
-                "metadata_enabled": (resolved.project_pipeline and resolved.graph_plan is None),
-            },
+            context=_state_runtime_context(resolved),
         )
     except ProviderFactoryError as error:
         raise ClickException(str(error)) from error
     if not isinstance(runtime, StateRuntime):
         raise ClickException("Selected state provider returned an invalid runtime")
     return runtime
+
+
+def _state_runtime_context(resolved: _ResolvedRun) -> dict[str, object]:
+    """Keep state-provider coordinates independent from warehouse coordinates."""
+    return {
+        "catalog": resolved.state_catalog,
+        "raw_namespace": resolved.state_namespace,
+        "metadata_namespace": resolved.metadata_namespace,
+        "project_pipeline": resolved.project_pipeline,
+        "metadata_enabled": (resolved.project_pipeline and resolved.graph_plan is None),
+    }
 
 
 def _require_executable_state_pair(*, state_provider: str, warehouse_provider: str) -> None:
@@ -570,27 +639,34 @@ def build_auth(
 
 
 def _render_dry_run(options: RunOptions, resolved: _ResolvedRun, *, console: Console) -> None:
+    missing_bigquery_catalog = (
+        resolved.warehouse_provider == "bigquery" and not resolved.gcp_project
+    )
     _print_plan(
         resolved.source_config.name,
-        resolved.project,
-        resolved.dataset,
+        resolved.endpoint_relations,
         _selected_endpoints(resolved.source_config, resolved.graph_plan),
         console=console,
+        catalog_label="<unset>" if missing_bigquery_catalog else None,
         sandbox=options.sandbox,
         guarded_free_tier=options.guarded_free_tier,
         batch_rows=options.batch_rows,
     )
     if resolved.graph_plan is not None:
-        _print_graph_plan(resolved.graph_plan, project=resolved.project, console=console)
+        _print_graph_plan(
+            resolved.graph_plan,
+            console=console,
+            catalog_label="<runtime-project>" if missing_bigquery_catalog else None,
+        )
 
 
 def _print_plan(
     source: str,
-    project: str,
-    dataset: str,
+    endpoint_relations: dict[str, RelationRef],
     endpoints: Sequence[Endpoint],
     *,
     console: Console,
+    catalog_label: str | None = None,
     sandbox: bool = False,
     guarded_free_tier: bool = False,
     batch_rows: int = 10_000,
@@ -607,9 +683,15 @@ def _print_plan(
             mode = "SCD1 (guarded billing)"
         else:
             mode = "SCD1"
+        relation = endpoint_relations[endpoint.name]
+        coordinates = (
+            (catalog_label, relation.namespace, relation.name)
+            if catalog_label is not None
+            else relation.coordinates
+        )
         table.add_row(
             endpoint.name,
-            f"{project or '<unset>'}.{dataset}.{source}_{endpoint.name}",
+            ".".join(coordinates),
             mode,
         )
     console.print(table)
@@ -629,8 +711,8 @@ def _selected_endpoints(
 def _print_graph_plan(
     plan: GraphExecutionPlan,
     *,
-    project: str,
     console: Console,
+    catalog_label: str | None = None,
 ) -> None:
     """Render the compiled target portion of a credential-free graph plan."""
     table = Table(title="PipelineGraph targets")
@@ -638,10 +720,15 @@ def _print_graph_plan(
     table.add_column("Target")
     table.add_column("Mode")
     for target in plan.targets:
-        target_project = project or "<runtime-project>"
+        relation = target.target.relation_ref
+        coordinates = (
+            (catalog_label, relation.namespace, relation.name)
+            if catalog_label is not None
+            else relation.coordinates
+        )
         table.add_row(
             target.node_id,
-            f"{target_project}.{target.target.dataset}.{target.target.table}",
+            ".".join(coordinates),
             target.write_mode.value.upper(),
         )
     console.print(table)

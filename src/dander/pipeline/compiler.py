@@ -29,20 +29,7 @@ from dander.pipeline.operations import (
 )
 from dander.transform.model import SqlDialect
 from dander.warehouse import RelationRef
-from dander.writer import (
-    BigQueryIncrementalWriter,
-    BigQueryReplaceWriter,
-    BigQueryScd1Writer,
-    BigQueryScd2Writer,
-    BigQuerySnapshotWriter,
-    BigQueryStorageIncrementalWriter,
-    BigQueryStorageScd1Writer,
-    WriteField,
-    WriteMode,
-    WritePattern,
-    WriteTarget,
-    WriteTransport,
-)
+from dander.writer.base import WriteField, WriteMode, WriteTarget
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -55,7 +42,7 @@ if TYPE_CHECKING:
         PipelineGraph,
         Transformation,
     )
-    from dander.writer.bigquery import _BigQueryClient
+    from dander.writer.base import WritePattern
 
 _RELATION = re.compile(
     r"^[A-Za-z][A-Za-z0-9-]{4,61}[A-Za-z0-9]\.[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$"
@@ -137,10 +124,11 @@ def compile_target(
     graph: PipelineGraph,
     target_node_id: str,
     *,
-    source_relations: Mapping[str, str],
+    source_relations: Mapping[str, RelationRef | str],
+    default_catalog: str | None = None,
     default_project: str | None = None,
 ) -> CompiledTarget:
-    """Compile one source dependency subgraph into a BigQuery target SELECT.
+    """Compile one source dependency subgraph into a provider-neutral target SELECT.
 
     Linear mappings and explicit two-input transform joins are executable. Legacy edge joins
     remain declarative because that shape makes the right input and output the same node.
@@ -168,25 +156,28 @@ def compile_target(
     final_alias = compiler.compile_node(target_node_id)
 
     destination = config.writer.destination
-    project = destination.project or default_project
-    if project is None:
-        raise PipelineCompileError(
-            f"Target node {target_node_id!r} must set destination.project for compilation"
-        )
+    if default_catalog is None:
+        default_catalog = default_project
+    elif default_project is not None and default_project != default_catalog:
+        raise PipelineCompileError("default_catalog and legacy default_project must match")
     query_ast = exp.Select(
         expressions=[_column(field.name) for field in target.fields],
         from_=exp.From(this=_cte_table(final_alias)),
     )
     query_ast.set("with_", exp.With(expressions=compiler.ctes))
     query = render_graph_query(query_ast, target_dialect=SqlDialect.BIGQUERY)
+    try:
+        target_relation = destination.relation_ref(default_catalog=default_catalog)
+    except ValueError as error:
+        raise PipelineCompileError(
+            f"Target node {target_node_id!r} has an invalid destination"
+        ) from error
     return CompiledTarget(
         node_id=target_node_id,
         query=query,
         write_mode=config.writer.write_mode,
         target=WriteTarget(
-            project=project,
-            dataset=destination.dataset,
-            table=destination.table,
+            relation=target_relation,
             business_key=tuple(destination.business_key),
             schema=tuple(
                 WriteField(name=field.name, data_type=field.cast_to or field.type)
@@ -237,7 +228,7 @@ class _GraphSqlCompiler:
         *,
         nodes: Mapping[str, Node],
         incoming: Mapping[str, list[Edge]],
-        source_relations: Mapping[str, str],
+        source_relations: Mapping[str, RelationRef | str],
     ) -> None:
         self._nodes = nodes
         self._incoming = incoming
@@ -289,15 +280,18 @@ class _GraphSqlCompiler:
         relation = self._source_relations.get(node.id)
         if relation is None:
             raise PipelineCompileError(f"Missing source relation for node {node.id!r}")
-        if not _RELATION.fullmatch(relation):
-            raise PipelineCompileError(
-                f"Source relation for node {node.id!r} must be project.dataset.table"
-            )
+        if isinstance(relation, str):
+            if not _RELATION.fullmatch(relation):
+                raise PipelineCompileError(
+                    f"Source relation for node {node.id!r} must be catalog.namespace.relation"
+                )
+            relation_ref = _parse_relation(relation)
+        else:
+            relation_ref = relation
         columns = [_compile_source_field(field) for field in node.fields]
         if not columns:
             raise PipelineCompileError(f"Source node {node.id!r} must declare fields")
         alias = self._next_alias()
-        relation_ref = _parse_relation(relation)
         query = exp.Select(expressions=columns, from_=exp.From(this=_relation_table(relation_ref)))
         self.ctes.append(_cte(alias, query))
         self._aliases[node.id] = alias
@@ -472,88 +466,13 @@ def prepare_target_writer(
     default_project: str,
     client: object | None = None,
 ) -> PreparedTargetWriter:
-    """Resolve target-node configuration to one concrete BigQuery writer."""
-    config = target_node.config
-    if target_node.type != "target" or not isinstance(config, TargetNodeConfig):
-        raise PipelineCompileError(f"Node {target_node.id!r} is not a configured target")
-    if config.writer is None:
-        raise PipelineCompileError(f"Target node {target_node.id!r} has no writer configuration")
-    writer_config = config.writer
-    destination = writer_config.destination
-    project = destination.project or default_project
-    typed_client = cast("_BigQueryClient | None", client)
-    match writer_config.write_mode:
-        case WriteMode.SCD1:
-            if writer_config.transport is WriteTransport.STORAGE_WRITE:
-                writer: WritePattern = BigQueryStorageScd1Writer(
-                    project=project,
-                    client=typed_client,
-                    max_batch_rows=writer_config.max_batch_rows,
-                    schema_evolution=writer_config.schema_evolution,
-                )
-            else:
-                writer = BigQueryScd1Writer(
-                    project=project,
-                    client=typed_client,
-                    max_batch_rows=writer_config.max_batch_rows,
-                    schema_evolution=writer_config.schema_evolution,
-                )
-        case WriteMode.SCD2:
-            writer = BigQueryScd2Writer(
-                project=project,
-                client=typed_client,
-                max_batch_rows=writer_config.max_batch_rows,
-                schema_evolution=writer_config.schema_evolution,
-            )
-        case WriteMode.INCREMENTAL:
-            assert writer_config.cursor_field is not None
-            if writer_config.transport is WriteTransport.STORAGE_WRITE:
-                writer = BigQueryStorageIncrementalWriter(
-                    project=project,
-                    cursor_field=writer_config.cursor_field,
-                    client=typed_client,
-                    max_batch_rows=writer_config.max_batch_rows,
-                    schema_evolution=writer_config.schema_evolution,
-                )
-            else:
-                writer = BigQueryIncrementalWriter(
-                    project=project,
-                    cursor_field=writer_config.cursor_field,
-                    client=typed_client,
-                    max_batch_rows=writer_config.max_batch_rows,
-                    schema_evolution=writer_config.schema_evolution,
-                )
-        case WriteMode.SNAPSHOT:
-            partitioning = writer_config.partitioning
-            if partitioning is None or partitioning.field is None:
-                raise PipelineCompileError(
-                    "Snapshot target execution requires field-based partitioning"
-                )
-            writer = BigQuerySnapshotWriter(
-                project=project,
-                snapshot_field=partitioning.field,
-                client=typed_client,
-                max_batch_rows=writer_config.max_batch_rows,
-                schema_evolution=writer_config.schema_evolution,
-            )
-        case WriteMode.REPLACE:
-            writer = BigQueryReplaceWriter(
-                project=project,
-                client=typed_client,
-                max_batch_rows=writer_config.max_batch_rows,
-            )
-    return PreparedTargetWriter(
-        writer=writer,
-        target=WriteTarget(
-            project=project,
-            dataset=destination.dataset,
-            table=destination.table,
-            business_key=tuple(destination.business_key),
-            schema=tuple(
-                WriteField(name=field.name, data_type=field.cast_to or field.type)
-                for field in target_node.fields
-            ),
-        ),
+    """Compatibility wrapper for BigQuery writer preparation at its provider boundary."""
+    from dander.providers.bigquery.graph import prepare_bigquery_target_writer
+
+    return prepare_bigquery_target_writer(
+        target_node,
+        default_catalog=default_project,
+        client=client,
     )
 
 

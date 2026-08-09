@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -10,11 +12,9 @@ import pytest
 from dander.concurrency import FencingToken
 from dander.ingestion import Endpoint, RawField, SourceConfig
 from dander.pipeline.graph import NodeField, PipelineGraph
-from dander.pipeline.runtime import (
-    BigQueryGraphRunner,
-    GraphRuntimeError,
-    plan_graph_execution,
-)
+from dander.pipeline.runtime import GraphRuntimeError, plan_graph_execution
+from dander.providers.bigquery.graph import BigQueryGraphRunner
+from dander.warehouse import RelationRef
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -52,6 +52,25 @@ class _Ownership:
 
     def verify(self) -> None:
         self.verifications += 1
+
+
+def test_neutral_graph_planning_does_not_import_bigquery_runtime() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; import dander.pipeline.runtime, dander.pipeline.compiler; "
+                "assert 'google.cloud.bigquery' not in sys.modules; "
+                "assert 'dander.providers.bigquery.graph' not in sys.modules"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def _source_config() -> SourceConfig:
@@ -140,7 +159,13 @@ def test_plan_binds_only_declared_connector_endpoint() -> None:
     )
 
     assert plan.bindings.endpoint_names == ("jobs",)
-    assert plan.bindings.source_relations == {"jobs": "unit-project.raw.greenhouse_job_board_jobs"}
+    assert plan.bindings.source_relations == {
+        "jobs": RelationRef(
+            catalog="unit-project",
+            namespace="raw",
+            name="greenhouse_job_board_jobs",
+        )
+    }
     assert plan.targets[0].target.table == "graph_jobs"
     assert "`unit-project`.`raw`.`greenhouse_job_board_jobs`" in plan.targets[0].query
 

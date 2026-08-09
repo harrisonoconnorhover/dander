@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # before overriding the rule here.
 from dander.pipeline.operations import OperationSpec  # noqa: TC001
 from dander.pipeline.request_spec import RequestSpec  # noqa: TC001
+from dander.warehouse.contracts import RelationRef  # noqa: TC001
 from dander.writer.base import SchemaEvolution, WriteMode, WriteTransport  # noqa: TC001
 
 
@@ -185,25 +186,10 @@ class PartitioningSpec(BaseModel):
 
 
 class DestinationSpec(BaseModel):
-    """Declarative BigQuery destination for a target write, mirroring `WriteTarget`.
+    """Declarative target location retaining the version-1 graph field names.
 
-    Structurally mirrors `dander.writer.base.WriteTarget` (`project`/`dataset`/`table`/
-    `business_key`) 1:1. `compile_target` and `prepare_target_writer` perform the runtime mapping
-    after resolving an optional project from deployment context. Unlike `WriteTarget` (a frozen
-    dataclass — the internal runtime value object), this is a Pydantic model, per
-    `steering/languages/python.md`'s config/runtime split. Dataset/table values here are ordinary
-    identifiers, never secrets (`steering/01-security.md`).
-
-    Attributes:
-        project: GCP project id hosting the destination dataset. `None` means "resolve from
-            deployment context later" — deliberately not required here since this model only
-            declares config, never executes a write.
-        dataset: BigQuery dataset name. Required, non-empty.
-        table: BigQuery table name. Required, non-empty.
-        business_key: Ordered column names identifying a logical row for MERGE/versioning writes
-            (mirrors `WriteTarget.business_key`, which is a `tuple[str, ...]` internally; this is
-            a `list[str]` at the config boundary). Defaults to empty — required non-empty for the
-            `WriteMode`s that need one; see `WriterConfig._check_mode_requirements`.
+    The legacy fields are a configuration boundary only. ``relation_ref`` translates them into
+    canonical coordinates before provider-neutral compilation and execution.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -212,6 +198,28 @@ class DestinationSpec(BaseModel):
     dataset: str = Field(min_length=1)
     table: str = Field(min_length=1)
     business_key: list[str] = Field(default_factory=list)
+
+    def relation_ref(self, *, default_catalog: str | None = None) -> RelationRef:
+        """Resolve deployment catalog context into one canonical relation."""
+        catalog = self.project or default_catalog
+        if catalog is None:
+            raise ValueError("Destination requires a catalog")
+        return RelationRef(catalog=catalog, namespace=self.dataset, name=self.table)
+
+    @classmethod
+    def from_relation(
+        cls,
+        relation: RelationRef,
+        *,
+        business_key: list[str] | None = None,
+    ) -> DestinationSpec:
+        """Create compatible graph configuration from canonical coordinates."""
+        return cls(
+            project=relation.catalog,
+            dataset=relation.namespace,
+            table=relation.name,
+            business_key=business_key or [],
+        )
 
 
 class WriterConfig(BaseModel):

@@ -107,6 +107,7 @@ class PostgreSQLTransformFactory:
         *,
         graph_plan: object | None,
         build_models: bool,
+        raw_namespace: str = "raw",
     ) -> PostgreSQLTransformRunner | None:
         if graph_plan is not None:
             raise ValueError("PostgreSQL graph execution is not available")
@@ -117,6 +118,7 @@ class PostgreSQLTransformFactory:
             pool=self.pool,
             target_fence=self.target_fence,
             timeouts=self.timeouts,
+            raw_namespace=raw_namespace,
         )
 
 

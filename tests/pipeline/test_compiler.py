@@ -29,6 +29,7 @@ from dander.pipeline.node_config import (
     WriterConfig,
 )
 from dander.pipeline.operations import OperationSpec
+from dander.warehouse import RelationRef
 from dander.writer import (
     BigQueryIncrementalWriter,
     BigQueryReplaceWriter,
@@ -499,6 +500,44 @@ def test_compile_resolves_default_project() -> None:
     )
 
     assert compiled.target.project == "fallback-project"
+
+
+def test_compile_preserves_canonical_coordinates_without_bigquery_names() -> None:
+    graph = _linear_graph()
+    assert isinstance(graph.nodes[-1].config, TargetNodeConfig)
+    assert graph.nodes[-1].config.writer is not None
+    graph.nodes[-1].config.writer.destination = DestinationSpec.from_relation(
+        RelationRef(
+            catalog="warehouse_db",
+            namespace="analytics",
+            name="people",
+        ),
+        business_key=["person_id"],
+    )
+    source = RelationRef(
+        catalog="warehouse_db",
+        namespace="landing",
+        name="people",
+    )
+
+    compiled = compile_target(
+        graph,
+        "target",
+        source_relations={"source": source},
+        default_catalog="warehouse_db",
+    )
+
+    assert compiled.target.relation_ref == RelationRef(
+        catalog="warehouse_db",
+        namespace="analytics",
+        name="people",
+    )
+    source_table = next(
+        table
+        for table in compiled.query_ast.find_all(exp.Table)
+        if table.name == "people" and table.db == "landing"
+    )
+    assert source_table.catalog == "warehouse_db"
 
 
 @pytest.mark.parametrize(

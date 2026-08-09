@@ -11,6 +11,7 @@ from google.cloud import bigquery
 
 from dander.concurrency import FencingToken, TargetFence, TargetFenceLostError
 from dander.providers import ProviderKind, default_provider_registry
+from dander.providers.bigquery.config import BigQueryWarehouseConfig
 from dander.providers.bigquery.fence import BigQueryTargetFence
 from dander.telemetry import TelemetryOperation
 from dander.warehouse import LogicalTypeKind, RelationRef, WarehouseRuntime
@@ -56,6 +57,21 @@ def test_default_registry_loads_bigquery_runtime_only_after_selection() -> None:
     assert runtime.capabilities.write_modes == frozenset(WriteMode)
     assert runtime.capabilities.transports == frozenset(
         {WriteTransport.LOAD_JOB, WriteTransport.STORAGE_WRITE}
+    )
+
+
+def test_bigquery_config_translates_legacy_cli_coordinates() -> None:
+    relation = BigQueryWarehouseConfig(provider="bigquery").raw_relation(
+        "accounts",
+        compatibility_catalog="unit-project",
+        compatibility_namespace="landing",
+        default_namespace="raw",
+    )
+
+    assert relation == RelationRef(
+        catalog="unit-project",
+        namespace="landing",
+        name="accounts",
     )
 
 

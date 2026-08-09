@@ -1,4 +1,4 @@
-"""Model discovery, dependency resolution, and safe BigQuery SQL compilation."""
+"""Model discovery, dependency resolution, and safe warehouse SQL compilation."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from sqlglot import exp
 from dander.transform.config import ModelMetadata, TransformConfigError, load_model_metadata
 from dander.transform.dialects import PortableSqlError, parse_portable_query, render_portable_query
 from dander.transform.model import SqlDialect, parse_refs
+from dander.warehouse import RelationRef
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -44,27 +45,37 @@ class TransformModel:
 
 
 class TransformProject:
-    """Discovered transform models and their project-scoped relation resolver."""
+    """Discovered transform models and their catalog-scoped relation resolver."""
 
     def __init__(
         self,
         *,
-        project_id: str,
+        catalog: str | None = None,
+        project_id: str | None = None,
+        raw_namespace: str = "raw",
         models: Iterable[TransformModel],
         target_dialect: SqlDialect | str = SqlDialect.BIGQUERY,
     ) -> None:
+        if catalog is None:
+            catalog = project_id
+        elif project_id is not None and project_id != catalog:
+            raise TransformProjectError("catalog and legacy project_id must match")
+        if catalog is None:
+            raise TransformProjectError("Warehouse catalog is required")
         try:
             self.target_dialect = SqlDialect(target_dialect)
         except ValueError as error:
             raise TransformProjectError(f"Unknown target SQL dialect: {target_dialect}") from error
         if self.target_dialect is SqlDialect.BIGQUERY:
-            if not _PROJECT_ID.fullmatch(project_id):
+            if not _PROJECT_ID.fullmatch(catalog):
                 raise TransformProjectError("Invalid GCP project id")
         elif self.target_dialect is SqlDialect.POSTGRES:
-            if not _POSTGRESQL_CATALOG.fullmatch(project_id):
+            if not _POSTGRESQL_CATALOG.fullmatch(catalog):
                 raise TransformProjectError("Invalid PostgreSQL database name")
-        elif not _IDENTIFIER.fullmatch(project_id):
+        elif not _IDENTIFIER.fullmatch(catalog):
             raise TransformProjectError("Invalid warehouse catalog identifier")
+        if not _IDENTIFIER.fullmatch(raw_namespace):
+            raise TransformProjectError("Invalid raw namespace identifier")
         indexed: dict[str, TransformModel] = {}
         for model in models:
             if model.name in indexed:
@@ -72,23 +83,32 @@ class TransformProject:
             indexed[model.name] = model
         if not indexed:
             raise TransformProjectError("No SQL models were found")
-        self.project_id = project_id
+        self.catalog = catalog
+        self.raw_namespace = raw_namespace
         self.models = indexed
         self._validate_references()
+
+    @property
+    def project_id(self) -> str:
+        """Return the legacy BigQuery-named alias for the warehouse catalog."""
+        return self.catalog
 
     @classmethod
     def load(
         cls,
         models_dir: Path,
         *,
-        project_id: str,
+        catalog: str | None = None,
+        project_id: str | None = None,
+        raw_namespace: str = "raw",
         target_dialect: SqlDialect | str = SqlDialect.BIGQUERY,
     ) -> TransformProject:
         """Discover every SQL model beneath a directory and load its YAML sidecar.
 
         Args:
             models_dir: Root containing model SQL and YAML files.
-            project_id: Warehouse catalog used to qualify or validate compiled relations.
+            catalog: Warehouse catalog used to qualify or validate compiled relations.
+            project_id: Deprecated compatibility alias for ``catalog``.
 
         Returns:
             A validated transform project.
@@ -121,7 +141,13 @@ class TransformProject:
                     sql_path=sql_path,
                 )
             )
-        return cls(project_id=project_id, models=discovered, target_dialect=target_dialect)
+        return cls(
+            catalog=catalog,
+            project_id=project_id,
+            raw_namespace=raw_namespace,
+            models=discovered,
+            target_dialect=target_dialect,
+        )
 
     def ordered(self, selected: Iterable[str] | None = None) -> tuple[TransformModel, ...]:
         """Return selected models plus model dependencies in topological order.
@@ -173,9 +199,15 @@ class TransformProject:
     ) -> str:
         """Return a quoted fully-qualified output relation."""
         dialect = self._resolved_target(target_dialect)
-        if dialect is SqlDialect.BIGQUERY:
-            return self._relation(model.metadata.dataset, model.name)
-        return self._relation_for_dialect(model.metadata.dataset, model.name, dialect=dialect)
+        return self._render_relation(self.relation_ref_for_model(model), dialect=dialect)
+
+    def relation_ref_for_model(self, model: TransformModel) -> RelationRef:
+        """Return canonical coordinates for one materialized model."""
+        return RelationRef(
+            catalog=self.catalog,
+            namespace=model.metadata.namespace,
+            name=model.name,
+        )
 
     def relation_for_ref(
         self,
@@ -185,14 +217,20 @@ class TransformProject:
     ) -> str:
         """Resolve a model reference or conventional `raw_<table>` source reference."""
         dialect = self._resolved_target(target_dialect)
+        return self._render_relation(self.relation_ref_for_ref(reference), dialect=dialect)
+
+    def relation_ref_for_ref(self, reference: str) -> RelationRef:
+        """Resolve a model or raw reference without provider-specific rendering."""
         if reference in self.models:
-            return self.relation_for_model(self.models[reference], target_dialect=dialect)
+            return self.relation_ref_for_model(self.models[reference])
         if reference.startswith(_RAW_PREFIX):
             table = reference.removeprefix(_RAW_PREFIX)
             if _IDENTIFIER.fullmatch(table):
-                if dialect is SqlDialect.BIGQUERY:
-                    return self._relation("raw", table)
-                return self._relation_for_dialect("raw", table, dialect=dialect)
+                return RelationRef(
+                    catalog=self.catalog,
+                    namespace=self.raw_namespace,
+                    name=table,
+                )
         raise TransformProjectError(f"Unknown model reference: {reference}")
 
     def compile(
@@ -272,21 +310,16 @@ class TransformProject:
         except ValueError as error:
             raise TransformProjectError(f"Unknown target SQL dialect: {target}") from error
 
-    def _relation(self, dataset: str, table: str) -> str:
-        if not _IDENTIFIER.fullmatch(dataset) or not _IDENTIFIER.fullmatch(table):
-            raise TransformProjectError("Unsafe BigQuery relation identifier")
-        return f"`{self.project_id}.{dataset}.{table}`"
-
-    def _relation_for_dialect(self, dataset: str, table: str, *, dialect: SqlDialect) -> str:
-        if not _IDENTIFIER.fullmatch(dataset) or not _IDENTIFIER.fullmatch(table):
-            raise TransformProjectError("Unsafe relation identifier")
+    def _render_relation(self, relation_ref: RelationRef, *, dialect: SqlDialect) -> str:
+        if dialect is SqlDialect.BIGQUERY:
+            return f"`{'.'.join(relation_ref.coordinates)}`"
         relation = exp.Table(
-            this=exp.to_identifier(table, quoted=True),
-            db=exp.to_identifier(dataset, quoted=True),
+            this=exp.to_identifier(relation_ref.name, quoted=True),
+            db=exp.to_identifier(relation_ref.namespace, quoted=True),
             catalog=(
                 None
                 if dialect is SqlDialect.POSTGRES
-                else exp.to_identifier(self.project_id, quoted=True)
+                else exp.to_identifier(relation_ref.catalog, quoted=True)
             ),
         )
         return relation.sql(dialect=dialect.value)
@@ -297,15 +330,7 @@ class TransformProject:
         *,
         dialect: SqlDialect,
     ) -> tuple[str, ...]:
-        if reference in self.models:
-            namespace = self.models[reference].metadata.dataset
-            name = reference
-        elif reference.startswith(_RAW_PREFIX) and _IDENTIFIER.fullmatch(
-            name := reference.removeprefix(_RAW_PREFIX)
-        ):
-            namespace = "raw"
-        else:
-            raise TransformProjectError(f"Unknown model reference: {reference}")
+        relation = self.relation_ref_for_ref(reference)
         if dialect is SqlDialect.POSTGRES:
-            return (namespace, name)
-        return (self.project_id, namespace, name)
+            return (relation.namespace, relation.name)
+        return relation.coordinates

@@ -19,7 +19,6 @@ from dander.transform import (
     TransformRunResult,
 )
 from dander.transform.model import Materialization
-from dander.warehouse import RelationRef
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -28,6 +27,7 @@ if TYPE_CHECKING:
     from dander.concurrency import OwnershipGuard, TargetFence
     from dander.providers.postgresql.fence import PostgreSQLTargetFence
     from dander.transform.config import GenericTestMetadata
+    from dander.warehouse import RelationRef
 
 PostgreSQLRow = dict[str, object]
 PostgreSQLPool = ConnectionPool[Connection[PostgreSQLRow]]
@@ -52,11 +52,13 @@ class PostgreSQLTransformRunner:
         pool: PostgreSQLPool,
         target_fence: PostgreSQLTargetFence,
         timeouts: PostgreSQLTimeouts,
+        raw_namespace: str = "raw",
     ) -> None:
         self._database = database
         self._pool = pool
         self._target_fence = target_fence
         self._timeouts = timeouts
+        self._raw_namespace = raw_namespace
 
     def build(
         self,
@@ -70,7 +72,8 @@ class PostgreSQLTransformRunner:
             raise TransformRunError("PostgreSQL hosted transforms require active lease ownership")
         project = TransformProject.load(
             models_dir,
-            project_id=self._database,
+            catalog=self._database,
+            raw_namespace=self._raw_namespace,
             target_dialect=SqlDialect.POSTGRES,
         )
         models = project.ordered(selected)
@@ -100,7 +103,8 @@ class PostgreSQLTransformRunner:
         """Evaluate assertions against already materialized PostgreSQL relations."""
         project = TransformProject.load(
             models_dir,
-            project_id=self._database,
+            catalog=self._database,
+            raw_namespace=self._raw_namespace,
             target_dialect=SqlDialect.POSTGRES,
         )
         models = project.ordered(selected)
@@ -337,32 +341,24 @@ def _assertions_for_test(
 
 
 def _relation_ref(project: TransformProject, model: TransformModel) -> RelationRef:
-    return RelationRef(
-        catalog=project.project_id,
-        namespace=model.metadata.dataset,
-        name=model.name,
-    )
+    return project.relation_ref_for_model(model)
 
 
 def _relation_identifier(model: TransformModel) -> sql.Identifier:
-    return sql.Identifier(model.metadata.dataset, model.name)
+    return sql.Identifier(model.metadata.namespace, model.name)
 
 
 def _relation_identifier_for_ref(
     project: TransformProject,
     reference: str,
 ) -> sql.Identifier:
-    if reference in project.models:
-        model = project.models[reference]
-        return _relation_identifier(model)
-    if reference.startswith("raw_"):
-        return sql.Identifier("raw", reference.removeprefix("raw_"))
-    raise TransformProjectError(f"Unknown model reference: {reference}")
+    relation = project.relation_ref_for_ref(reference)
+    return sql.Identifier(relation.namespace, relation.name)
 
 
 def _unique_index_name(model: TransformModel) -> str:
     digest = hashlib.sha256(
-        f"{model.metadata.dataset}.{model.name}:{','.join(model.metadata.unique_key)}".encode()
+        f"{model.metadata.namespace}.{model.name}:{','.join(model.metadata.unique_key)}".encode()
     ).hexdigest()[:10]
     return f"dander_uq_{model.name}"[:51] + f"_{digest}"
 

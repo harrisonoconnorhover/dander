@@ -17,16 +17,13 @@ from dander.transform.project import (
     TransformProject,
     TransformProjectError,
 )
+from dander.transform.result import TransformRunError, TransformRunResult
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
 
     from dander.transform.config import GenericTestMetadata
-
-
-class TransformRunError(RuntimeError):
-    """Raised when model execution or a generic assertion fails."""
 
 
 class _QueryRow(Protocol):
@@ -50,14 +47,6 @@ class _BigQueryClient(Protocol):
 
 
 @dataclass(frozen=True)
-class TransformRunResult:
-    """Summary of models materialized and assertions evaluated."""
-
-    models: tuple[str, ...]
-    assertions: int
-
-
-@dataclass(frozen=True)
 class _Assertion:
     name: str
     sql: str
@@ -74,8 +63,15 @@ class BigQueryTransformRunner:
 
     target_dialect = SqlDialect.BIGQUERY
 
-    def __init__(self, *, project: str, client: _BigQueryClient | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        project: str,
+        raw_namespace: str = "raw",
+        client: _BigQueryClient | None = None,
+    ) -> None:
         self._project = project
+        self._raw_namespace = raw_namespace
         self._client = client or cast("_BigQueryClient", bigquery.Client(project=project))
 
     def build(
@@ -86,7 +82,11 @@ class BigQueryTransformRunner:
         ownership: OwnershipGuard | None = None,
     ) -> TransformRunResult:
         """Materialize selected models in dependency order, then run their assertions."""
-        project = TransformProject.load(models_dir, project_id=self._project)
+        project = TransformProject.load(
+            models_dir,
+            catalog=self._project,
+            raw_namespace=self._raw_namespace,
+        )
         models = project.ordered(selected)
         compiled = [(model, project.compile(model)) for model in models]
         statements = [
@@ -119,7 +119,11 @@ class BigQueryTransformRunner:
         selected: Iterable[str] | None = None,
     ) -> TransformRunResult:
         """Run assertions against already-materialized selected model relations."""
-        project = TransformProject.load(models_dir, project_id=self._project)
+        project = TransformProject.load(
+            models_dir,
+            catalog=self._project,
+            raw_namespace=self._raw_namespace,
+        )
         models = project.ordered(selected)
         assertions = [
             assertion for model in models for assertion in _compile_assertions(project, model)

@@ -854,3 +854,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   manifest exposes counts and fingerprints but no row values, credentials, or provider locations.
 - **Cleanup:** Normal exit removes only the exact owned run directory. One oversized record may
   exceed the logical-byte target but stays a singleton; remote adapters must enforce service limits.
+
+## 2026-08-08 — Neutral orchestration carries canonical relation coordinates
+
+- **Boundary:** Provider-neutral run, graph, transform, metadata, and writer orchestration carries
+  `RelationRef(catalog, namespace, name)`. Warehouse providers own translation from their native
+  configuration into those coordinates and back into provider SDK or SQL vocabulary.
+- **Compatibility:** Existing `--project`, `--dataset`, `project_id`, and serialized catalog fields
+  remain supported, but are translated at CLI or provider boundaries instead of defining the
+  neutral runtime contract. BigQuery resource identities and defaults remain unchanged.
+- **Correctness:** A selected raw namespace is shared by ingestion, transforms, and metadata;
+  canonical source coordinates are preserved rather than reconstructed from BigQuery defaults.
+  State backends keep their own control catalog and namespace in mixed-provider compositions.

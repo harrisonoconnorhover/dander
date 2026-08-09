@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from dander.state.run_history import RunHistoryStore, RunStatus
+from dander.warehouse import RelationRef
 from dander.writer.base import WriteField, WriteTarget
 
 if TYPE_CHECKING:
@@ -61,8 +62,9 @@ class PipelineRunner:
         source: Source,
         writer: WritePattern,
         watermarks: WatermarkStore,
-        project: str,
-        dataset: str,
+        endpoint_relations: Mapping[str, RelationRef] | None = None,
+        project: str | None = None,
+        dataset: str | None = None,
         resume_from_watermark: bool = True,
         history: RunHistoryStore | None = None,
         batch_rows: int = 10_000,
@@ -72,8 +74,6 @@ class PipelineRunner:
         self._source = source
         self._writer = writer
         self._watermarks = watermarks
-        self._project = project
-        self._dataset = dataset
         self._resume_from_watermark = resume_from_watermark
         self._history = history
         self._target_fence = target_fence
@@ -81,6 +81,28 @@ class PipelineRunner:
             raise ValueError("batch_rows must be an integer from 1 to 100000")
         self._batch_rows = batch_rows
         configured = {endpoint.name for endpoint in source.config.endpoints}
+        if endpoint_relations is None:
+            if project is None or dataset is None:
+                raise ValueError(
+                    "PipelineRunner requires endpoint_relations or legacy project/dataset"
+                )
+            endpoint_relations = {
+                endpoint: RelationRef(
+                    catalog=project,
+                    namespace=dataset,
+                    name=f"{source.config.name}_{endpoint}",
+                )
+                for endpoint in configured
+            }
+        elif project is not None or dataset is not None:
+            raise ValueError(
+                "PipelineRunner cannot combine endpoint_relations with project/dataset"
+            )
+        if missing := sorted(configured - endpoint_relations.keys()):
+            raise ValueError(f"Missing target relation for endpoint: {missing[0]!r}")
+        if unknown_relations := sorted(endpoint_relations.keys() - configured):
+            raise ValueError(f"Unknown target relation endpoint: {unknown_relations[0]!r}")
+        self._endpoint_relations = dict(endpoint_relations)
         if endpoint_names is None:
             self._endpoint_names = None
         else:
@@ -168,9 +190,7 @@ class PipelineRunner:
         if ownership is not None:
             ownership.verify()
         target = WriteTarget(
-            project=self._project,
-            dataset=self._dataset,
-            table=f"{source_name}_{endpoint.name}",
+            relation=self._endpoint_relations[endpoint.name],
             business_key=tuple(endpoint.primary_key),
             schema=tuple(_write_field(field) for field in endpoint.raw_schema),
             fence=ownership.fence if ownership is not None else None,

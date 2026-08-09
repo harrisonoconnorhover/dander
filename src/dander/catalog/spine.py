@@ -6,11 +6,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
     from dander.ingestion import SourceConfig
     from dander.transform import TransformModel, TransformProject
     from dander.transform.config import GenericTestMetadata, MetricMetadata, Scalar
+    from dander.warehouse import RelationRef
 
 
 @dataclass(frozen=True)
@@ -80,10 +81,7 @@ class MetricDefinition:
 class CatalogAsset:
     """Cloud-neutral metadata spine record for one materialized model."""
 
-    project: str
-    dataset: str
-    name: str
-    relation: str
+    relation_ref: RelationRef
     description: str
     owner: str
     materialization: str
@@ -93,6 +91,26 @@ class CatalogAsset:
     columns: tuple[CatalogColumn, ...]
     tests: tuple[TestContract, ...]
     metrics: tuple[MetricDefinition, ...]
+
+    @property
+    def project(self) -> str:
+        """Return the legacy BigQuery-named catalog alias."""
+        return self.relation_ref.catalog
+
+    @property
+    def dataset(self) -> str:
+        """Return the legacy BigQuery-named namespace alias."""
+        return self.relation_ref.namespace
+
+    @property
+    def name(self) -> str:
+        """Return the relation name."""
+        return self.relation_ref.name
+
+    @property
+    def relation(self) -> str:
+        """Return stable unquoted canonical coordinates for serialization."""
+        return ".".join(self.relation_ref.coordinates)
 
     def to_manifest(self) -> dict[str, object]:
         """Return a deterministic JSON-compatible semantic registry record."""
@@ -126,7 +144,7 @@ class MetadataSpine:
     def manifest(self, assets: Iterable[CatalogAsset]) -> dict[str, object]:
         """Build a versioned semantic registry without volatile timestamps."""
         ordered = sorted(assets, key=lambda asset: asset.relation)
-        projects = sorted({asset.project for asset in ordered})
+        projects = sorted({asset.relation_ref.catalog for asset in ordered})
         return {
             "schema_version": 1,
             "projects": projects,
@@ -139,10 +157,11 @@ class MetadataSpine:
         pipeline_id: str,
         source: SourceConfig,
         assets: Iterable[CatalogAsset],
+        source_relations: Mapping[str, RelationRef] | None = None,
     ) -> dict[str, object]:
         """Project source, model, lineage, test, and metric metadata as one snapshot."""
         ordered = sorted(assets, key=lambda asset: asset.relation)
-        projects = sorted({asset.project for asset in ordered})
+        projects = sorted({asset.relation_ref.catalog for asset in ordered})
         project_id = projects[0] if len(projects) == 1 else ""
         return {
             "schema_version": 2,
@@ -155,9 +174,13 @@ class MetadataSpine:
                     {
                         "name": endpoint.name,
                         "relation": (
-                            f"{project_id}.raw.{source.name}_{endpoint.name}"
-                            if project_id
-                            else f"raw.{source.name}_{endpoint.name}"
+                            ".".join(source_relations[endpoint.name].coordinates)
+                            if source_relations is not None
+                            else (
+                                f"{project_id}.raw.{source.name}_{endpoint.name}"
+                                if project_id
+                                else f"raw.{source.name}_{endpoint.name}"
+                            )
                         ),
                         "primary_key": list(endpoint.primary_key),
                         "incremental_cursor": endpoint.incremental_cursor,
@@ -172,17 +195,15 @@ class MetadataSpine:
         metadata = model.metadata
         not_null_columns = {test.column for test in metadata.tests if test.not_null}
         return CatalogAsset(
-            project=project.project_id,
-            dataset=metadata.dataset,
-            name=model.name,
-            relation=_unquote(project.relation_for_model(model)),
+            relation_ref=project.relation_ref_for_model(model),
             description=metadata.description,
             owner=metadata.owner,
             materialization=metadata.materialization.value,
             source_system=metadata.source_system,
             sensitivity=metadata.sensitivity,
             upstream_relations=tuple(
-                _unquote(project.relation_for_ref(reference)) for reference in model.refs
+                ".".join(project.relation_ref_for_ref(reference).coordinates)
+                for reference in model.refs
             ),
             columns=tuple(
                 CatalogColumn(
@@ -222,15 +243,13 @@ def _test_contracts(
             TestContract(
                 kind="relationships",
                 column=test.column,
-                target_relation=_unquote(project.relation_for_ref(test.relationships.to)),
+                target_relation=".".join(
+                    project.relation_ref_for_ref(test.relationships.to).coordinates
+                ),
                 target_field=test.relationships.field,
             )
         )
     return tuple(contracts)
-
-
-def _unquote(relation: str) -> str:
-    return relation.removeprefix("`").removesuffix("`")
 
 
 def _metric_definition(metric: MetricMetadata) -> MetricDefinition:
