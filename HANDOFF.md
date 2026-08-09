@@ -21,6 +21,7 @@ settings, then use the normal run path with SCD1. No AWS live profile was create
   dependency loading passed; strict dependency audit found no known vulnerabilities.
 - The exact final container built and passed non-root, read-only, runtime, and bundled-asset checks.
 - GCP/AWS Terraform roots and module tests, cross-cloud feasibility roots, and Helm checks passed.
+- Protected Linux CI passed Python, Terraform, distribution, container/security, and secret scans.
 
 ## Decisions
 
@@ -32,7 +33,6 @@ settings, then use the normal run path with SCD1. No AWS live profile was create
 
 ## Remaining
 
-- Let protected Linux CI repeat image/config/secret scans before merge consideration.
 - Resolve the pre-existing retained GCP no-drift baseline before merging provider work.
 - Qualify Redshift transforms, other write modes, and one live disposable AWS profile separately.
 
