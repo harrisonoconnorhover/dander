@@ -180,7 +180,11 @@ def compile_target(
             relation=target_relation,
             business_key=tuple(destination.business_key),
             schema=tuple(
-                WriteField(name=field.name, data_type=field.cast_to or field.type)
+                WriteField(
+                    name=field.name,
+                    data_type=field.cast_to or field.type,
+                    extensions=field.extensions,
+                )
                 for field in target.fields
             ),
         ),

@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from dander.telemetry import OperationTelemetry
+
 
 class TransformRunError(RuntimeError):
     """Raised when model execution or a generic assertion fails."""
@@ -13,6 +15,7 @@ class TransformRunResult:
 
     models: tuple[str, ...]
     assertions: int
+    telemetry: tuple[OperationTelemetry, ...] = ()
 
 
 __all__ = ["TransformRunError", "TransformRunResult"]

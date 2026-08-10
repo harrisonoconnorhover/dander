@@ -29,7 +29,7 @@ from dander.pipeline.node_config import (
     WriterConfig,
 )
 from dander.pipeline.operations import OperationSpec
-from dander.warehouse import RelationRef
+from dander.warehouse import ProviderExtension, RelationRef
 from dander.writer import (
     BigQueryIncrementalWriter,
     BigQueryReplaceWriter,
@@ -227,6 +227,20 @@ def test_graph_compiles_to_one_provider_neutral_relational_ast() -> None:
     assert len(tuple(compiled.query_ast.find_all(exp.TryCast))) == 2
     assert compiled.render("bigquery") == compiled.query
     assert 'FROM "dander-test"."raw"."people"' in compiled.render("redshift")
+
+
+def test_graph_target_preserves_provider_extension_in_canonical_schema() -> None:
+    graph = _linear_graph()
+    extension = ProviderExtension(provider="snowflake", name="fallback", value="variant")
+    graph.nodes[-1].fields[-1].extensions = (extension,)
+
+    compiled = compile_target(
+        graph,
+        "target",
+        source_relations={"source": "dander-test.raw.people"},
+    )
+
+    assert extension in compiled.target.canonical_schema.fields[-1].extensions
 
 
 def test_cast_free_graph_ast_renders_for_all_declared_targets() -> None:

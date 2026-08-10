@@ -142,6 +142,7 @@ class SnowflakeTransformRunner:
             relation=plan.target.relation_ref,
             business_key=plan.target.business_key,
             schema=plan.target.schema,
+            declared_schema=plan.target.canonical_schema,
             publication_fence=publication,
         )
         temporary = _temporary_relation(target.relation_ref, publication)
@@ -222,6 +223,7 @@ def _model_plan(project: TransformProject, model: TransformModel) -> _SnowflakeM
             name=column.name,
             data_type=column.data_type,
             mode="REQUIRED" if column.name in required else "NULLABLE",
+            extensions=column.extensions,
         )
         for column in model.metadata.columns
     )

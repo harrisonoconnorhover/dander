@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from dander.concurrency import OwnershipGuard
     from dander.ingestion.source import Endpoint, RawField, Source
     from dander.state.watermark import WatermarkStore
+    from dander.telemetry import OperationTelemetry
     from dander.warehouse import WarehouseSchemaMapper, WarehouseTargetFence
     from dander.writer.base import WritePattern
 
@@ -42,6 +43,7 @@ class EndpointRunResult:
     extracted: int
     affected: int
     committed_cursor: str | None
+    telemetry: tuple[OperationTelemetry, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,11 @@ class PipelineRunResult:
     run_id: str
     source: str
     endpoints: tuple[EndpointRunResult, ...]
+
+    @property
+    def telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return endpoint operations in deterministic execution order."""
+        return tuple(operation for endpoint in self.endpoints for operation in endpoint.telemetry)
 
 
 class PipelineRunner:
@@ -183,14 +190,17 @@ class PipelineRunner:
         ownership: OwnershipGuard | None,
     ) -> EndpointRunResult:
         source_name = self._source.config.name
+        legacy_schema = tuple(_write_field(field) for field in endpoint.raw_schema)
+        declared_schema = endpoint.canonical_raw_schema() if endpoint.raw_schema else None
+        if declared_schema is not None and self._schema_mapper is not None:
+            declared_schema = self._schema_mapper.canonical_schema(declared_schema.fields)
         target = WriteTarget(
             relation=self._endpoint_relations[endpoint.name],
             business_key=tuple(endpoint.primary_key),
-            schema=tuple(_write_field(field) for field in endpoint.raw_schema),
+            schema=legacy_schema,
+            declared_schema=declared_schema,
             fence=ownership.fence if ownership is not None else None,
         )
-        if target.schema and self._schema_mapper is not None:
-            self._schema_mapper.canonical_schema(target.schema)
         stored_cursor = (
             self._watermarks.get(source_name, endpoint.name)
             if endpoint.incremental_cursor
@@ -227,7 +237,7 @@ class PipelineRunner:
             observation,
         )
         if self._writer.supports_batched_writes:
-            affected = self._write_batched(
+            affected, telemetry = self._write_batched(
                 records,
                 endpoint=endpoint,
                 target=target,
@@ -238,11 +248,13 @@ class PipelineRunner:
             if ownership is not None:
                 ownership.verify()
             affected = self._writer.write(records, target)
+            telemetry = self._writer.drain_telemetry()
         else:
             buffered = list(records)
             if ownership is not None:
                 ownership.verify()
             affected = self._writer.write(buffered, target)
+            telemetry = self._writer.drain_telemetry()
         committed_cursor: str | None = None
         if observation.extracted and observation.maximum_cursor is not None:
             if ownership is not None:
@@ -283,6 +295,7 @@ class PipelineRunner:
             extracted=observation.extracted,
             affected=affected,
             committed_cursor=committed_cursor,
+            telemetry=telemetry,
         )
 
     def _write_batched(
@@ -293,8 +306,9 @@ class PipelineRunner:
         target: WriteTarget,
         run_id: str,
         ownership: OwnershipGuard | None,
-    ) -> int:
+    ) -> tuple[int, tuple[OperationTelemetry, ...]]:
         affected = 0
+        telemetry: list[OperationTelemetry] = []
         wrote_batch = False
         for batch_index, record_batch in enumerate(
             batched(records, self._batch_rows),
@@ -304,6 +318,7 @@ class PipelineRunner:
             if ownership is not None:
                 ownership.verify()
             batch_affected = self._writer.write(record_batch, target)
+            telemetry.extend(self._writer.drain_telemetry())
             affected += batch_affected
             _LOGGER.info(
                 "batch_finished",
@@ -321,7 +336,8 @@ class PipelineRunner:
             if ownership is not None:
                 ownership.verify()
             affected = self._writer.write((), target)
-        return affected
+            telemetry.extend(self._writer.drain_telemetry())
+        return affected, tuple(telemetry)
 
 
 class _RecordObservation:
@@ -369,6 +385,7 @@ def _write_field(field: RawField) -> WriteField:
         data_type=field.data_type,
         mode=field.mode,
         fields=tuple(_write_field(child) for child in field.fields),
+        extensions=field.extensions,
     )
 
 

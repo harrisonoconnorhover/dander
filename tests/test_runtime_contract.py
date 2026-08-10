@@ -128,6 +128,9 @@ def test_runtime_event_distinguishes_overlap_and_sanitized_failure() -> None:
         "bytes_written": 0,
         "bytes_processed": 0,
         "bytes_billed": 0,
+        "queue_duration_ms": 0,
+        "execution_duration_ms": 0,
+        "spill_bytes": 0,
         "operations": [],
     }
     assert "credential-value" not in failed_json

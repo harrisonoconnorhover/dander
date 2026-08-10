@@ -174,6 +174,7 @@ class BigQueryStorageScd1Writer(WritePattern):
             dataset=target.dataset,
             table=staging_table,
             schema=target.schema,
+            declared_schema=target.canonical_schema,
         )
         staging_id = _target_id(staging_target)
         schema_sql = ", ".join(f"`{field.name}` {_field_type_sql(field)}" for field in declared)
