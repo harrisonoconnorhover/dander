@@ -77,9 +77,14 @@ def test_scheduler_delivery_is_separate_paused_aware_and_dead_lettered() -> None
         in module
     )
     assert 'arn      = "arn:${local.partition}:scheduler:::aws-sdk:sfn:startExecution"' in module
-    assert 'Name            = "<aws.scheduler.execution-id>"' in module
+    assert 'Name            = "<aws.scheduler.execution-id>"' not in module
     assert 'scheduled_time         = "<aws.scheduler.scheduled-time>"' in module
     assert 'scheduler_attempt      = "<aws.scheduler.attempt-number>"' in module
+    assert "replace(replace(jsonencode({" in module
+    assert '"\\\\\\\\u003c", "<"), "\\\\\\\\u003e", ">")' in module
+    assert 'sid       = "DeliverScheduleFailures"' in module
+    assert 'actions   = ["sqs:SendMessage"]' in module
+    assert "resources = [aws_sqs_queue.failures.arn]" in module
     assert "maximum_retry_attempts       = var.scheduler_delivery_retry_count" in module
     assert "launcher_retry_count" in module
     assert "dead_letter_config" in module

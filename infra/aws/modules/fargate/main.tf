@@ -765,6 +765,13 @@ data "aws_iam_policy_document" "scheduler" {
     actions   = ["states:StartExecution"]
     resources = [aws_sfn_state_machine.pipeline[each.key].arn]
   }
+
+  statement {
+    sid       = "DeliverScheduleFailures"
+    effect    = "Allow"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.failures.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "scheduler" {
@@ -790,16 +797,15 @@ resource "aws_scheduler_schedule" "pipeline" {
   target {
     arn      = "arn:${local.partition}:scheduler:::aws-sdk:sfn:startExecution"
     role_arn = aws_iam_role.scheduler[each.key].arn
-    input = jsonencode({
+    input = replace(replace(jsonencode({
       StateMachineArn = aws_sfn_state_machine.pipeline[each.key].arn
-      Name            = "<aws.scheduler.execution-id>"
       Input = jsonencode({
         deployment_revision    = each.value.labels.image_digest
         scheduled_time         = "<aws.scheduler.scheduled-time>"
         scheduler_attempt      = "<aws.scheduler.attempt-number>"
         scheduler_execution_id = "<aws.scheduler.execution-id>"
       })
-    })
+    }), "\\\\u003c", "<"), "\\\\u003e", ">")
 
     dead_letter_config {
       arn = aws_sqs_queue.failures.arn

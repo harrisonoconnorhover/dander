@@ -157,6 +157,16 @@ run "controller_result_selector" {
 
   assert {
     condition = (
+      !contains(keys(jsondecode(aws_scheduler_schedule.pipeline["greenhouse_jobs"].target[0].input)), "Name") &&
+      jsondecode(jsondecode(aws_scheduler_schedule.pipeline["greenhouse_jobs"].target[0].input).Input).scheduled_time == "<aws.scheduler.scheduled-time>" &&
+      jsondecode(jsondecode(aws_scheduler_schedule.pipeline["greenhouse_jobs"].target[0].input).Input).scheduler_attempt == "<aws.scheduler.attempt-number>" &&
+      jsondecode(jsondecode(aws_scheduler_schedule.pipeline["greenhouse_jobs"].target[0].input).Input).scheduler_execution_id == "<aws.scheduler.execution-id>"
+    )
+    error_message = "The schedule target must omit the optional execution name and preserve literal Scheduler context attributes in valid nested JSON."
+  }
+
+  assert {
+    condition = (
       jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Run task"].ResultSelector["task_arn.$"] == "$.TaskArn" &&
       jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Run task"].ResultSelector["exit_code.$"] == "$.Containers[0].ExitCode"
     )
