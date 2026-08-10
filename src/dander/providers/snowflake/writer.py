@@ -22,6 +22,7 @@ from dander.providers.snowflake.session import (
     SnowflakeConnection,
     SnowflakeConnectionFactory,
     SnowflakeStatementResult,
+    enrich_operation_telemetry,
     execute,
     execute_many,
     open_connection,
@@ -275,7 +276,7 @@ class SnowflakeStagedWriter(WritePattern):
                     )
                     return _LoadOutcome(
                         affected=0 if self.mode is WriteMode.REPLACE else result.rowcount,
-                        operations=tuple(operations),
+                        operations=enrich_operation_telemetry(connection, operations),
                     )
                 if stage is not None:
                     execute(connection, _create_stage_sql(stage))
@@ -323,7 +324,10 @@ class SnowflakeStagedWriter(WritePattern):
                             duration_ms=duration_ms,
                         )
                     )
-                    return _LoadOutcome(result.rowcount, tuple(operations))
+                    return _LoadOutcome(
+                        result.rowcount,
+                        enrich_operation_telemetry(connection, operations),
+                    )
                 if manifest is not None:
                     assert stage is not None
                     artifacts_to_load = (
@@ -419,7 +423,10 @@ class SnowflakeStagedWriter(WritePattern):
                         duration_ms=duration_ms,
                     )
                 )
-                return _LoadOutcome(result.rowcount, tuple(operations))
+                return _LoadOutcome(
+                    result.rowcount,
+                    enrich_operation_telemetry(connection, operations),
+                )
             except (SnowflakeWriteError, TargetFenceLostError):
                 raise
             except Exception as error:

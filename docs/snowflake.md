@@ -82,8 +82,11 @@ variable reference. Do not put a token, private key, password, or connection str
   target renders and validates before the first target is claimed, preventing partial publication
   when a later target uses unavailable semantics.
 - Transform staging, publication, and generic assertions report bounded operation telemetry with
-  query IDs, duration, affected rows, and warehouse name. SQL and provider response payloads are
-  not retained.
+  query IDs, duration, affected rows, and warehouse name. After successful operations, one
+  best-effort same-session query-history lookup enriches the most recent 1,000 operation IDs with
+  execution time, queue time, bytes scanned, inserted rows, and warehouse size. Missing or
+  unavailable history never changes pipeline success, and Dander does not select or retain query
+  text, bind values, or provider response payloads.
 
 The Snowflake role needs usage on its database and warehouse plus permission to create and operate
 schemas, tables, and temporary stages in the selected namespace. Use a dedicated disposable role
@@ -97,6 +100,7 @@ existing replace-mode executable subset; field tests and null-on-failure casts w
 semantics have not been proven continue to fail before provider mutation. Views remain unavailable
 because Snowflake permanent DDL cannot share the destination-fence transaction. Direct thresholds
 default to zero because no live crossover has been measured; do not claim a performance benefit
-until that qualification is recorded. Query-history enrichment, live concurrency proof,
-infrastructure provisioning, and support promotion remain separate work. Use
-`catalog.provider: none` for this experimental path.
+until that qualification is recorded. Same-session history deliberately does not estimate total
+Snowflake credits or costs; account-level usage history is delayed and remains evidence-side work.
+Live concurrency proof, infrastructure provisioning, and support promotion remain separate work.
+Use `catalog.provider: none` for this experimental path.

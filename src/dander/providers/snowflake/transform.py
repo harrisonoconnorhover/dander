@@ -15,6 +15,7 @@ from dander.providers.snowflake.session import (
     SnowflakeConnection,
     SnowflakeConnectionFactory,
     SnowflakeStatementResult,
+    enrich_operation_telemetry,
     execute,
     open_connection,
 )
@@ -191,9 +192,10 @@ class SnowflakeTransformRunner:
                 )
                 if _failure_count(result.row, assertion.name) > 0:
                     failures.append(assertion.name)
+            completed = enrich_operation_telemetry(connection, telemetry)
         if failures:
             raise TransformRunError(f"Data tests failed: {', '.join(failures)}")
-        return tuple(telemetry)
+        return completed
 
 
 class SnowflakeGraphRunner:
@@ -323,6 +325,7 @@ def _publish_plan(
                     warehouse=warehouse,
                 )
             )
+            completed = enrich_operation_telemetry(connection, telemetry)
         except (TargetFenceLostError, SnowflakeWriteError, TransformRunError):
             raise
         except Exception as error:
@@ -334,7 +337,7 @@ def _publish_plan(
                     temporary,
                     suppress_failure=sys.exc_info()[0] is not None,
                 )
-    return tuple(telemetry)
+    return completed
 
 
 def _model_plan(project: TransformProject, model: TransformModel) -> _SnowflakeModelPlan:

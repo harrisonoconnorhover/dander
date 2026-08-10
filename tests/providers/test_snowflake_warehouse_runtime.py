@@ -16,9 +16,10 @@ from dander.pipeline.graph import PipelineGraph
 from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
 from dander.providers.snowflake import SnowflakeWarehouseConfig
+from dander.providers.snowflake.session import enrich_operation_telemetry
 from dander.providers.snowflake.transform import SnowflakeGraphRunner, SnowflakeTransformRunner
 from dander.providers.snowflake.writer import SnowflakeWriteError
-from dander.telemetry import TelemetryOperation
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import SqlDialect, TransformProject, TransformProjectError, TransformRunError
 from dander.warehouse import (
     ProviderExtension,
@@ -59,6 +60,7 @@ class _FakeSnowflake:
     transform_source_rows: list[dict[str, object]] | None = None
     transform_rows: dict[str, dict[str, object]] = field(default_factory=dict)
     assertion_failure_count: int = 0
+    query_history_template: tuple[object, ...] | None = None
 
     def connect(self) -> _FakeConnection:
         return _FakeConnection(self)
@@ -106,7 +108,13 @@ class _FakeCursor:
         self.sfqid = f"query-{len(self.backend.statements)}"
         if self.backend.fail_prefix and compact.startswith(self.backend.fail_prefix):
             raise RuntimeError("private provider response")
-        if compact == "SELECT CURRENT_DATABASE(), CURRENT_WAREHOUSE()":
+        if compact.startswith("SELECT QUERY_ID, WAREHOUSE_SIZE, BYTES_SCANNED"):
+            if self.backend.query_history_template is not None:
+                self._rows = [
+                    (str(query_id), *self.backend.query_history_template) for query_id in parameters
+                ]
+                self.rowcount = len(self._rows)
+        elif compact == "SELECT CURRENT_DATABASE(), CURRENT_WAREHOUSE()":
             self._row = ("DANDER_TEST", "DANDER_WH")
         elif compact.startswith("DESCRIBE TABLE"):
             self._rows = list(self.backend.describe_rows)
@@ -418,6 +426,7 @@ def test_snowflake_direct_load_parses_explicit_variant_and_emits_transport(
     tmp_path: Path,
 ) -> None:
     runtime, backend = _direct_runtime(tmp_path)
+    backend.query_history_template = ("X-SMALL", 2_048, 11, 2, 3, 4, 7)
     backend.describe_rows = [
         ("id", "VARCHAR(16777216)", "COLUMN", "N"),
         ("payload", "VARIANT", "COLUMN", "Y"),
@@ -476,8 +485,21 @@ def test_snowflake_direct_load_parses_explicit_variant_and_emits_transport(
     ]
     assert all(operation.transport is WriteTransport.DIRECT for operation in operations)
     assert all(operation.resource_name == "DANDER_WH" for operation in operations)
+    assert all(operation.resource_size == "X-SMALL" for operation in operations)
+    assert all(operation.bytes_processed == 2_048 for operation in operations)
+    assert all(operation.execution_duration_ms == 11 for operation in operations)
+    assert all(operation.queue_duration_ms == 9 for operation in operations)
     assert operations[0].rows_written == 1
+    assert operations[1].rows_written == 7
     assert operations[0].query_id != operations[1].query_id
+    history_sql, history_parameters = next(
+        (statement, parameters)
+        for statement, parameters in backend.statements
+        if statement.startswith("SELECT QUERY_ID, WAREHOUSE_SIZE, BYTES_SCANNED")
+    )
+    assert "QUERY_TEXT" not in history_sql
+    assert "BIND_VALUES" not in history_sql
+    assert len(history_parameters) == 2
     assert writer.drain_telemetry() == ()
     direct_inserts = sum(
         statement.startswith('INSERT INTO "DANDER_TEST"."raw"."dander_stage_')
@@ -497,6 +519,56 @@ def test_snowflake_direct_load_parses_explicit_variant_and_emits_transport(
     assert [operation.operation for operation in replay_operations] == [TelemetryOperation.QUERY]
     assert replay_operations[0].transport is WriteTransport.DIRECT
     assert not tuple(tmp_path.iterdir())
+
+
+def test_snowflake_query_history_is_best_effort_and_bounded(tmp_path: Path) -> None:
+    runtime, backend = _direct_runtime(tmp_path)
+    backend.fail_prefix = "SELECT QUERY_ID, WAREHOUSE_SIZE, BYTES_SCANNED"
+    relation = RelationRef(catalog="DANDER_TEST", namespace="raw", name="history_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="snowflake_history_records",
+            run_id="run-history",
+            token=6,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="label", data_type="STRING"),
+        ),
+        publication_fence=publication,
+    )
+
+    assert writer.write(({"id": "one", "label": "first"},), target) == 2
+    assert all(operation.bytes_processed == 0 for operation in writer.drain_telemetry())
+
+    backend.fail_prefix = None
+    operations = tuple(
+        OperationTelemetry(
+            provider="snowflake",
+            operation=TelemetryOperation.QUERY,
+            query_id=f"query-history-{index}",
+        )
+        for index in range(1_002)
+    )
+    connection = backend.connect()
+    assert enrich_operation_telemetry(connection, operations) == operations
+    _history_sql, parameters = backend.statements[-1]
+    assert len(parameters) == 1_000
+    assert parameters[0] == "query-history-2"
+    assert parameters[-1] == "query-history-1001"
+    connection.close()
 
 
 def test_snowflake_direct_threshold_is_decided_for_the_complete_endpoint(
@@ -937,6 +1009,7 @@ def test_snowflake_builds_fenced_table_and_incremental_models(
     snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
 ) -> None:
     runtime, backend, _staging_root = snowflake_runtime
+    backend.query_history_template = ("SMALL", 4_096, 19, 1, 2, 3, 5)
     runner = runtime.transforms.build_transform_runner(
         graph_plan=None,
         build_models=True,
@@ -972,6 +1045,10 @@ def test_snowflake_builds_fenced_table_and_incremental_models(
     ]
     assert all(operation.query_id for operation in result.telemetry)
     assert all(operation.resource_name == "DANDER_WH" for operation in result.telemetry)
+    assert all(operation.resource_size == "SMALL" for operation in result.telemetry)
+    assert all(operation.bytes_processed == 4_096 for operation in result.telemetry)
+    assert all(operation.execution_duration_ms == 19 for operation in result.telemetry)
+    assert all(operation.queue_duration_ms == 6 for operation in result.telemetry)
     sql = [statement for statement, _parameters in backend.statements]
     assert any(
         statement.startswith("DELETE FROM") and "table_model" in statement for statement in sql
