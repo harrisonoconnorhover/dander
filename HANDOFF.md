@@ -20,7 +20,7 @@ tests/providers/test_kubernetes_runtime.py`.
 - Mypy passed for every changed source and test file; the full invocation retains one unrelated
   Snowflake `unused-ignore` result under this local optional-dependency environment.
 - Independent completion review passed with no material findings.
-- Protected CI remains required before merge.
+- Protected CI passed all five required jobs on PR #181.
 
 ## Decisions
 
@@ -30,7 +30,7 @@ tests/providers/test_kubernetes_runtime.py`.
 
 ## Remaining
 
-- Complete protected CI for this launcher-contract PR.
+- Merge the protected launcher-contract PR.
 - Implement the shared four-warehouse correctness fixture in a separate PR.
 - Reassess the Phase 5 gate after both implementation PRs merge.
 

@@ -1,7 +1,7 @@
 ---
 id: DANDER-106
 title: Resolve launcher templates through one provider-neutral request
-status: in-review
+status: completed
 component: deployment
 epic: cloud-portability
 depends_on: [DANDER-89, DANDER-90]
@@ -24,7 +24,7 @@ them.
 - [x] Existing Cloud Run output remains exactly equal to the accepted compatibility projector.
 - [x] Existing Fargate and Kubernetes projection and fail-closed behavior remains covered.
 - [x] Focused launcher, bootstrap, Kubernetes CLI, and chart tests pass.
-- [ ] Full protected CI passes.
+- [x] Full protected CI passes.
 - [x] Independent completion review passes.
 
 ## Design
@@ -46,4 +46,4 @@ Azure/OCI code, warehouse work, SQL, or user-visible projection change is includ
 ### 2026-08-10 — PASS
 
 Independent read-only completion review found no material defect or unnecessary scope. Protected
-CI remains required before merge.
+CI passed all five required jobs on PR #181.
