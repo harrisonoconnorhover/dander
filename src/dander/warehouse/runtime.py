@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from dander.warehouse.contracts import CanonicalType, LogicalTypeKind, RelationSchema
+from dander.writer.base import WriteMode
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     from dander.telemetry import OperationTelemetry, TelemetryOperation
     from dander.transform import TransformRunResult
     from dander.warehouse.contracts import RelationCodec, RelationRef
-    from dander.writer.base import SchemaEvolution, WriteMode, WritePattern, WriteTransport
+    from dander.writer.base import SchemaEvolution, WritePattern, WriteTransport
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,8 +141,11 @@ class WarehouseWriterFactory(Protocol):
         sandbox: bool,
         batch_rows: int,
         schema_evolution: SchemaEvolution,
+        mode: WriteMode = WriteMode.SCD1,
+        cursor_field: str | None = None,
+        snapshot_field: str | None = None,
     ) -> WritePattern:
-        """Build one writer without branching in the cloud-neutral CLI."""
+        """Build one selected logical writer without branching on warehouse provider."""
         ...
 
 

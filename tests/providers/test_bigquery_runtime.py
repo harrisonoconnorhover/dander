@@ -255,6 +255,13 @@ def test_bigquery_runtime_constructs_writers_through_capability(
         batch_rows=75,
         schema_evolution=SchemaEvolution.ADDITIVE,
     )
+    with pytest.raises(ValueError, match="does not select scd2"):
+        factory.build_ingestion_writer(
+            sandbox=False,
+            batch_rows=80,
+            schema_evolution=SchemaEvolution.STRICT,
+            mode=WriteMode.SCD2,
+        )
 
     assert captured == [
         ("replace", {"project": "unit-project", "max_batch_rows": 50}),

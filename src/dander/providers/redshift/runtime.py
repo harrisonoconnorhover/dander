@@ -108,10 +108,17 @@ class RedshiftWriterFactory:
         sandbox: bool,
         batch_rows: int,
         schema_evolution: SchemaEvolution,
+        mode: WriteMode = WriteMode.SCD1,
+        cursor_field: str | None = None,
+        snapshot_field: str | None = None,
     ) -> WritePattern:
         del batch_rows
+        del cursor_field
+        del snapshot_field
         if sandbox:
             raise ValueError("Redshift warehouse does not use Dander's BigQuery sandbox mode")
+        if mode is not WriteMode.SCD1:
+            raise ValueError(f"Redshift warehouse does not support {mode.value} writes")
         return RedshiftScd1Writer(
             database=self.database,
             connection_factory=self.connection_factory,

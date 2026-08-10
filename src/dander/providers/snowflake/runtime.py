@@ -27,6 +27,7 @@ from dander.providers.snowflake.session import (
 from dander.providers.snowflake.transform import SnowflakeTransformRunner
 from dander.providers.snowflake.writer import (
     SnowflakeScd1Writer,
+    SnowflakeStagedWriter,
     SnowflakeStagingSettings,
     default_staging_settings,
 )
@@ -109,16 +110,40 @@ class SnowflakeWriterFactory:
         sandbox: bool,
         batch_rows: int,
         schema_evolution: SchemaEvolution,
+        mode: WriteMode = WriteMode.SCD1,
+        cursor_field: str | None = None,
+        snapshot_field: str | None = None,
     ) -> WritePattern:
         del batch_rows
         if sandbox:
             raise ValueError("Snowflake warehouse does not use Dander's BigQuery sandbox mode")
-        return SnowflakeScd1Writer(
+        if mode is WriteMode.INCREMENTAL:
+            if cursor_field is None or not cursor_field.strip():
+                raise ValueError("Snowflake incremental writes require cursor_field")
+        elif cursor_field is not None:
+            raise ValueError("cursor_field is valid only for Snowflake incremental writes")
+        if mode is WriteMode.SNAPSHOT:
+            if snapshot_field is None or not snapshot_field.strip():
+                raise ValueError("Snowflake snapshot writes require snapshot_field")
+        elif snapshot_field is not None:
+            raise ValueError("snapshot_field is valid only for Snowflake snapshot writes")
+        if mode is WriteMode.SCD1:
+            return SnowflakeScd1Writer(
+                database=self.database,
+                connection_factory=self.connection_factory,
+                target_fence=self.target_fence,
+                schema_evolution=schema_evolution,
+                staging=self.staging,
+            )
+        return SnowflakeStagedWriter(
             database=self.database,
             connection_factory=self.connection_factory,
             target_fence=self.target_fence,
             schema_evolution=schema_evolution,
             staging=self.staging,
+            mode=mode,
+            cursor_field=cursor_field,
+            snapshot_field=snapshot_field,
         )
 
 
@@ -181,7 +206,7 @@ class SnowflakeTelemetry:
 SNOWFLAKE_CAPABILITIES = WarehouseCapabilities(
     provider_id="snowflake",
     schema_contract_version=1,
-    write_modes=frozenset({WriteMode.SCD1}),
+    write_modes=frozenset(WriteMode),
     transports=frozenset({WriteTransport.COPY}),
     supports_transforms=True,
     supports_graphs=False,

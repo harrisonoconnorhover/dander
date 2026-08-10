@@ -1,4 +1,4 @@
-"""Bounded Parquet stage/COPY and transactionally fenced Snowflake SCD1 writes."""
+"""Bounded Parquet stage/COPY and transactionally fenced Snowflake writes."""
 
 from __future__ import annotations
 
@@ -37,6 +37,10 @@ if TYPE_CHECKING:
     from dander.providers.snowflake.fence import SnowflakeTargetFence
 
 _ORDINAL = "_dander_ordinal"
+_SCD2_VALID_FROM = "valid_from"
+_SCD2_VALID_TO = "valid_to"
+_SCD2_IS_CURRENT = "is_current"
+_SCD2_SYSTEM_FIELDS = frozenset({_SCD2_VALID_FROM, _SCD2_VALID_TO, _SCD2_IS_CURRENT})
 
 
 class SnowflakeWriteError(ValueError):
@@ -53,11 +57,9 @@ class SnowflakeStagingSettings:
     compression: str
 
 
-class SnowflakeScd1Writer(WritePattern):
-    """Stage one bounded runtime batch as Parquet and MERGE the last row per key."""
+class SnowflakeStagedWriter(WritePattern):
+    """Stage bounded Parquet parts once and publish one selected logical write mode."""
 
-    mode = WriteMode.SCD1
-    supports_batched_writes = True
     requires_publication_fence = True
 
     def __init__(
@@ -68,21 +70,40 @@ class SnowflakeScd1Writer(WritePattern):
         target_fence: SnowflakeTargetFence,
         schema_evolution: SchemaEvolution,
         staging: SnowflakeStagingSettings,
+        mode: WriteMode,
+        cursor_field: str | None = None,
+        snapshot_field: str | None = None,
     ) -> None:
         self._database = database
         self._connection_factory = connection_factory
         self._target_fence = target_fence
         self._schema_evolution = schema_evolution
         self._staging = staging
+        self.mode = mode
+        self._cursor_field = cursor_field
+        self._snapshot_field = snapshot_field
+        self.supports_batched_writes = mode not in {WriteMode.REPLACE, WriteMode.SCD2}
+        self.accepts_streaming_input = mode in {WriteMode.REPLACE, WriteMode.SCD2}
 
     def write(self, records: Iterable[Mapping[str, object]], target: WriteTarget) -> int:
         """Consume records once, upload checksummed parts, and publish idempotently."""
-        _validate_target(target, database=self._database)
+        _validate_target(
+            target,
+            database=self._database,
+            mode=self.mode,
+            cursor_field=self._cursor_field,
+            snapshot_field=self._snapshot_field,
+        )
         publication = target.publication_fence
         assert publication is not None
         target_schema = target.canonical_schema
-        if any(field.name == _ORDINAL for field in target_schema.fields):
-            raise SnowflakeWriteError(f"Declared schema reserves Dander field {_ORDINAL!r}")
+        reserved = {_ORDINAL}
+        if self.mode is WriteMode.SCD2:
+            reserved.update(_SCD2_SYSTEM_FIELDS)
+        if collision := sorted(
+            field.name for field in target_schema.fields if field.name in reserved
+        ):
+            raise SnowflakeWriteError(f"Declared schema reserves Dander field {collision[0]!r}")
         _validate_schema(target_schema)
         staging_schema = RelationSchema(
             fields=(
@@ -102,7 +123,15 @@ class SnowflakeScd1Writer(WritePattern):
             max_logical_bytes_per_file=self._staging.max_logical_bytes_per_file,
             compression=self._staging.compression,
         ) as local:
-            manifest = local.stage(_with_ordinals(records), staging_schema)
+            manifest = local.stage(
+                _with_ordinals(
+                    records,
+                    business_key=target.business_key,
+                    cursor_field=self._cursor_field,
+                    snapshot_field=self._snapshot_field,
+                ),
+                staging_schema,
+            )
             return self._load_and_publish(
                 target,
                 publication,
@@ -137,20 +166,21 @@ class SnowflakeScd1Writer(WritePattern):
         with open_connection(self._connection_factory) as connection:
             try:
                 _set_query_tag(connection, publication)
+                deployed_schema = _target_schema_for_mode(target_schema, self.mode)
                 _ensure_target(
                     connection,
                     target,
-                    target_schema,
+                    deployed_schema,
                     evolution=self._schema_evolution,
                 )
                 _ensure_load_history(connection, target)
                 if manifest.rows == 0:
                     result = self._target_fence.execute_dml(
                         connection,
-                        _no_op_sql(target),
+                        _empty_publication_sql(target, self.mode),
                         publication,
                     )
-                    return result.rowcount
+                    return 0 if self.mode is WriteMode.REPLACE else result.rowcount
                 execute(connection, _create_stage_sql(stage))
                 execute(
                     connection,
@@ -172,9 +202,17 @@ class SnowflakeScd1Writer(WritePattern):
                         publication,
                     )
                     return result.rowcount
-                for artifact in pending:
+                artifacts_to_load = (
+                    manifest.artifacts if self.mode is WriteMode.REPLACE else pending
+                )
+                for artifact in artifacts_to_load:
                     execute(connection, _put_sql(artifact.path, stage))
                     execute(connection, _copy_sql(staging_relation, stage, artifact.path.name))
+                if self.mode is WriteMode.SCD2:
+                    execute(
+                        connection,
+                        "SET DANDER_SCD2_EFFECTIVE_AT = CURRENT_TIMESTAMP()",
+                    )
                 statements: list[tuple[str, Sequence[object]]] = []
                 statements.extend(
                     (
@@ -194,7 +232,16 @@ class SnowflakeScd1Writer(WritePattern):
                     )
                     for artifact in pending
                 )
-                statements.append((_merge_sql(target, staging_relation, target_schema.fields), ()))
+                statements.extend(
+                    _publication_statements(
+                        target,
+                        staging_relation,
+                        target_schema.fields,
+                        mode=self.mode,
+                        cursor_field=self._cursor_field,
+                        snapshot_field=self._snapshot_field,
+                    )
+                )
                 result = self._target_fence.execute_statements(
                     connection,
                     statements,
@@ -204,10 +251,36 @@ class SnowflakeScd1Writer(WritePattern):
             except (SnowflakeWriteError, TargetFenceLostError):
                 raise
             except Exception as error:
-                raise SnowflakeWriteError("Snowflake staged SCD1 write failed") from error
+                raise SnowflakeWriteError(
+                    f"Snowflake staged {self.mode.value.upper()} write failed"
+                ) from error
             finally:
                 if cleanup_started:
                     _cleanup_remote(connection, stage=stage, staging_relation=staging_relation)
+
+
+class SnowflakeScd1Writer(SnowflakeStagedWriter):
+    """Backward-compatible SCD1 constructor for existing provider integrations."""
+
+    mode = WriteMode.SCD1
+
+    def __init__(
+        self,
+        *,
+        database: str,
+        connection_factory: SnowflakeConnectionFactory,
+        target_fence: SnowflakeTargetFence,
+        schema_evolution: SchemaEvolution,
+        staging: SnowflakeStagingSettings,
+    ) -> None:
+        super().__init__(
+            database=database,
+            connection_factory=connection_factory,
+            target_fence=target_fence,
+            schema_evolution=schema_evolution,
+            staging=staging,
+            mode=WriteMode.SCD1,
+        )
 
 
 def default_staging_settings(
@@ -227,21 +300,56 @@ def default_staging_settings(
 
 def _with_ordinals(
     records: Iterable[Mapping[str, object]],
+    *,
+    business_key: Sequence[str],
+    cursor_field: str | None,
+    snapshot_field: str | None,
 ) -> Iterable[Mapping[str, object]]:
     for ordinal, record in enumerate(records):
+        if any(record.get(field) is None for field in business_key):
+            raise SnowflakeWriteError(f"Record {ordinal} has a null business-key value")
+        if cursor_field is not None and record.get(cursor_field) is None:
+            raise SnowflakeWriteError(f"Record {ordinal} has a null incremental cursor value")
+        if snapshot_field is not None and record.get(snapshot_field) is None:
+            raise SnowflakeWriteError(f"Record {ordinal} has a null snapshot value")
         yield {**record, _ORDINAL: ordinal}
 
 
-def _validate_target(target: WriteTarget, *, database: str) -> None:
+def _validate_target(
+    target: WriteTarget,
+    *,
+    database: str,
+    mode: WriteMode,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> None:
     relation = target.relation_ref
     if relation.catalog != database:
         raise SnowflakeWriteError(
             f"Writer database {database!r} does not match target catalog {relation.catalog!r}"
         )
-    if not target.business_key:
-        raise SnowflakeWriteError("Snowflake SCD1 writes require a business key")
     if not target.schema:
         raise SnowflakeWriteError("Snowflake writes require a declared schema")
+    field_names = {field.name for field in target.schema}
+    if mode in {WriteMode.SCD1, WriteMode.SCD2, WriteMode.INCREMENTAL}:
+        if not target.business_key:
+            raise SnowflakeWriteError(f"Snowflake {mode.value} writes require a business key")
+        if missing := sorted(set(target.business_key) - field_names):
+            raise SnowflakeWriteError(f"Snowflake business-key field {missing[0]!r} is undeclared")
+    if mode is WriteMode.INCREMENTAL:
+        if cursor_field is None or not cursor_field.strip():
+            raise SnowflakeWriteError("Snowflake incremental writes require cursor_field")
+        if cursor_field not in field_names:
+            raise SnowflakeWriteError("Snowflake incremental cursor field is undeclared")
+    elif cursor_field is not None:
+        raise SnowflakeWriteError("cursor_field is valid only for Snowflake incremental writes")
+    if mode is WriteMode.SNAPSHOT:
+        if snapshot_field is None or not snapshot_field.strip():
+            raise SnowflakeWriteError("Snowflake snapshot writes require snapshot_field")
+        if snapshot_field not in field_names:
+            raise SnowflakeWriteError("Snowflake snapshot field is undeclared")
+    elif snapshot_field is not None:
+        raise SnowflakeWriteError("snapshot_field is valid only for Snowflake snapshot writes")
     publication = target.publication_fence
     if publication is None:
         raise SnowflakeWriteError("Snowflake hosted writes require a destination target fence")
@@ -254,6 +362,38 @@ def _validate_target(target: WriteTarget, *, database: str) -> None:
 def _validate_schema(schema: RelationSchema) -> None:
     for field in schema.fields:
         _snowflake_type(field.data_type)
+
+
+def _target_schema_for_mode(schema: RelationSchema, mode: WriteMode) -> RelationSchema:
+    if mode is not WriteMode.SCD2:
+        return schema
+    return RelationSchema(
+        fields=(
+            *schema.fields,
+            CanonicalField(
+                name=_SCD2_VALID_FROM,
+                data_type=CanonicalType(
+                    kind=LogicalTypeKind.TIMESTAMP,
+                    fractional_second_precision=9,
+                    with_timezone=True,
+                ),
+                cardinality=FieldCardinality.REQUIRED,
+            ),
+            CanonicalField(
+                name=_SCD2_VALID_TO,
+                data_type=CanonicalType(
+                    kind=LogicalTypeKind.TIMESTAMP,
+                    fractional_second_precision=9,
+                    with_timezone=True,
+                ),
+            ),
+            CanonicalField(
+                name=_SCD2_IS_CURRENT,
+                data_type=CanonicalType(kind=LogicalTypeKind.BOOLEAN),
+                cardinality=FieldCardinality.REQUIRED,
+            ),
+        )
+    )
 
 
 def _validate_manifest_bounds(
@@ -431,37 +571,188 @@ def _parquet_file_format() -> str:
     return "TYPE = PARQUET USE_LOGICAL_TYPE = TRUE BINARY_AS_TEXT = FALSE"
 
 
+def _publication_statements(
+    target: WriteTarget,
+    staging_relation: str,
+    fields: Sequence[CanonicalField],
+    *,
+    mode: WriteMode,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> tuple[tuple[str, Sequence[object]], ...]:
+    if mode is WriteMode.REPLACE:
+        return _replace_statements(target, staging_relation, fields)
+    if mode is WriteMode.SNAPSHOT:
+        assert snapshot_field is not None
+        return ((_snapshot_sql(target, staging_relation, fields, snapshot_field), ()),)
+    if mode is WriteMode.SCD2:
+        return _scd2_statements(target, staging_relation, fields)
+    return (
+        (
+            _merge_sql(
+                target,
+                staging_relation,
+                fields,
+                cursor_field=cursor_field if mode is WriteMode.INCREMENTAL else None,
+            ),
+            (),
+        ),
+    )
+
+
+def _deduplicated_source(
+    target: WriteTarget,
+    staging_relation: str,
+    fields: Sequence[CanonicalField],
+    *,
+    cursor_field: str | None = None,
+) -> str:
+    names = tuple(field.name for field in fields)
+    partition = ", ".join(_quote(key) for key in target.business_key)
+    ordering = (
+        f"{_quote(cursor_field)} DESC NULLS LAST, {_quote(_ORDINAL)} DESC"
+        if cursor_field is not None
+        else f"{_quote(_ORDINAL)} DESC"
+    )
+    return (
+        f"SELECT {', '.join(_quote(name) for name in names)} FROM {staging_relation} "
+        f"QUALIFY ROW_NUMBER() OVER (PARTITION BY {partition} "
+        f"ORDER BY {ordering}) = 1"
+    )
+
+
 def _merge_sql(
     target: WriteTarget,
     staging_relation: str,
     fields: Sequence[CanonicalField],
+    *,
+    cursor_field: str | None,
 ) -> str:
     names = tuple(field.name for field in fields)
     selected = ", ".join(f"incoming.{_quote(name)}" for name in names)
     target_names = ", ".join(_quote(name) for name in names)
-    partition = ", ".join(_quote(key) for key in target.business_key)
     match = " AND ".join(
         f"target.{_quote(key)} = incoming.{_quote(key)}" for key in target.business_key
     )
     mutable = tuple(name for name in names if name not in target.business_key)
+    condition = (
+        f" AND incoming.{_quote(cursor_field)} >= target.{_quote(cursor_field)}"
+        if cursor_field is not None
+        else ""
+    )
     matched = (
-        " WHEN MATCHED THEN UPDATE SET "
+        f" WHEN MATCHED{condition} THEN UPDATE SET "
         + ", ".join(f"target.{_quote(name)} = incoming.{_quote(name)}" for name in mutable)
         if mutable
         else ""
     )
+    source = _deduplicated_source(
+        target,
+        staging_relation,
+        fields,
+        cursor_field=cursor_field,
+    )
     return (
         f"MERGE INTO {_target(target)} AS target USING (SELECT "
-        f"{', '.join(_quote(name) for name in names)} FROM {staging_relation} "
-        f"QUALIFY ROW_NUMBER() OVER (PARTITION BY {partition} "
-        f"ORDER BY {_quote(_ORDINAL)} DESC) = 1) AS incoming ON {match}"
+        f"* FROM ({source})) "
+        f"AS incoming ON {match}"
         f"{matched} WHEN NOT MATCHED THEN INSERT ({target_names}) VALUES ({selected})"
     )
 
 
+def _replace_statements(
+    target: WriteTarget,
+    staging_relation: str,
+    fields: Sequence[CanonicalField],
+) -> tuple[tuple[str, Sequence[object]], ...]:
+    columns = ", ".join(_quote(field.name) for field in fields)
+    return (
+        (f"DELETE FROM {_target(target)}", ()),
+        (
+            f"INSERT INTO {_target(target)} ({columns}) SELECT {columns} FROM {staging_relation}",
+            (),
+        ),
+    )
+
+
+def _snapshot_sql(
+    target: WriteTarget,
+    staging_relation: str,
+    fields: Sequence[CanonicalField],
+    snapshot_field: str,
+) -> str:
+    names = tuple(field.name for field in fields)
+    columns = ", ".join(_quote(name) for name in names)
+    selected = ", ".join(f"incoming.{_quote(name)}" for name in names)
+    identical = " AND ".join(
+        f"EQUAL_NULL(existing.{_quote(name)}, incoming.{_quote(name)})" for name in names
+    )
+    return (
+        f"INSERT INTO {_target(target)} ({columns}) SELECT DISTINCT {selected} "
+        f"FROM {staging_relation} AS incoming WHERE incoming.{_quote(snapshot_field)} IS NOT NULL "
+        f"AND NOT EXISTS (SELECT 1 FROM {_target(target)} AS existing WHERE {identical})"
+    )
+
+
+def _scd2_statements(
+    target: WriteTarget,
+    staging_relation: str,
+    fields: Sequence[CanonicalField],
+) -> tuple[tuple[str, Sequence[object]], ...]:
+    names = tuple(field.name for field in fields)
+    incoming = _deduplicated_source(target, staging_relation, fields)
+    match = " AND ".join(
+        f"current.{_quote(key)} = incoming.{_quote(key)}" for key in target.business_key
+    )
+    mutable = tuple(name for name in names if name not in target.business_key)
+    changed = (
+        " OR ".join(
+            f"NOT EQUAL_NULL(current.{_quote(name)}, incoming.{_quote(name)})" for name in mutable
+        )
+        or "FALSE"
+    )
+    close = (
+        f"UPDATE {_target(target)} AS current SET "
+        f"{_quote(_SCD2_VALID_TO)} = $DANDER_SCD2_EFFECTIVE_AT, "
+        f"{_quote(_SCD2_IS_CURRENT)} = FALSE FROM ({incoming}) AS incoming WHERE {match} "
+        f"AND current.{_quote(_SCD2_IS_CURRENT)} = TRUE AND ({changed})"
+    )
+    columns = ", ".join(
+        [
+            *(_quote(name) for name in names),
+            _quote(_SCD2_VALID_FROM),
+            _quote(_SCD2_VALID_TO),
+            _quote(_SCD2_IS_CURRENT),
+        ]
+    )
+    values = ", ".join(
+        [
+            *(f"incoming.{_quote(name)}" for name in names),
+            "$DANDER_SCD2_EFFECTIVE_AT",
+            "NULL",
+            "TRUE",
+        ]
+    )
+    current_match = " AND ".join(
+        f"current.{_quote(key)} = incoming.{_quote(key)}" for key in target.business_key
+    )
+    insert = (
+        f"INSERT INTO {_target(target)} ({columns}) SELECT {values} FROM ({incoming}) AS incoming "
+        f"WHERE NOT EXISTS (SELECT 1 FROM {_target(target)} AS current WHERE {current_match} "
+        f"AND current.{_quote(_SCD2_IS_CURRENT)} = TRUE)"
+    )
+    return ((close, ()), (insert, ()))
+
+
 def _no_op_sql(target: WriteTarget) -> str:
-    key = _quote(target.business_key[0])
-    return f"UPDATE {_target(target)} SET {key} = {key} WHERE FALSE"
+    column = _quote(target.schema[0].name)
+    return f"UPDATE {_target(target)} SET {column} = {column} WHERE FALSE"
+
+
+def _empty_publication_sql(target: WriteTarget, mode: WriteMode) -> str:
+    if mode is WriteMode.REPLACE:
+        return f"DELETE FROM {_target(target)}"
+    return _no_op_sql(target)
 
 
 def _cleanup_remote(
@@ -557,6 +848,7 @@ def _literal(value: str) -> str:
 
 __all__ = [
     "SnowflakeScd1Writer",
+    "SnowflakeStagedWriter",
     "SnowflakeStagingSettings",
     "SnowflakeWriteError",
     "default_staging_settings",

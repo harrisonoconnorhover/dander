@@ -122,7 +122,18 @@ def test_hosted_project_run_wires_runtime_without_network(
             )
 
     class _WriterFactory:
-        def build_ingestion_writer(self, **kwargs: object) -> _Built:
+        def build_ingestion_writer(
+            self,
+            *,
+            sandbox: bool,
+            batch_rows: int,
+            schema_evolution: SchemaEvolution,
+        ) -> _Built:
+            kwargs = {
+                "sandbox": sandbox,
+                "batch_rows": batch_rows,
+                "schema_evolution": schema_evolution,
+            }
             component = _Built(name="writer", args=(), kwargs=kwargs)
             captured["writer"] = component
             return component

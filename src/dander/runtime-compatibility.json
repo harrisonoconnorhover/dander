@@ -23,7 +23,7 @@
       "state": "bigquery",
       "warehouse": "snowflake",
       "status": "experimental",
-      "reason": "Snowflake staged SCD1 ingestion and destination fencing pass local conformance; no live Snowflake profile is qualified."
+      "reason": "Snowflake staged scalar writer modes and destination fencing pass local conformance; no live Snowflake profile is qualified."
     },
     {
       "state": "postgresql",
@@ -47,7 +47,7 @@
       "state": "postgresql",
       "warehouse": "snowflake",
       "status": "experimental",
-      "reason": "Cross-backend execution is admitted only for locally conformance-tested Snowflake staged SCD1 writes; live qualification remains pending."
+      "reason": "Cross-backend execution is admitted only for locally conformance-tested Snowflake staged scalar writes; live qualification remains pending."
     }
   ],
   "warehouses": [
@@ -89,7 +89,7 @@
     },
     {
       "provider": "snowflake",
-      "write_modes": ["scd1"],
+      "write_modes": ["incremental", "replace", "scd1", "scd2", "snapshot"],
       "transports": ["copy"],
       "logical_types": ["binary", "boolean", "date", "decimal", "float", "integer", "string", "time", "timestamp"],
       "max_decimal_precision": 38,
@@ -97,7 +97,7 @@
       "supports_transforms": true,
       "supports_graphs": false,
       "supports_target_fencing": true,
-      "limitations": ["graph execution is not available", "only scd1 ingestion is implemented", "semi-structured types require a future explicit VARIANT mapping"]
+      "limitations": ["graph execution is not available", "hosted source execution selects scd1", "semi-structured types require a future explicit VARIANT mapping", "small-load direct writes are not qualified"]
     }
   ]
 }
