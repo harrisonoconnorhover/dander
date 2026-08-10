@@ -56,6 +56,10 @@ def test_controller_owns_deadline_and_only_runtime_exit_75_retries() -> None:
     assert "TimeoutSeconds = each.value.resources.deadline_seconds" in module
     assert "projection.resources.deadline_seconds <= 86400" in variables
     assert "NumericEquals = 75" in module
+    assert 'StringEquals = "States.TaskFailed"' in module
+    assert '"details.$" = "States.StringToJson($.controller_failure.Cause)"' in module
+    assert 'Next        = "Classify task failure"' in module
+    assert 'Default = "Controller failure"' in module
     assert 'failure_code            = "runtime_retry_exhausted"' in module
     assert 'failure_code         = "launcher_deadline_exceeded"' in module
     assert '"ecs:StopTask"' in module

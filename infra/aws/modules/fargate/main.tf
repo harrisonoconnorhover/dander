@@ -548,10 +548,57 @@ resource "aws_sfn_state_machine" "pipeline" {
           {
             ErrorEquals = ["States.ALL"]
             ResultPath  = "$.controller_failure"
-            Next        = "Controller failure"
+            Next        = "Classify task failure"
           },
         ]
         Next = "Classify task"
+      }
+      "Classify task failure" = {
+        Type = "Choice"
+        Choices = [
+          {
+            Variable     = "$.controller_failure.Error"
+            StringEquals = "States.TaskFailed"
+            Next         = "Decode runtime failure"
+          },
+        ]
+        Default = "Controller failure"
+      }
+      "Decode runtime failure" = {
+        Type = "Pass"
+        Parameters = {
+          "details.$" = "States.StringToJson($.controller_failure.Cause)"
+        }
+        ResultPath = "$.runtime_failure"
+        Next       = "Validate runtime failure"
+      }
+      "Validate runtime failure" = {
+        Type = "Choice"
+        Choices = [
+          {
+            And = [
+              {
+                Variable  = "$.runtime_failure.details.TaskArn"
+                IsPresent = true
+              },
+              {
+                Variable  = "$.runtime_failure.details.Containers[0].ExitCode"
+                IsPresent = true
+              },
+            ]
+            Next = "Normalize runtime failure"
+          },
+        ]
+        Default = "Controller failure"
+      }
+      "Normalize runtime failure" = {
+        Type = "Pass"
+        Parameters = {
+          "task_arn.$"  = "$.runtime_failure.details.TaskArn"
+          "exit_code.$" = "$.runtime_failure.details.Containers[0].ExitCode"
+        }
+        ResultPath = "$.task"
+        Next       = "Classify task"
       }
       "Classify task" = {
         Type = "Choice"
