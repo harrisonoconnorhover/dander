@@ -1,4 +1,4 @@
-"""Bounded S3/Parquet COPY and transactionally fenced Redshift writes."""
+"""Bounded direct or S3/Parquet COPY staging with fenced Redshift publication."""
 
 # ruff: noqa: N803 -- boto3's public S3 API uses capitalized parameter names.
 
@@ -7,8 +7,12 @@ from __future__ import annotations
 import hashlib
 import json
 import tempfile
+from base64 import b64encode
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
+from datetime import date, datetime, time
+from decimal import Decimal
+from itertools import chain
 from pathlib import Path
 from time import perf_counter_ns
 from typing import TYPE_CHECKING, Protocol
@@ -23,6 +27,7 @@ from dander.providers.redshift.session import (
     capture_last_query_id,
     enrich_operation_telemetry,
     execute,
+    execute_many,
     open_connection,
 )
 from dander.telemetry import OperationTelemetry, TelemetryOperation
@@ -90,6 +95,16 @@ class RedshiftStagingSettings:
     max_logical_bytes_per_file: int
     compression: str
     statement_timeout_ms: int
+    direct_max_rows: int = 0
+    direct_max_logical_bytes: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class _DirectBatch:
+    rows: tuple[dict[str, object], ...]
+    logical_bytes: int
+    schema_fingerprint: str
+    sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,7 +120,7 @@ class _LoadOutcome:
 
 
 class RedshiftStagedWriter(WritePattern):
-    """Upload bounded Parquet parts and publish one selected logical write mode."""
+    """Select bounded direct/COPY staging and publish one logical write mode."""
 
     requires_publication_fence = True
 
@@ -131,7 +146,10 @@ class RedshiftStagedWriter(WritePattern):
         self.mode = mode
         self._cursor_field = cursor_field
         self._snapshot_field = snapshot_field
-        self.supports_batched_writes = mode in {
+        direct_enabled = staging.direct_max_rows > 0
+        # Direct/COPY selection must see the complete endpoint. When direct is disabled,
+        # preserve the established executor batching behavior exactly.
+        self.supports_batched_writes = not direct_enabled and mode in {
             WriteMode.SCD1,
             WriteMode.INCREMENTAL,
             WriteMode.SNAPSHOT,
@@ -178,6 +196,32 @@ class RedshiftStagedWriter(WritePattern):
                 ),
             )
         )
+        prepared = iter(
+            _with_ordinals(
+                _serialize_super_records(records, schema),
+                business_key=target.business_key,
+                cursor_field=self._cursor_field,
+                snapshot_field=self._snapshot_field,
+            )
+        )
+        direct, remaining = _select_direct_batch(
+            prepared,
+            staged_schema,
+            max_rows=self._staging.direct_max_rows,
+            max_logical_bytes=self._staging.direct_max_logical_bytes,
+        )
+        if direct is not None:
+            outcome = self._load_and_publish(
+                target,
+                publication,
+                schema,
+                staged_schema,
+                transport=WriteTransport.DIRECT,
+                direct=direct,
+            )
+            self._telemetry.extend(outcome.operations)
+            return outcome.affected
+
         local_id = f"redshift-{uuid4().hex}"
         with ParquetStagingSession(
             self._staging.root,
@@ -187,30 +231,47 @@ class RedshiftStagedWriter(WritePattern):
             compression=self._staging.compression,
         ) as local:
             manifest = local.stage(
-                _validated_staging_rows(
-                    _with_ordinals(
-                        _serialize_super_records(records, schema),
-                        business_key=target.business_key,
-                        cursor_field=self._cursor_field,
-                        snapshot_field=self._snapshot_field,
-                    ),
-                    staged_schema,
-                ),
+                _validated_staging_rows(remaining, staged_schema),
                 staged_schema,
             )
-            outcome = self._publish(target, publication, schema, staged_schema, manifest)
+            outcome = self._load_and_publish(
+                target,
+                publication,
+                schema,
+                staged_schema,
+                transport=WriteTransport.COPY,
+                manifest=manifest,
+            )
         self._telemetry.extend(outcome.operations)
         return outcome.affected
 
-    def _publish(
+    def _load_and_publish(
         self,
         target: WriteTarget,
         publication: TargetFence,
         target_schema: RelationSchema,
         staged_schema: RelationSchema,
-        manifest: StagingManifest,
+        *,
+        transport: WriteTransport,
+        manifest: StagingManifest | None = None,
+        direct: _DirectBatch | None = None,
     ) -> _LoadOutcome:
-        _validate_bucket_region(self._s3, self._staging.bucket, self._staging.region)
+        if (manifest is None) == (direct is None):
+            raise TypeError("Redshift writer requires exactly one staged load input")
+        if manifest is not None:
+            _validate_bucket_region(self._s3, self._staging.bucket, self._staging.region)
+            rows = manifest.rows
+            logical_or_compressed_bytes = sum(
+                artifact.compressed_bytes for artifact in manifest.artifacts
+            )
+            schema_fingerprint = manifest.schema_fingerprint
+            load_digest = _manifest_digest(manifest)
+        else:
+            assert direct is not None
+            rows = len(direct.rows)
+            logical_or_compressed_bytes = direct.logical_bytes
+            schema_fingerprint = direct.schema_fingerprint
+            load_digest = direct.sha256
         remote_id = hashlib.sha256(
             f"{publication.target_id}:{publication.run_id}:{uuid4().hex}".encode()
         ).hexdigest()[:24]
@@ -228,7 +289,7 @@ class RedshiftStagedWriter(WritePattern):
                     publication,
                     statement_timeout_ms=self._staging.statement_timeout_ms,
                 )
-                if manifest.rows:
+                if rows and manifest is not None:
                     for artifact in manifest.artifacts:
                         key = f"{remote_prefix}/{artifact.path.name}"
                         uploaded.append(key)
@@ -251,21 +312,29 @@ class RedshiftStagedWriter(WritePattern):
                             role_arn=self._staging.copy_role_arn,
                         ),
                     )
+                elif rows:
+                    assert direct is not None
+                    execute(connection, _temporary_table_sql(temp_table, staged_schema))
+                    loaded, load_duration_ms = _timed_call(
+                        execute_many,
+                        connection,
+                        *_direct_insert(temp_table, staged_schema, direct.rows),
+                    )
                 # COPY and SET open an implicit transaction. Close it while retaining the
                 # session-scoped temp table so the fenced publication owns one transaction.
                 connection.commit()
-                if manifest.rows:
+                if rows:
                     assert loaded is not None
-                    loaded = replace(loaded, query_id=capture_last_query_id(connection))
+                    if transport is WriteTransport.COPY:
+                        loaded = replace(loaded, query_id=capture_last_query_id(connection))
                     operations.append(
                         _operation_telemetry(
                             loaded,
                             operation=TelemetryOperation.LOAD,
                             duration_ms=load_duration_ms,
-                            rows_written=manifest.rows,
-                            bytes_written=sum(
-                                artifact.compressed_bytes for artifact in manifest.artifacts
-                            ),
+                            rows_written=rows,
+                            bytes_written=logical_or_compressed_bytes,
+                            transport=transport,
                         )
                     )
                 plan = _publication_plan(
@@ -273,9 +342,10 @@ class RedshiftStagedWriter(WritePattern):
                     target,
                     temp_table,
                     target_schema,
-                    manifest,
+                    schema_fingerprint=schema_fingerprint,
+                    load_digest=load_digest,
                     evolution=self._evolution,
-                    has_rows=bool(manifest.rows),
+                    has_rows=bool(rows),
                     mode=self.mode,
                     cursor_field=self._cursor_field,
                     snapshot_field=self._snapshot_field,
@@ -298,6 +368,7 @@ class RedshiftStagedWriter(WritePattern):
                         results[plan.affected_statement_index],
                         operation=TelemetryOperation.QUERY,
                         duration_ms=publication_duration_ms,
+                        transport=transport,
                     )
                 )
                 completed = enrich_operation_telemetry(connection, operations)
@@ -359,6 +430,8 @@ def default_staging_settings(
     max_logical_bytes_per_file: int,
     compression: str,
     statement_timeout_ms: int,
+    direct_max_rows: int = 0,
+    direct_max_logical_bytes: int = 0,
 ) -> RedshiftStagingSettings:
     return RedshiftStagingSettings(
         root=Path(tempfile.gettempdir()) / "dander-redshift-staging",
@@ -370,6 +443,8 @@ def default_staging_settings(
         max_logical_bytes_per_file=max_logical_bytes_per_file,
         compression=compression,
         statement_timeout_ms=statement_timeout_ms,
+        direct_max_rows=direct_max_rows,
+        direct_max_logical_bytes=direct_max_logical_bytes,
     )
 
 
@@ -393,6 +468,7 @@ def _operation_telemetry(
     duration_ms: int,
     rows_written: int = 0,
     bytes_written: int = 0,
+    transport: WriteTransport = WriteTransport.COPY,
 ) -> OperationTelemetry:
     return OperationTelemetry(
         provider="redshift",
@@ -402,8 +478,89 @@ def _operation_telemetry(
         rows_affected=max(result.rowcount, 0),
         bytes_written=bytes_written,
         query_id=result.query_id,
-        transport=WriteTransport.COPY,
+        transport=transport,
     )
+
+
+def _select_direct_batch(
+    records: Iterable[Mapping[str, object]],
+    schema: RelationSchema,
+    *,
+    max_rows: int,
+    max_logical_bytes: int,
+) -> tuple[_DirectBatch | None, Iterable[Mapping[str, object]]]:
+    """Choose direct only after the complete endpoint fits both bounded limits."""
+    if max_rows == 0 or max_logical_bytes == 0:
+        return None, records
+    iterator = iter(records)
+    raw_prefix: list[dict[str, object]] = []
+    normalized_prefix: list[dict[str, object]] = []
+    logical_bytes = 0
+    for row_index, record in enumerate(iterator):
+        raw = dict(record)
+        normalized = normalize_staging_record(raw, schema, row_index=row_index)
+        raw_prefix.append(raw)
+        normalized_prefix.append(normalized)
+        logical_bytes += staging_logical_size(normalized)
+        if len(raw_prefix) > max_rows or logical_bytes > max_logical_bytes:
+            return None, chain(raw_prefix, iterator)
+    rows = tuple(normalized_prefix)
+    schema_fingerprint = _schema_fingerprint(schema)
+    return (
+        _DirectBatch(
+            rows=rows,
+            logical_bytes=logical_bytes,
+            schema_fingerprint=schema_fingerprint,
+            sha256=_direct_checksum(schema, rows),
+        ),
+        (),
+    )
+
+
+def _schema_fingerprint(schema: RelationSchema) -> str:
+    return hashlib.sha256(schema.model_dump_json(by_alias=True).encode("utf-8")).hexdigest()
+
+
+def _direct_checksum(
+    schema: RelationSchema,
+    rows: tuple[dict[str, object], ...],
+) -> str:
+    payload = {
+        "schema": schema.model_dump(mode="json", by_alias=True),
+        "rows": [[_checksum_value(row[field.name]) for field in schema.fields] for row in rows],
+    }
+    encoded = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _checksum_value(value: object) -> object:
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return {"float": value.hex()}
+    if isinstance(value, Decimal):
+        return {"decimal": str(value)}
+    if isinstance(value, bytes):
+        return {"binary": b64encode(value).decode("ascii")}
+    if isinstance(value, datetime):
+        return {"datetime": value.isoformat()}
+    if isinstance(value, date):
+        return {"date": value.isoformat()}
+    if isinstance(value, time):
+        return {"time": value.isoformat()}
+    raise RedshiftWriteError("Redshift direct staging received an unsupported scalar value")
+
+
+def _direct_insert(
+    temporary: str,
+    schema: RelationSchema,
+    rows: tuple[dict[str, object], ...],
+) -> tuple[str, tuple[tuple[object, ...], ...]]:
+    columns = ", ".join(_quote(field.name) for field in schema.fields)
+    placeholders = ", ".join("%s" for _field in schema.fields)
+    statement = f"INSERT INTO {_quote(temporary)} ({columns}) VALUES ({placeholders})"
+    parameters = tuple(tuple(row[field.name] for field in schema.fields) for row in rows)
+    return statement, parameters
 
 
 def _with_ordinals(
@@ -649,8 +806,9 @@ def _publication_plan(
     target: WriteTarget,
     temp_table: str,
     schema: RelationSchema,
-    manifest: StagingManifest,
     *,
+    schema_fingerprint: str,
+    load_digest: str,
     evolution: SchemaEvolution,
     has_rows: bool,
     mode: WriteMode,
@@ -663,13 +821,12 @@ def _publication_plan(
         (_history_table_sql(target), ()),
     ]
     statements.extend(_schema_changes(connection, target, deployed_schema, evolution=evolution))
-    digest = _manifest_digest(manifest)
     history_values: tuple[object, ...] = (
         ".".join(target.relation_ref.coordinates),
         target.publication_fence.pipeline_id if target.publication_fence else "",
         target.publication_fence.run_id if target.publication_fence else "",
-        manifest.schema_fingerprint,
-        digest,
+        schema_fingerprint,
+        load_digest,
     )
     publication = _publication_statements(
         target,

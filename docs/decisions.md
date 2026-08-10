@@ -1057,3 +1057,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   never selected.
 - **Failure boundary:** Every telemetry-only read rolls back its own transaction, including denied
   or malformed history, so observability cannot poison target cleanup or fail completed work.
+
+## 2026-08-10 — Redshift direct staging is explicit, bounded, and endpoint-wide
+
+- **Selection:** COPY remains the zero-configuration default. Direct staging is enabled only by
+  paired row and logical-byte limits and sees the complete endpoint stream before selecting a
+  transport; an overflow falls back once to COPY with the inspected prefix preserved.
+- **Publication:** Parameterized direct inserts feed the same session-temporary table, deterministic
+  replay identity, five write modes, schema checks, and fenced publication transaction as COPY.
+- **Telemetry:** Direct loads report exact local rows, logical bytes, and duration without a query
+  ID or system-history enrichment because `executemany` has no whole-batch Redshift query identity.

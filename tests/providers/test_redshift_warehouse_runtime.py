@@ -32,7 +32,7 @@ from dander.warehouse import (
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget, WriteTransport
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
 
 @dataclass
@@ -58,6 +58,7 @@ class _FakeRedshift:
     query_counter: int = 100
     telemetry_rows: list[object] = field(default_factory=list)
     telemetry_error: bool = False
+    direct_error: bool = False
 
     def connect(self) -> _FakeConnection:
         self.connections += 1
@@ -205,6 +206,19 @@ class _FakeCursor:
             self._row = (self.backend.assertion_failure_count,)
         return self
 
+    def executemany(self, command: str, args: Iterable[Sequence[object]]) -> Self:
+        if self.connection.aborted:
+            raise RuntimeError("Redshift transaction is aborted until rollback")
+        rows = tuple(tuple(row) for row in args)
+        compact = " ".join(command.split())
+        self.connection.in_transaction = True
+        self.backend.statements.append((self.connection.connection_id, compact, rows))
+        if self.backend.direct_error:
+            self.connection.aborted = True
+            raise RuntimeError("private Redshift direct-load response")
+        self.rowcount = len(rows)
+        return self
+
     def fetchone(self) -> object | None:
         return self._row
 
@@ -303,6 +317,33 @@ def redshift_runtime(
     return runtime, backend, s3, tmp_path
 
 
+def _direct_redshift_runtime(
+    tmp_path: Path,
+    *,
+    max_rows: int = 2,
+    max_logical_bytes: int = 4_096,
+) -> tuple[WarehouseRuntime, _FakeRedshift, _FakeS3]:
+    backend = _FakeRedshift()
+    s3 = _FakeS3()
+    registry = default_provider_registry()
+    raw = _config()
+    raw["direct_max_rows"] = max_rows
+    raw["direct_max_logical_bytes"] = max_logical_bytes
+    config = registry.parse(ProviderKind.WAREHOUSE, raw)
+    runtime = registry.build(
+        ProviderKind.WAREHOUSE,
+        config,
+        context={
+            "catalog": "analytics",
+            "connection_factory": backend.connect,
+            "s3_client": s3,
+            "staging_root": tmp_path,
+        },
+    )
+    assert isinstance(runtime, WarehouseRuntime)
+    return runtime, backend, s3
+
+
 def _target(runtime: WarehouseRuntime, *, run_id: str = "run-one") -> WriteTarget:
     relation = RelationRef(catalog="analytics", namespace="raw", name="records")
     publication = runtime.target_fence.claim(
@@ -342,6 +383,16 @@ def test_redshift_registration_is_lazy_and_uses_native_coordinates() -> None:
     )
     assert relation == RelationRef(catalog="analytics", namespace="raw", name="records")
     assert "password" not in config.model_dump_json()
+    assert config.direct_max_rows == 0
+    assert config.direct_max_logical_bytes == 0
+
+
+def test_redshift_direct_thresholds_are_explicit_and_paired() -> None:
+    raw = _config()
+    raw["direct_max_rows"] = 10
+
+    with pytest.raises(ValueError, match="must both be zero or positive"):
+        RedshiftWarehouseConfig.model_validate(raw)
 
 
 def test_redshift_schema_mapper_requires_explicit_json_super_without_io(
@@ -394,7 +445,9 @@ def test_redshift_runtime_validates_connection_and_exposes_fenced_transforms(
 
     assert runtime.relation_codec.render(relation) == '"analytics"."raw"."records"'
     assert runtime.capabilities.write_modes == frozenset(WriteMode)
-    assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
+    assert runtime.capabilities.transports == frozenset(
+        {WriteTransport.COPY, WriteTransport.DIRECT}
+    )
     assert runtime.capabilities.supports_transforms is True
     assert runtime.capabilities.supports_graphs is True
     assert isinstance(
@@ -1115,6 +1168,229 @@ def test_redshift_copy_telemetry_is_enriched_without_sensitive_history(
     assert "data_source" not in history_statement.casefold()
 
 
+def test_redshift_direct_load_parses_explicit_super_without_s3_or_query_attribution(
+    tmp_path: Path,
+) -> None:
+    runtime, backend, s3 = _direct_redshift_runtime(tmp_path)
+    backend.schema_rows = [
+        ("id", "character varying", 65_535, None, None, "NO"),
+        ("payload", "super", None, None, None, "YES"),
+    ]
+    relation = RelationRef(catalog="analytics", namespace="raw", name="direct_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="redshift_direct_records",
+            run_id="run-direct",
+            token=7,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+    fallback = ProviderExtension(provider="redshift", name="fallback", value="super")
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="payload", data_type="JSON", extensions=(fallback,)),
+        ),
+        publication_fence=publication,
+    )
+
+    assert writer.supports_batched_writes is False
+    assert writer.accepts_streaming_input is True
+    assert writer.write(({"id": "one", "payload": {"ready": True}},), target) == 1
+
+    direct_statement, direct_parameters = next(
+        (statement, parameters)
+        for _, statement, parameters in backend.statements
+        if statement.startswith('INSERT INTO "dander_stage_')
+        and "dander_stage_loads" not in statement
+    )
+    assert '"payload" VARBYTE(16777216)' in next(
+        statement
+        for _, statement, _ in backend.statements
+        if statement.startswith("CREATE TEMP TABLE")
+    )
+    assert direct_statement.endswith("VALUES (%s, %s, %s)")
+    assert direct_parameters == (("one", b'{"ready":true}', 0),)
+    assert 'JSON_PARSE(staged."payload") AS "payload"' in next(
+        statement for _, statement, _ in backend.statements if statement.startswith("MERGE INTO")
+    )
+    assert s3.region_checks == 0
+    assert not s3.uploads and not s3.puts and not s3.deleted
+    operations = writer.drain_telemetry()
+    assert [operation.operation for operation in operations] == [
+        TelemetryOperation.LOAD,
+        TelemetryOperation.QUERY,
+    ]
+    assert all(operation.transport is WriteTransport.DIRECT for operation in operations)
+    assert operations[0].rows_written == 1
+    assert operations[0].query_id is None
+    assert not any(
+        statement.startswith("WITH recent AS (SELECT query_id")
+        for _, statement, _ in backend.statements
+    )
+    history_before = set(backend.history)
+    assert writer.write(({"id": "one", "payload": {"ready": True}},), target) == 0
+    assert backend.history == history_before
+    assert not tuple(tmp_path.iterdir())
+
+
+def test_redshift_direct_load_accepts_a_valid_super_row_above_the_copy_limit(
+    tmp_path: Path,
+) -> None:
+    runtime, backend, s3 = _direct_redshift_runtime(
+        tmp_path,
+        max_rows=1,
+        max_logical_bytes=8 * 1_024 * 1_024,
+    )
+    backend.schema_rows = [
+        ("id", "character varying", 65_535, None, None, "NO"),
+        ("payload", "super", None, None, None, "YES"),
+    ]
+    relation = RelationRef(catalog="analytics", namespace="raw", name="large_direct_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="redshift_large_direct",
+            run_id="run-large-direct",
+            token=8,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    fallback = ProviderExtension(provider="redshift", name="fallback", value="super")
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="payload", data_type="JSON", extensions=(fallback,)),
+        ),
+        publication_fence=publication,
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+
+    assert (
+        writer.write(
+            ({"id": "one", "payload": {"value": "x" * 4_300_000}},),
+            target,
+        )
+        == backend.merge_rowcount
+    )
+
+    direct_parameters = next(
+        parameters
+        for _, statement, parameters in backend.statements
+        if statement.startswith('INSERT INTO "dander_stage_')
+        and "dander_stage_loads" not in statement
+    )
+    direct_row = direct_parameters[0]
+    assert isinstance(direct_row, (tuple, list))
+    assert isinstance(direct_row[1], bytes)
+    assert len(direct_row[1]) > 4 * 1_024 * 1_024
+    assert s3.region_checks == 0
+    assert not s3.uploads and not s3.puts and not s3.deleted
+    assert not tuple(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize(
+    ("max_rows", "max_logical_bytes"),
+    ((2, 4_096), (10, 1)),
+)
+def test_redshift_direct_threshold_is_decided_for_the_complete_endpoint(
+    tmp_path: Path,
+    max_rows: int,
+    max_logical_bytes: int,
+) -> None:
+    runtime, backend, s3 = _direct_redshift_runtime(
+        tmp_path,
+        max_rows=max_rows,
+        max_logical_bytes=max_logical_bytes,
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+    consumed = 0
+
+    def records() -> Iterable[dict[str, object]]:
+        nonlocal consumed
+        for index in range(3):
+            consumed += 1
+            yield {"id": str(index), "label": f"record-{index}"}
+
+    assert writer.supports_batched_writes is False
+    assert writer.accepts_streaming_input is True
+    assert writer.write(records(), _target(runtime, run_id="run-threshold")) == 1
+
+    assert consumed == 3
+    assert s3.region_checks == 1
+    assert s3.uploads and s3.puts and s3.deleted
+    sql = [statement for _, statement, _ in backend.statements]
+    assert any(statement.startswith("COPY ") for statement in sql)
+    assert not any(
+        statement.startswith('INSERT INTO "dander_stage_') and "dander_stage_loads" not in statement
+        for statement in sql
+    )
+    assert all(operation.transport is WriteTransport.COPY for operation in writer.drain_telemetry())
+    assert not tuple(tmp_path.iterdir())
+
+
+def test_redshift_direct_empty_stream_skips_s3_and_parameter_inserts(tmp_path: Path) -> None:
+    runtime, backend, s3 = _direct_redshift_runtime(tmp_path)
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+
+    assert writer.write((), _target(runtime, run_id="run-empty-direct")) == 0
+
+    sql = [statement for _, statement, _ in backend.statements]
+    assert not any(
+        statement.startswith(("COPY ", 'INSERT INTO "dander_stage_')) for statement in sql
+    )
+    assert s3.region_checks == 0
+    assert not s3.uploads and not s3.puts and not s3.deleted
+    operations = writer.drain_telemetry()
+    assert len(operations) == 1
+    assert operations[0].transport is WriteTransport.DIRECT
+    assert not tuple(tmp_path.iterdir())
+
+
+def test_redshift_direct_failure_is_sanitized_and_uses_no_s3(tmp_path: Path) -> None:
+    runtime, backend, s3 = _direct_redshift_runtime(tmp_path)
+    backend.direct_error = True
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+
+    with pytest.raises(RedshiftWriteError, match="staged SCD1 write failed") as raised:
+        writer.write(({"id": "one", "label": "first"},), _target(runtime, run_id="run-bad"))
+
+    assert "private Redshift" not in str(raised.value)
+    assert s3.region_checks == 0
+    assert not s3.uploads and not s3.puts and not s3.deleted
+    assert writer.drain_telemetry() == ()
+    assert backend.rollbacks >= 1
+    assert not tuple(tmp_path.iterdir())
+
+
 def test_redshift_telemetry_failure_rolls_back_before_staging_cleanup(
     redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
 ) -> None:
@@ -1264,6 +1540,68 @@ def test_redshift_factory_reaches_each_additional_fenced_write_mode(
         assert "SYSDATE" in close and "SYSDATE" in insert
         assert 'ORDER BY "_dander_ordinal" DESC' in close
     assert not tuple(staging_root.iterdir())
+
+
+@pytest.mark.parametrize("mode", tuple(WriteMode))
+def test_redshift_direct_transport_reaches_every_fenced_write_mode(
+    tmp_path: Path,
+    mode: WriteMode,
+) -> None:
+    runtime, backend, s3 = _direct_redshift_runtime(tmp_path)
+    cursor_field = "updated_at" if mode is WriteMode.INCREMENTAL else None
+    snapshot_field = "snapshot_at" if mode is WriteMode.SNAPSHOT else None
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=mode,
+        cursor_field=cursor_field,
+        snapshot_field=snapshot_field,
+    )
+    relation = RelationRef(catalog="analytics", namespace="raw", name=f"direct_{mode.value}")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id=f"redshift_direct_{mode.value}",
+            run_id=f"run-direct-{mode.value}",
+            token=9,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    schema = [
+        WriteField(name="id", data_type="STRING"),
+        WriteField(name="label", data_type="STRING"),
+    ]
+    record: dict[str, object] = {"id": "one", "label": "first"}
+    if cursor_field is not None:
+        schema.append(WriteField(name=cursor_field, data_type="INT64"))
+        record[cursor_field] = 2
+        backend.schema_rows.append((cursor_field, "bigint", None, None, None, "YES"))
+    if snapshot_field is not None:
+        schema.append(WriteField(name=snapshot_field, data_type="INT64"))
+        record[snapshot_field] = 2
+        backend.schema_rows.append((snapshot_field, "bigint", None, None, None, "YES"))
+    if mode is WriteMode.SCD2:
+        backend.schema_rows = []
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=tuple(schema),
+        publication_fence=publication,
+    )
+
+    assert writer.write((record,), target) == backend.merge_rowcount
+
+    sql = [statement for _, statement, _ in backend.statements]
+    assert any(statement.startswith('INSERT INTO "dander_stage_') for statement in sql)
+    assert not any(statement.startswith("COPY ") for statement in sql)
+    assert s3.region_checks == 0
+    assert not s3.uploads and not s3.puts and not s3.deleted
+    assert all(
+        operation.transport is WriteTransport.DIRECT for operation in writer.drain_telemetry()
+    )
+    assert not tuple(tmp_path.iterdir())
 
 
 @pytest.mark.parametrize("mode", tuple(WriteMode))

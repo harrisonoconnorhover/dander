@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Literal, Protocol
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterable, Iterator, Sequence
 
     from dander.telemetry import OperationTelemetry
 
@@ -19,6 +19,7 @@ class RedshiftCursor(Protocol):
     rowcount: int
 
     def execute(self, operation: str, args: Sequence[object] | None = None) -> object: ...
+    def executemany(self, operation: str, args: Iterable[Sequence[object]]) -> object: ...
     def fetchone(self) -> object | None: ...
     def fetchall(self) -> list[object]: ...
     def close(self) -> None: ...
@@ -68,6 +69,20 @@ def execute(
         row = cursor.fetchone() if fetch == "one" else None
         rows = tuple(cursor.fetchall()) if fetch == "all" else ()
         return RedshiftStatementResult(rowcount=cursor.rowcount, row=row, rows=rows)
+    finally:
+        cursor.close()
+
+
+def execute_many(
+    connection: RedshiftConnection,
+    statement: str,
+    parameters: Iterable[Sequence[object]],
+) -> RedshiftStatementResult:
+    """Execute one bounded parameter batch without retaining provider response data."""
+    cursor = connection.cursor()
+    try:
+        cursor.executemany(statement, parameters)
+        return RedshiftStatementResult(rowcount=cursor.rowcount)
     finally:
         cursor.close()
 
