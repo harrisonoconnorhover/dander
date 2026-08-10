@@ -2,33 +2,36 @@
 
 ## Finished
 
-- Prepared release-only metadata for `dander-platform==0.8.0rc7`.
-- Kept the accepted Fargate runtime-failure correction unchanged from merge commit `44b9162c9caea14e21182671bb4cb79680a447f2`.
-- Recorded rc6 as rejected after live nonzero ECS exits bypassed the declared runtime classifier.
+- Corrected EventBridge Scheduler delivery to Step Functions by preserving Scheduler context tokens in the nested request JSON.
+- Removed the optional Step Functions execution name so AWS can generate a valid UUID.
+- Granted each scheduler role only `sqs:SendMessage` to the existing failure queue so target-delivery failures can reach its configured DLQ.
+- Added Terraform and Python regressions over the final rendered schedule input and exact IAM permission.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate artifacts.
+Run `terraform -chdir=infra/aws/modules/fargate test` and `uv run pytest tests/infra/test_fargate_runtime.py -q`.
 
 ## Checks
 
-- PR #160 passed Python, Terraform, distribution, container, and secret checks.
-- The merged fix passed the full Python suite, strict typing, Terraform validation, distribution inspection, and source-free installation.
-- Release metadata, wheel/sdist inspection, and source-free rc7 installation passed outside the checkout.
+- `1117 passed`; Ruff format/check and strict MyPy passed.
+- Terraform/Helm initialization, validation, tests, formatting, lint, and rendering passed.
+- Wheel/sdist inspection, source-free installs, runtime-all install, and generated-project Terraform validation passed.
+- OCI image build, non-root/read-only runtime conformance, and bundled proof-asset checks passed.
+- Locked dependency audit reported no known vulnerabilities.
 
 ## Decisions
 
-- `0.8.0rc7` replaces rc6 for complete Fargate lifecycle acceptance.
-- Fargate remains experimental until the complete lifecycle gate passes.
+- Keep the correction at the AWS Scheduler provider boundary; no runtime or public-interface change is needed.
+- Preserve exact DLQ scope rather than broadening scheduler permissions.
 
 ## Remaining
 
-- Merge this release-only PR after protected checks pass.
-- Tag and publish `0.8.0rc7` from the exact protected merge.
-- Correct the external credential-refresh proof fixture, then restart overlap, refresh, interruption, scheduling, alert, rollback, cleanup, and no-drift acceptance.
+- Push the focused branch, open a PR, and let protected CI repeat security and Linux checks.
+- Publish a replacement candidate after merge because rc7's scheduled path is defective.
+- Retry scheduled execution, then complete rollback, cleanup, evidence, and final no-drift acceptance.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `docs/session-resume.md`
+- `infra/aws/modules/fargate/main.tf`
+- `infra/aws/modules/fargate/tests/fargate.tftest.hcl`
+- `tests/infra/test_fargate_runtime.py`
