@@ -17,8 +17,8 @@ Run `uv run pytest -q tests/providers/test_snowflake_warehouse_runtime.py`, then
 - Ruff format/check: passed across 328 files.
 - Mypy: passed across 304 source/test files with the CI dependency profile.
 - Pytest: 1,112 passed and 13 skipped (1,125 collected).
-- Distribution/source-free install and Terraform validation passed before final correctness fixes; the full Python suite passed afterward.
-- Container export is locally blocked by a broken Docker snapshot and critically low disk; protected Linux CI remains required.
+- Protected CI passed Python/PostgreSQL, dependency, Terraform, distribution/source-free install, container, config-scan, and secret-scan gates.
+- Local Docker remains unhealthy because of a missing snapshot and critically low disk; Linux CI supplied the successful container evidence.
 
 ## Decisions
 
@@ -28,9 +28,7 @@ Run `uv run pytest -q tests/providers/test_snowflake_warehouse_runtime.py`, then
 
 ## Remaining
 
-- Commit, push, and open the focused PR.
-- Require protected CI to repeat Linux tests, PostgreSQL integration, packaging, Terraform, container, and security checks.
-- Merge only when required checks and review pass.
+- Review and merge PR #165 through protected main when approved.
 - Continue the remaining Snowflake first-class slices from updated main.
 
 ## Review First
