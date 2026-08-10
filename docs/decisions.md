@@ -1134,3 +1134,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** The existing Cloud Run compatibility projector remains authoritative, and Fargate
   and Kubernetes retain their prior fail-closed behavior. No configuration schema, launcher output,
   provider capability, warehouse behavior, or cloud implementation changes.
+
+## 2026-08-10 — Four-warehouse equality compares hashes from one bounded scalar fixture
+
+- **Fixture:** BigQuery, PostgreSQL, Snowflake, and Redshift receive the same SCD1 waves and replay
+  over their common canonical scalar intersection. Canonical normalization must match the expected
+  rows before provider evidence can be emitted.
+- **Evidence:** Per-provider records retain schema, fixture, and normalized-result hashes, row
+  count, candidate commit, cleanup, transport, and reviewed ceiling metadata; row values and
+  credentials are excluded. The final gate accepts exactly one equal record per provider.
+- **Boundary:** Physical transports and provider-specific types, fallbacks, write modes,
+  materializations, and fencing remain separate conformance concerns. Scale, cost, crossover, soak,
+  pairwise-profile, and release qualification remain in Phase 8.
