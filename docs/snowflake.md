@@ -2,8 +2,9 @@
 
 Snowflake is an experimental warehouse adapter, not a supported Dander profile. The current slice
 proves native database/schema coordinates, bounded direct and bulk paths, all five writer modes,
-an explicit JSON-to-`VARIANT` fallback, and fenced table/incremental models. Live qualification
-and the remaining first-class gates are still required before support promotion.
+an explicit JSON-to-`VARIANT` fallback, fenced table/incremental models, and fenced replace-mode
+graph targets. Live qualification and the remaining first-class gates are still required before
+support promotion.
 
 ## Configuration
 
@@ -76,6 +77,13 @@ variable reference. Do not put a token, private key, password, or connection str
 - Portable or Snowflake-authored table models replace rows through fenced `DELETE`/`INSERT` DML.
 - Incremental models collapse duplicate keys deterministically and accept only rows whose declared
   cursor is at least as new as the stored row. Generic model assertions run after publication.
+- Compatible provider-neutral graphs render their existing relational AST as Snowflake SQL and
+  publish replace-mode targets through the same stable-table fencing primitive. Every selected
+  target renders and validates before the first target is claimed, preventing partial publication
+  when a later target uses unavailable semantics.
+- Transform staging, publication, and generic assertions report bounded operation telemetry with
+  query IDs, duration, affected rows, and warehouse name. SQL and provider response payloads are
+  not retained.
 
 The Snowflake role needs usage on its database and warehouse plus permission to create and operate
 schemas, tables, and temporary stages in the selected namespace. Use a dedicated disposable role
@@ -84,10 +92,11 @@ until a live least-privilege profile is qualified.
 ## Deliberate limits
 
 All five scalar write patterns are reachable through the warehouse writer capability, while the
-ordinary hosted source runner deliberately continues to select SCD1. PipelineGraph execution has
-not yet been wired to Snowflake's writer selection.
-Views remain unavailable because Snowflake permanent DDL cannot share the destination-fence
-transaction. Direct thresholds default to zero because no live crossover has been measured; do
-not claim a performance benefit until that qualification is recorded. Query-history enrichment,
-live concurrency proof, infrastructure provisioning, and support promotion remain separate work.
-Use `catalog.provider: none` for this experimental path.
+ordinary hosted source runner deliberately continues to select SCD1. Graphs remain limited to the
+existing replace-mode executable subset; field tests and null-on-failure casts whose Snowflake
+semantics have not been proven continue to fail before provider mutation. Views remain unavailable
+because Snowflake permanent DDL cannot share the destination-fence transaction. Direct thresholds
+default to zero because no live crossover has been measured; do not claim a performance benefit
+until that qualification is recorded. Query-history enrichment, live concurrency proof,
+infrastructure provisioning, and support promotion remain separate work. Use
+`catalog.provider: none` for this experimental path.

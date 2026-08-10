@@ -11,9 +11,12 @@ from typing import TYPE_CHECKING, Self
 import pytest
 
 from dander.concurrency import FencingToken, TargetFenceLostError
+from dander.ingestion import Endpoint, RawField, SourceConfig
+from dander.pipeline.graph import PipelineGraph
+from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
 from dander.providers.snowflake import SnowflakeWarehouseConfig
-from dander.providers.snowflake.transform import SnowflakeTransformRunner
+from dander.providers.snowflake.transform import SnowflakeGraphRunner, SnowflakeTransformRunner
 from dander.providers.snowflake.writer import SnowflakeWriteError
 from dander.telemetry import TelemetryOperation
 from dander.transform import SqlDialect, TransformProject, TransformProjectError, TransformRunError
@@ -814,6 +817,121 @@ class _Ownership:
         self.verifications += 1
 
 
+def _snowflake_graph_plan(
+    *,
+    include_unsupported_target: bool = False,
+) -> GraphExecutionPlan:
+    source = SourceConfig(
+        name="fixture",
+        base_url="https://example.test",
+        auth_strategy="none",
+        endpoints=[
+            Endpoint(
+                name="records",
+                path="/records",
+                primary_key=["id"],
+                raw_schema=[
+                    RawField(name="id", data_type="STRING"),
+                    RawField(name="label", data_type="STRING"),
+                ],
+            )
+        ],
+    )
+    targets: list[dict[str, object]] = [
+        {
+            "id": "target",
+            "type": "target",
+            "name": "Target",
+            "config": {
+                "writer": {
+                    "write_mode": "replace",
+                    "destination": {
+                        "dataset": "analytics",
+                        "table": "graph_records",
+                        "business_key": [],
+                    },
+                }
+            },
+            "fields": [
+                {"name": "id", "type": "STRING"},
+                {"name": "label", "type": "STRING"},
+            ],
+        }
+    ]
+    edges: list[dict[str, object]] = [
+        {
+            "from": "records",
+            "to": "target",
+            "mappings": [
+                {"source": "id", "target": "id"},
+                {"source": "label", "target": "label"},
+            ],
+        }
+    ]
+    if include_unsupported_target:
+        targets.append(
+            {
+                "id": "unsupported",
+                "type": "target",
+                "name": "Unsupported",
+                "config": {
+                    "writer": {
+                        "write_mode": "replace",
+                        "destination": {
+                            "dataset": "analytics",
+                            "table": "unsupported_records",
+                            "business_key": [],
+                        },
+                    }
+                },
+                "fields": [
+                    {"name": "id", "type": "STRING", "cast_to": "STRING"},
+                    {"name": "label", "type": "STRING"},
+                ],
+            }
+        )
+        edges.append(
+            {
+                "from": "records",
+                "to": "unsupported",
+                "mappings": [
+                    {"source": "id", "target": "id"},
+                    {"source": "label", "target": "label"},
+                ],
+            }
+        )
+    graph = PipelineGraph.model_validate(
+        {
+            "name": "snowflake_graph",
+            "nodes": [
+                {
+                    "id": "records",
+                    "type": "source",
+                    "name": "Records",
+                    "config": {"connector": "fixture", "endpoint": "records"},
+                    "fields": [
+                        {"name": "id", "type": "STRING"},
+                        {"name": "label", "type": "STRING"},
+                    ],
+                },
+                *targets,
+            ],
+            "edges": edges,
+        }
+    )
+    return plan_graph_execution(
+        graph,
+        source,
+        endpoint_relations={
+            "records": RelationRef(
+                catalog="DANDER_TEST",
+                namespace="raw",
+                name="fixture_records",
+            )
+        },
+    )
+
+
 def test_snowflake_builds_fenced_table_and_incremental_models(
     tmp_path: Path,
     snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
@@ -844,6 +962,16 @@ def test_snowflake_builds_fenced_table_and_incremental_models(
 
     assert result.models == ("table_model",)
     assert result.assertions == 4
+    assert [operation.operation for operation in result.telemetry] == [
+        TelemetryOperation.TRANSFORM,
+        TelemetryOperation.TRANSFORM,
+        TelemetryOperation.TEST,
+        TelemetryOperation.TEST,
+        TelemetryOperation.TEST,
+        TelemetryOperation.TEST,
+    ]
+    assert all(operation.query_id for operation in result.telemetry)
+    assert all(operation.resource_name == "DANDER_WH" for operation in result.telemetry)
     sql = [statement for statement, _parameters in backend.statements]
     assert any(
         statement.startswith("DELETE FROM") and "table_model" in statement for statement in sql
@@ -861,6 +989,9 @@ def test_snowflake_builds_fenced_table_and_incremental_models(
         runner.test(tmp_path, selected=["table_model"])
     assert "older" not in str(error.value)
     backend.assertion_failure_count = 0
+    tested = runner.test(tmp_path, selected=["table_model"])
+    assert len(tested.telemetry) == 4
+    assert all(operation.operation is TelemetryOperation.TEST for operation in tested.telemetry)
     backend.transform_rows.clear()
 
     before_incremental = len(backend.statements)
@@ -941,7 +1072,7 @@ def test_snowflake_preflights_whole_dag_before_provider_mutation(
     assert backend.statements == before
 
 
-def test_snowflake_transform_coordinates_are_canonical_and_graphs_fail_closed(
+def test_snowflake_transform_coordinates_are_canonical(
     tmp_path: Path,
     snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
 ) -> None:
@@ -961,9 +1092,104 @@ def test_snowflake_transform_coordinates_are_canonical_and_graphs_fail_closed(
         "coordinate_model",
     )
     assert '"DANDER-TEST"."RAW_DATA"."records"' in project.compile(model)
-    with pytest.raises(ValueError, match="graph execution is not available"):
+    with pytest.raises(TypeError, match="graph plan has the wrong type"):
         runtime.transforms.build_transform_runner(graph_plan=object(), build_models=False)
     assert runtime.transforms.build_transform_runner(graph_plan=None, build_models=False) is None
+
+
+def test_snowflake_graph_uses_canonical_plan_fencing_cleanup_and_telemetry(
+    tmp_path: Path,
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=_snowflake_graph_plan(),
+        build_models=True,
+    )
+    assert isinstance(runner, SnowflakeGraphRunner)
+    backend.describe_rows = [
+        ("id", "VARCHAR(16777216)", "COLUMN", "Y"),
+        ("label", "VARCHAR(16777216)", "COLUMN", "Y"),
+    ]
+    backend.transform_source_rows = [{"id": "fresh", "label": "from-graph"}]
+    ownership = _ownership("run-graph", 5)
+
+    result = runner.build(tmp_path, ownership=ownership)
+
+    assert result.models == ("target",)
+    assert result.assertions == 0
+    assert [operation.operation for operation in result.telemetry] == [
+        TelemetryOperation.TRANSFORM,
+        TelemetryOperation.TRANSFORM,
+    ]
+    assert all(operation.query_id for operation in result.telemetry)
+    assert all(operation.resource_name == "DANDER_WH" for operation in result.telemetry)
+    sql = [statement for statement, _parameters in backend.statements]
+    staged = next(
+        statement for statement in sql if statement.startswith("CREATE OR REPLACE TEMPORARY TABLE")
+    )
+    assert 'FROM "DANDER_TEST"."raw"."fixture_records"' in staged
+    assert "`" not in staged
+    assert any(
+        statement.startswith("DELETE FROM") and '"analytics"."graph_records"' in statement
+        for statement in sql
+    )
+    assert any(
+        statement.startswith("INSERT INTO") and '"analytics"."graph_records"' in statement
+        for statement in sql
+    )
+    assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in sql)
+    assert ownership.verifications == 2
+    assert backend.transform_rows == {"fresh": {"id": "fresh", "label": "from-graph"}}
+
+
+def test_snowflake_graph_preflights_every_selected_target_before_mutation(
+    tmp_path: Path,
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=_snowflake_graph_plan(include_unsupported_target=True),
+        build_models=True,
+    )
+    assert isinstance(runner, SnowflakeGraphRunner)
+    before = list(backend.statements)
+
+    with pytest.raises(GraphRuntimeError, match="safe-cast semantics"):
+        runner.build(tmp_path, ownership=_ownership("run-preflight-graph", 6))
+
+    assert backend.statements == before
+
+
+def test_snowflake_graph_selection_and_stale_fence_fail_closed(
+    tmp_path: Path,
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=_snowflake_graph_plan(),
+        build_models=True,
+    )
+    assert isinstance(runner, SnowflakeGraphRunner)
+    before = list(backend.statements)
+    with pytest.raises(GraphRuntimeError, match="Unknown graph target"):
+        runner.build(tmp_path, selected=["missing"], ownership=_ownership("run-missing", 7))
+    assert backend.statements == before
+
+    backend.describe_rows = [
+        ("id", "VARCHAR(16777216)", "COLUMN", "Y"),
+        ("label", "VARCHAR(16777216)", "COLUMN", "Y"),
+    ]
+    backend.transform_source_rows = [{"id": "blocked", "label": "stale"}]
+    backend.fence_touch_rowcount = 0
+    with pytest.raises(TargetFenceLostError, match="lost before publication"):
+        runner.build(tmp_path, ownership=_ownership("run-stale-graph", 8))
+
+    attempted = [statement for statement, _parameters in backend.statements[len(before) :]]
+    assert any(statement.startswith("CREATE OR REPLACE TEMPORARY TABLE") for statement in attempted)
+    assert not any(statement.startswith(("DELETE FROM", "INSERT INTO")) for statement in attempted)
+    assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in attempted)
+    assert backend.transform_rows == {}
 
 
 def test_snowflake_transform_requires_ownership_and_fails_closed_after_staging(

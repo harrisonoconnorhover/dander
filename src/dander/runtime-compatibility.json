@@ -95,9 +95,9 @@
       "max_decimal_precision": 38,
       "max_temporal_precision": 9,
       "supports_transforms": true,
-      "supports_graphs": false,
+      "supports_graphs": true,
       "supports_target_fencing": true,
-      "limitations": ["JSON requires the explicit snowflake/fallback=variant field extension", "direct thresholds remain disabled until the live crossover is measured", "graph execution is not available", "hosted source execution selects scd1"]
+      "limitations": ["JSON requires the explicit snowflake/fallback=variant field extension", "direct thresholds remain disabled until the live crossover is measured", "hosted source execution selects scd1"]
     }
   ]
 }

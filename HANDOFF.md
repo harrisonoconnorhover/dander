@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Added endpoint-wide Snowflake direct/COPY selection with bounded threshold-plus-one buffering.
-- Added explicit JSON-to-VARIANT mapping with canonical text staging and `PARSE_JSON` publication.
-- Added truthful writer load/publication telemetry with transport, query IDs, rows, bytes, duration, and warehouse.
-- Kept legacy graph/BigQuery planning fail-closed for provider-selected direct transport.
+- Added Snowflake execution for the existing provider-neutral, replace-mode PipelineGraph plan.
+- Preflighted every selected graph target before any provider claim or mutation.
+- Reused the fenced stable-table transform publisher without adding another graph schema.
+- Added transform/publication/assertion telemetry with query IDs, duration, rows, and warehouse.
+- Updated the Snowflake capability and operator-facing compatibility documentation.
 
 ## Try It
 
-Run `uv run pytest -q tests/providers/test_snowflake_warehouse_runtime.py`.
+Run `uv run pytest -q tests/providers/test_snowflake_warehouse_runtime.py tests/test_compatibility.py`.
 
 ## Checks
 
 - Ruff format/check: passed across 328 files; mypy: passed across 304 source/test files.
-- Pytest: 1,122 passed and 13 skipped from 1,135 collected tests.
-- Wheel/sdist inspection and both source-free package installs: passed.
-- Terraform validation/tests and Helm lint/render passed except the local Fargate module test, whose 782 MB provider could not initialize with under 1 GB free.
-- Local Docker/PostgreSQL conformance remains for protected Linux CI because Docker Desktop is unresponsive.
+- Full pytest passed locally (13 environment-dependent tests skipped).
+- Focused Snowflake and compatibility tests: 41 passed.
+- Runtime compatibility JSON parsed and matched the provider capability in tests.
+- Independent adversarial completion review: passed with no material findings.
 
 ## Decisions
 
-- Direct thresholds default to zero until a live Snowflake crossover is measured.
-- Direct/COPY selection occurs once for the complete endpoint; ordinary runtime batching is disabled for Snowflake writers.
-- Only canonical JSON with `snowflake/fallback=variant` is admitted; ARRAY and RECORD remain rejected.
+- Graph execution keeps `GraphExecutionPlan` canonical and renders Snowflake at the provider boundary.
+- Views remain unsupported until a stable indirection design preserves transactional fencing.
+- Existing null-on-failure cast semantics remain fail-closed for Snowflake graphs.
 
 ## Remaining
 
 - Push a focused draft PR and require protected Linux CI, including PostgreSQL, container, Terraform, and scans.
-- Measure the direct/COPY crossover during later live Snowflake qualification.
-- Keep transforms/views/graphs and query-history enrichment in separate Snowflake slices.
+- Design fenced view indirection separately; do not weaken publication safety.
+- Measure the direct/COPY crossover and enrich query-history metrics during live qualification.
 
 ## Review First
 
-- `src/dander/providers/snowflake/writer.py`
+- `src/dander/providers/snowflake/transform.py`
 - `src/dander/providers/snowflake/runtime.py`
 - `tests/providers/test_snowflake_warehouse_runtime.py`
