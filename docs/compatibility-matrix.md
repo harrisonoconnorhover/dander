@@ -36,15 +36,20 @@ The same command publishes the exact implemented warehouse surface. These declar
 capabilities, not support promotion: Snowflake, Redshift, and PostgreSQL remain experimental until
 their named live profiles pass.
 
-| Warehouse | Ingestion modes | Transport | Canonical schema | Models | Graphs | Fence |
-|---|---|---|---|---|---|---|
-| BigQuery | all five | load job, Storage Write | all v1 types; decimal 38, time 6; no nested arrays | yes | yes | yes |
-| PostgreSQL | all five | COPY | all v1 types; decimal 1000, time 6 | yes | yes | yes |
-| Redshift | all five | direct, COPY | scalar types; decimal 38, time 6; explicit JSON-to-SUPER fallback | yes | yes | yes |
-| Snowflake | all five | direct, COPY | scalar types; decimal 38, time 9; explicit JSON-to-VARIANT fallback | yes | yes | yes |
+| Warehouse | Ingestion modes | Transport | Canonical schema | Table/incremental models | Views | Replace graphs | Destination fence |
+|---|---|---|---|---|---|---|---|
+| BigQuery | all five | load job, Storage Write | all v1 types; decimal 38, time 6; no nested arrays | yes; permanent DDL is not an atomic cross-backend publication | available; concurrent hosted DDL unsupported | yes | DML and graph publication; not every writer/materialization |
+| PostgreSQL | all five | COPY | all v1 types; decimal 1000, time 6 | yes | yes | yes | all advertised modes/materializations |
+| Redshift | all five | direct, COPY | scalar types; decimal 38, time 6; explicit JSON-to-SUPER fallback | yes | unsupported | yes | all advertised modes/materializations |
+| Snowflake | all five | direct, COPY | scalar types; decimal 38, time 9; explicit JSON-to-VARIANT fallback | yes | unsupported | yes | all advertised modes/materializations |
 
 Portable-provider schema validation uses these declarations before source extraction, staging
 upload, or destination mutation. BigQuery retains its existing provider-native v1 schema path so
 types without lossless canonical mappings remain compatible. An unsupported portable field reports
 the provider, field path, type or precision, and supported limit. The packaged JSON and runtime
 capability constants are checked for drift in the test suite.
+
+The table deliberately gives more materialization detail than the current machine-readable v1
+report. Phase 6 does not require a second capability-schema revision unless its implementation
+actually consumes that granularity. Unsupported materializations and state/warehouse pairs must
+continue to fail before provider mutation.

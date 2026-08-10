@@ -1111,3 +1111,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Exclusions:** The separately approved disposable-account qualification passed and is recorded
   in `docs/cloud-portability-snowflake-qualification.md`; provider-managed infrastructure,
   performance claims, and support promotion remain separate gates.
+
+## 2026-08-10 — Phase 5 separates correctness from support and scale qualification
+
+- **Gate:** Phase 5 remains open until one deterministic fixture produces equal normalized results
+  across the common canonical surface of BigQuery, PostgreSQL, Snowflake, and Redshift. Earlier
+  completed phase gates must remain satisfied or retain current equivalent evidence.
+- **Limitations:** Provider-specific materialization, transport, schema, and fencing limits may
+  remain experimental or unsupported only when documented and rejected before unsafe mutation. A
+  second machine-readable capability schema is deferred until an approved consumer needs it.
+- **Qualification:** Throughput, crossover, incremental-at-scale, concurrency, cost, soak, pairwise
+  profiles, and release qualification remain mandatory Phase 8 work rather than Phase 5 correctness
+  evidence.

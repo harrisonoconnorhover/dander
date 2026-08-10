@@ -25,8 +25,15 @@ or string representation. Decimal precision above Parquet/Arrow's 76-digit limit
 file is published. Missing/extra fields, required nulls, malformed JSON, and Arrow conversion errors
 produce row-indexed messages without echoing record contents.
 
-Redshift's experimental SCD1 adapter consumes this contract through same-region S3 manifest `COPY`,
-with IAM-role authentication, deterministic replay history, target fencing, and owned-object
-cleanup. Transforms, executable graphs, other write modes, semi-structured `SUPER` mapping, and a
-live Redshift profile remain unavailable. Snowflake remains unavailable until its independent
-upload, idempotency, fencing, schema, transform, telemetry, cleanup, and live-profile gates pass.
+Redshift consumes this contract through same-region S3 manifest `COPY` with IAM-role authentication,
+deterministic replay history, target fencing, and owned-object cleanup. Its experimental adapter now
+also supports all five write modes, bounded direct staging, explicit JSON-to-`SUPER`, fenced table
+and incremental transforms, provider-neutral replace graphs, telemetry, and a live-qualified
+Serverless warehouse proof. Views, reusable provider-managed infrastructure, and support promotion
+remain unavailable.
+
+Snowflake consumes the same local artifacts through temporary stage upload and `COPY`. Its
+experimental adapter supports all five write modes, bounded direct staging, explicit
+JSON-to-`VARIANT`, fenced table and incremental transforms, provider-neutral replace graphs,
+telemetry, and a disposable-account live proof. Views, ARRAY/RECORD fallback, measured direct-write
+crossover, provider-managed infrastructure, and support promotion remain unavailable.

@@ -1,3 +1,12 @@
+---
+id: DANDER-103
+title: Add shared bounded columnar staging
+status: completed
+component: warehouse
+epic: cloud-portability
+created: 2026-08-08
+---
+
 # DANDER-103 — Shared bounded columnar staging
 
 ## Scope
