@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import FrozenInstanceError
 
 import pytest
 
 from dander.deployment import (
     ExecutionProjectionError,
     LauncherRuntime,
+    ResolvedTemplateRequest,
     build_gcp_execution_templates,
 )
 from dander.providers import ProviderKind, default_provider_registry
+from dander.providers.gcp_launcher import GcpLauncherContext, gcp_launcher_factory_context
 
 _IMAGE = "us-central1-docker.pkg.dev/unit-project/dander/dander@sha256:" + "a" * 64
 _FARGATE_IMAGE = "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:" + "b" * 64
@@ -27,20 +30,45 @@ _PIPELINES: dict[str, dict[str, object]] = {
 }
 
 
+def _request(
+    *,
+    pipelines: dict[str, dict[str, object]] | None = None,
+    image: str = _IMAGE,
+    profile_id: str = "gcp",
+    cpu: int = 1,
+    memory: str = "512Mi",
+    deadline_seconds: int = 300,
+    launcher_retry_count: int = 1,
+    batch_rows: int = 10_000,
+    alert_target: str | None = None,
+) -> ResolvedTemplateRequest:
+    return ResolvedTemplateRequest(
+        pipelines=_PIPELINES if pipelines is None else pipelines,
+        image=image,
+        profile_id=profile_id,
+        cpu=cpu,
+        memory=memory,
+        deadline_seconds=deadline_seconds,
+        launcher_retry_count=launcher_retry_count,
+        batch_rows=batch_rows,
+        alert_target=alert_target,
+    )
+
+
+def _gcp_context(*, guarded: bool = False) -> dict[str, object]:
+    return gcp_launcher_factory_context(
+        GcpLauncherContext(
+            project="unit-project",
+            require_guarded_free_tier=guarded,
+        )
+    )
+
+
 def _templates(runtime: LauncherRuntime) -> dict[str, object]:
     return {
         pipeline_id: template.as_dict()
         for pipeline_id, template in runtime.templates.build(
-            _PIPELINES,
-            image=_IMAGE,
-            project="unit-project",
-            cpu=1,
-            memory="512Mi",
-            deadline_seconds=300,
-            launcher_retry_count=1,
-            batch_rows=10_000,
-            require_guarded_free_tier=False,
-            alert_target="operator@example.invalid",
+            _request(alert_target="operator@example.invalid")
         ).items()
     }
 
@@ -55,7 +83,7 @@ def test_cloud_run_factory_is_lazy_and_matches_the_accepted_projection() -> None
     )
 
     assert module_name not in sys.modules
-    runtime = registry.build(ProviderKind.LAUNCHER, config)
+    runtime = registry.build(ProviderKind.LAUNCHER, config, context=_gcp_context())
 
     assert isinstance(runtime, LauncherRuntime)
     assert runtime.provider_id == "cloud_run"
@@ -80,7 +108,7 @@ def test_cloud_run_factory_is_lazy_and_matches_the_accepted_projection() -> None
     assert _templates(runtime) == expected
 
 
-def _fargate_runtime() -> LauncherRuntime:
+def _fargate_runtime(*, guarded: bool = False) -> LauncherRuntime:
     registry = default_provider_registry()
     config = registry.parse(
         ProviderKind.LAUNCHER,
@@ -98,7 +126,11 @@ def _fargate_runtime() -> LauncherRuntime:
             "assign_public_ip": True,
         },
     )
-    runtime = registry.build(ProviderKind.LAUNCHER, config)
+    runtime = registry.build(
+        ProviderKind.LAUNCHER,
+        config,
+        context=_gcp_context(guarded=guarded),
+    )
     assert isinstance(runtime, LauncherRuntime)
     return runtime
 
@@ -123,7 +155,7 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
     )
 
     assert module_name not in sys.modules
-    runtime = registry.build(ProviderKind.LAUNCHER, config)
+    runtime = registry.build(ProviderKind.LAUNCHER, config, context=_gcp_context())
     assert isinstance(runtime, LauncherRuntime)
     assert module_name in sys.modules
     pipelines = {
@@ -134,16 +166,14 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
         }
     }
     template = runtime.templates.build(
-        pipelines,
-        image=_FARGATE_IMAGE,
-        project="unit-project",
-        cpu=1,
-        memory="2Gi",
-        deadline_seconds=900,
-        launcher_retry_count=1,
-        batch_rows=1_000,
-        require_guarded_free_tier=False,
-        alert_target="arn:aws:sns:us-east-1:184463061564:dander-failures",
+        _request(
+            pipelines=pipelines,
+            image=_FARGATE_IMAGE,
+            memory="2Gi",
+            deadline_seconds=900,
+            batch_rows=1_000,
+            alert_target="arn:aws:sns:us-east-1:184463061564:dander-failures",
+        )
     )["salesforce_crm"]
 
     assert template.launcher == "fargate"
@@ -187,32 +217,24 @@ def test_fargate_rejects_unhonored_runtime_intent(
     message: str,
 ) -> None:
     with pytest.raises(ExecutionProjectionError, match=message):
-        _fargate_runtime().templates.build(
-            _PIPELINES,
-            image=_FARGATE_IMAGE,
-            project="unit-project",
-            cpu=1,
-            memory=memory,
-            deadline_seconds=900,
-            launcher_retry_count=1,
-            batch_rows=1_000,
-            require_guarded_free_tier=guarded,
-            alert_target=None,
+        _fargate_runtime(guarded=guarded).templates.build(
+            _request(
+                image=_FARGATE_IMAGE,
+                memory=memory,
+                deadline_seconds=900,
+                batch_rows=1_000,
+            )
         )
 
 
 def test_fargate_accepts_a_run_longer_than_one_task_role_session() -> None:
     template = _fargate_runtime().templates.build(
-        _PIPELINES,
-        image=_FARGATE_IMAGE,
-        project="unit-project",
-        cpu=1,
-        memory="2Gi",
-        deadline_seconds=3_601,
-        launcher_retry_count=1,
-        batch_rows=1_000,
-        require_guarded_free_tier=False,
-        alert_target=None,
+        _request(
+            image=_FARGATE_IMAGE,
+            memory="2Gi",
+            deadline_seconds=3_601,
+            batch_rows=1_000,
+        )
     )["greenhouse_jobs"]
 
     assert template.resources.deadline_seconds == 3_601
@@ -221,16 +243,12 @@ def test_fargate_accepts_a_run_longer_than_one_task_role_session() -> None:
 def test_fargate_rejects_a_run_longer_than_one_day() -> None:
     with pytest.raises(ExecutionProjectionError, match="deadline"):
         _fargate_runtime().templates.build(
-            _PIPELINES,
-            image=_FARGATE_IMAGE,
-            project="unit-project",
-            cpu=1,
-            memory="2Gi",
-            deadline_seconds=86_401,
-            launcher_retry_count=1,
-            batch_rows=1_000,
-            require_guarded_free_tier=False,
-            alert_target=None,
+            _request(
+                image=_FARGATE_IMAGE,
+                memory="2Gi",
+                deadline_seconds=86_401,
+                batch_rows=1_000,
+            )
         )
 
 
@@ -243,16 +261,13 @@ def test_fargate_rejects_cron_semantics_eventbridge_cannot_preserve() -> None:
     }
     with pytest.raises(ExecutionProjectionError, match="both day fields"):
         _fargate_runtime().templates.build(
-            pipelines,
-            image=_FARGATE_IMAGE,
-            project="unit-project",
-            cpu=1,
-            memory="2Gi",
-            deadline_seconds=900,
-            launcher_retry_count=1,
-            batch_rows=1_000,
-            require_guarded_free_tier=False,
-            alert_target=None,
+            _request(
+                pipelines=pipelines,
+                image=_FARGATE_IMAGE,
+                memory="2Gi",
+                deadline_seconds=900,
+                batch_rows=1_000,
+            )
         )
 
 
@@ -265,14 +280,28 @@ def test_fargate_rejects_provider_specific_cron_syntax() -> None:
     }
     with pytest.raises(ExecutionProjectionError, match="valid five-field"):
         _fargate_runtime().templates.build(
-            pipelines,
-            image=_FARGATE_IMAGE,
-            project="unit-project",
-            cpu=1,
-            memory="2Gi",
-            deadline_seconds=900,
-            launcher_retry_count=1,
-            batch_rows=1_000,
-            require_guarded_free_tier=False,
-            alert_target=None,
+            _request(
+                pipelines=pipelines,
+                image=_FARGATE_IMAGE,
+                memory="2Gi",
+                deadline_seconds=900,
+                batch_rows=1_000,
+            )
         )
+
+
+def test_resolved_template_request_is_provider_neutral_and_immutable() -> None:
+    request = _request()
+
+    assert "project" not in request.__dataclass_fields__
+    assert "require_guarded_free_tier" not in request.__dataclass_fields__
+    with pytest.raises(TypeError):
+        request.pipelines["other"] = {}  # type: ignore[index]
+    with pytest.raises(TypeError):
+        request.pipelines["greenhouse_jobs"]["paused"] = False  # type: ignore[index]
+    secret_env = request.pipelines["greenhouse_jobs"]["secret_env"]
+    assert isinstance(secret_env, dict) is False
+    with pytest.raises(TypeError):
+        secret_env["TOKEN"] = "secret-id"  # type: ignore[index]
+    with pytest.raises(FrozenInstanceError):
+        request.profile_id = "postgres"  # type: ignore[misc]

@@ -2,34 +2,54 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from dander.deployment.projection import ExecutionTemplate, LauncherCapabilities
+
+
+def _freeze_resolved_value(value: object) -> object:
+    """Copy container values into read-only equivalents at the contract boundary."""
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {str(key): _freeze_resolved_value(item) for key, item in value.items()}
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_resolved_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_freeze_resolved_value(item) for item in value)
+    return value
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedTemplateRequest:
+    """Immutable provider-neutral intent for one launcher template projection."""
+
+    pipelines: Mapping[str, Mapping[str, object]]
+    image: str
+    profile_id: str
+    cpu: int
+    memory: str
+    deadline_seconds: int
+    launcher_retry_count: int
+    batch_rows: int
+    alert_target: str | None
+
+    def __post_init__(self) -> None:
+        immutable = _freeze_resolved_value(self.pipelines)
+        if not isinstance(immutable, Mapping):  # pragma: no cover - structural invariant
+            raise TypeError("resolved template pipelines must be a mapping")
+        object.__setattr__(self, "pipelines", immutable)
 
 
 @runtime_checkable
 class ExecutionTemplateFactory(Protocol):
     """Build launcher-specific templates from validated deployment inputs."""
 
-    def build(
-        self,
-        pipelines: Mapping[str, Mapping[str, object]],
-        *,
-        image: str,
-        project: str,
-        cpu: int,
-        memory: str,
-        deadline_seconds: int,
-        launcher_retry_count: int,
-        batch_rows: int,
-        require_guarded_free_tier: bool,
-        alert_target: str | None,
-        profile_id: str = "gcp",
-    ) -> dict[str, ExecutionTemplate]:
+    def build(self, request: ResolvedTemplateRequest) -> dict[str, ExecutionTemplate]:
         """Return validated execution templates keyed by pipeline ID."""
         ...
 

@@ -22,6 +22,13 @@ existing GCP/BigQuery compatibility profile. A later configuration migration wil
 pipeline intent from environment-specific deployment settings; it does not change this runtime
 boundary.
 
+Launcher factories receive one immutable `ResolvedTemplateRequest` containing only resolved,
+provider-neutral projection intent. Provider/data-plane construction values are captured when the
+selected factory is built: for example, the Cloud Run and Fargate BigQuery profiles receive their
+typed GCP project and guarded-free-tier context there. Kubernetes callers therefore do not invent
+empty project identifiers or false GCP guard values. The request contains no generic extension bag,
+and its pipeline containers are copied into read-only equivalents before projection.
+
 The selected Cloud Run provider supplies these templates to Terraform. Cloud Run consumes their
 image, command,
 resources, schedule, environment, secret references, identity, labels, and observability contract.

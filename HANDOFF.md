@@ -2,37 +2,40 @@
 
 ## Finished
 
-- Restored the authoritative cloud-portability roadmap onto current protected-main history.
-- Re-baselined the Phase 5 exit gate without declaring Phase 5 complete.
-- Reconciled completed Snowflake, Redshift, and shared-staging ticket evidence.
-- Corrected stale warehouse capability, staging, limitation, and decision documentation.
+- Replaced the launcher factory primitive argument list with one immutable resolved request.
+- Removed dummy GCP project and guard values from Kubernetes projection callers.
+- Captured typed GCP-only values at Cloud Run and Fargate factory construction.
+- Preserved the accepted Cloud Run projection and existing launcher fail-closed behavior.
 
 ## Try It
 
-Review the Phase 5 gate in `docs/cloud-portability-plan.md`, then compare it with
-`docs/compatibility-matrix.md` and `docs/known-limitations.md`.
+Run `.venv/bin/pytest -q tests/providers/test_launcher_runtime.py
+tests/providers/test_kubernetes_runtime.py`.
 
 ## Checks
 
-- `git diff --check` passed.
-- Focused compatibility, distribution-contract, and release-metadata tests passed.
+- Focused launcher, bootstrap, Kubernetes CLI, and chart tests passed (62 tests).
+- Full local pytest suite passed (with expected opt-in skips).
+- Ruff lint and format checks passed.
+- Mypy passed for every changed source and test file; the full invocation retains one unrelated
+  Snowflake `unused-ignore` result under this local optional-dependency environment.
+- Independent completion review passed with no material findings.
 - Protected CI remains required before merge.
 
 ## Decisions
 
-- Earlier phase gates remain binding through current equivalent evidence.
-- Provider-specific safe limitations do not imply false parity or support.
-- Scale, cost, soak, pairwise-profile, and release qualification remain in Phase 8.
+- The resolved request contains only common launcher intent and no extension bag.
+- GCP project and guarded-free-tier values are typed provider-construction context.
+- Pipeline containers are defensively copied into read-only equivalents.
 
 ## Remaining
 
-- Merge this documentation reconciliation through protected review.
-- Implement the approved launcher-template request in a separate PR.
-- Implement and prove the shared four-warehouse correctness fixture in a separate PR.
-- Reassess the Phase 5 exit gate before beginning Phase 6.
+- Complete protected CI for this launcher-contract PR.
+- Implement the shared four-warehouse correctness fixture in a separate PR.
+- Reassess the Phase 5 gate after both implementation PRs merge.
 
 ## Review First
 
-- `docs/cloud-portability-plan.md`
-- `docs/compatibility-matrix.md`
-- `tickets/DANDER-104-snowflake-warehouse.md`
+- `src/dander/deployment/runtime.py`
+- `src/dander/providers/gcp_launcher.py`
+- `tests/providers/test_launcher_runtime.py`

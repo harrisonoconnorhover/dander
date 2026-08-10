@@ -20,7 +20,8 @@ from dander.deployment.projection import (
     SecretReference,
     validate_launcher_projection,
 )
-from dander.deployment.runtime import LauncherRuntime
+from dander.deployment.runtime import LauncherRuntime, ResolvedTemplateRequest
+from dander.providers.gcp_launcher import optional_gcp_launcher_context
 from dander.providers.kubernetes.config import KubernetesLauncherConfig
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.runtime_contract import RUNTIME_CONTRACT
@@ -37,36 +38,17 @@ class KubernetesTemplateFactory:
 
     config: KubernetesLauncherConfig
 
-    def build(
-        self,
-        pipelines: Mapping[str, Mapping[str, object]],
-        *,
-        image: str,
-        project: str,
-        cpu: int,
-        memory: str,
-        deadline_seconds: int,
-        launcher_retry_count: int,
-        batch_rows: int,
-        require_guarded_free_tier: bool,
-        alert_target: str | None,
-        profile_id: str = "gcp",
-    ) -> dict[str, ExecutionTemplate]:
+    def build(self, request: ResolvedTemplateRequest) -> dict[str, ExecutionTemplate]:
         """Build immutable templates without contacting the selected cluster."""
-        del project
-        if _PROFILE.fullmatch(profile_id) is None:
+        if _PROFILE.fullmatch(request.profile_id) is None:
             raise ExecutionProjectionError("invalid Kubernetes deployment selector")
-        if require_guarded_free_tier:
-            raise ExecutionProjectionError(
-                "Kubernetes cannot run the GCP guarded-free-tier preflight"
-            )
-        if alert_target is not None:
+        if request.alert_target is not None:
             raise ExecutionProjectionError(
                 "Kubernetes uses cluster observability and cannot provision an alert target"
             )
-        memory_mib = _memory_mib(memory)
+        memory_mib = _memory_mib(request.memory)
         templates: dict[str, ExecutionTemplate] = {}
-        for pipeline_id, pipeline in sorted(pipelines.items()):
+        for pipeline_id, pipeline in sorted(request.pipelines.items()):
             secret_env = pipeline["secret_env"]
             if not isinstance(secret_env, Mapping):
                 raise ExecutionProjectionError("pipeline secret bindings are invalid")
@@ -82,13 +64,13 @@ class KubernetesTemplateFactory:
                 "--pipeline",
                 pipeline_id,
                 "--platform",
-                profile_id,
+                request.profile_id,
                 "--config",
                 "/app/dander.yaml",
                 "--models-dir",
                 "/app/models",
                 "--batch-rows",
-                str(batch_rows),
+                str(request.batch_rows),
             )
             if bool(pipeline["build_models"]):
                 command = (*command, "--catalog-output", "/tmp/dander-catalog.json")
@@ -98,23 +80,23 @@ class KubernetesTemplateFactory:
             )
             labels = {
                 "dander_version": __version__,
-                "image_digest": image.rsplit("@", maxsplit=1)[-1],
+                "image_digest": request.image.rsplit("@", maxsplit=1)[-1],
                 "pipeline": pipeline_id,
-                "profile": profile_id,
+                "profile": request.profile_id,
             }
             template = ExecutionTemplate(
                 schema=EXECUTION_PROJECTION_SCHEMA,
                 contract=RUNTIME_CONTRACT,
                 pipeline_id=pipeline_id,
-                profile_id=profile_id,
+                profile_id=request.profile_id,
                 launcher="kubernetes",
-                image=image,
+                image=request.image,
                 command=command,
                 configuration_reference="/app/dander.yaml",
                 environment=tuple(
                     sorted(
                         {
-                            "DANDER_IMAGE_DIGEST": image.rsplit("@", maxsplit=1)[-1],
+                            "DANDER_IMAGE_DIGEST": request.image.rsplit("@", maxsplit=1)[-1],
                             "DANDER_LAUNCHER": "kubernetes",
                             "DANDER_PRINCIPAL": identity,
                         }.items()
@@ -129,12 +111,12 @@ class KubernetesTemplateFactory:
                 ),
                 workload_identity=identity,
                 resources=ResourceProjection(
-                    cpu_millis=cpu * 1_000,
+                    cpu_millis=request.cpu * 1_000,
                     memory_mib=memory_mib,
                     ephemeral_storage_mib=self.config.ephemeral_storage_mib,
-                    deadline_seconds=deadline_seconds,
+                    deadline_seconds=request.deadline_seconds,
                     runtime_retry_count=0,
-                    launcher_retry_count=launcher_retry_count,
+                    launcher_retry_count=request.launcher_retry_count,
                 ),
                 schedule=ScheduleProjection(
                     task_count=1,
@@ -162,9 +144,11 @@ def build_kubernetes_launcher(
     context: Mapping[str, object],
 ) -> LauncherRuntime:
     """Build the Kubernetes launcher only after explicit selection."""
-    del context
     if not isinstance(config, KubernetesLauncherConfig):
         raise TypeError("Kubernetes launcher factory received the wrong configuration")
+    gcp = optional_gcp_launcher_context(context)
+    if gcp is not None and gcp.require_guarded_free_tier:
+        raise ExecutionProjectionError("Kubernetes cannot run the GCP guarded-free-tier preflight")
     return LauncherRuntime(
         provider_id="kubernetes",
         region=config.region,

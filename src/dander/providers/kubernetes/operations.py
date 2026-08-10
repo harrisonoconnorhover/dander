@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Protocol, cast
 import yaml
 
 from dander.bootstrap.terraform import build_launcher_runtime
+from dander.deployment import ResolvedTemplateRequest
 from dander.project import ProjectConfigError, load_project_config
 from dander.providers.kubernetes.chart import build_helm_values
 from dander.providers.kubernetes.config import KubernetesLauncherConfig
@@ -300,19 +301,21 @@ def _resolve_release(
         )
     manifest.validate_references(project_config.parent)
     launcher_config = KubernetesLauncherConfig.model_validate(manifest.resolved_launcher_config())
+    if manifest.platform.safety.require_guarded_free_tier:
+        raise ProjectConfigError("Kubernetes cannot run the GCP guarded-free-tier preflight")
     launcher = build_launcher_runtime(launcher_config=manifest.resolved_launcher_config())
     templates = launcher.templates.build(
-        manifest.terraform_pipelines(),
-        image=image,
-        project="",
-        cpu=manifest.platform.runtime.cpu,
-        memory=manifest.platform.runtime.memory,
-        deadline_seconds=manifest.platform.runtime.timeout_seconds,
-        launcher_retry_count=manifest.platform.runtime.max_retries,
-        batch_rows=manifest.platform.runtime.batch_rows,
-        require_guarded_free_tier=manifest.platform.safety.require_guarded_free_tier,
-        alert_target=None,
-        profile_id=manifest.deployment_name,
+        ResolvedTemplateRequest(
+            pipelines=manifest.terraform_pipelines(),
+            image=image,
+            profile_id=manifest.deployment_name,
+            cpu=manifest.platform.runtime.cpu,
+            memory=manifest.platform.runtime.memory,
+            deadline_seconds=manifest.platform.runtime.timeout_seconds,
+            launcher_retry_count=manifest.platform.runtime.max_retries,
+            batch_rows=manifest.platform.runtime.batch_rows,
+            alert_target=None,
+        )
     )
     values = build_helm_values(
         launcher_config,

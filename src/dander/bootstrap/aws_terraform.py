@@ -14,8 +14,9 @@ from dander.bootstrap.terraform import (
     validate_runtime_settings,
     validate_terraform_pipelines,
 )
-from dander.deployment import ExecutionProjectionError
+from dander.deployment import ExecutionProjectionError, ResolvedTemplateRequest
 from dander.providers import ProviderFactoryError
+from dander.providers.gcp_launcher import GcpLauncherContext
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -122,20 +123,27 @@ class AwsTerraformBootstrap:
             )
 
         try:
-            launcher = build_launcher_runtime(launcher_config=raw_launcher)
+            launcher = build_launcher_runtime(
+                launcher_config=raw_launcher,
+                gcp_context=GcpLauncherContext(
+                    project=project,
+                    require_guarded_free_tier=require_guarded_free_tier,
+                ),
+            )
             projections = {
                 pipeline_id: template.as_dict()
                 for pipeline_id, template in launcher.templates.build(
-                    expanded_pipelines,
-                    image=container_image,
-                    project=project,
-                    cpu=runtime_cpu,
-                    memory=runtime_memory,
-                    deadline_seconds=runtime_timeout_seconds,
-                    launcher_retry_count=runtime_max_retries,
-                    batch_rows=runtime_batch_rows,
-                    require_guarded_free_tier=require_guarded_free_tier,
-                    alert_target=None,
+                    ResolvedTemplateRequest(
+                        pipelines=expanded_pipelines,
+                        image=container_image,
+                        profile_id="gcp",
+                        cpu=runtime_cpu,
+                        memory=runtime_memory,
+                        deadline_seconds=runtime_timeout_seconds,
+                        launcher_retry_count=runtime_max_retries,
+                        batch_rows=runtime_batch_rows,
+                        alert_target=None,
+                    )
                 ).items()
             }
         except (ExecutionProjectionError, ProviderFactoryError) as error:
