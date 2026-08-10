@@ -17,7 +17,12 @@ from dander.providers.snowflake.transform import SnowflakeTransformRunner
 from dander.providers.snowflake.writer import SnowflakeWriteError
 from dander.telemetry import TelemetryOperation
 from dander.transform import SqlDialect, TransformProject, TransformProjectError, TransformRunError
-from dander.warehouse import RelationRef, WarehouseRuntime
+from dander.warehouse import (
+    ProviderExtension,
+    RelationRef,
+    WarehouseRuntime,
+    WarehouseSchemaSupportError,
+)
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget, WriteTransport
 
 if TYPE_CHECKING:
@@ -153,6 +158,20 @@ class _FakeCursor:
             self._row = (self.backend.assertion_failure_count,)
         return self
 
+    def executemany(
+        self,
+        command: str,
+        seq_of_parameters: Sequence[Sequence[object]],
+    ) -> Self:
+        parameters = tuple(tuple(row) for row in seq_of_parameters)
+        compact = " ".join(command.split())
+        self.backend.statements.append((compact, parameters))
+        self.sfqid = f"query-{len(self.backend.statements)}"
+        if self.backend.fail_prefix and compact.startswith(self.backend.fail_prefix):
+            raise RuntimeError("private provider response")
+        self.rowcount = len(parameters)
+        return self
+
     def fetchone(self) -> object | None:
         return self._row
 
@@ -208,6 +227,31 @@ def snowflake_runtime(
     return runtime, backend, tmp_path
 
 
+def _direct_runtime(
+    tmp_path: Path,
+    *,
+    max_rows: int = 2,
+    max_logical_bytes: int = 4_096,
+) -> tuple[WarehouseRuntime, _FakeSnowflake]:
+    backend = _FakeSnowflake()
+    registry = default_provider_registry()
+    raw = _config()
+    raw["direct_max_rows"] = max_rows
+    raw["direct_max_logical_bytes"] = max_logical_bytes
+    config = registry.parse(ProviderKind.WAREHOUSE, raw)
+    runtime = registry.build(
+        ProviderKind.WAREHOUSE,
+        config,
+        context={
+            "catalog": "DANDER_TEST",
+            "connection_factory": backend.connect,
+            "staging_root": tmp_path,
+        },
+    )
+    assert isinstance(runtime, WarehouseRuntime)
+    return runtime, backend
+
+
 def test_snowflake_registration_is_lazy_and_credentials_remain_references() -> None:
     module_name = "dander.providers.snowflake.runtime"
     sys.modules.pop(module_name, None)
@@ -232,6 +276,32 @@ def test_snowflake_registration_is_lazy_and_credentials_remain_references() -> N
         compatibility_namespace=None,
     )
     assert relation == RelationRef(catalog="DANDER_TEST", namespace="raw", name="records")
+
+
+def test_snowflake_direct_thresholds_are_explicit_and_paired() -> None:
+    raw = _config()
+    raw["direct_max_rows"] = 10
+
+    with pytest.raises(ValueError, match="must both be zero or positive"):
+        SnowflakeWarehouseConfig.model_validate(raw)
+
+
+def test_snowflake_schema_mapper_accepts_only_explicit_json_variant_without_io(
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    before = list(backend.statements)
+    variant = ProviderExtension(provider="snowflake", name="fallback", value="variant")
+
+    schema = runtime.schema_mapper.canonical_schema(
+        (WriteField(name="payload", data_type="JSON", extensions=(variant,)),)
+    )
+
+    assert variant in schema.fields[0].extensions
+    assert backend.statements == before
+    with pytest.raises(WarehouseSchemaSupportError, match="require snowflake/fallback=variant"):
+        runtime.schema_mapper.canonical_schema((WriteField(name="payload", data_type="JSON"),))
+    assert backend.statements == before
 
 
 def test_snowflake_runtime_requires_projected_oauth_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -334,9 +404,147 @@ def test_snowflake_stages_bounded_parts_merges_last_record_and_cleans(
     assert backend.rollbacks == 0
     assert len(backend.committed_checksums) == 2
     assert runtime.capabilities.write_modes == frozenset(WriteMode)
-    assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
+    assert runtime.capabilities.transports == frozenset(
+        {WriteTransport.COPY, WriteTransport.DIRECT}
+    )
     assert runtime.capabilities.supports_transforms is True
     assert runtime.relation_codec.render(relation) == '"DANDER_TEST"."raw"."records"'
+
+
+def test_snowflake_direct_load_parses_explicit_variant_and_emits_transport(
+    tmp_path: Path,
+) -> None:
+    runtime, backend = _direct_runtime(tmp_path)
+    backend.describe_rows = [
+        ("id", "VARCHAR(16777216)", "COLUMN", "N"),
+        ("payload", "VARIANT", "COLUMN", "Y"),
+    ]
+    relation = RelationRef(catalog="DANDER_TEST", namespace="raw", name="direct_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="snowflake_direct_records",
+            run_id="run-direct",
+            token=4,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+    variant = ProviderExtension(provider="snowflake", name="fallback", value="variant")
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="payload", data_type="JSON", extensions=(variant,)),
+        ),
+        publication_fence=publication,
+    )
+
+    assert writer.write(({"id": "one", "payload": {"ready": True}},), target) == 2
+
+    sql = [statement for statement, _parameters in backend.statements]
+    direct = next(
+        (statement, parameters)
+        for statement, parameters in backend.statements
+        if statement.startswith('INSERT INTO "DANDER_TEST"."raw"."dander_stage_')
+        and "dander_stage_loads" not in statement
+    )
+    assert '"payload" VARCHAR' in next(
+        statement for statement in sql if statement.startswith("CREATE OR REPLACE TEMPORARY TABLE")
+    )
+    assert direct[1] == (("one", '{"ready":true}', 0),)
+    assert not any(statement.startswith(("PUT ", "COPY INTO")) for statement in sql)
+    publication_sql = next(
+        statement
+        for statement in sql
+        if statement.startswith("MERGE INTO") and "dander_target_commits" not in statement
+    )
+    assert 'PARSE_JSON(staged."payload") AS "payload"' in publication_sql
+    operations = writer.drain_telemetry()
+    assert [operation.operation for operation in operations] == [
+        TelemetryOperation.LOAD,
+        TelemetryOperation.QUERY,
+    ]
+    assert all(operation.transport is WriteTransport.DIRECT for operation in operations)
+    assert all(operation.resource_name == "DANDER_WH" for operation in operations)
+    assert operations[0].rows_written == 1
+    assert operations[0].query_id != operations[1].query_id
+    assert writer.drain_telemetry() == ()
+    direct_inserts = sum(
+        statement.startswith('INSERT INTO "DANDER_TEST"."raw"."dander_stage_')
+        and "dander_stage_loads" not in statement
+        for statement, _parameters in backend.statements
+    )
+    assert writer.write(({"id": "one", "payload": {"ready": True}},), target) == 0
+    assert (
+        sum(
+            statement.startswith('INSERT INTO "DANDER_TEST"."raw"."dander_stage_')
+            and "dander_stage_loads" not in statement
+            for statement, _parameters in backend.statements
+        )
+        == direct_inserts
+    )
+    replay_operations = writer.drain_telemetry()
+    assert [operation.operation for operation in replay_operations] == [TelemetryOperation.QUERY]
+    assert replay_operations[0].transport is WriteTransport.DIRECT
+    assert not tuple(tmp_path.iterdir())
+
+
+def test_snowflake_direct_threshold_is_decided_for_the_complete_endpoint(
+    tmp_path: Path,
+) -> None:
+    runtime, backend = _direct_runtime(tmp_path, max_rows=2)
+    relation = RelationRef(catalog="DANDER_TEST", namespace="raw", name="threshold_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="snowflake_threshold_records",
+            run_id="run-threshold",
+            token=5,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="label", data_type="STRING"),
+        ),
+        publication_fence=publication,
+    )
+    consumed = 0
+
+    def records() -> Iterator[dict[str, object]]:
+        nonlocal consumed
+        for index in range(3):
+            consumed += 1
+            yield {"id": str(index), "label": f"record-{index}"}
+
+    writer.write(records(), target)
+
+    assert consumed == 3
+    sql = [statement for statement, _parameters in backend.statements]
+    assert any(statement.startswith("COPY INTO") for statement in sql)
+    assert not any(
+        statement.startswith('INSERT INTO "DANDER_TEST"."raw"."dander_stage_')
+        and "dander_stage_loads" not in statement
+        for statement in sql
+    )
+    assert all(operation.transport is WriteTransport.COPY for operation in writer.drain_telemetry())
+    assert not tuple(tmp_path.iterdir())
 
 
 @pytest.mark.parametrize(
@@ -368,8 +576,8 @@ def test_snowflake_factory_reaches_every_fenced_write_mode(
         snapshot_field=field_name if mode is WriteMode.SNAPSHOT else None,
     )
     assert writer.mode is mode
-    assert writer.supports_batched_writes is (mode not in {WriteMode.REPLACE, WriteMode.SCD2})
-    assert writer.accepts_streaming_input is (mode in {WriteMode.REPLACE, WriteMode.SCD2})
+    assert writer.supports_batched_writes is False
+    assert writer.accepts_streaming_input is True
 
     relation = RelationRef(
         catalog="DANDER_TEST",
@@ -1084,7 +1292,7 @@ def test_snowflake_lost_fence_blocks_publication_and_rolls_back(
     assert not tuple(staging_root.iterdir())
 
 
-def test_snowflake_rejects_semi_structured_fields_and_telemetry_is_bounded(
+def test_snowflake_requires_explicit_variant_and_telemetry_is_bounded(
     snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
 ) -> None:
     runtime, _backend, _staging_root = snowflake_runtime
@@ -1112,7 +1320,7 @@ def test_snowflake_rejects_semi_structured_fields_and_telemetry_is_bounded(
         publication_fence=publication,
     )
 
-    with pytest.raises(SnowflakeWriteError, match="semi-structured fields are not supported"):
+    with pytest.raises(SnowflakeWriteError, match="require snowflake/fallback=variant"):
         writer.write(({"id": "one", "payload": {"ready": True}},), target)
 
     class _Result:
@@ -1122,3 +1330,54 @@ def test_snowflake_rejects_semi_structured_fields_and_telemetry_is_bounded(
     telemetry = runtime.telemetry.operation(_Result(), operation=TelemetryOperation.LOAD)
     assert telemetry.rows_affected == 7
     assert telemetry.query_id == "query-safe-7"
+    assert telemetry.resource_name == "DANDER_WH"
+
+
+def test_snowflake_copy_parses_explicit_variant_before_publication(
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, staging_root = snowflake_runtime
+    backend.describe_rows = [
+        ("id", "VARCHAR(16777216)", "COLUMN", "N"),
+        ("payload", "VARIANT", "COLUMN", "Y"),
+    ]
+    relation = RelationRef(catalog="DANDER_TEST", namespace="raw", name="variant_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="snowflake_variant_records",
+            run_id="run-variant-copy",
+            token=10,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+    variant = ProviderExtension(provider="snowflake", name="fallback", value="variant")
+    writer.write(
+        ({"id": "one", "payload": {"nested": {"ready": True}}},),
+        WriteTarget(
+            relation=relation,
+            business_key=("id",),
+            schema=(
+                WriteField(name="id", data_type="STRING"),
+                WriteField(name="payload", data_type="JSON", extensions=(variant,)),
+            ),
+            publication_fence=publication,
+        ),
+    )
+
+    sql = [statement for statement, _parameters in backend.statements]
+    assert any(statement.startswith("COPY INTO") for statement in sql)
+    merge = next(
+        statement
+        for statement in sql
+        if statement.startswith("MERGE INTO") and "dander_target_commits" not in statement
+    )
+    assert 'PARSE_JSON(staged."payload") AS "payload"' in merge
+    assert all(operation.transport is WriteTransport.COPY for operation in writer.drain_telemetry())
+    assert not tuple(staging_root.iterdir())

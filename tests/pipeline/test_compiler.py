@@ -583,3 +583,13 @@ def test_target_dispatches_storage_write_transport(
 
     assert isinstance(prepared.writer, expected_type)
     assert prepared.target.schema[0].data_type == "STRING"
+
+
+def test_bigquery_writer_preparation_rejects_provider_selected_direct_transport() -> None:
+    config = _target_config()
+    assert config.writer is not None
+    config.writer.transport = WriteTransport.DIRECT
+    node = Node(id="target", type="target", name="Target", config=config)
+
+    with pytest.raises(PipelineCompileError, match="does not support.*direct transport"):
+        prepare_target_writer(node, default_project="fallback", client=object())

@@ -27,13 +27,7 @@ def _schema(name: str, data_type: CanonicalType) -> RelationSchema:
     return RelationSchema(fields=(CanonicalField(name=name, data_type=data_type),))
 
 
-@pytest.mark.parametrize(
-    "mapper",
-    [SnowflakeSchemaMapper(), RedshiftSchemaMapper()],
-)
-def test_experimental_mappers_reject_semistructured_fields_before_provider_io(
-    mapper: SnowflakeSchemaMapper | RedshiftSchemaMapper,
-) -> None:
+def test_redshift_mapper_rejects_semistructured_fields_before_provider_io() -> None:
     field = CanonicalField(
         name="payload",
         data_type=CanonicalType(kind=LogicalTypeKind.JSON),
@@ -43,7 +37,20 @@ def test_experimental_mappers_reject_semistructured_fields_before_provider_io(
         WarehouseSchemaSupportError,
         match="does not support canonical type 'json' at field 'payload'",
     ):
-        mapper.canonical_schema([field])
+        RedshiftSchemaMapper().canonical_schema([field])
+
+
+def test_snowflake_mapper_requires_explicit_json_variant_before_provider_io() -> None:
+    field = CanonicalField(
+        name="payload",
+        data_type=CanonicalType(kind=LogicalTypeKind.JSON),
+    )
+
+    with pytest.raises(
+        WarehouseSchemaSupportError,
+        match="require snowflake/fallback=variant",
+    ):
+        SnowflakeSchemaMapper().canonical_schema([field])
 
 
 def test_decimal_and_temporal_limits_name_provider_field_and_limit() -> None:

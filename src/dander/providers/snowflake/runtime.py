@@ -29,7 +29,9 @@ from dander.providers.snowflake.writer import (
     SnowflakeScd1Writer,
     SnowflakeStagedWriter,
     SnowflakeStagingSettings,
+    SnowflakeWriteError,
     default_staging_settings,
+    validate_snowflake_schema,
 )
 from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.warehouse import CanonicalField, LogicalTypeKind, RelationRef, RelationSchema
@@ -37,6 +39,7 @@ from dander.warehouse.runtime import (
     WarehouseCapabilities,
     WarehouseRuntime,
     WarehouseSchemaSupport,
+    WarehouseSchemaSupportError,
 )
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WritePattern, WriteTransport
 
@@ -92,7 +95,12 @@ class SnowflakeSchemaMapper:
                 canonical.append(field)
             else:
                 raise TypeError("Snowflake schema mapper received an unsupported field")
-        return SNOWFLAKE_SCHEMA_SUPPORT.require(RelationSchema(fields=tuple(canonical)))
+        schema = RelationSchema(fields=tuple(canonical))
+        try:
+            validate_snowflake_schema(schema)
+        except SnowflakeWriteError as error:
+            raise WarehouseSchemaSupportError(str(error)) from error
+        return schema
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +111,7 @@ class SnowflakeWriterFactory:
     connection_factory: SnowflakeConnectionFactory
     target_fence: SnowflakeTargetFence
     staging: SnowflakeStagingSettings
+    warehouse: str
 
     def build_ingestion_writer(
         self,
@@ -134,6 +143,7 @@ class SnowflakeWriterFactory:
                 target_fence=self.target_fence,
                 schema_evolution=schema_evolution,
                 staging=self.staging,
+                warehouse=self.warehouse,
             )
         return SnowflakeStagedWriter(
             database=self.database,
@@ -141,6 +151,7 @@ class SnowflakeWriterFactory:
             target_fence=self.target_fence,
             schema_evolution=schema_evolution,
             staging=self.staging,
+            warehouse=self.warehouse,
             mode=mode,
             cursor_field=cursor_field,
             snapshot_field=snapshot_field,
@@ -200,6 +211,7 @@ class SnowflakeTelemetry:
             retry_count=retry_count,
             rows_affected=affected,
             query_id=query_id if isinstance(query_id, str) else None,
+            resource_name=self.warehouse,
         )
 
 
@@ -207,7 +219,7 @@ SNOWFLAKE_CAPABILITIES = WarehouseCapabilities(
     provider_id="snowflake",
     schema_contract_version=1,
     write_modes=frozenset(WriteMode),
-    transports=frozenset({WriteTransport.COPY}),
+    transports=frozenset({WriteTransport.COPY, WriteTransport.DIRECT}),
     supports_transforms=True,
     supports_graphs=False,
     supports_target_fencing=True,
@@ -257,6 +269,8 @@ def build_snowflake_warehouse(
         max_rows_per_file=config.max_rows_per_file,
         max_logical_bytes_per_file=config.max_logical_bytes_per_file,
         compression=config.compression,
+        direct_max_rows=config.direct_max_rows,
+        direct_max_logical_bytes=config.direct_max_logical_bytes,
     )
     supplied_root = context.get("staging_root")
     if supplied_root is not None:
@@ -267,6 +281,8 @@ def build_snowflake_warehouse(
             max_rows_per_file=staging.max_rows_per_file,
             max_logical_bytes_per_file=staging.max_logical_bytes_per_file,
             compression=staging.compression,
+            direct_max_rows=staging.direct_max_rows,
+            direct_max_logical_bytes=staging.direct_max_logical_bytes,
         )
     schema_mapper = SnowflakeSchemaMapper()
     return WarehouseRuntime(
@@ -278,6 +294,7 @@ def build_snowflake_warehouse(
             connection_factory,
             target_fence,
             staging,
+            config.warehouse,
         ),
         transforms=SnowflakeTransformFactory(
             config.database,

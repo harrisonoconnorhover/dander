@@ -1,9 +1,9 @@
 # Experimental Snowflake warehouse
 
 Snowflake is an experimental warehouse adapter, not a supported Dander profile. The current slice
-proves native database/schema coordinates, a bounded bulk path, all five scalar writer modes, and
-fenced table/incremental models. Live qualification and the remaining first-class gates are still
-required before support promotion.
+proves native database/schema coordinates, bounded direct and bulk paths, all five writer modes,
+an explicit JSON-to-`VARIANT` fallback, and fenced table/incremental models. Live qualification
+and the remaining first-class gates are still required before support promotion.
 
 ## Configuration
 
@@ -20,6 +20,9 @@ platforms:
       schema: RAW
       warehouse: DANDER_WH
       role: DANDER_ROLE
+      # Keep both at zero until a live benchmark establishes the account's crossover.
+      direct_max_rows: 0
+      direct_max_logical_bytes: 0
       auth:
         method: oauth
         token_env: DANDER_SNOWFLAKE_OAUTH_TOKEN
@@ -39,8 +42,14 @@ variable reference. Do not put a token, private key, password, or connection str
 ## Current contract
 
 - `database + schema + relation` become one canonical `RelationRef` without GCP aliases.
-- Runtime batches are written as checksummed, compressed Parquet parts and uploaded with `PUT`.
-- `COPY` preserves Parquet logical and binary types explicitly.
+- The writer sees one complete endpoint stream and retains at most a configured direct threshold
+  plus one row in memory. Larger streams continue into bounded Parquet parts without rereading the
+  source.
+- When both direct thresholds are positive and the complete stream fits, rows are inserted into a
+  session-temporary staging table through bounded connector parameters. Otherwise checksummed,
+  compressed Parquet parts are uploaded with `PUT` and loaded with `COPY`.
+- `COPY` preserves Parquet logical and binary types explicitly. Direct/COPY selection, load query
+  IDs, publication query IDs, rows, bytes, duration, and warehouse name flow into run telemetry.
 - One session-temporary stage and table contain each batch; normal cleanup is immediate and session
   termination removes them after process death.
 - SCD1, incremental, snapshot, SCD2, and replace publication share the same bounded staging path.
@@ -52,6 +61,18 @@ variable reference. Do not put a token, private key, password, or connection str
   `DELETE`/`INSERT`, including an empty-source replacement.
 - Only declared nullable columns may be added automatically. Extra columns, required additions,
   type drift, nullability drift, malformed rows, and oversized singleton parts fail closed.
+- Canonical JSON remains rejected unless its field explicitly declares:
+
+  ```yaml
+  extensions:
+    - provider: snowflake
+      name: fallback
+      value: variant
+  ```
+
+  The staging value remains canonical JSON text and publication applies `PARSE_JSON`, so the
+  destination contains structured `VARIANT` data rather than a quoted string. ARRAY and RECORD
+  fallbacks remain unsupported.
 - Portable or Snowflake-authored table models replace rows through fenced `DELETE`/`INSERT` DML.
 - Incremental models collapse duplicate keys deterministically and accept only rows whose declared
   cursor is at least as new as the stored row. Generic model assertions run after publication.
@@ -66,6 +87,7 @@ All five scalar write patterns are reachable through the warehouse writer capabi
 ordinary hosted source runner deliberately continues to select SCD1. PipelineGraph execution has
 not yet been wired to Snowflake's writer selection.
 Views remain unavailable because Snowflake permanent DDL cannot share the destination-fence
-transaction. Semi-structured fields, a measured small-load direct path, full telemetry plumbing,
+transaction. Direct thresholds default to zero because no live crossover has been measured; do
+not claim a performance benefit until that qualification is recorded. Query-history enrichment,
 live concurrency proof, infrastructure provisioning, and support promotion remain separate work.
 Use `catalog.provider: none` for this experimental path.

@@ -172,6 +172,10 @@ def prepare_bigquery_target_writer(
     if config.writer is None:
         raise PipelineCompileError(f"Target node {target_node.id!r} has no writer configuration")
     writer_config = config.writer
+    if writer_config.transport is WriteTransport.DIRECT:
+        raise PipelineCompileError(
+            "BigQuery target execution does not support the provider-selected direct transport"
+        )
     destination = writer_config.destination
     try:
         relation = destination.relation_ref(default_catalog=default_catalog)

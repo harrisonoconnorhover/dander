@@ -19,6 +19,12 @@ class SnowflakeCursor(Protocol):
 
     def execute(self, command: str, params: Sequence[object] | None = None) -> Self: ...
 
+    def executemany(
+        self,
+        command: str,
+        seq_of_parameters: Sequence[Sequence[object]],
+    ) -> Self: ...
+
     def fetchone(self) -> object | None: ...
 
     def fetchall(self) -> list[object]: ...
@@ -74,6 +80,23 @@ def execute(
         cursor.close()
 
 
+def execute_many(
+    connection: SnowflakeConnection,
+    statement: str,
+    parameter_rows: Sequence[Sequence[object]],
+) -> SnowflakeStatementResult:
+    """Execute one bounded qmark batch and detach its sanitized statement result."""
+    cursor = connection.cursor()
+    try:
+        cursor.executemany(statement, parameter_rows)
+        return SnowflakeStatementResult(
+            rowcount=max(cursor.rowcount, 0),
+            query_id=cursor.sfqid,
+        )
+    finally:
+        cursor.close()
+
+
 @contextmanager
 def open_connection(factory: SnowflakeConnectionFactory) -> Iterator[SnowflakeConnection]:
     """Close one connector session after success or failure."""
@@ -90,5 +113,6 @@ __all__ = [
     "SnowflakeCursor",
     "SnowflakeStatementResult",
     "execute",
+    "execute_many",
     "open_connection",
 ]

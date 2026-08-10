@@ -90,14 +90,14 @@
     {
       "provider": "snowflake",
       "write_modes": ["incremental", "replace", "scd1", "scd2", "snapshot"],
-      "transports": ["copy"],
+      "transports": ["copy", "direct"],
       "logical_types": ["binary", "boolean", "date", "decimal", "float", "integer", "string", "time", "timestamp"],
       "max_decimal_precision": 38,
       "max_temporal_precision": 9,
       "supports_transforms": true,
       "supports_graphs": false,
       "supports_target_fencing": true,
-      "limitations": ["graph execution is not available", "hosted source execution selects scd1", "semi-structured types require a future explicit VARIANT mapping", "small-load direct writes are not qualified"]
+      "limitations": ["JSON requires the explicit snowflake/fallback=variant field extension", "direct thresholds remain disabled until the live crossover is measured", "graph execution is not available", "hosted source execution selects scd1"]
     }
   ]
 }
