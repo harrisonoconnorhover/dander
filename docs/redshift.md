@@ -2,8 +2,9 @@
 
 Redshift is an experimental warehouse adapter, not a supported Dander profile. The current slice
 proves native database/schema coordinates, bounded IAM-only bulk loading, all five fenced ingestion
-write modes, fenced table and incremental models, and replace-mode graph targets before a live
-support claim.
+write modes, fenced table and incremental models, and replace-mode graph targets. A bounded
+Serverless qualification has passed; provisioning and the remaining first-class gates are still
+required before support promotion.
 
 ## Configuration
 
@@ -43,7 +44,9 @@ COPY remains the default. Set both direct limits to positive values to opt small
 streams into bounded parameterized inserts; for example, `direct_max_rows: 1000` and
 `direct_max_logical_bytes: 1048576`. Dander selects direct loading only after the entire stream
 fits both limits. Otherwise it falls back once to the existing Parquet/S3/COPY path without losing
-the inspected prefix. The S3 bucket and COPY role remain required because they handle that fallback.
+the inspected prefix. Redshift permits values larger than 1 MiB only through file ingestion, so
+`direct_max_logical_bytes` cannot exceed 1 MiB. The S3 bucket and COPY role remain required because
+they handle that fallback.
 
 ## Current contract
 
@@ -75,16 +78,53 @@ the inspected prefix. The S3 bucket and COPY role remain required because they h
   lookup enriches those operations with Redshift queue/execution time, bytes, loaded rows, spill
   blocks, service class, compute type, and COPY job ID when the system views are available.
 
+## Opt-in warehouse qualification
+
+The repository contains a bounded live harness for an existing Redshift cluster or Serverless
+workgroup. It does not provision Redshift, S3, IAM, networking, or any other AWS resource. Running
+it may resume compute and incur AWS charges, so agree on a paid-test ceiling first.
+
+The active AWS SDK identity must be able to obtain temporary Redshift credentials and list, write,
+and delete only the chosen staging prefix. The configured `COPY` role must be usable by Redshift and
+able to read that same-region prefix. For a provisioned cluster:
+
+```bash
+uv run python -m scripts.benchmarks.redshift \
+  --deployment provisioned \
+  --host example.abc123.us-east-1.redshift.amazonaws.com \
+  --database analytics \
+  --region us-east-1 \
+  --cluster-identifier dander-test \
+  --db-user dander_user \
+  --copy-role-arn arn:aws:iam::123456789012:role/DanderRedshiftCopy \
+  --staging-bucket dander-redshift-staging
+```
+
+Serverless uses `--deployment serverless --workgroup-name NAME` and omits the cluster identifier
+and database user. The harness relies only on ambient IAM credentials. Never pass AWS access keys,
+database passwords, or session tokens on the command line.
+
+The harness creates one random `dander_qual_*` schema and one random child of the configured S3
+staging prefix. It forces bounded direct insertion and multi-part Parquet `COPY`, exercises all
+five write modes, explicit `SUPER`, table and incremental models, replay, cursor regression, a
+real two-session stale publisher, one provider-neutral graph, telemetry, and direct result
+readback. It checks for run-scoped staging residue, then removes only its exact schema and S3
+prefix in `finally`. Its JSON report excludes host, database user, bucket, role, SQL, row values,
+and provider responses. It reports cost as `not_measured` and support as `experimental`.
+
+The sanitized disposable-account result is recorded in
+[Redshift Serverless live qualification](cloud-portability-redshift-qualification.md).
+
 ## Deliberate limits
 
 Scalar fields and explicit JSON-to-`SUPER` fallback are implemented for direct/COPY ingestion and
 table/incremental models. `SUPER` fields cannot be business keys, cursors, or snapshot fields.
-ARRAY/RECORD fallbacks remain unavailable. COPY retains its 4 MB staged-row guard, while an
-explicitly bounded direct load may use the declared 16 MB VARBYTE/SUPER boundary. The ordinary
-hosted source runner still selects SCD1.
+ARRAY/RECORD fallbacks remain unavailable. COPY retains its 4 MB staged-row guard. Direct loading
+is capped at 1 MiB and larger eligible rows fall back to file ingestion. The ordinary hosted source
+runner still selects SCD1.
 Graph execution retains the shared single-connector, replace-target-only boundary; safe casts fail
-preflight because Redshift cannot yet preserve their canonical semantics. Views, live concurrency
-proof, infrastructure provisioning, and support promotion remain separate work. Use
+preflight because Redshift cannot yet preserve their canonical semantics. Views, infrastructure
+provisioning, and support promotion remain separate work. Use
 `catalog.provider: none` for this experimental path.
 
 Telemetry is best-effort and never carries SQL text, error text, S3 locations, or record data.

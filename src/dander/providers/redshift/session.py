@@ -90,7 +90,7 @@ def execute_many(
 def capture_last_query_id(connection: RedshiftConnection) -> str | None:
     """Capture a completed compute query ID after its transaction is already committed."""
     try:
-        row = execute(connection, "SELECT pg_last_query_id()", fetch="one").row
+        row = execute(connection, "SELECT last_user_query_id()", fetch="one").row
         value = row[0] if isinstance(row, (tuple, list)) and row else None
         valid = isinstance(value, int) and not isinstance(value, bool) and value >= 0
         return str(value) if valid else None

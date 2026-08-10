@@ -1116,7 +1116,7 @@ def _schema_changes(
         connection,
         "SELECT column_name, data_type, character_maximum_length, numeric_precision, "
         "numeric_scale, is_nullable FROM svv_columns "
-        "WHERE database_name = %s AND schema_name = %s AND table_name = %s",
+        "WHERE table_catalog = %s AND table_schema = %s AND table_name = %s",
         relation.coordinates,
         fetch="all",
     ).rows

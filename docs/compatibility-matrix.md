@@ -40,7 +40,7 @@ their named live profiles pass.
 |---|---|---|---|---|---|---|
 | BigQuery | all five | load job, Storage Write | all v1 types; decimal 38, time 6; no nested arrays | yes | yes | yes |
 | PostgreSQL | all five | COPY | all v1 types; decimal 1000, time 6 | yes | yes | yes |
-| Redshift | all five | COPY | scalar types; decimal 38, time 6; explicit JSON-to-SUPER fallback | yes | yes | yes |
+| Redshift | all five | direct, COPY | scalar types; decimal 38, time 6; explicit JSON-to-SUPER fallback | yes | yes | yes |
 | Snowflake | all five | direct, COPY | scalar types; decimal 38, time 9; explicit JSON-to-VARIANT fallback | yes | yes | yes |
 
 Portable-provider schema validation uses these declarations before source extraction, staging
