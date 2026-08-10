@@ -56,5 +56,6 @@ Fargate-to-BigQuery composition; it does not promote Fargate or any non-GCP prof
 
 Phase 1B passed: one source-free multi-platform image retained identical registry content, ran on
 Cloud Run and Fargate, and reached BigQuery from AWS before and after keyless credential refresh.
-Fargate remains experimental until the broader correctness, lifecycle, scale, and operating gates
-in the portability roadmap pass.
+The later [Fargate lifecycle acceptance](cloud-portability-fargate-lifecycle-acceptance.md) passed
+correctness and operating gates. Fargate remains experimental pending the published scale and
+profile-qualification objectives.

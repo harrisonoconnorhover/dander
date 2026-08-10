@@ -3,13 +3,12 @@
 Dander `0.8.x` is beta and proves a focused GCP-native vertical slice. It remains pre-1.0 software;
 evaluate these limits before using it for an unattended system containing business-critical data.
 
-- AWS ECS/Fargate is not yet a supported Dander launcher. Packaged stage-zero and platform roots
-  now have public saved-plan/apply commands, and accepted OCI artifacts can be copied into ECR
-  without rebuilding. Manifest-bound status, logs, cancellation, replay, and deployment
-  verification are implemented but not live-qualified. The runtime bridge now renews its AWS
-  task-role input from the fixed ECS endpoint for each Google federation refresh without persisting
-  task credentials. Complete pipeline parity, interruption, replay, schedule, alert, rollback, and
-  no-drift acceptance remain later gates.
+- AWS ECS/Fargate remains experimental rather than supported. The named Fargate-to-BigQuery/GCP
+  composition has passed source-free manual and scheduled execution, replay, interruption,
+  renewable keyless identity, alert routing, image rollback, cleanup, and no-drift acceptance.
+  The disposable proof topic had no human subscriber, and the profile has not completed the
+  published scale/qualification objectives. Other AWS, warehouse, and cross-cloud combinations
+  receive no support claim from this proof.
 - Provider package extras and the full runtime image do not by themselves qualify Snowflake,
   Redshift, AWS, Azure, or OCI profiles. Snowflake has an experimental scalar SCD1 adapter with
   bounded Parquet upload, temporary remote staging, schema checks, destination fencing, and fenced

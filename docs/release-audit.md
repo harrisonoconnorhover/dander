@@ -1,6 +1,6 @@
 # Dander Platform Release Audit
 
-Audited on 2026-08-07 against the product promise in `steering/00-project-overview.md`.
+Audited on 2026-08-10 against the product promise in `steering/00-project-overview.md`.
 “Live-proven” means the behavior was observed in a disposable provider account or retained GCP
 project. “Implemented” means automated tests cover the contract while an optional provider or
 cloud path remains outside the live proof.
@@ -12,7 +12,7 @@ cloud path remains outside the live proof.
 | One CLI and typed project manifest | Live-proven | `dander.yaml` declares four daily connector pipelines and one executable graph; `dander validate`, provisioning, execution, and metadata inspection use the same CLI. |
 | Batteries-included GCP infrastructure | Live-proven | Reviewed Terraform owns remote state, Artifact Registry, BigQuery datasets, per-pipeline IAM, Cloud Run jobs, Scheduler jobs, Secret Manager containers, failure alerts, and the optional cost guard. |
 | Additive multi-pipeline hosting | Live-proven | Greenhouse, HubSpot, Salesforce, and ServiceNow coexist with distinct jobs, schedules, and runtime identities. The graph job is separately deployed and paused. |
-| Independently installed connectors | Live-proven | Public Salesforce `0.3.0` and ServiceNow `0.2.1` packages are exact-pinned, discovered through Dander plugin API v1, installed into a source-free image, and exercised against disposable provider accounts. |
+| Independently installed connectors | Live-proven | Public Salesforce `0.3.1` and ServiceNow `0.2.2` packages are exact-pinned, discovered through Dander plugin API v1, installed into a source-free image, and exercised against disposable provider accounts. |
 | Shared enterprise authentication | Live-proven for retained plugins | Dander core supplies Salesforce OAuth2 JWT and ServiceNow OAuth2 client credentials while Terraform grants each runtime access only to its declared Secret Manager resources. |
 | Bounded ingestion and idempotent BigQuery writes | Live-proven for hosted SCD1 | Greenhouse, HubSpot, Salesforce, and ServiceNow have completed hosted ingestion and replay checks without duplicate destination keys; Salesforce applies its cursor server-side. |
 | Owned transforms and tests | Live-proven | Retained pipelines execute Dander's `ref()` DAG and declared BigQuery assertions after ingestion. |
@@ -36,9 +36,13 @@ cloud path remains outside the live proof.
   conformance on AMD64, and queried BigQuery from one ARM64 Fargate task before and after keyless
   Google credential refresh. All proof resources were removed, and Fargate remains experimental.
   See `docs/cloud-portability-phase1b-acceptance.md`.
-- Retained source-free Dander image: `sha256:3220623…8995`, built with Dander `0.5.0` and both
-  plugin `0.2.0` packages. Dander `0.5.1` changes only catalog recommendations, so the runtime
-  image was intentionally not replaced.
+- Public Dander `0.8.0rc8` passed the complete lifecycle gate for the named
+  Fargate-to-BigQuery/GCP composition: manual and scheduled execution, replay, interruption,
+  alert routing, image rollback, cleanup, and four final no-drift plans. Fargate remains
+  experimental pending scale/profile qualification. See
+  `docs/cloud-portability-fargate-lifecycle-acceptance.md`.
+- Retained source-free Dander image: `sha256:68e112c43b365018b735be7934446e15dfe6169fc64062b62b8bb97ea4f93b96`,
+  built with Dander `0.7.1`, Salesforce `0.3.1`, and ServiceNow `0.2.2`.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions

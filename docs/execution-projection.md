@@ -36,8 +36,11 @@ Google Auth refreshes its signed AWS subject token; task secrets are neither cop
 environment variables nor written to disk. The impersonated Google token remains limited to 600
 seconds, while the launcher may enforce a deadline of up to 24 hours.
 
-This provider projection is an internal construction gate: complete pipeline lifecycle and live
-acceptance must still pass before Fargate is a supported launcher.
+The named Fargate-to-BigQuery/GCP composition has passed complete lifecycle acceptance, including
+manual and scheduled execution, replay, interruption, alerts, image rollback, cleanup, and
+no-drift reconciliation. Fargate remains experimental until the profile also satisfies the
+published scale/qualification objectives; see the
+[bounded acceptance record](cloud-portability-fargate-lifecycle-acceptance.md).
 
 The Kubernetes provider projects a selected named profile into a packaged Helm chart for an
 existing Kubernetes 1.27+ cluster. Its immutable template uses stdout, operator-owned Secret key

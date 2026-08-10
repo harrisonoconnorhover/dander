@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-10 — Fargate lifecycle evidence does not skip profile qualification
+
+- **Accepted slice:** Public `0.8.0rc8` passed manual and scheduled execution, replay,
+  interruption, alert routing, image rollback, cleanup, and no-drift for the named
+  Fargate-to-BigQuery/GCP composition.
+- **Support boundary:** Fargate remains experimental until the same profile satisfies the
+  published scale and qualification objectives. No other AWS, warehouse, or cross-cloud pairing
+  inherits this evidence.
+- **Evidence:** The bounded record is
+  `docs/cloud-portability-fargate-lifecycle-acceptance.md`.
+
 ## 2026-08-09 — Phase 1B accepts only exact public dependency fixtures
 
 - **Evidence:** The accepted image contains three boto3/botocore example files with AWS-published
