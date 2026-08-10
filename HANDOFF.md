@@ -2,46 +2,41 @@
 
 ## Finished
 
-- Capped Redshift direct ingestion at its documented 1 MiB non-file limit.
-- Correlated Redshift telemetry with `LAST_USER_QUERY_ID()` and `SYS_QUERY_HISTORY`.
-- Added an opt-in existing-profile Redshift qualification harness with no provisioning behavior.
-- Covered all writers, `SUPER`, models, graph execution, replay, stale fencing, readback, and cleanup.
-- Kept Redshift experimental and documented the paid-test boundary.
+- Passed the disposable Redshift Serverless qualification across all five write modes.
+- Proved direct and Parquet paths, `SUPER`, transforms, graph execution, replay, and fencing.
+- Corrected live system-view and benchmark relation assumptions with regression coverage.
+- Destroyed all ten Terraform resources and verified the account cleanup.
+- Recorded sanitized acceptance and cost evidence while keeping support experimental.
 
 ## Try It
 
 Run `uv run pytest -q tests/providers/test_redshift_warehouse_runtime.py
-tests/portability/test_redshift_qualification.py`. The opt-in live command is in
-`docs/redshift.md` and requires an existing profile plus a separately approved cost ceiling.
+tests/portability/test_redshift_qualification.py`. The opt-in live command and its existing-profile
+boundary remain documented in `docs/redshift.md`.
 
 ## Checks
 
-- Ruff, formatting, strict mypy, dependency audit, and all 1,207 tests passed with PostgreSQL 15.
-- Wheel, sdist, source-free install, runtime-all install, and generated-project validation passed.
-- Non-root/read-only container conformance, Terraform validation/tests, and Helm checks passed.
-- Retained stage-zero plan reported `No changes.`; no apply or live mutation occurred.
-- Public source-free `dander-platform==0.7.0` with the retained deployment's existing `600s`
-  compatibility input produced an exact retained platform `No changes.` plan.
-- The candidate plan is 0 add/5 change/0 destroy: only five job version labels (`0.7.0` to
-  `0.8.0rc8`) and declared timeouts (`600s` to `300s`) differ.
-- A detached `origin/main` plan reproduced those same five changes; this branch contains no GCP,
-  Terraform, manifest, or deployment-file changes.
-- Final adversarial review's prefix-normalization and partial-delete findings were fixed and covered.
+- Live qualification passed in 238.579339 seconds.
+- AWS reported 4,080 charged RPU-seconds, approximately $0.425 of compute.
+- Postflight Terraform state and all named resource lookups returned zero resources.
+- Ruff, formatting, strict mypy, and all 1,208 tests passed with PostgreSQL 15.
+- Wheel, sdist, source-free installs, runtime-all install, and generated-project validation passed.
+- Terraform validation/tests, Helm checks, and non-root/read-only container conformance passed.
+- The locked runtime dependency audit found no known vulnerabilities.
 
 ## Decisions
 
-- Use the existing Redshift provider/runtime contracts, not a benchmark framework.
-- Mutate only one random schema and S3 prefix and remove both on every handled exit.
-- Keep both provisioned and Serverless selectable without provisioning either one.
+- Match Redshift's actual `table_catalog` and `table_schema` system-view coordinates.
+- Keep disposable cost enforcement operator-side; do not add provisioning to the harness.
+- Preserve experimental status until provisioning and remaining first-class gates pass.
 
 ## Remaining
 
-- Let protected CI repeat Linux checks plus unavailable local Trivy and Gitleaks scans.
-- Provision or select a separately approved disposable Redshift profile for the live run.
-- Preserve a sanitized live report before any support-status change.
+- Push the branch and let protected CI repeat Linux and unavailable local security scans.
+- Merge only through the normal protected-main review process.
 
 ## Review First
 
-- `src/dander/providers/redshift/config.py`
-- `src/dander/providers/redshift/session.py`
+- `src/dander/providers/redshift/writer.py`
 - `scripts/benchmarks/redshift.py`
+- `docs/cloud-portability-redshift-qualification.md`

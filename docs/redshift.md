@@ -2,8 +2,9 @@
 
 Redshift is an experimental warehouse adapter, not a supported Dander profile. The current slice
 proves native database/schema coordinates, bounded IAM-only bulk loading, all five fenced ingestion
-write modes, fenced table and incremental models, and replace-mode graph targets before a live
-support claim.
+write modes, fenced table and incremental models, and replace-mode graph targets. A bounded
+Serverless qualification has passed; provisioning and the remaining first-class gates are still
+required before support promotion.
 
 ## Configuration
 
@@ -111,6 +112,9 @@ readback. It checks for run-scoped staging residue, then removes only its exact 
 prefix in `finally`. Its JSON report excludes host, database user, bucket, role, SQL, row values,
 and provider responses. It reports cost as `not_measured` and support as `experimental`.
 
+The sanitized disposable-account result is recorded in
+[Redshift Serverless live qualification](cloud-portability-redshift-qualification.md).
+
 ## Deliberate limits
 
 Scalar fields and explicit JSON-to-`SUPER` fallback are implemented for direct/COPY ingestion and
@@ -119,8 +123,8 @@ ARRAY/RECORD fallbacks remain unavailable. COPY retains its 4 MB staged-row guar
 is capped at 1 MiB and larger eligible rows fall back to file ingestion. The ordinary hosted source
 runner still selects SCD1.
 Graph execution retains the shared single-connector, replace-target-only boundary; safe casts fail
-preflight because Redshift cannot yet preserve their canonical semantics. Views, live concurrency
-proof, infrastructure provisioning, and support promotion remain separate work. Use
+preflight because Redshift cannot yet preserve their canonical semantics. Views, infrastructure
+provisioning, and support promotion remain separate work. Use
 `catalog.provider: none` for this experimental path.
 
 Telemetry is best-effort and never carries SQL text, error text, S3 locations, or record data.

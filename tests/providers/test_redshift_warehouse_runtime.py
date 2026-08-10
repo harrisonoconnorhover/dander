@@ -1099,6 +1099,9 @@ def test_redshift_stages_bounded_parts_merges_deterministically_and_cleans(
         if connection_id == writer_connection
     ]
     assert any(statement.startswith("CREATE TEMP TABLE") for statement in sql)
+    schema_query = next(statement for statement in sql if "FROM svv_columns" in statement)
+    assert "table_catalog = %s AND table_schema = %s AND table_name = %s" in schema_query
+    assert "database_name" not in schema_query and "schema_name" not in schema_query
     copy = next(statement for statement in sql if statement.startswith("COPY "))
     assert "IAM_ROLE 'arn:aws:iam::123456789012:role/DanderRedshiftCopy'" in copy
     assert "ACCESS_KEY_ID" not in copy and "SECRET_ACCESS_KEY" not in copy

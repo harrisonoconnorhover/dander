@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from scripts.benchmarks import redshift
 
 from dander.providers.redshift.session import RedshiftStatementResult
+from dander.transform import SqlDialect, TransformProject
 from dander.warehouse import RelationRef, WarehouseRuntime
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _config(**overrides: object) -> redshift.RedshiftQualificationConfig:
@@ -106,6 +110,25 @@ def test_graph_fixture_preserves_native_database_and_schema_coordinates() -> Non
     )
 
 
+def test_model_fixture_and_physical_source_use_the_same_relation(tmp_path: Path) -> None:
+    redshift._write_model(
+        tmp_path,
+        "table_model",
+        "table",
+        "dander_qual_test",
+    )
+
+    project = TransformProject.load(
+        tmp_path,
+        catalog="analytics",
+        raw_namespace="dander_qual_test",
+        target_dialect=SqlDialect.REDSHIFT,
+    )
+    model = project.ordered(("table_model",))[0]
+
+    assert '"analytics"."dander_qual_test"."records"' in project.compile(model)
+
+
 def test_staging_residue_query_excludes_durable_load_history(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -142,6 +165,8 @@ def test_staging_residue_query_excludes_durable_load_history(
     assert redshift._staging_table_count(runtime, "analytics") == 0
     assert "^dander_stage_[0-9a-f]{24}$" in statements[0]
     assert "dander_stage_loads" not in statements[0]
+    assert "table_catalog = %s" in statements[0]
+    assert "database_name" not in statements[0]
 
 
 def test_s3_cleanup_deletes_only_the_owned_paginated_prefix(

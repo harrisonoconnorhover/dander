@@ -529,7 +529,9 @@ def _exercise_models(
     schema_name: str,
 ) -> tuple[int, int, tuple[OperationTelemetry, ...]]:
     database = _database(runtime)
-    source = RelationRef(catalog=database, namespace=schema_name, name="raw_records")
+    # ``raw_records`` is the transform reference; the project resolver strips the
+    # conventional ``raw_`` prefix before selecting the physical source relation.
+    source = RelationRef(catalog=database, namespace=schema_name, name="records")
     source_fields = (*_base_fields(), WriteField(name="updated_at", data_type="INT64"))
     source_writer, source_target = _writer_target(
         runtime,
@@ -1045,7 +1047,7 @@ def _staging_table_count(runtime: WarehouseRuntime, database: str) -> int:
     with open_connection(_connection_factory(runtime)) as connection:
         row = execute(
             connection,
-            "SELECT COUNT(*) FROM svv_tables WHERE database_name = %s "
+            "SELECT COUNT(*) FROM svv_tables WHERE table_catalog = %s "
             "AND table_name ~ '^dander_stage_[0-9a-f]{24}$'",
             (database,),
             fetch="one",
