@@ -14,7 +14,9 @@ if TYPE_CHECKING:
     from dander.project import DanderProject
 
 EXECUTION_PROJECTION_SCHEMA = "io.dander.execution/v1"
-_IMMUTABLE_IMAGE = re.compile(r"^[a-z0-9.-]+/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$")
+_IMMUTABLE_IMAGE = re.compile(
+    r"^[a-z0-9.-]+(?::[0-9]{1,5})?/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$"
+)
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _PROFILE = re.compile(r"^[a-z][a-z0-9_-]{0,62}$")
 _ENVIRONMENT_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
