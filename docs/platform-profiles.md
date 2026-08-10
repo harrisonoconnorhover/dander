@@ -115,18 +115,23 @@ migration: keep schedules paused until the destination-fence and cutover workflo
 ## PostgreSQL warehouse adapter
 
 The PostgreSQL warehouse adapter is selectable but not yet a supported hosted profile. It accepts
-declared schemas, creates database-local schemas and relations, streams each
-bounded Dander batch through PostgreSQL `COPY`, and performs deterministic last-record-wins SCD1
-publication inside a transactionally verified destination fence. Temporary staging uses
-`ON COMMIT DROP`; nullable top-level columns may be added when additive evolution is selected.
+declared schemas, creates database-local schemas and relations, and streams records through
+PostgreSQL `COPY`. Replace and SCD2 consume one streamed endpoint so executor batch size cannot
+change their meaning; SCD1, incremental, and snapshot retain bounded Dander batches. Every mode
+publishes inside a transactionally verified destination fence. Temporary staging uses `ON COMMIT
+DROP`; nullable top-level columns may be added when additive evolution is selected.
 
 The configured database must already exist. Runtime-created connections require TLS, and the DSN
 is supplied only through the configured environment variable. The adapter supports PostgreSQL
-15+, SCD1 ingestion, canonical scalar/array/JSON mappings, portable or PostgreSQL-exact model SQL,
-table/view/incremental materialization, and the four generic assertions. Every materialization is
+15+, replace, SCD1, SCD2, snapshot, and incremental ingestion, canonical scalar/array/JSON
+mappings, portable or PostgreSQL-exact model SQL, table/view/incremental materialization, and the
+four generic assertions. SCD1 and incremental use deterministic business-key de-duplication;
+incremental publication rejects cursor regression. Snapshot comparison is null-safe, replace is
+empty-source safe, and SCD2 uses transaction-stable validity timestamps. Every materialization is
 claimed and published through its destination target fence. The local native-profile proof covers
 bounded ingestion, replay, transforms, assertions, metadata, run history, watermarks, and leases.
-Graph execution remains follow-up work. The packaged existing-cluster Kubernetes/Helm launcher can
+The ordinary hosted source runner still selects SCD1, and graph execution remains follow-up work.
+The packaged existing-cluster Kubernetes/Helm launcher can
 render and verify this profile without cloud-specific identity assumptions, but no live cluster
 qualification has passed. Until that acceptance does, this adapter must not be represented as a
 supported hosted PostgreSQL deployment. See [Kubernetes existing-cluster launcher](kubernetes.md).

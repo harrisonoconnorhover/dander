@@ -1,7 +1,8 @@
-"""PostgreSQL warehouse registration and live SCD1 conformance."""
+"""PostgreSQL warehouse registration and live writer conformance."""
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import uuid
@@ -15,18 +16,74 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from dander.concurrency import FencingToken
+from dander.ingestion.source import Endpoint, RawField, Source, SourceConfig
 from dander.providers import ProviderKind, default_provider_registry
 from dander.providers.postgresql.config import PostgreSQLWarehouseConfig
 from dander.providers.postgresql.writer import PostgreSQLWriteError
+from dander.runtime import PipelineRunner
+from dander.state import WatermarkStore
 from dander.telemetry import TelemetryOperation
 from dander.warehouse import LogicalTypeKind, RelationRef, WarehouseRuntime
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget, WriteTransport
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Mapping
 
 PostgreSQLRow = dict[str, Any]
 PostgreSQLPool = ConnectionPool[Connection[PostgreSQLRow]]
+
+
+class _StaticSource(Source):
+    def __init__(self, *, name: str, records: list[Mapping[str, object]]) -> None:
+        super().__init__(
+            SourceConfig(
+                name=name,
+                base_url="https://example.invalid",
+                auth_strategy="none",
+                endpoints=[
+                    Endpoint(
+                        name="records",
+                        path="/records",
+                        primary_key=["id"],
+                        raw_schema=[
+                            RawField(name="id", data_type="STRING", mode="REQUIRED"),
+                            RawField(name="label", data_type="STRING"),
+                        ],
+                    )
+                ],
+            )
+        )
+        self._records = records
+
+    def discover(self) -> Mapping[str, object]:
+        return {}
+
+    def extract(
+        self,
+        endpoint: str,
+        *,
+        since: str | None = None,
+    ) -> Iterator[Mapping[str, object]]:
+        assert endpoint == "records"
+        assert since is None
+        yield from self._records
+
+
+class _NoWatermarks(WatermarkStore):
+    def get(self, source: str, entity: str) -> str | None:
+        del source, entity
+        return None
+
+    def set(self, source: str, entity: str, cursor: str) -> None:
+        raise AssertionError((source, entity, cursor))
+
+
+class _Ownership:
+    def __init__(self, fence: FencingToken) -> None:
+        self.fence = fence
+
+    def verify(self) -> None:
+        return None
 
 
 def test_postgresql_warehouse_registration_is_lazy_and_explicit() -> None:
@@ -157,10 +214,197 @@ def test_postgresql_runtime_exposes_codec_schema_capabilities_and_telemetry(
     assert schema.fields[0].data_type.kind is LogicalTypeKind.INTEGER
     assert schema.fields[1].data_type.kind is LogicalTypeKind.JSON
     assert schema.fields[2].data_type.kind is LogicalTypeKind.ARRAY
-    assert runtime.capabilities.write_modes == frozenset({WriteMode.SCD1})
+    assert runtime.capabilities.write_modes == frozenset(WriteMode)
     assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
     assert runtime.capabilities.supports_transforms is True
     assert telemetry.rows_affected == 9
+
+
+@pytest.mark.parametrize(
+    ("mode", "batched", "streaming"),
+    [
+        (WriteMode.SCD1, True, False),
+        (WriteMode.INCREMENTAL, True, False),
+        (WriteMode.SNAPSHOT, True, False),
+        (WriteMode.SCD2, False, True),
+        (WriteMode.REPLACE, False, True),
+    ],
+)
+def test_postgresql_writer_modes_expose_safe_executor_boundaries(
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+    mode: WriteMode,
+    batched: bool,
+    streaming: bool,
+) -> None:
+    runtime, _pool, _database, _schema_name = postgresql_warehouse
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=2,
+        schema_evolution=SchemaEvolution.STRICT,
+        mode=mode,
+        cursor_field="updated_at" if mode is WriteMode.INCREMENTAL else None,
+        snapshot_field="snapshot_at" if mode is WriteMode.SNAPSHOT else None,
+    )
+
+    assert writer.supports_batched_writes is batched
+    assert writer.accepts_streaming_input is streaming
+
+
+@pytest.mark.parametrize("mode", [WriteMode.REPLACE, WriteMode.SCD2])
+def test_postgresql_whole_endpoint_modes_cross_runner_batch_boundary(
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+    mode: WriteMode,
+) -> None:
+    runtime, pool, database, schema_name = postgresql_warehouse
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.STRICT,
+        mode=mode,
+    )
+    relation = RelationRef(
+        catalog=database,
+        namespace=schema_name,
+        name=f"whole_{mode.value}",
+    )
+    fence = FencingToken(
+        lease_table=None,
+        pipeline_id=f"postgresql_{mode.value}",
+        run_id="run-whole",
+        token=1,
+        authority_id="postgresql:test-state",
+    )
+    source = _StaticSource(
+        name=f"postgresql_{mode.value}",
+        records=[
+            {"id": "one", "label": "old"},
+            {"id": "one", "label": "new"},
+            {"id": "two", "label": "second"},
+        ],
+    )
+    runner = PipelineRunner(
+        source=source,
+        writer=writer,
+        watermarks=_NoWatermarks(),
+        endpoint_relations={"records": relation},
+        batch_rows=1,
+        target_fence=runtime.target_fence,
+        schema_mapper=runtime.ingestion_schema_mapper,
+    )
+
+    result = runner.run(run_id=fence.run_id, ownership=_Ownership(fence))
+
+    assert result.endpoints[0].extracted == 3
+    assert result.endpoints[0].affected == (3 if mode is WriteMode.REPLACE else 2)
+    with pool.connection() as connection:
+        if mode is WriteMode.SCD2:
+            rows = connection.execute(
+                sql.SQL("SELECT id, label, is_current FROM {} ORDER BY id, label").format(
+                    sql.Identifier(schema_name, relation.name)
+                )
+            ).fetchall()
+            assert rows == [
+                {"id": "one", "label": "new", "is_current": True},
+                {"id": "two", "label": "second", "is_current": True},
+            ]
+        else:
+            rows = connection.execute(
+                sql.SQL("SELECT id, label FROM {} ORDER BY id, label").format(
+                    sql.Identifier(schema_name, relation.name)
+                )
+            ).fetchall()
+            assert rows == [
+                {"id": "one", "label": "new"},
+                {"id": "one", "label": "old"},
+                {"id": "two", "label": "second"},
+            ]
+
+    if mode is WriteMode.REPLACE:
+        empty_fence = FencingToken(
+            lease_table=None,
+            pipeline_id="postgresql_replace",
+            run_id="run-empty",
+            token=2,
+            authority_id="postgresql:test-state",
+        )
+        empty_runner = PipelineRunner(
+            source=_StaticSource(name="postgresql_replace", records=[]),
+            writer=writer,
+            watermarks=_NoWatermarks(),
+            endpoint_relations={"records": relation},
+            batch_rows=1,
+            target_fence=runtime.target_fence,
+            schema_mapper=runtime.ingestion_schema_mapper,
+        )
+
+        empty_result = empty_runner.run(
+            run_id=empty_fence.run_id,
+            ownership=_Ownership(empty_fence),
+        )
+
+        assert empty_result.endpoints[0].affected == 0
+        with pool.connection() as connection:
+            remaining = connection.execute(
+                sql.SQL("SELECT COUNT(*) AS count FROM {}").format(
+                    sql.Identifier(schema_name, relation.name)
+                )
+            ).fetchone()
+        assert remaining == {"count": 0}
+
+
+def test_postgresql_scd1_reuses_pre_upgrade_unique_index(
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    runtime, pool, database, schema_name = postgresql_warehouse
+    relation = RelationRef(catalog=database, namespace=schema_name, name="legacy_scd1")
+    legacy_digest = hashlib.sha256(f"{schema_name}.legacy_scd1:id".encode()).hexdigest()[:10]
+    legacy_index = f"dander_uq_legacy_scd1_{legacy_digest}"
+    with pool.connection() as connection:
+        connection.execute(
+            sql.SQL("CREATE TABLE {} (id text NOT NULL PRIMARY KEY, label text)").format(
+                sql.Identifier(schema_name, relation.name)
+            )
+        )
+        connection.execute(
+            sql.SQL("CREATE UNIQUE INDEX {} ON {} (id)").format(
+                sql.Identifier(legacy_index),
+                sql.Identifier(schema_name, relation.name),
+            )
+        )
+    fence = FencingToken(
+        lease_table=None,
+        pipeline_id="postgresql_legacy_scd1",
+        run_id="run-legacy-index",
+        token=1,
+        authority_id="postgresql:test-state",
+    )
+    publication = runtime.target_fence.claim(relation, fence)
+    target = WriteTarget(
+        project=database,
+        dataset=schema_name,
+        table=relation.name,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+            WriteField(name="label", data_type="STRING"),
+        ),
+        publication_fence=publication,
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.STRICT,
+    )
+
+    writer.write([{"id": "one", "label": "value"}], target)
+
+    with pool.connection() as connection:
+        indexes = connection.execute(
+            "SELECT indexname FROM pg_indexes WHERE schemaname = %s AND tablename = %s "
+            "AND indexname LIKE 'dander_uq_%%' ORDER BY indexname",
+            (schema_name, relation.name),
+        ).fetchall()
+    assert indexes == [{"indexname": legacy_index}]
 
 
 def test_postgresql_scd1_streams_copy_replays_and_evolves_nullable_columns(
@@ -327,3 +571,181 @@ def test_postgresql_scd1_streams_copy_replays_and_evolves_nullable_columns(
     }
     assert ledger == {"status": "committed", "run_id": "run-one", "fencing_token": 1}
     assert staging == {"count": 0}
+
+
+def test_postgresql_incremental_keeps_newest_cursor_and_rejects_regression(
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    runtime, pool, database, schema_name = postgresql_warehouse
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=10,
+        schema_evolution=SchemaEvolution.STRICT,
+        mode=WriteMode.INCREMENTAL,
+        cursor_field="updated_at",
+    )
+    relation = RelationRef(catalog=database, namespace=schema_name, name="incremental_records")
+    fence = FencingToken(
+        lease_table=None,
+        pipeline_id="postgresql_incremental",
+        run_id="run-incremental",
+        token=1,
+        authority_id="postgresql:test-state",
+    )
+    publication = runtime.target_fence.claim(relation, fence)
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="label", data_type="STRING"),
+            WriteField(name="updated_at", data_type="TIMESTAMP"),
+        ),
+        publication_fence=publication,
+    )
+    newest = datetime(2026, 8, 10, 12, 0, tzinfo=UTC)
+    older = datetime(2026, 8, 10, 11, 0, tzinfo=UTC)
+    later = datetime(2026, 8, 10, 13, 0, tzinfo=UTC)
+
+    assert (
+        writer.write(
+            [
+                {"id": "one", "label": "newest", "updated_at": newest},
+                {"id": "one", "label": "older-last", "updated_at": older},
+            ],
+            target,
+        )
+        == 1
+    )
+    assert (
+        writer.write(
+            [{"id": "one", "label": "must-not-regress", "updated_at": older}],
+            target,
+        )
+        == 0
+    )
+    assert (
+        writer.write(
+            [{"id": "one", "label": "later", "updated_at": later}],
+            target,
+        )
+        == 1
+    )
+
+    with pool.connection() as connection:
+        row = connection.execute(
+            sql.SQL("SELECT id, label, updated_at FROM {}").format(
+                sql.Identifier(schema_name, relation.name)
+            )
+        ).fetchone()
+    assert row == {"id": "one", "label": "later", "updated_at": later}
+
+
+def test_postgresql_snapshot_is_null_safe_and_replay_safe(
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    runtime, pool, database, schema_name = postgresql_warehouse
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=10,
+        schema_evolution=SchemaEvolution.STRICT,
+        mode=WriteMode.SNAPSHOT,
+        snapshot_field="snapshot_at",
+    )
+    relation = RelationRef(catalog=database, namespace=schema_name, name="snapshot_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="postgresql_snapshot",
+            run_id="run-snapshot",
+            token=1,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    target = WriteTarget(
+        relation=relation,
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="label", data_type="STRING"),
+            WriteField(name="snapshot_at", data_type="TIMESTAMP"),
+        ),
+        publication_fence=publication,
+    )
+    first = datetime(2026, 8, 10, 12, 0, tzinfo=UTC)
+    second = datetime(2026, 8, 10, 13, 0, tzinfo=UTC)
+    record = {"id": "one", "label": None, "snapshot_at": first}
+
+    assert writer.write([record, record], target) == 1
+    assert writer.write([record], target) == 0
+    assert writer.write([{"id": "one", "label": None, "snapshot_at": second}], target) == 1
+
+    with pool.connection() as connection:
+        rows = connection.execute(
+            sql.SQL("SELECT id, label, snapshot_at FROM {} ORDER BY snapshot_at").format(
+                sql.Identifier(schema_name, relation.name)
+            )
+        ).fetchall()
+    assert rows == [
+        {"id": "one", "label": None, "snapshot_at": first},
+        {"id": "one", "label": None, "snapshot_at": second},
+    ]
+
+
+def test_postgresql_scd2_closes_changed_rows_and_replays_without_new_versions(
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    runtime, pool, database, schema_name = postgresql_warehouse
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.STRICT,
+        mode=WriteMode.SCD2,
+    )
+    relation = RelationRef(catalog=database, namespace=schema_name, name="scd2_records")
+    first_fence = FencingToken(
+        lease_table=None,
+        pipeline_id="postgresql_scd2",
+        run_id="run-scd2-one",
+        token=1,
+        authority_id="postgresql:test-state",
+    )
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="label", data_type="STRING"),
+        ),
+        publication_fence=runtime.target_fence.claim(relation, first_fence),
+    )
+    assert writer.write([{"id": "one", "label": "first"}], target) == 1
+
+    second_fence = FencingToken(
+        lease_table=None,
+        pipeline_id="postgresql_scd2",
+        run_id="run-scd2-two",
+        token=2,
+        authority_id="postgresql:test-state",
+    )
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=target.schema,
+        publication_fence=runtime.target_fence.claim(relation, second_fence),
+    )
+    changed = [{"id": "one", "label": "second"}]
+    assert writer.write(changed, target) == 1
+    assert writer.write(changed, target) == 0
+
+    with pool.connection() as connection:
+        rows = connection.execute(
+            sql.SQL(
+                "SELECT id, label, is_current, valid_to IS NOT NULL AS closed "
+                "FROM {} ORDER BY valid_from"
+            ).format(sql.Identifier(schema_name, relation.name))
+        ).fetchall()
+    assert rows == [
+        {"id": "one", "label": "first", "is_current": False, "closed": True},
+        {"id": "one", "label": "second", "is_current": True, "closed": False},
+    ]

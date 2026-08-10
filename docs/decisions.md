@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-10 — PostgreSQL write modes preserve endpoint and batch semantics
+
+- **Modes:** One COPY-backed writer now publishes replace, SCD1, SCD2, snapshot, and incremental
+  data through the existing destination-side PostgreSQL fence.
+- **Boundaries:** Replace and SCD2 receive one streamed endpoint; SCD1, incremental, and snapshot
+  remain executor-batched. Changing `batch_rows` therefore cannot truncate replace output or
+  change SCD2 history.
+- **Safety:** Incremental input ranks cursor then ordinal and rejects target regression; snapshot
+  comparison is null-safe; SCD2 uses transaction-stable timestamps and one-current-row indexes.
+
 ## 2026-08-10 — Fargate lifecycle evidence does not skip profile qualification
 
 - **Accepted slice:** Public `0.8.0rc8` passed manual and scheduled execution, replay,
