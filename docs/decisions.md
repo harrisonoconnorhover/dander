@@ -1025,3 +1025,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   complete logical stream so batch boundaries cannot change their semantics.
 - **Boundary:** This is local conformance evidence, not a support promotion. Direct transport,
   `SUPER`, graphs, views, infrastructure, and live Redshift qualification remain separate gates.
+
+## 2026-08-10 — Redshift SUPER is an explicit strict-JSON fallback
+
+- **Selection:** Only canonical JSON carrying `redshift/fallback=super` maps to `SUPER`; bare JSON,
+  ARRAY/RECORD, unrelated Redshift extensions, and SUPER keys/cursors/snapshot fields fail closed.
+- **Loading:** Dander validates strict JSON locally, serializes deterministic UTF-8 bytes into an
+  explicitly sized VARBYTE Parquet column, and applies `JSON_PARSE` within fenced publication DML.
+  This avoids the 65,535-byte stored-VARCHAR boundary.
+- **Boundary:** The current 4 MB staged-row guard remains stricter than Redshift's 16 MB SUPER
+  service limit. This is local conformance behavior, not live qualification or support promotion.

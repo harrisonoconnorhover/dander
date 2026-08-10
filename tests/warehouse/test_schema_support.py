@@ -35,7 +35,7 @@ def test_redshift_mapper_rejects_semistructured_fields_before_provider_io() -> N
 
     with pytest.raises(
         WarehouseSchemaSupportError,
-        match="does not support canonical type 'json' at field 'payload'",
+        match="require redshift/fallback=super",
     ):
         RedshiftSchemaMapper().canonical_schema([field])
 

@@ -49,6 +49,9 @@ COPY role must read the dedicated same-region staging prefix.
   are also fenced and replay-safe.
 - SCD2 uses transaction-stable `SYSDATE` values for `valid_from`/`valid_to`, and snapshot mode
   appends only distinct full rows for a non-null declared snapshot field.
+- A canonical JSON field maps to `SUPER` only with the exact `redshift/fallback=super` extension.
+  Dander rejects non-finite numbers and non-string object keys locally, stages deterministic UTF-8
+  JSON as `VARBYTE(16777216)`, and calls `JSON_PARSE` inside the fenced publication.
 - Only declared nullable ingestion columns evolve automatically; drift fails closed.
 - Portable or Redshift-authored table models use fenced `DELETE`/`INSERT` replacement.
 - Incremental models collapse duplicate keys deterministically and reject cursor regression.
@@ -57,7 +60,20 @@ COPY role must read the dedicated same-region staging prefix.
 
 ## Deliberate limits
 
-Only scalar COPY ingestion plus table and incremental model materializations are implemented. The
-ordinary hosted source runner still selects SCD1. Views, graphs, `SUPER`, live concurrency proof,
-infrastructure provisioning, and support promotion remain separate work. Use
-`catalog.provider: none` for this experimental path.
+Scalar fields and explicit JSON-to-`SUPER` fallback are implemented for COPY ingestion and
+table/incremental models. `SUPER` fields cannot be business keys, cursors, or snapshot fields.
+ARRAY/RECORD fallbacks remain unavailable, and the current staged-row guard is 4 MB even though the
+declared VARBYTE/SUPER boundary is larger. The ordinary hosted source runner still selects SCD1.
+Views, graphs, live concurrency proof, infrastructure provisioning, and support promotion remain
+separate work. Use `catalog.provider: none` for this experimental path.
+
+Declare the fallback on the field; bare canonical JSON continues to fail closed:
+
+```yaml
+- name: payload
+  type: JSON
+  extensions:
+    - provider: redshift
+      name: fallback
+      value: super
+```
