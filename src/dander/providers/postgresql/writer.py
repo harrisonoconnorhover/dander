@@ -1,4 +1,4 @@
-"""PostgreSQL schema management and bounded COPY-backed SCD1 writes."""
+"""PostgreSQL schema management and bounded, fenced COPY-backed writes."""
 
 from __future__ import annotations
 
@@ -30,6 +30,12 @@ if TYPE_CHECKING:
 PostgreSQLRow = dict[str, object]
 PostgreSQLPool = ConnectionPool[Connection[PostgreSQLRow]]
 
+_ORDINAL = "_dander_ordinal"
+_SCD2_VALID_FROM = "valid_from"
+_SCD2_VALID_TO = "valid_to"
+_SCD2_IS_CURRENT = "is_current"
+_SCD2_SYSTEM_FIELDS = frozenset({_SCD2_VALID_FROM, _SCD2_VALID_TO, _SCD2_IS_CURRENT})
+
 
 class PostgreSQLWriteError(ValueError):
     """Raised when records or a deployed relation violate the PostgreSQL contract."""
@@ -44,11 +50,9 @@ class PostgreSQLTimeouts:
     idle_transaction_ms: int
 
 
-class PostgreSQLScd1Writer(WritePattern):
-    """Stream records through COPY and publish keyed rows transactionally."""
+class PostgreSQLCopyWriter(WritePattern):
+    """Stream records through COPY and publish one logical mode transactionally."""
 
-    mode = WriteMode.SCD1
-    supports_batched_writes = True
     requires_publication_fence = True
 
     def __init__(
@@ -59,33 +63,47 @@ class PostgreSQLScd1Writer(WritePattern):
         target_fence: PostgreSQLTargetFence,
         schema_evolution: SchemaEvolution = SchemaEvolution.STRICT,
         timeouts: PostgreSQLTimeouts,
+        mode: WriteMode,
+        cursor_field: str | None = None,
+        snapshot_field: str | None = None,
     ) -> None:
         self._database = database
         self._pool = pool
         self._target_fence = target_fence
         self._schema_evolution = schema_evolution
         self._timeouts = timeouts
+        self.mode = mode
+        self._cursor_field = cursor_field
+        self._snapshot_field = snapshot_field
+        self.supports_batched_writes = mode in {
+            WriteMode.SCD1,
+            WriteMode.INCREMENTAL,
+            WriteMode.SNAPSHOT,
+        }
+        self.accepts_streaming_input = not self.supports_batched_writes
 
     def write(self, records: Iterable[Mapping[str, object]], target: WriteTarget) -> int:
-        """COPY one bounded batch and upsert its deterministic last record per key."""
-        _validate_target(target, database=self._database)
+        """COPY one batch or streamed endpoint and publish it behind the target fence."""
+        _validate_target(
+            target,
+            database=self._database,
+            mode=self.mode,
+            cursor_field=self._cursor_field,
+            snapshot_field=self._snapshot_field,
+        )
         publication_fence = target.publication_fence
         assert publication_fence is not None
         schema = target.canonical_schema
-        fields = {field.name: field for field in schema.fields}
-        missing_keys = sorted(set(target.business_key) - set(fields))
-        if missing_keys:
-            raise PostgreSQLWriteError(
-                f"Business-key column {missing_keys[0]!r} is absent from the declared schema"
-            )
+        target_schema = _target_schema_for_mode(schema, self.mode)
 
         with self._pool.connection() as connection, connection.transaction():
             _set_timeouts(connection, self._timeouts)
             _ensure_target(
                 connection,
                 target,
-                schema,
+                target_schema,
                 evolution=self._schema_evolution,
+                mode=self.mode,
             )
             staging = f"dander_stage_{uuid4().hex}"
             _create_staging(connection, staging, schema, target.business_key)
@@ -95,38 +113,86 @@ class PostgreSQLScd1Writer(WritePattern):
                 records,
                 schema.fields,
                 target.business_key,
+                cursor_field=self._cursor_field,
+                snapshot_field=self._snapshot_field,
             )
-            if written == 0:
-                no_op = sql.SQL("UPDATE {} SET {} = {} WHERE FALSE").format(
-                    _target_identifier(target),
-                    sql.Identifier(target.business_key[0]),
-                    sql.Identifier(target.business_key[0]),
-                )
-                self._target_fence.execute_dml(
-                    connection,
-                    no_op.as_string(connection),
-                    publication_fence,
-                )
-                return 0
-            finalizer = _scd1_sql(target, staging, schema.fields)
-            cursor = self._target_fence.execute_dml(
+            statements = _publication_statements(
+                target,
+                staging,
+                schema.fields,
+                mode=self.mode,
+                cursor_field=self._cursor_field,
+                has_rows=written > 0,
+            )
+            cursor = self._target_fence.execute_statements(
                 connection,
-                finalizer.as_string(connection),
+                statements,
                 publication_fence,
             )
             return max(cursor.rowcount, 0)
 
 
-def _validate_target(target: WriteTarget, *, database: str) -> None:
+class PostgreSQLScd1Writer(PostgreSQLCopyWriter):
+    """Compatibility name for the original PostgreSQL SCD1 writer."""
+
+    def __init__(
+        self,
+        *,
+        database: str,
+        pool: PostgreSQLPool,
+        target_fence: PostgreSQLTargetFence,
+        schema_evolution: SchemaEvolution = SchemaEvolution.STRICT,
+        timeouts: PostgreSQLTimeouts,
+    ) -> None:
+        super().__init__(
+            database=database,
+            pool=pool,
+            target_fence=target_fence,
+            schema_evolution=schema_evolution,
+            timeouts=timeouts,
+            mode=WriteMode.SCD1,
+        )
+
+
+def _validate_target(
+    target: WriteTarget,
+    *,
+    database: str,
+    mode: WriteMode,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> None:
     relation = target.relation_ref
     if relation.catalog != database:
         raise PostgreSQLWriteError(
             f"Writer database {database!r} does not match target catalog {relation.catalog!r}"
         )
-    if not target.business_key:
-        raise PostgreSQLWriteError("PostgreSQL SCD1 writes require a business key")
-    if not target.schema:
+    if not target.canonical_schema.fields:
         raise PostgreSQLWriteError("PostgreSQL writes require a declared schema")
+    fields = {field.name for field in target.canonical_schema.fields}
+    missing_keys = sorted(set(target.business_key) - fields)
+    if missing_keys:
+        raise PostgreSQLWriteError(
+            f"Business-key column {missing_keys[0]!r} is absent from the declared schema"
+        )
+    if mode in {WriteMode.SCD1, WriteMode.SCD2, WriteMode.INCREMENTAL} and not target.business_key:
+        raise PostgreSQLWriteError(f"PostgreSQL {mode.value.upper()} writes require a business key")
+    if mode is WriteMode.INCREMENTAL:
+        if cursor_field is None:
+            raise PostgreSQLWriteError("PostgreSQL incremental writes require cursor_field")
+        if cursor_field not in fields:
+            raise PostgreSQLWriteError("PostgreSQL incremental cursor field is undeclared")
+    elif cursor_field is not None:
+        raise PostgreSQLWriteError("cursor_field is valid only for PostgreSQL incremental writes")
+    if mode is WriteMode.SNAPSHOT:
+        if snapshot_field is None:
+            raise PostgreSQLWriteError("PostgreSQL snapshot writes require snapshot_field")
+        if snapshot_field not in fields:
+            raise PostgreSQLWriteError("PostgreSQL snapshot field is undeclared")
+    elif snapshot_field is not None:
+        raise PostgreSQLWriteError("snapshot_field is valid only for PostgreSQL snapshot writes")
+    if mode is WriteMode.SCD2 and (collision := sorted(fields & _SCD2_SYSTEM_FIELDS)):
+        raise PostgreSQLWriteError(f"Declared schema reserves Dander field {collision[0]!r}")
     publication_fence = target.publication_fence
     if publication_fence is None:
         raise PostgreSQLWriteError("PostgreSQL hosted writes require a destination target fence")
@@ -157,6 +223,7 @@ def _ensure_target(
     schema: RelationSchema,
     *,
     evolution: SchemaEvolution,
+    mode: WriteMode,
 ) -> None:
     connection.execute(
         sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(
@@ -171,11 +238,17 @@ def _ensure_target(
         )
         for field in schema.fields
     ]
+    constraints: list[sql.SQL | sql.Composed] = list(definitions)
+    if mode in {WriteMode.SCD1, WriteMode.INCREMENTAL}:
+        constraints.append(
+            sql.SQL("PRIMARY KEY ({})").format(
+                sql.SQL(", ").join(sql.Identifier(key) for key in target.business_key)
+            )
+        )
     connection.execute(
-        sql.SQL("CREATE TABLE IF NOT EXISTS {} ({}, PRIMARY KEY ({}))").format(
+        sql.SQL("CREATE TABLE IF NOT EXISTS {} ({})").format(
             _target_identifier(target),
-            sql.SQL(", ").join(definitions),
-            sql.SQL(", ").join(sql.Identifier(key) for key in target.business_key),
+            sql.SQL(", ").join(constraints),
         )
     )
     deployed = _deployed_columns(connection, target)
@@ -208,14 +281,20 @@ def _ensure_target(
         if deployed_required != expected_required:
             raise PostgreSQLWriteError(f"PostgreSQL nullability drift for column {field.name!r}")
 
-    index_name = _unique_index_name(target)
-    connection.execute(
-        sql.SQL("CREATE UNIQUE INDEX IF NOT EXISTS {} ON {} ({})").format(
-            sql.Identifier(index_name),
-            _target_identifier(target),
-            sql.SQL(", ").join(sql.Identifier(key) for key in target.business_key),
+    if mode in {WriteMode.SCD1, WriteMode.INCREMENTAL, WriteMode.SCD2}:
+        where = (
+            sql.SQL(" WHERE {} IS TRUE").format(sql.Identifier(_SCD2_IS_CURRENT))
+            if mode is WriteMode.SCD2
+            else sql.SQL("")
         )
-    )
+        connection.execute(
+            sql.SQL("CREATE UNIQUE INDEX IF NOT EXISTS {} ON {} ({}){}").format(
+                sql.Identifier(_unique_index_name(target, mode=mode)),
+                _target_identifier(target),
+                sql.SQL(", ").join(sql.Identifier(key) for key in target.business_key),
+                where,
+            )
+        )
 
 
 def _deployed_columns(
@@ -279,6 +358,9 @@ def _copy_records(
     records: Iterable[Mapping[str, object]],
     fields: Sequence[CanonicalField],
     business_key: Sequence[str],
+    *,
+    cursor_field: str | None,
+    snapshot_field: str | None,
 ) -> int:
     names = tuple(field.name for field in fields)
     expected = set(names)
@@ -295,6 +377,10 @@ def _copy_records(
                 )
             if any(record[key] is None for key in business_key):
                 raise PostgreSQLWriteError(f"Record {index} has a null business-key value")
+            if cursor_field is not None and record[cursor_field] is None:
+                raise PostgreSQLWriteError(f"Record {index} has a null incremental cursor value")
+            if snapshot_field is not None and record[snapshot_field] is None:
+                raise PostgreSQLWriteError(f"Record {index} has a null snapshot value")
             copy.write_row(
                 tuple(_postgresql_value(record[field.name], field.data_type) for field in fields)
             )
@@ -302,15 +388,42 @@ def _copy_records(
     return copied
 
 
-def _scd1_sql(
+def _publication_statements(
     target: WriteTarget,
     staging: str,
     fields: Sequence[CanonicalField],
+    *,
+    mode: WriteMode,
+    cursor_field: str | None,
+    has_rows: bool,
+) -> tuple[sql.SQL | sql.Composed, ...]:
+    if not has_rows and mode is not WriteMode.REPLACE:
+        return (_no_op_sql(target),)
+    if mode is WriteMode.SCD1:
+        return (_merge_sql(target, staging, fields, cursor_field=None),)
+    if mode is WriteMode.INCREMENTAL:
+        assert cursor_field is not None
+        return (_merge_sql(target, staging, fields, cursor_field=cursor_field),)
+    if mode is WriteMode.SNAPSHOT:
+        return (_snapshot_sql(target, staging, fields),)
+    if mode is WriteMode.SCD2:
+        return _scd2_sql(target, staging, fields)
+    if mode is WriteMode.REPLACE:
+        return _replace_sql(target, staging, fields)
+    raise AssertionError("Unhandled PostgreSQL write mode")
+
+
+def _merge_sql(
+    target: WriteTarget,
+    staging: str,
+    fields: Sequence[CanonicalField],
+    *,
+    cursor_field: str | None,
 ) -> sql.Composed:
     names = tuple(field.name for field in fields)
     mutable = tuple(name for name in names if name not in target.business_key)
     conflict = (
-        sql.SQL("DO UPDATE SET {} ").format(
+        sql.SQL("DO UPDATE SET {}").format(
             sql.SQL(", ").join(
                 sql.SQL("{} = EXCLUDED.{}").format(
                     sql.Identifier(name),
@@ -320,28 +433,215 @@ def _scd1_sql(
             )
         )
         if mutable
-        else sql.SQL("DO NOTHING ")
+        else sql.SQL("DO NOTHING")
     )
+    if cursor_field is not None and mutable:
+        conflict = sql.SQL("{} WHERE current.{} IS NULL OR EXCLUDED.{} >= current.{}").format(
+            conflict,
+            sql.Identifier(cursor_field),
+            sql.Identifier(cursor_field),
+            sql.Identifier(cursor_field),
+        )
     selected = sql.SQL(", ").join(sql.Identifier(name) for name in names)
     keys = sql.SQL(", ").join(sql.Identifier(key) for key in target.business_key)
-    ordering = sql.SQL(", ").join(
-        [*(sql.Identifier(key) for key in target.business_key), sql.Identifier("_dander_ordinal")]
+    source = _deduplicated_source(
+        target,
+        staging,
+        fields,
+        cursor_field=cursor_field,
     )
     return sql.SQL(
-        "INSERT INTO {} ({}) SELECT {} FROM ("
-        "SELECT DISTINCT ON ({}) {}, {} FROM {} ORDER BY {} DESC"
-        ") AS incoming ON CONFLICT ({}) {}RETURNING 1"
+        "INSERT INTO {} AS current ({}) SELECT {} FROM ({}) AS incoming "
+        "ON CONFLICT ({}) {} RETURNING 1"
     ).format(
         _target_identifier(target),
         selected,
         selected,
-        keys,
-        selected,
-        sql.Identifier("_dander_ordinal"),
-        sql.Identifier(staging),
-        ordering,
+        source,
         keys,
         conflict,
+    )
+
+
+def _deduplicated_source(
+    target: WriteTarget,
+    staging: str,
+    fields: Sequence[CanonicalField],
+    *,
+    cursor_field: str | None = None,
+) -> sql.Composed:
+    selected = sql.SQL(", ").join(sql.Identifier(field.name) for field in fields)
+    keys = sql.SQL(", ").join(sql.Identifier(key) for key in target.business_key)
+    ordering: list[sql.SQL | sql.Identifier | sql.Composed] = [
+        *(sql.Identifier(key) for key in target.business_key)
+    ]
+    if cursor_field is not None:
+        ordering.append(sql.SQL("{} DESC").format(sql.Identifier(cursor_field)))
+    ordering.append(sql.SQL("{} DESC").format(sql.Identifier(_ORDINAL)))
+    return sql.SQL("SELECT DISTINCT ON ({}) {} FROM {} ORDER BY {}").format(
+        keys,
+        selected,
+        sql.Identifier(staging),
+        sql.SQL(", ").join(ordering),
+    )
+
+
+def _snapshot_sql(
+    target: WriteTarget,
+    staging: str,
+    fields: Sequence[CanonicalField],
+) -> sql.Composed:
+    selected = sql.SQL(", ").join(sql.Identifier(field.name) for field in fields)
+    incoming = sql.SQL(", ").join(
+        sql.SQL("incoming.{}").format(sql.Identifier(field.name)) for field in fields
+    )
+    match = sql.SQL(" AND ").join(
+        sql.SQL("current.{} IS NOT DISTINCT FROM incoming.{}").format(
+            sql.Identifier(field.name),
+            sql.Identifier(field.name),
+        )
+        for field in fields
+    )
+    return sql.SQL(
+        "INSERT INTO {} ({}) SELECT {} FROM (SELECT DISTINCT {} FROM {}) AS incoming "
+        "WHERE NOT EXISTS (SELECT 1 FROM {} AS current WHERE {}) RETURNING 1"
+    ).format(
+        _target_identifier(target),
+        selected,
+        incoming,
+        selected,
+        sql.Identifier(staging),
+        _target_identifier(target),
+        match,
+    )
+
+
+def _scd2_sql(
+    target: WriteTarget,
+    staging: str,
+    fields: Sequence[CanonicalField],
+) -> tuple[sql.Composed, sql.Composed]:
+    names = tuple(field.name for field in fields)
+    source = _deduplicated_source(target, staging, fields)
+    match = sql.SQL(" AND ").join(
+        sql.SQL("current.{} = incoming.{}").format(
+            sql.Identifier(key),
+            sql.Identifier(key),
+        )
+        for key in target.business_key
+    )
+    mutable = tuple(name for name in names if name not in target.business_key)
+    changed = (
+        sql.SQL(" OR ").join(
+            sql.SQL("current.{} IS DISTINCT FROM incoming.{}").format(
+                sql.Identifier(name),
+                sql.Identifier(name),
+            )
+            for name in mutable
+        )
+        if mutable
+        else sql.SQL("FALSE")
+    )
+    close = sql.SQL(
+        "UPDATE {} AS current SET {} = transaction_timestamp(), {} = FALSE "
+        "FROM ({}) AS incoming WHERE {} AND current.{} IS TRUE AND ({})"
+    ).format(
+        _target_identifier(target),
+        sql.Identifier(_SCD2_VALID_TO),
+        sql.Identifier(_SCD2_IS_CURRENT),
+        source,
+        match,
+        sql.Identifier(_SCD2_IS_CURRENT),
+        changed,
+    )
+    incoming = sql.SQL(", ").join(
+        sql.SQL("incoming.{}").format(sql.Identifier(name)) for name in names
+    )
+    columns = sql.SQL(", ").join(
+        [
+            *(sql.Identifier(name) for name in names),
+            sql.Identifier(_SCD2_VALID_FROM),
+            sql.Identifier(_SCD2_VALID_TO),
+            sql.Identifier(_SCD2_IS_CURRENT),
+        ]
+    )
+    values = sql.SQL(", ").join(
+        [
+            incoming,
+            sql.SQL("transaction_timestamp()"),
+            sql.SQL("NULL"),
+            sql.SQL("TRUE"),
+        ]
+    )
+    insert = sql.SQL(
+        "INSERT INTO {} ({}) SELECT {} FROM ({}) AS incoming WHERE NOT EXISTS ("
+        "SELECT 1 FROM {} AS current WHERE {} AND current.{} IS TRUE) RETURNING 1"
+    ).format(
+        _target_identifier(target),
+        columns,
+        values,
+        source,
+        _target_identifier(target),
+        match,
+        sql.Identifier(_SCD2_IS_CURRENT),
+    )
+    return close, insert
+
+
+def _replace_sql(
+    target: WriteTarget,
+    staging: str,
+    fields: Sequence[CanonicalField],
+) -> tuple[sql.Composed, sql.Composed]:
+    selected = sql.SQL(", ").join(sql.Identifier(field.name) for field in fields)
+    source = sql.SQL("SELECT {} FROM {} ORDER BY {}").format(
+        selected,
+        sql.Identifier(staging),
+        sql.Identifier(_ORDINAL),
+    )
+    return (
+        sql.SQL("DELETE FROM {}").format(_target_identifier(target)),
+        sql.SQL("INSERT INTO {} ({}) SELECT {} FROM ({}) AS incoming RETURNING 1").format(
+            _target_identifier(target),
+            selected,
+            selected,
+            source,
+        ),
+    )
+
+
+def _no_op_sql(target: WriteTarget) -> sql.Composed:
+    field = target.canonical_schema.fields[0].name
+    return sql.SQL("UPDATE {} SET {} = {} WHERE FALSE").format(
+        _target_identifier(target),
+        sql.Identifier(field),
+        sql.Identifier(field),
+    )
+
+
+def _target_schema_for_mode(schema: RelationSchema, mode: WriteMode) -> RelationSchema:
+    if mode is not WriteMode.SCD2:
+        return schema
+    timestamp_type = CanonicalType(
+        kind=LogicalTypeKind.TIMESTAMP,
+        fractional_second_precision=6,
+        with_timezone=True,
+    )
+    return RelationSchema(
+        fields=(
+            *schema.fields,
+            CanonicalField(
+                name=_SCD2_VALID_FROM,
+                data_type=timestamp_type,
+                cardinality=FieldCardinality.REQUIRED,
+            ),
+            CanonicalField(name=_SCD2_VALID_TO, data_type=timestamp_type),
+            CanonicalField(
+                name=_SCD2_IS_CURRENT,
+                data_type=CanonicalType(kind=LogicalTypeKind.BOOLEAN),
+                cardinality=FieldCardinality.REQUIRED,
+            ),
+        )
     )
 
 
@@ -349,11 +649,12 @@ def _target_identifier(target: WriteTarget) -> sql.Identifier:
     return sql.Identifier(target.relation_ref.namespace, target.relation_ref.name)
 
 
-def _unique_index_name(target: WriteTarget) -> str:
+def _unique_index_name(target: WriteTarget, *, mode: WriteMode) -> str:
+    mode_identity = ":scd2" if mode is WriteMode.SCD2 else ""
     digest = hashlib.sha256(
         (
             f"{target.relation_ref.namespace}.{target.relation_ref.name}:"
-            f"{','.join(target.business_key)}"
+            f"{','.join(target.business_key)}{mode_identity}"
         ).encode()
     ).hexdigest()[:10]
     prefix = f"dander_uq_{target.relation_ref.name}"[:51]
@@ -417,6 +718,7 @@ def _postgresql_value(value: object, data_type: CanonicalType) -> object:
 
 
 __all__ = [
+    "PostgreSQLCopyWriter",
     "PostgreSQLScd1Writer",
     "PostgreSQLTimeouts",
     "PostgreSQLWriteError",

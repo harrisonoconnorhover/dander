@@ -65,7 +65,7 @@
     },
     {
       "provider": "postgresql",
-      "write_modes": ["scd1"],
+      "write_modes": ["incremental", "replace", "scd1", "scd2", "snapshot"],
       "transports": ["copy"],
       "logical_types": ["array", "binary", "boolean", "date", "decimal", "float", "integer", "json", "record", "string", "time", "timestamp"],
       "max_decimal_precision": 1000,
@@ -73,7 +73,7 @@
       "supports_transforms": true,
       "supports_graphs": false,
       "supports_target_fencing": true,
-      "limitations": ["graph execution is not available", "only scd1 ingestion is implemented"]
+      "limitations": ["graph execution is not available", "hosted source execution selects scd1"]
     },
     {
       "provider": "redshift",

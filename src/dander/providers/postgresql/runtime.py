@@ -14,7 +14,7 @@ from psycopg_pool import ConnectionPool
 from dander.providers.postgresql.config import PostgreSQLWarehouseConfig
 from dander.providers.postgresql.fence import PostgreSQLTargetFence
 from dander.providers.postgresql.transform import PostgreSQLTransformRunner
-from dander.providers.postgresql.writer import PostgreSQLScd1Writer, PostgreSQLTimeouts
+from dander.providers.postgresql.writer import PostgreSQLCopyWriter, PostgreSQLTimeouts
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.warehouse import CanonicalField, LogicalTypeKind, RelationRef, RelationSchema
@@ -79,7 +79,7 @@ class PostgreSQLSchemaMapper:
 
 @dataclass(frozen=True, slots=True)
 class PostgreSQLWriterFactory:
-    """Construct PostgreSQL's first bounded hosted ingestion writer."""
+    """Construct a bounded COPY-backed PostgreSQL ingestion writer."""
 
     database: str
     pool: PostgreSQLPool
@@ -97,18 +97,17 @@ class PostgreSQLWriterFactory:
         snapshot_field: str | None = None,
     ) -> WritePattern:
         del batch_rows
-        del cursor_field
-        del snapshot_field
         if sandbox:
             raise ValueError("PostgreSQL warehouse does not use Dander's BigQuery sandbox mode")
-        if mode is not WriteMode.SCD1:
-            raise ValueError(f"PostgreSQL warehouse does not support {mode.value} writes")
-        return PostgreSQLScd1Writer(
+        return PostgreSQLCopyWriter(
             database=self.database,
             pool=self.pool,
             target_fence=self.target_fence,
             schema_evolution=schema_evolution,
             timeouts=self.timeouts,
+            mode=mode,
+            cursor_field=cursor_field,
+            snapshot_field=snapshot_field,
         )
 
 
@@ -167,7 +166,7 @@ class PostgreSQLTelemetry:
 POSTGRESQL_CAPABILITIES = WarehouseCapabilities(
     provider_id="postgresql",
     schema_contract_version=1,
-    write_modes=frozenset({WriteMode.SCD1}),
+    write_modes=frozenset(WriteMode),
     transports=frozenset({WriteTransport.COPY}),
     supports_transforms=True,
     supports_graphs=False,
