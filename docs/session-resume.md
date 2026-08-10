@@ -1,4 +1,4 @@
-# Session Resume — 2026-08-07
+# Session Resume — 2026-08-10
 
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
@@ -33,6 +33,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-10, public Dander `0.8.0rc8` passed the complete lifecycle gate for the named
+  Fargate-to-BigQuery/GCP composition. The source-free, byte-identical GAR/ECR image completed
+  manual, scheduled, replay, interruption, alert-routing, rollback, cleanup, and no-drift checks.
+  Fargate remains experimental pending scale/profile qualification. See
+  `docs/cloud-portability-fargate-lifecycle-acceptance.md`.
+
 - On 2026-08-09, public Dander `0.8.0rc1` passed the isolated Phase 1B feasibility gate. One
   source-free multi-platform OCI index retained identical GAR/ECR and per-platform digests;
   Cloud Run completed on AMD64 and one ARM64 Fargate task queried BigQuery before and after a
@@ -49,8 +55,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander-servicenow-incidents-6g72x` all completed successfully.
 - The latest manual executable-graph run, `dander-greenhouse-graph-7gn9z`, completed successfully
   on 2026-08-04; its schedule remains intentionally paused.
-- The most recent reviewed platform plan reported `0` add, `0` change, and `0` destroy across
-  `111` no-op resources after Druff deployment.
+- The latest retained stage-zero and platform plans each reported exactly `No changes.` after the
+  isolated Fargate proof. No retained-project apply occurred.
 - Continue the 30-day operating record in GitHub issue #26. The next normal scheduled runs are the
   remaining observation point for the reconciled stable image.
 

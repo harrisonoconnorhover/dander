@@ -2,33 +2,36 @@
 
 ## Finished
 
-- Prepared release-only metadata for `dander-platform==0.8.0rc8`.
-- Kept the accepted AWS Scheduler correction unchanged from merge commit `f3ccb862b05ee359c8517c6a6874bab2150c5a40`.
-- Recorded rc7 as rejected after live scheduled delivery passed escaped context tokens to Step Functions.
+- Published public `dander-platform==0.8.0rc8` from protected main.
+- Passed the named Fargate-to-BigQuery/GCP lifecycle gate with the byte-identical source-free rc8 image.
+- Proved scheduled execution, replay, interruption, alert routing, image rollback, cleanup, and final no-drift.
+- Recorded the incompatible `a05dfe7f…` image honestly and verified rc7 as the prior working runtime.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate artifacts.
+Read `docs/cloud-portability-fargate-lifecycle-acceptance.md`, then run `dander runtime compatibility`.
 
 ## Checks
 
-- PR #162 passed Python, Terraform, distribution, container, and secret checks.
-- The merged fix passed 1,117 tests, strict typing, Terraform/Helm validation, distribution inspection, source-free installation, and container conformance.
+- Public rc8 installed source-free and its OCI index matched in GAR and ECR.
+- Manual, scheduled, rollback, and restored-image runs each completed with truthful runtime data.
+- AWS, GCP parity/WIF, retained stage zero, and retained platform each reported `No changes.`
+- PR #162 passed 1,117 tests, strict typing, Terraform/Helm, distribution, container, and security checks.
 
 ## Decisions
 
-- `0.8.0rc8` replaces rc7 for the remaining complete Fargate lifecycle acceptance.
-- Fargate remains experimental until the complete lifecycle gate passes.
+- The named Fargate-to-BigQuery/GCP composition passes lifecycle acceptance.
+- Fargate remains experimental pending the published scale/profile qualification objectives.
+- No other AWS, warehouse, or cross-cloud pairing inherits this evidence.
 
 ## Remaining
 
-- Merge this release-only PR after protected checks pass.
-- Tag and publish `0.8.0rc8` from the exact protected merge.
-- Deploy the source-free rc8 image while schedules remain paused, then retry scheduled execution.
-- Complete rollback, cleanup, evidence, and final no-drift acceptance.
+- Merge this evidence-only PR through protected main.
+- Perform the read-only Phase 5.5 checkpoint only if Phase 5 is complete on clean main.
+- Do not begin Azure implementation during the checkpoint.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `docs/session-resume.md`
+- `docs/cloud-portability-fargate-lifecycle-acceptance.md`
+- `docs/known-limitations.md`
+- `docs/release-audit.md`
