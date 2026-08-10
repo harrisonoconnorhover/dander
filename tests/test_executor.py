@@ -19,6 +19,7 @@ from dander.state import (
     RunStage,
     RunStatus,
 )
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import TransformRunResult
 from dander.warehouse import RelationRef
 
@@ -47,6 +48,13 @@ class _Ingestion:
                     extracted=3,
                     affected=2,
                     committed_cursor="2026-01-01T00:00:00Z",
+                    telemetry=(
+                        OperationTelemetry(
+                            provider="sourcewarehouse",
+                            operation=TelemetryOperation.LOAD,
+                            rows_written=2,
+                        ),
+                    ),
                 ),
             ),
         )
@@ -67,7 +75,17 @@ class _Transform:
         assert tuple(selected or ()) == ("stg_widgets",)
         if self._fail:
             raise RuntimeError("transform failed")
-        return TransformRunResult(models=("stg_widgets",), assertions=2)
+        return TransformRunResult(
+            models=("stg_widgets",),
+            assertions=2,
+            telemetry=(
+                OperationTelemetry(
+                    provider="modelwarehouse",
+                    operation=TelemetryOperation.TRANSFORM,
+                    rows_affected=3,
+                ),
+            ),
+        )
 
 
 class _History(RunHistoryStore):
@@ -259,6 +277,10 @@ def test_executor_records_one_truthful_complete_lifecycle(
     assert result.ingestion.run_id == result.run_id
     assert result.assets == 1
     assert result.telemetry.duration_ms == 7
+    assert [operation.provider for operation in result.telemetry.operations] == [
+        "sourcewarehouse",
+        "modelwarehouse",
+    ]
     assert metadata.manifest is not None
     assert metadata.manifest["pipeline_id"] == "example_pipeline"
     assets = metadata.manifest["assets"]

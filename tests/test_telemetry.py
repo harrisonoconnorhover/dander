@@ -28,8 +28,15 @@ def _operation() -> OperationTelemetry:
         bytes_written=300,
         bytes_processed=500,
         bytes_billed=1_000,
+        queue_duration_ms=3,
+        execution_duration_ms=39,
+        spill_bytes=17,
         query_id="query/abc-123",
         job_id="job:abc-123",
+        resource_name="COMPUTE_WH",
+        resource_size="X-SMALL",
+        capacity_units=Decimal("0.0025"),
+        capacity_unit="credits",
         costs=(
             CostAttribution(
                 provider="gcp",
@@ -55,6 +62,9 @@ def test_run_telemetry_serializes_normalized_totals_and_operation_details() -> N
         "bytes_written": 300,
         "bytes_processed": 500,
         "bytes_billed": 1_000,
+        "queue_duration_ms": 3,
+        "execution_duration_ms": 39,
+        "spill_bytes": 17,
         "operations": [
             {
                 "provider": "bigquery",
@@ -68,8 +78,15 @@ def test_run_telemetry_serializes_normalized_totals_and_operation_details() -> N
                 "bytes_written": 300,
                 "bytes_processed": 500,
                 "bytes_billed": 1_000,
+                "queue_duration_ms": 3,
+                "execution_duration_ms": 39,
+                "spill_bytes": 17,
                 "query_id": "query/abc-123",
                 "job_id": "job:abc-123",
+                "resource_name": "COMPUTE_WH",
+                "resource_size": "X-SMALL",
+                "capacity_units": "0.0025",
+                "capacity_unit": "credits",
                 "costs": [
                     {
                         "provider": "gcp",
@@ -111,6 +128,12 @@ def test_telemetry_rejects_unsafe_or_ambiguous_values() -> None:
             provider="bigquery",
             operation=TelemetryOperation.QUERY,
             unrestricted_details={"token": "secret"},
+        )
+    with pytest.raises(ValueError, match="declared together"):
+        OperationTelemetry(
+            provider="snowflake",
+            operation=TelemetryOperation.QUERY,
+            capacity_units=Decimal("0.1"),
         )
 
 

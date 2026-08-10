@@ -75,6 +75,13 @@ class OperationTelemetry:
     query_id: str | None = None
     job_id: str | None = None
     costs: tuple[CostAttribution, ...] = ()
+    queue_duration_ms: int = 0
+    execution_duration_ms: int = 0
+    spill_bytes: int = 0
+    resource_name: str | None = None
+    resource_size: str | None = None
+    capacity_units: Decimal | None = None
+    capacity_unit: str | None = None
 
     def __post_init__(self) -> None:
         _require_name(self.provider, label="telemetry provider")
@@ -84,6 +91,17 @@ class OperationTelemetry:
             _require_nonnegative_integer(value, label=label)
         _require_opaque(self.query_id, label="query id")
         _require_opaque(self.job_id, label="job id")
+        _require_opaque(self.resource_name, label="resource name")
+        _require_opaque(self.resource_size, label="resource size")
+        if (self.capacity_units is None) != (self.capacity_unit is None):
+            raise ValueError("capacity_units and capacity_unit must be declared together")
+        if self.capacity_units is not None:
+            if not isinstance(self.capacity_units, Decimal) or not self.capacity_units.is_finite():
+                raise ValueError("capacity_units must be a finite Decimal")
+            if self.capacity_units < 0:
+                raise ValueError("capacity_units must be non-negative")
+            assert self.capacity_unit is not None
+            _require_name(self.capacity_unit, label="capacity unit")
         if not isinstance(self.costs, tuple) or not all(
             isinstance(cost, CostAttribution) for cost in self.costs
         ):
@@ -100,6 +118,13 @@ class OperationTelemetry:
             payload["query_id"] = self.query_id
         if self.job_id is not None:
             payload["job_id"] = self.job_id
+        if self.resource_name is not None:
+            payload["resource_name"] = self.resource_name
+        if self.resource_size is not None:
+            payload["resource_size"] = self.resource_size
+        if self.capacity_units is not None:
+            payload["capacity_units"] = str(self.capacity_units)
+            payload["capacity_unit"] = self.capacity_unit
         if self.costs:
             payload["costs"] = [cost.to_payload() for cost in self.costs]
         return payload
@@ -115,6 +140,9 @@ class OperationTelemetry:
             "bytes_written": self.bytes_written,
             "bytes_processed": self.bytes_processed,
             "bytes_billed": self.bytes_billed,
+            "queue_duration_ms": self.queue_duration_ms,
+            "execution_duration_ms": self.execution_duration_ms,
+            "spill_bytes": self.spill_bytes,
         }
 
 
@@ -149,6 +177,9 @@ class RunTelemetry:
                 "bytes_written",
                 "bytes_processed",
                 "bytes_billed",
+                "queue_duration_ms",
+                "execution_duration_ms",
+                "spill_bytes",
             )
         }
         return {

@@ -12,12 +12,13 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from dander.warehouse.contracts import RelationRef
+from dander.warehouse.contracts import ProviderExtension, RelationRef
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from dander.concurrency import FencingToken, TargetFence
+    from dander.telemetry import OperationTelemetry
     from dander.warehouse import CanonicalField, RelationSchema
 
 
@@ -54,6 +55,7 @@ class WriteField:
     data_type: str
     mode: str = "NULLABLE"
     fields: tuple[WriteField, ...] = field(default_factory=tuple)
+    extensions: tuple[ProviderExtension, ...] = field(default_factory=tuple)
 
     def to_canonical(self) -> CanonicalField:
         """Map this legacy BigQuery writer field to canonical schema v1."""
@@ -73,6 +75,7 @@ class WriteTarget:
     relation: RelationRef
     business_key: tuple[str, ...] = field(default_factory=tuple)
     schema: tuple[WriteField, ...] = field(default_factory=tuple)
+    declared_schema: RelationSchema | None = None
     fence: FencingToken | None = None
     publication_fence: TargetFence | None = None
 
@@ -87,6 +90,7 @@ class WriteTarget:
         publication_fence: TargetFence | None = None,
         *,
         relation: RelationRef | None = None,
+        declared_schema: RelationSchema | None = None,
     ) -> None:
         if relation is None:
             if project is None or dataset is None or table is None:
@@ -97,6 +101,7 @@ class WriteTarget:
         object.__setattr__(self, "relation", relation)
         object.__setattr__(self, "business_key", business_key)
         object.__setattr__(self, "schema", schema)
+        object.__setattr__(self, "declared_schema", declared_schema)
         object.__setattr__(self, "fence", fence)
         object.__setattr__(self, "publication_fence", publication_fence)
 
@@ -123,6 +128,8 @@ class WriteTarget:
     @property
     def canonical_schema(self) -> RelationSchema:
         """Return the target schema through the one-way compatibility mapper."""
+        if self.declared_schema is not None:
+            return self.declared_schema
         from dander.warehouse import canonical_schema_from_bigquery
 
         return canonical_schema_from_bigquery(self.schema)
@@ -135,6 +142,15 @@ class WritePattern(ABC):
     supports_batched_writes = False
     accepts_streaming_input = False
     requires_publication_fence = False
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return and clear telemetry produced by completed writes.
+
+        Existing API-v1 writers remain valid because the default emits no operations.
+        Providers that expose job/query statistics override this method and must drain
+        their buffer so one operation is never attributed to multiple endpoints.
+        """
+        return ()
 
     @abstractmethod
     def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:

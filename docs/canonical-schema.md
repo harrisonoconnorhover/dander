@@ -25,6 +25,15 @@ from timezone-free `DATETIME`, records BigQuery's microsecond precision, and map
 required canonical array. Original BigQuery type and mode remain ordered extensions for
 traceability.
 
+Connector raw fields, graph fields, and model columns may also declare validated `extensions`.
+These annotations retain their canonical provider/name/value identity through planning and
+execution; only the matching warehouse adapter interprets them. Dander never silently turns an
+extension into a portable guarantee. Existing declarations without extensions are unchanged.
+
+`WriteTarget` retains the legacy BigQuery-shaped schema for compatibility while carrying the
+validated canonical `RelationSchema` selected before extraction. Provider-neutral orchestration
+does not reconstruct that schema after a provider has validated it.
+
 `BIGNUMERIC` (whose documented precision includes a partial 77th digit), `GEOGRAPHY`, `INTERVAL`,
 or a future BigQuery-only type fails mapping unless a caller explicitly provides a canonical
 fallback. This is intentional: validation must not silently relabel a lossy conversion as

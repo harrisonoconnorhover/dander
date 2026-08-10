@@ -188,3 +188,24 @@ def test_existing_connector_and_writer_models_expose_canonical_views() -> None:
     assert endpoint.raw_schema[0].to_canonical() == endpoint.canonical_raw_schema().fields[0]
     assert target.relation_ref.coordinates == ("gcp-project", "raw", "records")
     assert target.canonical_schema.fields[0].cardinality is FieldCardinality.REQUIRED
+
+
+def test_write_target_prefers_an_explicit_canonical_schema() -> None:
+    extension = ProviderExtension(provider="snowflake", name="fallback", value="variant")
+    declared = RelationSchema(
+        fields=(
+            CanonicalField(
+                name="payload",
+                data_type=CanonicalType(kind=LogicalTypeKind.JSON),
+                extensions=(extension,),
+            ),
+        )
+    )
+    target = WriteTarget(
+        relation=RelationRef(catalog="warehouse", namespace="raw", name="events"),
+        schema=(WriteField(name="payload", data_type="JSON"),),
+        declared_schema=declared,
+    )
+
+    assert target.canonical_schema is declared
+    assert target.schema[0].data_type == "JSON"

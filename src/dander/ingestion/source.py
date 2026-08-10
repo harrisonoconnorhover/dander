@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from dander.ingestion.pagination import NoPagination, PaginationStrategy
 from dander.schema import BIGQUERY_FIELD_MODES, BIGQUERY_FIELD_TYPES, normalize_bigquery_type
+from dander.warehouse.contracts import ProviderExtension  # noqa: TC001 - Pydantic resolves it
 
 _FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _ENGINE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -36,6 +37,7 @@ class RawField(BaseModel):
     data_type: str = Field(alias="type")
     mode: str = "NULLABLE"
     fields: list[RawField] = Field(default_factory=list)
+    extensions: tuple[ProviderExtension, ...] = Field(default_factory=tuple)
 
     @field_validator("name")
     @classmethod

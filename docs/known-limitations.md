@@ -14,7 +14,7 @@ evaluate these limits before using it for an unattended system containing busine
   writer modes behind its provider capability, bounded Parquet upload, temporary remote staging,
   schema checks, destination fencing, and fenced table/incremental transforms. The ordinary hosted
   source runner still selects SCD1, and Snowflake has no live qualification, views, graph execution,
-  semi-structured types, measured direct-write crossover, or end-to-end telemetry retention.
+  semi-structured types, measured direct-write crossover, or provider query-telemetry emission.
   Redshift has an experimental, locally conformance-tested scalar SCD1 adapter using bounded
   Parquet parts, same-region S3 manifest `COPY`, IAM roles, replay history, destination fencing,
   and fenced table/incremental transforms. It has no live qualification, views, executable graphs,

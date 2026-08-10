@@ -33,6 +33,7 @@ from dander.pipeline.node_config import (
     TargetNodeConfig,
     resolve_node_config,
 )
+from dander.warehouse import ProviderExtension  # noqa: TC001 - Pydantic resolves it
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -182,6 +183,7 @@ class NodeField(BaseModel):
     nullable: bool = True
     description: str | None = None
     tests: list[FieldTest] = Field(default_factory=list)
+    extensions: tuple[ProviderExtension, ...] = Field(default_factory=tuple)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

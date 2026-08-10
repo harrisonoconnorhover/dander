@@ -936,6 +936,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   Views, graph wiring, explicit VARIANT, direct-write crossover, telemetry, and live qualification
   remain separate gates.
 
+## 2026-08-10 — Canonical schemas and operation telemetry survive orchestration
+
+- **Schema:** Connector raw fields, graph fields, and model columns may carry validated provider
+  extensions. The selected canonical `RelationSchema` is retained on `WriteTarget`; legacy
+  BigQuery declarations remain available unchanged for API-v1 writers.
+- **Telemetry:** Writers may drain completed operation telemetry without changing their `write()`
+  return contract. Endpoint and transform results preserve those operations in execution order,
+  and the executor includes them in terminal `RunTelemetry`.
+- **Boundary:** This is additive plumbing only. Providers still own extension meaning and direct
+  versus bulk selection; no warehouse gains support or new SQL behavior from this contract.
+
 ## 2026-08-09 — Redshift begins with IAM-only bounded SCD1 publication
 
 - **Boundary:** Provisioned and Serverless profiles map native database/schema coordinates into

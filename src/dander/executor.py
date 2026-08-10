@@ -333,7 +333,10 @@ class PipelineExecutor:
         finally:
             if heartbeat is not None:
                 heartbeat.__exit__()
-        telemetry = RunTelemetry(duration_ms=_elapsed_ms(started_ns))
+        telemetry = RunTelemetry(
+            duration_ms=_elapsed_ms(started_ns),
+            operations=ingestion_result.telemetry + transform_result.telemetry,
+        )
         _LOGGER.info(
             "pipeline_completed",
             extra={

@@ -37,6 +37,9 @@ class BigQueryFieldLike(Protocol):
     @property
     def fields(self) -> Sequence[object]: ...
 
+    @property
+    def extensions(self) -> Sequence[ProviderExtension]: ...
+
 
 _SCALARS = {
     "BOOL": CanonicalType(kind=LogicalTypeKind.BOOLEAN),
@@ -107,9 +110,15 @@ def canonical_field_from_bigquery(
         name=field.name,
         data_type=canonical_type,
         cardinality=cardinality,
-        extensions=(
-            ProviderExtension(provider="bigquery", name="mode", value=mode),
-            ProviderExtension(provider="bigquery", name="type", value=data_type),
+        extensions=tuple(
+            sorted(
+                (
+                    *getattr(field, "extensions", ()),
+                    ProviderExtension(provider="bigquery", name="mode", value=mode),
+                    ProviderExtension(provider="bigquery", name="type", value=data_type),
+                ),
+                key=lambda extension: (extension.provider, extension.name),
+            )
         ),
     )
 

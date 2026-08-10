@@ -135,6 +135,9 @@ def test_bigquery_runtime_exposes_codec_schema_fence_and_telemetry() -> None:
         "bytes_written": 0,
         "bytes_processed": 1_024,
         "bytes_billed": 2_048,
+        "queue_duration_ms": 0,
+        "execution_duration_ms": 0,
+        "spill_bytes": 0,
         "job_id": "job-123",
     }
 

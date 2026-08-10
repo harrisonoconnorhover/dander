@@ -10,6 +10,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from dander.transform.model import Materialization, SqlDialect
+from dander.warehouse import ProviderExtension  # noqa: TC001 - Pydantic resolves it
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 type Scalar = str | int | float | bool
@@ -30,6 +31,7 @@ class ColumnMetadata(BaseModel):
     name: str = Field(pattern=_IDENTIFIER.pattern)
     data_type: str = Field(alias="type", min_length=1)
     description: str = Field(min_length=1)
+    extensions: tuple[ProviderExtension, ...] = Field(default_factory=tuple)
 
 
 class RelationshipMetadata(BaseModel):

@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Added
+
+- Preserve validated provider extensions from connector, graph, and model declarations through
+  canonical warehouse targets without changing existing BigQuery schema inputs.
+- Carry additive warehouse load/transform telemetry through endpoint results into terminal run
+  telemetry, including optional resource, queue, execution, spill, and capacity-unit measures.
+
 ## 0.8.0rc8 — 2026-08-10 (beta)
 
 ### Fixed

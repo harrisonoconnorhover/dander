@@ -42,10 +42,11 @@ exception text are excluded.
 
 Every terminal event includes `outputs.telemetry`. The provider-neutral shape records whole-run
 `duration_ms` and ordered operation statistics for retries, rows, bytes, provider query/job IDs,
-and cost attribution. Fields not reported by the selected adapter remain zero or absent; Dander
-does not infer provider billing. Cost values are decimal strings with an explicit currency and
-`estimated` marker. Query and job IDs are correlation identifiers only—adapters must never put
-SQL, request bodies, record contents, URLs, or credentials in telemetry.
+queue/execution duration, spill, warehouse resource identity/size, capacity units, and cost
+attribution. Fields not reported by the selected adapter remain zero or absent; Dander does not
+infer provider billing. Capacity and cost values are decimal strings with explicit units or
+currency. Query and job IDs are correlation identifiers only—adapters must never put SQL, request
+bodies, record contents, URLs, or credentials in telemetry.
 
 Successful ingestion row counts remain in `outputs.metrics` and `outputs.endpoints` for runtime-v1
 compatibility. Detailed operation telemetry is additive and does not change the stable process

@@ -13,7 +13,8 @@ from dander.ingestion import load_source_config
 from dander.ingestion.source import Endpoint, RawField, Source, SourceConfig
 from dander.runtime import PipelineRunner, RawSchemaError, WatermarkConflictError
 from dander.state import LeaseLostError, RunHistoryStore, RunStage, RunStatus, WatermarkStore
-from dander.warehouse import RelationRef
+from dander.telemetry import OperationTelemetry, TelemetryOperation
+from dander.warehouse import ProviderExtension, RelationRef
 from dander.writer import WriteMode, WritePattern, WriteTarget
 
 if TYPE_CHECKING:
@@ -95,6 +96,31 @@ class _BatchedWriter(WritePattern):
         for record in batch:
             self.state[str(record["id"])] = record
         return len(batch)
+
+
+class _TelemetryWriter(_BatchedWriter):
+    def __init__(self) -> None:
+        super().__init__()
+        self._pending: tuple[OperationTelemetry, ...] = ()
+        self.target: WriteTarget | None = None
+
+    def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
+        batch = [dict(record) for record in records]
+        self.batches.append(batch)
+        self.target = target
+        affected = len(batch)
+        self._pending = (
+            OperationTelemetry(
+                provider="testwarehouse",
+                operation=TelemetryOperation.LOAD,
+                rows_written=affected,
+            ),
+        )
+        return affected
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        pending, self._pending = self._pending, ()
+        return pending
 
 
 class _FencedWriter(_Writer):
@@ -537,6 +563,30 @@ def test_runner_propagates_declared_schema_for_empty_endpoint() -> None:
         "contacts",
         "metadata",
     ]
+
+
+def test_runner_preserves_canonical_extensions_and_drains_batch_telemetry() -> None:
+    extension = ProviderExtension(provider="snowflake", name="fallback", value="variant")
+    source = _DeclaredSource([])
+    source.config.endpoints[0].raw_schema[-1].extensions = (extension,)
+    writer = _TelemetryWriter()
+
+    result = PipelineRunner(
+        source=source,
+        writer=writer,
+        watermarks=_Watermarks([]),
+        project="unit-project",
+        dataset="raw",
+        batch_rows=1,
+    ).run()
+
+    assert writer.target is not None
+    metadata = writer.target.canonical_schema.fields[-1]
+    assert metadata.data_type.kind.value == "json"
+    assert extension in metadata.extensions
+    assert result.telemetry == result.endpoints[0].telemetry
+    assert len(result.telemetry) == 1
+    assert result.telemetry[0].rows_written == 0
 
 
 @pytest.mark.parametrize(
