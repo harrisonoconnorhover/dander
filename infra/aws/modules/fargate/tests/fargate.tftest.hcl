@@ -162,4 +162,33 @@ run "controller_result_selector" {
     )
     error_message = "The controller must normalize the top-level ecs:runTask.sync task ARN and container exit code."
   }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Run task"].Catch[0].ErrorEquals == ["States.Timeout"] &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Run task"].Catch[0].Next == "Deadline failure" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Run task"].Catch[1].ErrorEquals == ["States.ALL"] &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Run task"].Catch[1].Next == "Classify task failure"
+    )
+    error_message = "The controller must preserve timeout handling and inspect other task failures before classification."
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Classify task failure"].Choices[0].StringEquals == "States.TaskFailed" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Classify task failure"].Choices[0].Next == "Decode runtime failure" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Classify task failure"].Default == "Controller failure" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Decode runtime failure"].Parameters["details.$"] == "States.StringToJson($.controller_failure.Cause)" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Validate runtime failure"].Choices[0].And[0].Variable == "$.runtime_failure.details.TaskArn" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Validate runtime failure"].Choices[0].And[0].IsPresent == true &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Validate runtime failure"].Choices[0].And[1].Variable == "$.runtime_failure.details.Containers[0].ExitCode" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Validate runtime failure"].Choices[0].And[1].IsPresent == true &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Validate runtime failure"].Choices[0].Next == "Normalize runtime failure" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Validate runtime failure"].Default == "Controller failure" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Normalize runtime failure"].Parameters["task_arn.$"] == "$.runtime_failure.details.TaskArn" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Normalize runtime failure"].Parameters["exit_code.$"] == "$.runtime_failure.details.Containers[0].ExitCode" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Normalize runtime failure"].Next == "Classify task"
+    )
+    error_message = "Only genuine ECS runtime failures may be decoded and normalized into the existing exit-code classifier."
+  }
 }
