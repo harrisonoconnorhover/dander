@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from time import perf_counter_ns
 from typing import TYPE_CHECKING
 
 from dander.concurrency import TargetFenceLostError
@@ -14,6 +15,9 @@ from dander.providers.redshift.config import validate_redshift_relation
 from dander.providers.redshift.session import (
     RedshiftConnection,
     RedshiftConnectionFactory,
+    RedshiftStatementResult,
+    capture_last_query_id,
+    enrich_operation_telemetry,
     execute,
     open_connection,
 )
@@ -28,6 +32,7 @@ from dander.providers.redshift.writer import (
     _validate_super_roles,
     validate_redshift_schema,
 )
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import (
     SqlDialect,
     TransformModel,
@@ -40,7 +45,7 @@ from dander.transform.model import Materialization
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
     from pathlib import Path
 
     from dander.concurrency import OwnershipGuard, TargetFence
@@ -97,21 +102,25 @@ class RedshiftTransformRunner:
         if ownership is None or ownership.fence is None:
             raise TransformRunError("Redshift hosted transforms require active lease ownership")
         _project, models, plans, assertions = self._preflight(models_dir, selected=selected)
+        telemetry: list[OperationTelemetry] = []
         for plan in plans:
             ownership.verify()
             publication = self._target_fence.claim(plan.target.relation_ref, ownership.fence)
             ownership.verify()
-            _publish_plan(
-                plan,
-                publication,
-                connection_factory=self._connection_factory,
-                target_fence=self._target_fence,
-                statement_timeout_ms=self._statement_timeout_ms,
+            telemetry.extend(
+                _publish_plan(
+                    plan,
+                    publication,
+                    connection_factory=self._connection_factory,
+                    target_fence=self._target_fence,
+                    statement_timeout_ms=self._statement_timeout_ms,
+                )
             )
-        self._run_assertions(assertions, ownership=ownership)
+        telemetry.extend(self._run_assertions(assertions, ownership=ownership))
         return TransformRunResult(
             models=tuple(model.name for model in models),
             assertions=len(assertions),
+            telemetry=tuple(telemetry),
         )
 
     def test(
@@ -122,10 +131,11 @@ class RedshiftTransformRunner:
     ) -> TransformRunResult:
         """Run assertions against already materialized Redshift relations."""
         _project, models, _plans, assertions = self._preflight(models_dir, selected=selected)
-        self._run_assertions(assertions)
+        telemetry = self._run_assertions(assertions)
         return TransformRunResult(
             models=tuple(model.name for model in models),
             assertions=len(assertions),
+            telemetry=telemetry,
         )
 
     def _preflight(
@@ -158,28 +168,38 @@ class RedshiftTransformRunner:
         assertions: Sequence[_RedshiftAssertion],
         *,
         ownership: OwnershipGuard | None = None,
-    ) -> None:
+    ) -> tuple[OperationTelemetry, ...]:
         failures: list[str] = []
+        telemetry: list[OperationTelemetry] = []
         with open_connection(self._connection_factory) as connection:
             for assertion in assertions:
                 if ownership is not None:
                     ownership.verify()
                 try:
-                    row = execute(
+                    result, duration_ms = _timed_call(
+                        execute,
                         connection,
                         assertion.statement,
                         assertion.parameters,
                         fetch="one",
-                    ).row
+                    )
                 except Exception as error:
                     raise TransformRunError(
                         f"Redshift assertion execution failed: {assertion.name}"
                     ) from error
-                if _failure_count(row, assertion.name) > 0:
+                telemetry.append(
+                    _operation_telemetry(
+                        result,
+                        operation=TelemetryOperation.TEST,
+                        duration_ms=duration_ms,
+                    )
+                )
+                if _failure_count(result.row, assertion.name) > 0:
                     failures.append(assertion.name)
             connection.commit()
         if failures:
             raise TransformRunError(f"Data tests failed: {', '.join(failures)}")
+        return tuple(telemetry)
 
 
 class RedshiftGraphRunner:
@@ -225,20 +245,24 @@ class RedshiftGraphRunner:
             raise GraphRuntimeError("Graph execution selected no targets")
 
         plans = tuple(_graph_plan(target, database=self._database) for target in targets)
+        telemetry: list[OperationTelemetry] = []
         for plan in plans:
             ownership.verify()
             publication = self._target_fence.claim(plan.target.relation_ref, ownership.fence)
             ownership.verify()
-            _publish_plan(
-                plan,
-                publication,
-                connection_factory=self._connection_factory,
-                target_fence=self._target_fence,
-                statement_timeout_ms=self._statement_timeout_ms,
+            telemetry.extend(
+                _publish_plan(
+                    plan,
+                    publication,
+                    connection_factory=self._connection_factory,
+                    target_fence=self._target_fence,
+                    statement_timeout_ms=self._statement_timeout_ms,
+                )
             )
         return TransformRunResult(
             models=tuple(plan.name for plan in plans),
             assertions=0,
+            telemetry=tuple(telemetry),
         )
 
 
@@ -249,7 +273,7 @@ def _publish_plan(
     connection_factory: RedshiftConnectionFactory,
     target_fence: RedshiftTargetFence,
     statement_timeout_ms: int,
-) -> None:
+) -> tuple[OperationTelemetry, ...]:
     target = WriteTarget(
         relation=plan.target.relation_ref,
         business_key=plan.target.business_key,
@@ -259,6 +283,7 @@ def _publish_plan(
     )
     temporary = _temporary_name(target.relation_ref, publication)
     cleanup_started = False
+    telemetry: list[OperationTelemetry] = []
     with open_connection(connection_factory) as connection:
         try:
             _set_query_group(
@@ -267,10 +292,22 @@ def _publish_plan(
                 statement_timeout_ms=statement_timeout_ms,
             )
             cleanup_started = True
-            execute(connection, _create_temporary_sql(plan, temporary))
+            staged, duration_ms = _timed_call(
+                execute,
+                connection,
+                _create_temporary_sql(plan, temporary),
+            )
             # Redshift temp tables survive commit. End CTAS and schema-inspection snapshots
             # before the single destination-fenced publication transaction begins.
             connection.commit()
+            staged = replace(staged, query_id=capture_last_query_id(connection))
+            telemetry.append(
+                _operation_telemetry(
+                    staged,
+                    operation=TelemetryOperation.TRANSFORM,
+                    duration_ms=duration_ms,
+                )
+            )
             schema_changes = _schema_changes(
                 connection,
                 target,
@@ -283,7 +320,17 @@ def _publish_plan(
                 *schema_changes,
                 *_publication_statements(plan, temporary),
             )
-            target_fence.execute_statements(connection, statements, publication)
+            started = perf_counter_ns()
+            results = target_fence.execute_statements(connection, statements, publication)
+            publication_duration_ms = _elapsed_milliseconds(started)
+            telemetry.append(
+                _operation_telemetry(
+                    results[-1],
+                    operation=TelemetryOperation.TRANSFORM,
+                    duration_ms=publication_duration_ms,
+                )
+            )
+            completed = enrich_operation_telemetry(connection, telemetry)
         except (TargetFenceLostError, RedshiftWriteError, TransformRunError):
             raise
         except Exception as error:
@@ -295,6 +342,7 @@ def _publish_plan(
                     temporary,
                     suppress_failure=sys.exc_info()[0] is not None,
                 )
+    return completed
 
 
 def _model_plan(project: TransformProject, model: TransformModel) -> _RedshiftModelPlan:
@@ -537,6 +585,35 @@ def _failure_count(row: object | None, assertion: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TransformRunError(f"Assertion returned an invalid result: {assertion}")
     return value
+
+
+def _timed_call(
+    function: Callable[..., RedshiftStatementResult],
+    *arguments: object,
+    **keywords: object,
+) -> tuple[RedshiftStatementResult, int]:
+    started = perf_counter_ns()
+    result = function(*arguments, **keywords)
+    return result, _elapsed_milliseconds(started)
+
+
+def _elapsed_milliseconds(started: int) -> int:
+    return max((perf_counter_ns() - started) // 1_000_000, 0)
+
+
+def _operation_telemetry(
+    result: RedshiftStatementResult,
+    *,
+    operation: TelemetryOperation,
+    duration_ms: int,
+) -> OperationTelemetry:
+    return OperationTelemetry(
+        provider="redshift",
+        operation=operation,
+        duration_ms=duration_ms,
+        rows_affected=max(result.rowcount, 0),
+        query_id=result.query_id,
+    )
 
 
 __all__ = ["RedshiftGraphRunner", "RedshiftTransformRunner"]

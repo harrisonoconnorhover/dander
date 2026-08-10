@@ -2,38 +2,39 @@
 
 ## Finished
 
-- Added `RedshiftGraphRunner` for the existing provider-neutral `GraphExecutionPlan`.
-- Rendered canonical graph ASTs as Redshift SQL without adding another graph schema.
-- Reused Redshift's run-scoped CTAS, exact target-fence transaction, stable table replacement, and
-  cleanup path.
-- Preflighted every selected target before the first fence claim or provider connection.
-- Updated the packaged capability report and experimental-provider documentation.
+- Added Redshift COPY, transform, graph, and assertion operation telemetry.
+- Enriched committed COPY/CTAS IDs from bounded same-session Redshift system-view queries.
+- Kept fenced multi-statement publications unattributed rather than reporting a misleading ID.
+- Made history denial, delay, or malformed rows best-effort and rollback-safe before cleanup.
+- Documented the experimental telemetry contract and decision boundary.
 
 ## Try It
 
-Run `uv run pytest -q tests/providers/test_redshift_warehouse_runtime.py tests/test_compatibility.py`.
+Run `uv run pytest -q tests/providers/test_redshift_warehouse_runtime.py`.
 
 ## Checks
 
-- Ruff formatting and lint passed across 328 files; strict mypy passed across 304 files.
-- Full pytest passed: 1,150 tests with 13 intentional skips.
-- Wheel and source archive passed distribution inspection; the wheel installed outside the
-  checkout and generated and validated a source-free project pinned to `0.8.0rc8`.
-- Independent review's safe-cast blocker was corrected with a pre-provider-I/O regression.
+- Ruff passed across 328 files; strict mypy passed across 304 files.
+- Full pytest passed: 1,153 tests with 13 intentional skips.
+- Terraform format, GCP/AWS validation, and AWS module tests passed without an apply.
+- Wheel/sdist inspection, source-free installation/generation, and dependency audit passed.
+- Local container and PostgreSQL-service checks remain for protected Linux CI.
 
 ## Decisions
 
-- Redshift consumes the canonical compiled graph rather than defining a provider graph model.
-- Graph targets remain replace-only and publish through the proven fenced table path.
-- Views, telemetry expansion, and live AWS qualification remain separate Phase 5 work.
+- Capture Redshift query IDs only after committed COPY and CTAS operations.
+- Read only numeric/system metadata; never query SQL text, errors, S3 sources, or record data.
+- Roll back every telemetry-only transaction so observability cannot poison cleanup.
 
 ## Remaining
 
-- Push a focused PR and require all protected CI checks before merge.
-- Continue Redshift telemetry and live-profile work without beginning Azure.
+- Push a focused PR and require protected CI before merge.
+- Continue Phase 5 with direct Redshift transport and live-profile work after this slice lands.
+- Keep paid AWS mutation gated by separate explicit approval.
+- Perform Phase 5.5 only after the full Snowflake/Redshift gate closes; do not begin Azure.
 
 ## Review First
 
+- `src/dander/providers/redshift/session.py`
+- `src/dander/providers/redshift/writer.py`
 - `src/dander/providers/redshift/transform.py`
-- `src/dander/providers/redshift/runtime.py`
-- `tests/providers/test_redshift_warehouse_runtime.py`

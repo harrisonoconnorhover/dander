@@ -60,6 +60,9 @@ COPY role must read the dedicated same-region staging prefix.
 - The complete selected transform DAG preflights before any provider connection or mutation.
 - Executable graph targets render the existing provider-neutral relational AST as Redshift SQL,
   preflight as one set, and publish through the same fenced table-replacement path.
+- Completed COPY and CTAS operations emit provider-neutral telemetry. A bounded, same-session
+  lookup enriches those operations with Redshift queue/execution time, bytes, loaded rows, spill
+  blocks, service class, compute type, and COPY job ID when the system views are available.
 
 ## Deliberate limits
 
@@ -71,6 +74,11 @@ Graph execution retains the shared single-connector, replace-target-only boundar
 preflight because Redshift cannot yet preserve their canonical semantics. Views, live concurrency
 proof, infrastructure provisioning, and support promotion remain separate work. Use
 `catalog.provider: none` for this experimental path.
+
+Telemetry is best-effort and never carries SQL text, error text, S3 locations, or record data.
+Multi-statement fenced publication and assertion operations report local duration and affected-row
+counters without claiming a potentially incorrect Redshift query ID. Missing or delayed system
+history leaves those base counters unchanged.
 
 Declare the fallback on the field; bare canonical JSON continues to fail closed:
 
