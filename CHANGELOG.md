@@ -6,6 +6,14 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.8.0rc8 — 2026-08-10 (beta)
+
+### Fixed
+
+- Preserve EventBridge Scheduler context attributes in the nested Step Functions request,
+  allow AWS to generate valid execution names, and permit delivery failures to reach the
+  existing exact-scoped dead-letter queue.
+
 ## 0.8.0rc7 — 2026-08-09 (beta)
 
 ### Fixed

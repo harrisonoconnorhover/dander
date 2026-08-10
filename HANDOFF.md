@@ -2,36 +2,33 @@
 
 ## Finished
 
-- Corrected EventBridge Scheduler delivery to Step Functions by preserving Scheduler context tokens in the nested request JSON.
-- Removed the optional Step Functions execution name so AWS can generate a valid UUID.
-- Granted each scheduler role only `sqs:SendMessage` to the existing failure queue so target-delivery failures can reach its configured DLQ.
-- Added Terraform and Python regressions over the final rendered schedule input and exact IAM permission.
+- Prepared release-only metadata for `dander-platform==0.8.0rc8`.
+- Kept the accepted AWS Scheduler correction unchanged from merge commit `f3ccb862b05ee359c8517c6a6874bab2150c5a40`.
+- Recorded rc7 as rejected after live scheduled delivery passed escaped context tokens to Step Functions.
 
 ## Try It
 
-Run `terraform -chdir=infra/aws/modules/fargate test` and `uv run pytest tests/infra/test_fargate_runtime.py -q`.
+Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate artifacts.
 
 ## Checks
 
-- `1117 passed`; Ruff format/check and strict MyPy passed.
-- Terraform/Helm initialization, validation, tests, formatting, lint, and rendering passed.
-- Wheel/sdist inspection, source-free installs, runtime-all install, and generated-project Terraform validation passed.
-- OCI image build, non-root/read-only runtime conformance, and bundled proof-asset checks passed.
-- Locked dependency audit reported no known vulnerabilities.
+- PR #162 passed Python, Terraform, distribution, container, and secret checks.
+- The merged fix passed 1,117 tests, strict typing, Terraform/Helm validation, distribution inspection, source-free installation, and container conformance.
 
 ## Decisions
 
-- Keep the correction at the AWS Scheduler provider boundary; no runtime or public-interface change is needed.
-- Preserve exact DLQ scope rather than broadening scheduler permissions.
+- `0.8.0rc8` replaces rc7 for the remaining complete Fargate lifecycle acceptance.
+- Fargate remains experimental until the complete lifecycle gate passes.
 
 ## Remaining
 
-- Push the focused branch, open a PR, and let protected CI repeat security and Linux checks.
-- Publish a replacement candidate after merge because rc7's scheduled path is defective.
-- Retry scheduled execution, then complete rollback, cleanup, evidence, and final no-drift acceptance.
+- Merge this release-only PR after protected checks pass.
+- Tag and publish `0.8.0rc8` from the exact protected merge.
+- Deploy the source-free rc8 image while schedules remain paused, then retry scheduled execution.
+- Complete rollback, cleanup, evidence, and final no-drift acceptance.
 
 ## Review First
 
-- `infra/aws/modules/fargate/main.tf`
-- `infra/aws/modules/fargate/tests/fargate.tftest.hcl`
-- `tests/infra/test_fargate_runtime.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `docs/session-resume.md`
