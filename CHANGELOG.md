@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.8.0rc7 — 2026-08-09 (beta)
+
+### Fixed
+
+- Recover nonzero `ecs:runTask.sync` task payloads into Dander's existing runtime exit-code
+  classifier, while preserving fail-closed handling for genuine Fargate control-plane failures.
+
 ## 0.8.0rc6 — 2026-08-09 (beta)
 
 ### Fixed
