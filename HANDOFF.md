@@ -2,20 +2,21 @@
 
 ## Finished
 
-- Accepted the experimental PostgreSQL/Kubernetes profile through a complete local existing-cluster lifecycle.
-- Added immutable image validation for local registries with numeric ports.
-- Proved source-free installation, non-root execution, replay, updates, models, assertions, metadata, and fencing.
-- Proved reviewed schedule change, Helm rollback, read-only verification, and complete local cleanup.
-- Recorded exact artifact digests, environment versions, results, exclusions, and retained GCP no-drift evidence.
+- Guaranteed a current Snowflake schema before connector-managed direct qmark binding.
+- Rejected JSON-to-`VARIANT` fields as keys, incremental cursors, or snapshot identity.
+- Added one opt-in disposable-schema Snowflake warehouse qualification harness.
+- Covered direct/COPY threshold crossing, all writer modes, replay, cursor safety, fencing, graph execution, readback, and cleanup.
+- Documented the paid-test boundary and kept Snowflake explicitly experimental.
 
 ## Try It
 
-Run `uv run pytest -q tests/deployment/test_execution_projection.py tests/infra/test_kubernetes_chart.py`.
-The bounded lifecycle evidence is in `docs/cloud-portability-postgresql-kubernetes-acceptance.md`.
+Run `uv run pytest -q tests/providers/test_snowflake_warehouse_runtime.py
+tests/portability/test_snowflake_qualification.py`. The live command is in `docs/snowflake.md` and
+requires a separately approved Snowflake test account and credit ceiling.
 
 ## Checks
 
-- Ruff, formatting, strict mypy, and all 1,195 tests passed; PostgreSQL integration used PostgreSQL 15.
+- Ruff, formatting, strict mypy, and all 1,205 tests passed; PostgreSQL integration used PostgreSQL 15.
 - Dependency audit, wheel/sdist inspection, source-free installs, and runtime-all import passed.
 - Non-root read-only container conformance and packaged proof-asset checks passed.
 - Terraform roots/tests and Helm lint/template validation passed.
@@ -23,18 +24,19 @@ The bounded lifecycle evidence is in `docs/cloud-portability-postgresql-kubernet
 
 ## Decisions
 
-- Treat kind as valid existing-cluster lifecycle evidence, not hosted-provider or scale qualification.
-- Preserve TLS-required PostgreSQL behavior; fix the disposable fixture rather than weakening Dander.
-- Keep PostgreSQL/Kubernetes experimental and explicitly leave overlap, interruption, and alerts unevaluated.
+- Use existing provider/runtime contracts rather than creating a benchmark framework.
+- Mutate and remove one random `DANDER_QUAL_*` schema; never provision account-level resources.
+- Keep direct thresholds at zero by default until real-account timing evidence exists.
 
 ## Remaining
 
-- Let protected CI repeat Linux PostgreSQL, packaging, image, secret, Terraform, and Helm checks.
-- Merge only if completion review and required checks remain clean.
-- Begin the Snowflake/Redshift phase only after this gate closes.
+- Let protected CI repeat Linux packaging, container, security, Terraform, and Helm checks.
+- Configure non-interactive access for the signed-in Snowflake trial account.
+- Approve a trial-credit ceiling, run the live harness, and preserve its sanitized report.
+- Compare normalized results with the shared cross-warehouse conformance fixture.
 
 ## Review First
 
-- `src/dander/deployment/projection.py`
-- `infra/kubernetes/chart/dander/values.schema.json`
-- `docs/cloud-portability-postgresql-kubernetes-acceptance.md`
+- `src/dander/providers/snowflake/writer.py`
+- `scripts/benchmarks/snowflake.py`
+- `tests/portability/test_snowflake_qualification.py`

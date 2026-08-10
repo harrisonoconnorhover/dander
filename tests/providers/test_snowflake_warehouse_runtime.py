@@ -467,6 +467,9 @@ def test_snowflake_direct_load_parses_explicit_variant_and_emits_transport(
         if statement.startswith('INSERT INTO "DANDER_TEST"."raw"."dander_stage_')
         and "dander_stage_loads" not in statement
     )
+    use_schema_index = sql.index('USE SCHEMA "DANDER_TEST"."raw"')
+    direct_insert_index = sql.index(direct[0])
+    assert use_schema_index < direct_insert_index
     assert '"payload" VARCHAR' in next(
         statement for statement in sql if statement.startswith("CREATE OR REPLACE TEMPORARY TABLE")
     )
@@ -1634,6 +1637,69 @@ def test_snowflake_requires_explicit_variant_and_telemetry_is_bounded(
     assert telemetry.rows_affected == 7
     assert telemetry.query_id == "query-safe-7"
     assert telemetry.resource_name == "DANDER_WH"
+
+
+@pytest.mark.parametrize(
+    ("mode", "business_key", "cursor_field", "snapshot_field"),
+    [
+        (WriteMode.SCD1, ("payload",), None, None),
+        (WriteMode.INCREMENTAL, ("id",), "payload", None),
+        (WriteMode.SNAPSHOT, (), None, "payload"),
+    ],
+)
+def test_snowflake_variant_cannot_define_identity_or_ordering(
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+    mode: WriteMode,
+    business_key: tuple[str, ...],
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    fallback = ProviderExtension(provider="snowflake", name="fallback", value="variant")
+    relation = RelationRef(
+        catalog="DANDER_TEST",
+        namespace="raw",
+        name=f"variant_{mode.value}_role",
+    )
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id=f"snowflake_variant_{mode.value}_role",
+            run_id=f"run-variant-{mode.value}-role",
+            token=12,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=mode,
+        cursor_field=cursor_field,
+        snapshot_field=snapshot_field,
+    )
+    before = len(backend.statements)
+
+    with pytest.raises(SnowflakeWriteError, match="cannot be a key, cursor, or snapshot"):
+        writer.write(
+            ({"id": "one", "payload": {"rank": 1}},),
+            WriteTarget(
+                relation=relation,
+                business_key=business_key,
+                schema=(
+                    WriteField(name="id", data_type="STRING"),
+                    WriteField(
+                        name="payload",
+                        data_type="JSON",
+                        extensions=(fallback,),
+                    ),
+                ),
+                publication_fence=publication,
+            ),
+        )
+
+    assert len(backend.statements) == before
 
 
 def test_snowflake_copy_parses_explicit_variant_before_publication(

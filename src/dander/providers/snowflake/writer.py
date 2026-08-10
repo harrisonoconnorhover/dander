@@ -148,6 +148,11 @@ class SnowflakeStagedWriter(WritePattern):
         ):
             raise SnowflakeWriteError(f"Declared schema reserves Dander field {collision[0]!r}")
         validate_snowflake_schema(target_schema)
+        _validate_variant_roles(
+            target,
+            cursor_field=self._cursor_field,
+            snapshot_field=self._snapshot_field,
+        )
         normalization_schema = RelationSchema(
             fields=(
                 *target_schema.fields,
@@ -352,6 +357,13 @@ class SnowflakeStagedWriter(WritePattern):
                         )
                 else:
                     assert direct is not None
+                    # The connector may switch larger qmark batches to its temporary
+                    # SYSTEM$BIND stage. That path requires an explicit current schema even
+                    # though every Dander relation remains fully qualified.
+                    execute(
+                        connection,
+                        f"USE SCHEMA {_qualified(relation.catalog, relation.namespace)}",
+                    )
                     load, duration_ms = _timed_call(
                         execute_many,
                         connection,
@@ -678,6 +690,26 @@ def validate_snowflake_schema(schema: RelationSchema) -> None:
     """Validate scalar mappings plus the one explicit JSON-to-VARIANT fallback."""
     for field in schema.fields:
         _snowflake_field_type(field)
+
+
+def _validate_variant_roles(
+    target: WriteTarget,
+    *,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> None:
+    variant_fields = {
+        field.name for field in target.canonical_schema.fields if _is_variant_fallback(field)
+    }
+    restricted = {*target.business_key}
+    if cursor_field is not None:
+        restricted.add(cursor_field)
+    if snapshot_field is not None:
+        restricted.add(snapshot_field)
+    if collision := sorted(variant_fields & restricted):
+        raise SnowflakeWriteError(
+            f"Snowflake VARIANT field {collision[0]!r} cannot be a key, cursor, or snapshot field"
+        )
 
 
 def _staging_field(field: CanonicalField) -> CanonicalField:
