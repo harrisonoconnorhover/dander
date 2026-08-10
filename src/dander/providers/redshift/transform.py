@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from dander.concurrency import TargetFenceLostError
+from dander.pipeline.compiler import CompiledTarget, PipelineCompileError
+from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError
 from dander.providers.redshift.config import validate_redshift_relation
 from dander.providers.redshift.session import (
     RedshiftConnection,
@@ -24,6 +26,7 @@ from dander.providers.redshift.writer import (
     _schema_changes,
     _set_query_group,
     _validate_super_roles,
+    validate_redshift_schema,
 )
 from dander.transform import (
     SqlDialect,
@@ -34,7 +37,7 @@ from dander.transform import (
     TransformRunResult,
 )
 from dander.transform.model import Materialization
-from dander.writer import SchemaEvolution, WriteField, WriteTarget
+from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -48,9 +51,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class _RedshiftModelPlan:
-    model: TransformModel
+    name: str
     target: WriteTarget
     query: str
+    materialization: Materialization
+    unique_key: tuple[str, ...] = ()
+    incremental_cursor: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,7 +101,13 @@ class RedshiftTransformRunner:
             ownership.verify()
             publication = self._target_fence.claim(plan.target.relation_ref, ownership.fence)
             ownership.verify()
-            self._publish(plan, publication)
+            _publish_plan(
+                plan,
+                publication,
+                connection_factory=self._connection_factory,
+                target_fence=self._target_fence,
+                statement_timeout_ms=self._statement_timeout_ms,
+            )
         self._run_assertions(assertions, ownership=ownership)
         return TransformRunResult(
             models=tuple(model.name for model in models),
@@ -141,53 +153,6 @@ class RedshiftTransformRunner:
         )
         return project, models, plans, assertions
 
-    def _publish(self, plan: _RedshiftModelPlan, publication: TargetFence) -> None:
-        target = WriteTarget(
-            relation=plan.target.relation_ref,
-            business_key=plan.target.business_key,
-            schema=plan.target.schema,
-            declared_schema=plan.target.canonical_schema,
-            publication_fence=publication,
-        )
-        temporary = _temporary_name(target.relation_ref, publication)
-        cleanup_started = False
-        with open_connection(self._connection_factory) as connection:
-            try:
-                _set_query_group(
-                    connection,
-                    publication,
-                    statement_timeout_ms=self._statement_timeout_ms,
-                )
-                cleanup_started = True
-                execute(connection, _create_temporary_sql(plan, temporary))
-                # Redshift temp tables survive commit. End CTAS and schema-inspection snapshots
-                # before the single destination-fenced publication transaction begins.
-                connection.commit()
-                schema_changes = _schema_changes(
-                    connection,
-                    target,
-                    target.canonical_schema,
-                    evolution=SchemaEvolution.STRICT,
-                )
-                connection.commit()
-                statements = (
-                    (_create_target_sql(target, target.canonical_schema), ()),
-                    *schema_changes,
-                    *_publication_statements(plan, temporary),
-                )
-                self._target_fence.execute_statements(connection, statements, publication)
-            except (TargetFenceLostError, RedshiftWriteError, TransformRunError):
-                raise
-            except Exception as error:
-                raise TransformRunError("Redshift transform publication failed") from error
-            finally:
-                if cleanup_started:
-                    _drop_temporary(
-                        connection,
-                        temporary,
-                        suppress_failure=sys.exc_info()[0] is not None,
-                    )
-
     def _run_assertions(
         self,
         assertions: Sequence[_RedshiftAssertion],
@@ -215,6 +180,121 @@ class RedshiftTransformRunner:
             connection.commit()
         if failures:
             raise TransformRunError(f"Data tests failed: {', '.join(failures)}")
+
+
+class RedshiftGraphRunner:
+    """Publish provider-neutral graph targets through Redshift's fenced DML path."""
+
+    target_dialect = SqlDialect.REDSHIFT
+
+    def __init__(
+        self,
+        *,
+        plan: GraphExecutionPlan,
+        database: str,
+        connection_factory: RedshiftConnectionFactory,
+        target_fence: RedshiftTargetFence,
+        statement_timeout_ms: int,
+    ) -> None:
+        self._plan = plan
+        self._database = database
+        self._connection_factory = connection_factory
+        self._target_fence = target_fence
+        self._statement_timeout_ms = statement_timeout_ms
+
+    def build(
+        self,
+        _models_dir: Path,
+        *,
+        selected: Iterable[str] | None = None,
+        ownership: OwnershipGuard | None = None,
+    ) -> TransformRunResult:
+        """Preflight every selected target, then publish each target exactly once."""
+        if ownership is None or ownership.fence is None:
+            raise GraphRuntimeError("Redshift graph execution requires active lease ownership")
+        selected_ids = set(selected) if selected is not None else None
+        known = {target.node_id for target in self._plan.targets}
+        if selected_ids is not None and (unknown := sorted(selected_ids - known)):
+            raise GraphRuntimeError(f"Unknown graph target: {unknown[0]!r}")
+        targets = tuple(
+            target
+            for target in self._plan.targets
+            if selected_ids is None or target.node_id in selected_ids
+        )
+        if not targets:
+            raise GraphRuntimeError("Graph execution selected no targets")
+
+        plans = tuple(_graph_plan(target, database=self._database) for target in targets)
+        for plan in plans:
+            ownership.verify()
+            publication = self._target_fence.claim(plan.target.relation_ref, ownership.fence)
+            ownership.verify()
+            _publish_plan(
+                plan,
+                publication,
+                connection_factory=self._connection_factory,
+                target_fence=self._target_fence,
+                statement_timeout_ms=self._statement_timeout_ms,
+            )
+        return TransformRunResult(
+            models=tuple(plan.name for plan in plans),
+            assertions=0,
+        )
+
+
+def _publish_plan(
+    plan: _RedshiftModelPlan,
+    publication: TargetFence,
+    *,
+    connection_factory: RedshiftConnectionFactory,
+    target_fence: RedshiftTargetFence,
+    statement_timeout_ms: int,
+) -> None:
+    target = WriteTarget(
+        relation=plan.target.relation_ref,
+        business_key=plan.target.business_key,
+        schema=plan.target.schema,
+        declared_schema=plan.target.canonical_schema,
+        publication_fence=publication,
+    )
+    temporary = _temporary_name(target.relation_ref, publication)
+    cleanup_started = False
+    with open_connection(connection_factory) as connection:
+        try:
+            _set_query_group(
+                connection,
+                publication,
+                statement_timeout_ms=statement_timeout_ms,
+            )
+            cleanup_started = True
+            execute(connection, _create_temporary_sql(plan, temporary))
+            # Redshift temp tables survive commit. End CTAS and schema-inspection snapshots
+            # before the single destination-fenced publication transaction begins.
+            connection.commit()
+            schema_changes = _schema_changes(
+                connection,
+                target,
+                target.canonical_schema,
+                evolution=SchemaEvolution.STRICT,
+            )
+            connection.commit()
+            statements = (
+                (_create_target_sql(target, target.canonical_schema), ()),
+                *schema_changes,
+                *_publication_statements(plan, temporary),
+            )
+            target_fence.execute_statements(connection, statements, publication)
+        except (TargetFenceLostError, RedshiftWriteError, TransformRunError):
+            raise
+        except Exception as error:
+            raise TransformRunError("Redshift transform publication failed") from error
+        finally:
+            if cleanup_started:
+                _drop_temporary(
+                    connection,
+                    temporary,
+                    suppress_failure=sys.exc_info()[0] is not None,
+                )
 
 
 def _model_plan(project: TransformProject, model: TransformModel) -> _RedshiftModelPlan:
@@ -251,19 +331,48 @@ def _model_plan(project: TransformProject, model: TransformModel) -> _RedshiftMo
         cursor_field=model.metadata.incremental_cursor,
         snapshot_field=None,
     )
-    return _RedshiftModelPlan(model=model, target=target, query=project.compile(model))
+    return _RedshiftModelPlan(
+        name=model.name,
+        target=target,
+        query=project.compile(model),
+        materialization=model.metadata.materialization,
+        unique_key=tuple(model.metadata.unique_key),
+        incremental_cursor=model.metadata.incremental_cursor,
+    )
+
+
+def _graph_plan(compiled: CompiledTarget, *, database: str) -> _RedshiftModelPlan:
+    if compiled.write_mode is not WriteMode.REPLACE:
+        raise GraphRuntimeError(f"Redshift graph target {compiled.node_id!r} requires replace mode")
+    if compiled.target.relation_ref.catalog != database:
+        raise GraphRuntimeError(
+            f"Redshift graph target {compiled.node_id!r} belongs to another database"
+        )
+    try:
+        validate_redshift_relation(compiled.target.relation_ref)
+        validate_redshift_schema(compiled.target.canonical_schema)
+        _validate_super_roles(compiled.target, cursor_field=None, snapshot_field=None)
+        query = compiled.render(SqlDialect.REDSHIFT)
+    except (PipelineCompileError, RedshiftWriteError, ValueError) as error:
+        raise GraphRuntimeError(str(error)) from error
+    return _RedshiftModelPlan(
+        name=compiled.node_id,
+        target=compiled.target,
+        query=query,
+        materialization=Materialization.TABLE,
+    )
 
 
 def _create_temporary_sql(plan: _RedshiftModelPlan, temporary: str) -> str:
     names = tuple(field.name for field in plan.target.canonical_schema.fields)
     selected = ", ".join(f"source.{_quote(name)}" for name in names)
-    if plan.model.metadata.materialization is Materialization.TABLE:
+    if plan.materialization is Materialization.TABLE:
         return (
             f"CREATE TEMP TABLE {_quote(temporary)} AS SELECT {selected} "
             f"FROM ({plan.query}) AS source"
         )
-    keys = tuple(plan.model.metadata.unique_key)
-    cursor = plan.model.metadata.incremental_cursor
+    keys = plan.unique_key
+    cursor = plan.incremental_cursor
     assert keys and cursor is not None
     partition = ", ".join(f"source.{_quote(key)}" for key in keys)
     tie_breakers = tuple(name for name in sorted(names) if name not in {*keys, cursor})
@@ -287,13 +396,13 @@ def _publication_statements(
     names = tuple(field.name for field in plan.target.canonical_schema.fields)
     columns = ", ".join(_quote(name) for name in names)
     incoming = ", ".join(f"incoming.{_quote(name)}" for name in names)
-    if plan.model.metadata.materialization is Materialization.TABLE:
+    if plan.materialization is Materialization.TABLE:
         return (
             (f"DELETE FROM {target}", ()),
             (f"INSERT INTO {target} ({columns}) SELECT {columns} FROM {staged}", ()),
         )
-    keys = tuple(plan.model.metadata.unique_key)
-    cursor = plan.model.metadata.incremental_cursor
+    keys = plan.unique_key
+    cursor = plan.incremental_cursor
     assert keys and cursor is not None
     match = " AND ".join(f"target.{_quote(key)} = incoming.{_quote(key)}" for key in keys)
     mutable = tuple(name for name in names if name not in keys)
@@ -430,4 +539,4 @@ def _failure_count(row: object | None, assertion: str) -> int:
     return value
 
 
-__all__ = ["RedshiftTransformRunner"]
+__all__ = ["RedshiftGraphRunner", "RedshiftTransformRunner"]

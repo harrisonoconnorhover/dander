@@ -1035,3 +1035,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   This avoids the 65,535-byte stored-VARCHAR boundary.
 - **Boundary:** The current 4 MB staged-row guard remains stricter than Redshift's 16 MB SUPER
   service limit. This is local conformance behavior, not live qualification or support promotion.
+
+## 2026-08-10 — Redshift graphs reuse the canonical AST and fenced table path
+
+- **Planning:** Redshift consumes the existing `GraphExecutionPlan` and renders each compiled
+  relational AST with the Redshift dialect; it does not introduce a provider-specific graph model.
+- **Publication:** Every selected replace target preflights before provider I/O, then uses the same
+  run-scoped CTAS staging, exact destination-fence transaction, stable target, and cleanup path as
+  Redshift table models.
+- **Boundary:** Graphs remain single-connector and replace-only. Redshift safe casts fail preflight
+  until an exact lowering exists. Views, telemetry expansion, live AWS proof, and support promotion
+  remain separate Phase 5 slices.
