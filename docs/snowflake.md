@@ -3,8 +3,8 @@
 Snowflake is an experimental warehouse adapter, not a supported Dander profile. The current slice
 proves native database/schema coordinates, bounded direct and bulk paths, all five writer modes,
 an explicit JSON-to-`VARIANT` fallback, fenced table/incremental models, and fenced replace-mode
-graph targets. Live qualification and the remaining first-class gates are still required before
-support promotion.
+graph targets. A bounded live qualification has passed; infrastructure provisioning and the
+remaining first-class gates are still required before support promotion.
 
 ## Configuration
 
@@ -92,6 +92,37 @@ The Snowflake role needs usage on its database and warehouse plus permission to 
 schemas, tables, and temporary stages in the selected namespace. Use a dedicated disposable role
 until a live least-privilege profile is qualified.
 
+## Opt-in warehouse qualification
+
+The repository contains a bounded live harness for the warehouse adapter. It does not create an
+account, database, warehouse, role, network policy, or resource monitor. Running it may resume the
+selected warehouse and consume Snowflake credits, so agree on a paid-test ceiling first.
+
+The role must have warehouse usage plus database usage and permission to create and drop schemas in
+the selected database. Supply only a credential reference; never put the private key or OAuth token
+on the command line. For key-pair authentication:
+
+```bash
+export DANDER_SNOWFLAKE_PRIVATE_KEY_FILE=/secure/path/rsa_key.p8
+uv run python -m scripts.benchmarks.snowflake \
+  --account myorg-myaccount \
+  --user DANDER_USER \
+  --database DANDER_TEST \
+  --warehouse DANDER_WH \
+  --role DANDER_ROLE
+```
+
+The harness creates one random `DANDER_QUAL_*` schema and removes that exact schema in `finally`.
+It forces both bounded direct binding and multi-part Parquet `COPY`, crosses the configured direct
+threshold, exercises all five write modes, replays data, rejects cursor regression and a stale
+concurrent publisher, executes one provider-neutral graph target, reads every result back, and
+checks for staging residue. Its JSON report contains bounded query IDs and timings but no account,
+user, credential reference, SQL, row value, or provider response. It deliberately reports cost as
+`not_measured` and support as `experimental`.
+
+The sanitized disposable-account result is recorded in
+[Snowflake live qualification](cloud-portability-snowflake-qualification.md).
+
 ## Deliberate limits
 
 All five scalar write patterns are reachable through the warehouse writer capability, while the
@@ -102,5 +133,5 @@ because Snowflake permanent DDL cannot share the destination-fence transaction. 
 default to zero because no live crossover has been measured; do not claim a performance benefit
 until that qualification is recorded. Same-session history deliberately does not estimate total
 Snowflake credits or costs; account-level usage history is delayed and remains evidence-side work.
-Live concurrency proof, infrastructure provisioning, and support promotion remain separate work.
-Use `catalog.provider: none` for this experimental path.
+Infrastructure provisioning and support promotion remain separate work. Use
+`catalog.provider: none` for this experimental path.

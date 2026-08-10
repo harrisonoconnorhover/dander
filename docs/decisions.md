@@ -1096,5 +1096,18 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   readback, and residue checks against an existing Redshift profile.
 - **Ownership:** The harness creates and removes one random `dander_qual_*` schema and one random
   child of the configured staging prefix. It provisions no Redshift, S3, IAM, or network resource.
-- **Boundary:** Credential-free tests and a harness do not constitute live qualification, cost or
-  scale evidence, infrastructure support, or profile promotion.
+- **Boundary:** The separately approved disposable Serverless qualification passed and is recorded
+  in `docs/cloud-portability-redshift-qualification.md`; infrastructure support and profile
+  promotion remain separate gates.
+
+## 2026-08-10 — Snowflake qualification mutates one disposable schema only
+
+- **Correctness:** Dander selects the fully qualified target schema immediately before direct qmark
+  binding because the Snowflake connector may use its current schema for `SYSTEM$BIND` staging.
+  JSON-to-`VARIANT` fields cannot define business keys, incremental cursors, or snapshot identity.
+- **Proof boundary:** One opt-in harness forces direct and multi-part `COPY` paths, all five writer
+  modes, replay, monotonic cursors, concurrent stale-fence rejection, graph execution, readback, and
+  cleanup in a random `DANDER_QUAL_*` schema.
+- **Exclusions:** The separately approved disposable-account qualification passed and is recorded
+  in `docs/cloud-portability-snowflake-qualification.md`; provider-managed infrastructure,
+  performance claims, and support promotion remain separate gates.

@@ -161,19 +161,20 @@ def _target_fence_table_sql(table: str) -> str:
 
 def _target_claim_sql(table: str) -> str:
     return (
-        f"MERGE INTO {table} AS current USING (SELECT ? AS target_id, ? AS pipeline_id, "
+        f"MERGE INTO {table} AS target_row USING (SELECT ? AS target_id, ? AS pipeline_id, "
         "? AS authority_id, ? AS authority_epoch, ? AS run_id, ? AS fencing_token) incoming "
-        'ON current."target_id" = incoming.target_id '
-        'AND current."pipeline_id" = incoming.pipeline_id '
-        'WHEN MATCHED AND current."authority_id" = incoming.authority_id '
-        'AND current."authority_epoch" = incoming.authority_epoch '
-        'AND (incoming.fencing_token > current."fencing_token" OR '
-        '(incoming.fencing_token = current."fencing_token" '
-        'AND incoming.run_id = current."run_id")) THEN UPDATE SET '
-        'current."run_id" = incoming.run_id, '
-        'current."fencing_token" = incoming.fencing_token, '
-        'current."status" = \'claimed\', current."claimed_at" = CURRENT_TIMESTAMP(), '
-        'current."committed_at" = NULL WHEN NOT MATCHED THEN INSERT '
+        'ON target_row."target_id" = incoming.target_id '
+        'AND target_row."pipeline_id" = incoming.pipeline_id '
+        'WHEN MATCHED AND target_row."authority_id" = incoming.authority_id '
+        'AND target_row."authority_epoch" = incoming.authority_epoch '
+        'AND (incoming.fencing_token > target_row."fencing_token" OR '
+        '(incoming.fencing_token = target_row."fencing_token" '
+        'AND incoming.run_id = target_row."run_id")) THEN UPDATE SET '
+        'target_row."run_id" = incoming.run_id, '
+        'target_row."fencing_token" = incoming.fencing_token, '
+        "target_row.\"status\" = 'claimed', "
+        'target_row."claimed_at" = CURRENT_TIMESTAMP(), '
+        'target_row."committed_at" = NULL WHEN NOT MATCHED THEN INSERT '
         '("target_id", "pipeline_id", "authority_id", "authority_epoch", "run_id", '
         '"fencing_token", "status", "claimed_at", "committed_at") VALUES '
         "(incoming.target_id, incoming.pipeline_id, incoming.authority_id, "
