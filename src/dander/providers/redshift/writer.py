@@ -1,4 +1,4 @@
-"""Bounded S3/Parquet COPY and transactionally fenced Redshift SCD1 writes."""
+"""Bounded S3/Parquet COPY and transactionally fenced Redshift writes."""
 
 # ruff: noqa: N803 -- boto3's public S3 API uses capitalized parameter names.
 
@@ -39,6 +39,10 @@ if TYPE_CHECKING:
     from dander.providers.redshift.fence import RedshiftTargetFence
 
 _ORDINAL = "_dander_ordinal"
+_SCD2_VALID_FROM = "valid_from"
+_SCD2_VALID_TO = "valid_to"
+_SCD2_IS_CURRENT = "is_current"
+_SCD2_SYSTEM_FIELDS = frozenset({_SCD2_VALID_FROM, _SCD2_VALID_TO, _SCD2_IS_CURRENT})
 _MAX_PARQUET_ROW_BYTES = 4 * 1_024 * 1_024
 
 
@@ -80,11 +84,9 @@ class RedshiftPublication:
     affected_statement_index: int
 
 
-class RedshiftScd1Writer(WritePattern):
-    """Upload bounded Parquet parts and merge deterministic last-record-wins rows."""
+class RedshiftStagedWriter(WritePattern):
+    """Upload bounded Parquet parts and publish one selected logical write mode."""
 
-    mode = WriteMode.SCD1
-    supports_batched_writes = True
     requires_publication_fence = True
 
     def __init__(
@@ -96,6 +98,9 @@ class RedshiftScd1Writer(WritePattern):
         target_fence: RedshiftTargetFence,
         schema_evolution: SchemaEvolution,
         staging: RedshiftStagingSettings,
+        mode: WriteMode,
+        cursor_field: str | None = None,
+        snapshot_field: str | None = None,
     ) -> None:
         self._database = database
         self._connection_factory = connection_factory
@@ -103,15 +108,33 @@ class RedshiftScd1Writer(WritePattern):
         self._target_fence = target_fence
         self._evolution = schema_evolution
         self._staging = staging
+        self.mode = mode
+        self._cursor_field = cursor_field
+        self._snapshot_field = snapshot_field
+        self.supports_batched_writes = mode in {
+            WriteMode.SCD1,
+            WriteMode.INCREMENTAL,
+            WriteMode.SNAPSHOT,
+        }
+        self.accepts_streaming_input = not self.supports_batched_writes
 
     def write(self, records: Iterable[Mapping[str, object]], target: WriteTarget) -> int:
-        _validate_target(target, self._database)
+        _validate_target(
+            target,
+            database=self._database,
+            mode=self.mode,
+            cursor_field=self._cursor_field,
+            snapshot_field=self._snapshot_field,
+        )
         publication = target.publication_fence
         assert publication is not None
         schema = target.canonical_schema
         _validate_schema(schema)
-        if any(field.name == _ORDINAL for field in schema.fields):
-            raise RedshiftWriteError(f"Declared schema reserves Dander field {_ORDINAL!r}")
+        reserved = {_ORDINAL}
+        if self.mode is WriteMode.SCD2:
+            reserved.update(_SCD2_SYSTEM_FIELDS)
+        if collision := sorted(field.name for field in schema.fields if field.name in reserved):
+            raise RedshiftWriteError(f"Declared schema reserves Dander field {collision[0]!r}")
         staged_schema = RelationSchema(
             fields=(
                 *schema.fields,
@@ -130,7 +153,15 @@ class RedshiftScd1Writer(WritePattern):
             max_logical_bytes_per_file=self._staging.max_logical_bytes_per_file,
             compression=self._staging.compression,
         ) as local:
-            manifest = local.stage(_with_ordinals(records), staged_schema)
+            manifest = local.stage(
+                _with_ordinals(
+                    records,
+                    business_key=target.business_key,
+                    cursor_field=self._cursor_field,
+                    snapshot_field=self._snapshot_field,
+                ),
+                staged_schema,
+            )
             _validate_manifest(manifest)
             return self._publish(target, publication, schema, staged_schema, manifest)
 
@@ -190,6 +221,9 @@ class RedshiftScd1Writer(WritePattern):
                     manifest,
                     evolution=self._evolution,
                     has_rows=bool(manifest.rows),
+                    mode=self.mode,
+                    cursor_field=self._cursor_field,
+                    snapshot_field=self._snapshot_field,
                 )
                 # The schema read also opens an implicit transaction. End that read-only
                 # snapshot before beginning the one fenced publication transaction.
@@ -201,13 +235,15 @@ class RedshiftScd1Writer(WritePattern):
                 )
                 affected_rows = results[plan.affected_statement_index].rowcount
                 if affected_rows < 0:
-                    raise RedshiftWriteError("Redshift MERGE did not report affected rows")
+                    raise RedshiftWriteError("Redshift publication did not report affected rows")
                 publication_failed = False
                 return affected_rows
             except (RedshiftWriteError, TargetFenceLostError):
                 raise
             except Exception as error:
-                raise RedshiftWriteError("Redshift staged SCD1 write failed") from error
+                raise RedshiftWriteError(
+                    f"Redshift staged {self.mode.value.upper()} write failed"
+                ) from error
             finally:
                 cleanup_error: Exception | None = None
                 try:
@@ -220,6 +256,32 @@ class RedshiftScd1Writer(WritePattern):
                     cleanup_error = cleanup_error or error
                 if cleanup_error is not None and not publication_failed:
                     raise cleanup_error
+
+
+class RedshiftScd1Writer(RedshiftStagedWriter):
+    """Backward-compatible SCD1 constructor for existing provider integrations."""
+
+    mode = WriteMode.SCD1
+
+    def __init__(
+        self,
+        *,
+        database: str,
+        connection_factory: RedshiftConnectionFactory,
+        s3_client: RedshiftS3Client,
+        target_fence: RedshiftTargetFence,
+        schema_evolution: SchemaEvolution,
+        staging: RedshiftStagingSettings,
+    ) -> None:
+        super().__init__(
+            database=database,
+            connection_factory=connection_factory,
+            s3_client=s3_client,
+            target_fence=target_fence,
+            schema_evolution=schema_evolution,
+            staging=staging,
+            mode=WriteMode.SCD1,
+        )
 
 
 def default_staging_settings(
@@ -246,23 +308,59 @@ def default_staging_settings(
     )
 
 
-def _with_ordinals(records: Iterable[Mapping[str, object]]) -> Iterable[Mapping[str, object]]:
+def _with_ordinals(
+    records: Iterable[Mapping[str, object]],
+    *,
+    business_key: Sequence[str],
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> Iterable[Mapping[str, object]]:
     for ordinal, record in enumerate(records):
+        if any(record.get(field) is None for field in business_key):
+            raise RedshiftWriteError(f"Record {ordinal} has a null business-key value")
+        if cursor_field is not None and record.get(cursor_field) is None:
+            raise RedshiftWriteError(f"Record {ordinal} has a null incremental cursor value")
+        if snapshot_field is not None and record.get(snapshot_field) is None:
+            raise RedshiftWriteError(f"Record {ordinal} has a null snapshot value")
         yield {**record, _ORDINAL: ordinal}
 
 
-def _validate_target(target: WriteTarget, database: str) -> None:
+def _validate_target(
+    target: WriteTarget,
+    *,
+    database: str,
+    mode: WriteMode,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> None:
     try:
         validate_redshift_relation(target.relation_ref)
     except ValueError as error:
         raise RedshiftWriteError(str(error)) from error
     if target.relation_ref.catalog != database:
         raise RedshiftWriteError("Redshift target belongs to another database")
-    if not target.business_key or not target.schema:
-        raise RedshiftWriteError("Redshift SCD1 requires a business key and declared schema")
     declared = {field.name for field in target.canonical_schema.fields}
-    if any(key not in declared for key in target.business_key):
-        raise RedshiftWriteError("Redshift business keys must be declared schema fields")
+    if not declared:
+        raise RedshiftWriteError("Redshift writes require a declared schema")
+    if mode in {WriteMode.SCD1, WriteMode.SCD2, WriteMode.INCREMENTAL}:
+        if not target.business_key:
+            raise RedshiftWriteError(f"Redshift {mode.value} writes require a business key")
+        if missing := sorted(set(target.business_key) - declared):
+            raise RedshiftWriteError(f"Redshift business-key field {missing[0]!r} is undeclared")
+    if mode is WriteMode.INCREMENTAL:
+        if cursor_field is None or not cursor_field.strip():
+            raise RedshiftWriteError("Redshift incremental writes require cursor_field")
+        if cursor_field not in declared:
+            raise RedshiftWriteError("Redshift incremental cursor field is undeclared")
+    elif cursor_field is not None:
+        raise RedshiftWriteError("cursor_field is valid only for Redshift incremental writes")
+    if mode is WriteMode.SNAPSHOT:
+        if snapshot_field is None or not snapshot_field.strip():
+            raise RedshiftWriteError("Redshift snapshot writes require snapshot_field")
+        if snapshot_field not in declared:
+            raise RedshiftWriteError("Redshift snapshot field is undeclared")
+    elif snapshot_field is not None:
+        raise RedshiftWriteError("snapshot_field is valid only for Redshift snapshot writes")
     publication = target.publication_fence
     if publication is None:
         raise RedshiftWriteError("Redshift hosted writes require a destination target fence")
@@ -323,12 +421,16 @@ def _publication_plan(
     *,
     evolution: SchemaEvolution,
     has_rows: bool,
+    mode: WriteMode,
+    cursor_field: str | None,
+    snapshot_field: str | None,
 ) -> RedshiftPublication:
+    deployed_schema = _target_schema_for_mode(schema, mode)
     statements: list[tuple[str, Sequence[object]]] = [
-        (_create_target_sql(target, schema), ()),
+        (_create_target_sql(target, deployed_schema), ()),
         (_history_table_sql(target), ()),
     ]
-    statements.extend(_schema_changes(connection, target, schema, evolution=evolution))
+    statements.extend(_schema_changes(connection, target, deployed_schema, evolution=evolution))
     digest = _manifest_digest(manifest)
     history_values: tuple[object, ...] = (
         ".".join(target.relation_ref.coordinates),
@@ -337,15 +439,257 @@ def _publication_plan(
         manifest.schema_fingerprint,
         digest,
     )
-    if has_rows:
-        statements.append((_merge_sql(target, temp_table, schema.fields), history_values))
-    else:
-        statements.append((_no_op_sql(target), ()))
-    affected_statement_index = len(statements) - 1
+    publication = _publication_statements(
+        target,
+        temp_table,
+        schema.fields,
+        history_values,
+        mode=mode,
+        cursor_field=cursor_field,
+        snapshot_field=snapshot_field,
+        has_rows=has_rows,
+    )
+    affected_statement_index = len(statements) + publication.affected_statement_index
+    statements.extend(publication.statements)
     statements.append((_history_insert_sql(target), (*history_values, *history_values)))
     return RedshiftPublication(
         statements=tuple(statements),
         affected_statement_index=affected_statement_index,
+    )
+
+
+def _publication_statements(
+    target: WriteTarget,
+    temporary: str,
+    fields: Sequence[CanonicalField],
+    history_values: tuple[object, ...],
+    *,
+    mode: WriteMode,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+    has_rows: bool,
+) -> RedshiftPublication:
+    if not has_rows:
+        statement = _replace_delete_sql(target) if mode is WriteMode.REPLACE else _no_op_sql(target)
+        parameters = history_values if mode is WriteMode.REPLACE else ()
+        return RedshiftPublication(((statement, parameters),), 0)
+    if mode is WriteMode.REPLACE:
+        statements = _replace_statements(target, temporary, fields, history_values)
+        return RedshiftPublication(statements, len(statements) - 1)
+    if mode is WriteMode.SNAPSHOT:
+        assert snapshot_field is not None
+        return RedshiftPublication(
+            ((_snapshot_sql(target, temporary, fields, snapshot_field), history_values),),
+            0,
+        )
+    if mode is WriteMode.SCD2:
+        statements = _scd2_statements(target, temporary, fields, history_values)
+        return RedshiftPublication(statements, len(statements) - 1)
+    if mode is WriteMode.INCREMENTAL:
+        assert cursor_field is not None
+        statements = (
+            (_incremental_prune_sql(target, temporary, cursor_field), ()),
+            (
+                _merge_sql(target, temporary, fields, cursor_field=cursor_field),
+                history_values,
+            ),
+        )
+        return RedshiftPublication(statements, len(statements) - 1)
+    return RedshiftPublication(
+        (
+            (
+                _merge_sql(
+                    target,
+                    temporary,
+                    fields,
+                    cursor_field=None,
+                ),
+                history_values,
+            ),
+        ),
+        0,
+    )
+
+
+def _deduplicated_source(
+    target: WriteTarget,
+    temporary: str,
+    fields: Sequence[CanonicalField],
+    *,
+    cursor_field: str | None = None,
+) -> str:
+    columns = ", ".join(_quote(field.name) for field in fields)
+    keys = ", ".join(_quote(key) for key in target.business_key)
+    ordering = (
+        f"{_quote(cursor_field)} DESC NULLS LAST, {_quote(_ORDINAL)} DESC"
+        if cursor_field is not None
+        else f"{_quote(_ORDINAL)} DESC"
+    )
+    return (
+        f"SELECT {columns} FROM (SELECT {columns}, ROW_NUMBER() OVER (PARTITION BY {keys} "
+        f"ORDER BY {ordering}) AS {_quote('_dander_rank')} FROM {_quote(temporary)}) ranked "
+        f"WHERE {_quote('_dander_rank')} = 1"
+    )
+
+
+def _replace_statements(
+    target: WriteTarget,
+    temporary: str,
+    fields: Sequence[CanonicalField],
+    history_values: tuple[object, ...],
+) -> tuple[tuple[str, Sequence[object]], ...]:
+    columns = ", ".join(_quote(field.name) for field in fields)
+    guard = _history_guard(target)
+    return (
+        (_replace_delete_sql(target), history_values),
+        (
+            f"INSERT INTO {_target(target)} ({columns}) SELECT {columns} "
+            f"FROM {_quote(temporary)} WHERE {guard}",
+            history_values,
+        ),
+    )
+
+
+def _replace_delete_sql(target: WriteTarget) -> str:
+    return f"DELETE FROM {_target(target)} WHERE {_history_guard(target)}"
+
+
+def _snapshot_sql(
+    target: WriteTarget,
+    temporary: str,
+    fields: Sequence[CanonicalField],
+    snapshot_field: str,
+) -> str:
+    columns = ", ".join(_quote(field.name) for field in fields)
+    selected = ", ".join(f"incoming.{_quote(field.name)}" for field in fields)
+    identical = " AND ".join(
+        _null_safe_equal(f"existing.{_quote(field.name)}", f"incoming.{_quote(field.name)}")
+        for field in fields
+    )
+    return (
+        f"INSERT INTO {_target(target)} ({columns}) SELECT DISTINCT {selected} "
+        f"FROM {_quote(temporary)} AS incoming WHERE "
+        f"incoming.{_quote(snapshot_field)} IS NOT NULL AND {_history_guard(target)} "
+        f"AND NOT EXISTS (SELECT 1 FROM {_target(target)} AS existing WHERE {identical})"
+    )
+
+
+def _incremental_prune_sql(
+    target: WriteTarget,
+    temporary: str,
+    cursor_field: str,
+) -> str:
+    temporary_name = _quote(temporary)
+    target_name = _quote(target.relation_ref.name)
+    match = " AND ".join(
+        f"{temporary_name}.{_quote(key)} = {target_name}.{_quote(key)}"
+        for key in target.business_key
+    )
+    return (
+        f"DELETE FROM {temporary_name} USING {_target(target)} "
+        f"WHERE {match} AND {temporary_name}.{_quote(cursor_field)} "
+        f"< {target_name}.{_quote(cursor_field)}"
+    )
+
+
+def _scd2_statements(
+    target: WriteTarget,
+    temporary: str,
+    fields: Sequence[CanonicalField],
+    history_values: tuple[object, ...],
+) -> tuple[tuple[str, Sequence[object]], ...]:
+    names = tuple(field.name for field in fields)
+    incoming = _deduplicated_source(target, temporary, fields)
+    match = " AND ".join(
+        f"current.{_quote(key)} = incoming.{_quote(key)}" for key in target.business_key
+    )
+    mutable = tuple(name for name in names if name not in target.business_key)
+    changed = (
+        " OR ".join(
+            _null_safe_different(f"current.{_quote(name)}", f"incoming.{_quote(name)}")
+            for name in mutable
+        )
+        or "FALSE"
+    )
+    close = (
+        f"UPDATE {_target(target)} AS current SET {_quote(_SCD2_VALID_TO)} = SYSDATE, "
+        f"{_quote(_SCD2_IS_CURRENT)} = FALSE FROM ({incoming}) AS incoming "
+        f"WHERE {match} AND current.{_quote(_SCD2_IS_CURRENT)} = TRUE AND ({changed}) "
+        f"AND {_history_guard(target)}"
+    )
+    columns = ", ".join(
+        [
+            *(_quote(name) for name in names),
+            _quote(_SCD2_VALID_FROM),
+            _quote(_SCD2_VALID_TO),
+            _quote(_SCD2_IS_CURRENT),
+        ]
+    )
+    values = ", ".join(
+        [
+            *(f"incoming.{_quote(name)}" for name in names),
+            "SYSDATE",
+            "NULL",
+            "TRUE",
+        ]
+    )
+    insert = (
+        f"INSERT INTO {_target(target)} ({columns}) SELECT {values} FROM ({incoming}) AS incoming "
+        f"WHERE {_history_guard(target)} AND NOT EXISTS "
+        f"(SELECT 1 FROM {_target(target)} AS current "
+        f"WHERE {match} AND current.{_quote(_SCD2_IS_CURRENT)} = TRUE)"
+    )
+    return ((close, history_values), (insert, history_values))
+
+
+def _history_guard(target: WriteTarget) -> str:
+    return (
+        f"NOT EXISTS (SELECT 1 FROM {_history(target)} WHERE "
+        '"target_id" = %s AND "pipeline_id" = %s AND "run_id" = %s '
+        'AND "schema_fingerprint" = %s AND "manifest_digest" = %s)'
+    )
+
+
+def _null_safe_equal(left: str, right: str) -> str:
+    return f"({left} = {right} OR ({left} IS NULL AND {right} IS NULL))"
+
+
+def _null_safe_different(left: str, right: str) -> str:
+    return (
+        f"({left} <> {right} OR ({left} IS NULL AND {right} IS NOT NULL) "
+        f"OR ({left} IS NOT NULL AND {right} IS NULL))"
+    )
+
+
+def _target_schema_for_mode(schema: RelationSchema, mode: WriteMode) -> RelationSchema:
+    if mode is not WriteMode.SCD2:
+        return schema
+    return RelationSchema(
+        fields=(
+            *schema.fields,
+            CanonicalField(
+                name=_SCD2_VALID_FROM,
+                data_type=CanonicalType(
+                    kind=LogicalTypeKind.TIMESTAMP,
+                    fractional_second_precision=6,
+                    with_timezone=False,
+                ),
+                cardinality=FieldCardinality.REQUIRED,
+            ),
+            CanonicalField(
+                name=_SCD2_VALID_TO,
+                data_type=CanonicalType(
+                    kind=LogicalTypeKind.TIMESTAMP,
+                    fractional_second_precision=6,
+                    with_timezone=False,
+                ),
+            ),
+            CanonicalField(
+                name=_SCD2_IS_CURRENT,
+                data_type=CanonicalType(kind=LogicalTypeKind.BOOLEAN),
+                cardinality=FieldCardinality.REQUIRED,
+            ),
+        )
     )
 
 
@@ -439,23 +783,33 @@ def _copy_sql(name: str, *, bucket: str, manifest_key: str, role_arn: str) -> st
     )
 
 
-def _merge_sql(target: WriteTarget, temporary: str, fields: Sequence[CanonicalField]) -> str:
+def _merge_sql(
+    target: WriteTarget,
+    temporary: str,
+    fields: Sequence[CanonicalField],
+    *,
+    cursor_field: str | None,
+) -> str:
     names = tuple(field.name for field in fields)
+    target_name = _quote(target.relation_ref.name)
     columns = ", ".join(_quote(name) for name in names)
-    keys = ", ".join(_quote(key) for key in target.business_key)
     match = " AND ".join(
-        f"target.{_quote(key)} = incoming.{_quote(key)}" for key in target.business_key
+        f"{target_name}.{_quote(key)} = incoming.{_quote(key)}" for key in target.business_key
     )
     mutable = tuple(name for name in names if name not in target.business_key)
     updates = ", ".join(f"{_quote(name)} = incoming.{_quote(name)}" for name in mutable)
     selected = ", ".join(f"incoming.{_quote(name)}" for name in names)
     history = _history(target)
     matched = f" WHEN MATCHED THEN UPDATE SET {updates}" if updates else ""
+    source = _deduplicated_source(
+        target,
+        temporary,
+        fields,
+        cursor_field=cursor_field,
+    )
     return (
-        f"MERGE INTO {_target(target)} AS target USING (SELECT {columns} FROM "
-        f"(SELECT {columns}, ROW_NUMBER() OVER (PARTITION BY {keys} ORDER BY "
-        f"{_quote(_ORDINAL)} DESC) AS {_quote('_dander_rank')} FROM {_quote(temporary)}) ranked "
-        f"WHERE {_quote('_dander_rank')} = 1 AND NOT EXISTS (SELECT 1 FROM {history} WHERE "
+        f"MERGE INTO {_target(target)} USING (SELECT {columns} FROM ({source}) source "
+        f"WHERE NOT EXISTS (SELECT 1 FROM {history} WHERE "
         '"target_id" = %s AND "pipeline_id" = %s AND "run_id" = %s '
         'AND "schema_fingerprint" = %s AND "manifest_digest" = %s)) AS incoming '
         f"ON {match}{matched} WHEN NOT MATCHED THEN "
@@ -487,8 +841,8 @@ def _history(target: WriteTarget) -> str:
 
 
 def _no_op_sql(target: WriteTarget) -> str:
-    key = _quote(target.business_key[0])
-    return f"UPDATE {_target(target)} SET {key} = {key} WHERE FALSE"
+    column = _quote(target.canonical_schema.fields[0].name)
+    return f"UPDATE {_target(target)} SET {column} = {column} WHERE FALSE"
 
 
 def _set_query_group(
@@ -633,6 +987,7 @@ def _normalize_deployed_type(
 __all__ = [
     "RedshiftS3Client",
     "RedshiftScd1Writer",
+    "RedshiftStagedWriter",
     "RedshiftStagingSettings",
     "RedshiftWriteError",
     "default_staging_settings",

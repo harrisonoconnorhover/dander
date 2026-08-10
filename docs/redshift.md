@@ -1,8 +1,8 @@
 # Experimental Amazon Redshift warehouse
 
 Redshift is an experimental warehouse adapter, not a supported Dander profile. The current slice
-proves native database/schema coordinates, bounded IAM-only bulk loading, and fenced table and
-incremental models before broader write modes or a live support claim.
+proves native database/schema coordinates, bounded IAM-only bulk loading, all five fenced ingestion
+write modes, and fenced table and incremental models before a live support claim.
 
 ## Configuration
 
@@ -40,7 +40,15 @@ COPY role must read the dedicated same-region staging prefix.
 
 - `database + schema + relation` become one canonical `RelationRef`; GCP aliases are not used.
 - Bounded, checksummed Parquet parts load through a mandatory same-region S3 manifest and `COPY`.
-- SCD1 publication, replay history, and the exact destination fencing-token touch commit together.
+- Replace, SCD1, SCD2, snapshot, and incremental publication reuse the same bounded COPY path.
+- Every mode's target mutation, replay history, and exact destination fencing-token touch commit
+  together.
+- SCD1 and incremental input is deterministically de-duplicated by business key; incremental writes
+  additionally reject cursor regression.
+- Replace publishes one complete logical stream with replay-safe `DELETE`/`INSERT`; empty replaces
+  are also fenced and replay-safe.
+- SCD2 uses transaction-stable `SYSDATE` values for `valid_from`/`valid_to`, and snapshot mode
+  appends only distinct full rows for a non-null declared snapshot field.
 - Only declared nullable ingestion columns evolve automatically; drift fails closed.
 - Portable or Redshift-authored table models use fenced `DELETE`/`INSERT` replacement.
 - Incremental models collapse duplicate keys deterministically and reject cursor regression.
@@ -49,7 +57,7 @@ COPY role must read the dedicated same-region staging prefix.
 
 ## Deliberate limits
 
-Only scalar SCD1 ingestion plus table and incremental model materializations are implemented.
-Views, graphs, replace, SCD2, snapshot, `SUPER`, live concurrency proof, infrastructure
-provisioning, and support promotion remain separate work. Use `catalog.provider: none` for this
-experimental path.
+Only scalar COPY ingestion plus table and incremental model materializations are implemented. The
+ordinary hosted source runner still selects SCD1. Views, graphs, `SUPER`, live concurrency proof,
+infrastructure provisioning, and support promotion remain separate work. Use
+`catalog.provider: none` for this experimental path.
