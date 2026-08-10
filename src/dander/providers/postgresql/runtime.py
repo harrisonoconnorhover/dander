@@ -13,15 +13,15 @@ from psycopg_pool import ConnectionPool
 
 from dander.providers.postgresql.config import PostgreSQLWarehouseConfig
 from dander.providers.postgresql.fence import PostgreSQLTargetFence
-from dander.providers.postgresql.transform import PostgreSQLTransformRunner
+from dander.providers.postgresql.schema import POSTGRESQL_SCHEMA_SUPPORT
+from dander.providers.postgresql.transform import PostgreSQLGraphRunner, PostgreSQLTransformRunner
 from dander.providers.postgresql.writer import PostgreSQLCopyWriter, PostgreSQLTimeouts
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.telemetry import OperationTelemetry, TelemetryOperation
-from dander.warehouse import CanonicalField, LogicalTypeKind, RelationRef, RelationSchema
+from dander.warehouse import CanonicalField, RelationRef, RelationSchema
 from dander.warehouse.runtime import (
     WarehouseCapabilities,
     WarehouseRuntime,
-    WarehouseSchemaSupport,
 )
 from dander.writer import (
     SchemaEvolution,
@@ -38,14 +38,6 @@ if TYPE_CHECKING:
 
 PostgreSQLRow = dict[str, object]
 PostgreSQLPool = ConnectionPool[Connection[PostgreSQLRow]]
-
-POSTGRESQL_SCHEMA_SUPPORT = WarehouseSchemaSupport(
-    provider_id="postgresql",
-    logical_types=frozenset(LogicalTypeKind),
-    max_decimal_precision=1_000,
-    max_temporal_precision=6,
-    supports_nested_arrays=True,
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +105,7 @@ class PostgreSQLWriterFactory:
 
 @dataclass(frozen=True, slots=True)
 class PostgreSQLTransformFactory:
-    """Construct PostgreSQL model execution while rejecting graph plans."""
+    """Construct fenced PostgreSQL model or provider-neutral graph execution."""
 
     database: str
     pool: PostgreSQLPool
@@ -126,9 +118,19 @@ class PostgreSQLTransformFactory:
         graph_plan: object | None,
         build_models: bool,
         raw_namespace: str = "raw",
-    ) -> PostgreSQLTransformRunner | None:
+    ) -> PostgreSQLGraphRunner | PostgreSQLTransformRunner | None:
         if graph_plan is not None:
-            raise ValueError("PostgreSQL graph execution is not available")
+            from dander.pipeline.runtime import GraphExecutionPlan
+
+            if not isinstance(graph_plan, GraphExecutionPlan):
+                raise TypeError("PostgreSQL graph plan has the wrong type")
+            return PostgreSQLGraphRunner(
+                plan=graph_plan,
+                database=self.database,
+                pool=self.pool,
+                target_fence=self.target_fence,
+                timeouts=self.timeouts,
+            )
         if not build_models:
             return None
         return PostgreSQLTransformRunner(
@@ -169,7 +171,7 @@ POSTGRESQL_CAPABILITIES = WarehouseCapabilities(
     write_modes=frozenset(WriteMode),
     transports=frozenset({WriteTransport.COPY}),
     supports_transforms=True,
-    supports_graphs=False,
+    supports_graphs=True,
     supports_target_fencing=True,
     schema_support=POSTGRESQL_SCHEMA_SUPPORT,
 )

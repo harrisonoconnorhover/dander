@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-10 — PostgreSQL graphs reuse canonical plans and database-local fencing
+
+- **Planning:** PostgreSQL consumes the existing `GraphExecutionPlan` and renders its relational
+  AST with the PostgreSQL dialect; no provider-specific graph representation is introduced.
+- **Publication:** Every selected replace target preflights before provider I/O, then creates a
+  transaction-local CTAS stage and replaces the stable target behind the existing destination
+  fence. A lost fence rolls back target creation, staging, and publication together.
+- **Boundary:** Source and target catalogs must equal the configured database because PostgreSQL
+  rendering is database-local. Graph safe casts, other write modes, live Kubernetes proof, and
+  support promotion remain separate work.
+
 ## 2026-08-10 — PostgreSQL write modes preserve endpoint and batch semantics
 
 - **Modes:** One COPY-backed writer now publishes replace, SCD1, SCD2, snapshot, and incremental

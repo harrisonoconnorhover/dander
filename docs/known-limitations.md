@@ -25,9 +25,11 @@ evaluate these limits before using it for an unattended system containing busine
   targets use the provider-neutral relational AST and fenced table path; graph safe casts fail
   preflight. Redshift has no live qualification or views. PostgreSQL state and warehouse execution
   are implemented and locally conformance-tested; all five ingestion modes use bounded `COPY` and
-  destination fencing, while the ordinary hosted source runner still selects SCD1. A packaged Helm
-  chart now renders the Kubernetes launcher against an existing cluster, but no Kubernetes live
-  profile is qualified yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse
+  destination fencing. Replace-mode graph targets use the provider-neutral relational AST and
+  fenced table path; graph safe casts and cross-database relations fail preflight. The ordinary
+  hosted source runner still selects SCD1. A packaged Helm chart now renders the Kubernetes
+  launcher against an existing cluster, but no Kubernetes live profile is qualified yet and Dander
+  does not create clusters. PostgreSQL-state/BigQuery-warehouse
   execution remains fail-closed until every BigQuery write mode uses destination-side fencing. The
   package publishes this pair matrix and each warehouse's exact implemented modes, transports,
   schema limits, transforms, graphs, and fencing through `dander runtime compatibility`, while the

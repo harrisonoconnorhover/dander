@@ -5,11 +5,22 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from psycopg import Connection, sql
 from psycopg_pool import ConnectionPool
 
-from dander.providers.postgresql.writer import PostgreSQLTimeouts, _set_timeouts
+from dander.concurrency import TargetFenceLostError
+from dander.pipeline.compiler import CompiledTarget, PipelineCompileError
+from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError
+from dander.providers.postgresql.schema import POSTGRESQL_SCHEMA_SUPPORT
+from dander.providers.postgresql.writer import (
+    PostgreSQLTimeouts,
+    PostgreSQLWriteError,
+    _ensure_target,
+    _postgresql_type,
+    _set_timeouts,
+)
 from dander.transform import (
     SqlDialect,
     TransformModel,
@@ -19,6 +30,7 @@ from dander.transform import (
     TransformRunResult,
 )
 from dander.transform.model import Materialization
+from dander.writer import SchemaEvolution, WriteMode, WriteTarget
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -38,6 +50,13 @@ class _PostgreSQLAssertion:
     name: str
     statement: sql.SQL | sql.Composed
     parameters: tuple[object, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _PostgreSQLGraphPlan:
+    name: str
+    target: WriteTarget
+    query: str
 
 
 class PostgreSQLTransformRunner:
@@ -152,6 +171,168 @@ class PostgreSQLTransformRunner:
                     failures.append(assertion.name)
         if failures:
             raise TransformRunError(f"Data tests failed: {', '.join(failures)}")
+
+
+class PostgreSQLGraphRunner:
+    """Publish provider-neutral graph targets through PostgreSQL's fenced DML path."""
+
+    target_dialect = SqlDialect.POSTGRES
+
+    def __init__(
+        self,
+        *,
+        plan: GraphExecutionPlan,
+        database: str,
+        pool: PostgreSQLPool,
+        target_fence: PostgreSQLTargetFence,
+        timeouts: PostgreSQLTimeouts,
+    ) -> None:
+        self._plan = plan
+        self._database = database
+        self._pool = pool
+        self._target_fence = target_fence
+        self._timeouts = timeouts
+
+    def build(
+        self,
+        _models_dir: Path,
+        *,
+        selected: Iterable[str] | None = None,
+        ownership: OwnershipGuard | None = None,
+    ) -> TransformRunResult:
+        """Preflight selected targets, then replace each behind its destination fence."""
+        if ownership is None or ownership.fence is None:
+            raise GraphRuntimeError("PostgreSQL graph execution requires active lease ownership")
+        selected_ids = set(selected) if selected is not None else None
+        known = {target.node_id for target in self._plan.targets}
+        if selected_ids is not None and (unknown := sorted(selected_ids - known)):
+            raise GraphRuntimeError(f"Unknown graph target: {unknown[0]!r}")
+        targets = tuple(
+            target
+            for target in self._plan.targets
+            if selected_ids is None or target.node_id in selected_ids
+        )
+        if not targets:
+            raise GraphRuntimeError("Graph execution selected no targets")
+        if foreign := sorted(
+            {
+                relation.catalog
+                for relation in self._plan.bindings.source_relations.values()
+                if relation.catalog != self._database
+            }
+        ):
+            raise GraphRuntimeError(
+                f"PostgreSQL graph source belongs to another database: {foreign[0]!r}"
+            )
+
+        plans = tuple(_graph_plan(target, database=self._database) for target in targets)
+        for plan in plans:
+            ownership.verify()
+            publication = self._target_fence.claim(plan.target.relation_ref, ownership.fence)
+            ownership.verify()
+            _publish_graph_plan(
+                plan,
+                publication,
+                pool=self._pool,
+                target_fence=self._target_fence,
+                timeouts=self._timeouts,
+            )
+        return TransformRunResult(
+            models=tuple(plan.name for plan in plans),
+            assertions=0,
+        )
+
+
+def _graph_plan(compiled: CompiledTarget, *, database: str) -> _PostgreSQLGraphPlan:
+    if compiled.write_mode is not WriteMode.REPLACE:
+        raise GraphRuntimeError(
+            f"PostgreSQL graph target {compiled.node_id!r} requires replace mode"
+        )
+    if compiled.target.relation_ref.catalog != database:
+        raise GraphRuntimeError(
+            f"PostgreSQL graph target {compiled.node_id!r} belongs to another database"
+        )
+    try:
+        POSTGRESQL_SCHEMA_SUPPORT.require(compiled.target.canonical_schema)
+        for field in compiled.target.canonical_schema.fields:
+            _postgresql_type(field.data_type)
+        query = compiled.render(SqlDialect.POSTGRES)
+    except (PipelineCompileError, PostgreSQLWriteError, ValueError) as error:
+        raise GraphRuntimeError(str(error)) from error
+    return _PostgreSQLGraphPlan(
+        name=compiled.node_id,
+        target=compiled.target,
+        query=query,
+    )
+
+
+def _publish_graph_plan(
+    plan: _PostgreSQLGraphPlan,
+    publication: TargetFence,
+    *,
+    pool: PostgreSQLPool,
+    target_fence: PostgreSQLTargetFence,
+    timeouts: PostgreSQLTimeouts,
+) -> None:
+    target = WriteTarget(
+        relation=plan.target.relation_ref,
+        business_key=plan.target.business_key,
+        schema=plan.target.schema,
+        declared_schema=plan.target.canonical_schema,
+        publication_fence=publication,
+    )
+    staging = f"dander_graph_{uuid4().hex}"
+    try:
+        with pool.connection() as connection, connection.transaction():
+            _set_timeouts(connection, timeouts)
+            _ensure_target(
+                connection,
+                target,
+                target.canonical_schema,
+                evolution=SchemaEvolution.STRICT,
+                mode=WriteMode.REPLACE,
+            )
+            connection.execute(_graph_staging_sql(plan, staging))
+            target_fence.execute_statements(
+                connection,
+                _graph_publication_statements(target, staging),
+                publication,
+            )
+    except (TargetFenceLostError, PostgreSQLWriteError, GraphRuntimeError, TransformRunError):
+        raise
+    except Exception as error:
+        raise TransformRunError("PostgreSQL graph publication failed") from error
+
+
+def _graph_staging_sql(plan: _PostgreSQLGraphPlan, staging: str) -> sql.Composed:
+    source_columns = sql.SQL(", ").join(
+        sql.SQL("source.{}").format(sql.Identifier(field.name))
+        for field in plan.target.canonical_schema.fields
+    )
+    return sql.SQL("CREATE TEMP TABLE {} ON COMMIT DROP AS SELECT {} FROM ({}) AS source").format(
+        sql.Identifier(staging),
+        source_columns,
+        sql.SQL(plan.query),
+    )
+
+
+def _graph_publication_statements(
+    target: WriteTarget,
+    staging: str,
+) -> tuple[sql.Composed, sql.Composed]:
+    columns = sql.SQL(", ").join(
+        sql.Identifier(field.name) for field in target.canonical_schema.fields
+    )
+    relation = sql.Identifier(target.relation_ref.namespace, target.relation_ref.name)
+    return (
+        sql.SQL("DELETE FROM {}").format(relation),
+        sql.SQL("INSERT INTO {} ({}) SELECT {} FROM {}").format(
+            relation,
+            columns,
+            columns,
+            sql.Identifier(staging),
+        ),
+    )
 
 
 def _materialization_statements(
@@ -363,4 +544,4 @@ def _unique_index_name(model: TransformModel) -> str:
     return f"dander_uq_{model.name}"[:51] + f"_{digest}"
 
 
-__all__ = ["PostgreSQLTransformRunner"]
+__all__ = ["PostgreSQLGraphRunner", "PostgreSQLTransformRunner"]
