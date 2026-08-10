@@ -5,7 +5,7 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Public releases
 
-- Dander `0.8.0rc6` is the current public beta candidate.
+- Dander `0.8.0rc7` is the current public beta candidate.
 - Salesforce `0.3.1` and ServiceNow `0.2.2` are the current stable connector releases for Dander
   `0.7.x`; their accepted release candidates remain recorded in the Phase 1 evidence.
 - Druff's fork contains Josh's reconciled graph-client ancestry and the later persistence,

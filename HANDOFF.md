@@ -2,34 +2,33 @@
 
 ## Finished
 
-- Reproduced an rc6 live Fargate task failure whose nonzero container exit was misclassified as a control-plane failure.
-- Routed exact `States.TaskFailed` ECS payloads through the existing exit-code classifier while preserving all other controller-failure handling.
-- Added rendered-controller assertions for error dispatch, payload validation, and normalized task results.
+- Prepared release-only metadata for `dander-platform==0.8.0rc7`.
+- Kept the accepted Fargate runtime-failure correction unchanged from merge commit `44b9162c9caea14e21182671bb4cb79680a447f2`.
+- Recorded rc6 as rejected after live nonzero ECS exits bypassed the declared runtime classifier.
 
 ## Try It
 
-Run `terraform -chdir=infra/aws/modules/fargate init -backend=false`, then `terraform -chdir=infra/aws/modules/fargate test`.
+Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate artifacts.
 
 ## Checks
 
-- Ruff lint/format and strict typing across 304 files passed.
-- The complete Python suite passed; focused Fargate tests passed 2/2 and focused operations tests passed 18/18.
-- Root, stage-zero, AWS, Fargate, and portability Terraform validation passed.
-- Wheel/sdist inspection and source-free installation passed; the installed scaffold contains the corrected controller.
+- PR #160 passed Python, Terraform, distribution, container, and secret checks.
+- The merged fix passed the full Python suite, strict typing, Terraform validation, distribution inspection, and source-free installation.
+- Release metadata, wheel/sdist inspection, and source-free rc7 installation passed outside the checkout.
 
 ## Decisions
 
-- `ecs:runTask.sync` reports nonzero runtime exits as `States.TaskFailed`; these are runtime results only when the cause contains the expected ECS task fields.
-- Nonmatching task errors remain fail-closed as `launcher_control_plane_failed`.
+- `0.8.0rc7` replaces rc6 for complete Fargate lifecycle acceptance.
+- Fargate remains experimental until the complete lifecycle gate passes.
 
 ## Remaining
 
-- Run protected CI and merge the focused fix.
-- Publish a replacement candidate; rc6 must not be promoted.
+- Merge this release-only PR after protected checks pass.
+- Tag and publish `0.8.0rc7` from the exact protected merge.
 - Correct the external credential-refresh proof fixture, then restart overlap, refresh, interruption, scheduling, alert, rollback, cleanup, and no-drift acceptance.
 
 ## Review First
 
-- `infra/aws/modules/fargate/main.tf`
-- `infra/aws/modules/fargate/tests/fargate.tftest.hcl`
-- `tests/infra/test_fargate_runtime.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `docs/session-resume.md`
