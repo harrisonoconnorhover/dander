@@ -116,7 +116,7 @@ class _FakeCursor:
             self.connection.last_query_id = self.backend.query_counter
         if compact == "SELECT current_database(), current_user":
             self._row = ("analytics", "dander_user")
-        elif compact == "SELECT pg_last_query_id()":
+        elif compact == "SELECT last_user_query_id()":
             self._row = (self.connection.last_query_id,)
         elif compact.startswith("WITH recent AS (SELECT query_id"):
             if self.backend.telemetry_error:
@@ -392,6 +392,10 @@ def test_redshift_direct_thresholds_are_explicit_and_paired() -> None:
     raw["direct_max_rows"] = 10
 
     with pytest.raises(ValueError, match="must both be zero or positive"):
+        RedshiftWarehouseConfig.model_validate(raw)
+
+    raw["direct_max_logical_bytes"] = 1_024 * 1_024 + 1
+    with pytest.raises(ValueError, match="less than or equal to 1048576"):
         RedshiftWarehouseConfig.model_validate(raw)
 
 
@@ -1243,13 +1247,13 @@ def test_redshift_direct_load_parses_explicit_super_without_s3_or_query_attribut
     assert not tuple(tmp_path.iterdir())
 
 
-def test_redshift_direct_load_accepts_a_valid_super_row_above_the_copy_limit(
+def test_redshift_direct_load_falls_back_to_copy_above_the_varbyte_limit(
     tmp_path: Path,
 ) -> None:
     runtime, backend, s3 = _direct_redshift_runtime(
         tmp_path,
         max_rows=1,
-        max_logical_bytes=8 * 1_024 * 1_024,
+        max_logical_bytes=1_024 * 1_024,
     )
     backend.schema_rows = [
         ("id", "character varying", 65_535, None, None, "NO"),
@@ -1284,24 +1288,21 @@ def test_redshift_direct_load_accepts_a_valid_super_row_above_the_copy_limit(
 
     assert (
         writer.write(
-            ({"id": "one", "payload": {"value": "x" * 4_300_000}},),
+            ({"id": "one", "payload": {"value": "x" * 1_100_000}},),
             target,
         )
         == backend.merge_rowcount
     )
 
-    direct_parameters = next(
-        parameters
-        for _, statement, parameters in backend.statements
-        if statement.startswith('INSERT INTO "dander_stage_')
-        and "dander_stage_loads" not in statement
+    sql = [statement for _, statement, _ in backend.statements]
+    assert any(statement.startswith("COPY ") for statement in sql)
+    assert not any(
+        statement.startswith('INSERT INTO "dander_stage_') and "dander_stage_loads" not in statement
+        for statement in sql
     )
-    direct_row = direct_parameters[0]
-    assert isinstance(direct_row, (tuple, list))
-    assert isinstance(direct_row[1], bytes)
-    assert len(direct_row[1]) > 4 * 1_024 * 1_024
-    assert s3.region_checks == 0
-    assert not s3.uploads and not s3.puts and not s3.deleted
+    assert s3.region_checks == 1
+    assert s3.uploads and s3.puts and s3.deleted
+    assert all(operation.transport is WriteTransport.COPY for operation in writer.drain_telemetry())
     assert not tuple(tmp_path.iterdir())
 
 

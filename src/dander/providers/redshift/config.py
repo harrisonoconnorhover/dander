@@ -15,6 +15,7 @@ _HOST = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}[A-Za-z0-9]$")
 _S3_BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 _IAM_ROLE = re.compile(r"^arn:(?:aws|aws-us-gov):iam::\d{12}:role/[A-Za-z0-9+=,.@_/-]+$")
 _RESOURCE_NAME = re.compile(r"^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+_MAX_DIRECT_LOGICAL_BYTES = 1_024 * 1_024
 
 
 class RedshiftWarehouseConfig(BaseModel):
@@ -53,7 +54,7 @@ class RedshiftWarehouseConfig(BaseModel):
     direct_max_logical_bytes: int = Field(
         default=0,
         ge=0,
-        le=16 * 1_024 * 1_024,
+        le=_MAX_DIRECT_LOGICAL_BYTES,
     )
 
     @model_validator(mode="after")

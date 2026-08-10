@@ -1070,9 +1070,9 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 
 ## 2026-08-10 — Redshift telemetry never competes with correctness transactions
 
-- **Attribution:** Dander captures `PG_LAST_QUERY_ID()` only after committed COPY and CTAS work.
-  Multi-statement fenced publication and assertion operations retain local counters without a
-  potentially misleading query ID.
+- **Attribution:** Dander captures `LAST_USER_QUERY_ID()` only after committed COPY and CTAS work,
+  matching the user-query IDs exposed by `SYS_QUERY_HISTORY`. Multi-statement fenced publication
+  and assertion operations retain local counters without a potentially misleading query ID.
 - **Enrichment:** One bounded same-session lookup reads numeric counters from `SYS_QUERY_HISTORY`,
   step-level `SYS_QUERY_DETAIL`, and `SYS_LOAD_HISTORY`; SQL text, errors, and S3 data sources are
   never selected.
@@ -1088,3 +1088,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   replay identity, five write modes, schema checks, and fenced publication transaction as COPY.
 - **Telemetry:** Direct loads report exact local rows, logical bytes, and duration without a query
   ID or system-history enrichment because `executemany` has no whole-batch Redshift query identity.
+
+## 2026-08-10 — Redshift qualification owns one schema and one S3 prefix
+
+- **Proof:** One opt-in harness forces direct and multi-part `COPY`, all five write modes, `SUPER`,
+  table/incremental models, replay, cursor safety, two-session stale fencing, graphs, telemetry,
+  readback, and residue checks against an existing Redshift profile.
+- **Ownership:** The harness creates and removes one random `dander_qual_*` schema and one random
+  child of the configured staging prefix. It provisions no Redshift, S3, IAM, or network resource.
+- **Boundary:** Credential-free tests and a harness do not constitute live qualification, cost or
+  scale evidence, infrastructure support, or profile promotion.

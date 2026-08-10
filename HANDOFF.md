@@ -2,39 +2,46 @@
 
 ## Finished
 
-- Accepted the experimental PostgreSQL/Kubernetes profile through a complete local existing-cluster lifecycle.
-- Added immutable image validation for local registries with numeric ports.
-- Proved source-free installation, non-root execution, replay, updates, models, assertions, metadata, and fencing.
-- Proved reviewed schedule change, Helm rollback, read-only verification, and complete local cleanup.
-- Recorded exact artifact digests, environment versions, results, exclusions, and retained GCP no-drift evidence.
+- Capped Redshift direct ingestion at its documented 1 MiB non-file limit.
+- Correlated Redshift telemetry with `LAST_USER_QUERY_ID()` and `SYS_QUERY_HISTORY`.
+- Added an opt-in existing-profile Redshift qualification harness with no provisioning behavior.
+- Covered all writers, `SUPER`, models, graph execution, replay, stale fencing, readback, and cleanup.
+- Kept Redshift experimental and documented the paid-test boundary.
 
 ## Try It
 
-Run `uv run pytest -q tests/deployment/test_execution_projection.py tests/infra/test_kubernetes_chart.py`.
-The bounded lifecycle evidence is in `docs/cloud-portability-postgresql-kubernetes-acceptance.md`.
+Run `uv run pytest -q tests/providers/test_redshift_warehouse_runtime.py
+tests/portability/test_redshift_qualification.py`. The opt-in live command is in
+`docs/redshift.md` and requires an existing profile plus a separately approved cost ceiling.
 
 ## Checks
 
-- Ruff, formatting, strict mypy, and all 1,195 tests passed; PostgreSQL integration used PostgreSQL 15.
-- Dependency audit, wheel/sdist inspection, source-free installs, and runtime-all import passed.
-- Non-root read-only container conformance and packaged proof-asset checks passed.
-- Terraform roots/tests and Helm lint/template validation passed.
-- Fresh retained GCP stage-zero and platform plans each reported exactly `No changes.`
+- Ruff, formatting, strict mypy, dependency audit, and all 1,207 tests passed with PostgreSQL 15.
+- Wheel, sdist, source-free install, runtime-all install, and generated-project validation passed.
+- Non-root/read-only container conformance, Terraform validation/tests, and Helm checks passed.
+- Retained stage-zero plan reported `No changes.`; no apply or live mutation occurred.
+- Public source-free `dander-platform==0.7.0` with the retained deployment's existing `600s`
+  compatibility input produced an exact retained platform `No changes.` plan.
+- The candidate plan is 0 add/5 change/0 destroy: only five job version labels (`0.7.0` to
+  `0.8.0rc8`) and declared timeouts (`600s` to `300s`) differ.
+- A detached `origin/main` plan reproduced those same five changes; this branch contains no GCP,
+  Terraform, manifest, or deployment-file changes.
+- Final adversarial review's prefix-normalization and partial-delete findings were fixed and covered.
 
 ## Decisions
 
-- Treat kind as valid existing-cluster lifecycle evidence, not hosted-provider or scale qualification.
-- Preserve TLS-required PostgreSQL behavior; fix the disposable fixture rather than weakening Dander.
-- Keep PostgreSQL/Kubernetes experimental and explicitly leave overlap, interruption, and alerts unevaluated.
+- Use the existing Redshift provider/runtime contracts, not a benchmark framework.
+- Mutate only one random schema and S3 prefix and remove both on every handled exit.
+- Keep both provisioned and Serverless selectable without provisioning either one.
 
 ## Remaining
 
-- Let protected CI repeat Linux PostgreSQL, packaging, image, secret, Terraform, and Helm checks.
-- Merge only if completion review and required checks remain clean.
-- Begin the Snowflake/Redshift phase only after this gate closes.
+- Let protected CI repeat Linux checks plus unavailable local Trivy and Gitleaks scans.
+- Provision or select a separately approved disposable Redshift profile for the live run.
+- Preserve a sanitized live report before any support-status change.
 
 ## Review First
 
-- `src/dander/deployment/projection.py`
-- `infra/kubernetes/chart/dander/values.schema.json`
-- `docs/cloud-portability-postgresql-kubernetes-acceptance.md`
+- `src/dander/providers/redshift/config.py`
+- `src/dander/providers/redshift/session.py`
+- `scripts/benchmarks/redshift.py`
