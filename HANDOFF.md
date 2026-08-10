@@ -2,44 +2,43 @@
 
 ## Finished
 
-- Enriched successful Snowflake loads, publications, transforms, and tests from same-session query
-  history.
-- Mapped execution/queue time, scanned bytes, inserted rows, and warehouse size into the existing
-  provider-neutral telemetry contract.
-- Kept enrichment best-effort, bounded to 1,000 recent operation IDs, and free of SQL/bind values.
-- Preserved client-observed duration and known writer row/byte counters.
-- Left fenced view materialization unsupported after its proposed indirection failed review.
+- Added replace, SCD2, snapshot, and incremental ingestion to Redshift's existing bounded COPY
+  writer while preserving the SCD1 constructor.
+- Kept every target mutation, complete-manifest replay record, and destination-fence touch in one
+  Redshift transaction.
+- Preserved whole-stream semantics for replace and SCD2 and deterministic cross-batch behavior for
+  SCD1, snapshot, and incremental writes.
+- Updated the exact runtime capability report and experimental Redshift documentation.
 
 ## Try It
 
-Run `uv run pytest -q tests/providers/test_snowflake_warehouse_runtime.py`.
+Run `uv run pytest -q tests/providers/test_redshift_warehouse_runtime.py tests/test_compatibility.py`.
 
 ## Checks
 
-- Focused Snowflake provider tests: 31 passed.
-- Ruff and mypy passed across 328 files and 304 source/test files; full pytest passed with 1,126
-  tests and 13 environment-dependent skips.
+- Focused Redshift and compatibility tests passed: 33 tests.
+- Ruff passed across 328 files, strict mypy passed across 304 source/test files, and full pytest
+  passed with 1,133 tests and 13 environment-dependent skips.
 - Wheel/sdist inspection and source-free installation, generation, and validation passed outside
   the checkout for both artifacts.
-- Terraform format/init/validation, three AWS Terraform tests, Helm lint/render, and Phase 1B
-  validation passed. Local Docker and PostgreSQL integration remain for protected Linux CI.
+- Terraform format/init/validation, bootstrap and Fargate Terraform tests, Helm lint/render, Phase
+  1B validation, and generated-project Terraform validation passed.
 - Independent adversarial completion review passed with no material findings.
+- Protected Linux CI still needs to repeat PostgreSQL integration, container, and security checks.
 
 ## Decisions
 
-- `ROWS_PRODUCED` is not mapped to `rows_read`; those Snowflake concepts are not equivalent.
-- Account Usage is not queried synchronously because its delayed data is unsuitable for run output.
-- Query-history failure cannot convert successful warehouse work into pipeline failure.
+- All five modes reuse one bounded Parquet/S3 manifest/COPY path instead of adding a transport.
+- Replace and SCD2 consume a complete logical stream; the other modes safely publish bounded batches.
+- This expands implemented capability only; Redshift remains experimental and unqualified live.
 
 ## Remaining
 
-- Push the focused PR and require protected Linux CI to repeat PostgreSQL, container, Terraform,
-  and security checks.
-- Measure the direct/COPY crossover during live Snowflake qualification.
-- Revisit view semantics only at the Phase 5.5 architecture checkpoint.
+- Push the focused PR, require protected CI, and merge only if clean.
+- Keep direct transport, `SUPER`, graphs, views, telemetry, and paid live proof in separate slices.
 
 ## Review First
 
-- `src/dander/providers/snowflake/session.py`
-- `src/dander/providers/snowflake/writer.py`
-- `tests/providers/test_snowflake_warehouse_runtime.py`
+- `src/dander/providers/redshift/writer.py`
+- `src/dander/providers/redshift/runtime.py`
+- `tests/providers/test_redshift_warehouse_runtime.py`

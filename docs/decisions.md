@@ -1015,3 +1015,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   selects query text, bind values, provider errors, or response payloads.
 - Missing history cannot fail a successful pipeline. Delayed account-usage cost attribution and
   misleading output-row-as-read-row mappings are explicitly excluded.
+
+## 2026-08-10 — Redshift writer modes share one fenced COPY publication path
+
+- **Selection:** The provider writer factory accepts replace, SCD1, SCD2, snapshot, and incremental
+  modes plus their existing mode-specific fields. Existing hosted ingestion still selects SCD1.
+- **Publication:** Bounded Parquet/S3 staging feeds mode-specific DML. Target mutation, exact replay
+  identity, and the destination-fence touch commit in one transaction; replace and SCD2 consume one
+  complete logical stream so batch boundaries cannot change their semantics.
+- **Boundary:** This is local conformance evidence, not a support promotion. Direct transport,
+  `SUPER`, graphs, views, infrastructure, and live Redshift qualification remain separate gates.

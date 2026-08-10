@@ -164,6 +164,8 @@ class _FakeCursor:
         elif compact.startswith("INSERT INTO") and "dander_stage_loads" in compact:
             self.rowcount = 0 if parameters[:5] in self.backend.history else 1
             self.backend.history.add(parameters[:5])
+        elif len(parameters) == 5 and compact.startswith(("DELETE FROM", "INSERT INTO", "UPDATE")):
+            self.rowcount = 0 if parameters in self.backend.history else self.backend.merge_rowcount
         elif compact.startswith("MERGE INTO"):
             self.rowcount = (
                 0 if parameters[:5] in self.backend.history else self.backend.merge_rowcount
@@ -338,7 +340,7 @@ def test_redshift_runtime_validates_connection_and_exposes_fenced_transforms(
     relation = RelationRef(catalog="analytics", namespace="raw", name="records")
 
     assert runtime.relation_codec.render(relation) == '"analytics"."raw"."records"'
-    assert runtime.capabilities.write_modes == frozenset({WriteMode.SCD1})
+    assert runtime.capabilities.write_modes == frozenset(WriteMode)
     assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
     assert runtime.capabilities.supports_transforms is True
     assert isinstance(
@@ -700,6 +702,199 @@ def test_redshift_stages_bounded_parts_merges_deterministically_and_cleans(
     assert len(touch_indexes) == 2
     assert touch_indexes[0] < sql.index(merge) < touch_indexes[1]
     assert sql[touch_indexes[0] - 1].startswith("LOCK ")
+
+
+@pytest.mark.parametrize(
+    ("mode", "field_name", "expected_sql"),
+    [
+        (
+            WriteMode.INCREMENTAL,
+            "updated_at",
+            '"updated_at" < "records"."updated_at"',
+        ),
+        (WriteMode.SNAPSHOT, "snapshot_at", "SELECT DISTINCT"),
+        (WriteMode.SCD2, None, '"valid_to" = SYSDATE'),
+        (WriteMode.REPLACE, None, 'DELETE FROM "raw"."records" WHERE NOT EXISTS'),
+    ],
+)
+def test_redshift_factory_reaches_each_additional_fenced_write_mode(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+    mode: WriteMode,
+    field_name: str | None,
+    expected_sql: str,
+) -> None:
+    runtime, backend, _s3, staging_root = redshift_runtime
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=2,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=mode,
+        cursor_field=field_name if mode is WriteMode.INCREMENTAL else None,
+        snapshot_field=field_name if mode is WriteMode.SNAPSHOT else None,
+    )
+    assert writer.mode is mode
+    assert writer.supports_batched_writes is (mode in {WriteMode.INCREMENTAL, WriteMode.SNAPSHOT})
+    assert writer.accepts_streaming_input is (mode in {WriteMode.SCD2, WriteMode.REPLACE})
+    relation = RelationRef(catalog="analytics", namespace="raw", name="records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id=f"redshift_{mode.value}",
+            run_id=f"run-{mode.value}",
+            token=5,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    schema = [
+        WriteField(name="id", data_type="STRING"),
+        WriteField(name="label", data_type="STRING"),
+    ]
+    record: dict[str, object] = {"id": "one", "label": "first"}
+    if field_name is not None:
+        schema.append(WriteField(name=field_name, data_type="INT64"))
+        record[field_name] = 2
+        backend.schema_rows.append((field_name, "bigint", None, None, None, "YES"))
+    if mode is WriteMode.SCD2:
+        backend.schema_rows = []
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=tuple(schema),
+        publication_fence=publication,
+    )
+
+    assert writer.write((record,), target) == backend.merge_rowcount
+
+    sql = [statement for _, statement, _ in backend.statements]
+    assert any(expected_sql in statement for statement in sql)
+    if mode is WriteMode.INCREMENTAL:
+        merge = next(statement for statement in sql if statement.startswith("MERGE INTO"))
+        prune = next(statement for statement in sql if statement.startswith("DELETE FROM"))
+        assert " USING " in prune
+        assert "WHEN MATCHED AND" not in merge
+        assert 'ORDER BY "updated_at" DESC NULLS LAST, "_dander_ordinal" DESC' in merge
+    if mode is WriteMode.SNAPSHOT:
+        snapshot = next(
+            statement
+            for statement in sql
+            if statement.startswith('INSERT INTO "raw"."records"')
+            and "SELECT DISTINCT" in statement
+        )
+        assert 'existing."label" IS NULL AND incoming."label" IS NULL' in snapshot
+    if mode is WriteMode.SCD2:
+        create = next(
+            statement
+            for statement in sql
+            if statement.startswith('CREATE TABLE IF NOT EXISTS "raw"."records"')
+        )
+        assert '"valid_from" TIMESTAMP NOT NULL' in create
+        assert '"valid_to" TIMESTAMP' in create
+        assert '"is_current" BOOLEAN NOT NULL' in create
+        close = next(
+            statement
+            for statement in sql
+            if statement.startswith('UPDATE "raw"."records" AS current')
+        )
+        insert = next(
+            statement
+            for statement in sql
+            if statement.startswith('INSERT INTO "raw"."records"') and '"valid_from"' in statement
+        )
+        assert "SYSDATE" in close and "SYSDATE" in insert
+        assert 'ORDER BY "_dander_ordinal" DESC' in close
+    assert not tuple(staging_root.iterdir())
+
+
+def test_redshift_replace_replay_is_guarded_by_the_complete_manifest(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=WriteMode.REPLACE,
+    )
+    target = _target(runtime, run_id="run-replace-replay")
+    original = ({"id": "one", "label": "first"},)
+
+    assert writer.write(original, target) == 1
+    assert writer.write(original, target) == 0
+    assert writer.write(({"id": "two", "label": "changed"},), target) == 1
+
+    mutations = [
+        (statement, parameters)
+        for _, statement, parameters in backend.statements
+        if statement.startswith(("DELETE FROM", "INSERT INTO"))
+        and "dander_stage_loads" not in statement
+        and len(parameters) == 5
+    ]
+    assert all("NOT EXISTS" in statement for statement, _ in mutations)
+    assert all(len(parameters) == 5 for _, parameters in mutations)
+    history_identities = [
+        parameters[:5]
+        for _, statement, parameters in backend.statements
+        if statement.startswith("INSERT INTO") and "dander_stage_loads" in statement
+    ]
+    assert history_identities[0] == history_identities[1]
+    assert history_identities[-1] != history_identities[1]
+
+
+def test_redshift_empty_replace_is_fenced_and_replay_safe(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, s3, _root = redshift_runtime
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=WriteMode.REPLACE,
+    )
+    target = _target(runtime, run_id="run-empty-replace")
+
+    assert writer.write((), target) == 1
+    assert writer.write((), target) == 0
+    assert not s3.uploads and not s3.puts
+    delete = next(
+        (statement, parameters)
+        for _, statement, parameters in backend.statements
+        if statement.startswith('DELETE FROM "raw"."records"')
+    )
+    assert "NOT EXISTS" in delete[0]
+    assert len(delete[1]) == 5
+
+
+def test_redshift_mode_specific_fields_fail_before_staging(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, s3, _root = redshift_runtime
+    connections = backend.connections
+    with pytest.raises(ValueError, match="incremental writes require cursor_field"):
+        runtime.writers.build_ingestion_writer(
+            sandbox=False,
+            batch_rows=1,
+            schema_evolution=SchemaEvolution.ADDITIVE,
+            mode=WriteMode.INCREMENTAL,
+        )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=WriteMode.SNAPSHOT,
+        snapshot_field="snapshot_at",
+    )
+    target = _target(runtime, run_id="run-null-snapshot")
+    target = WriteTarget(
+        relation=target.relation_ref,
+        business_key=target.business_key,
+        schema=(*target.schema, WriteField(name="snapshot_at", data_type="INT64")),
+        publication_fence=target.publication_fence,
+    )
+    with pytest.raises(RedshiftWriteError, match="null snapshot value"):
+        writer.write(({"id": "one", "label": "first", "snapshot_at": None},), target)
+    assert not s3.uploads and not s3.puts
+    assert backend.connections == connections + 1  # target-fence claim only
 
 
 def test_redshift_retry_identity_excludes_random_local_staging_id(

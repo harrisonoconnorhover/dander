@@ -77,7 +77,7 @@
     },
     {
       "provider": "redshift",
-      "write_modes": ["scd1"],
+      "write_modes": ["incremental", "replace", "scd1", "scd2", "snapshot"],
       "transports": ["copy"],
       "logical_types": ["binary", "boolean", "date", "decimal", "float", "integer", "string", "time", "timestamp"],
       "max_decimal_precision": 38,
@@ -85,7 +85,7 @@
       "supports_transforms": true,
       "supports_graphs": false,
       "supports_target_fencing": true,
-      "limitations": ["graph execution is not available", "only scd1 ingestion is implemented", "semi-structured types require a future explicit SUPER mapping"]
+      "limitations": ["graph execution is not available", "only COPY transport is implemented", "semi-structured types require a future explicit SUPER mapping"]
     },
     {
       "provider": "snowflake",
