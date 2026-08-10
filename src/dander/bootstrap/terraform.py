@@ -8,8 +8,12 @@ from decimal import Decimal, InvalidOperation
 from json import dumps
 from typing import TYPE_CHECKING
 
-from dander.deployment import ExecutionProjectionError, LauncherRuntime
+from dander.deployment import ExecutionProjectionError, LauncherRuntime, ResolvedTemplateRequest
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
+from dander.providers.gcp_launcher import (
+    GcpLauncherContext,
+    gcp_launcher_factory_context,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -177,20 +181,25 @@ class TerraformBootstrap:
                 launcher = build_launcher_runtime(
                     provider_id=launcher_provider,
                     region=region,
+                    gcp_context=GcpLauncherContext(
+                        project=project,
+                        require_guarded_free_tier=require_guarded_free_tier,
+                    ),
                 )
                 execution_projections = {
                     pipeline_id: template.as_dict()
                     for pipeline_id, template in launcher.templates.build(
-                        expanded_pipelines,
-                        image=container_image,
-                        project=project,
-                        cpu=runtime_cpu,
-                        memory=runtime_memory,
-                        deadline_seconds=runtime_timeout_seconds,
-                        launcher_retry_count=runtime_max_retries,
-                        batch_rows=runtime_batch_rows,
-                        require_guarded_free_tier=require_guarded_free_tier,
-                        alert_target=failure_alert_email or None,
+                        ResolvedTemplateRequest(
+                            pipelines=expanded_pipelines,
+                            image=container_image,
+                            profile_id="gcp",
+                            cpu=runtime_cpu,
+                            memory=runtime_memory,
+                            deadline_seconds=runtime_timeout_seconds,
+                            launcher_retry_count=runtime_max_retries,
+                            batch_rows=runtime_batch_rows,
+                            alert_target=failure_alert_email or None,
+                        )
                     ).items()
                 }
             except (ExecutionProjectionError, ProviderFactoryError) as error:
@@ -334,6 +343,7 @@ def build_launcher_runtime(
     provider_id: str | None = None,
     region: str | None = None,
     launcher_config: Mapping[str, object] | None = None,
+    gcp_context: GcpLauncherContext | None = None,
 ) -> LauncherRuntime:
     """Build one launcher through the shared lazy provider registry."""
     raw_config = dict(launcher_config or {})
@@ -346,7 +356,11 @@ def build_launcher_runtime(
         ProviderKind.LAUNCHER,
         raw_config,
     )
-    runtime = registry.build(ProviderKind.LAUNCHER, config)
+    runtime = registry.build(
+        ProviderKind.LAUNCHER,
+        config,
+        context=gcp_launcher_factory_context(gcp_context) if gcp_context is not None else None,
+    )
     if not isinstance(runtime, LauncherRuntime):
         raise ProviderFactoryError("Selected launcher provider returned an invalid runtime")
     return runtime

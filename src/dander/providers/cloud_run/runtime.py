@@ -10,8 +10,9 @@ from dander.deployment.projection import (
     ExecutionTemplate,
     build_gcp_execution_templates,
 )
-from dander.deployment.runtime import LauncherRuntime
+from dander.deployment.runtime import LauncherRuntime, ResolvedTemplateRequest
 from dander.providers.cloud_run.config import CloudRunLauncherConfig
+from dander.providers.gcp_launcher import GcpLauncherContext, require_gcp_launcher_context
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 
 if TYPE_CHECKING:
@@ -24,35 +25,23 @@ if TYPE_CHECKING:
 class CloudRunTemplateFactory:
     """Preserve the accepted GCP template projection behind a launcher boundary."""
 
-    def build(
-        self,
-        pipelines: Mapping[str, Mapping[str, object]],
-        *,
-        image: str,
-        project: str,
-        cpu: int,
-        memory: str,
-        deadline_seconds: int,
-        launcher_retry_count: int,
-        batch_rows: int,
-        require_guarded_free_tier: bool,
-        alert_target: str | None,
-        profile_id: str = "gcp",
-    ) -> dict[str, ExecutionTemplate]:
+    gcp: GcpLauncherContext
+
+    def build(self, request: ResolvedTemplateRequest) -> dict[str, ExecutionTemplate]:
         """Build byte-equivalent Cloud Run templates through the existing projector."""
-        if profile_id != "gcp":
+        if request.profile_id != "gcp":
             raise ValueError("Cloud Run compatibility projection requires profile_id='gcp'")
         return build_gcp_execution_templates(
-            pipelines,
-            image=image,
-            project=project,
-            cpu=cpu,
-            memory=memory,
-            deadline_seconds=deadline_seconds,
-            launcher_retry_count=launcher_retry_count,
-            batch_rows=batch_rows,
-            require_guarded_free_tier=require_guarded_free_tier,
-            alert_target=alert_target,
+            request.pipelines,
+            image=request.image,
+            project=self.gcp.project,
+            cpu=request.cpu,
+            memory=request.memory,
+            deadline_seconds=request.deadline_seconds,
+            launcher_retry_count=request.launcher_retry_count,
+            batch_rows=request.batch_rows,
+            require_guarded_free_tier=self.gcp.require_guarded_free_tier,
+            alert_target=request.alert_target,
         )
 
 
@@ -61,13 +50,13 @@ def build_cloud_run_launcher(
     context: Mapping[str, object],
 ) -> LauncherRuntime:
     """Build Cloud Run projection behavior only after launcher selection."""
-    del context
     if not isinstance(config, CloudRunLauncherConfig):
         raise TypeError("Cloud Run launcher factory received the wrong configuration")
+    gcp = require_gcp_launcher_context(context)
     return LauncherRuntime(
         provider_id="cloud_run",
         region=config.region,
-        templates=CloudRunTemplateFactory(),
+        templates=CloudRunTemplateFactory(gcp),
         capabilities=CLOUD_RUN_CAPABILITIES,
     )
 

@@ -1123,3 +1123,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Qualification:** Throughput, crossover, incremental-at-scale, concurrency, cost, soak, pairwise
   profiles, and release qualification remain mandatory Phase 8 work rather than Phase 5 correctness
   evidence.
+
+## 2026-08-10 — Launcher factories consume one provider-neutral resolved request
+
+- **Contract:** `ExecutionTemplateFactory` accepts one frozen `ResolvedTemplateRequest`; its nested
+  pipeline containers are copied into read-only equivalents at construction.
+- **Provider context:** Cloud Run and Fargate capture typed GCP project and guarded-free-tier values
+  when their selected factories are built. Kubernetes projection no longer receives placeholder
+  GCP arguments.
+- **Boundary:** The existing Cloud Run compatibility projector remains authoritative, and Fargate
+  and Kubernetes retain their prior fail-closed behavior. No configuration schema, launcher output,
+  provider capability, warehouse behavior, or cloud implementation changes.

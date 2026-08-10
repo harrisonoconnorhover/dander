@@ -20,8 +20,9 @@ from dander.deployment.projection import (
     SecretReference,
     validate_launcher_projection,
 )
-from dander.deployment.runtime import LauncherRuntime
+from dander.deployment.runtime import LauncherRuntime, ResolvedTemplateRequest
 from dander.providers.fargate.config import FargateLauncherConfig
+from dander.providers.gcp_launcher import GcpLauncherContext, require_gcp_launcher_context
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.runtime_contract import RUNTIME_CONTRACT
 
@@ -37,34 +38,21 @@ class FargateTemplateFactory:
     """Build the GCP data-plane profile for an AWS Fargate launcher."""
 
     config: FargateLauncherConfig
+    gcp: GcpLauncherContext
 
-    def build(
-        self,
-        pipelines: Mapping[str, Mapping[str, object]],
-        *,
-        image: str,
-        project: str,
-        cpu: int,
-        memory: str,
-        deadline_seconds: int,
-        launcher_retry_count: int,
-        batch_rows: int,
-        require_guarded_free_tier: bool,
-        alert_target: str | None,
-        profile_id: str = "gcp",
-    ) -> dict[str, ExecutionTemplate]:
+    def build(self, request: ResolvedTemplateRequest) -> dict[str, ExecutionTemplate]:
         """Build fail-closed Fargate templates for the portable BigQuery proof."""
-        if profile_id != "gcp":
+        if request.profile_id != "gcp":
             raise ExecutionProjectionError("Fargate compatibility projection requires gcp")
-        if require_guarded_free_tier:
+        if self.gcp.require_guarded_free_tier:
             raise ExecutionProjectionError("Fargate cannot run the GCP guarded-free-tier preflight")
-        if _GCP_PROJECT.fullmatch(project) is None:
+        if _GCP_PROJECT.fullmatch(self.gcp.project) is None:
             raise ExecutionProjectionError("invalid GCP project identifier")
-        memory_mib = _memory_mib(memory)
-        cpu_millis = cpu * 1_000
+        memory_mib = _memory_mib(request.memory)
+        cpu_millis = request.cpu * 1_000
         _validate_fargate_size(cpu_millis=cpu_millis, memory_mib=memory_mib)
         templates: dict[str, ExecutionTemplate] = {}
-        for pipeline_id, pipeline in sorted(pipelines.items()):
+        for pipeline_id, pipeline in sorted(request.pipelines.items()):
             role_name = str(pipeline["runtime_service_account_id"])
             if _ROLE_NAME.fullmatch(role_name) is None:
                 raise ExecutionProjectionError("invalid Fargate task role name")
@@ -86,7 +74,7 @@ class FargateTemplateFactory:
                 "--models-dir",
                 "/app/models",
                 "--batch-rows",
-                str(batch_rows),
+                str(request.batch_rows),
             )
             if bool(pipeline["build_models"]):
                 command = (*command, "--catalog-output", "/tmp/dander-catalog.json")
@@ -96,7 +84,7 @@ class FargateTemplateFactory:
                 pipeline_id=pipeline_id,
                 profile_id="gcp",
                 launcher="fargate",
-                image=image,
+                image=request.image,
                 command=command,
                 configuration_reference="/app/dander.yaml",
                 environment=tuple(
@@ -106,16 +94,16 @@ class FargateTemplateFactory:
                             "AWS_REGION": self.config.region,
                             "BQ_DATASET_METADATA": "dander_meta",
                             "BQ_DATASET_RAW": "raw",
-                            "DANDER_IMAGE_DIGEST": image.rsplit("@", maxsplit=1)[-1],
+                            "DANDER_IMAGE_DIGEST": request.image.rsplit("@", maxsplit=1)[-1],
                             "DANDER_GCP_SERVICE_ACCOUNT": (
-                                f"{role_name}@{project}.iam.gserviceaccount.com"
+                                f"{role_name}@{self.gcp.project}.iam.gserviceaccount.com"
                             ),
                             "DANDER_GCP_WIF_AUDIENCE": (
                                 self.config.google_workload_identity_audience
                             ),
                             "DANDER_LAUNCHER": "fargate",
                             "DANDER_PRINCIPAL": identity,
-                            "GCP_PROJECT_ID": project,
+                            "GCP_PROJECT_ID": self.gcp.project,
                             "HOME": "/tmp",
                             "TMPDIR": "/tmp",
                         }.items()
@@ -127,7 +115,8 @@ class FargateTemplateFactory:
                         SecretReference(
                             provider="gcp_secret_manager",
                             reference=(
-                                f"gcp-sm://projects/{project}/secrets/{secret_id}/versions/latest"
+                                f"gcp-sm://projects/{self.gcp.project}/secrets/"
+                                f"{secret_id}/versions/latest"
                             ),
                         ),
                     )
@@ -138,9 +127,9 @@ class FargateTemplateFactory:
                     cpu_millis=cpu_millis,
                     memory_mib=memory_mib,
                     ephemeral_storage_mib=self.config.ephemeral_storage_mib,
-                    deadline_seconds=deadline_seconds,
+                    deadline_seconds=request.deadline_seconds,
                     runtime_retry_count=0,
-                    launcher_retry_count=launcher_retry_count,
+                    launcher_retry_count=request.launcher_retry_count,
                 ),
                 schedule=ScheduleProjection(
                     task_count=1,
@@ -158,14 +147,14 @@ class FargateTemplateFactory:
                 ),
                 labels=(
                     ("dander_version", __version__),
-                    ("image_digest", image.rsplit("@", maxsplit=1)[-1]),
+                    ("image_digest", request.image.rsplit("@", maxsplit=1)[-1]),
                     ("pipeline", pipeline_id),
                     ("profile", "gcp"),
                 ),
                 observability=ObservabilityProjection(
                     log_destination="cloudwatch_logs",
                     metric_namespace="Dander",
-                    alert_target=alert_target,
+                    alert_target=request.alert_target,
                     retention_days=30,
                 ),
                 extensions=(
@@ -187,13 +176,13 @@ def build_fargate_launcher(
     context: Mapping[str, object],
 ) -> LauncherRuntime:
     """Build Fargate projection behavior only after launcher selection."""
-    del context
     if not isinstance(config, FargateLauncherConfig):
         raise TypeError("Fargate launcher factory received the wrong configuration")
+    gcp = require_gcp_launcher_context(context)
     return LauncherRuntime(
         provider_id="fargate",
         region=config.region,
-        templates=FargateTemplateFactory(config),
+        templates=FargateTemplateFactory(config, gcp),
         capabilities=FARGATE_CAPABILITIES,
     )
 
