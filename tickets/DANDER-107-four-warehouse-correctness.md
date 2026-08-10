@@ -28,7 +28,7 @@ their individual capabilities but do not compare one shared fixture.
 - [ ] Same protected-main live evidence from all four providers compares equal under reviewed
       ceilings.
 - [ ] Retained GCP no-drift passes after the live executions.
-- [ ] Protected CI passes.
+- [x] Protected CI passes.
 
 ## Design
 
@@ -47,5 +47,6 @@ approval arguments before any mutation.
 
 ## Review Log
 
-Implementation review and protected CI remain required. The live comparison and post-run GCP
-no-drift evidence remain an explicit Phase 5 blocker.
+Implementation review and protected CI passed on PR #182 at commit
+`f1033f6652fd5deaef3778436468d2ea39b31e5c`. The live comparison and post-run GCP no-drift
+evidence remain an explicit Phase 5 blocker.

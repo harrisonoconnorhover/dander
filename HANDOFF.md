@@ -17,7 +17,7 @@ Run `.venv/bin/pytest -q tests/portability/test_warehouse_correctness.py`.
 - Full local pytest suite passes with expected opt-in skips.
 - Ruff lint/format and focused strict mypy checks pass.
 - Release metadata, wheel/sdist build, distribution inspection, and artifact inclusion pass.
-- Protected CI remains required.
+- Protected CI passed on PR #182 at implementation commit `f1033f66`.
 
 ## Decisions
 
