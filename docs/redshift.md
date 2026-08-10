@@ -24,6 +24,8 @@ platforms:
       cluster_identifier: dander-test
       copy_role_arn: arn:aws:iam::123456789012:role/DanderRedshiftCopy
       staging_bucket: dander-redshift-staging
+      direct_max_rows: 0
+      direct_max_logical_bytes: 0
     state:
       provider: postgresql
       authority_id: postgresql:redshift-test
@@ -37,11 +39,20 @@ Serverless uses `deployment: serverless` and `workgroup_name` instead of `cluste
 `db_user`. Dander obtains temporary IAM credentials from the ordinary AWS SDK chain. The configured
 COPY role must read the dedicated same-region staging prefix.
 
+COPY remains the default. Set both direct limits to positive values to opt small complete endpoint
+streams into bounded parameterized inserts; for example, `direct_max_rows: 1000` and
+`direct_max_logical_bytes: 1048576`. Dander selects direct loading only after the entire stream
+fits both limits. Otherwise it falls back once to the existing Parquet/S3/COPY path without losing
+the inspected prefix. The S3 bucket and COPY role remain required because they handle that fallback.
+
 ## Current contract
 
 - `database + schema + relation` become one canonical `RelationRef`; GCP aliases are not used.
-- Bounded, checksummed Parquet parts load through a mandatory same-region S3 manifest and `COPY`.
-- Replace, SCD1, SCD2, snapshot, and incremental publication reuse the same bounded COPY path.
+- Bounded, checksummed Parquet parts load through a mandatory same-region S3 manifest and `COPY` by
+  default. An explicit paired threshold can select bounded parameterized inserts for a complete
+  small endpoint without contacting S3.
+- Replace, SCD1, SCD2, snapshot, and incremental publication reuse the same fenced publication path
+  after either direct or COPY staging.
 - Every mode's target mutation, replay history, and exact destination fencing-token touch commit
   together.
 - SCD1 and incremental input is deterministically de-duplicated by business key; incremental writes
@@ -66,16 +77,19 @@ COPY role must read the dedicated same-region staging prefix.
 
 ## Deliberate limits
 
-Scalar fields and explicit JSON-to-`SUPER` fallback are implemented for COPY ingestion and
+Scalar fields and explicit JSON-to-`SUPER` fallback are implemented for direct/COPY ingestion and
 table/incremental models. `SUPER` fields cannot be business keys, cursors, or snapshot fields.
-ARRAY/RECORD fallbacks remain unavailable, and the current staged-row guard is 4 MB even though the
-declared VARBYTE/SUPER boundary is larger. The ordinary hosted source runner still selects SCD1.
+ARRAY/RECORD fallbacks remain unavailable. COPY retains its 4 MB staged-row guard, while an
+explicitly bounded direct load may use the declared 16 MB VARBYTE/SUPER boundary. The ordinary
+hosted source runner still selects SCD1.
 Graph execution retains the shared single-connector, replace-target-only boundary; safe casts fail
 preflight because Redshift cannot yet preserve their canonical semantics. Views, live concurrency
 proof, infrastructure provisioning, and support promotion remain separate work. Use
 `catalog.provider: none` for this experimental path.
 
 Telemetry is best-effort and never carries SQL text, error text, S3 locations, or record data.
+Direct-load telemetry uses exact local row/byte/duration counters and deliberately has no query ID;
+DB-API `executemany` does not provide one honest Redshift query ID for the complete batch.
 Multi-statement fenced publication and assertion operations report local duration and affected-row
 counters without claiming a potentially incorrect Redshift query ID. Missing or delayed system
 history leaves those base counters unchanged.

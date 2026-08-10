@@ -103,7 +103,7 @@ class RedshiftSchemaMapper:
 
 @dataclass(frozen=True, slots=True)
 class RedshiftWriterFactory:
-    """Construct Redshift's bounded Parquet/COPY ingestion writer."""
+    """Construct Redshift's bounded direct-or-Parquet/COPY ingestion writer."""
 
     database: str
     connection_factory: RedshiftConnectionFactory
@@ -224,7 +224,7 @@ REDSHIFT_CAPABILITIES = WarehouseCapabilities(
     provider_id="redshift",
     schema_contract_version=1,
     write_modes=frozenset(WriteMode),
-    transports=frozenset({WriteTransport.COPY}),
+    transports=frozenset({WriteTransport.COPY, WriteTransport.DIRECT}),
     supports_transforms=True,
     supports_graphs=True,
     supports_target_fencing=True,
@@ -287,6 +287,8 @@ def build_redshift_warehouse(
         max_logical_bytes_per_file=config.max_logical_bytes_per_file,
         compression=config.compression,
         statement_timeout_ms=config.statement_timeout_ms,
+        direct_max_rows=config.direct_max_rows,
+        direct_max_logical_bytes=config.direct_max_logical_bytes,
     )
     supplied_root = context.get("staging_root")
     if supplied_root is not None:
@@ -302,6 +304,8 @@ def build_redshift_warehouse(
             max_logical_bytes_per_file=staging.max_logical_bytes_per_file,
             compression=staging.compression,
             statement_timeout_ms=staging.statement_timeout_ms,
+            direct_max_rows=staging.direct_max_rows,
+            direct_max_logical_bytes=staging.direct_max_logical_bytes,
         )
     schema_mapper = RedshiftSchemaMapper()
     return WarehouseRuntime(

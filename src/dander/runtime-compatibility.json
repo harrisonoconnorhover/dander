@@ -78,14 +78,14 @@
     {
       "provider": "redshift",
       "write_modes": ["incremental", "replace", "scd1", "scd2", "snapshot"],
-      "transports": ["copy"],
+      "transports": ["copy", "direct"],
       "logical_types": ["binary", "boolean", "date", "decimal", "float", "integer", "string", "time", "timestamp"],
       "max_decimal_precision": 38,
       "max_temporal_precision": 6,
       "supports_transforms": true,
       "supports_graphs": true,
       "supports_target_fencing": true,
-      "limitations": ["JSON requires the explicit redshift/fallback=super field extension", "graph safe-cast semantics are not available", "only COPY transport is implemented"]
+      "limitations": ["JSON requires the explicit redshift/fallback=super field extension", "direct thresholds default to disabled until the live crossover is measured", "graph safe-cast semantics are not available"]
     },
     {
       "provider": "snowflake",
