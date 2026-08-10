@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Accepted the experimental PostgreSQL/Kubernetes profile through a complete local existing-cluster lifecycle.
-- Added immutable image validation for local registries with numeric ports.
-- Proved source-free installation, non-root execution, replay, updates, models, assertions, metadata, and fencing.
-- Proved reviewed schedule change, Helm rollback, read-only verification, and complete local cleanup.
-- Recorded exact artifact digests, environment versions, results, exclusions, and retained GCP no-drift evidence.
+- Passed the disposable-account Snowflake qualification across all five write modes.
+- Proved bounded direct and Parquet paths, transforms, graph execution, replay, and fencing.
+- Replaced the reserved `CURRENT` SQL alias with `target_row` and added regressions.
+- Dropped every qualification object and deleted the temporary RSA key.
+- Recorded sanitized acceptance evidence while keeping support experimental.
 
 ## Try It
 
-Run `uv run pytest -q tests/deployment/test_execution_projection.py tests/infra/test_kubernetes_chart.py`.
-The bounded lifecycle evidence is in `docs/cloud-portability-postgresql-kubernetes-acceptance.md`.
+Run `uv run pytest -q tests/providers/test_snowflake_warehouse_runtime.py
+tests/portability/test_snowflake_qualification.py`. Live setup remains an explicitly approved,
+operator-managed prerequisite described in `docs/snowflake.md`.
 
 ## Checks
 
-- Ruff, formatting, strict mypy, and all 1,195 tests passed; PostgreSQL integration used PostgreSQL 15.
-- Dependency audit, wheel/sdist inspection, source-free installs, and runtime-all import passed.
-- Non-root read-only container conformance and packaged proof-asset checks passed.
-- Terraform roots/tests and Helm lint/template validation passed.
-- Fresh retained GCP stage-zero and platform plans each reported exactly `No changes.`
+- Live qualification passed in 93.05163 seconds.
+- All five qualification objects returned zero matches after teardown.
+- Ruff, formatting, strict mypy, and all 1,205 tests passed with PostgreSQL 15.
+- Wheel, sdist, source-free installs, runtime-all install, and generated-project validation passed.
+- Terraform validation/tests, Helm checks, and non-root/read-only container conformance passed.
+- The locked runtime dependency audit found no known vulnerabilities.
 
 ## Decisions
 
-- Treat kind as valid existing-cluster lifecycle evidence, not hosted-provider or scale qualification.
-- Preserve TLS-required PostgreSQL behavior; fix the disposable fixture rather than weakening Dander.
-- Keep PostgreSQL/Kubernetes experimental and explicitly leave overlap, interruption, and alerts unevaluated.
+- Treat `target_row` as the generated SQL alias; `CURRENT` is reserved in Snowflake.
+- Preserve experimental status until provisioning and remaining first-class gates pass.
+- Record cost as `not_measured`; do not infer account-wide spend from same-session history.
 
 ## Remaining
 
-- Let protected CI repeat Linux PostgreSQL, packaging, image, secret, Terraform, and Helm checks.
-- Merge only if completion review and required checks remain clean.
-- Begin the Snowflake/Redshift phase only after this gate closes.
+- Push the branch and let protected CI repeat Linux and unavailable local security scans.
+- Merge only through the normal protected-main review process.
 
 ## Review First
 
-- `src/dander/deployment/projection.py`
-- `infra/kubernetes/chart/dander/values.schema.json`
-- `docs/cloud-portability-postgresql-kubernetes-acceptance.md`
+- `src/dander/providers/snowflake/fence.py`
+- `src/dander/providers/snowflake/writer.py`
+- `docs/cloud-portability-snowflake-qualification.md`

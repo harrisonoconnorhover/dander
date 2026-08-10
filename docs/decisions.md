@@ -1088,3 +1088,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   replay identity, five write modes, schema checks, and fenced publication transaction as COPY.
 - **Telemetry:** Direct loads report exact local rows, logical bytes, and duration without a query
   ID or system-history enrichment because `executemany` has no whole-batch Redshift query identity.
+
+## 2026-08-10 — Snowflake qualification mutates one disposable schema only
+
+- **Correctness:** Dander selects the fully qualified target schema immediately before direct qmark
+  binding because the Snowflake connector may use its current schema for `SYSTEM$BIND` staging.
+  JSON-to-`VARIANT` fields cannot define business keys, incremental cursors, or snapshot identity.
+- **Proof boundary:** One opt-in harness forces direct and multi-part `COPY` paths, all five writer
+  modes, replay, monotonic cursors, concurrent stale-fence rejection, graph execution, readback, and
+  cleanup in a random `DANDER_QUAL_*` schema.
+- **Exclusions:** The harness never provisions an account, database, warehouse, role, or monitor;
+  it makes no performance, cost, support, or release claim before a separately approved live run.

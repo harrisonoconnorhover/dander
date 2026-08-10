@@ -31,3 +31,18 @@ support.
 
 This ticket adds no Snowflake transforms, graphs, semi-structured fields, other write modes,
 Terraform, live deployment, package publication, or support-status promotion.
+
+## Subsequent qualification slices
+
+Later focused PRs added all five scalar writer modes, explicit JSON-to-`VARIANT`, fenced portable
+models and graphs, bounded direct/COPY selection, and operation telemetry. Before live execution,
+the qualification slice also:
+
+- [x] selects the target schema explicitly before connector-managed direct binding;
+- [x] rejects `VARIANT` fields as keys, cursors, or snapshot identity;
+- [x] provides a disposable-schema live harness with sanitized output and exact cleanup;
+- [ ] records a real Snowflake execution under an approved paid-test ceiling; and
+- [ ] compares its normalized results with the shared cross-warehouse conformance dataset.
+
+Until those final two items pass, Snowflake remains experimental and direct thresholds retain their
+zero defaults.

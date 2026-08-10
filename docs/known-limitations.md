@@ -13,8 +13,10 @@ evaluate these limits before using it for an unattended system containing busine
   Redshift, AWS, Azure, or OCI profiles. Snowflake has an experimental adapter with all five writer
   modes behind its provider capability, bounded direct/Parquet paths, temporary remote staging,
   schema checks, destination fencing, fenced table/incremental transforms, and fenced replace-mode
-  graph targets. The ordinary hosted source runner still selects SCD1, and Snowflake has no live
-  qualification, views, ARRAY/RECORD fallback, measured direct-write crossover, or synchronous
+  graph targets. Its disposable-account qualification covered all five modes, direct and Parquet
+  paths, transforms, graph execution, replay, stale fencing, concurrent claims, and cleanup. The
+  ordinary hosted source runner still selects SCD1, and Snowflake has no views, ARRAY/RECORD
+  fallback, measured direct-write crossover, infrastructure provisioning, or synchronous
   total-credit attribution. Same-session query-history enrichment is best-effort and bounded to
   the most recent 1,000 operation IDs per writer or transform session.
   Redshift has an experimental, locally conformance-tested scalar adapter with all five writer
