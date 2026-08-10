@@ -130,8 +130,10 @@ incremental publication rejects cursor regression. Snapshot comparison is null-s
 empty-source safe, and SCD2 uses transaction-stable validity timestamps. Every materialization is
 claimed and published through its destination target fence. The local native-profile proof covers
 bounded ingestion, replay, transforms, assertions, metadata, run history, watermarks, and leases.
-The ordinary hosted source runner still selects SCD1, and graph execution remains follow-up work.
-The packaged existing-cluster Kubernetes/Helm launcher can
+Replace-mode graphs render the provider-neutral relational AST as PostgreSQL SQL and publish stable
+targets inside the same destination-fence transaction. Cross-database source or target coordinates
+and graph safe casts fail before provider mutation. The ordinary hosted source runner still selects
+SCD1. The packaged existing-cluster Kubernetes/Helm launcher can
 render and verify this profile without cloud-specific identity assumptions, but no live cluster
 qualification has passed. Until that acceptance does, this adapter must not be represented as a
 supported hosted PostgreSQL deployment. See [Kubernetes existing-cluster launcher](kubernetes.md).

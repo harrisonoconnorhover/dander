@@ -6,6 +6,7 @@ import hashlib
 import os
 import sys
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, cast
@@ -15,19 +16,29 @@ from psycopg import Connection, sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from dander.concurrency import FencingToken
+from dander.concurrency import FencingToken, TargetFenceLostError
 from dander.ingestion.source import Endpoint, RawField, Source, SourceConfig
+from dander.pipeline.graph import PipelineGraph
+from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderKind, default_provider_registry
 from dander.providers.postgresql.config import PostgreSQLWarehouseConfig
+from dander.providers.postgresql.transform import PostgreSQLGraphRunner
 from dander.providers.postgresql.writer import PostgreSQLWriteError
 from dander.runtime import PipelineRunner
 from dander.state import WatermarkStore
 from dander.telemetry import TelemetryOperation
-from dander.warehouse import LogicalTypeKind, RelationRef, WarehouseRuntime
+from dander.warehouse import (
+    CanonicalType,
+    LogicalTypeKind,
+    RelationRef,
+    RelationSchema,
+    WarehouseRuntime,
+)
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget, WriteTransport
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
+    from pathlib import Path
 
 PostgreSQLRow = dict[str, Any]
 PostgreSQLPool = ConnectionPool[Connection[PostgreSQLRow]]
@@ -81,9 +92,10 @@ class _NoWatermarks(WatermarkStore):
 class _Ownership:
     def __init__(self, fence: FencingToken) -> None:
         self.fence = fence
+        self.verifications = 0
 
     def verify(self) -> None:
-        return None
+        self.verifications += 1
 
 
 def test_postgresql_warehouse_registration_is_lazy_and_explicit() -> None:
@@ -217,6 +229,7 @@ def test_postgresql_runtime_exposes_codec_schema_capabilities_and_telemetry(
     assert runtime.capabilities.write_modes == frozenset(WriteMode)
     assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
     assert runtime.capabilities.supports_transforms is True
+    assert runtime.capabilities.supports_graphs is True
     assert telemetry.rows_affected == 9
 
 
@@ -749,3 +762,337 @@ def test_postgresql_scd2_closes_changed_rows_and_replays_without_new_versions(
         {"id": "one", "label": "first", "is_current": False, "closed": True},
         {"id": "one", "label": "second", "is_current": True, "closed": False},
     ]
+
+
+def _postgresql_graph_plan(
+    database: str,
+    schema_name: str,
+    *,
+    include_unsupported_target: bool = False,
+) -> GraphExecutionPlan:
+    source = SourceConfig(
+        name="fixture",
+        base_url="https://example.test",
+        auth_strategy="none",
+        endpoints=[
+            Endpoint(
+                name="records",
+                path="/records",
+                primary_key=["id"],
+                raw_schema=[
+                    RawField(name="id", data_type="STRING"),
+                    RawField(name="label", data_type="STRING"),
+                ],
+            )
+        ],
+    )
+    targets: list[dict[str, object]] = [
+        {
+            "id": "target",
+            "type": "target",
+            "name": "Target",
+            "config": {
+                "writer": {
+                    "write_mode": "replace",
+                    "destination": {
+                        "dataset": schema_name,
+                        "table": "graph_records",
+                        "business_key": [],
+                    },
+                }
+            },
+            "fields": [
+                {"name": "id", "type": "STRING"},
+                {"name": "label", "type": "STRING"},
+            ],
+        }
+    ]
+    edges: list[dict[str, object]] = [
+        {
+            "from": "records",
+            "to": "target",
+            "mappings": [
+                {"source": "id", "target": "id"},
+                {"source": "label", "target": "label"},
+            ],
+        }
+    ]
+    if include_unsupported_target:
+        targets.append(
+            {
+                "id": "unsupported",
+                "type": "target",
+                "name": "Unsupported",
+                "config": {
+                    "writer": {
+                        "write_mode": "replace",
+                        "destination": {
+                            "dataset": schema_name,
+                            "table": "unsupported_records",
+                            "business_key": [],
+                        },
+                    }
+                },
+                "fields": [
+                    {"name": "id", "type": "STRING", "cast_to": "STRING"},
+                    {"name": "label", "type": "STRING"},
+                ],
+            }
+        )
+        edges.append(
+            {
+                "from": "records",
+                "to": "unsupported",
+                "mappings": [
+                    {"source": "id", "target": "id"},
+                    {"source": "label", "target": "label"},
+                ],
+            }
+        )
+    graph = PipelineGraph.model_validate(
+        {
+            "name": "postgresql_graph",
+            "nodes": [
+                {
+                    "id": "records",
+                    "type": "source",
+                    "name": "Records",
+                    "config": {"connector": "fixture", "endpoint": "records"},
+                    "fields": [
+                        {"name": "id", "type": "STRING"},
+                        {"name": "label", "type": "STRING"},
+                    ],
+                },
+                *targets,
+            ],
+            "edges": edges,
+        }
+    )
+    return plan_graph_execution(
+        graph,
+        source,
+        endpoint_relations={
+            "records": RelationRef(
+                catalog=database,
+                namespace=schema_name,
+                name="fixture_records",
+            )
+        },
+    )
+
+
+def _graph_fence(run_id: str, token: int) -> FencingToken:
+    return FencingToken(
+        lease_table=None,
+        pipeline_id="postgresql_graph",
+        run_id=run_id,
+        token=token,
+        authority_id="postgresql:test-state",
+    )
+
+
+def _create_graph_source(pool: PostgreSQLPool, schema_name: str) -> None:
+    with pool.connection() as connection:
+        connection.execute(
+            sql.SQL("CREATE TABLE {} (id TEXT, label TEXT)").format(
+                sql.Identifier(schema_name, "fixture_records")
+            )
+        )
+        connection.execute(
+            sql.SQL("INSERT INTO {} (id, label) VALUES (%s, %s), (%s, %s)").format(
+                sql.Identifier(schema_name, "fixture_records")
+            ),
+            ("one", "first", "two", "second"),
+        )
+
+
+def test_postgresql_graph_replaces_and_replays_canonical_plan(
+    tmp_path: Path,
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    runtime, pool, database, schema_name = postgresql_warehouse
+    _create_graph_source(pool, schema_name)
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=_postgresql_graph_plan(database, schema_name),
+        build_models=True,
+    )
+    assert isinstance(runner, PostgreSQLGraphRunner)
+    ownership = _Ownership(_graph_fence("run-graph-one", 1))
+
+    result = runner.build(tmp_path, ownership=ownership)
+
+    assert result.models == ("target",)
+    assert result.assertions == 0
+    assert ownership.verifications == 2
+    with pool.connection() as connection:
+        first = connection.execute(
+            sql.SQL("SELECT id, label FROM {} ORDER BY id").format(
+                sql.Identifier(schema_name, "graph_records")
+            )
+        ).fetchall()
+        connection.execute(
+            sql.SQL("DELETE FROM {}").format(sql.Identifier(schema_name, "fixture_records"))
+        )
+        connection.execute(
+            sql.SQL("INSERT INTO {} (id, label) VALUES (%s, %s)").format(
+                sql.Identifier(schema_name, "fixture_records")
+            ),
+            ("two", "replayed"),
+        )
+    assert first == [
+        {"id": "one", "label": "first"},
+        {"id": "two", "label": "second"},
+    ]
+
+    replay = _Ownership(_graph_fence("run-graph-two", 2))
+    assert runner.build(tmp_path, ownership=replay).models == ("target",)
+    with pool.connection() as connection:
+        rows = connection.execute(
+            sql.SQL("SELECT id, label FROM {} ORDER BY id").format(
+                sql.Identifier(schema_name, "graph_records")
+            )
+        ).fetchall()
+    assert rows == [{"id": "two", "label": "replayed"}]
+
+
+def test_postgresql_graph_preflights_every_target_and_source_catalog_before_mutation(
+    tmp_path: Path,
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    runtime, pool, database, schema_name = postgresql_warehouse
+    unsupported = runtime.transforms.build_transform_runner(
+        graph_plan=_postgresql_graph_plan(
+            database,
+            schema_name,
+            include_unsupported_target=True,
+        ),
+        build_models=True,
+    )
+    assert isinstance(unsupported, PostgreSQLGraphRunner)
+    with pytest.raises(GraphRuntimeError, match="safe-cast semantics"):
+        unsupported.build(tmp_path, ownership=_Ownership(_graph_fence("run-preflight", 3)))
+
+    plan = _postgresql_graph_plan(database, schema_name)
+    compiled = plan.targets[0]
+    precision_schema = RelationSchema(
+        fields=(
+            compiled.target.canonical_schema.fields[0].model_copy(
+                update={
+                    "data_type": CanonicalType(
+                        kind=LogicalTypeKind.TIMESTAMP,
+                        with_timezone=True,
+                        fractional_second_precision=7,
+                    )
+                }
+            ),
+            *compiled.target.canonical_schema.fields[1:],
+        )
+    )
+    precision_target = WriteTarget(
+        relation=compiled.target.relation_ref,
+        business_key=compiled.target.business_key,
+        schema=compiled.target.schema,
+        declared_schema=precision_schema,
+    )
+    precision_plan = replace(
+        plan,
+        targets=(replace(compiled, target=precision_target),),
+    )
+    precision_runner = runtime.transforms.build_transform_runner(
+        graph_plan=precision_plan,
+        build_models=True,
+    )
+    assert isinstance(precision_runner, PostgreSQLGraphRunner)
+    with pytest.raises(GraphRuntimeError, match="temporal precision up to 6"):
+        precision_runner.build(
+            tmp_path,
+            ownership=_Ownership(_graph_fence("run-precision", 4)),
+        )
+
+    foreign = replace(
+        plan,
+        bindings=replace(
+            plan.bindings,
+            source_relations={
+                "records": RelationRef(
+                    catalog="other_database",
+                    namespace=schema_name,
+                    name="fixture_records",
+                )
+            },
+        ),
+    )
+    runner = runtime.transforms.build_transform_runner(graph_plan=foreign, build_models=True)
+    assert isinstance(runner, PostgreSQLGraphRunner)
+    with pytest.raises(GraphRuntimeError, match="source belongs to another database"):
+        runner.build(tmp_path, ownership=_Ownership(_graph_fence("run-foreign", 5)))
+
+    with pool.connection() as connection:
+        rows = connection.execute(
+            "SELECT relname FROM pg_catalog.pg_class AS relation "
+            "JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace "
+            "WHERE namespace.nspname = %s AND relation.relname IN "
+            "('graph_records', 'unsupported_records', 'dander_target_commits')",
+            (schema_name,),
+        ).fetchall()
+    assert rows == []
+
+
+def test_postgresql_graph_selection_ownership_and_factory_fail_closed(
+    tmp_path: Path,
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    runtime, _pool, database, schema_name = postgresql_warehouse
+    with pytest.raises(TypeError, match="graph plan has the wrong type"):
+        runtime.transforms.build_transform_runner(graph_plan=object(), build_models=False)
+    assert runtime.transforms.build_transform_runner(graph_plan=None, build_models=False) is None
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=_postgresql_graph_plan(database, schema_name),
+        build_models=False,
+    )
+    assert isinstance(runner, PostgreSQLGraphRunner)
+    ownership = _Ownership(_graph_fence("run-selection", 5))
+    with pytest.raises(GraphRuntimeError, match="Unknown graph target"):
+        runner.build(tmp_path, selected=["missing"], ownership=ownership)
+    with pytest.raises(GraphRuntimeError, match="selected no targets"):
+        runner.build(tmp_path, selected=[], ownership=ownership)
+    with pytest.raises(GraphRuntimeError, match="requires active lease ownership"):
+        runner.build(tmp_path)
+
+
+def test_postgresql_graph_stale_fence_rolls_back_target_publication(
+    tmp_path: Path,
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    runtime, pool, database, schema_name = postgresql_warehouse
+    _create_graph_source(pool, schema_name)
+    plan = _postgresql_graph_plan(database, schema_name)
+    runner = runtime.transforms.build_transform_runner(graph_plan=plan, build_models=True)
+    assert isinstance(runner, PostgreSQLGraphRunner)
+
+    class _SupersededOwnership:
+        def __init__(self) -> None:
+            self.fence = _graph_fence("run-stale", 6)
+            self.verifications = 0
+
+        def verify(self) -> None:
+            self.verifications += 1
+            if self.verifications == 2:
+                runtime.target_fence.claim(
+                    plan.targets[0].target.relation_ref,
+                    _graph_fence("run-newer", 7),
+                )
+
+    with pytest.raises(TargetFenceLostError, match="lost before publication"):
+        runner.build(tmp_path, ownership=_SupersededOwnership())
+
+    with pool.connection() as connection:
+        target = connection.execute(
+            "SELECT to_regclass(%s) AS relation",
+            (f"{schema_name}.graph_records",),
+        ).fetchone()
+        temporary = connection.execute(
+            "SELECT count(*) AS count FROM pg_catalog.pg_class WHERE relname LIKE 'dander_graph_%'",
+        ).fetchone()
+    assert target == {"relation": None}
+    assert temporary == {"count": 0}

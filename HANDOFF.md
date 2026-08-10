@@ -2,11 +2,11 @@
 
 ## Finished
 
-- Added bounded COPY-backed replace, SCD1, SCD2, snapshot, and incremental PostgreSQL writes.
-- Kept replace/SCD2 endpoint-wide while preserving batching for the three batch-safe modes.
-- Added cursor ordering, replay-safe snapshots, SCD2 history, and transactional fencing tests.
-- Preserved full-row replace semantics and the pre-upgrade SCD1 unique-index identity.
-- Updated the machine-readable capabilities and focused operator documentation.
+- Added PostgreSQL execution for the existing provider-neutral `GraphExecutionPlan`.
+- Published replace-mode graph targets through PostgreSQL's transactional destination fence.
+- Added whole-plan preflight for dialect support and database-local source/target coordinates.
+- Added live PostgreSQL replay, selection, ownership, and stale-fence rollback coverage.
+- Updated the packaged capability contract and focused PostgreSQL documentation.
 
 ## Try It
 
@@ -15,26 +15,26 @@ Set `DANDER_TEST_POSTGRES_DSN` to PostgreSQL 15+ and run
 
 ## Checks
 
-- Ruff passed across the repository; strict mypy passed across 304 source files.
-- All 16 focused tests and the complete 1,189-test suite passed against PostgreSQL 15.
-- Terraform roots/modules/tests and Helm lint/template validation passed.
-- Wheel/sdist inspection, source-free install/generation, and dependency audit passed.
-- Container conformance passed; retained GCP stage-zero and platform plans reported no changes.
+- Ruff and strict mypy passed across the repository's 305 source files.
+- All 20 focused PostgreSQL tests passed against PostgreSQL 15.
+- The complete 1,193-test suite and dependency audit passed.
+- Wheel/sdist inspection, source-free installs, and container conformance passed.
+- Terraform roots/tests and Helm lint/template validation passed.
+- Retained GCP stage-zero and platform plans each reported exactly `No changes.`
 
 ## Decisions
 
-- Replace and SCD2 stream a complete endpoint through COPY; they never use executor batches.
-- Incremental de-duplication ranks cursor descending, then source ordinal for equal cursors.
-- PostgreSQL remains experimental until graph and live Kubernetes qualification are complete.
+- Reuse the canonical graph AST; PostgreSQL receives no second graph abstraction.
+- Reject foreign source catalogs before rendering because PostgreSQL SQL is database-local.
+- Keep graph execution replace-only and PostgreSQL experimental pending live Kubernetes proof.
 
 ## Remaining
 
-- Let protected CI repeat Linux PostgreSQL, image, and secret checks on PR #175.
-- Merge through protected main only when every required check is green.
-- Continue PostgreSQL graph work separately; do not mix it into this writer PR.
+- Let protected CI repeat Linux PostgreSQL, image, and secret checks before merge.
+- Open and review the focused PR; do not promote PostgreSQL support yet.
 
 ## Review First
 
-- `src/dander/providers/postgresql/writer.py`
+- `src/dander/providers/postgresql/transform.py`
 - `tests/providers/test_postgresql_warehouse_runtime.py`
 - `src/dander/providers/postgresql/runtime.py`
