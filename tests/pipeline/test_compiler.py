@@ -226,7 +226,6 @@ def test_graph_compiles_to_one_provider_neutral_relational_ast() -> None:
     assert len(tuple(compiled.query_ast.find_all(exp.CTE))) == 3
     assert len(tuple(compiled.query_ast.find_all(exp.TryCast))) == 2
     assert compiled.render("bigquery") == compiled.query
-    assert 'FROM "dander-test"."raw"."people"' in compiled.render("redshift")
 
 
 def test_graph_target_preserves_provider_extension_in_canonical_schema() -> None:
@@ -279,7 +278,7 @@ def test_returned_graph_ast_is_an_isolated_copy() -> None:
     assert compiled.render("bigquery") == compiled.query
 
 
-@pytest.mark.parametrize("target", ["snowflake", "postgres"])
+@pytest.mark.parametrize("target", ["snowflake", "redshift", "postgres"])
 def test_graph_render_fails_when_target_cannot_preserve_safe_cast(target: str) -> None:
     compiled = compile_target(
         _linear_graph(),

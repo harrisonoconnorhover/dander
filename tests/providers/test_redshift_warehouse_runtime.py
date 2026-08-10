@@ -6,16 +6,19 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
 import pytest
 
 from dander.concurrency import FencingToken, TargetFenceLostError
+from dander.ingestion import Endpoint, RawField, SourceConfig
+from dander.pipeline.graph import PipelineGraph
+from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
 from dander.providers.redshift import RedshiftWarehouseConfig
-from dander.providers.redshift.transform import RedshiftTransformRunner
+from dander.providers.redshift.transform import RedshiftGraphRunner, RedshiftTransformRunner
 from dander.providers.redshift.writer import RedshiftWriteError, _delete_owned
 from dander.transform import SqlDialect, TransformProject, TransformProjectError, TransformRunError
 from dander.warehouse import (
@@ -370,6 +373,7 @@ def test_redshift_runtime_validates_connection_and_exposes_fenced_transforms(
     assert runtime.capabilities.write_modes == frozenset(WriteMode)
     assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
     assert runtime.capabilities.supports_transforms is True
+    assert runtime.capabilities.supports_graphs is True
     assert isinstance(
         runtime.transforms.build_transform_runner(graph_plan=None, build_models=True),
         RedshiftTransformRunner,
@@ -383,6 +387,129 @@ class _Ownership:
 
     def verify(self) -> None:
         self.verifications += 1
+
+
+def _redshift_graph_plan(*, include_unsupported_target: bool = False) -> GraphExecutionPlan:
+    source = SourceConfig(
+        name="fixture",
+        base_url="https://example.test",
+        auth_strategy="none",
+        endpoints=[
+            Endpoint(
+                name="records",
+                path="/records",
+                primary_key=["id"],
+                raw_schema=[
+                    RawField(name="id", data_type="STRING"),
+                    RawField(name="label", data_type="STRING"),
+                ],
+            )
+        ],
+    )
+    targets: list[dict[str, object]] = [
+        {
+            "id": "target",
+            "type": "target",
+            "name": "Target",
+            "config": {
+                "writer": {
+                    "write_mode": "replace",
+                    "destination": {
+                        "dataset": "analytics",
+                        "table": "graph_records",
+                        "business_key": [],
+                    },
+                }
+            },
+            "fields": [
+                {"name": "id", "type": "STRING"},
+                {"name": "label", "type": "STRING"},
+            ],
+        }
+    ]
+    edges: list[dict[str, object]] = [
+        {
+            "from": "records",
+            "to": "target",
+            "mappings": [
+                {"source": "id", "target": "id"},
+                {"source": "label", "target": "label"},
+            ],
+        }
+    ]
+    if include_unsupported_target:
+        targets.append(
+            {
+                "id": "unsupported",
+                "type": "target",
+                "name": "Unsupported",
+                "config": {
+                    "writer": {
+                        "write_mode": "replace",
+                        "destination": {
+                            "dataset": "analytics",
+                            "table": "unsupported_records",
+                            "business_key": [],
+                        },
+                    }
+                },
+                "fields": [
+                    {"name": "id", "type": "STRING"},
+                    {
+                        "name": "label",
+                        "type": "STRING",
+                        "cast_to": "JSON",
+                        "extensions": [
+                            {
+                                "provider": "redshift",
+                                "name": "fallback",
+                                "value": "super",
+                            }
+                        ],
+                    },
+                ],
+            }
+        )
+        edges.append(
+            {
+                "from": "records",
+                "to": "unsupported",
+                "mappings": [
+                    {"source": "id", "target": "id"},
+                    {"source": "label", "target": "label"},
+                ],
+            }
+        )
+    graph = PipelineGraph.model_validate(
+        {
+            "name": "redshift_graph",
+            "nodes": [
+                {
+                    "id": "records",
+                    "type": "source",
+                    "name": "Records",
+                    "config": {"connector": "fixture", "endpoint": "records"},
+                    "fields": [
+                        {"name": "id", "type": "STRING"},
+                        {"name": "label", "type": "STRING"},
+                    ],
+                },
+                *targets,
+            ],
+            "edges": edges,
+        }
+    )
+    return plan_graph_execution(
+        graph,
+        source,
+        endpoint_relations={
+            "records": RelationRef(
+                catalog="analytics",
+                namespace="raw",
+                name="fixture_records",
+            )
+        },
+    )
 
 
 def test_redshift_builds_fenced_table_and_incremental_models(
@@ -514,9 +641,142 @@ def test_redshift_preflights_the_dag_and_preserves_canonical_coordinates(
         "good_model",
     )
     assert '"analytics"."raw_data"."records"' in project.compile(model)
-    with pytest.raises(ValueError, match="graph execution is not available"):
+    with pytest.raises(TypeError, match="graph plan has the wrong type"):
         runtime.transforms.build_transform_runner(graph_plan=object(), build_models=False)
     assert runtime.transforms.build_transform_runner(graph_plan=None, build_models=False) is None
+
+
+def test_redshift_graph_uses_canonical_plan_fencing_and_cleanup(
+    tmp_path: Path,
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=_redshift_graph_plan(),
+        build_models=True,
+    )
+    assert isinstance(runner, RedshiftGraphRunner)
+    backend.schema_rows = [
+        ("id", "character varying", 65_535, None, None, "YES"),
+        ("label", "character varying", 65_535, None, None, "YES"),
+    ]
+    backend.transform_source_rows = [{"id": "fresh", "label": "from-graph"}]
+    ownership = _ownership("run-graph", 5)
+
+    result = runner.build(tmp_path, ownership=ownership)
+
+    assert result.models == ("target",)
+    assert result.assertions == 0
+    sql = [statement for _, statement, _ in backend.statements]
+    staged = next(
+        statement
+        for statement in sql
+        if statement.startswith("CREATE TEMP TABLE") and " AS SELECT" in statement
+    )
+    assert 'FROM "analytics"."raw"."fixture_records"' in staged
+    assert "`" not in staged
+    assert any(
+        statement.startswith("DELETE FROM") and '"analytics"."graph_records"' in statement
+        for statement in sql
+    )
+    assert any(
+        statement.startswith("INSERT INTO") and '"analytics"."graph_records"' in statement
+        for statement in sql
+    )
+    assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in sql)
+    assert ownership.verifications == 2
+    assert backend.transform_rows == {"fresh": {"id": "fresh", "label": "from-graph"}}
+
+
+def test_redshift_graph_preflights_every_selected_target_before_mutation(
+    tmp_path: Path,
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=_redshift_graph_plan(include_unsupported_target=True),
+        build_models=True,
+    )
+    assert isinstance(runner, RedshiftGraphRunner)
+    before = list(backend.statements)
+
+    with pytest.raises(GraphRuntimeError, match="safe-cast semantics"):
+        runner.build(tmp_path, ownership=_ownership("run-preflight-graph", 6))
+
+    assert backend.statements == before
+
+
+def test_redshift_graph_rejects_invalid_target_contracts_before_mutation(
+    tmp_path: Path,
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    plan = _redshift_graph_plan()
+    compiled = plan.targets[0]
+    other_target = WriteTarget(
+        relation=RelationRef(catalog="other", namespace="analytics", name="graph_records"),
+        business_key=compiled.target.business_key,
+        schema=compiled.target.schema,
+    )
+    invalid_plans = (
+        (
+            replace(plan, targets=(replace(compiled, write_mode=WriteMode.SCD1),)),
+            "requires replace mode",
+        ),
+        (
+            replace(plan, targets=(replace(compiled, target=other_target),)),
+            "belongs to another database",
+        ),
+    )
+    before = list(backend.statements)
+
+    for invalid, message in invalid_plans:
+        runner = runtime.transforms.build_transform_runner(
+            graph_plan=invalid,
+            build_models=True,
+        )
+        assert isinstance(runner, RedshiftGraphRunner)
+        with pytest.raises(GraphRuntimeError, match=message):
+            runner.build(tmp_path, ownership=_ownership("run-invalid-graph", 7))
+
+    assert backend.statements == before
+
+
+def test_redshift_graph_selection_and_stale_fence_fail_closed(
+    tmp_path: Path,
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=_redshift_graph_plan(),
+        build_models=True,
+    )
+    assert isinstance(runner, RedshiftGraphRunner)
+    before = list(backend.statements)
+    with pytest.raises(GraphRuntimeError, match="Unknown graph target"):
+        runner.build(tmp_path, selected=["missing"], ownership=_ownership("run-missing", 8))
+    with pytest.raises(GraphRuntimeError, match="selected no targets"):
+        runner.build(tmp_path, selected=[], ownership=_ownership("run-empty", 9))
+    assert backend.statements == before
+
+    backend.schema_rows = [
+        ("id", "character varying", 65_535, None, None, "YES"),
+        ("label", "character varying", 65_535, None, None, "YES"),
+    ]
+    backend.transform_source_rows = [{"id": "blocked", "label": "stale"}]
+    backend.fence_touch_rowcount = 0
+    with pytest.raises(TargetFenceLostError, match="lost before publication"):
+        runner.build(tmp_path, ownership=_ownership("run-stale-graph", 10))
+
+    attempted = [statement for _, statement, _ in backend.statements[len(before) :]]
+    assert any(statement.startswith("CREATE TEMP TABLE") for statement in attempted)
+    assert not any(statement.startswith("DELETE FROM") for statement in attempted)
+    assert not any(
+        statement.startswith("INSERT INTO") and "graph_records" in statement
+        for statement in attempted
+    )
+    assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in attempted)
+    assert backend.transform_rows == {}
 
 
 def test_redshift_transform_requires_ownership_and_fails_closed_after_staging(

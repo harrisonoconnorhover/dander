@@ -14,7 +14,7 @@ from dander.providers.redshift.session import (
     execute,
     open_connection,
 )
-from dander.providers.redshift.transform import RedshiftTransformRunner
+from dander.providers.redshift.transform import RedshiftGraphRunner, RedshiftTransformRunner
 from dander.providers.redshift.writer import (
     RedshiftS3Client,
     RedshiftScd1Writer,
@@ -158,7 +158,7 @@ class RedshiftWriterFactory:
 
 @dataclass(frozen=True, slots=True)
 class RedshiftTransformFactory:
-    """Construct fenced Redshift model execution while rejecting graph plans."""
+    """Construct fenced Redshift model or provider-neutral graph execution."""
 
     database: str
     connection_factory: RedshiftConnectionFactory
@@ -171,9 +171,19 @@ class RedshiftTransformFactory:
         graph_plan: object | None,
         build_models: bool,
         raw_namespace: str = "raw",
-    ) -> RedshiftTransformRunner | None:
+    ) -> RedshiftGraphRunner | RedshiftTransformRunner | None:
         if graph_plan is not None:
-            raise ValueError("Redshift graph execution is not available in this experimental slice")
+            from dander.pipeline.runtime import GraphExecutionPlan
+
+            if not isinstance(graph_plan, GraphExecutionPlan):
+                raise TypeError("Redshift graph plan has the wrong type")
+            return RedshiftGraphRunner(
+                plan=graph_plan,
+                database=self.database,
+                connection_factory=self.connection_factory,
+                target_fence=self.target_fence,
+                statement_timeout_ms=self.statement_timeout_ms,
+            )
         if not build_models:
             return None
         return RedshiftTransformRunner(
@@ -216,7 +226,7 @@ REDSHIFT_CAPABILITIES = WarehouseCapabilities(
     write_modes=frozenset(WriteMode),
     transports=frozenset({WriteTransport.COPY}),
     supports_transforms=True,
-    supports_graphs=False,
+    supports_graphs=True,
     supports_target_fencing=True,
     schema_support=REDSHIFT_SCHEMA_SUPPORT,
 )

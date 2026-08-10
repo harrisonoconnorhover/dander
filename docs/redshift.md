@@ -2,7 +2,8 @@
 
 Redshift is an experimental warehouse adapter, not a supported Dander profile. The current slice
 proves native database/schema coordinates, bounded IAM-only bulk loading, all five fenced ingestion
-write modes, and fenced table and incremental models before a live support claim.
+write modes, fenced table and incremental models, and replace-mode graph targets before a live
+support claim.
 
 ## Configuration
 
@@ -57,6 +58,8 @@ COPY role must read the dedicated same-region staging prefix.
 - Incremental models collapse duplicate keys deterministically and reject cursor regression.
 - Generic not-null, uniqueness, accepted-value, and relationship assertions run after publication.
 - The complete selected transform DAG preflights before any provider connection or mutation.
+- Executable graph targets render the existing provider-neutral relational AST as Redshift SQL,
+  preflight as one set, and publish through the same fenced table-replacement path.
 
 ## Deliberate limits
 
@@ -64,8 +67,10 @@ Scalar fields and explicit JSON-to-`SUPER` fallback are implemented for COPY ing
 table/incremental models. `SUPER` fields cannot be business keys, cursors, or snapshot fields.
 ARRAY/RECORD fallbacks remain unavailable, and the current staged-row guard is 4 MB even though the
 declared VARBYTE/SUPER boundary is larger. The ordinary hosted source runner still selects SCD1.
-Views, graphs, live concurrency proof, infrastructure provisioning, and support promotion remain
-separate work. Use `catalog.provider: none` for this experimental path.
+Graph execution retains the shared single-connector, replace-target-only boundary; safe casts fail
+preflight because Redshift cannot yet preserve their canonical semantics. Views, live concurrency
+proof, infrastructure provisioning, and support promotion remain separate work. Use
+`catalog.provider: none` for this experimental path.
 
 Declare the fallback on the field; bare canonical JSON continues to fail closed:
 

@@ -204,7 +204,11 @@ def render_graph_query(
         raise PipelineCompileError(f"Unknown graph SQL target: {target_dialect}") from error
     if target is SqlDialect.PORTABLE:
         raise PipelineCompileError("portable is a graph contract, not a render target")
-    if target in {SqlDialect.SNOWFLAKE, SqlDialect.POSTGRES} and expression.find(exp.TryCast):
+    if target in {
+        SqlDialect.SNOWFLAKE,
+        SqlDialect.REDSHIFT,
+        SqlDialect.POSTGRES,
+    } and expression.find(exp.TryCast):
         raise PipelineCompileError(
             f"Graph safe-cast semantics are not yet exact for {target.value}"
         )
