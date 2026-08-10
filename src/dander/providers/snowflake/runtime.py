@@ -24,7 +24,7 @@ from dander.providers.snowflake.session import (
     execute,
     open_connection,
 )
-from dander.providers.snowflake.transform import SnowflakeTransformRunner
+from dander.providers.snowflake.transform import SnowflakeGraphRunner, SnowflakeTransformRunner
 from dander.providers.snowflake.writer import (
     SnowflakeScd1Writer,
     SnowflakeStagedWriter,
@@ -40,6 +40,7 @@ from dander.warehouse.runtime import (
     WarehouseRuntime,
     WarehouseSchemaSupport,
     WarehouseSchemaSupportError,
+    WarehouseTransformRunner,
 )
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WritePattern, WriteTransport
 
@@ -165,6 +166,7 @@ class SnowflakeTransformFactory:
     database: str
     connection_factory: SnowflakeConnectionFactory
     target_fence: SnowflakeTargetFence
+    warehouse: str | None = None
 
     def build_transform_runner(
         self,
@@ -172,10 +174,18 @@ class SnowflakeTransformFactory:
         graph_plan: object | None,
         build_models: bool,
         raw_namespace: str = "raw",
-    ) -> SnowflakeTransformRunner | None:
+    ) -> WarehouseTransformRunner | None:
         if graph_plan is not None:
-            raise ValueError(
-                "Snowflake graph execution is not available in this experimental slice"
+            from dander.pipeline.runtime import GraphExecutionPlan
+
+            if not isinstance(graph_plan, GraphExecutionPlan):
+                raise TypeError("Snowflake graph plan has the wrong type")
+            return SnowflakeGraphRunner(
+                plan=graph_plan,
+                database=self.database,
+                connection_factory=self.connection_factory,
+                target_fence=self.target_fence,
+                warehouse=self.warehouse,
             )
         if not build_models:
             return None
@@ -184,6 +194,7 @@ class SnowflakeTransformFactory:
             connection_factory=self.connection_factory,
             target_fence=self.target_fence,
             raw_namespace=raw_namespace,
+            warehouse=self.warehouse,
         )
 
 
@@ -221,7 +232,7 @@ SNOWFLAKE_CAPABILITIES = WarehouseCapabilities(
     write_modes=frozenset(WriteMode),
     transports=frozenset({WriteTransport.COPY, WriteTransport.DIRECT}),
     supports_transforms=True,
-    supports_graphs=False,
+    supports_graphs=True,
     supports_target_fencing=True,
     schema_support=SNOWFLAKE_SCHEMA_SUPPORT,
 )
@@ -300,6 +311,7 @@ def build_snowflake_warehouse(
             config.database,
             connection_factory,
             target_fence,
+            config.warehouse,
         ),
         target_fence=target_fence,
         telemetry=SnowflakeTelemetry(config.warehouse),

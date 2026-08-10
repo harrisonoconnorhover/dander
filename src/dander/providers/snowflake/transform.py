@@ -5,12 +5,16 @@ from __future__ import annotations
 import hashlib
 import sys
 from dataclasses import dataclass
+from time import perf_counter_ns
 from typing import TYPE_CHECKING
 
 from dander.concurrency import TargetFenceLostError
+from dander.pipeline.compiler import CompiledTarget, PipelineCompileError
+from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError
 from dander.providers.snowflake.session import (
     SnowflakeConnection,
     SnowflakeConnectionFactory,
+    SnowflakeStatementResult,
     execute,
     open_connection,
 )
@@ -20,8 +24,9 @@ from dander.providers.snowflake.writer import (
     _qualified,
     _quote,
     _set_query_tag,
-    _snowflake_type,
+    validate_snowflake_schema,
 )
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import (
     SqlDialect,
     TransformModel,
@@ -31,10 +36,10 @@ from dander.transform import (
     TransformRunResult,
 )
 from dander.transform.model import Materialization
-from dander.writer import SchemaEvolution, WriteField, WriteTarget
+from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
     from pathlib import Path
 
     from dander.concurrency import OwnershipGuard, TargetFence
@@ -45,9 +50,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class _SnowflakeModelPlan:
-    model: TransformModel
+    name: str
     target: WriteTarget
     query: str
+    materialization: Materialization
+    unique_key: tuple[str, ...] = ()
+    incremental_cursor: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,11 +77,13 @@ class SnowflakeTransformRunner:
         connection_factory: SnowflakeConnectionFactory,
         target_fence: SnowflakeTargetFence,
         raw_namespace: str = "raw",
+        warehouse: str | None = None,
     ) -> None:
         self._database = database
         self._connection_factory = connection_factory
         self._target_fence = target_fence
         self._raw_namespace = raw_namespace
+        self._warehouse = warehouse
 
     def build(
         self,
@@ -85,17 +95,26 @@ class SnowflakeTransformRunner:
         """Preflight the selected DAG, then publish each model through fenced DML."""
         if ownership is None or ownership.fence is None:
             raise TransformRunError("Snowflake hosted transforms require active lease ownership")
-        project, models, plans, assertions = self._preflight(models_dir, selected=selected)
-        del project
+        _project, models, plans, assertions = self._preflight(models_dir, selected=selected)
+        telemetry: list[OperationTelemetry] = []
         for plan in plans:
             ownership.verify()
             publication = self._target_fence.claim(plan.target.relation_ref, ownership.fence)
             ownership.verify()
-            self._publish(plan, publication)
-        self._run_assertions(assertions, ownership=ownership)
+            telemetry.extend(
+                _publish_plan(
+                    plan,
+                    publication,
+                    connection_factory=self._connection_factory,
+                    target_fence=self._target_fence,
+                    warehouse=self._warehouse,
+                )
+            )
+        telemetry.extend(self._run_assertions(assertions, ownership=ownership))
         return TransformRunResult(
             models=tuple(model.name for model in models),
             assertions=len(assertions),
+            telemetry=tuple(telemetry),
         )
 
     def test(
@@ -106,10 +125,11 @@ class SnowflakeTransformRunner:
     ) -> TransformRunResult:
         """Run assertions against already materialized Snowflake relations."""
         _project, models, _plans, assertions = self._preflight(models_dir, selected=selected)
-        self._run_assertions(assertions)
+        telemetry = self._run_assertions(assertions)
         return TransformRunResult(
             models=tuple(model.name for model in models),
             assertions=len(assertions),
+            telemetry=telemetry,
         )
 
     def _preflight(
@@ -137,72 +157,184 @@ class SnowflakeTransformRunner:
         )
         return project, models, plans, assertions
 
-    def _publish(self, plan: _SnowflakeModelPlan, publication: TargetFence) -> None:
-        target = WriteTarget(
-            relation=plan.target.relation_ref,
-            business_key=plan.target.business_key,
-            schema=plan.target.schema,
-            declared_schema=plan.target.canonical_schema,
-            publication_fence=publication,
-        )
-        temporary = _temporary_relation(target.relation_ref, publication)
-        cleanup_started = False
-        with open_connection(self._connection_factory) as connection:
-            try:
-                _set_query_tag(connection, publication)
-                # Transform targets never evolve automatically: the only permanent DDL permitted
-                # here is create-if-absent followed by exact declared-schema validation.
-                _ensure_target(
-                    connection,
-                    target,
-                    target.canonical_schema,
-                    evolution=SchemaEvolution.STRICT,
-                )
-                execute(connection, _create_temporary_sql(plan, temporary))
-                cleanup_started = True
-                self._target_fence.execute_statements(
-                    connection,
-                    _publication_statements(plan, temporary),
-                    publication,
-                )
-            except (TargetFenceLostError, SnowflakeWriteError, TransformRunError):
-                raise
-            except Exception as error:
-                raise TransformRunError("Snowflake transform publication failed") from error
-            finally:
-                if cleanup_started:
-                    _drop_temporary(
-                        connection,
-                        temporary,
-                        suppress_failure=sys.exc_info()[0] is not None,
-                    )
-
     def _run_assertions(
         self,
         assertions: Sequence[_SnowflakeAssertion],
         *,
         ownership: OwnershipGuard | None = None,
-    ) -> None:
+    ) -> tuple[OperationTelemetry, ...]:
         failures: list[str] = []
+        telemetry: list[OperationTelemetry] = []
         with open_connection(self._connection_factory) as connection:
             for assertion in assertions:
                 if ownership is not None:
                     ownership.verify()
                 try:
-                    row = execute(
+                    result, duration_ms = _timed_call(
+                        execute,
                         connection,
                         assertion.statement,
                         assertion.parameters,
                         fetch="one",
-                    ).row
+                    )
                 except Exception as error:
                     raise TransformRunError(
                         f"Snowflake assertion execution failed: {assertion.name}"
                     ) from error
-                if _failure_count(row, assertion.name) > 0:
+                telemetry.append(
+                    _operation_telemetry(
+                        result,
+                        operation=TelemetryOperation.TEST,
+                        duration_ms=duration_ms,
+                        warehouse=self._warehouse,
+                    )
+                )
+                if _failure_count(result.row, assertion.name) > 0:
                     failures.append(assertion.name)
         if failures:
             raise TransformRunError(f"Data tests failed: {', '.join(failures)}")
+        return tuple(telemetry)
+
+
+class SnowflakeGraphRunner:
+    """Publish provider-neutral graph targets through Snowflake's fenced DML path."""
+
+    target_dialect = SqlDialect.SNOWFLAKE
+
+    def __init__(
+        self,
+        *,
+        plan: GraphExecutionPlan,
+        database: str,
+        connection_factory: SnowflakeConnectionFactory,
+        target_fence: SnowflakeTargetFence,
+        warehouse: str | None = None,
+    ) -> None:
+        self._plan = plan
+        self._database = database
+        self._connection_factory = connection_factory
+        self._target_fence = target_fence
+        self._warehouse = warehouse
+
+    def build(
+        self,
+        _models_dir: Path,
+        *,
+        selected: Iterable[str] | None = None,
+        ownership: OwnershipGuard | None = None,
+    ) -> TransformRunResult:
+        """Preflight every selected target, then publish each target exactly once."""
+        if ownership is None or ownership.fence is None:
+            raise GraphRuntimeError("Snowflake graph execution requires active lease ownership")
+        selected_ids = set(selected) if selected is not None else None
+        known = {target.node_id for target in self._plan.targets}
+        if selected_ids is not None and (unknown := sorted(selected_ids - known)):
+            raise GraphRuntimeError(f"Unknown graph target: {unknown[0]!r}")
+        targets = tuple(
+            target
+            for target in self._plan.targets
+            if selected_ids is None or target.node_id in selected_ids
+        )
+        if not targets:
+            raise GraphRuntimeError("Graph execution selected no targets")
+
+        # Rendering and schema validation may fail for a portable construct whose semantics are
+        # not exact in Snowflake. Complete that preflight for every selected target before the
+        # first claim or provider session so a graph can never partially publish for that reason.
+        plans = tuple(_graph_plan(target, database=self._database) for target in targets)
+        telemetry: list[OperationTelemetry] = []
+        for plan in plans:
+            ownership.verify()
+            publication = self._target_fence.claim(
+                plan.target.relation_ref,
+                ownership.fence,
+            )
+            ownership.verify()
+            telemetry.extend(
+                _publish_plan(
+                    plan,
+                    publication,
+                    connection_factory=self._connection_factory,
+                    target_fence=self._target_fence,
+                    warehouse=self._warehouse,
+                )
+            )
+        return TransformRunResult(
+            models=tuple(plan.name for plan in plans),
+            assertions=0,
+            telemetry=tuple(telemetry),
+        )
+
+
+def _publish_plan(
+    plan: _SnowflakeModelPlan,
+    publication: TargetFence,
+    *,
+    connection_factory: SnowflakeConnectionFactory,
+    target_fence: SnowflakeTargetFence,
+    warehouse: str | None,
+) -> tuple[OperationTelemetry, ...]:
+    target = WriteTarget(
+        relation=plan.target.relation_ref,
+        business_key=plan.target.business_key,
+        schema=plan.target.schema,
+        declared_schema=plan.target.canonical_schema,
+        publication_fence=publication,
+    )
+    temporary = _temporary_relation(target.relation_ref, publication)
+    cleanup_started = False
+    telemetry: list[OperationTelemetry] = []
+    with open_connection(connection_factory) as connection:
+        try:
+            _set_query_tag(connection, publication)
+            # Transform targets never evolve automatically: the only permanent DDL permitted
+            # here is create-if-absent followed by exact declared-schema validation.
+            _ensure_target(
+                connection,
+                target,
+                target.canonical_schema,
+                evolution=SchemaEvolution.STRICT,
+            )
+            cleanup_started = True
+            staged, duration_ms = _timed_call(
+                execute,
+                connection,
+                _create_temporary_sql(plan, temporary),
+            )
+            telemetry.append(
+                _operation_telemetry(
+                    staged,
+                    operation=TelemetryOperation.TRANSFORM,
+                    duration_ms=duration_ms,
+                    warehouse=warehouse,
+                )
+            )
+            published, duration_ms = _timed_call(
+                target_fence.execute_statements,
+                connection,
+                _publication_statements(plan, temporary),
+                publication,
+            )
+            telemetry.append(
+                _operation_telemetry(
+                    published,
+                    operation=TelemetryOperation.TRANSFORM,
+                    duration_ms=duration_ms,
+                    warehouse=warehouse,
+                )
+            )
+        except (TargetFenceLostError, SnowflakeWriteError, TransformRunError):
+            raise
+        except Exception as error:
+            raise TransformRunError("Snowflake transform publication failed") from error
+        finally:
+            if cleanup_started:
+                _drop_temporary(
+                    connection,
+                    temporary,
+                    suppress_failure=sys.exc_info()[0] is not None,
+                )
+    return tuple(telemetry)
 
 
 def _model_plan(project: TransformProject, model: TransformModel) -> _SnowflakeModelPlan:
@@ -232,25 +364,49 @@ def _model_plan(project: TransformProject, model: TransformModel) -> _SnowflakeM
         business_key=tuple(model.metadata.unique_key),
         schema=fields,
     )
-    for field in target.canonical_schema.fields:
-        _snowflake_type(field.data_type)
+    validate_snowflake_schema(target.canonical_schema)
     return _SnowflakeModelPlan(
-        model=model,
+        name=model.name,
         target=target,
         query=project.compile(model),
+        materialization=model.metadata.materialization,
+        unique_key=tuple(model.metadata.unique_key),
+        incremental_cursor=model.metadata.incremental_cursor,
+    )
+
+
+def _graph_plan(compiled: CompiledTarget, *, database: str) -> _SnowflakeModelPlan:
+    if compiled.write_mode is not WriteMode.REPLACE:
+        raise GraphRuntimeError(
+            f"Snowflake graph target {compiled.node_id!r} requires replace mode"
+        )
+    if compiled.target.relation_ref.catalog != database:
+        raise GraphRuntimeError(
+            f"Snowflake graph target {compiled.node_id!r} belongs to another database"
+        )
+    try:
+        validate_snowflake_schema(compiled.target.canonical_schema)
+        query = compiled.render(SqlDialect.SNOWFLAKE)
+    except (PipelineCompileError, SnowflakeWriteError) as error:
+        raise GraphRuntimeError(str(error)) from error
+    return _SnowflakeModelPlan(
+        name=compiled.node_id,
+        target=compiled.target,
+        query=query,
+        materialization=Materialization.TABLE,
     )
 
 
 def _create_temporary_sql(plan: _SnowflakeModelPlan, temporary: str) -> str:
     names = tuple(field.name for field in plan.target.canonical_schema.fields)
     selected = ", ".join(f"source.{_quote(name)}" for name in names)
-    if plan.model.metadata.materialization is Materialization.TABLE:
+    if plan.materialization is Materialization.TABLE:
         return (
             f"CREATE OR REPLACE TEMPORARY TABLE {temporary} AS SELECT {selected} "
             f"FROM ({plan.query}) AS source"
         )
-    keys = tuple(plan.model.metadata.unique_key)
-    cursor = plan.model.metadata.incremental_cursor
+    keys = plan.unique_key
+    cursor = plan.incremental_cursor
     assert keys and cursor is not None
     partition = ", ".join(f"source.{_quote(key)}" for key in keys)
     tie_breakers = tuple(name for name in sorted(names) if name not in {*keys, cursor})
@@ -273,13 +429,13 @@ def _publication_statements(
     names = tuple(field.name for field in plan.target.canonical_schema.fields)
     columns = ", ".join(_quote(name) for name in names)
     incoming = ", ".join(f"incoming.{_quote(name)}" for name in names)
-    if plan.model.metadata.materialization is Materialization.TABLE:
+    if plan.materialization is Materialization.TABLE:
         return (
             (f"DELETE FROM {target}", ()),
             (f"INSERT INTO {target} ({columns}) SELECT {columns} FROM {temporary}", ()),
         )
-    keys = tuple(plan.model.metadata.unique_key)
-    cursor = plan.model.metadata.incremental_cursor
+    keys = plan.unique_key
+    cursor = plan.incremental_cursor
     assert keys and cursor is not None
     match = " AND ".join(f"target.{_quote(key)} = incoming.{_quote(key)}" for key in keys)
     mutable = tuple(name for name in names if name not in keys)
@@ -403,4 +559,32 @@ def _failure_count(row: object | None, assertion: str) -> int:
     return value
 
 
-__all__ = ["SnowflakeTransformRunner"]
+def _timed_call(
+    function: Callable[..., SnowflakeStatementResult],
+    *arguments: object,
+    **keywords: object,
+) -> tuple[SnowflakeStatementResult, int]:
+    started = perf_counter_ns()
+    result = function(*arguments, **keywords)
+    duration_ms = max((perf_counter_ns() - started) // 1_000_000, 0)
+    return result, duration_ms
+
+
+def _operation_telemetry(
+    result: SnowflakeStatementResult,
+    *,
+    operation: TelemetryOperation,
+    duration_ms: int,
+    warehouse: str | None,
+) -> OperationTelemetry:
+    return OperationTelemetry(
+        provider="snowflake",
+        operation=operation,
+        duration_ms=duration_ms,
+        rows_affected=result.rowcount,
+        query_id=result.query_id,
+        resource_name=warehouse,
+    )
+
+
+__all__ = ["SnowflakeGraphRunner", "SnowflakeTransformRunner"]

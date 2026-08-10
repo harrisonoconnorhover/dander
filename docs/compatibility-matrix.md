@@ -14,11 +14,11 @@ before provider construction when a pair is absent or marked `unsupported`.
 |---|---|---|---|
 | BigQuery | BigQuery | supported | Released GCP profile and BigQuery regression baseline |
 | BigQuery | PostgreSQL | experimental | Local cross-backend token/fence publication proof |
-| BigQuery | Snowflake | experimental | Local staged-SCD1, fenced transforms, schema, replay, and fence conformance |
+| BigQuery | Snowflake | experimental | Local five-mode writes, fenced transforms/graphs, schema, replay, and fence conformance |
 | BigQuery | Redshift | experimental | Local IAM/S3 `COPY`, SCD1 replay, fenced transforms, and destination-fence conformance |
 | PostgreSQL | BigQuery | unsupported | Not every BigQuery write mode uses destination fencing |
 | PostgreSQL | PostgreSQL | experimental | Local native profile, state/warehouse conformance, and benchmarks |
-| PostgreSQL | Snowflake | experimental | Local staged-SCD1, transforms, and destination-fence conformance |
+| PostgreSQL | Snowflake | experimental | Local five-mode writes, transforms/graphs, and destination-fence conformance |
 | PostgreSQL | Redshift | experimental | Local IAM/S3 `COPY`, SCD1 replay, fenced transforms, and destination-fence conformance |
 
 `experimental` means the code path is executable and tested locally; it is not a hosted support
@@ -41,7 +41,7 @@ their named live profiles pass.
 | BigQuery | all five | load job, Storage Write | all v1 types; decimal 38, time 6; no nested arrays | yes | yes | yes |
 | PostgreSQL | SCD1 | COPY | all v1 types; decimal 1000, time 6 | yes | no | yes |
 | Redshift | SCD1 | COPY | scalar types; decimal 38, time 6; no SUPER fallback | yes | no | yes |
-| Snowflake | SCD1 | COPY | scalar types; decimal 38, time 9; no VARIANT fallback | yes | no | yes |
+| Snowflake | all five | direct, COPY | scalar types; decimal 38, time 9; explicit JSON-to-VARIANT fallback | yes | yes | yes |
 
 Portable-provider schema validation uses these declarations before source extraction, staging
 upload, or destination mutation. BigQuery retains its existing provider-native v1 schema path so

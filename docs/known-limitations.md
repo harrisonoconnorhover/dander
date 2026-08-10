@@ -10,11 +10,12 @@ evaluate these limits before using it for an unattended system containing busine
   published scale/qualification objectives. Other AWS, warehouse, and cross-cloud combinations
   receive no support claim from this proof.
 - Provider package extras and the full runtime image do not by themselves qualify Snowflake,
-  Redshift, AWS, Azure, or OCI profiles. Snowflake has an experimental scalar adapter with all five
-  writer modes behind its provider capability, bounded Parquet upload, temporary remote staging,
-  schema checks, destination fencing, and fenced table/incremental transforms. The ordinary hosted
-  source runner still selects SCD1, and Snowflake has no live qualification, views, graph execution,
-  semi-structured types, measured direct-write crossover, or provider query-telemetry emission.
+  Redshift, AWS, Azure, or OCI profiles. Snowflake has an experimental adapter with all five writer
+  modes behind its provider capability, bounded direct/Parquet paths, temporary remote staging,
+  schema checks, destination fencing, fenced table/incremental transforms, and fenced replace-mode
+  graph targets. The ordinary hosted source runner still selects SCD1, and Snowflake has no live
+  qualification, views, ARRAY/RECORD fallback, measured direct-write crossover, or query-history
+  enrichment.
   Redshift has an experimental, locally conformance-tested scalar SCD1 adapter using bounded
   Parquet parts, same-region S3 manifest `COPY`, IAM roles, replay history, destination fencing,
   and fenced table/incremental transforms. It has no live qualification, views, executable graphs,
