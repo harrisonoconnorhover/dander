@@ -21,6 +21,31 @@ mock_provider "aws" {
       repository_url = "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander"
     }
   }
+
+  mock_resource "aws_iam_role" {
+    defaults = {
+      arn = "arn:aws:iam::184463061564:role/dander-test-role"
+    }
+  }
+
+  mock_resource "aws_cloudwatch_log_group" {
+    defaults = {
+      arn = "arn:aws:logs:us-east-1:184463061564:log-group:/dander/test"
+    }
+  }
+
+  mock_resource "aws_sqs_queue" {
+    defaults = {
+      arn = "arn:aws:sqs:us-east-1:184463061564:dander-test-failures"
+      url = "https://sqs.us-east-1.amazonaws.com/184463061564/dander-test-failures"
+    }
+  }
+
+  mock_resource "aws_sns_topic" {
+    defaults = {
+      arn = "arn:aws:sns:us-east-1:184463061564:dander-test-failures"
+    }
+  }
 }
 
 variables {
@@ -124,5 +149,17 @@ run "paused_bounded_controller" {
   assert {
     condition     = data.aws_ecr_repository.runtime.name == "dander"
     error_message = "The Fargate stack must consume the stage-zero ECR repository."
+  }
+}
+
+run "controller_result_selector" {
+  command = apply
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Run task"].ResultSelector["task_arn.$"] == "$.TaskArn" &&
+      jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Run task"].ResultSelector["exit_code.$"] == "$.Containers[0].ExitCode"
+    )
+    error_message = "The controller must normalize the top-level ecs:runTask.sync task ARN and container exit code."
   }
 }

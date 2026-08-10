@@ -524,8 +524,8 @@ resource "aws_sfn_state_machine" "pipeline" {
           }
         }
         ResultSelector = {
-          "task_arn.$"  = "$.Tasks[0].TaskArn"
-          "exit_code.$" = "$.Tasks[0].Containers[0].ExitCode"
+          "task_arn.$"  = "$.TaskArn"
+          "exit_code.$" = "$.Containers[0].ExitCode"
         }
         ResultPath = "$.task"
         Retry = [
