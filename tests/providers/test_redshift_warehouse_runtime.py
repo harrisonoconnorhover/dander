@@ -18,8 +18,10 @@ from dander.pipeline.graph import PipelineGraph
 from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
 from dander.providers.redshift import RedshiftWarehouseConfig
+from dander.providers.redshift.session import enrich_operation_telemetry
 from dander.providers.redshift.transform import RedshiftGraphRunner, RedshiftTransformRunner
 from dander.providers.redshift.writer import RedshiftWriteError, _delete_owned
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import SqlDialect, TransformProject, TransformProjectError, TransformRunError
 from dander.warehouse import (
     ProviderExtension,
@@ -53,6 +55,9 @@ class _FakeRedshift:
     transform_source_rows: list[dict[str, object]] | None = None
     transform_rows: dict[str, dict[str, object]] = field(default_factory=dict)
     assertion_failure_count: int = 0
+    query_counter: int = 100
+    telemetry_rows: list[object] = field(default_factory=list)
+    telemetry_error: bool = False
 
     def connect(self) -> _FakeConnection:
         self.connections += 1
@@ -65,6 +70,8 @@ class _FakeConnection:
         self.connection_id = connection_id
         self.autocommit = True
         self.in_transaction = False
+        self.aborted = False
+        self.last_query_id: int | None = None
         self.temporary_rows: list[dict[str, object]] = []
 
     def cursor(self) -> _FakeCursor:
@@ -72,10 +79,12 @@ class _FakeConnection:
 
     def commit(self) -> None:
         self.in_transaction = False
+        self.aborted = False
         self.backend.commits += 1
 
     def rollback(self) -> None:
         self.in_transaction = False
+        self.aborted = False
         self.backend.rollbacks += 1
 
     def close(self) -> None:
@@ -91,14 +100,28 @@ class _FakeCursor:
         self._rows: list[object] = []
 
     def execute(self, command: str, args: Sequence[object] | None = None) -> Self:
+        if self.connection.aborted:
+            raise RuntimeError("Redshift transaction is aborted until rollback")
         parameters = tuple(args or ())
         compact = " ".join(command.split())
         if compact == "BEGIN" and self.connection.in_transaction:
             raise AssertionError("Redshift writer attempted to nest a transaction")
         self.connection.in_transaction = True
         self.backend.statements.append((self.connection.connection_id, compact, parameters))
+        if compact.startswith("COPY ") or (
+            compact.startswith("CREATE TEMP TABLE") and " AS SELECT" in compact
+        ):
+            self.backend.query_counter += 1
+            self.connection.last_query_id = self.backend.query_counter
         if compact == "SELECT current_database(), current_user":
             self._row = ("analytics", "dander_user")
+        elif compact == "SELECT pg_last_query_id()":
+            self._row = (self.connection.last_query_id,)
+        elif compact.startswith("WITH recent AS (SELECT query_id"):
+            if self.backend.telemetry_error:
+                self.connection.aborted = True
+                raise RuntimeError("system view denied")
+            self._rows = list(self.backend.telemetry_rows)
         elif compact.startswith('SELECT "authority_id"'):
             self._row = self.backend.claim
         elif compact.startswith("INSERT INTO") and "dander_target_commits" in compact:
@@ -540,6 +563,16 @@ def test_redshift_builds_fenced_table_and_incremental_models(
 
     assert result.models == ("table_model",)
     assert result.assertions == 4
+    assert [operation.operation for operation in result.telemetry] == [
+        TelemetryOperation.TRANSFORM,
+        TelemetryOperation.TRANSFORM,
+        TelemetryOperation.TEST,
+        TelemetryOperation.TEST,
+        TelemetryOperation.TEST,
+        TelemetryOperation.TEST,
+    ]
+    assert result.telemetry[0].query_id == "101"
+    assert all(operation.query_id is None for operation in result.telemetry[1:])
     assert backend.transform_rows == {"fresh": {"id": "fresh", "label": "newer", "updated_at": 1}}
     sql = [statement for _, statement, _ in backend.statements]
     assert any(
@@ -667,6 +700,12 @@ def test_redshift_graph_uses_canonical_plan_fencing_and_cleanup(
 
     assert result.models == ("target",)
     assert result.assertions == 0
+    assert [operation.operation for operation in result.telemetry] == [
+        TelemetryOperation.TRANSFORM,
+        TelemetryOperation.TRANSFORM,
+    ]
+    assert result.telemetry[0].query_id is not None
+    assert result.telemetry[1].query_id is None
     sql = [statement for _, statement, _ in backend.statements]
     staged = next(
         statement
@@ -812,7 +851,8 @@ def test_redshift_transform_requires_ownership_and_fails_closed_after_staging(
         for statement in attempted
     )
     assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in attempted)
-    assert backend.rollbacks == rollbacks + 1
+    # Query-ID capture ends its telemetry-only transaction before the failed fence rolls back.
+    assert backend.rollbacks == rollbacks + 2
     assert backend.transform_rows == {}
 
 
@@ -1015,6 +1055,113 @@ def test_redshift_stages_bounded_parts_merges_deterministically_and_cleans(
     assert len(touch_indexes) == 2
     assert touch_indexes[0] < sql.index(merge) < touch_indexes[1]
     assert sql[touch_indexes[0] - 1].startswith("LOCK ")
+
+
+def test_redshift_copy_telemetry_is_enriched_without_sensitive_history(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    backend.telemetry_rows = [
+        (101, 1_500, 2_001, "service-class-5", "primary", 1_000, 1, 2, 3, 222, 333, 55)
+    ]
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=3,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+
+    assert (
+        writer.write(
+            (
+                {"id": "one", "label": "first"},
+                {"id": "two", "label": "second"},
+                {"id": "three", "label": "third"},
+            ),
+            _target(runtime),
+        )
+        == 1
+    )
+
+    operations = writer.drain_telemetry()
+    assert [operation.operation for operation in operations] == [
+        TelemetryOperation.LOAD,
+        TelemetryOperation.QUERY,
+    ]
+    loaded, published = operations
+    assert loaded.query_id == "101"
+    assert loaded.rows_written == 3
+    assert loaded.bytes_read == 333
+    assert loaded.bytes_written == 222
+    assert loaded.bytes_processed == 1_000
+    assert loaded.queue_duration_ms == 2
+    assert loaded.execution_duration_ms == 3
+    assert loaded.spill_bytes == 3 * 1_024 * 1_024
+    assert loaded.job_id == "55"
+    assert loaded.resource_name == "service-class-5"
+    assert loaded.resource_size == "primary"
+    assert loaded.transport is WriteTransport.COPY
+    assert published.query_id is None
+    assert published.rows_affected == 1
+    assert writer.drain_telemetry() == ()
+    history_statement, history_parameters = next(
+        (statement, parameters)
+        for _, statement, parameters in backend.statements
+        if statement.startswith("WITH recent AS (SELECT query_id")
+    )
+    assert history_parameters == (101,)
+    assert "metrics_level = 'Step'" in history_statement
+    assert "query_text" not in history_statement.casefold()
+    assert "error" not in history_statement.casefold()
+    assert "data_source" not in history_statement.casefold()
+
+
+def test_redshift_telemetry_failure_rolls_back_before_staging_cleanup(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    backend.telemetry_error = True
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+
+    assert writer.write(({"id": "one", "label": "first"},), _target(runtime)) == 1
+
+    assert [operation.operation for operation in writer.drain_telemetry()] == [
+        TelemetryOperation.LOAD,
+        TelemetryOperation.QUERY,
+    ]
+    assert backend.rollbacks >= 2
+    assert any(
+        statement.startswith("DROP TABLE IF EXISTS") for _, statement, _ in backend.statements
+    )
+
+
+def test_redshift_history_enrichment_is_bounded_and_ignores_malformed_metrics() -> None:
+    backend = _FakeRedshift(telemetry_rows=[("bad", -1)])
+    connection = backend.connect()
+    operations = tuple(
+        OperationTelemetry(
+            provider="redshift",
+            operation=TelemetryOperation.QUERY,
+            query_id=str(query_id),
+        )
+        for query_id in range(1_002)
+    )
+
+    assert enrich_operation_telemetry(connection, operations) == operations
+
+    history_statement, history_parameters = next(
+        (statement, parameters)
+        for _, statement, parameters in backend.statements
+        if statement.startswith("WITH recent AS (SELECT query_id")
+    )
+    assert len(history_parameters) == 1_000
+    assert history_parameters[0] == 2
+    assert history_parameters[-1] == 1_001
+    assert "metrics_level = 'Step'" in history_statement
+    assert backend.rollbacks == 1
 
 
 @pytest.mark.parametrize(
@@ -1434,7 +1581,8 @@ def test_redshift_lost_publication_rolls_back_and_removes_owned_staging(
     with pytest.raises(TargetFenceLostError, match="lost before publication"):
         writer.write(({"id": "one", "label": "blocked"},), target)
 
-    assert backend.rollbacks == rollback_before + 1
+    # Query-ID capture ends its telemetry-only transaction before the failed fence rolls back.
+    assert backend.rollbacks == rollback_before + 2
     assert s3.deleted and len(s3.deleted[-1]) == 2
     assert not tuple(staging_root.iterdir())
     assert not any(statement.startswith("MERGE INTO") for _, statement, _ in backend.statements)

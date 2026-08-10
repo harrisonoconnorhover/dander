@@ -1046,3 +1046,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Graphs remain single-connector and replace-only. Redshift safe casts fail preflight
   until an exact lowering exists. Views, telemetry expansion, live AWS proof, and support promotion
   remain separate Phase 5 slices.
+
+## 2026-08-10 — Redshift telemetry never competes with correctness transactions
+
+- **Attribution:** Dander captures `PG_LAST_QUERY_ID()` only after committed COPY and CTAS work.
+  Multi-statement fenced publication and assertion operations retain local counters without a
+  potentially misleading query ID.
+- **Enrichment:** One bounded same-session lookup reads numeric counters from `SYS_QUERY_HISTORY`,
+  step-level `SYS_QUERY_DETAIL`, and `SYS_LOAD_HISTORY`; SQL text, errors, and S3 data sources are
+  never selected.
+- **Failure boundary:** Every telemetry-only read rolls back its own transaction, including denied
+  or malformed history, so observability cannot poison target cleanup or fail completed work.

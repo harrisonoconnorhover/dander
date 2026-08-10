@@ -7,9 +7,10 @@ from __future__ import annotations
 import hashlib
 import json
 import tempfile
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
+from time import perf_counter_ns
 from typing import TYPE_CHECKING, Protocol
 from uuid import uuid4
 
@@ -18,9 +19,13 @@ from dander.providers.redshift.config import validate_redshift_relation
 from dander.providers.redshift.session import (
     RedshiftConnection,
     RedshiftConnectionFactory,
+    RedshiftStatementResult,
+    capture_last_query_id,
+    enrich_operation_telemetry,
     execute,
     open_connection,
 )
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.warehouse import (
     CanonicalField,
     CanonicalType,
@@ -32,7 +37,13 @@ from dander.warehouse import (
     normalize_staging_record,
     staging_logical_size,
 )
-from dander.writer import SchemaEvolution, WriteMode, WritePattern, WriteTarget
+from dander.writer import (
+    SchemaEvolution,
+    WriteMode,
+    WritePattern,
+    WriteTarget,
+    WriteTransport,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -87,6 +98,12 @@ class RedshiftPublication:
     affected_statement_index: int
 
 
+@dataclass(frozen=True, slots=True)
+class _LoadOutcome:
+    affected: int
+    operations: tuple[OperationTelemetry, ...]
+
+
 class RedshiftStagedWriter(WritePattern):
     """Upload bounded Parquet parts and publish one selected logical write mode."""
 
@@ -120,8 +137,16 @@ class RedshiftStagedWriter(WritePattern):
             WriteMode.SNAPSHOT,
         }
         self.accepts_streaming_input = not self.supports_batched_writes
+        self._telemetry: list[OperationTelemetry] = []
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return completed COPY/publication operations exactly once."""
+        operations = tuple(self._telemetry)
+        self._telemetry.clear()
+        return operations
 
     def write(self, records: Iterable[Mapping[str, object]], target: WriteTarget) -> int:
+        self._telemetry.clear()
         _validate_target(
             target,
             database=self._database,
@@ -173,7 +198,9 @@ class RedshiftStagedWriter(WritePattern):
                 ),
                 staged_schema,
             )
-            return self._publish(target, publication, schema, staged_schema, manifest)
+            outcome = self._publish(target, publication, schema, staged_schema, manifest)
+        self._telemetry.extend(outcome.operations)
+        return outcome.affected
 
     def _publish(
         self,
@@ -182,7 +209,7 @@ class RedshiftStagedWriter(WritePattern):
         target_schema: RelationSchema,
         staged_schema: RelationSchema,
         manifest: StagingManifest,
-    ) -> int:
+    ) -> _LoadOutcome:
         _validate_bucket_region(self._s3, self._staging.bucket, self._staging.region)
         remote_id = hashlib.sha256(
             f"{publication.target_id}:{publication.run_id}:{uuid4().hex}".encode()
@@ -190,6 +217,9 @@ class RedshiftStagedWriter(WritePattern):
         remote_prefix = f"{self._staging.prefix}/{remote_id}"
         temp_table = f"dander_stage_{remote_id}"
         uploaded: list[str] = []
+        operations: list[OperationTelemetry] = []
+        loaded: RedshiftStatementResult | None = None
+        load_duration_ms = 0
         with open_connection(self._connection_factory) as connection:
             publication_failed = True
             try:
@@ -211,7 +241,8 @@ class RedshiftStagedWriter(WritePattern):
                         Body=_copy_manifest(self._staging.bucket, remote_prefix, manifest),
                     )
                     execute(connection, _temporary_table_sql(temp_table, staged_schema))
-                    execute(
+                    loaded, load_duration_ms = _timed_call(
+                        execute,
                         connection,
                         _copy_sql(
                             temp_table,
@@ -223,6 +254,20 @@ class RedshiftStagedWriter(WritePattern):
                 # COPY and SET open an implicit transaction. Close it while retaining the
                 # session-scoped temp table so the fenced publication owns one transaction.
                 connection.commit()
+                if manifest.rows:
+                    assert loaded is not None
+                    loaded = replace(loaded, query_id=capture_last_query_id(connection))
+                    operations.append(
+                        _operation_telemetry(
+                            loaded,
+                            operation=TelemetryOperation.LOAD,
+                            duration_ms=load_duration_ms,
+                            rows_written=manifest.rows,
+                            bytes_written=sum(
+                                artifact.compressed_bytes for artifact in manifest.artifacts
+                            ),
+                        )
+                    )
                 plan = _publication_plan(
                     connection,
                     target,
@@ -238,16 +283,26 @@ class RedshiftStagedWriter(WritePattern):
                 # The schema read also opens an implicit transaction. End that read-only
                 # snapshot before beginning the one fenced publication transaction.
                 connection.commit()
+                started = perf_counter_ns()
                 results = self._target_fence.execute_statements(
                     connection,
                     plan.statements,
                     publication,
                 )
+                publication_duration_ms = _elapsed_milliseconds(started)
                 affected_rows = results[plan.affected_statement_index].rowcount
                 if affected_rows < 0:
                     raise RedshiftWriteError("Redshift publication did not report affected rows")
+                operations.append(
+                    _operation_telemetry(
+                        results[plan.affected_statement_index],
+                        operation=TelemetryOperation.QUERY,
+                        duration_ms=publication_duration_ms,
+                    )
+                )
+                completed = enrich_operation_telemetry(connection, operations)
                 publication_failed = False
-                return affected_rows
+                return _LoadOutcome(affected_rows, completed)
             except (RedshiftWriteError, TargetFenceLostError):
                 raise
             except Exception as error:
@@ -315,6 +370,39 @@ def default_staging_settings(
         max_logical_bytes_per_file=max_logical_bytes_per_file,
         compression=compression,
         statement_timeout_ms=statement_timeout_ms,
+    )
+
+
+def _timed_call(
+    function: Callable[..., RedshiftStatementResult],
+    *arguments: object,
+) -> tuple[RedshiftStatementResult, int]:
+    started = perf_counter_ns()
+    result = function(*arguments)
+    return result, _elapsed_milliseconds(started)
+
+
+def _elapsed_milliseconds(started: int) -> int:
+    return max((perf_counter_ns() - started) // 1_000_000, 0)
+
+
+def _operation_telemetry(
+    result: RedshiftStatementResult,
+    *,
+    operation: TelemetryOperation,
+    duration_ms: int,
+    rows_written: int = 0,
+    bytes_written: int = 0,
+) -> OperationTelemetry:
+    return OperationTelemetry(
+        provider="redshift",
+        operation=operation,
+        duration_ms=duration_ms,
+        rows_written=rows_written,
+        rows_affected=max(result.rowcount, 0),
+        bytes_written=bytes_written,
+        query_id=result.query_id,
+        transport=WriteTransport.COPY,
     )
 
 
