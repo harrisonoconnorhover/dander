@@ -29,6 +29,8 @@ from dander.warehouse import (
     ParquetStagingSession,
     RelationSchema,
     StagingManifest,
+    normalize_staging_record,
+    staging_logical_size,
 )
 from dander.writer import SchemaEvolution, WriteMode, WritePattern, WriteTarget
 
@@ -44,6 +46,7 @@ _SCD2_VALID_TO = "valid_to"
 _SCD2_IS_CURRENT = "is_current"
 _SCD2_SYSTEM_FIELDS = frozenset({_SCD2_VALID_FROM, _SCD2_VALID_TO, _SCD2_IS_CURRENT})
 _MAX_PARQUET_ROW_BYTES = 4 * 1_024 * 1_024
+_MAX_SUPER_BYTES = 16 * 1_024 * 1_024
 
 
 class RedshiftWriteError(ValueError):
@@ -129,7 +132,12 @@ class RedshiftStagedWriter(WritePattern):
         publication = target.publication_fence
         assert publication is not None
         schema = target.canonical_schema
-        _validate_schema(schema)
+        validate_redshift_schema(schema)
+        _validate_super_roles(
+            target,
+            cursor_field=self._cursor_field,
+            snapshot_field=self._snapshot_field,
+        )
         reserved = {_ORDINAL}
         if self.mode is WriteMode.SCD2:
             reserved.update(_SCD2_SYSTEM_FIELDS)
@@ -137,7 +145,7 @@ class RedshiftStagedWriter(WritePattern):
             raise RedshiftWriteError(f"Declared schema reserves Dander field {collision[0]!r}")
         staged_schema = RelationSchema(
             fields=(
-                *schema.fields,
+                *(_staging_field(field) for field in schema.fields),
                 CanonicalField(
                     name=_ORDINAL,
                     data_type=CanonicalType(kind=LogicalTypeKind.INTEGER, bit_width=64),
@@ -154,15 +162,17 @@ class RedshiftStagedWriter(WritePattern):
             compression=self._staging.compression,
         ) as local:
             manifest = local.stage(
-                _with_ordinals(
-                    records,
-                    business_key=target.business_key,
-                    cursor_field=self._cursor_field,
-                    snapshot_field=self._snapshot_field,
+                _validated_staging_rows(
+                    _with_ordinals(
+                        _serialize_super_records(records, schema),
+                        business_key=target.business_key,
+                        cursor_field=self._cursor_field,
+                        snapshot_field=self._snapshot_field,
+                    ),
+                    staged_schema,
                 ),
                 staged_schema,
             )
-            _validate_manifest(manifest)
             return self._publish(target, publication, schema, staged_schema, manifest)
 
     def _publish(
@@ -370,19 +380,153 @@ def _validate_target(
         raise RedshiftWriteError("Redshift destination target fence does not match the target")
 
 
-def _validate_schema(schema: RelationSchema) -> None:
+def validate_redshift_schema(schema: RelationSchema) -> None:
+    """Validate scalar mappings plus the explicit JSON-to-SUPER fallback."""
     for field in schema.fields:
         if len(field.name.encode()) > 127:
             raise RedshiftWriteError("Redshift column identifiers cannot exceed 127 bytes")
-        _redshift_type(field.data_type)
+        _redshift_field_type(field)
 
 
-def _validate_manifest(manifest: StagingManifest) -> None:
-    if any(
-        artifact.rows == 1 and artifact.logical_bytes > _MAX_PARQUET_ROW_BYTES
-        for artifact in manifest.artifacts
-    ):
-        raise RedshiftWriteError("Redshift Parquet row exceeds the 4 MB COPY limit")
+def _validate_super_roles(
+    target: WriteTarget,
+    *,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> None:
+    super_fields = {
+        field.name for field in target.canonical_schema.fields if _is_super_fallback(field)
+    }
+    restricted = {*target.business_key}
+    if cursor_field is not None:
+        restricted.add(cursor_field)
+    if snapshot_field is not None:
+        restricted.add(snapshot_field)
+    if collision := sorted(super_fields & restricted):
+        raise RedshiftWriteError(
+            f"Redshift SUPER field {collision[0]!r} cannot be a key, cursor, or snapshot field"
+        )
+
+
+def _staging_field(field: CanonicalField) -> CanonicalField:
+    if _is_super_fallback(field):
+        return field.model_copy(update={"data_type": CanonicalType(kind=LogicalTypeKind.BINARY)})
+    return field
+
+
+def _is_super_fallback(field: CanonicalField) -> bool:
+    redshift_extensions = tuple(
+        extension for extension in field.extensions if extension.provider == "redshift"
+    )
+    expected = _has_super_extension(field)
+    if field.data_type.kind is LogicalTypeKind.JSON:
+        if not expected:
+            raise RedshiftWriteError("Redshift JSON fields require redshift/fallback=super")
+        return True
+    if field.data_type.kind in {LogicalTypeKind.ARRAY, LogicalTypeKind.RECORD}:
+        raise RedshiftWriteError(
+            "Redshift ARRAY and RECORD fields have no canonical fallback in this slice"
+        )
+    if redshift_extensions:
+        raise RedshiftWriteError("Redshift field extension is unsupported for this type")
+    return False
+
+
+def _has_super_extension(field: CanonicalField) -> bool:
+    redshift_extensions = tuple(
+        extension for extension in field.extensions if extension.provider == "redshift"
+    )
+    return (
+        len(redshift_extensions) == 1
+        and redshift_extensions[0].name == "fallback"
+        and redshift_extensions[0].value == "super"
+    )
+
+
+def _redshift_field_type(field: CanonicalField) -> str:
+    if _is_super_fallback(field):
+        return "SUPER"
+    return _redshift_type(field.data_type)
+
+
+def _serialize_super_records(
+    records: Iterable[Mapping[str, object]],
+    schema: RelationSchema,
+) -> Iterable[Mapping[str, object]]:
+    super_fields = tuple(field.name for field in schema.fields if _is_super_fallback(field))
+    for row_index, record in enumerate(records):
+        prepared = dict(record)
+        for field_name in super_fields:
+            value = prepared.get(field_name)
+            if value is None:
+                continue
+            _validate_json_keys(value, row_index=row_index, field_name=field_name)
+            try:
+                encoded = json.dumps(
+                    value,
+                    allow_nan=False,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            except (TypeError, ValueError) as error:
+                raise RedshiftWriteError(
+                    f"Record {row_index} has invalid JSON in field {field_name!r}"
+                ) from error
+            if len(encoded) > _MAX_SUPER_BYTES:
+                raise RedshiftWriteError(
+                    f"Record {row_index} JSON field {field_name!r} exceeds Redshift SUPER size"
+                )
+            prepared[field_name] = encoded
+        yield prepared
+
+
+def _validate_json_keys(
+    value: object,
+    *,
+    row_index: int,
+    field_name: str,
+    active: set[int] | None = None,
+) -> None:
+    active = set() if active is None else active
+    if isinstance(value, (dict, list, tuple)):
+        identity = id(value)
+        if identity in active:
+            raise RedshiftWriteError(f"Record {row_index} has cyclic JSON in field {field_name!r}")
+        active.add(identity)
+    if isinstance(value, dict):
+        if any(not isinstance(key, str) for key in value):
+            raise RedshiftWriteError(
+                f"Record {row_index} has a non-string JSON key in field {field_name!r}"
+            )
+        for nested in value.values():
+            _validate_json_keys(
+                nested,
+                row_index=row_index,
+                field_name=field_name,
+                active=active,
+            )
+    elif isinstance(value, (list, tuple)):
+        for nested in value:
+            _validate_json_keys(
+                nested,
+                row_index=row_index,
+                field_name=field_name,
+                active=active,
+            )
+    if isinstance(value, (dict, list, tuple)):
+        active.remove(id(value))
+
+
+def _validated_staging_rows(
+    records: Iterable[Mapping[str, object]],
+    schema: RelationSchema,
+) -> Iterable[Mapping[str, object]]:
+    for row_index, record in enumerate(records):
+        normalized = normalize_staging_record(record, schema, row_index=row_index)
+        if staging_logical_size(normalized) > _MAX_PARQUET_ROW_BYTES:
+            raise RedshiftWriteError("Redshift Parquet row exceeds the 4 MB COPY limit")
+        yield record
 
 
 def _validate_bucket_region(client: RedshiftS3Client, bucket: str, expected: str) -> None:
@@ -525,11 +669,30 @@ def _deduplicated_source(
         if cursor_field is not None
         else f"{_quote(_ORDINAL)} DESC"
     )
+    source = _projected_staging_source(temporary, fields, include_ordinal=True)
     return (
         f"SELECT {columns} FROM (SELECT {columns}, ROW_NUMBER() OVER (PARTITION BY {keys} "
-        f"ORDER BY {ordering}) AS {_quote('_dander_rank')} FROM {_quote(temporary)}) ranked "
+        f"ORDER BY {ordering}) AS {_quote('_dander_rank')} FROM {source} AS normalized) ranked "
         f"WHERE {_quote('_dander_rank')} = 1"
     )
+
+
+def _projected_staging_source(
+    temporary: str,
+    fields: Sequence[CanonicalField],
+    *,
+    include_ordinal: bool = False,
+) -> str:
+    projections = [_staging_projection(field) for field in fields]
+    if include_ordinal:
+        projections.append(f"staged.{_quote(_ORDINAL)} AS {_quote(_ORDINAL)}")
+    return f"(SELECT {', '.join(projections)} FROM {_quote(temporary)} AS staged)"
+
+
+def _staging_projection(field: CanonicalField) -> str:
+    reference = f"staged.{_quote(field.name)}"
+    value = f"JSON_PARSE({reference})" if _is_super_fallback(field) else reference
+    return f"{value} AS {_quote(field.name)}"
 
 
 def _replace_statements(
@@ -539,12 +702,14 @@ def _replace_statements(
     history_values: tuple[object, ...],
 ) -> tuple[tuple[str, Sequence[object]], ...]:
     columns = ", ".join(_quote(field.name) for field in fields)
+    selected = ", ".join(f"incoming.{_quote(field.name)}" for field in fields)
+    source = _projected_staging_source(temporary, fields)
     guard = _history_guard(target)
     return (
         (_replace_delete_sql(target), history_values),
         (
-            f"INSERT INTO {_target(target)} ({columns}) SELECT {columns} "
-            f"FROM {_quote(temporary)} WHERE {guard}",
+            f"INSERT INTO {_target(target)} ({columns}) SELECT {selected} "
+            f"FROM {source} AS incoming WHERE {guard}",
             history_values,
         ),
     )
@@ -566,9 +731,10 @@ def _snapshot_sql(
         _null_safe_equal(f"existing.{_quote(field.name)}", f"incoming.{_quote(field.name)}")
         for field in fields
     )
+    source = _projected_staging_source(temporary, fields)
     return (
         f"INSERT INTO {_target(target)} ({columns}) SELECT DISTINCT {selected} "
-        f"FROM {_quote(temporary)} AS incoming WHERE "
+        f"FROM {source} AS incoming WHERE "
         f"incoming.{_quote(snapshot_field)} IS NOT NULL AND {_history_guard(target)} "
         f"AND NOT EXISTS (SELECT 1 FROM {_target(target)} AS existing WHERE {identical})"
     )
@@ -727,13 +893,13 @@ def _schema_changes(
             changes.append(
                 (
                     f"ALTER TABLE {_target(target)} ADD COLUMN {_quote(field.name)} "
-                    f"{_redshift_type(field.data_type)}",
+                    f"{_redshift_field_type(field)}",
                     (),
                 )
             )
             continue
         deployed_type, nullable = current
-        if deployed_type.casefold() != _redshift_type(field.data_type).casefold():
+        if deployed_type.casefold() != _redshift_field_type(field).casefold():
             raise RedshiftWriteError(f"Redshift type drift for column {field.name!r}")
         if nullable == required:
             raise RedshiftWriteError(f"Redshift nullability drift for column {field.name!r}")
@@ -762,18 +928,22 @@ def _create_target_sql(target: WriteTarget, schema: RelationSchema) -> str:
 
 def _target_column(field: CanonicalField, target: WriteTarget) -> str:
     required = field.cardinality is FieldCardinality.REQUIRED or field.name in target.business_key
-    return (
-        f"{_quote(field.name)} {_redshift_type(field.data_type)}{' NOT NULL' if required else ''}"
-    )
+    return f"{_quote(field.name)} {_redshift_field_type(field)}{' NOT NULL' if required else ''}"
 
 
 def _temporary_table_sql(name: str, schema: RelationSchema) -> str:
     fields = ", ".join(
-        f"{_quote(field.name)} {_redshift_type(field.data_type)}"
+        f"{_quote(field.name)} {_redshift_staging_type(field)}"
         f"{' NOT NULL' if field.cardinality is FieldCardinality.REQUIRED else ''}"
         for field in schema.fields
     )
     return f"CREATE TEMP TABLE {_quote(name)} ({fields})"
+
+
+def _redshift_staging_type(field: CanonicalField) -> str:
+    if _has_super_extension(field):
+        return f"VARBYTE({_MAX_SUPER_BYTES})"
+    return _redshift_type(field.data_type)
 
 
 def _copy_sql(name: str, *, bucket: str, manifest_key: str, role_arn: str) -> str:
@@ -991,4 +1161,5 @@ __all__ = [
     "RedshiftStagingSettings",
     "RedshiftWriteError",
     "default_staging_settings",
+    "validate_redshift_schema",
 ]

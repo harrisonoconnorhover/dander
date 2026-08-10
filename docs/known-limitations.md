@@ -20,9 +20,10 @@ evaluate these limits before using it for an unattended system containing busine
   Redshift has an experimental, locally conformance-tested scalar adapter with all five writer
   modes using bounded Parquet parts, same-region S3 manifest `COPY`, IAM roles, replay history,
   destination fencing, and fenced table/incremental transforms. The ordinary hosted source runner
-  still selects SCD1. Redshift has no live qualification, views, executable graphs, or
-  semi-structured `SUPER` mapping. PostgreSQL state and warehouse execution are implemented and
-  locally conformance-tested. A packaged Helm
+  still selects SCD1. Explicit JSON-to-`SUPER` fields use strict UTF-8 serialization, bounded
+  VARBYTE staging, and `JSON_PARSE`; ARRAY/RECORD fallbacks remain unavailable. Redshift has no
+  live qualification, views, or executable graphs. PostgreSQL state and warehouse execution are
+  implemented and locally conformance-tested. A packaged Helm
   chart now renders the Kubernetes launcher against an existing cluster, but no Kubernetes live
   profile is qualified yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse
   execution remains fail-closed until every BigQuery write mode uses destination-side fencing. The

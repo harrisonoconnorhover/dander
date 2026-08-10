@@ -85,7 +85,7 @@
       "supports_transforms": true,
       "supports_graphs": false,
       "supports_target_fencing": true,
-      "limitations": ["graph execution is not available", "only COPY transport is implemented", "semi-structured types require a future explicit SUPER mapping"]
+      "limitations": ["JSON requires the explicit redshift/fallback=super field extension", "graph execution is not available", "only COPY transport is implemented"]
     },
     {
       "provider": "snowflake",

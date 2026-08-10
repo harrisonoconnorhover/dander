@@ -20,9 +20,10 @@ from dander.providers.redshift.writer import (
     _create_target_sql,
     _qualified,
     _quote,
-    _redshift_type,
+    _redshift_field_type,
     _schema_changes,
     _set_query_group,
+    _validate_super_roles,
 )
 from dander.transform import (
     SqlDialect,
@@ -244,7 +245,12 @@ def _model_plan(project: TransformProject, model: TransformModel) -> _RedshiftMo
     )
     validate_redshift_relation(target.relation_ref)
     for field in target.canonical_schema.fields:
-        _redshift_type(field.data_type)
+        _redshift_field_type(field)
+    _validate_super_roles(
+        target,
+        cursor_field=model.metadata.incremental_cursor,
+        snapshot_field=None,
+    )
     return _RedshiftModelPlan(model=model, target=target, query=project.compile(model))
 
 

@@ -20,7 +20,9 @@ from dander.providers.redshift.writer import (
     RedshiftScd1Writer,
     RedshiftStagedWriter,
     RedshiftStagingSettings,
+    RedshiftWriteError,
     default_staging_settings,
+    validate_redshift_schema,
 )
 from dander.providers.registry import (
     PROVIDER_API_VERSION,
@@ -34,6 +36,7 @@ from dander.warehouse.runtime import (
     WarehouseCapabilities,
     WarehouseRuntime,
     WarehouseSchemaSupport,
+    WarehouseSchemaSupportError,
 )
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WritePattern, WriteTransport
 
@@ -90,12 +93,17 @@ class RedshiftSchemaMapper:
                 canonical.append(field)
             else:
                 raise TypeError("Redshift schema mapper received an unsupported field")
-        return REDSHIFT_SCHEMA_SUPPORT.require(RelationSchema(fields=tuple(canonical)))
+        schema = RelationSchema(fields=tuple(canonical))
+        try:
+            validate_redshift_schema(schema)
+        except RedshiftWriteError as error:
+            raise WarehouseSchemaSupportError(str(error)) from error
+        return schema
 
 
 @dataclass(frozen=True, slots=True)
 class RedshiftWriterFactory:
-    """Construct Redshift's bounded Parquet/COPY SCD1 writer."""
+    """Construct Redshift's bounded Parquet/COPY ingestion writer."""
 
     database: str
     connection_factory: RedshiftConnectionFactory

@@ -18,7 +18,12 @@ from dander.providers.redshift import RedshiftWarehouseConfig
 from dander.providers.redshift.transform import RedshiftTransformRunner
 from dander.providers.redshift.writer import RedshiftWriteError, _delete_owned
 from dander.transform import SqlDialect, TransformProject, TransformProjectError, TransformRunError
-from dander.warehouse import RelationRef, WarehouseRuntime
+from dander.warehouse import (
+    ProviderExtension,
+    RelationRef,
+    WarehouseRuntime,
+    WarehouseSchemaSupportError,
+)
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget, WriteTransport
 
 if TYPE_CHECKING:
@@ -313,6 +318,28 @@ def test_redshift_registration_is_lazy_and_uses_native_coordinates() -> None:
     assert "password" not in config.model_dump_json()
 
 
+def test_redshift_schema_mapper_requires_explicit_json_super_without_io(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    before = list(backend.statements)
+    fallback = ProviderExtension(provider="redshift", name="fallback", value="super")
+
+    schema = runtime.schema_mapper.canonical_schema(
+        (WriteField(name="payload", data_type="JSON", extensions=(fallback,)),)
+    )
+
+    assert fallback in schema.fields[0].extensions
+    assert backend.statements == before
+    with pytest.raises(WarehouseSchemaSupportError, match="require redshift/fallback=super"):
+        runtime.schema_mapper.canonical_schema((WriteField(name="payload", data_type="JSON"),))
+    with pytest.raises(WarehouseSchemaSupportError, match="unsupported for this type"):
+        runtime.schema_mapper.canonical_schema(
+            (WriteField(name="payload", data_type="STRING", extensions=(fallback,)),)
+        )
+    assert backend.statements == before
+
+
 def test_redshift_serverless_uses_an_aws_derived_database_user() -> None:
     registry = default_provider_registry()
     raw = _config()
@@ -593,6 +620,32 @@ def _write_redshift_model(
     )
 
 
+def _write_redshift_super_model(root: Path) -> None:
+    (root / "super_model.sql").write_text("SELECT id, payload FROM {{ ref('raw_super_records') }}")
+    (root / "super_model.yml").write_text(
+        "model: super_model\n"
+        "description: Portable Redshift SUPER fixture.\n"
+        "owner: data-eng\n"
+        "dialect: portable\n"
+        "materialization: table\n"
+        "dataset: analytics\n"
+        "source_system: fixture\n"
+        "sensitivity: internal\n"
+        "columns:\n"
+        "  - name: id\n"
+        "    type: STRING\n"
+        "    description: Stable fixture identifier.\n"
+        "  - name: payload\n"
+        "    type: JSON\n"
+        "    description: Explicit Redshift SUPER payload.\n"
+        "    extensions:\n"
+        "      - provider: redshift\n"
+        "        name: fallback\n"
+        "        value: super\n"
+        "tests: []\n"
+    )
+
+
 def test_redshift_claim_serializes_and_rejects_a_stale_token(
     redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
 ) -> None:
@@ -806,6 +859,189 @@ def test_redshift_factory_reaches_each_additional_fenced_write_mode(
     assert not tuple(staging_root.iterdir())
 
 
+@pytest.mark.parametrize("mode", tuple(WriteMode))
+def test_redshift_all_write_modes_parse_explicit_super_from_varbyte_staging(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+    mode: WriteMode,
+) -> None:
+    runtime, backend, _s3, staging_root = redshift_runtime
+    cursor_field = "updated_at" if mode is WriteMode.INCREMENTAL else None
+    snapshot_field = "snapshot_at" if mode is WriteMode.SNAPSHOT else None
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=2,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=mode,
+        cursor_field=cursor_field,
+        snapshot_field=snapshot_field,
+    )
+    relation = RelationRef(catalog="analytics", namespace="raw", name="super_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id=f"redshift_super_{mode.value}",
+            run_id=f"run-super-{mode.value}",
+            token=11,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    fallback = ProviderExtension(provider="redshift", name="fallback", value="super")
+    schema = [
+        WriteField(name="id", data_type="STRING"),
+        WriteField(name="payload", data_type="JSON", extensions=(fallback,)),
+    ]
+    record: dict[str, object] = {
+        "id": "one",
+        "payload": {"nested": {"ready": True}},
+    }
+    backend.schema_rows = [
+        ("id", "character varying", 65_535, None, None, "NO"),
+        ("payload", "super", None, None, None, "YES"),
+    ]
+    if cursor_field is not None:
+        schema.append(WriteField(name=cursor_field, data_type="INT64"))
+        record[cursor_field] = 2
+        backend.schema_rows.append((cursor_field, "bigint", None, None, None, "YES"))
+    if snapshot_field is not None:
+        schema.append(WriteField(name=snapshot_field, data_type="INT64"))
+        record[snapshot_field] = 2
+        backend.schema_rows.append((snapshot_field, "bigint", None, None, None, "YES"))
+    if mode is WriteMode.SCD2:
+        backend.schema_rows = []
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=tuple(schema),
+        publication_fence=publication,
+    )
+
+    assert writer.write((record,), target) == backend.merge_rowcount
+
+    sql = [statement for _, statement, _ in backend.statements]
+    temporary = next(statement for statement in sql if statement.startswith("CREATE TEMP TABLE"))
+    target_ddl = next(
+        statement
+        for statement in sql
+        if statement.startswith('CREATE TABLE IF NOT EXISTS "raw"."super_records"')
+    )
+    assert '"payload" VARBYTE(16777216)' in temporary
+    assert '"payload" SUPER' in target_ddl
+    assert any('JSON_PARSE(staged."payload") AS "payload"' in statement for statement in sql)
+    assert not tuple(staging_root.iterdir())
+
+
+def test_redshift_transform_accepts_explicit_native_super_column(
+    tmp_path: Path,
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, _s3, _root = redshift_runtime
+    _write_redshift_super_model(tmp_path)
+    backend.schema_rows = [
+        ("id", "character varying", 65_535, None, None, "YES"),
+        ("payload", "super", None, None, None, "YES"),
+    ]
+    backend.transform_source_rows = [{"id": "one", "payload": {"nested": True}}]
+    runner = runtime.transforms.build_transform_runner(
+        graph_plan=None,
+        build_models=True,
+        raw_namespace="raw",
+    )
+    assert isinstance(runner, RedshiftTransformRunner)
+
+    result = runner.build(tmp_path, ownership=_ownership("run-super-model", 12))
+
+    assert result.models == ("super_model",)
+    target_ddl = next(
+        statement
+        for _, statement, _ in backend.statements
+        if statement.startswith('CREATE TABLE IF NOT EXISTS "analytics"."super_model"')
+    )
+    assert '"payload" SUPER' in target_ddl
+
+
+def test_redshift_super_staging_accepts_json_larger_than_varchar_limit(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, backend, s3, _root = redshift_runtime
+    backend.schema_rows = [
+        ("id", "character varying", 65_535, None, None, "NO"),
+        ("payload", "super", None, None, None, "YES"),
+    ]
+    fallback = ProviderExtension(provider="redshift", name="fallback", value="super")
+    target = _target(runtime, run_id="run-super-boundary")
+    target = WriteTarget(
+        relation=target.relation_ref,
+        business_key=target.business_key,
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="payload", data_type="JSON", extensions=(fallback,)),
+        ),
+        publication_fence=target.publication_fence,
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+
+    assert writer.write(({"id": "one", "payload": {"blob": "x" * 70_000}},), target) == 1
+    assert s3.uploads
+
+
+@pytest.mark.parametrize("payload", [float("nan"), {1: "coerced-key"}])
+def test_redshift_super_rejects_non_strict_json_before_upload(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+    payload: object,
+) -> None:
+    runtime, _backend, s3, _root = redshift_runtime
+    fallback = ProviderExtension(provider="redshift", name="fallback", value="super")
+    target = _target(runtime, run_id="run-invalid-super")
+    target = WriteTarget(
+        relation=target.relation_ref,
+        business_key=target.business_key,
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="payload", data_type="JSON", extensions=(fallback,)),
+        ),
+        publication_fence=target.publication_fence,
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+
+    with pytest.raises(RedshiftWriteError, match="invalid JSON|non-string JSON key"):
+        writer.write(({"id": "one", "payload": payload},), target)
+
+    assert not s3.uploads and not s3.puts
+
+
+def test_redshift_super_cannot_be_a_business_key(
+    redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
+) -> None:
+    runtime, _backend, s3, _root = redshift_runtime
+    fallback = ProviderExtension(provider="redshift", name="fallback", value="super")
+    target = _target(runtime, run_id="run-super-key")
+    target = WriteTarget(
+        relation=target.relation_ref,
+        business_key=("payload",),
+        schema=(WriteField(name="payload", data_type="JSON", extensions=(fallback,)),),
+        publication_fence=target.publication_fence,
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+
+    with pytest.raises(RedshiftWriteError, match="cannot be a key, cursor, or snapshot"):
+        writer.write(({"payload": {"id": "one"}},), target)
+
+    assert not s3.uploads and not s3.puts
+
+
 def test_redshift_replace_replay_is_guarded_by_the_complete_manifest(
     redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
 ) -> None:
@@ -993,6 +1229,49 @@ def test_redshift_rejects_oversized_single_row_before_s3_or_database_mutation(
     assert s3.region_checks == 0
     assert not s3.uploads and not s3.puts
     assert backend.connections == connections_before
+
+
+def test_redshift_rejects_oversized_row_inside_multirow_artifact_before_mutation(
+    tmp_path: Path,
+) -> None:
+    backend = _FakeRedshift()
+    s3 = _FakeS3()
+    raw_config = _config()
+    raw_config["max_logical_bytes_per_file"] = 8 * 1_024 * 1_024
+    registry = default_provider_registry()
+    config = registry.parse(ProviderKind.WAREHOUSE, raw_config)
+    runtime = registry.build(
+        ProviderKind.WAREHOUSE,
+        config,
+        context={
+            "catalog": "analytics",
+            "connection_factory": backend.connect,
+            "s3_client": s3,
+            "staging_root": tmp_path,
+        },
+    )
+    assert isinstance(runtime, WarehouseRuntime)
+    target = _target(runtime, run_id="run-large-multirow")
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=2,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+    connections_before = backend.connections
+
+    with pytest.raises(RedshiftWriteError, match="4 MB COPY limit"):
+        writer.write(
+            (
+                {"id": "small", "label": "ok"},
+                {"id": "large", "label": "x" * 4_300_000},
+            ),
+            target,
+        )
+
+    assert s3.region_checks == 0
+    assert not s3.uploads and not s3.puts
+    assert backend.connections == connections_before
+    assert not tuple(tmp_path.iterdir())
 
 
 def test_redshift_connection_validation_errors_are_sanitized(tmp_path: Path) -> None:
