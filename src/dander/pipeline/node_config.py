@@ -311,6 +311,10 @@ class WriterConfig(BaseModel):
             raise ValueError(
                 "WriterConfig(transport=storage_write) supports only scd1 or incremental mode."
             )
+        if self.transport is WriteTransport.DIRECT:
+            raise ValueError(
+                "WriterConfig(transport=direct) is provider-selected and cannot be authored."
+            )
         return self
 
 

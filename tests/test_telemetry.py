@@ -13,6 +13,7 @@ from dander.telemetry import (
     RunTelemetry,
     TelemetryOperation,
 )
+from dander.writer import WriteTransport
 
 
 def _operation() -> OperationTelemetry:
@@ -37,6 +38,7 @@ def _operation() -> OperationTelemetry:
         resource_size="X-SMALL",
         capacity_units=Decimal("0.0025"),
         capacity_unit="credits",
+        transport=WriteTransport.COPY,
         costs=(
             CostAttribution(
                 provider="gcp",
@@ -85,6 +87,7 @@ def test_run_telemetry_serializes_normalized_totals_and_operation_details() -> N
                 "job_id": "job:abc-123",
                 "resource_name": "COMPUTE_WH",
                 "resource_size": "X-SMALL",
+                "transport": "copy",
                 "capacity_units": "0.0025",
                 "capacity_unit": "credits",
                 "costs": [
@@ -134,6 +137,12 @@ def test_telemetry_rejects_unsafe_or_ambiguous_values() -> None:
             provider="snowflake",
             operation=TelemetryOperation.QUERY,
             capacity_units=Decimal("0.1"),
+        )
+    with pytest.raises(ValueError, match="WriteTransport"):
+        OperationTelemetry(
+            provider="snowflake",
+            operation=TelemetryOperation.LOAD,
+            transport="copy",  # type: ignore[arg-type]
         )
 
 

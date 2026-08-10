@@ -12,14 +12,12 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from dander.warehouse.contracts import ProviderExtension, RelationRef
-
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from dander.concurrency import FencingToken, TargetFence
     from dander.telemetry import OperationTelemetry
-    from dander.warehouse import CanonicalField, RelationSchema
+    from dander.warehouse import CanonicalField, ProviderExtension, RelationRef, RelationSchema
 
 
 class WriteMode(StrEnum):
@@ -45,6 +43,7 @@ class WriteTransport(StrEnum):
     LOAD_JOB = "load_job"
     STORAGE_WRITE = "storage_write"
     COPY = "copy"
+    DIRECT = "direct"
 
 
 @dataclass(frozen=True)
@@ -95,6 +94,8 @@ class WriteTarget:
         if relation is None:
             if project is None or dataset is None or table is None:
                 raise TypeError("WriteTarget requires relation or project/dataset/table")
+            from dander.warehouse.contracts import RelationRef
+
             relation = RelationRef(catalog=project, namespace=dataset, name=table)
         elif project is not None or dataset is not None or table is not None:
             raise TypeError("WriteTarget cannot combine relation with project/dataset/table")

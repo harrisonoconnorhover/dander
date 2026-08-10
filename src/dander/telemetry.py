@@ -6,6 +6,10 @@ import re
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from dander.writer.base import WriteTransport
 
 _SAFE_NAME = re.compile(r"^[a-z][a-z0-9_.-]{0,126}$")
 _SAFE_CURRENCY = re.compile(r"^[A-Z]{3}$")
@@ -82,6 +86,7 @@ class OperationTelemetry:
     resource_size: str | None = None
     capacity_units: Decimal | None = None
     capacity_unit: str | None = None
+    transport: WriteTransport | None = None
 
     def __post_init__(self) -> None:
         _require_name(self.provider, label="telemetry provider")
@@ -93,6 +98,11 @@ class OperationTelemetry:
         _require_opaque(self.job_id, label="job id")
         _require_opaque(self.resource_name, label="resource name")
         _require_opaque(self.resource_size, label="resource size")
+        if self.transport is not None:
+            from dander.writer.base import WriteTransport
+
+            if not isinstance(self.transport, WriteTransport):
+                raise ValueError("telemetry transport must be a WriteTransport")
         if (self.capacity_units is None) != (self.capacity_unit is None):
             raise ValueError("capacity_units and capacity_unit must be declared together")
         if self.capacity_units is not None:
@@ -122,6 +132,8 @@ class OperationTelemetry:
             payload["resource_name"] = self.resource_name
         if self.resource_size is not None:
             payload["resource_size"] = self.resource_size
+        if self.transport is not None:
+            payload["transport"] = self.transport.value
         if self.capacity_units is not None:
             payload["capacity_units"] = str(self.capacity_units)
             payload["capacity_unit"] = self.capacity_unit

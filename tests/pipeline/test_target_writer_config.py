@@ -29,7 +29,7 @@ from dander.pipeline.node_config import (
     TargetNodeConfig,
     WriterConfig,
 )
-from dander.writer.base import WriteMode
+from dander.writer.base import WriteMode, WriteTransport
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -254,6 +254,19 @@ def test_invalid_write_mode_string_is_rejected() -> None:
                 "write_mode": "bulk_overwrite",
                 "destination": {"dataset": "analytics", "table": "dim_candidate"},
             }
+        )
+
+
+def test_direct_transport_cannot_be_authored_in_legacy_graphs() -> None:
+    with pytest.raises(ValidationError, match="provider-selected"):
+        WriterConfig(
+            write_mode=WriteMode.SCD1,
+            destination=DestinationSpec(
+                dataset="analytics",
+                table="dim_candidate",
+                business_key=["candidate_id"],
+            ),
+            transport=WriteTransport.DIRECT,
         )
 
 

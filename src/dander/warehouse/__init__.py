@@ -34,6 +34,8 @@ from dander.warehouse.staging import (
     StagedArtifact,
     StagingArtifactError,
     StagingManifest,
+    normalize_staging_record,
+    staging_logical_size,
 )
 
 __all__ = [
@@ -42,6 +44,7 @@ __all__ = [
     "CanonicalType",
     "FieldCardinality",
     "LogicalTypeKind",
+    "normalize_staging_record",
     "ParquetStagingSession",
     "ProviderExtension",
     "PreparedWarehouseStatement",
@@ -52,6 +55,7 @@ __all__ = [
     "StagedArtifact",
     "StagingArtifactError",
     "StagingManifest",
+    "staging_logical_size",
     "WarehouseCapabilities",
     "WarehouseRuntime",
     "WarehouseSchemaMapper",

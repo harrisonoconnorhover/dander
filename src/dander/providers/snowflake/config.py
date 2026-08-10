@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from dander.warehouse.contracts import RelationRef
 
@@ -78,6 +78,12 @@ class SnowflakeWarehouseConfig(BaseModel):
         le=1_073_741_824,
     )
     compression: Literal["snappy", "zstd"] = "zstd"
+    direct_max_rows: int = Field(default=0, ge=0, le=10_000)
+    direct_max_logical_bytes: int = Field(
+        default=0,
+        ge=0,
+        le=16 * 1_024 * 1_024,
+    )
 
     @field_validator("account")
     @classmethod
@@ -92,6 +98,15 @@ class SnowflakeWarehouseConfig(BaseModel):
         if value is not None and not _IDENTIFIER.fullmatch(value):
             raise ValueError("Snowflake identifiers must use portable identifier syntax")
         return value
+
+    @model_validator(mode="after")
+    def validate_direct_thresholds(self) -> SnowflakeWarehouseConfig:
+        """Require both provisional direct-load limits or disable the path entirely."""
+        if (self.direct_max_rows == 0) != (self.direct_max_logical_bytes == 0):
+            raise ValueError(
+                "direct_max_rows and direct_max_logical_bytes must both be zero or positive"
+            )
+        return self
 
     def raw_relation(
         self,

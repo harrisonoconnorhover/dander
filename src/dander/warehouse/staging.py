@@ -330,6 +330,16 @@ def _normalize_record(
     }
 
 
+def normalize_staging_record(
+    record: Mapping[str, object],
+    schema: RelationSchema,
+    *,
+    row_index: int,
+) -> dict[str, object]:
+    """Normalize one row exactly as bounded Parquet staging does."""
+    return _normalize_record(record, schema.fields, row_index=row_index)
+
+
 def _normalize_value(value: object, field: CanonicalField, *, row_index: int) -> object:
     if value is None:
         if field.cardinality is FieldCardinality.REQUIRED:
@@ -391,6 +401,11 @@ def _logical_size(value: object) -> int:
     return len(str(value).encode("utf-8"))
 
 
+def staging_logical_size(value: object) -> int:
+    """Return the deterministic logical-byte estimate used by staged loaders."""
+    return _logical_size(value)
+
+
 def _file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -400,8 +415,10 @@ def _file_sha256(path: Path) -> str:
 
 
 __all__ = [
+    "normalize_staging_record",
     "ParquetStagingSession",
     "StagedArtifact",
     "StagingArtifactError",
     "StagingManifest",
+    "staging_logical_size",
 ]
