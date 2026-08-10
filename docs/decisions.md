@@ -1006,3 +1006,12 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   normal Application Default Credentials without changed resource or IAM behavior.
 - **Support:** Renewable identity removes the one-hour credential limit and permits an enforced
   24-hour launcher deadline, but does not promote Fargate before the complete live lifecycle gate.
+
+## 2026-08-10 — Snowflake query telemetry is same-session and best-effort
+
+- Dander enriches only completed Snowflake operation IDs through one bounded
+  `INFORMATION_SCHEMA.QUERY_HISTORY_BY_SESSION` lookup on their existing connection.
+- The lookup selects stable counters only, caps requests at the most recent 1,000 IDs, and never
+  selects query text, bind values, provider errors, or response payloads.
+- Missing history cannot fail a successful pipeline. Delayed account-usage cost attribution and
+  misleading output-row-as-read-row mappings are explicitly excluded.
