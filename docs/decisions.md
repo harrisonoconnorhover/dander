@@ -924,6 +924,18 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Permanent view DDL, graph execution, and automatic transform-schema evolution fail
   closed. They cannot enter this slice without preserving the same publication guarantee.
 
+## 2026-08-10 — Snowflake writer modes share one fenced staging path
+
+- **Selection:** The provider-neutral warehouse writer capability accepts a logical mode plus the
+  mode-specific cursor or snapshot field. Existing hosted ingestion translates explicitly to SCD1,
+  so current CLI behavior is unchanged.
+- **Publication:** Snowflake reuses one bounded Parquet/temporary-stage load for replace, SCD1,
+  SCD2, snapshot, and incremental writes. Mode-specific DML and load-history rows commit with the
+  exact destination-fence touch; replace is streamed as one logical publication.
+- **Boundary:** This makes the modes reachable and testable but does not promote Snowflake support.
+  Views, graph wiring, explicit VARIANT, direct-write crossover, telemetry, and live qualification
+  remain separate gates.
+
 ## 2026-08-09 — Redshift begins with IAM-only bounded SCD1 publication
 
 - **Boundary:** Provisioned and Serverless profiles map native database/schema coordinates into

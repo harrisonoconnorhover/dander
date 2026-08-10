@@ -80,10 +80,21 @@ class BigQueryWriterFactory:
         sandbox: bool,
         batch_rows: int,
         schema_evolution: SchemaEvolution,
+        mode: WriteMode = WriteMode.SCD1,
+        cursor_field: str | None = None,
+        snapshot_field: str | None = None,
     ) -> WritePattern:
         """Use replace for local sandbox execution and SCD1 for hosted execution."""
+        del cursor_field
+        del snapshot_field
         if sandbox:
+            if mode not in {WriteMode.SCD1, WriteMode.REPLACE}:
+                raise ValueError(f"BigQuery sandbox does not support {mode.value} writes")
             return BigQueryReplaceWriter(project=self.project, max_batch_rows=batch_rows)
+        if mode is not WriteMode.SCD1:
+            raise ValueError(
+                f"BigQuery hosted ingestion does not select {mode.value} through this capability"
+            )
         return BigQueryScd1Writer(
             project=self.project,
             max_batch_rows=batch_rows,

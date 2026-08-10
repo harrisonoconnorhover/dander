@@ -1,8 +1,9 @@
 # Experimental Snowflake warehouse
 
 Snowflake is an experimental warehouse adapter, not a supported Dander profile. The current slice
-exists to prove the provider boundary with native database/schema coordinates, a real bounded
-bulk path, and fenced table/incremental models before additional write modes are added.
+proves native database/schema coordinates, a bounded bulk path, all five scalar writer modes, and
+fenced table/incremental models. Live qualification and the remaining first-class gates are still
+required before support promotion.
 
 ## Configuration
 
@@ -42,8 +43,13 @@ variable reference. Do not put a token, private key, password, or connection str
 - `COPY` preserves Parquet logical and binary types explicitly.
 - One session-temporary stage and table contain each batch; normal cleanup is immediate and session
   termination removes them after process death.
-- SCD1 publication and load-history recording occur in the same transaction as the exact
-  destination fencing-token touch.
+- SCD1, incremental, snapshot, SCD2, and replace publication share the same bounded staging path.
+  Load-history recording and final destination DML occur in the same transaction as the exact
+  fencing-token touch.
+- SCD1 retains the last staged record per business key. Incremental mode adds a monotonic cursor
+  comparison. Snapshot mode appends only previously unseen complete rows. SCD2 closes changed
+  current rows and writes `valid_from`, `valid_to`, and `is_current`. Replace performs fenced
+  `DELETE`/`INSERT`, including an empty-source replacement.
 - Only declared nullable columns may be added automatically. Extra columns, required additions,
   type drift, nullability drift, malformed rows, and oversized singleton parts fail closed.
 - Portable or Snowflake-authored table models replace rows through fenced `DELETE`/`INSERT` DML.
@@ -56,8 +62,10 @@ until a live least-privilege profile is qualified.
 
 ## Deliberate limits
 
-Only scalar SCD1 ingestion plus table and incremental model materializations are implemented.
+All five scalar write patterns are reachable through the warehouse writer capability, while the
+ordinary hosted source runner deliberately continues to select SCD1. PipelineGraph execution has
+not yet been wired to Snowflake's writer selection.
 Views remain unavailable because Snowflake permanent DDL cannot share the destination-fence
-transaction. Graphs, replace, SCD2, snapshot, semi-structured fields, live concurrency proof,
-infrastructure provisioning, and support promotion remain separate work. Use
-`catalog.provider: none` for this experimental path.
+transaction. Semi-structured fields, a measured small-load direct path, full telemetry plumbing,
+live concurrency proof, infrastructure provisioning, and support promotion remain separate work.
+Use `catalog.provider: none` for this experimental path.

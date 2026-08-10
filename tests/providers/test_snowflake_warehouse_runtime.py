@@ -333,10 +333,268 @@ def test_snowflake_stages_bounded_parts_merges_last_record_and_cleans(
     assert backend.commits == 2
     assert backend.rollbacks == 0
     assert len(backend.committed_checksums) == 2
-    assert runtime.capabilities.write_modes == frozenset({WriteMode.SCD1})
+    assert runtime.capabilities.write_modes == frozenset(WriteMode)
     assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
     assert runtime.capabilities.supports_transforms is True
     assert runtime.relation_codec.render(relation) == '"DANDER_TEST"."raw"."records"'
+
+
+@pytest.mark.parametrize(
+    ("mode", "field_name", "expected_sql"),
+    [
+        (
+            WriteMode.INCREMENTAL,
+            "updated_at",
+            'WHEN MATCHED AND incoming."updated_at" >= target."updated_at"',
+        ),
+        (WriteMode.SNAPSHOT, "snapshot_at", "SELECT DISTINCT"),
+        (WriteMode.SCD2, None, '"valid_to" = $DANDER_SCD2_EFFECTIVE_AT'),
+        (WriteMode.REPLACE, None, 'SELECT "id", "label" FROM'),
+    ],
+)
+def test_snowflake_factory_reaches_every_fenced_write_mode(
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+    mode: WriteMode,
+    field_name: str | None,
+    expected_sql: str,
+) -> None:
+    runtime, backend, staging_root = snowflake_runtime
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=2,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=mode,
+        cursor_field=field_name if mode is WriteMode.INCREMENTAL else None,
+        snapshot_field=field_name if mode is WriteMode.SNAPSHOT else None,
+    )
+    assert writer.mode is mode
+    assert writer.supports_batched_writes is (mode not in {WriteMode.REPLACE, WriteMode.SCD2})
+    assert writer.accepts_streaming_input is (mode in {WriteMode.REPLACE, WriteMode.SCD2})
+
+    relation = RelationRef(
+        catalog="DANDER_TEST",
+        namespace="raw",
+        name=f"records_{mode.value}",
+    )
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id=f"snowflake_{mode.value}",
+            run_id=f"run-{mode.value}",
+            token=5,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    schema = [
+        WriteField(name="id", data_type="STRING"),
+        WriteField(name="label", data_type="STRING"),
+    ]
+    backend.describe_rows = [
+        (
+            "id",
+            "VARCHAR(16777216)",
+            "COLUMN",
+            "N" if mode in {WriteMode.INCREMENTAL, WriteMode.SCD2} else "Y",
+        ),
+        ("label", "VARCHAR(16777216)", "COLUMN", "Y"),
+    ]
+    if field_name is not None:
+        schema.append(WriteField(name=field_name, data_type="STRING"))
+        backend.describe_rows.append((field_name, "VARCHAR(16777216)", "COLUMN", "Y"))
+    if mode is WriteMode.SCD2:
+        backend.describe_rows.extend(
+            [
+                ("valid_from", "TIMESTAMP_TZ(9)", "COLUMN", "N"),
+                ("valid_to", "TIMESTAMP_TZ(9)", "COLUMN", "Y"),
+                ("is_current", "BOOLEAN", "COLUMN", "N"),
+            ]
+        )
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",) if mode in {WriteMode.INCREMENTAL, WriteMode.SCD2} else (),
+        schema=tuple(schema),
+        publication_fence=publication,
+    )
+    first = {"id": "one", "label": "first"}
+    second = {"id": "two", "label": "second"}
+    if field_name is not None:
+        first[field_name] = "2026-08-10T02:00:00Z"
+        second.update({"id": "one", field_name: "2026-08-10T01:00:00Z"})
+    elif mode is WriteMode.SCD2:
+        second["id"] = "one"
+
+    writer.write((first, second), target)
+
+    sql = [statement for statement, _parameters in backend.statements]
+    assert any(expected_sql in statement for statement in sql)
+    if mode is WriteMode.INCREMENTAL:
+        assert any(
+            'PARTITION BY "id" ORDER BY "updated_at" DESC NULLS LAST, '
+            '"_dander_ordinal" DESC' in item
+            for item in sql
+        )
+    elif mode is WriteMode.SNAPSHOT:
+        assert any("EQUAL_NULL(existing." in item and "NOT EXISTS" in item for item in sql)
+    elif mode is WriteMode.SCD2:
+        assert sql.count("SET DANDER_SCD2_EFFECTIVE_AT = CURRENT_TIMESTAMP()") == 1
+        assert len([item for item in sql if "$DANDER_SCD2_EFFECTIVE_AT" in item]) == 2
+        assert any(
+            '"valid_from" TIMESTAMP_TZ(9) NOT NULL' in item
+            and '"is_current" BOOLEAN NOT NULL' in item
+            for item in sql
+        )
+    elif mode is WriteMode.REPLACE:
+        target_name = '"DANDER_TEST"."raw"."records_replace"'
+        assert f"DELETE FROM {target_name}" in sql
+        assert any(item.startswith(f"INSERT INTO {target_name}") for item in sql)
+    assert any(
+        'UPDATE "DANDER_TEST"."raw"."dander_target_commits"' in statement for statement in sql
+    )
+    assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in sql)
+    assert any(statement.startswith("DROP STAGE IF EXISTS") for statement in sql)
+    assert not tuple(staging_root.iterdir())
+
+
+def test_snowflake_mode_selection_fails_before_provider_mutation(
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    before = list(backend.statements)
+
+    with pytest.raises(ValueError, match="incremental writes require cursor_field"):
+        runtime.writers.build_ingestion_writer(
+            sandbox=False,
+            batch_rows=2,
+            schema_evolution=SchemaEvolution.STRICT,
+            mode=WriteMode.INCREMENTAL,
+        )
+
+    assert backend.statements == before
+
+
+def test_snowflake_replace_partial_replay_reloads_the_complete_manifest(
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    relation = RelationRef(catalog="DANDER_TEST", namespace="raw", name="replace_replay")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="snowflake_replace_replay",
+            run_id="run-replace-replay",
+            token=7,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    backend.describe_rows = [
+        ("id", "VARCHAR(16777216)", "COLUMN", "Y"),
+        ("label", "VARCHAR(16777216)", "COLUMN", "Y"),
+    ]
+    checks = 0
+
+    def artifact_committed(*_args: object) -> bool:
+        nonlocal checks
+        checks += 1
+        return checks == 1
+
+    monkeypatch.setattr(
+        "dander.providers.snowflake.writer._artifact_committed",
+        artifact_committed,
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=2,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=WriteMode.REPLACE,
+    )
+    writer.write(
+        (
+            {"id": "one", "label": "first"},
+            {"id": "two", "label": "second"},
+            {"id": "three", "label": "third"},
+        ),
+        WriteTarget(
+            relation=relation,
+            schema=(
+                WriteField(name="id", data_type="STRING"),
+                WriteField(name="label", data_type="STRING"),
+            ),
+            publication_fence=publication,
+        ),
+    )
+
+    sql = [statement for statement, _parameters in backend.statements]
+    assert checks == 2
+    assert len([statement for statement in sql if statement.startswith("PUT ")]) == 2
+    assert len([statement for statement in sql if statement.startswith("COPY INTO")]) == 2
+    assert (
+        len(
+            [
+                statement
+                for statement in sql
+                if statement.startswith("INSERT INTO") and "dander_stage_loads" in statement
+            ]
+        )
+        == 1
+    )
+    assert 'DELETE FROM "DANDER_TEST"."raw"."replace_replay"' in sql
+
+
+@pytest.mark.parametrize("mode", [WriteMode.REPLACE, WriteMode.SNAPSHOT])
+def test_snowflake_unkeyed_empty_writes_remain_fenced(
+    snowflake_runtime: tuple[WarehouseRuntime, _FakeSnowflake, Path],
+    mode: WriteMode,
+) -> None:
+    runtime, backend, _staging_root = snowflake_runtime
+    relation = RelationRef(
+        catalog="DANDER_TEST",
+        namespace="raw",
+        name=f"empty_{mode.value}",
+    )
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id=f"empty_{mode.value}",
+            run_id=f"run-empty-{mode.value}",
+            token=6,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    backend.describe_rows = [("id", "VARCHAR(16777216)", "COLUMN", "Y")]
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=2,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+        mode=mode,
+        snapshot_field="id" if mode is WriteMode.SNAPSHOT else None,
+    )
+
+    affected = writer.write(
+        (),
+        WriteTarget(
+            relation=relation,
+            schema=(WriteField(name="id", data_type="STRING"),),
+            publication_fence=publication,
+        ),
+    )
+
+    assert affected == 0
+
+    sql = [statement for statement, _parameters in backend.statements]
+    expected = (
+        f'DELETE FROM "DANDER_TEST"."raw"."empty_{mode.value}"'
+        if mode is WriteMode.REPLACE
+        else f'UPDATE "DANDER_TEST"."raw"."empty_{mode.value}" SET "id" = "id" WHERE FALSE'
+    )
+    assert expected in sql
+    assert not any(statement.startswith("PUT ") for statement in sql)
+    assert any(
+        'UPDATE "DANDER_TEST"."raw"."dander_target_commits"' in statement for statement in sql
+    )
 
 
 @dataclass
