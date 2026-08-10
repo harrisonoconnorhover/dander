@@ -350,6 +350,11 @@ def test_snowflake_claim_commits_when_account_autocommit_is_disabled(
     assert backend.committed_claims == 1
     assert backend.discarded_claims == 0
     assert backend.commits == 1
+    claim_sql = next(
+        statement for statement, _parameters in backend.statements if statement.startswith("MERGE")
+    )
+    assert " AS target_row USING " in claim_sql
+    assert " AS current " not in claim_sql and "current." not in claim_sql
 
 
 def test_snowflake_stages_bounded_parts_merges_last_record_and_cleans(
@@ -725,6 +730,8 @@ def test_snowflake_factory_reaches_every_fenced_write_mode(
     elif mode is WriteMode.SCD2:
         assert sql.count("SET DANDER_SCD2_EFFECTIVE_AT = CURRENT_TIMESTAMP()") == 1
         assert len([item for item in sql if "$DANDER_SCD2_EFFECTIVE_AT" in item]) == 2
+        assert all(" AS current " not in item and "current." not in item for item in sql)
+        assert any(" AS target_row SET " in item for item in sql)
         assert any(
             '"valid_from" TIMESTAMP_TZ(9) NOT NULL' in item
             and '"is_current" BOOLEAN NOT NULL' in item

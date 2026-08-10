@@ -3,8 +3,8 @@
 Snowflake is an experimental warehouse adapter, not a supported Dander profile. The current slice
 proves native database/schema coordinates, bounded direct and bulk paths, all five writer modes,
 an explicit JSON-to-`VARIANT` fallback, fenced table/incremental models, and fenced replace-mode
-graph targets. Live qualification and the remaining first-class gates are still required before
-support promotion.
+graph targets. A bounded live qualification has passed; infrastructure provisioning and the
+remaining first-class gates are still required before support promotion.
 
 ## Configuration
 
@@ -120,6 +120,9 @@ checks for staging residue. Its JSON report contains bounded query IDs and timin
 user, credential reference, SQL, row value, or provider response. It deliberately reports cost as
 `not_measured` and support as `experimental`.
 
+The sanitized disposable-account result is recorded in
+[Snowflake live qualification](cloud-portability-snowflake-qualification.md).
+
 ## Deliberate limits
 
 All five scalar write patterns are reachable through the warehouse writer capability, while the
@@ -130,5 +133,5 @@ because Snowflake permanent DDL cannot share the destination-fence transaction. 
 default to zero because no live crossover has been measured; do not claim a performance benefit
 until that qualification is recorded. Same-session history deliberately does not estimate total
 Snowflake credits or costs; account-level usage history is delayed and remains evidence-side work.
-Live concurrency proof, infrastructure provisioning, and support promotion remain separate work.
-Use `catalog.provider: none` for this experimental path.
+Infrastructure provisioning and support promotion remain separate work. Use
+`catalog.provider: none` for this experimental path.
