@@ -2,34 +2,34 @@
 
 ## Finished
 
-- Corrected the Fargate Step Functions result selectors to match the live `ecs:runTask.sync` response.
-- Added a focused Terraform assertion for the exact task ARN and container exit-code paths.
-- Preserved the controller's normalized result keys, retry policy, deadlines, and runtime contract.
+- Prepared release-only metadata for `dander-platform==0.8.0rc6`.
+- Kept the accepted Fargate controller correction unchanged from merge commit `57a9dd58c7fe5ba7062fe15b10f6c45e056b8eb0`.
+- Recorded rc5 as rejected after live result selection failed despite an ECS exit code of zero.
 
 ## Try It
 
-Run `terraform test` in `infra/aws/modules/fargate`.
+Run `uv run python scripts/check_release_metadata.py`, then build and inspect the candidate artifacts.
 
 ## Checks
 
-- Live rc5 evidence showed an ECS task exiting `0`, followed by `States.Runtime` because the old selector expected a nonexistent `Tasks[0]` wrapper.
-- Fargate Terraform tests passed: 2 runs, including the rendered selector assertion.
-- Python passed: Ruff, formatting, mypy across 304 files, and 1,104 tests with 13 skips.
-- Terraform root, GCP/AWS stage zero, AWS platform, Fargate, and portability roots validated; AWS stage-zero tests passed.
-- Wheel/sdist inspection and source-free installation passed with the corrected AWS template.
+- PR #158 passed Python, Terraform, packaging, container, and secret checks.
+- The merged fix passed 1,104 tests, strict typing, Terraform validation, distribution inspection, and source-free installation.
+- Release metadata, wheel/sdist inspection, and source-free rc6 installation passed outside the checkout.
 
 ## Decisions
 
-- The live AWS response is authoritative: `TaskArn` and `Containers` are top-level fields.
-- This correction is limited to result normalization; controller semantics are unchanged.
+- `0.8.0rc6` replaces rc5 for complete Fargate lifecycle acceptance.
+- Fargate remains experimental until the complete lifecycle gate passes.
 
 ## Remaining
 
-- Merge the focused correction through protected main.
-- Publish a replacement candidate; rc5 cannot be promoted.
+- Merge this release-only PR after protected checks pass.
+- Tag and publish `0.8.0rc6` from the exact protected merge.
+- Reinstall rc6 source-free and restart complete Fargate lifecycle acceptance.
 - Finish replay, interruption, scheduling, alert, rollback, cleanup, and no-drift evidence.
 
 ## Review First
 
-- `infra/aws/modules/fargate/main.tf`
-- `infra/aws/modules/fargate/tests/fargate.tftest.hcl`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `docs/session-resume.md`

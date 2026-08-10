@@ -6,6 +6,14 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.8.0rc6 — 2026-08-09 (beta)
+
+### Fixed
+
+- Normalize the live `ecs:runTask.sync` response from its top-level `TaskArn` and container exit
+  code fields so successful Fargate tasks reach Dander's existing exit-code classifier instead of
+  failing in Step Functions result selection.
+
 ## 0.8.0rc5 — 2026-08-09 (beta)
 
 ### Fixed
