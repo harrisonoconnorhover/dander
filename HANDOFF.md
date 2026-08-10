@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Added PostgreSQL execution for the existing provider-neutral `GraphExecutionPlan`.
-- Published replace-mode graph targets through PostgreSQL's transactional destination fence.
-- Added whole-plan preflight for dialect support and database-local source/target coordinates.
-- Added live PostgreSQL replay, selection, ownership, and stale-fence rollback coverage.
-- Updated the packaged capability contract and focused PostgreSQL documentation.
+- Accepted the experimental PostgreSQL/Kubernetes profile through a complete local existing-cluster lifecycle.
+- Added immutable image validation for local registries with numeric ports.
+- Proved source-free installation, non-root execution, replay, updates, models, assertions, metadata, and fencing.
+- Proved reviewed schedule change, Helm rollback, read-only verification, and complete local cleanup.
+- Recorded exact artifact digests, environment versions, results, exclusions, and retained GCP no-drift evidence.
 
 ## Try It
 
-Set `DANDER_TEST_POSTGRES_DSN` to PostgreSQL 15+ and run
-`uv run pytest -q tests/providers/test_postgresql_warehouse_runtime.py`.
+Run `uv run pytest -q tests/deployment/test_execution_projection.py tests/infra/test_kubernetes_chart.py`.
+The bounded lifecycle evidence is in `docs/cloud-portability-postgresql-kubernetes-acceptance.md`.
 
 ## Checks
 
-- Ruff and strict mypy passed across the repository's 305 source files.
-- All 20 focused PostgreSQL tests passed against PostgreSQL 15.
-- The complete 1,193-test suite and dependency audit passed.
-- Wheel/sdist inspection, source-free installs, and container conformance passed.
+- Ruff, formatting, strict mypy, and all 1,195 tests passed; PostgreSQL integration used PostgreSQL 15.
+- Dependency audit, wheel/sdist inspection, source-free installs, and runtime-all import passed.
+- Non-root read-only container conformance and packaged proof-asset checks passed.
 - Terraform roots/tests and Helm lint/template validation passed.
-- Retained GCP stage-zero and platform plans each reported exactly `No changes.`
+- Fresh retained GCP stage-zero and platform plans each reported exactly `No changes.`
 
 ## Decisions
 
-- Reuse the canonical graph AST; PostgreSQL receives no second graph abstraction.
-- Reject foreign source catalogs before rendering because PostgreSQL SQL is database-local.
-- Keep graph execution replace-only and PostgreSQL experimental pending live Kubernetes proof.
+- Treat kind as valid existing-cluster lifecycle evidence, not hosted-provider or scale qualification.
+- Preserve TLS-required PostgreSQL behavior; fix the disposable fixture rather than weakening Dander.
+- Keep PostgreSQL/Kubernetes experimental and explicitly leave overlap, interruption, and alerts unevaluated.
 
 ## Remaining
 
-- Let protected CI repeat Linux PostgreSQL, image, and secret checks before merge.
-- Open and review the focused PR; do not promote PostgreSQL support yet.
+- Let protected CI repeat Linux PostgreSQL, packaging, image, secret, Terraform, and Helm checks.
+- Merge only if completion review and required checks remain clean.
+- Begin the Snowflake/Redshift phase only after this gate closes.
 
 ## Review First
 
-- `src/dander/providers/postgresql/transform.py`
-- `tests/providers/test_postgresql_warehouse_runtime.py`
-- `src/dander/providers/postgresql/runtime.py`
+- `src/dander/deployment/projection.py`
+- `infra/kubernetes/chart/dander/values.schema.json`
+- `docs/cloud-portability-postgresql-kubernetes-acceptance.md`

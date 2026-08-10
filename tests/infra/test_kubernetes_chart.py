@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -18,6 +19,7 @@ from dander.providers.kubernetes.operations import (
 
 ROOT = Path(__file__).parents[2]
 IMAGE = "ghcr.io/example/dander@sha256:" + "b" * 64
+LOCAL_IMAGE = "localhost:5001/dander@sha256:" + "c" * 64
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -188,6 +190,17 @@ def test_plan_saves_non_secret_values_and_rendered_manifests(tmp_path: Path) -> 
         ("helm", "lint"),
         ("helm", "template"),
     ]
+
+
+def test_chart_accepts_immutable_local_registry_image() -> None:
+    schema = json.loads(
+        (ROOT / "infra" / "kubernetes" / "chart" / "dander" / "values.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    pattern = schema["properties"]["image"]["properties"]["reference"]["pattern"]
+
+    assert re.fullmatch(pattern, LOCAL_IMAGE)
 
 
 def test_verify_is_read_only_and_checks_schedule_pause_image_and_overlap(tmp_path: Path) -> None:

@@ -142,6 +142,14 @@ def test_projection_rejects_mutable_image_reference() -> None:
         )
 
 
+def test_projection_accepts_immutable_image_from_registry_with_port() -> None:
+    template = _template(Path(__file__).parents[2])
+
+    local_image = "localhost:5001/dander/runtime@sha256:" + "c" * 64
+
+    assert replace(template, image=local_image).image == local_image
+
+
 def test_graph_projection_does_not_request_model_catalog_output() -> None:
     templates = build_gcp_v1_execution_templates(
         load_project_config(Path(__file__).parents[2] / "dander.yaml"),
