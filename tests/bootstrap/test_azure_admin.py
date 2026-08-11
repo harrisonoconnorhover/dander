@@ -136,6 +136,83 @@ def test_azure_admin_apply_uses_saved_plan_then_migrates_state(
     }
 
 
+def test_azure_admin_retries_state_migration_during_role_propagation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    infra_dir, operator_dir = _layout(tmp_path)
+    migration_attempts = 0
+    sleeps: list[int] = []
+
+    def fake_run(
+        args: tuple[str, ...], *, cwd: Path, **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        nonlocal migration_attempts
+        del cwd, kwargs
+        for argument in args:
+            if argument.startswith("-out="):
+                Path(argument.removeprefix("-out=")).touch()
+        if args[1:3] == ("init", "-migrate-state"):
+            migration_attempts += 1
+            if migration_attempts < 3:
+                return subprocess.CompletedProcess(
+                    args,
+                    1,
+                    stdout="",
+                    stderr="AuthorizationPermissionMismatch",
+                )
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("dander.bootstrap.azure_admin.time.sleep", sleeps.append)
+    bootstrap = AzureAdministrativeBootstrap(infra_dir, operator_dir)
+    bootstrap.execute(**_arguments())
+
+    bootstrap.apply_saved_plan(**_arguments())
+
+    assert migration_attempts == 3
+    assert sleeps == [10, 10]
+    assert (operator_dir / "backend.json").is_file()
+
+
+def test_azure_admin_does_not_retry_unrelated_state_migration_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    infra_dir, operator_dir = _layout(tmp_path)
+    migration_attempts = 0
+
+    def fake_run(
+        args: tuple[str, ...], *, cwd: Path, **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        nonlocal migration_attempts
+        del cwd, kwargs
+        for argument in args:
+            if argument.startswith("-out="):
+                Path(argument.removeprefix("-out=")).touch()
+        if args[1:3] == ("init", "-migrate-state"):
+            migration_attempts += 1
+            return subprocess.CompletedProcess(args, 1, stdout="", stderr="invalid backend")
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        "dander.bootstrap.azure_admin.time.sleep",
+        lambda _: pytest.fail("Unrelated failures must not be retried"),
+    )
+    bootstrap = AzureAdministrativeBootstrap(infra_dir, operator_dir)
+    bootstrap.execute(**_arguments())
+
+    with pytest.raises(AzureAdministrativeBootstrapError, match="terraform init failed"):
+        bootstrap.apply_saved_plan(**_arguments())
+
+    assert migration_attempts == 1
+    backend = json.loads(
+        (operator_dir / "terraform-workspace" / "backend.tf.json").read_text(encoding="utf-8")
+    )
+    assert "local" in backend["terraform"]["backend"]
+
+
 def test_azure_admin_reuses_only_the_recorded_backend(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
