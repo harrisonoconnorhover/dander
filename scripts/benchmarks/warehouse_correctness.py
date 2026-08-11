@@ -12,7 +12,7 @@ import re
 import unicodedata
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -49,17 +49,44 @@ if TYPE_CHECKING:
 
 
 _EVIDENCE_SCHEMA = "io.dander.conformance.warehouse-correctness/v1"
+_FAILURE_EVIDENCE_SCHEMA = "io.dander.conformance.warehouse-correctness-failure/v1"
 _COMPARISON_SCHEMA = "io.dander.conformance.warehouse-correctness-comparison/v1"
 _FIXTURE_VERSION = "warehouse-common-scalar-v1"
 _PROVIDERS = frozenset({"bigquery", "postgresql", "snowflake", "redshift"})
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _APPROVAL_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,255}$")
+_ERROR_TYPE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,127}$")
 _TARGET_PREFIX = "dander_conform_"
+_BIGQUERY_MAXIMUM_BYTES_BILLED = 10 * 1_024 * 1_024
+_FAILURE_STAGES = frozenset(
+    {
+        "open_session",
+        "schema_contract",
+        "fence",
+        "initial_write",
+        "update_write",
+        "readback",
+        "replay_write",
+        "replay_readback",
+        "transport",
+        "cleanup",
+        "cleanup_verification",
+        "close_session",
+    }
+)
 
 
 class WarehouseCorrectnessError(RuntimeError):
     """Raised with a sanitized four-warehouse conformance failure."""
+
+
+class _WarehouseCorrectnessRunError(WarehouseCorrectnessError):
+    """Carry one sanitized failed-run record without provider messages or payloads."""
+
+    def __init__(self, evidence: WarehouseCorrectnessFailureEvidence) -> None:
+        super().__init__(f"{evidence.provider} warehouse correctness run failed")
+        self.evidence = evidence
 
 
 COMMON_SCHEMA = RelationSchema(
@@ -282,6 +309,51 @@ class WarehouseCorrectnessEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class WarehouseCorrectnessFailureEvidence:
+    """Sanitized failed-run record containing no provider messages, SQL, credentials, or rows."""
+
+    schema: str
+    fixture_version: str
+    provider: str
+    candidate_commit: str
+    dander_version: str
+    started_at_utc: str
+    ended_at_utc: str
+    stage: str
+    primary_error_types: tuple[str, ...]
+    cleanup_error_types: tuple[str, ...]
+    cleanup_attempted: bool
+    cleanup_verified: bool
+    approved_cost_ceiling_usd: str
+    cost_approval_reference: str
+    status: str = "failed"
+
+    def __post_init__(self) -> None:
+        if self.schema != _FAILURE_EVIDENCE_SCHEMA or self.fixture_version != _FIXTURE_VERSION:
+            raise ValueError("warehouse correctness failure evidence uses an unknown schema")
+        if self.provider not in _PROVIDERS:
+            raise ValueError("warehouse correctness failure evidence names an unknown provider")
+        if not _COMMIT.fullmatch(self.candidate_commit):
+            raise ValueError("warehouse correctness failure evidence requires a full commit SHA")
+        if self.stage not in _FAILURE_STAGES:
+            raise ValueError("warehouse correctness failure evidence has an unknown stage")
+        error_types = (*self.primary_error_types, *self.cleanup_error_types)
+        if not error_types or any(not _ERROR_TYPE.fullmatch(value) for value in error_types):
+            raise ValueError("warehouse correctness failure evidence has invalid error types")
+        if self.cleanup_verified and not self.cleanup_attempted:
+            raise ValueError("warehouse correctness cleanup cannot pass when it was not attempted")
+        if self.status != "failed":
+            raise ValueError("warehouse correctness failure evidence must be failed")
+        ApprovedCostCeiling(
+            self.approved_cost_ceiling_usd,
+            self.cost_approval_reference,
+        )
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), separators=(",", ":"), sort_keys=True)
+
+
+@dataclass(frozen=True, slots=True)
 class WarehouseCorrectnessComparison:
     """Sanitized equality gate across exactly four provider evidence records."""
 
@@ -375,8 +447,25 @@ def run_provider(
     provider = profile.get("provider")
     if provider not in _PROVIDERS:
         raise ValueError("profile must select one of the four conformance warehouses")
-    session = _open_session(profile)
     started = _now()
+    try:
+        session = _open_session(profile)
+    except Exception as error:
+        failure = _failure_evidence(
+            provider=provider,
+            candidate_commit=candidate_commit,
+            cost_ceiling=cost_ceiling,
+            started_at_utc=started,
+            stage="open_session",
+            primary_errors=(error,),
+            cleanup_errors=(),
+            cleanup_attempted=False,
+            cleanup_verified=False,
+        )
+        raise _WarehouseCorrectnessRunError(failure) from error
+
+    evidence: WarehouseCorrectnessEvidence | None = None
+    run_failure: _WarehouseCorrectnessRunError | None = None
     try:
         evidence = _run_session(
             session,
@@ -384,8 +473,36 @@ def run_provider(
             cost_ceiling=cost_ceiling,
             started_at_utc=started,
         )
-    finally:
+    except _WarehouseCorrectnessRunError as error:
+        run_failure = error
+    try:
         session.close()
+    except Exception as error:
+        if run_failure is None:
+            failure = _failure_evidence(
+                provider=provider,
+                candidate_commit=candidate_commit,
+                cost_ceiling=cost_ceiling,
+                started_at_utc=started,
+                stage="close_session",
+                primary_errors=(error,),
+                cleanup_errors=(),
+                cleanup_attempted=evidence is not None,
+                cleanup_verified=evidence is not None and evidence.cleanup_verified,
+            )
+        else:
+            failure = replace(
+                run_failure.evidence,
+                cleanup_error_types=_merge_error_types(
+                    run_failure.evidence.cleanup_error_types,
+                    _exception_types((error,)),
+                ),
+                ended_at_utc=_now(),
+            )
+        raise _WarehouseCorrectnessRunError(failure) from error
+    if run_failure is not None:
+        raise run_failure
+    assert evidence is not None
     return evidence
 
 
@@ -397,56 +514,64 @@ def _run_session(
     started_at_utc: str,
 ) -> WarehouseCorrectnessEvidence:
     runtime = session.runtime
-    runtime.capabilities.schema_support.require(COMMON_SCHEMA)
-    mapped = runtime.schema_mapper.canonical_schema(session.schema_inputs)
-    if _without_extensions(mapped) != COMMON_SCHEMA:
-        raise WarehouseCorrectnessError(
-            f"{session.provider} schema mapper changed the common canonical fixture"
-        )
-    writer = runtime.writers.build_ingestion_writer(
-        sandbox=False,
-        batch_rows=len(_INITIAL_ROWS),
-        schema_evolution=SchemaEvolution.STRICT,
-        mode=WriteMode.SCD1,
-    )
-    publication = None
-    if writer.requires_publication_fence:
-        publication = runtime.target_fence.claim(
-            session.relation,
-            FencingToken(
-                lease_table=None,
-                pipeline_id="warehouse_correctness",
-                run_id="fixture-v1",
-                token=1,
-                authority_id=f"{session.provider}:warehouse-correctness",
-            ),
-        )
-    target = WriteTarget(
-        relation=session.relation,
-        business_key=("id",),
-        schema=LEGACY_BIGQUERY_FIELDS,
-        declared_schema=COMMON_SCHEMA,
-        publication_fence=publication,
-    )
     operations: list[OperationTelemetry] = []
     cleanup_error: Exception | None = None
     primary_error: Exception | None = None
+    primary_stage = "schema_contract"
     before_replay: tuple[dict[str, object], ...] = ()
     after_replay: tuple[dict[str, object], ...] = ()
     try:
+        runtime.capabilities.schema_support.require(COMMON_SCHEMA)
+        mapped = runtime.schema_mapper.canonical_schema(session.schema_inputs)
+        if _without_extensions(mapped) != COMMON_SCHEMA:
+            raise WarehouseCorrectnessError(
+                f"{session.provider} schema mapper changed the common canonical fixture"
+            )
+        writer = runtime.writers.build_ingestion_writer(
+            sandbox=False,
+            batch_rows=len(_INITIAL_ROWS),
+            schema_evolution=SchemaEvolution.STRICT,
+            mode=WriteMode.SCD1,
+        )
+        primary_stage = "fence"
+        publication = None
+        if writer.requires_publication_fence:
+            publication = runtime.target_fence.claim(
+                session.relation,
+                FencingToken(
+                    lease_table=None,
+                    pipeline_id="warehouse_correctness",
+                    run_id="fixture-v1",
+                    token=1,
+                    authority_id=f"{session.provider}:warehouse-correctness",
+                ),
+            )
+        target = WriteTarget(
+            relation=session.relation,
+            business_key=("id",),
+            schema=LEGACY_BIGQUERY_FIELDS,
+            declared_schema=COMMON_SCHEMA,
+            publication_fence=publication,
+        )
+        primary_stage = "initial_write"
         writer.write(_INITIAL_ROWS, target)
         operations.extend(writer.drain_telemetry())
+        primary_stage = "update_write"
         writer.write(_UPDATE_ROWS, target)
         operations.extend(writer.drain_telemetry())
+        primary_stage = "readback"
         before_replay = normalized_rows(session.read_rows())
+        primary_stage = "replay_write"
         writer.write(_UPDATE_ROWS, target)
         operations.extend(writer.drain_telemetry())
+        primary_stage = "replay_readback"
         after_replay = normalized_rows(session.read_rows())
         expected = normalized_rows(_EXPECTED_ROWS)
         if before_replay != expected or after_replay != expected:
             raise WarehouseCorrectnessError(
                 f"{session.provider} normalized rows differ from the common fixture"
             )
+        primary_stage = "transport"
         _require_transport(session, operations)
     except Exception as error:
         primary_error = error
@@ -463,14 +588,37 @@ def _run_session(
         except Exception as error:
             cleanup_error = error
     if primary_error is not None or cleanup_error is not None:
-        errors = [error for error in (primary_error, cleanup_error) if error is not None]
-        raise WarehouseCorrectnessError(
-            f"{session.provider} correctness run failed; owned cleanup was attempted"
-        ) from ExceptionGroup("warehouse correctness failures", errors)
-    if not cleaned:
-        raise WarehouseCorrectnessError(
-            f"{session.provider} correctness cleanup could not be verified"
+        primary_errors = (primary_error,) if primary_error is not None else ()
+        cleanup_errors = (cleanup_error,) if cleanup_error is not None else ()
+        stage = primary_stage if primary_error is not None else "cleanup"
+        failure = _failure_evidence(
+            provider=session.provider,
+            candidate_commit=candidate_commit,
+            cost_ceiling=cost_ceiling,
+            started_at_utc=started_at_utc,
+            stage=stage,
+            primary_errors=primary_errors,
+            cleanup_errors=cleanup_errors,
+            cleanup_attempted=True,
+            cleanup_verified=cleaned,
         )
+        errors = [*primary_errors, *cleanup_errors]
+        raise _WarehouseCorrectnessRunError(failure) from ExceptionGroup(
+            "warehouse correctness failures", errors
+        )
+    if not cleaned:
+        failure = _failure_evidence(
+            provider=session.provider,
+            candidate_commit=candidate_commit,
+            cost_ceiling=cost_ceiling,
+            started_at_utc=started_at_utc,
+            stage="cleanup_verification",
+            primary_errors=(WarehouseCorrectnessError("cleanup verification returned false"),),
+            cleanup_errors=(),
+            cleanup_attempted=True,
+            cleanup_verified=False,
+        )
+        raise _WarehouseCorrectnessRunError(failure)
 
     fixture_hash = _fixture_hash()
     schema_hash = _hash_json(COMMON_SCHEMA.model_dump(mode="json", by_alias=True))
@@ -494,6 +642,61 @@ def _run_session(
         approved_cost_ceiling_usd=cost_ceiling.usd,
         cost_approval_reference=cost_ceiling.approval_reference,
     )
+
+
+def _failure_evidence(
+    *,
+    provider: str,
+    candidate_commit: str,
+    cost_ceiling: ApprovedCostCeiling,
+    started_at_utc: str,
+    stage: str,
+    primary_errors: Sequence[BaseException],
+    cleanup_errors: Sequence[BaseException],
+    cleanup_attempted: bool,
+    cleanup_verified: bool,
+) -> WarehouseCorrectnessFailureEvidence:
+    return WarehouseCorrectnessFailureEvidence(
+        schema=_FAILURE_EVIDENCE_SCHEMA,
+        fixture_version=_FIXTURE_VERSION,
+        provider=provider,
+        candidate_commit=candidate_commit,
+        dander_version=__version__,
+        started_at_utc=started_at_utc,
+        ended_at_utc=_now(),
+        stage=stage,
+        primary_error_types=_exception_types(primary_errors),
+        cleanup_error_types=_exception_types(cleanup_errors),
+        cleanup_attempted=cleanup_attempted,
+        cleanup_verified=cleanup_verified,
+        approved_cost_ceiling_usd=cost_ceiling.usd,
+        cost_approval_reference=cost_ceiling.approval_reference,
+    )
+
+
+def _exception_types(errors: Sequence[BaseException]) -> tuple[str, ...]:
+    names: set[str] = set()
+    pending = list(errors)
+    seen: set[int] = set()
+    while pending:
+        error = pending.pop()
+        if id(error) in seen:
+            continue
+        seen.add(id(error))
+        name = type(error).__name__
+        if name not in {"ExceptionGroup", "_WarehouseCorrectnessRunError"}:
+            names.add(name if _ERROR_TYPE.fullmatch(name) else "Exception")
+        if isinstance(error, BaseExceptionGroup):
+            pending.extend(error.exceptions)
+        if error.__cause__ is not None:
+            pending.append(error.__cause__)
+        elif error.__context__ is not None:
+            pending.append(error.__context__)
+    return tuple(sorted(names))
+
+
+def _merge_error_types(*groups: Sequence[str]) -> tuple[str, ...]:
+    return tuple(sorted({value for group in groups for value in group}))
 
 
 def _open_session(profile: Mapping[str, object]) -> _WarehouseSession:
@@ -542,7 +745,7 @@ def _open_bigquery(profile: Mapping[str, object]) -> _WarehouseSession:
         fields = ", ".join(f"`{field.name}`" for field in COMMON_SCHEMA.fields)
         query = f"SELECT {fields} FROM `{table_id}` ORDER BY `id`"
         job_config = bigquery.QueryJobConfig(
-            maximum_bytes_billed=10_000_000,
+            maximum_bytes_billed=_BIGQUERY_MAXIMUM_BYTES_BILLED,
             labels={"dander-proof": "warehouse-correctness"},
         )
         return tuple(dict(row) for row in client.query(query, job_config=job_config).result())
@@ -553,7 +756,7 @@ def _open_bigquery(profile: Mapping[str, object]) -> _WarehouseSession:
             "WHERE table_name = @target OR STARTS_WITH(table_name, @stage_prefix)"
         )
         config = bigquery.QueryJobConfig(
-            maximum_bytes_billed=10_000_000,
+            maximum_bytes_billed=_BIGQUERY_MAXIMUM_BYTES_BILLED,
             query_parameters=[
                 bigquery.ScalarQueryParameter("target", "STRING", relation.name),
                 bigquery.ScalarQueryParameter("stage_prefix", "STRING", stage_prefix),
@@ -1050,6 +1253,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             cost_ceiling=ceiling,
         )
         _write_json(arguments.output, provider_evidence.to_json())
+    except _WarehouseCorrectnessRunError as error:
+        _write_json(arguments.output, error.evidence.to_json())
+        print(error.evidence.to_json())
+        return 1
     except Exception:
         provider = profile.get("provider")
         print(

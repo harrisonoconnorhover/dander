@@ -243,6 +243,71 @@ def test_shared_runner_uses_runtime_contract_replays_and_cleans_without_row_evid
     assert "payload" not in payload
 
 
+def test_shared_runner_cleans_when_publication_fence_fails() -> None:
+    rows: dict[str, dict[str, object]] = {}
+    cleaned = False
+
+    class _FailingFence(_Fence):
+        def claim(self, target: RelationRef, fence: FencingToken) -> TargetFence:
+            del target, fence
+            raise RuntimeError("provider detail must not enter failure evidence")
+
+    runtime = WarehouseRuntime(
+        provider_id="bigquery",
+        relation_codec=_Codec(),
+        schema_mapper=_SchemaMapper(),
+        writers=_Writers(rows),
+        transforms=cast("Any", SimpleNamespace()),
+        target_fence=_FailingFence(),
+        telemetry=cast("Any", SimpleNamespace()),
+        capabilities=WarehouseCapabilities(
+            provider_id="bigquery",
+            schema_contract_version=1,
+            write_modes=frozenset({WriteMode.SCD1}),
+            transports=frozenset({WriteTransport.LOAD_JOB}),
+            supports_transforms=False,
+            supports_graphs=False,
+            supports_target_fencing=True,
+            schema_support=BIGQUERY_SCHEMA_SUPPORT,
+        ),
+    )
+
+    def cleanup() -> None:
+        nonlocal cleaned
+        cleaned = True
+
+    session = correctness._WarehouseSession(
+        provider="bigquery",
+        runtime=runtime,
+        relation=RelationRef(catalog="project", namespace="raw", name="records"),
+        schema_inputs=correctness.COMMON_SCHEMA.fields,
+        transport=WriteTransport.LOAD_JOB,
+        read_rows=lambda: (),
+        cleanup=cleanup,
+        cleanup_verified=lambda: cleaned,
+        close=lambda: None,
+    )
+
+    with pytest.raises(correctness._WarehouseCorrectnessRunError) as captured:
+        correctness._run_session(
+            session,
+            candidate_commit="a" * 40,
+            cost_ceiling=correctness.ApprovedCostCeiling("1.00", "review/phase5-conformance"),
+            started_at_utc="2026-08-10T00:00:00Z",
+        )
+
+    evidence = captured.value.evidence
+    assert evidence.stage == "fence"
+    assert evidence.primary_error_types == ("RuntimeError",)
+    assert evidence.cleanup_attempted is True
+    assert evidence.cleanup_verified is True
+    assert "provider detail" not in evidence.to_json()
+
+
+def test_bigquery_metadata_queries_allow_the_minimum_billable_partition() -> None:
+    assert correctness._BIGQUERY_MAXIMUM_BYTES_BILLED == 10 * 1_024 * 1_024
+
+
 def test_comparison_requires_exact_four_provider_hash_and_candidate_equality() -> None:
     evidence = tuple(_evidence(provider) for provider in sorted(correctness._PROVIDERS))
 
@@ -289,3 +354,43 @@ def test_compare_cli_writes_only_sanitized_equal_result_evidence(tmp_path: Path)
     assert '"providers":["bigquery","postgresql","redshift","snowflake"]' in payload
     assert "alpha" not in payload
     assert "café" not in payload
+
+
+def test_run_cli_writes_sanitized_failure_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    profile = tmp_path / "profile.json"
+    profile.write_text('{"provider":"bigquery"}\n', encoding="utf-8")
+    output = tmp_path / "failure.json"
+
+    def fail_open(_profile: Mapping[str, object]) -> correctness._WarehouseSession:
+        raise RuntimeError("credential-and-provider-detail-must-not-escape")
+
+    monkeypatch.setattr(correctness, "_open_session", fail_open)
+
+    assert (
+        correctness.main(
+            [
+                "run",
+                "--profile-json",
+                str(profile),
+                "--candidate-commit",
+                "a" * 40,
+                "--approved-cost-ceiling-usd",
+                "1.00",
+                "--cost-approval-reference",
+                "review/phase5-conformance",
+                "--output",
+                str(output),
+            ]
+        )
+        == 1
+    )
+    payload = output.read_text(encoding="utf-8")
+    record = json.loads(payload)
+    assert record["schema"] == "io.dander.conformance.warehouse-correctness-failure/v1"
+    assert record["stage"] == "open_session"
+    assert record["primary_error_types"] == ["RuntimeError"]
+    assert record["cleanup_attempted"] is False
+    assert "credential" not in payload

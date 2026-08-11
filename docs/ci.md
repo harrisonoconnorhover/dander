@@ -6,7 +6,7 @@ work. It runs on pull requests, pushes to `main`, and manual dispatch without an
 The local equivalent is:
 
 ```bash
-uv sync --frozen --extra dev
+uv sync --frozen --extra dev --extra postgres
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src tests
