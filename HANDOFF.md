@@ -2,10 +2,10 @@
 
 ## Finished
 
-- Transported Azure execution overrides through the provider-supported YAML template input.
-- Prevented runtime flags such as `--project` from being parsed as Azure CLI flags.
-- Kept the override limited to the `runtime` container's bounded argument list.
-- Added exact execution-template contract coverage.
+- Built one complete Azure execution container from the existing immutable job template.
+- Preserved image, environment/secret references, resources, and optional command exactly.
+- Replaced only the bounded runtime argument array for the identity-refresh proof.
+- Failed closed on multiple containers, init containers, volume mounts, or malformed templates.
 
 ## Try It
 
@@ -19,9 +19,9 @@ Run `uv run pytest tests/providers/test_azure_container_apps_operations.py`.
 
 ## Decisions
 
-- Use Azure's execution-template transport when container arguments begin with dashes.
-- Write only the non-secret bounded argument template to a mode-restricted temporary file.
-- Delete the temporary template immediately after the Azure CLI call.
+- Azure's start API requires a complete execution container, not an args-only partial override.
+- Read only the selected job and preserve its non-secret references without resolving values.
+- Delete the mode-restricted temporary template immediately after the Azure CLI call.
 
 ## Remaining
 
