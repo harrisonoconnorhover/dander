@@ -2,41 +2,39 @@
 
 ## Finished
 
-- Corrected Redshift direct-load binary serialization at the driver boundary.
-- Projected Redshift `VARBYTE` as base64 text and strictly decoded it to bytes before normalization.
-- Preserved the shared canonical schema, expected hashes, transport selection, and fencing behavior.
-- Added credential-free direct-load, projection, decode, malformed-value, and wrong-type coverage.
-- Corrected the documented CLI invocation so Snowflake's package cannot be shadowed by the script path.
+- Merged the BigQuery and Redshift binary correctness fixes through protected PRs #184 and #185.
+- Ran BigQuery, PostgreSQL, Snowflake, and Redshift from protected-main commit `c0f3e2c`.
+- Produced one equal normalized three-row hash after exact replay on all four warehouses.
+- Verified provider-owned cleanup and removed all disposable PostgreSQL, Snowflake, and AWS assets.
+- Recorded sanitized evidence and reconciled the Phase 5 roadmap, tickets, matrix, and limitations.
 
 ## Try It
 
-Run `.venv/bin/pytest -q tests/portability/test_warehouse_correctness.py`.
+Run `.venv/bin/python -m scripts.benchmarks.warehouse_correctness compare` with the four committed
+provider records and a temporary output path.
 
 ## Checks
 
-- Warehouse-correctness contract tests pass (10 tests).
-- Redshift runtime plus warehouse-correctness tests pass (64 tests).
-- Focused Ruff lint/format and mypy pass.
-- Protected-CI dependency profile passes Ruff, mypy, and full pytest (1,202 passed, 28 skipped).
-- Bounded live Redshift validation passes the expected hash, replay, and owned cleanup.
+- Four live provider records pass; the comparison reports equal rows and verified cleanup.
+- Retained GCP stage-zero and current-equivalent platform plans report exact `No changes.`
+- PR #185 protected CI and post-merge protected-main CI passed all five jobs.
+- Evidence JSON shape and forbidden-field checks pass.
 
 ## Decisions
 
-- The Redshift driver sends byte parameters as hex text and decodes raw `VARBYTE` as UTF-8, so both
-  conversions remain at its direct-load or live-qualification boundaries.
-- Base64 is validated strictly and converted back to bytes so canonical normalization remains
-  provider-neutral.
-- No schema, transport selection, fencing, or non-binary behavior changes are included.
+- The live proof covers only the common canonical scalar intersection.
+- Snowflake, Redshift, and PostgreSQL/Kubernetes remain experimental despite Phase 5 correctness.
+- Scale, throughput, crossover, cost, soak, pairwise profiles, and release qualification stay in
+  Phase 8 or provider-promotion gates.
 
 ## Remaining
 
-- Complete protected CI and merge the focused correction.
-- Re-run all four providers on the resulting protected-main commit and compare equal evidence.
-- Verify provider cleanup and retained GCP no-drift, then merge sanitized evidence.
-- Reassess the revised Phase 5 gate without beginning Phase 6.
+- Complete protected CI and merge the sanitized evidence PR.
+- Reassess the revised Phase 5 exit gate and report the binary Phase 6 recommendation.
+- Do not begin Phase 6 or Azure implementation in this task.
 
 ## Review First
 
-- `scripts/benchmarks/warehouse_correctness.py`
-- `tests/portability/test_warehouse_correctness.py`
+- `docs/evidence/warehouse-correctness/2026-08-11/comparison.json`
+- `tickets/DANDER-107-four-warehouse-correctness.md`
 - `docs/warehouse-correctness-conformance.md`

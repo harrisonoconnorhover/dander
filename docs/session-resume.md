@@ -1,4 +1,4 @@
-# Session Resume — 2026-08-10
+# Session Resume — 2026-08-11
 
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
@@ -33,6 +33,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-11, the Phase 5 common-scalar fixture passed BigQuery, PostgreSQL, Snowflake, and
+  Redshift on protected-main commit `c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad`. All four records
+  produced one equal normalized hash after replay and verified owned cleanup. Provider account
+  objects were removed, and fresh retained GCP stage-zero and current-equivalent platform plans
+  each reported exact `No changes.` The platform proof reused the last accepted source-free
+  deployment inputs; a current-default diagnostic that proposed only timeout/version-label changes
+  was not applied.
+
 - On 2026-08-10, public Dander `0.8.0rc8` passed the complete lifecycle gate for the named
   Fargate-to-BigQuery/GCP composition. The source-free, byte-identical GAR/ECR image completed
   manual, scheduled, replay, interruption, alert-routing, rollback, cleanup, and no-drift checks.
@@ -55,8 +63,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander-servicenow-incidents-6g72x` all completed successfully.
 - The latest manual executable-graph run, `dander-greenhouse-graph-7gn9z`, completed successfully
   on 2026-08-04; its schedule remains intentionally paused.
-- The latest retained stage-zero and platform plans each reported exactly `No changes.` after the
-  isolated Fargate proof. No retained-project apply occurred.
+- The latest retained stage-zero and current-equivalent platform plans each reported exactly
+  `No changes.` after the four-warehouse proof. No retained-project apply occurred.
 - Continue the 30-day operating record in GitHub issue #26. The next normal scheduled runs are the
   remaining observation point for the reconciled stable image.
 

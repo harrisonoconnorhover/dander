@@ -89,20 +89,27 @@ sanitized evidence and reviewed ceilings.
 
 ## Current evidence status
 
-An authorized one-attempt run was made on 2026-08-10 against protected-main commit
-`4927d5f66c787c6d5da700baa06edcef8b4e4c6b`, with ceilings of BigQuery $1, PostgreSQL $0,
-Snowflake $2, and Redshift $3 and no automatic paid reruns. PostgreSQL passed the fixture, replay,
-and cleanup. The other three did not produce passing records, so no comparison is claimed.
+An authorized run on 2026-08-11 used protected-main commit
+`c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad`, after the BigQuery binary-load correction in PR #184
+and the Redshift binary direct-load/readback correction in PR #185. The reviewed per-attempt
+ceilings were BigQuery $1, PostgreSQL $0, Snowflake $2, and Redshift $3, with no unapproved paid
+rerun.
 
-The attempt exposed a harness defect: BigQuery metadata and cleanup queries used a 10,000,000-byte
-limit, below BigQuery's 10 MiB minimum. The one owned table left by that cleanup failure was deleted
-and metadata confirmed zero matching tables. Snowflake's temporary user, database, warehouse,
-role, and resource monitor each returned zero matches after cleanup. Redshift's disposable
-workgroup, namespace, bucket, role, VPC, and Terraform state each returned zero after destroy.
-Post-run retained GCP stage-zero and platform plans both reported exact `No changes.`
+All four providers passed with the same fixture, canonical-schema, and normalized-row hashes. The
+three normalized rows were equal before and after exact replay, every provider verified owned
+cleanup, and the [comparison record](evidence/warehouse-correctness/2026-08-11/comparison.json)
+reports `all_rows_equal=true` and `all_cleanup_verified=true`. The directory also contains the four
+sanitized provider records and no coordinates, credentials, DSNs, private keys, or row values.
 
-This correction raises the BigQuery limit to exactly 10 MiB, puts fence acquisition inside the
-owned cleanup boundary, and persists sanitized failure classification. It does not authorize a
-provider rerun. Phase 5 remains open until all four same-commit live records compare equal under
-newly reviewed paid-provider approvals and the resulting passing evidence is merged through
-protected CI.
+Post-run verification found zero BigQuery owned tables, zero PostgreSQL test containers, zero
+Snowflake test users/databases/warehouses/roles/resource monitors, and zero Redshift Terraform or
+named AWS proof resources. Fresh retained GCP stage-zero and current-equivalent platform plans both
+reported exact `No changes.`; the platform plan contained 113 no-op resources. No retained GCP
+apply occurred. The current-equivalent platform plan replayed the latest accepted source-free
+deployment inputs, including its 600-second job timeout and deployed `0.7.0` projection-label
+metadata. A diagnostic plan using current repository defaults proposed only five job
+timeout/version-label updates; it was rejected as the wrong retained baseline and was not applied.
+
+This closes the Phase 5 shared correctness requirement. Provider-specific types, fallbacks,
+transports, materializations, scale, cost, soak, pairwise profiles, and support promotion remain
+outside this proof and retain their documented conformance or Phase 8 gates.
