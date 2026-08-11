@@ -12,6 +12,7 @@ from dander.providers.azure_container_apps.verification import (
     AzureDeploymentVerification,
     AzureDeploymentVerificationError,
     AzureDeploymentVerifier,
+    AzureSecretMetadata,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "AzureDeploymentVerification",
     "AzureDeploymentVerificationError",
     "AzureDeploymentVerifier",
+    "AzureSecretMetadata",
 ]

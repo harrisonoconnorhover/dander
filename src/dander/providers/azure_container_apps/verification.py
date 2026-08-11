@@ -219,6 +219,17 @@ class AzureDeploymentVerification:
         return asdict(self)
 
 
+@dataclass(frozen=True, slots=True)
+class AzureSecretMetadata:
+    """Sanitized metadata for one manifest-declared Key Vault secret."""
+
+    name: str
+    enabled: bool
+
+    def as_dict(self) -> dict[str, str | bool]:
+        return asdict(self)
+
+
 class AzureDeploymentVerifier:
     """Verify one manifest-bound Container Apps Job without reading secret values."""
 
@@ -445,7 +456,72 @@ class AzureDeploymentVerifier:
             log_analytics_workspace=workspace_id,
         )
 
+    def verify_declared_secret_metadata(self) -> tuple[AzureSecretMetadata, ...]:
+        """Verify declared Key Vault secret names and enabled state without reading values."""
+        if self.binding.secret_provider != "azure_key_vault":
+            raise AzureDeploymentVerificationError(
+                "Secret metadata verification requires Azure Key Vault"
+            )
+        payload = self._json_list(
+            "keyvault",
+            "secret",
+            "list",
+            "--vault-name",
+            self.binding.key_vault_name,
+            "--maxresults",
+            "25",
+            "--query",
+            "[].{id:id,enabled:attributes.enabled}",
+        )
+        prefix = f"{self.binding.key_vault_uri}/secrets/"
+        available: dict[str, bool] = {}
+        for item in payload:
+            if not isinstance(item, dict):
+                raise AzureDeploymentVerificationError(
+                    "Azure CLI returned invalid Key Vault secret metadata"
+                )
+            identifier = item.get("id")
+            enabled = item.get("enabled")
+            if (
+                not isinstance(identifier, str)
+                or not identifier.startswith(prefix)
+                or "/" in (secret_name := identifier.removeprefix(prefix))
+                or not secret_name
+                or not isinstance(enabled, bool)
+                or secret_name in available
+            ):
+                raise AzureDeploymentVerificationError(
+                    "Azure CLI returned invalid Key Vault secret metadata"
+                )
+            available[secret_name] = enabled
+        declared = set(self.binding.secret_ids)
+        missing = declared.difference(available)
+        disabled = {secret_name for secret_name in declared if available.get(secret_name) is False}
+        if missing or disabled:
+            raise AzureDeploymentVerificationError(
+                "Declared Key Vault secrets are missing or disabled"
+            )
+        return tuple(
+            AzureSecretMetadata(name=secret_name, enabled=True) for secret_name in sorted(declared)
+        )
+
     def _json(self, *args: str) -> dict[str, object]:
+        payload = self._json_payload(*args)
+        if not isinstance(payload, dict):
+            raise AzureDeploymentVerificationError(
+                "Azure CLI returned an invalid verification response"
+            )
+        return payload
+
+    def _json_list(self, *args: str) -> list[object]:
+        payload = self._json_payload(*args)
+        if not isinstance(payload, list):
+            raise AzureDeploymentVerificationError(
+                "Azure CLI returned an invalid verification response"
+            )
+        return payload
+
+    def _json_payload(self, *args: str) -> object:
         command = (
             "az",
             *args,
@@ -475,10 +551,6 @@ class AzureDeploymentVerifier:
             payload = json.loads(result.stdout)
         except json.JSONDecodeError as error:
             raise AzureDeploymentVerificationError("Azure CLI returned invalid JSON") from error
-        if not isinstance(payload, dict):
-            raise AzureDeploymentVerificationError(
-                "Azure CLI returned an invalid verification response"
-            )
         return payload
 
 
@@ -516,4 +588,5 @@ __all__ = [
     "AzureDeploymentVerification",
     "AzureDeploymentVerificationError",
     "AzureDeploymentVerifier",
+    "AzureSecretMetadata",
 ]

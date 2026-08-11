@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add a read-only canonical Azure profile preflight that requires the exact
+  Azure/Snowflake/PostgreSQL/no-catalog/Key-Vault composition, verifies deployed resources, and
+  checks only manifest-declared Key Vault names and enabled state without reading values.
 - Bind Azure proof-secret creation and rotation to the exact signed-in Terraform operator with
   vault-scoped `Key Vault Secrets Officer`, while preserving the runtime identity's read-only
   `Key Vault Secrets User` role.

@@ -1,7 +1,7 @@
 ---
 id: DANDER-113
 title: Give Azure jobs an explicit Key Vault network path
-status: in_progress
+status: done
 phase: 6
 ---
 
@@ -22,7 +22,8 @@ profile.
   rule.
 - [x] Provider-mocked Terraform and focused Python tests cover the correction without an Azure
   mutation.
-- [ ] Protected CI passes and the focused correction merges before any Azure plan is applied.
+- [x] Protected CI passed and the focused correction merged as PR #193 before any Azure plan was
+  applied.
 
 ## Boundary
 

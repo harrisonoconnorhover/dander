@@ -1222,3 +1222,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Dander does not create or modify the existing delegated subnet; it must already
   expose the `Microsoft.KeyVault` service endpoint. The GCP-secret federation profile remains able
   to use Azure's managed network because its jobs do not read the deployment vault.
+
+## 2026-08-11 — Canonical Azure preflight reads secret metadata, never values
+
+- **Profile:** The preflight accepts only Azure Container Apps, Snowflake OAuth warehouse,
+  PostgreSQL state, no external catalog, and Azure Key Vault, with both credential environment
+  names bound by the pipeline. Other shapes fail before provider binding.
+- **Proof:** Normal deployment verification runs first. A separate Key Vault list then requires
+  each manifest-declared base secret identifier to exist and be enabled; unrelated vault entries
+  are omitted from output.
+- **Boundary:** Key Vault's list operation exposes base identifiers and attributes, not values or
+  individual versions. Version rotation, runtime use, lifecycle behavior, and warehouse
+  correctness remain live acceptance steps under explicit provider ceilings.

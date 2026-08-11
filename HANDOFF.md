@@ -2,38 +2,38 @@
 
 ## Finished
 
-- Confirmed protected main is green through merged PR #192.
-- Corrected the false assumption that Container Apps can bypass a Key Vault firewall.
-- Required Azure Key Vault profiles to supply one exact Container Apps infrastructure subnet.
-- Kept the vault default-deny and admitted only that subnet plus the reviewed operator IP.
-- Added fail-closed Terraform, verifier, and focused test coverage without contacting Azure.
+- Merged the Key Vault network-path correction as protected PR #193.
+- Added a read-only preflight for the exact Azure/Snowflake/PostgreSQL/no-catalog/Key-Vault profile.
+- Required all manifest-declared Key Vault secrets to exist and be enabled without reading values.
+- Excluded unrelated vault entries from sanitized output and kept other compositions fail-closed.
+- Documented the ordered live acceptance and cleanup protocol without authorizing it.
 
 ## Try It
 
-Run `uv run pytest tests/bootstrap/test_azure_terraform.py tests/providers/test_azure_deployment_verification.py` and `terraform -chdir=infra/azure test -no-color`.
+Run `uv run pytest tests/providers/test_azure_deployment_verification.py tests/cli/test_azure_operations_cli.py`.
 
 ## Checks
 
-- Protected main CI is green through merged PR #192.
-- Repository-wide Ruff, strict typing, and Python tests pass; Terraform format/validate and both Terraform test roots pass.
-- No provider registration, resource creation, secret write, image copy, or paid operation ran.
+- Protected PR #193 and its post-merge main CI are fully green.
+- Repository-wide Ruff, strict typing, and the full Python test suite pass.
+- No provider registration, resource creation, secret read/write, image copy, job, or paid operation ran.
 
 ## Decisions
 
-- Managed identity grants permission but does not bypass Key Vault network controls.
-- Key Vault profiles require an existing delegated subnet with the `Microsoft.KeyVault` service endpoint.
-- The GCP-secret federation profile may still use Azure's managed network because it does not read this vault.
+- Canonical preflight accepts only the named Phase 6 profile.
+- Key Vault metadata verification lists base identifiers and enabled state but never values.
+- Rotation-version and runtime-use proof remain under later explicit cost approval.
 
 ## Remaining
 
-- Run local checks and merge this focused correction through protected CI.
-- Prepare the named Azure Snowflake/PostgreSQL/Key-Vault acceptance preflight separately.
+- Finish checks and merge this preflight through protected CI.
 - Obtain candidate-publication approval before publishing or copying an image.
-- Obtain explicit Azure, GCP, and Snowflake ceilings before live mutations.
-- Run approved lifecycle, cleanup, rollback, and no-drift acceptance.
+- Recommend and obtain explicit Azure, Snowflake, and retained-GCP ceilings.
+- Run the approved live lifecycle, rotation, rollback, cleanup, and no-drift proof.
+- Perform the final independent completion review and Phase 6 gate reassessment.
 
 ## Review First
 
-- `infra/azure/modules/container-apps-jobs/main.tf`
-- `src/dander/bootstrap/azure_terraform.py`
 - `src/dander/providers/azure_container_apps/verification.py`
+- `src/dander/cli/azure_command.py`
+- `docs/cloud-portability-azure-lifecycle-acceptance.md`

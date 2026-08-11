@@ -237,6 +237,69 @@ def azure_verify(
     console.print_json(data=verification.as_dict())
 
 
+@azure_app.command("canonical-preflight")
+def azure_canonical_preflight(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    expected_image: str = typer.Option(..., "--expected-image"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Verify the named Azure/Snowflake/PostgreSQL/Key Vault profile read-only."""
+    try:
+        manifest = load_project_config(config, deployment=deployment)
+        if (
+            manifest.launcher_provider != "azure_container_apps"
+            or manifest.warehouse_provider != "snowflake"
+            or manifest.state_provider != "postgresql"
+            or manifest.catalog_provider != "none"
+            or manifest.secret_provider != "azure_key_vault"
+        ):
+            raise ProjectConfigError(
+                "Canonical preflight requires the named Azure/Snowflake/PostgreSQL/"
+                "no-catalog/Key-Vault profile"
+            )
+        snowflake_auth = manifest.warehouse_config.get("auth")
+        postgres_dsn_env = manifest.state_config.get("dsn_env")
+        if (
+            not isinstance(snowflake_auth, dict)
+            or snowflake_auth.get("method") != "oauth"
+            or not isinstance(token_env := snowflake_auth.get("token_env"), str)
+            or not isinstance(postgres_dsn_env, str)
+        ):
+            raise ProjectConfigError(
+                "Canonical preflight requires Snowflake OAuth and PostgreSQL DSN references"
+            )
+        try:
+            secret_environment = set(manifest.pipelines[pipeline].secrets)
+        except KeyError as error:
+            raise ProjectConfigError(
+                f"Pipeline {pipeline!r} is not declared in the project manifest"
+            ) from error
+        if not {token_env, postgres_dsn_env}.issubset(secret_environment):
+            raise ProjectConfigError(
+                "Canonical preflight requires pipeline bindings for Snowflake OAuth and "
+                "PostgreSQL DSN secrets"
+            )
+        binding = AzureDeploymentBinding.from_project(
+            config=config,
+            deployment=deployment,
+            pipeline_id=pipeline,
+            name=name,
+        )
+        verifier = AzureDeploymentVerifier(binding)
+        verification = verifier.verify(expected_image=expected_image)
+        secret_metadata = verifier.verify_declared_secret_metadata()
+    except (AzureDeploymentVerificationError, ProjectConfigError) as error:
+        raise ClickException(str(error)) from error
+    console.print_json(
+        data={
+            "deployment": verification.as_dict(),
+            "declared_secrets": [metadata.as_dict() for metadata in secret_metadata],
+        }
+    )
+
+
 def init_azure_admin_plan(
     subscription_id: str = typer.Option(..., "--subscription-id"),
     location: str = typer.Option("eastus", "--location"),
