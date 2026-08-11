@@ -73,6 +73,12 @@ variable "execution_projections" {
   type        = any
 }
 
+variable "create_jobs" {
+  description = "Create jobs and alerts after their referenced Key Vault secrets have been seeded."
+  type        = bool
+  default     = true
+}
+
 variable "infrastructure_subnet_id" {
   description = "Optional existing delegated subnet for the Container Apps environment; required for Key Vault references and configured with the Microsoft.KeyVault service endpoint."
   type        = string

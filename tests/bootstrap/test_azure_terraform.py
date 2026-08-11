@@ -156,6 +156,49 @@ def test_azure_apply_uses_only_the_saved_plan(
     assert all(call[:2] != ("terraform", "plan") for call in calls)
 
 
+def test_azure_foundation_plan_omits_jobs_until_secrets_are_seeded(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_run(args: tuple[str, ...], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del kwargs
+        calls.append(args)
+        for argument in args:
+            if argument.startswith("-out="):
+                (tmp_path / argument.removeprefix("-out=")).touch()
+        stdout = json.dumps({"resource_changes": [{"change": {"actions": ["create"]}}]})
+        return subprocess.CompletedProcess(args, 0, stdout=stdout)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    _execute(AzureTerraformBootstrap(tmp_path), foundation_only=True)
+
+    terraform_plan = calls[1]
+    assert "-var=create_jobs=false" in terraform_plan
+    assert calls[2] == ("terraform", "show", "-json", "dander-azure.tfplan")
+
+
+def test_azure_foundation_plan_rejects_existing_resource_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def fake_run(args: tuple[str, ...], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del kwargs
+        for argument in args:
+            if argument.startswith("-out="):
+                (tmp_path / argument.removeprefix("-out=")).touch()
+        stdout = json.dumps({"resource_changes": [{"change": {"actions": ["update"]}}]})
+        return subprocess.CompletedProcess(args, 0, stdout=stdout)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(AzureTerraformBootstrapError, match="modify or delete"):
+        _execute(AzureTerraformBootstrap(tmp_path), foundation_only=True)
+
+    assert not (tmp_path / "dander-azure.tfplan").exists()
+
+
 def test_azure_bootstrap_projects_gcp_federation_without_credentials(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

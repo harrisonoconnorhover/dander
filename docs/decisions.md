@@ -1255,3 +1255,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   fail immediately, and exhaustion restores the local backend declaration.
 - **Boundary:** The retry creates no resources, does not reapply the saved plan, and does not weaken
   the default-deny firewall, Entra authentication, plan review, or cleanup requirements.
+
+## 2026-08-11 — Key Vault-backed Azure jobs use a two-plan bootstrap
+
+- **Finding:** Azure rejects a Container Apps Job whose versionless Key Vault references do not
+  exist, but the operator cannot seed those values until the new vault and its scoped operator role
+  have been created. One all-at-once platform apply therefore fails on a fresh deployment.
+- **Decision:** The first reviewed `--foundation-only` plan creates the environment, vault, and
+  scoped roles while omitting jobs and alerts. The operator then seeds only manifest-declared
+  secrets outside Terraform; a second normal reviewed plan creates the jobs and alerts. Foundation
+  mode rejects and discards any plan that would update or delete an existing resource.
+- **Boundary:** Secret values never enter Terraform, state, plans, shell history, or evidence. The
+  mode changes only creation order and does not weaken preflight, immutable-image, approval, or
+  cleanup requirements.

@@ -38,7 +38,7 @@ module "container_apps_jobs" {
   managed_identity_id             = data.azurerm_user_assigned_identity.runtime.id
   managed_identity_client_id      = data.azurerm_user_assigned_identity.runtime.client_id
   managed_identity_principal_id   = data.azurerm_user_assigned_identity.runtime.principal_id
-  execution_projections           = var.execution_projections
+  execution_projections           = var.create_jobs ? var.execution_projections : {}
   infrastructure_subnet_id        = var.infrastructure_subnet_id
   tags                            = var.tags
 }

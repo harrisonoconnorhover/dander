@@ -72,6 +72,13 @@ dander init-azure-plan \
   --container-image danderphase6.azurecr.io/dander/runtime@sha256:DIGEST
 ```
 
+For a new Key Vault-backed deployment, add `--foundation-only` to the first reviewed plan. Apply
+that saved plan to create the environment, vault, and scoped roles without any job or alert. After
+the operator role is usable, create only the manifest-declared secret values outside Terraform,
+then run and review the same plan command again without `--foundation-only`. The second saved plan
+creates the jobs and alerts only after their versionless Key Vault references exist. Foundation
+mode rejects and discards any plan that would update or delete an existing resource.
+
 This creates a saved plan only. An optional existing delegated subnet can be selected with
 `--infrastructure-subnet-id`; selecting it makes the environment internal. The subnet is required
 when the profile uses Azure Key Vault references and must already have the `Microsoft.KeyVault`
@@ -85,7 +92,7 @@ Vault defaults to deny, admits that exact operator IP for secret administration,
 exact Container Apps subnet for managed-identity secret references. The plan does not create or
 modify that existing subnet.
 
-Run `dander init-azure-apply` only after reviewing the exact saved plan and receiving explicit
+Run `dander init-azure-apply` only after reviewing each exact saved plan and receiving explicit
 approval for the live Azure changes. Then use `dander azure verify` for read-only checks of the
 subscription, environment, logs, job trigger/resources/image, managed identity, ACR, and Key Vault.
 The plan grants the exact signed-in Terraform operator `Key Vault Secrets Officer` so that person

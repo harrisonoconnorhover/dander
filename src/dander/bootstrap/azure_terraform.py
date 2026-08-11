@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 from ipaddress import IPv4Address, ip_address
-from json import dumps
+from json import JSONDecodeError, dumps, loads
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -78,6 +78,7 @@ class AzureTerraformBootstrap:
         require_guarded_free_tier: bool,
         pipelines: Mapping[str, Mapping[str, object]],
         apply: bool,
+        foundation_only: bool = False,
         alert_target: str | None = None,
         infrastructure_subnet_id: str | None = None,
         name: str = "dander",
@@ -221,6 +222,7 @@ class AzureTerraformBootstrap:
             f"-var=managed_identity_name={identity_name}",
             "-var=execution_projections="
             + dumps(projections, sort_keys=True, separators=(",", ":")),
+            f"-var=create_jobs={str(not foundation_only).lower()}",
             "-var=tags="
             + dumps(
                 {
@@ -236,6 +238,8 @@ class AzureTerraformBootstrap:
             plan_args.insert(-1, f"-var=infrastructure_subnet_id={infrastructure_subnet_id}")
         self._run(*plan_args)
         self._secure_plan()
+        if foundation_only:
+            self._assert_foundation_plan_is_additive()
         if apply:
             self._run("terraform", "apply", "-input=false", self._plan_path.name)
         return self._plan_path
@@ -323,6 +327,52 @@ class AzureTerraformBootstrap:
         except OSError as error:
             raise AzureTerraformBootstrapError(
                 "Could not secure the saved Azure Terraform plan"
+            ) from error
+
+    def _assert_foundation_plan_is_additive(self) -> None:
+        environment = os.environ.copy()
+        environment["ARM_USE_AZUREAD"] = "true"
+        try:
+            completed = subprocess.run(
+                ("terraform", "show", "-json", self._plan_path.name),
+                cwd=self._infra_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+                env=environment,
+                umask=0o077,
+            )
+            payload = loads(completed.stdout)
+            resource_changes = payload.get("resource_changes", [])
+            mutates_existing = any(
+                any(action in {"update", "delete"} for action in change["change"]["actions"])
+                for change in resource_changes
+            )
+        except (
+            FileNotFoundError,
+            subprocess.CalledProcessError,
+            JSONDecodeError,
+            AttributeError,
+            KeyError,
+            TypeError,
+        ) as error:
+            self._discard_plan()
+            raise AzureTerraformBootstrapError(
+                "Could not verify that the Azure foundation plan is additive"
+            ) from error
+        if mutates_existing:
+            self._discard_plan()
+            raise AzureTerraformBootstrapError(
+                "Azure foundation plan would modify or delete existing resources; use the normal "
+                "platform plan for an existing deployment"
+            )
+
+    def _discard_plan(self) -> None:
+        try:
+            self._plan_path.unlink(missing_ok=True)
+        except OSError as error:
+            raise AzureTerraformBootstrapError(
+                "Could not discard an unsafe Azure foundation plan"
             ) from error
 
     def _run(self, *args: str) -> None:
