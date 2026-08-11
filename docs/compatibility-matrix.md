@@ -53,3 +53,10 @@ The table deliberately gives more materialization detail than the current machin
 report. Phase 6 does not require a second capability-schema revision unless its implementation
 actually consumes that granularity. Unsupported materializations and state/warehouse pairs must
 continue to fail before provider mutation.
+
+The bounded live fixture on protected-main commit
+`c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad` produced equal normalized rows across BigQuery,
+PostgreSQL, Snowflake, and Redshift over the common canonical scalar intersection. The sanitized
+[comparison record](evidence/warehouse-correctness/2026-08-11/comparison.json) proves shared
+correctness only; provider-specific materializations, transports, types, profiles, and support
+promotion retain their separate gates.

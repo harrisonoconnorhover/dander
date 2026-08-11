@@ -43,6 +43,7 @@ the qualification slice also:
 - [x] provides a disposable-schema live harness with sanitized output and exact cleanup;
 - [x] records a real Snowflake execution under an approved paid-test ceiling.
 
-The shared four-warehouse result comparison is the separate re-baselined Phase 5 exit gate rather
-than an unmerged Snowflake adapter slice. Snowflake remains experimental, views remain unsupported,
-and direct thresholds retain their zero defaults until crossover evidence is recorded in Phase 8.
+The separate shared four-warehouse result comparison passed on protected-main commit
+`c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad`. Snowflake remains experimental, views remain
+unsupported, and direct thresholds retain their zero defaults until crossover evidence is recorded
+in Phase 8.

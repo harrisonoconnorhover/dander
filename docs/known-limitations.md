@@ -3,11 +3,12 @@
 Dander `0.8.x` is beta and proves a focused GCP-native vertical slice. It remains pre-1.0 software;
 evaluate these limits before using it for an unattended system containing business-critical data.
 
-The Phase 5 warehouse implementations and Snowflake/Redshift live correctness proofs are merged,
-but the re-baselined Phase 5 exit gate remains open until the
-[shared four-warehouse deterministic fixture](warehouse-correctness-conformance.md) produces equal
-normalized results on one protected-main commit and the current evidence ledger is reconciled.
-Scale, cost, soak, pairwise-profile, and release qualification remain Phase 8 work.
+The Phase 5 warehouse implementations and the
+[shared four-warehouse deterministic fixture](warehouse-correctness-conformance.md) pass on one
+protected-main commit with equal normalized rows and exact cleanup. This closes the Phase 5
+correctness gate; it does not promote Snowflake, Redshift, PostgreSQL/Kubernetes, or any new
+state/warehouse pair to supported. Scale, cost, soak, pairwise-profile, and release qualification
+remain Phase 8 work.
 
 - AWS ECS/Fargate remains experimental rather than supported. The named Fargate-to-BigQuery/GCP
   composition has passed source-free manual and scheduled execution, replay, interruption,

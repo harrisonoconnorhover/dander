@@ -1,6 +1,6 @@
 # Dander Platform Release Audit
 
-Audited on 2026-08-10 against the product promise in `steering/00-project-overview.md`.
+Audited on 2026-08-11 against the product promise in `steering/00-project-overview.md`.
 “Live-proven” means the behavior was observed in a disposable provider account or retained GCP
 project. “Implemented” means automated tests cover the contract while an optional provider or
 cloud path remains outside the live proof.
@@ -19,7 +19,7 @@ cloud path remains outside the live proof.
 | Durable state and optional read capabilities | Live-proven | Run history, leases, watermarks, count, connection-check, and targeted-read paths were exercised for the relevant retained plugins without provider write-back. |
 | Single metadata spine | Live-proven | The run ledger and catalog store pipeline lifecycle, source/model schema, lineage, tests, and governed metrics in BigQuery; Dataplex publication remains optional. |
 | Canonical visual authoring | Live-proven for the bounded graph slice | Druff opens and saves canonical `PipelineGraph`, discovers presentation-safe connector and operation descriptors, starts an already-deployed run, and previews a non-applyable full-manifest plan through Dander's loopback service. |
-| Infrastructure reconciliation safety | Live-proven | The retained platform plan after Druff deployment reported `0` add, `0` change, and `0` destroy across `111` no-op resources. |
+| Infrastructure reconciliation safety | Live-proven | Fresh retained stage-zero and platform plans after the four-warehouse run reported exact `No changes.`; the current-equivalent platform plan contained `113` no-op resources. |
 
 ## Current release and deployment record
 
@@ -41,6 +41,9 @@ cloud path remains outside the live proof.
   alert routing, image rollback, cleanup, and four final no-drift plans. Fargate remains
   experimental pending scale/profile qualification. See
   `docs/cloud-portability-fargate-lifecycle-acceptance.md`.
+- Protected-main Dander `0.8.0rc8` passed the bounded Phase 5 common-scalar fixture on BigQuery,
+  PostgreSQL, Snowflake, and Redshift with one equal normalized hash, exact replay, and verified
+  cleanup. This is warehouse correctness evidence, not provider or profile support promotion.
 - Retained source-free Dander image: `sha256:68e112c43b365018b735be7934446e15dfe6169fc64062b62b8bb97ea4f93b96`,
   built with Dander `0.7.1`, Salesforce `0.3.1`, and ServiceNow `0.2.2`.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:

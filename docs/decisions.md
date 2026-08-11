@@ -1146,3 +1146,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Physical transports and provider-specific types, fallbacks, write modes,
   materializations, and fencing remain separate conformance concerns. Scale, cost, crossover, soak,
   pairwise-profile, and release qualification remain in Phase 8.
+
+## 2026-08-11 — Shared warehouse correctness closes the Phase 5 gate
+
+- **Result:** BigQuery, PostgreSQL, Snowflake, and Redshift produced the same normalized three-row
+  hash from one protected-main commit after exact replay, with provider-owned cleanup verified.
+- **Evidence:** Only fixture, schema, and result hashes, counts, booleans, timestamps, transports,
+  commit identity, and reviewed ceilings are retained under
+  `docs/evidence/warehouse-correctness/2026-08-11/`; credentials, coordinates, and rows are absent.
+- **Boundary:** This satisfies Phase 5 common-intersection correctness. Provider/profile support,
+  scale, throughput, crossover, cost, soak, and pairwise qualification remain separate Phase 8 or
+  promotion requirements.

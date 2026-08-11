@@ -1,14 +1,17 @@
 # Cloud Portability and First-Class Platform Roadmap
 
-Status: active roadmap; Phases 0 through 4 completed; Phase 5 implementation merged and exit gate
-re-baselined pending shared warehouse conformance
+Status: active roadmap; Phases 0 through 5 exit gates satisfied; Phase 6 has not begun
 
 Initial planning baseline: `origin/main` at `9dc5562` (`0.6.0rc1`)
 
 Phase 5 implementation checkpoint: protected `main` at
 `3a10c121d1d77b7a5074ce7d07a3c9d6b7cb7e1e` after PRs #178 and #179
 
-Prepared: 2026-08-06; reconciled: 2026-08-10
+Phase 5 exit-evidence candidate: protected `main` at
+`c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad` after PRs #184 and #185. The shared live records are
+stored under `docs/evidence/warehouse-correctness/2026-08-11/`.
+
+Prepared: 2026-08-06; reconciled: 2026-08-11
 
 The baseline descriptions below record the conditions this roadmap was designed to change. They
 are retained as architectural rationale rather than claims about the current implementation. The

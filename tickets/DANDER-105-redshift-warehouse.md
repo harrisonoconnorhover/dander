@@ -27,5 +27,5 @@ created: 2026-08-09
 
 Redshift remains experimental. Views, ARRAY/RECORD fallback, provisioned-RA3 live qualification,
 reusable provider-managed infrastructure, support promotion, and Phase 8 scale/cost qualification
-remain outside this completed adapter ticket. The shared four-warehouse result comparison is the
-separate re-baselined Phase 5 exit gate.
+remain outside this completed adapter ticket. The separate shared four-warehouse result comparison
+passed on protected-main commit `c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad`.
