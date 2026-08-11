@@ -323,7 +323,7 @@ def test_verifier_checks_gcp_federation_and_runtime_secret_references() -> None:
     assert isinstance(containers, list)
     container = containers[0]
     assert isinstance(container, dict)
-    configuration["secrets"] = []
+    configuration["secrets"] = None
     container["env"] = [
         {"name": "HOME", "value": "/tmp"},
         {"name": "AZURE_CLIENT_ID", "value": _CLIENT_ID},
