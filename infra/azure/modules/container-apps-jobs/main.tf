@@ -153,6 +153,7 @@ resource "azurerm_container_app_job" "pipeline" {
   location                     = var.location
   resource_group_name          = var.resource_group_name
   container_app_environment_id = azurerm_container_app_environment.runtime.id
+  workload_profile_name        = "Consumption"
   replica_timeout_in_seconds   = each.value.resources.deadline_seconds
   replica_retry_limit          = each.value.resources.launcher_retry_count
   tags                         = merge(local.tags, each.value.labels, { pipeline = each.key })
