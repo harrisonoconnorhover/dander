@@ -67,9 +67,10 @@ run "projects_exact_job_contract" {
   assert {
     condition = (
       azurerm_container_app_job.pipeline["warehouse_fixture"].replica_timeout_in_seconds == 900 &&
-      azurerm_container_app_job.pipeline["warehouse_fixture"].replica_retry_limit == 1
+      azurerm_container_app_job.pipeline["warehouse_fixture"].replica_retry_limit == 1 &&
+      azurerm_container_app_job.pipeline["warehouse_fixture"].workload_profile_name == "Consumption"
     )
-    error_message = "Container Apps must preserve the projected deadline and launcher retry count."
+    error_message = "Container Apps must preserve the projected deadline, launcher retry count, and Consumption workload profile."
   }
 
   assert {
