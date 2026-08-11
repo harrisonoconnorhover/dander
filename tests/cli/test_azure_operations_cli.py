@@ -13,6 +13,8 @@ from dander.cli.main import app
 from dander.providers.azure_container_apps import (
     AzureContainerAppsExecution,
     AzureContainerAppsLogEvent,
+    AzureDeploymentVerification,
+    AzureSecretMetadata,
 )
 
 if TYPE_CHECKING:
@@ -213,6 +215,187 @@ def test_identity_refresh_probe_requires_named_profile_and_confirmation(
             },
         )
     ]
+
+
+def test_canonical_preflight_requires_exact_profile_and_emits_sanitized_metadata(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, object]] = []
+    binding = object()
+
+    class _Binding:
+        @classmethod
+        def from_project(cls, **kwargs: object) -> object:
+            calls.append(("binding", kwargs))
+            return binding
+
+    class _Verifier:
+        def __init__(self, selected: object) -> None:
+            assert selected is binding
+
+        def verify(self, *, expected_image: str) -> AzureDeploymentVerification:
+            calls.append(("verify", expected_image))
+            return AzureDeploymentVerification(
+                subscription="11111111-1111-4111-8111-111111111111",
+                resource_group="dander-phase6",
+                environment="environment-id",
+                job="job-id",
+                trigger_type="manual",
+                image=expected_image,
+                registry="registry-id",
+                managed_identity="identity-id",
+                key_vault="vault-id",
+                log_analytics_workspace="workspace-id",
+            )
+
+        def verify_declared_secret_metadata(self) -> tuple[AzureSecretMetadata, ...]:
+            calls.append(("secret-metadata", None))
+            return (AzureSecretMetadata(name="postgres-dsn", enabled=True),)
+
+    monkeypatch.setattr(
+        azure_command,
+        "load_project_config",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            launcher_provider="azure_container_apps",
+            warehouse_provider="snowflake",
+            state_provider="postgresql",
+            catalog_provider="none",
+            secret_provider="azure_key_vault",
+            warehouse_config={
+                "auth": {
+                    "method": "oauth",
+                    "token_env": "DANDER_SNOWFLAKE_OAUTH_TOKEN",
+                }
+            },
+            state_config={"dsn_env": "DANDER_POSTGRES_DSN"},
+            pipelines={
+                "warehouse_fixture": SimpleNamespace(
+                    secrets={
+                        "DANDER_POSTGRES_DSN": "postgres-dsn",
+                        "DANDER_SNOWFLAKE_OAUTH_TOKEN": "snowflake-oauth-token",
+                    }
+                )
+            },
+        ),
+    )
+    monkeypatch.setattr(azure_command, "AzureDeploymentBinding", _Binding)
+    monkeypatch.setattr(azure_command, "AzureDeploymentVerifier", _Verifier)
+    image = "danderphase6.azurecr.io/dander/runtime@sha256:" + "a" * 64
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "azure",
+            "canonical-preflight",
+            *_base_args(tmp_path),
+            "--expected-image",
+            image,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert '"name": "postgres-dsn"' in result.output
+    assert '"enabled": true' in result.output
+    assert "value" not in result.output
+    assert calls == [
+        (
+            "binding",
+            {
+                "config": tmp_path / "dander.yaml",
+                "deployment": "azure_snowflake",
+                "pipeline_id": "warehouse_fixture",
+                "name": "dander",
+            },
+        ),
+        ("verify", image),
+        ("secret-metadata", None),
+    ]
+
+
+def test_canonical_preflight_rejects_other_compositions_before_provider_access(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        azure_command,
+        "load_project_config",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            launcher_provider="azure_container_apps",
+            warehouse_provider="bigquery",
+            state_provider="bigquery",
+            catalog_provider="dataplex",
+            secret_provider="gcp_secret_manager",
+        ),
+    )
+
+    class _ForbiddenBinding:
+        @classmethod
+        def from_project(cls, **_kwargs: object) -> object:
+            pytest.fail("Provider binding must not be resolved")
+
+    monkeypatch.setattr(azure_command, "AzureDeploymentBinding", _ForbiddenBinding)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "azure",
+            "canonical-preflight",
+            *_base_args(tmp_path),
+            "--expected-image",
+            "danderphase6.azurecr.io/dander/runtime@sha256:" + "a" * 64,
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert "requires the named Azure/Snowflake/PostgreSQL" in str(result.exception)
+
+
+def test_canonical_preflight_rejects_non_oauth_snowflake_before_provider_access(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        azure_command,
+        "load_project_config",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            launcher_provider="azure_container_apps",
+            warehouse_provider="snowflake",
+            state_provider="postgresql",
+            catalog_provider="none",
+            secret_provider="azure_key_vault",
+            warehouse_config={
+                "auth": {
+                    "method": "key_pair",
+                    "private_key_file_env": "DANDER_SNOWFLAKE_PRIVATE_KEY_FILE",
+                }
+            },
+            state_config={"dsn_env": "DANDER_POSTGRES_DSN"},
+            pipelines={},
+        ),
+    )
+
+    class _ForbiddenBinding:
+        @classmethod
+        def from_project(cls, **_kwargs: object) -> object:
+            pytest.fail("Provider binding must not be resolved")
+
+    monkeypatch.setattr(azure_command, "AzureDeploymentBinding", _ForbiddenBinding)
+    result = CliRunner().invoke(
+        app,
+        [
+            "azure",
+            "canonical-preflight",
+            *_base_args(tmp_path),
+            "--expected-image",
+            "danderphase6.azurecr.io/dander/runtime@sha256:" + "a" * 64,
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert "requires Snowflake OAuth" in str(result.exception)
 
 
 def test_image_promotion_requires_confirmation_and_passes_only_typed_inputs(

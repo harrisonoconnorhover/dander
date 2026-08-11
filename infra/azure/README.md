@@ -112,6 +112,12 @@ same immutable job template; Dander's persisted inclusive cursor remains respons
 idempotent logical replay. Log reads query only the selected execution and enforce an explicit
 row limit.
 
+Before any approved execution of the named Snowflake/PostgreSQL profile, run `dander azure
+canonical-preflight` with the accepted ACR digest. It rejects other compositions, requires
+Snowflake OAuth and PostgreSQL DSN secret bindings, performs normal deployment verification, and
+lists only the declared Key Vault base identifiers and enabled state. The full ordered protocol is
+in `docs/cloud-portability-azure-lifecycle-acceptance.md`.
+
 ## Boundaries
 
 - ACR administrator credentials and Storage shared keys remain disabled; state network access

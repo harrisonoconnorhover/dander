@@ -26,7 +26,7 @@ _IMAGE = "danderphase6.azurecr.io/dander/runtime@sha256:" + "a" * 64
 
 
 class _Runner:
-    def __init__(self, payloads: dict[tuple[str, ...], dict[str, object]]) -> None:
+    def __init__(self, payloads: dict[tuple[str, ...], object]) -> None:
         self.payloads = payloads
         self.commands: list[tuple[str, ...]] = []
 
@@ -76,7 +76,7 @@ def _binding() -> AzureDeploymentBinding:
     )
 
 
-def _payloads() -> dict[tuple[str, ...], dict[str, object]]:
+def _payloads() -> dict[tuple[str, ...], object]:
     binding = _binding()
     job_id = f"{_ROOT}/providers/Microsoft.App/jobs/{binding.job_name}"
     return {
@@ -191,6 +191,15 @@ def _payloads() -> dict[tuple[str, ...], dict[str, object]]:
     }
 
 
+def _dict_payload(
+    payloads: dict[tuple[str, ...], object],
+    key: tuple[str, ...],
+) -> dict[str, object]:
+    payload = payloads[key]
+    assert isinstance(payload, dict)
+    return payload
+
+
 def test_verifier_checks_exact_resources_without_reading_secret_values() -> None:
     runner = _Runner(_payloads())
 
@@ -204,6 +213,79 @@ def test_verifier_checks_exact_resources_without_reading_secret_values() -> None
     assert "secret show" not in flattened
     assert "secret list" not in flattened
     assert all("--only-show-errors" in command for command in runner.commands)
+
+
+def test_verifier_checks_only_declared_secret_metadata_without_values() -> None:
+    payloads = _payloads()
+    payloads[
+        (
+            "keyvault",
+            "secret",
+            "list",
+            "--vault-name",
+            "dander-phase6-kv",
+            "--maxresults",
+            "25",
+            "--query",
+            "[].{id:id,enabled:attributes.enabled}",
+        )
+    ] = [
+        {
+            "id": "https://dander-phase6-kv.vault.azure.net/secrets/postgres-dsn",
+            "enabled": True,
+        },
+        {
+            "id": "https://dander-phase6-kv.vault.azure.net/secrets/unrelated-secret",
+            "enabled": True,
+        },
+    ]
+    runner = _Runner(payloads)
+
+    result = AzureDeploymentVerifier(_binding(), runner=runner).verify_declared_secret_metadata()
+
+    assert [metadata.as_dict() for metadata in result] == [
+        {"name": "postgres-dsn", "enabled": True}
+    ]
+    flattened = " ".join(" ".join(command) for command in runner.commands)
+    assert "secret list" in flattened
+    assert "secret show" not in flattened
+    assert "value" not in flattened
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        [],
+        [
+            {
+                "id": "https://dander-phase6-kv.vault.azure.net/secrets/postgres-dsn",
+                "enabled": False,
+            }
+        ],
+    ],
+)
+def test_verifier_rejects_missing_or_disabled_declared_secret_metadata(
+    metadata: list[dict[str, object]],
+) -> None:
+    payloads = _payloads()
+    payloads[
+        (
+            "keyvault",
+            "secret",
+            "list",
+            "--vault-name",
+            "dander-phase6-kv",
+            "--maxresults",
+            "25",
+            "--query",
+            "[].{id:id,enabled:attributes.enabled}",
+        )
+    ] = metadata
+
+    with pytest.raises(AzureDeploymentVerificationError, match="missing or disabled"):
+        AzureDeploymentVerifier(
+            _binding(), runner=_Runner(payloads)
+        ).verify_declared_secret_metadata()
 
 
 def test_verifier_checks_gcp_federation_and_runtime_secret_references() -> None:
@@ -230,7 +312,7 @@ def test_verifier_checks_gcp_federation_and_runtime_secret_references() -> None:
         "--resource-group",
         "dander-phase6",
     )
-    properties = payloads[job_key]["properties"]
+    properties = _dict_payload(payloads, job_key)["properties"]
     assert isinstance(properties, dict)
     configuration = properties["configuration"]
     template = properties["template"]
@@ -296,7 +378,7 @@ def test_verifier_fails_closed_on_drift(mutation: str, message: str) -> None:
         "--resource-group",
         "dander-phase6",
     )
-    job = payloads[job_key]
+    job = _dict_payload(payloads, job_key)
     properties = job["properties"]
     assert isinstance(properties, dict)
     if mutation == "image":
@@ -314,7 +396,7 @@ def test_verifier_fails_closed_on_drift(mutation: str, message: str) -> None:
             "--resource-group",
             "dander-phase6",
         )
-        payloads[acr_key]["adminUserEnabled"] = True
+        _dict_payload(payloads, acr_key)["adminUserEnabled"] = True
     elif mutation == "vault_rbac":
         vault_key = (
             "keyvault",
@@ -324,7 +406,7 @@ def test_verifier_fails_closed_on_drift(mutation: str, message: str) -> None:
             "--resource-group",
             "dander-phase6",
         )
-        payloads[vault_key]["properties"]["enableRbacAuthorization"] = False  # type: ignore[index]
+        _dict_payload(payloads, vault_key)["properties"]["enableRbacAuthorization"] = False  # type: ignore[index]
     else:
         vault_key = (
             "keyvault",
@@ -334,7 +416,7 @@ def test_verifier_fails_closed_on_drift(mutation: str, message: str) -> None:
             "--resource-group",
             "dander-phase6",
         )
-        payloads[vault_key]["properties"]["networkAcls"]["virtualNetworkRules"] = []  # type: ignore[index]
+        _dict_payload(payloads, vault_key)["properties"]["networkAcls"]["virtualNetworkRules"] = []  # type: ignore[index]
 
     with pytest.raises(AzureDeploymentVerificationError, match=message):
         AzureDeploymentVerifier(binding, runner=_Runner(payloads)).verify(expected_image=_IMAGE)

@@ -50,7 +50,9 @@ remain Phase 8 work.
   plan-first Terraform, digest-preserving ACR promotion tooling, provider-native lifecycle
   operations, bounded Log Analytics reads, deployment verification, and a locally validated
   Azure-to-Google managed-identity adapter with disposable federation Terraform and refresh-probe
-  tooling. The named Key Vault profile requires an existing delegated Container Apps subnet with
+  tooling. A separate read-only preflight rejects any composition other than the named
+  Azure/Snowflake/PostgreSQL/no-catalog/Key-Vault profile and verifies only declared secret names
+  and enabled state. The named Key Vault profile requires an existing delegated Container Apps subnet with
   the `Microsoft.KeyVault` service endpoint; Dander admits that exact subnet and the reviewed
   operator IP while disabling the inapplicable Azure trusted-service bypass. Dander does not
   create or modify the subnet. Azure schedules are
