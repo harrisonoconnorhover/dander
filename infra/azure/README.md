@@ -81,6 +81,10 @@ Azure trusted-service path used by the managed-identity secret reference.
 Run `dander init-azure-apply` only after reviewing the exact saved plan and receiving explicit
 approval for the live Azure changes. Then use `dander azure verify` for read-only checks of the
 subscription, environment, logs, job trigger/resources/image, managed identity, ACR, and Key Vault.
+The plan grants the exact signed-in Terraform operator `Key Vault Secrets Officer` so that person
+can create and rotate the declared proof secrets; the job identity remains limited to `Key Vault
+Secrets User`. Secret values remain an operator action outside Terraform and must not appear in a
+plan, state file, shell history, or committed evidence.
 
 ## Job lifecycle
 
@@ -109,6 +113,8 @@ row limit.
 - ACR administrator credentials and Storage shared keys remain disabled; state network access
   defaults to deny and admits only the reviewed operator `/32`.
 - The runtime identity receives only `AcrPull` and `Key Vault Secrets User` in this root.
+- The signed-in plan operator receives `Key Vault Secrets Officer` only on this deployment vault;
+  no group, subscription-wide secret administrator, or second operator is inferred.
 - Key Vault network access defaults to deny and admits only Azure's trusted-service path plus the
   reviewed operator IP.
 - Secret values are an operator action outside Terraform and must never enter a plan or state.
