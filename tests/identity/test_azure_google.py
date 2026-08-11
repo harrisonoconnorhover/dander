@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from google.auth import external_account
@@ -89,6 +89,23 @@ def test_azure_google_identity_builds_short_scoped_external_credentials() -> Non
     assert credentials._credential_source == {"environment_id": "azure-container-apps"}
     assert credentials._client_id is None
     assert credentials._client_secret is None
+
+
+def test_azure_google_identity_survives_google_auth_impersonation_clone() -> None:
+    markers: list[str] = []
+    credentials = prepare_azure_google_identity(
+        environ=dict(_ENVIRONMENT),
+        clock=lambda: _NOW,
+        azure_credential_factory=cast(
+            "AzureCredentialFactory", lambda **_values: _Credential(markers)
+        ),
+    )
+
+    impersonated = cast("Any", credentials)._initialize_impersonated_credentials()
+    source_credentials = impersonated._source_credentials
+
+    assert source_credentials.retrieve_subject_token(None).endswith("payload-b.signature")
+    assert markers == ["a", "b"]
 
 
 @pytest.mark.parametrize(
