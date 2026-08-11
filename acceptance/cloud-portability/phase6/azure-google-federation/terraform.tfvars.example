@@ -1,0 +1,10 @@
+subscription_id             = "11111111-1111-4111-8111-111111111111"
+tenant_id                   = "22222222-2222-4222-8222-222222222222"
+azure_resource_group_name   = "dander-phase6"
+azure_managed_identity_name = "dander-phase6-runtime"
+proof_name                  = "dander-phase6-r1"
+gcp_project_id              = "example-proof-project"
+google_service_account_id   = "dander-phase6-azure"
+raw_dataset_id              = "raw"
+metadata_dataset_id         = "dander_meta"
+proof_secret_ids            = ["source-api-token"]

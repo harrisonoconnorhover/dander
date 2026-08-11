@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -64,7 +65,13 @@ def _binding() -> AzureDeploymentBinding:
         schedule_paused=True,
         runtime_timeout_seconds=900,
         runtime_max_retries=1,
+        secret_provider="azure_key_vault",
+        secret_bindings=(("DANDER_POSTGRES_DSN", "postgres-dsn"),),
         secret_ids=("postgres-dsn",),
+        google_project=None,
+        google_workload_identity_audience=None,
+        google_application_id_uri=None,
+        google_service_account=None,
         project_dir=Path("/tmp/dander-azure-test"),
     )
 
@@ -186,6 +193,73 @@ def test_verifier_checks_exact_resources_without_reading_secret_values() -> None
     assert "secret show" not in flattened
     assert "secret list" not in flattened
     assert all("--only-show-errors" in command for command in runner.commands)
+
+
+def test_verifier_checks_gcp_federation_and_runtime_secret_references() -> None:
+    binding = replace(
+        _binding(),
+        secret_provider="gcp_secret_manager",
+        secret_bindings=(("API_TOKEN", "source-api-token"),),
+        secret_ids=("source-api-token",),
+        google_project="unit-project",
+        google_workload_identity_audience=(
+            "//iam.googleapis.com/projects/1009770943166/locations/global/"
+            "workloadIdentityPools/dander-phase6-azure/providers/container-apps"
+        ),
+        google_application_id_uri="api://77777777-7777-4777-8777-777777777777",
+        google_service_account="dander-runtime@unit-project.iam.gserviceaccount.com",
+    )
+    payloads = _payloads()
+    job_key = (
+        "containerapp",
+        "job",
+        "show",
+        "--name",
+        binding.job_name,
+        "--resource-group",
+        "dander-phase6",
+    )
+    properties = payloads[job_key]["properties"]
+    assert isinstance(properties, dict)
+    configuration = properties["configuration"]
+    template = properties["template"]
+    assert isinstance(configuration, dict)
+    assert isinstance(template, dict)
+    containers = template["containers"]
+    assert isinstance(containers, list)
+    container = containers[0]
+    assert isinstance(container, dict)
+    configuration["secrets"] = []
+    container["env"] = [
+        {"name": "HOME", "value": "/tmp"},
+        {"name": "AZURE_CLIENT_ID", "value": _CLIENT_ID},
+        {
+            "name": "DANDER_AZURE_GCP_APPLICATION_ID_URI",
+            "value": "api://77777777-7777-4777-8777-777777777777",
+        },
+        {
+            "name": "DANDER_GCP_SERVICE_ACCOUNT",
+            "value": "dander-runtime@unit-project.iam.gserviceaccount.com",
+        },
+        {
+            "name": "DANDER_GCP_WIF_AUDIENCE",
+            "value": (
+                "//iam.googleapis.com/projects/1009770943166/locations/global/"
+                "workloadIdentityPools/dander-phase6-azure/providers/container-apps"
+            ),
+        },
+        {"name": "GCP_PROJECT_ID", "value": "unit-project"},
+        {
+            "name": "API_TOKEN",
+            "value": "projects/unit-project/secrets/source-api-token/versions/latest",
+        },
+    ]
+
+    result = AzureDeploymentVerifier(binding, runner=_Runner(payloads)).verify(
+        expected_image=_IMAGE
+    )
+
+    assert result.image == _IMAGE
 
 
 @pytest.mark.parametrize(

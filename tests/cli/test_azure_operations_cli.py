@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -33,6 +34,10 @@ class _Operations:
 
     def start(self) -> AzureContainerAppsExecution:
         self.calls.append(("start", None))
+        return self.execution
+
+    def start_identity_refresh_probe(self, **kwargs: object) -> AzureContainerAppsExecution:
+        self.calls.append(("identity-refresh-probe", kwargs))
         return self.execution
 
     def latest(self) -> AzureContainerAppsExecution:
@@ -156,6 +161,58 @@ def test_mutating_operations_require_confirmation_and_invoke_one_action(
     assert refused.exit_code == 1
     assert accepted.exit_code == 0, accepted.output
     assert operations.calls == [expected]
+
+
+def test_identity_refresh_probe_requires_named_profile_and_confirmation(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    operations, _binding = _install_fake(monkeypatch)
+    monkeypatch.setattr(
+        azure_command,
+        "load_project_config",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            launcher_provider="azure_container_apps",
+            warehouse_provider="bigquery",
+            state_provider="bigquery",
+            catalog_provider="dataplex",
+            secret_provider="gcp_secret_manager",
+        ),
+    )
+    args = [
+        "azure",
+        "identity-refresh-probe",
+        "--deployment",
+        "azure_bigquery",
+        "--pipeline",
+        "warehouse_fixture",
+        "--config",
+        str(tmp_path / "dander.yaml"),
+        "--project",
+        "unit-project",
+        "--dataset",
+        "raw",
+        "--table",
+        "proof_rows",
+    ]
+
+    refused = CliRunner().invoke(app, args, input="n\n")
+    accepted = CliRunner().invoke(app, args, input="y\n")
+
+    assert refused.exit_code == 1
+    assert accepted.exit_code == 0, accepted.output
+    assert operations.calls == [
+        (
+            "identity-refresh-probe",
+            {
+                "project": "unit-project",
+                "dataset": "raw",
+                "table": "proof_rows",
+                "max_wait_seconds": 900,
+                "refresh_margin_seconds": 15,
+            },
+        )
+    ]
 
 
 def test_image_promotion_requires_confirmation_and_passes_only_typed_inputs(

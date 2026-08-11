@@ -128,6 +128,17 @@ def prepare_launcher_identity(context: LauncherContext) -> object | None:
     """Prepare only the selected launcher's ambient identity before clients start."""
     if context.launcher == "fargate":
         return prepare_fargate_google_identity()
+    if context.launcher == "azure_container_apps" and any(
+        os.environ.get(name)
+        for name in (
+            "DANDER_AZURE_GCP_APPLICATION_ID_URI",
+            "DANDER_GCP_SERVICE_ACCOUNT",
+            "DANDER_GCP_WIF_AUDIENCE",
+        )
+    ):
+        from dander.identity.azure_google import prepare_azure_google_identity
+
+        return prepare_azure_google_identity()
     return None
 
 

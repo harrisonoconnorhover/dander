@@ -28,6 +28,20 @@ variables {
   managed_identity_client_id     = "33333333-3333-4333-8333-333333333333"
   managed_identity_principal_id  = "44444444-4444-4444-8444-444444444444"
   execution_projections = {
+    bigquery_fixture = {
+      launcher          = "azure_container_apps"
+      image             = "danderphase6.azurecr.io/dander/runtime@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      command           = ["runtime", "execute", "--contract", "io.dander.runtime/v1", "--pipeline", "bigquery_fixture", "--platform", "gcp"]
+      workload_identity = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.ManagedIdentity/userAssignedIdentities/dander-phase6-runtime"
+      environment       = { AZURE_CLIENT_ID = "33333333-3333-4333-8333-333333333333", DANDER_GCP_WIF_AUDIENCE = "//iam.googleapis.com/projects/1009770943166/locations/global/workloadIdentityPools/dander-phase6-azure/providers/container-apps", HOME = "/tmp" }
+      labels            = { pipeline = "bigquery_fixture", profile = "gcp" }
+      secret_bindings   = { API_TOKEN = { provider = "gcp_secret_manager", reference = "gcp-sm://projects/unit-project/secrets/source-api-token/versions/latest" } }
+      resources         = { cpu_millis = 1000, memory_mib = 2048, deadline_seconds = 900, launcher_retry_count = 1 }
+      schedule          = { paused = true, expression = "15 4 * * *", maximum_parallelism = 1, task_count = 1 }
+      network           = { placement = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.App/managedEnvironments/dander-phase6-env" }
+      observability     = { alert_target = null }
+      extensions        = { azure_acr_login_server = "danderphase6.azurecr.io", azure_key_vault_uri = "https://dander-phase6-kv.vault.azure.net", azure_managed_identity_client_id = "33333333-3333-4333-8333-333333333333" }
+    }
     warehouse_fixture = {
       launcher          = "azure_container_apps"
       image             = "danderphase6.azurecr.io/dander/runtime@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -54,6 +68,17 @@ run "projects_exact_job_contract" {
       azurerm_container_app_job.pipeline["warehouse_fixture"].replica_retry_limit == 1
     )
     error_message = "Container Apps must preserve the projected deadline and launcher retry count."
+  }
+
+  assert {
+    condition = (
+      one([
+        for env in azurerm_container_app_job.pipeline["bigquery_fixture"].template[0].container[0].env :
+        env.value if env.name == "API_TOKEN"
+      ]) == "projects/unit-project/secrets/source-api-token/versions/latest" &&
+      length(azurerm_container_app_job.pipeline["bigquery_fixture"].secret) == 0
+    )
+    error_message = "GCP Secret Manager references must remain runtime inputs, not Azure Key Vault secrets."
   }
 
   assert {

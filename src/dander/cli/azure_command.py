@@ -71,6 +71,56 @@ def azure_run(
     console.print_json(data=execution.as_dict())
 
 
+@azure_app.command("identity-refresh-probe")
+def azure_identity_refresh_probe(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    project: str = typer.Option(..., "--project"),
+    dataset: str = typer.Option(..., "--dataset"),
+    table: str = typer.Option(..., "--table"),
+    max_wait_seconds: int = typer.Option(900, "--max-wait-seconds", min=1, max=1_800),
+    refresh_margin_seconds: int = typer.Option(15, "--refresh-margin-seconds", min=0, max=60),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Start one potentially billable Azure-to-Google credential refresh proof."""
+    try:
+        manifest = load_project_config(config, deployment=deployment)
+        if (
+            manifest.launcher_provider != "azure_container_apps"
+            or manifest.warehouse_provider != "bigquery"
+            or manifest.state_provider != "bigquery"
+            or manifest.catalog_provider != "dataplex"
+            or manifest.secret_provider != "gcp_secret_manager"
+        ):
+            raise ProjectConfigError(
+                "Identity refresh probe requires the named Azure BigQuery federation profile"
+            )
+    except ProjectConfigError as error:
+        raise ClickException(str(error)) from error
+    if not typer.confirm(
+        "Start one paid Azure-to-Google identity refresh proof with no automatic rerun?",
+        default=False,
+    ):
+        raise typer.Abort()
+    try:
+        execution = _azure_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+        ).start_identity_refresh_probe(
+            project=project,
+            dataset=dataset,
+            table=table,
+            max_wait_seconds=max_wait_seconds,
+            refresh_margin_seconds=refresh_margin_seconds,
+        )
+    except (AzureContainerAppsOperationError, AzureDeploymentVerificationError) as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data=execution.as_dict())
+
+
 @azure_app.command("status")
 def azure_status(
     deployment: str = typer.Option(..., "--deployment"),
@@ -383,6 +433,12 @@ def init_azure_plan(
             )
         manifest.validate_references(config.resolve().parent)
         runtime = manifest.platform.runtime
+        gcp_project = None
+        if manifest.warehouse_provider == "bigquery":
+            project_value = manifest.warehouse_config.get("project")
+            if not isinstance(project_value, str):
+                raise ProjectConfigError("Azure BigQuery profile has no GCP project")
+            gcp_project = project_value
         plan_path = AzureTerraformBootstrap(infra_dir).execute(
             deployment_name=manifest.deployment_name,
             state_resource_group_name=state_resource_group_name,
@@ -403,6 +459,8 @@ def init_azure_plan(
             alert_target=alert_target,
             infrastructure_subnet_id=infrastructure_subnet_id,
             name=name,
+            profile_id=manifest.platform_name,
+            gcp_project=gcp_project,
         )
     except (AzureTerraformBootstrapError, ProjectConfigError) as error:
         raise ClickException(str(error)) from error

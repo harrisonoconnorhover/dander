@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 import time
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 from click import ClickException
+from google.cloud import bigquery
 from rich.console import Console
 
 from dander.cli.run_command import RunOptions, execute_run
 from dander.compatibility import CompatibilityError, load_runtime_compatibility
-from dander.identity import launcher_identity
+from dander.identity import google_client_options, launcher_identity
+from dander.identity.refresh_probe import (
+    PROBE_SCHEMA,
+    BigQueryProbeClient,
+    ExpiringCredentials,
+    GoogleRefreshProbeError,
+    run_google_refresh_probe,
+    validate_probe_target,
+)
 from dander.runtime_contract import (
     RUNTIME_CONTRACT,
     LauncherContext,
@@ -34,6 +44,54 @@ runtime_app = typer.Typer(
     no_args_is_help=True,
 )
 _CONSOLE = Console()
+
+
+@runtime_app.command("identity-refresh-probe", hidden=True)
+def identity_refresh_probe_runtime_command(
+    project: str = typer.Option(..., "--project"),
+    dataset: str = typer.Option(..., "--dataset"),
+    table: str = typer.Option(..., "--table"),
+    max_wait_seconds: int = typer.Option(900, "--max-wait-seconds", min=1, max=1_800),
+    refresh_margin_seconds: int = typer.Option(15, "--refresh-margin-seconds", min=0, max=60),
+) -> None:
+    """Prove one hosted launcher can renew keyless Google credentials in-process."""
+    try:
+        validate_probe_target(project=project, dataset=dataset, table=table)
+        context = LauncherContext.from_environment()
+        with launcher_identity(context):
+            options = google_client_options()
+            credentials = options.get("credentials")
+            if credentials is None or not hasattr(credentials, "expiry"):
+                raise GoogleRefreshProbeError(
+                    "Selected launcher did not provide renewable Google credentials"
+                )
+            client = BigQueryProbeClient(bigquery.Client(project=project, **options))
+            run_google_refresh_probe(
+                credentials=cast("ExpiringCredentials", credentials),
+                client=client,
+                project=project,
+                dataset=dataset,
+                table=table,
+                max_wait_seconds=max_wait_seconds,
+                refresh_margin_seconds=refresh_margin_seconds,
+                emit=lambda event: typer.echo(
+                    json.dumps(event, sort_keys=True, separators=(",", ":"))
+                ),
+            )
+    except (GoogleRefreshProbeError, RuntimeContractError) as error:
+        typer.echo(
+            json.dumps(
+                {
+                    "schema": PROBE_SCHEMA,
+                    "event": "probe.failed",
+                    "failure_code": "identity_or_query_failed",
+                    "failure_type": type(error).__name__,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        )
+        raise typer.Exit(code=1) from None
 
 
 @runtime_app.command("compatibility")

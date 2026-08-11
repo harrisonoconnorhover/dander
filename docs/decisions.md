@@ -1184,3 +1184,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Azure assigns execution names, while replay correctness remains owned by Dander's
   persisted inclusive cursor. Local mocked operations are construction evidence only; live image
   copy, execution, interruption, cleanup, and no-drift still require explicit approval.
+
+## 2026-08-11 — Container Apps adapts managed identity in memory for Google federation
+
+- **Runtime:** The typed Azure launcher requests an Entra token for one exact application ID URI
+  through `ManagedIdentityCredential`, then supplies a fresh token whenever Google Auth refreshes
+  the same external-account credential. No external-account file, client secret, service-account
+  key, or token is persisted or projected.
+- **Trust:** A disposable single-tenant Entra application supplies only the audience. The Google
+  OIDC provider checks tenant, audience, and the attached user-assigned identity object ID before
+  that principal may impersonate one disposable Google service account.
+- **Boundary:** Azure/BigQuery/Dataplex/GCP-secrets is a separate portability profile from the named
+  Azure Snowflake/PostgreSQL/Key-Vault profile. Provider-mocked Terraform and the bounded
+  600-second refresh command are preparation only; live exchange, refresh, revocation, cleanup,
+  and support promotion still require an accepted candidate and approved provider ceilings.

@@ -47,7 +47,13 @@ def _binding() -> AzureDeploymentBinding:
         schedule_paused=True,
         runtime_timeout_seconds=900,
         runtime_max_retries=1,
+        secret_provider="azure_key_vault",
+        secret_bindings=(("DANDER_POSTGRES_DSN", "postgres-dsn"),),
         secret_ids=("postgres-dsn",),
+        google_project=None,
+        google_workload_identity_audience=None,
+        google_application_id_uri=None,
+        google_service_account=None,
         project_dir=Path("/tmp/dander-azure-operations-test"),
     )
 
@@ -123,6 +129,61 @@ def test_start_uses_exact_manifest_job_and_returns_provider_execution() -> None:
     assert execution.name == _EXECUTION
     assert execution.state == "running"
     assert runner.commands[0][1:4] == ("containerapp", "job", "start")
+
+
+def test_identity_refresh_probe_overrides_only_bounded_runtime_arguments() -> None:
+    start_key = (
+        "containerapp",
+        "job",
+        "start",
+        "--name",
+        _JOB,
+        "--resource-group",
+        "dander-phase6",
+        "--args",
+        "runtime",
+        "identity-refresh-probe",
+        "--project",
+        "unit-project",
+        "--dataset",
+        "raw",
+        "--table",
+        "proof_rows",
+        "--max-wait-seconds",
+        "900",
+        "--refresh-margin-seconds",
+        "15",
+    )
+    show_key = (
+        "containerapp",
+        "job",
+        "execution",
+        "show",
+        "--name",
+        _JOB,
+        "--resource-group",
+        "dander-phase6",
+        "--job-execution-name",
+        _EXECUTION,
+    )
+    runner = _Runner(
+        {
+            start_key: [{"name": _EXECUTION}],
+            show_key: [_execution(status="Running")],
+        }
+    )
+
+    execution = AzureContainerAppsOperations(
+        _binding(), runner=runner
+    ).start_identity_refresh_probe(
+        project="unit-project",
+        dataset="raw",
+        table="proof_rows",
+    )
+
+    assert execution.state == "running"
+    assert start_key == runner.commands[0][1 : runner.commands[0].index("--subscription")]
+    assert not set(runner.commands[0]).intersection({"--image", "--env-vars", "--command"})
 
 
 def test_latest_normalizes_the_most_recent_execution() -> None:
