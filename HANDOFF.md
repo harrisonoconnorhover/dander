@@ -2,25 +2,26 @@
 
 ## Finished
 
-- Added explicit Azure BigQuery `--gcp-project` planning input for version-2 profiles.
-- Added focused CLI coverage for the missing-input failure and successful projection.
-- Documented why the GCP project remains deployment scope rather than platform configuration.
+- Routed the identity-refresh probe's explicit GCP project into its Azure deployment binding.
+- Added `azure verify --gcp-project` for version-2 Azure/BigQuery deployments.
+- Preserved reusable provider profiles without a fixed concrete GCP project.
+- Added focused binding and CLI contract coverage.
 
 ## Try It
 
-Run `uv run pytest tests/cli/test_init_cli.py -k azure_bigquery`.
+Run `uv run pytest tests/cli/test_azure_operations_cli.py tests/providers/test_azure_deployment_verification.py`.
 
 ## Checks
 
-- `uv run pytest tests/cli/test_init_cli.py -q` passed (16 tests).
-- Related Azure Terraform, portable-config, and operations suites passed (35 tests).
+- Focused Azure CLI and deployment-verification tests passed (23 tests).
 - Ruff check/format and mypy passed for the changed Python files.
 - Protected CI remains to run.
 
 ## Decisions
 
-- Keep the concrete GCP project explicit at Azure plan time; do not add it to the reusable profile.
-- Keep the accepted runtime digest unchanged because this correction affects only operator planning.
+- Reuse the probe's already-required project input at binding time.
+- Keep the concrete GCP project out of reusable version-2 platform profiles.
+- Preserve the accepted runtime digest; this is operator binding and verification behavior only.
 
 ## Remaining
 
@@ -32,5 +33,5 @@ Run `uv run pytest tests/cli/test_init_cli.py -k azure_bigquery`.
 ## Review First
 
 - `src/dander/cli/azure_command.py`
-- `tests/cli/test_init_cli.py`
-- `acceptance/cloud-portability/phase6/azure-google-federation/README.md`
+- `src/dander/providers/azure_container_apps/verification.py`
+- `tests/cli/test_azure_operations_cli.py`

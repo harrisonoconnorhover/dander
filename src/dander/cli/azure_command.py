@@ -39,12 +39,14 @@ def _azure_operations(
     deployment: str,
     pipeline: str,
     name: str,
+    gcp_project: str | None = None,
 ) -> AzureContainerAppsOperations:
     binding = AzureDeploymentBinding.from_project(
         config=config,
         deployment=deployment,
         pipeline_id=pipeline,
         name=name,
+        gcp_project=gcp_project,
     )
     return AzureContainerAppsOperations(binding)
 
@@ -109,6 +111,7 @@ def azure_identity_refresh_probe(
             deployment=deployment,
             pipeline=pipeline,
             name=name,
+            gcp_project=project,
         ).start_identity_refresh_probe(
             project=project,
             dataset=dataset,
@@ -222,6 +225,7 @@ def azure_verify(
     expected_image: str = typer.Option(..., "--expected-image"),
     config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
     name: str = typer.Option("dander", "--name"),
+    gcp_project: str | None = typer.Option(None, "--gcp-project"),
 ) -> None:
     """Verify one deployed Azure pipeline through read-only provider checks."""
     try:
@@ -230,6 +234,7 @@ def azure_verify(
             deployment=deployment,
             pipeline_id=pipeline,
             name=name,
+            gcp_project=gcp_project,
         )
         verification = AzureDeploymentVerifier(binding).verify(expected_image=expected_image)
     except AzureDeploymentVerificationError as error:
