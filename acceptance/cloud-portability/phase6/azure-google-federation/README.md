@@ -26,7 +26,9 @@ state, variables, and logs in a secured operator directory outside the repositor
 3. Apply only that exact saved plan. Put the non-secret outputs
    `google_workload_identity_audience` and `azure_application_id_uri` into the typed Azure launcher
    configuration; the service-account output must match each proof pipeline's
-   `runtime_service_account_id`.
+   `runtime_service_account_id`. Pass the reviewed data-plane project to `init-azure-plan` through
+   `--gcp-project`; version 2 keeps that operator/deployment scope out of the reusable platform
+   profile.
 4. Run the same accepted OCI digest through the Azure BigQuery profile. After separate live-cost
    approval, start exactly one refresh probe (there is no automatic rerun):
 

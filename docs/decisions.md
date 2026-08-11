@@ -1281,3 +1281,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   existing transform-project discovery and validation.
 - **Boundary:** This changes no ingestion, warehouse, state, SQL, fencing, or catalog-provider
   semantics. It only allows the already-defined source metadata snapshot to represent zero models.
+
+## 2026-08-11 — Azure BigQuery receives its GCP project as deployment scope
+
+- **Finding:** Version-2 BigQuery platform profiles intentionally describe warehouse behavior and
+  location, not the operator's concrete GCP project. Azure planning incorrectly looked for a
+  project inside that typed profile, so the live federation path failed before Terraform.
+- **Decision:** `init-azure-plan` requires `--gcp-project` only when the selected Azure profile uses
+  BigQuery and passes it directly into the existing typed federation projection.
+- **Boundary:** This adds no configuration bag or provider behavior. Snowflake planning is
+  unchanged, and the project remains an explicit reviewed operator input.

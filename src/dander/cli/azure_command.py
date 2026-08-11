@@ -474,6 +474,11 @@ def init_azure_plan(
         ..., "--container-image", help="Immutable ACR image ending in @sha256 digest."
     ),
     deployment: str = typer.Option(..., "--deployment"),
+    gcp_project: str | None = typer.Option(
+        None,
+        "--gcp-project",
+        help="GCP data-plane project required by an Azure BigQuery federation profile.",
+    ),
     config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
     platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
     key_vault_allowed_ip_rule: str = typer.Option(..., "--key-vault-allowed-ip"),
@@ -511,12 +516,13 @@ def init_azure_plan(
             )
         manifest.validate_references(config.resolve().parent)
         runtime = manifest.platform.runtime
-        gcp_project = None
+        resolved_gcp_project = None
         if manifest.warehouse_provider == "bigquery":
-            project_value = manifest.warehouse_config.get("project")
-            if not isinstance(project_value, str):
-                raise ProjectConfigError("Azure BigQuery profile has no GCP project")
-            gcp_project = project_value
+            if gcp_project is None:
+                raise ProjectConfigError(
+                    "Azure BigQuery planning requires an explicit --gcp-project"
+                )
+            resolved_gcp_project = gcp_project
         plan_path = AzureTerraformBootstrap(infra_dir).execute(
             deployment_name=manifest.deployment_name,
             state_resource_group_name=state_resource_group_name,
@@ -539,7 +545,7 @@ def init_azure_plan(
             infrastructure_subnet_id=infrastructure_subnet_id,
             name=name,
             profile_id=manifest.platform_name,
-            gcp_project=gcp_project,
+            gcp_project=resolved_gcp_project,
         )
     except (AzureTerraformBootstrapError, ProjectConfigError) as error:
         raise ClickException(str(error)) from error

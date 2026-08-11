@@ -257,6 +257,83 @@ def test_aws_plan_resolves_selected_fargate_deployment_without_applying(
     assert "init-aws-apply" in result.output
 
 
+def test_azure_bigquery_plan_requires_explicit_gcp_project(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+    manifest = DanderProject(
+        version=2,
+        platform=PlatformSpec(
+            region="eastus",
+            runtime=PlatformRuntimeSpec(memory="2Gi", timeout_seconds=900),
+            safety=PlatformSafetySpec(require_guarded_free_tier=False),
+        ),
+        pipelines={
+            "warehouse_fixture": PipelineSpec(
+                source="warehouse_fixture",
+                models=[],
+                build_models=False,
+            )
+        },
+        platform_name="azure_bigquery",
+        deployment_name="azure_bigquery",
+        warehouse_provider="bigquery",
+        warehouse_config={"provider": "bigquery", "location": "US", "dataset": "raw"},
+        launcher_provider="azure_container_apps",
+        launcher_config={
+            "provider": "azure_container_apps",
+            "region": "eastus",
+            "subscription_id": "11111111-1111-4111-8111-111111111111",
+        },
+    )
+
+    def fake_load(*args: object, **kwargs: object) -> DanderProject:
+        assert kwargs["deployment"] == "azure_bigquery"
+        return manifest
+
+    def fake_validate(self: object, root: Path) -> None:
+        del self, root
+
+    def fake_execute(self: object, **kwargs: object) -> Path:
+        captured.update(kwargs)
+        return tmp_path / "dander-azure.tfplan"
+
+    monkeypatch.setattr("dander.cli.azure_command.load_project_config", fake_load)
+    monkeypatch.setattr(DanderProject, "validate_references", fake_validate)
+    monkeypatch.setattr(
+        "dander.cli.azure_command.AzureTerraformBootstrap.execute",
+        fake_execute,
+    )
+    base_args = [
+        "init-azure-plan",
+        "--state-resource-group",
+        "dander-phase6",
+        "--state-storage-account",
+        "danderphase6state",
+        "--container-image",
+        "danderphase6.azurecr.io/dander@sha256:" + "a" * 64,
+        "--deployment",
+        "azure_bigquery",
+        "--key-vault-allowed-ip",
+        "203.0.113.10",
+    ]
+
+    missing = CliRunner().invoke(app, base_args)
+    planned = CliRunner().invoke(
+        app,
+        [*base_args, "--gcp-project", "unit-project"],
+    )
+
+    assert missing.exit_code == 1
+    assert missing.exception is not None
+    assert "requires an explicit --gcp-project" in str(missing.exception)
+    assert planned.exit_code == 0, planned.output
+    assert captured["gcp_project"] == "unit-project"
+    assert captured["apply"] is False
+    assert "Azure deployment planned" in planned.output
+
+
 def test_aws_admin_plan_saves_without_applying_and_prints_exact_next_command(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

@@ -25,6 +25,8 @@ observe Google credential refresh in the same process.
   Vault secrets.
 - [x] The same-process refresh probe is bounded, emits no query text, tokens, credentials, or rows,
   and has no automatic paid rerun.
+- [x] Azure BigQuery planning requires the reviewed GCP data-plane project explicitly instead of
+  looking for deployment scope inside the reusable version-2 platform profile.
 - [x] Focused Python and provider-mocked Terraform contracts pass locally.
 - [ ] An accepted public candidate passes live BigQuery access before and after Google credential
   refresh plus GCP secret access and Dataplex read-back under approved ceilings.
