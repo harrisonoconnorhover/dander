@@ -236,6 +236,7 @@ def test_scd1_encodes_typed_scalars_for_bigquery_json_load() -> None:
         schema=(
             WriteField(name="id", data_type="STRING", mode="REQUIRED"),
             WriteField(name="amount", data_type="NUMERIC"),
+            WriteField(name="payload", data_type="BYTES"),
             WriteField(name="observed_at", data_type="TIMESTAMP"),
             WriteField(
                 name="details",
@@ -254,6 +255,7 @@ def test_scd1_encodes_typed_scalars_for_bigquery_json_load() -> None:
             {
                 "id": "one",
                 "amount": Decimal("125.50"),
+                "payload": b"\x00\xff",
                 "observed_at": datetime(2026, 8, 3, 2, 30, tzinfo=UTC),
                 "details": {
                     "amount": Decimal("0.000000001"),
@@ -269,6 +271,7 @@ def test_scd1_encodes_typed_scalars_for_bigquery_json_load() -> None:
         {
             "id": "one",
             "amount": "125.50",
+            "payload": "AP8=",
             "observed_at": "2026-08-03T02:30:00+00:00",
             "details": {
                 "amount": "0.000000001",
