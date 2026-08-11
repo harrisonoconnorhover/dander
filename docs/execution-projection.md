@@ -64,4 +64,8 @@ versionless Key Vault references for declared secrets. Azure evaluates scheduled
 so a non-UTC projection fails before provider access rather than silently changing wall-clock
 behavior. Plan-first Terraform now consumes this projection exactly and has provider-mocked
 contract evidence; no Azure resource has been created, and live-profile evidence remains a
-separate Phase 6 gate.
+separate Phase 6 gate. Local lifecycle tooling now binds start, status, bounded Log Analytics,
+stop, replay, and deployment verification to the exact manifest-selected job. The ACR promotion
+path copies the accepted OCI index without rebuilding and writes its local Azure artifact record
+only after both the index digest and platform-manifest map match. These mocked contracts do not
+claim that a live Azure operation has passed.

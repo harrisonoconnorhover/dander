@@ -1171,3 +1171,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Terraform contains secret references but never values. Local/provider-mocked tests
   do not qualify Azure; image copy, operations, federation, paid proof, cleanup, and support
   promotion remain separate Phase 6 gates.
+
+## 2026-08-11 — Azure promotion and lifecycle remain provider-native and fail closed
+
+- **Artifact identity:** The accepted OCI digest is copied into ACR with Buildx registry copy, not a
+  rebuild. Stable ACR image metadata must report the exact index digest, and the immutable digest
+  reference must expose the accepted platform manifests before a local Azure artifact record is
+  written.
+- **Lifecycle:** Start, status, stop, replay, and bounded Log Analytics use Azure Container Apps Job
+  execution identities. Foreign execution names, unknown statuses, stopping a terminal run, and
+  replaying a non-terminal run fail before mutation.
+- **Boundary:** Azure assigns execution names, while replay correctness remains owned by Dander's
+  persisted inclusive cursor. Local mocked operations are construction evidence only; live image
+  copy, execution, interruption, cleanup, and no-drift still require explicit approval.

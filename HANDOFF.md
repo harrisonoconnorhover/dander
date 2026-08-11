@@ -2,40 +2,39 @@
 
 ## Finished
 
-- Merged the Azure launcher/Key Vault contract through protected PR #188 with green main CI.
-- Added plan-first Azure stage zero for firewall-restricted Storage state, Basic ACR, and one user-assigned runtime identity.
-- Added Container Apps Jobs Terraform for exact projections, Key Vault references, logs, alerts, and optional internal networking.
-- Added separate plan/apply CLI paths and a read-only, secret-free Azure deployment verifier.
-- Kept provider registration, candidate publication, resource creation, image copy, and job execution behind later approvals.
+- Merged Azure plan-first infrastructure and verification through protected PR #189 with green main CI.
+- Added accepted-record-gated ACR registry copy with exact index and platform-manifest verification.
+- Added manifest-bound Azure run, status, bounded logs, cancel, and replay operations.
+- Added interactive confirmation for every image or job mutation and local mocked contract tests.
+- Kept provider registration, resource creation, image copy, execution, and spending untouched.
 
 ## Try It
 
-Run `terraform -chdir=infra/azure test` and `uv run pytest -q
-tests/bootstrap/test_azure_admin.py tests/bootstrap/test_azure_terraform.py
-tests/providers/test_azure_deployment_verification.py`.
+Run `uv run pytest -q tests/bootstrap/test_azure_image_promotion.py
+tests/providers/test_azure_container_apps_operations.py tests/cli/test_azure_operations_cli.py`.
 
 ## Checks
 
-- Full `pytest -q`, Ruff, strict mypy, Terraform validate/provider-mocked tests, wheel/sdist inspection, and Trivy HIGH/CRITICAL config scan pass.
-- Protected main CI is green at merged PR #188; protected CI for this infrastructure slice is pending.
-- Azure CLI is signed in; required resource providers remain unregistered and no Azure resource exists from this work.
+- Focused pytest, Ruff, and mypy pass for Azure promotion and operations.
+- Protected main CI is green through PR #189; protected CI for this operations slice is pending.
+- No live Azure command from the new promotion or operations paths was executed.
 
 ## Decisions
 
-- Terraform disables automatic provider registration and uses saved-plan-only applies with Entra-authenticated state.
-- State and Key Vault networks default to deny and admit one reviewed exact operator IP; Key Vault also keeps Azure's trusted-service path.
-- Paused projections are manual jobs; active schedules retain the already validated UTC cron.
+- Promotion uses Buildx registry copy plus stable ACR image metadata; it never rebuilds or uses static ACR credentials.
+- Azure owns execution names; Dander's persisted inclusive cursor owns logical replay correctness.
+- Logs use a bounded Log Analytics query tied to one validated execution.
 
 ## Remaining
 
-- Merge this infrastructure/verifier slice through a focused protected PR.
-- Add digest-preserving ACR copy and launcher lifecycle operations without provider writes.
+- Merge this operations slice through a focused protected PR.
 - Prepare Azure-to-Google federation and named Snowflake proof tooling locally.
-- Obtain publication and provider-cost approvals before candidate or live proof mutations.
-- Run approved identity, lifecycle, cleanup, rollback, and no-drift acceptance.
+- Obtain candidate-publication approval before publishing or copying an image.
+- Obtain explicit Azure, GCP, and Snowflake mutation ceilings before live proof.
+- Run approved lifecycle, cleanup, rollback, and no-drift acceptance.
 
 ## Review First
 
-- `infra/azure/modules/container-apps-jobs/main.tf`
-- `src/dander/bootstrap/azure_admin.py`
-- `src/dander/providers/azure_container_apps/verification.py`
+- `src/dander/bootstrap/azure_image.py`
+- `src/dander/providers/azure_container_apps/operations.py`
+- `src/dander/cli/azure_command.py`

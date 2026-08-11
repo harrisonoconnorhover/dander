@@ -12,11 +12,15 @@ from rich.console import Console
 from dander.bootstrap import (
     AzureAdministrativeBootstrap,
     AzureAdministrativeBootstrapError,
+    AzureRuntimeImagePromoter,
     AzureTerraformBootstrap,
     AzureTerraformBootstrapError,
+    ProjectBootstrapError,
 )
 from dander.project import ProjectConfigError, load_project_config
 from dander.providers.azure_container_apps import (
+    AzureContainerAppsOperationError,
+    AzureContainerAppsOperations,
     AzureDeploymentBinding,
     AzureDeploymentVerificationError,
     AzureDeploymentVerifier,
@@ -27,6 +31,138 @@ _DEFAULT_AZURE_BOOTSTRAP_ADMIN_DIR = Path("infra/azure/bootstrap-admin")
 _DEFAULT_PROJECT_CONFIG = Path("dander.yaml")
 console = Console()
 azure_app = typer.Typer(help="Operate and verify manifest-bound Azure Container Apps Jobs.")
+
+
+def _azure_operations(
+    *,
+    config: Path,
+    deployment: str,
+    pipeline: str,
+    name: str,
+) -> AzureContainerAppsOperations:
+    binding = AzureDeploymentBinding.from_project(
+        config=config,
+        deployment=deployment,
+        pipeline_id=pipeline,
+        name=name,
+    )
+    return AzureContainerAppsOperations(binding)
+
+
+@azure_app.command("run")
+def azure_run(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Start one potentially billable Container Apps Job execution after confirmation."""
+    if not typer.confirm(f"Start Azure Container Apps pipeline {pipeline!r}?", default=False):
+        raise typer.Abort()
+    try:
+        execution = _azure_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+        ).start()
+    except (AzureContainerAppsOperationError, AzureDeploymentVerificationError) as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data=execution.as_dict())
+
+
+@azure_app.command("status")
+def azure_status(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    execution_name: str | None = typer.Option(None, "--execution-name"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Show sanitized status for one execution, or the latest execution."""
+    try:
+        operations = _azure_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+        )
+        execution = (
+            operations.describe(execution_name)
+            if execution_name is not None
+            else operations.latest()
+        )
+    except (AzureContainerAppsOperationError, AzureDeploymentVerificationError) as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data={"execution": execution.as_dict() if execution is not None else None})
+
+
+@azure_app.command("logs")
+def azure_logs(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    execution_name: str = typer.Option(..., "--execution-name"),
+    limit: int = typer.Option(100, "--limit", min=1, max=10_000),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Read bounded Log Analytics events for one exact execution."""
+    try:
+        events = _azure_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+        ).logs(execution_name, limit=limit)
+    except (AzureContainerAppsOperationError, AzureDeploymentVerificationError) as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data={"events": [event.as_dict() for event in events]})
+
+
+@azure_app.command("cancel")
+def azure_cancel(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    execution_name: str = typer.Option(..., "--execution-name"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Stop one running Container Apps Job execution after confirmation."""
+    if not typer.confirm(f"Stop Azure execution {execution_name!r}?", default=False):
+        raise typer.Abort()
+    try:
+        execution = _azure_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+        ).cancel(execution_name)
+    except (AzureContainerAppsOperationError, AzureDeploymentVerificationError) as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data=execution.as_dict())
+
+
+@azure_app.command("replay")
+def azure_replay(
+    deployment: str = typer.Option(..., "--deployment"),
+    pipeline: str = typer.Option(..., "--pipeline"),
+    execution_name: str = typer.Option(..., "--execution-name"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    name: str = typer.Option("dander", "--name"),
+) -> None:
+    """Replay a terminal execution from the runtime's persisted inclusive cursor."""
+    if not typer.confirm(f"Replay Azure Container Apps pipeline {pipeline!r}?", default=False):
+        raise typer.Abort()
+    try:
+        execution = _azure_operations(
+            config=config,
+            deployment=deployment,
+            pipeline=pipeline,
+            name=name,
+        ).replay(execution_name)
+    except (AzureContainerAppsOperationError, AzureDeploymentVerificationError) as error:
+        raise ClickException(str(error)) from error
+    console.print_json(data=execution.as_dict())
 
 
 @azure_app.command("verify")
@@ -183,6 +319,39 @@ def init_azure_admin_apply(
     )
 
 
+def image_promote_azure(
+    source_image: str = typer.Option(
+        ..., "--source-image", help="Accepted source-free OCI image ending in @sha256 digest."
+    ),
+    subscription_id: str = typer.Option(..., "--subscription-id"),
+    acr_name: str = typer.Option(..., "--acr-name"),
+    repository_name: str = typer.Option("dander/runtime", "--acr-repository"),
+    tag_prefix: str = typer.Option("promoted", "--tag-prefix"),
+    config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+) -> None:
+    """Copy an accepted source-free OCI index into ACR without rebuilding it."""
+    if not typer.confirm(
+        f"Copy the accepted runtime image into Azure Container Registry {acr_name!r}?",
+        default=False,
+    ):
+        raise typer.Abort()
+    try:
+        promoter = AzureRuntimeImagePromoter(config.resolve().parent)
+        image = promoter.promote(
+            source_image=source_image,
+            subscription_id=subscription_id,
+            acr_name=acr_name,
+            repository_name=repository_name,
+            tag_prefix=tag_prefix,
+        )
+    except ProjectBootstrapError as error:
+        raise ClickException(str(error)) from error
+    console.print(f"[green]Promoted byte-identical runtime image:[/green] {image}")
+    if promoter.artifact_record_path is not None:
+        console.print(f"Azure artifact record: {promoter.artifact_record_path}")
+    console.print("Next: use this immutable digest with dander init-azure-plan.")
+
+
 def init_azure_plan(
     state_resource_group_name: str = typer.Option(..., "--state-resource-group"),
     state_storage_account_name: str = typer.Option(..., "--state-storage-account"),
@@ -299,6 +468,7 @@ def register_azure_commands(app: typer.Typer) -> None:
     app.add_typer(azure_app, name="azure")
     app.command("init-azure-admin-plan")(init_azure_admin_plan)
     app.command("init-azure-admin-apply")(init_azure_admin_apply)
+    app.command("image-promote-azure")(image_promote_azure)
     app.command("init-azure-plan")(init_azure_plan)
     app.command("init-azure-apply")(init_azure_apply)
 
