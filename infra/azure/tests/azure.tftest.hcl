@@ -87,3 +87,16 @@ run "wires_stage_zero_resources_into_jobs" {
     error_message = "The Azure root must bind secret administration to the authenticated operator."
   }
 }
+
+run "foundation_omits_jobs_until_secrets_are_seeded" {
+  command = plan
+
+  variables {
+    create_jobs = false
+  }
+
+  assert {
+    condition     = length(output.jobs) == 0
+    error_message = "The Azure foundation plan must omit jobs that reference not-yet-seeded secrets."
+  }
+}

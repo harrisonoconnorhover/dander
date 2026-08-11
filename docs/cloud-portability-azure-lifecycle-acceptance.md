@@ -32,9 +32,11 @@ repository. Saved plans and state use the secured operator artifact directories 
    Azure-assigned managed-identity client ID from the stage-zero output.
 3. Generate the source-free project with that client ID, publish one candidate to staging GAR,
    record its accepted digest, and copy the same OCI index into ACR without rebuilding.
-4. Create the approved disposable Container Apps subnet, require its `Microsoft.KeyVault` service
-   endpoint, then review and apply the exact platform plan. Populate only the manifest-declared
-   PostgreSQL and Snowflake credentials outside Terraform.
+4. Create the approved disposable Container Apps subnet and require its `Microsoft.KeyVault`
+   service endpoint. Review and apply the exact `--foundation-only` platform plan, which creates
+   the environment, vault, and scoped roles but no job or alert. Populate only the
+   manifest-declared PostgreSQL and Snowflake credentials outside Terraform. Then review and apply
+   the normal platform plan, which may create jobs only after their Key Vault references exist.
 5. Run the read-only gate:
 
    ```bash

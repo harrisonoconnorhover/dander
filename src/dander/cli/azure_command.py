@@ -486,6 +486,14 @@ def init_azure_plan(
             "and expected to have the Microsoft.KeyVault service endpoint."
         ),
     ),
+    foundation_only: bool = typer.Option(
+        False,
+        "--foundation-only",
+        help=(
+            "Plan the environment, vault, and RBAC without jobs so referenced secrets can be "
+            "seeded before the normal job plan."
+        ),
+    ),
     name: str = typer.Option("dander", "--name"),
     infra_dir: Path = typer.Option(_DEFAULT_AZURE_INFRA_DIR, hidden=True),  # noqa: B008
 ) -> None:
@@ -526,6 +534,7 @@ def init_azure_plan(
             require_guarded_free_tier=manifest.platform.safety.require_guarded_free_tier,
             pipelines=manifest.terraform_pipelines(),
             apply=False,
+            foundation_only=foundation_only,
             alert_target=alert_target,
             infrastructure_subnet_id=infrastructure_subnet_id,
             name=name,
@@ -541,6 +550,11 @@ def init_azure_plan(
         soft_wrap=True,
     )
     console.print("No Azure resources were changed. Apply requires separate explicit approval.")
+    if foundation_only:
+        console.print(
+            "This foundation plan omits jobs and alerts. After applying it, seed only the "
+            "manifest-declared Key Vault secrets, then plan again without --foundation-only."
+        )
     subscription_id = str(manifest.resolved_launcher_config()["subscription_id"])
     console.print(
         "Next after review and approval: "
