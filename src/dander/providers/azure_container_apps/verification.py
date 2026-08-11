@@ -344,7 +344,9 @@ class AzureDeploymentVerifier:
             raise AzureDeploymentVerificationError(
                 "Container Apps Job registry identity does not match the manifest"
             )
-        secrets = configuration.get("secrets", [])
+        secrets = configuration.get("secrets")
+        if secrets is None:
+            secrets = []
         if not isinstance(secrets, list):
             raise AzureDeploymentVerificationError(
                 "Container Apps Job returned invalid Key Vault references"
