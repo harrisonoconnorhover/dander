@@ -32,7 +32,10 @@ this exact-IP firewall entry with `/32` semantics.
 After separate approval for provider registration and resource costs, review the saved plan and
 run the matching `init-azure-admin-apply` command. The apply migrates its initial local state into
 the firewall-restricted, private, versioned Azure Storage container. It grants the authenticated
-operator only the Blob data role needed to use that Entra-authenticated backend. Record
+operator only the Blob data role needed to use that Entra-authenticated backend. Because a new
+Azure role assignment can take time to become usable, the migration retries only the specific
+`AuthorizationPermissionMismatch` propagation response for one bounded minute; unrelated backend
+errors fail immediately and preserve the local state. Record
 `runtime_identity_client_id` from the printed Terraform output command and place that non-secret
 identifier in the named launcher configuration.
 

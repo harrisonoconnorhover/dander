@@ -1244,3 +1244,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   staging GAR, and copied unchanged into ACR.
 - **Boundary:** Candidate publication remains mandatory before the platform plan or apply and every
   job execution. This ordering change does not relax digest identity, plan review, or cleanup.
+
+## 2026-08-11 — Azure state migration absorbs only RBAC propagation delay
+
+- **Finding:** The first live stage-zero apply created its six reviewed resources, then Azure
+  temporarily rejected the Entra-authenticated backend while the new Blob role assignment
+  propagated. A fresh no-op plan migrated the intact local state after access became usable.
+- **Decision:** Initial state migration retries only Terraform failures containing Azure's
+  `AuthorizationPermissionMismatch` response, for at most one bounded minute. Other failures still
+  fail immediately, and exhaustion restores the local backend declaration.
+- **Boundary:** The retry creates no resources, does not reapply the saved plan, and does not weaken
+  the default-deny firewall, Entra authentication, plan review, or cleanup requirements.

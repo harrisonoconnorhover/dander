@@ -7,6 +7,8 @@ import os
 import re
 import shutil
 import subprocess
+import sys
+import time
 from ipaddress import IPv4Address, ip_address
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -21,6 +23,9 @@ _CONTAINER = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$")
 _ACR_NAME = re.compile(r"^[a-z][a-z0-9]{4,49}$")
 _STATE_KEY = re.compile(r"^(?!/)(?!.*//)[A-Za-z0-9][A-Za-z0-9._/-]{0,1023}$")
 _BACKEND_SCHEMA = "io.dander.azure-bootstrap-backend/v1"
+_STATE_MIGRATION_ATTEMPTS = 7
+_STATE_MIGRATION_RETRY_SECONDS = 10
+_AZURE_AUTHORIZATION_PROPAGATION_MARKER = "AuthorizationPermissionMismatch"
 
 
 class AzureAdministrativeBootstrapError(RuntimeError):
@@ -186,7 +191,7 @@ class AzureAdministrativeBootstrap:
             state_key=state_key,
         )
         try:
-            self._run("terraform", "init", "-migrate-state", "-force-copy", "-input=false")
+            self._migrate_state_with_authorization_retry()
         except AzureAdministrativeBootstrapError:
             self._write_backend("local", {"path": str(self._local_state_path)})
             raise
@@ -201,6 +206,46 @@ class AzureAdministrativeBootstrap:
                 "key": state_key,
             },
         )
+
+    def _migrate_state_with_authorization_retry(self) -> None:
+        args = ("terraform", "init", "-migrate-state", "-force-copy", "-input=false")
+        environment = os.environ.copy()
+        environment["TF_DATA_DIR"] = str(self._tf_data_dir)
+        for attempt in range(1, _STATE_MIGRATION_ATTEMPTS + 1):
+            try:
+                completed = subprocess.run(
+                    args,
+                    cwd=self._workspace,
+                    check=False,
+                    env=environment,
+                    umask=0o077,
+                    capture_output=True,
+                    text=True,
+                )
+            except FileNotFoundError as error:
+                raise AzureAdministrativeBootstrapError(
+                    "Required command not found: terraform"
+                ) from error
+            if completed.stdout:
+                sys.stdout.write(completed.stdout)
+            if completed.stderr:
+                sys.stderr.write(completed.stderr)
+            if completed.returncode == 0:
+                return
+            output = f"{completed.stdout or ''}\n{completed.stderr or ''}"
+            can_retry = (
+                _AZURE_AUTHORIZATION_PROPAGATION_MARKER in output
+                and attempt < _STATE_MIGRATION_ATTEMPTS
+            )
+            if not can_retry:
+                raise AzureAdministrativeBootstrapError(
+                    f"terraform init failed with exit code {completed.returncode}"
+                )
+            sys.stderr.write(
+                "Azure state role assignment has not propagated; retrying remote-state "
+                f"migration ({attempt}/{_STATE_MIGRATION_ATTEMPTS - 1}).\n"
+            )
+            time.sleep(_STATE_MIGRATION_RETRY_SECONDS)
 
     def _prepare_operator_directories(self, *, preserve_plan: bool = False) -> None:
         try:

@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Corrected the Phase 6 live-proof order so stage zero supplies the real managed-identity client ID
-  before the exact source-free candidate is built.
-- Preserved the requirement that cost, publication, provider-registration, apply, secret-write, and
-  execution approval precede every cloud write.
-- Kept candidate publication ahead of the platform plan, platform apply, and every job execution.
+- Reproduced the first live Azure stage-zero state-migration propagation delay after all six
+  reviewed resources were created.
+- Recovered with a reviewed zero-change plan and migrated the intact local state successfully.
+- Added a bounded retry for only Azure's `AuthorizationPermissionMismatch` propagation response.
 
 ## Try It
 
-Review the ordered proof in `docs/cloud-portability-azure-lifecycle-acceptance.md`.
+Run `uv run pytest tests/bootstrap/test_azure_admin.py`.
 
 ## Checks
 
-- Protected main at `eeaccf36` is fully green before this documentation-only correction.
-- The correction changes no runtime, Terraform, provider, or credential behavior.
-- No provider registration, resource creation, secret write, image publication, or paid operation ran.
+- Protected main at `a67e7005` was fully green before the live attempt.
+- The recovered plan reported six no-op resources and zero mutations before remote-state migration.
+- `uv run pytest`: 1,286 passed and 28 skipped.
+- Ruff lint/format and exact-CI-environment mypy: passed.
+- Protected CI remains to run for this correction.
 
 ## Decisions
 
-- Azure assigns the user-managed identity client ID, so the exact candidate follows stage zero.
-- The accepted candidate remains mandatory before platform planning or execution.
-- Repeat attempts use the same approved per-attempt ceilings and cleanup boundary.
+- Retry only the provider's explicit authorization-propagation response for at most one minute.
+- Fail unrelated backend errors immediately and retain the local backend on retry exhaustion.
 
 ## Remaining
 
-- Merge this ordering correction through protected CI.
-- Register the approved Azure providers and review/apply stage zero.
+- Run focused checks and merge this correction through protected CI.
 - Publish and copy the exact protected-main candidate under the approved ceilings.
+- Create the disposable network and zero-cost PostgreSQL state profile.
+- Prepare bounded Snowflake OAuth and apply the reviewed platform plan.
 - Run the approved live lifecycle, federation, rotation, rollback, cleanup, and no-drift proof.
-- Perform the final independent completion review and Phase 6 gate reassessment.
 
 ## Review First
 
-- `docs/cloud-portability-azure-lifecycle-acceptance.md`
-- `docs/decisions.md`
+- `src/dander/bootstrap/azure_admin.py`
+- `tests/bootstrap/test_azure_admin.py`
+- `infra/azure/README.md`
