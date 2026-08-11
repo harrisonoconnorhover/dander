@@ -97,6 +97,13 @@ resource "azurerm_container_app_environment" "runtime" {
   internal_load_balancer_enabled = var.infrastructure_subnet_id == null ? null : true
   zone_redundancy_enabled        = var.infrastructure_subnet_id == null ? null : false
   tags                           = local.tags
+
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+    minimum_count         = 0
+    maximum_count         = 0
+  }
 }
 
 resource "azurerm_key_vault" "runtime" {

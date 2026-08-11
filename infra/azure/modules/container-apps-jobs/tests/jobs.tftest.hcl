@@ -100,6 +100,17 @@ run "projects_exact_job_contract" {
   }
 
   assert {
+    condition = (
+      length(azurerm_container_app_environment.runtime.workload_profile) == 1 &&
+      one(azurerm_container_app_environment.runtime.workload_profile).name == "Consumption" &&
+      one(azurerm_container_app_environment.runtime.workload_profile).workload_profile_type == "Consumption" &&
+      one(azurerm_container_app_environment.runtime.workload_profile).minimum_count == 0 &&
+      one(azurerm_container_app_environment.runtime.workload_profile).maximum_count == 0
+    )
+    error_message = "Container Apps must declare Azure's default Consumption profile to avoid post-create drift."
+  }
+
+  assert {
     condition     = azurerm_monitor_metric_alert.failed_execution["warehouse_fixture"].criteria[0].metric_name == "Executions"
     error_message = "A projected alert target must receive failed-execution monitoring."
   }
