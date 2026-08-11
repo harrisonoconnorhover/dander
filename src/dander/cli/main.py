@@ -44,6 +44,7 @@ from dander.catalog import (
     SqliteMetadataStore,
 )
 from dander.cli.aws_command import register_aws_commands
+from dander.cli.azure_command import register_azure_commands
 from dander.cli.config_command import config_app
 from dander.cli.init_command import (
     InitOptions,
@@ -134,6 +135,7 @@ app.add_typer(plugins_app, name="plugins")
 app.add_typer(connector_app, name="connector")
 app.add_typer(runtime_app, name="runtime")
 register_aws_commands(app)
+register_azure_commands(app)
 register_kubernetes_commands(app)
 console = Console()
 _SOURCE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
