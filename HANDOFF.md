@@ -17,7 +17,7 @@ Run `.venv/bin/pytest -q tests/portability/test_warehouse_correctness.py`.
 - Focused conformance tests pass (9 tests).
 - Full pytest passes (1,200 passed, 28 expected opt-in skips).
 - Repository-wide Ruff lint/format and strict mypy pass with the protected-CI dependency set.
-- Protected CI for this correction is pending.
+- Protected CI passed all five checks on PR #183 for the implementation commit.
 
 ## Decisions
 
