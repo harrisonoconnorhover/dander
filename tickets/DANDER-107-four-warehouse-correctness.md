@@ -27,7 +27,7 @@ their individual capabilities but do not compare one shared fixture.
 - [x] Credential-free fixture, normalization, lifecycle, evidence, and comparison tests pass.
 - [ ] Same protected-main live evidence from all four providers compares equal under reviewed
       ceilings.
-- [ ] Retained GCP no-drift passes after the live executions.
+- [x] Retained GCP no-drift passes after the live executions.
 - [x] Protected CI passes.
 
 ## Design
@@ -41,12 +41,17 @@ on any candidate, schema, fixture, result, count, replay, or cleanup mismatch.
 ## Implementation Notes
 
 BigQuery uses load jobs, PostgreSQL uses COPY, and Snowflake/Redshift use their bounded direct
-paths. Transport equality is intentionally not asserted. Live execution is not claimed because
-this instruction supplied no renewed paid-provider ceilings; the CLI requires explicit ceiling and
-approval arguments before any mutation.
+paths. Transport equality is intentionally not asserted. The CLI requires explicit ceiling and
+approval arguments before any mutation. Failed runs persist only sanitized stage, exception-type,
+cleanup, candidate, timestamp, and ceiling metadata; they cannot satisfy comparison.
 
 ## Review Log
 
 Implementation review and protected CI passed on PR #182 at commit
-`f1033f6652fd5deaef3778436468d2ea39b31e5c`. The live comparison and post-run GCP no-drift
-evidence remain an explicit Phase 5 blocker.
+`f1033f6652fd5deaef3778436468d2ea39b31e5c`. An authorized one-attempt run on protected-main
+commit `4927d5f66c787c6d5da700baa06edcef8b4e4c6b` produced one passing PostgreSQL record and three
+failed records, so no four-provider equality is claimed and paid providers were not rerun.
+Provider-owned cleanup was completed and verified, and retained GCP stage-zero and platform plans
+both reported exact `No changes.` The correction prompted by that attempt fixes BigQuery's 10 MiB
+metadata-query minimum, expands cleanup around fence acquisition, and adds sanitized failure
+evidence. Equal same-commit live evidence remains the explicit Phase 5 blocker.

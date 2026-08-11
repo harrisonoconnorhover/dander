@@ -73,6 +73,11 @@ approval metadata. It never contains normalized or source rows. The comparison f
 or duplicate provider, different candidate, unequal hash/count, failed replay, or unverified
 cleanup.
 
+A failed run writes a separate sanitized failure record. It identifies only the bounded execution
+stage, exception type names, cleanup attempt/result, candidate, timestamps, and reviewed ceiling.
+Provider messages, SQL, coordinates, credentials, and rows remain excluded. Failed evidence is not
+accepted by the four-provider comparison.
+
 Each run owns a random target scope and cleans it in `finally`: one BigQuery table and its exact
 staging-name prefix, one PostgreSQL schema, one Snowflake schema, or one Redshift schema plus one S3
 prefix. After all four pass, verify the retained GCP Terraform plan is no-drift and record only the
@@ -80,7 +85,20 @@ sanitized evidence and reviewed ceilings.
 
 ## Current evidence status
 
-The deterministic harness and credential-free contract tests are implemented. No renewed paid
-provider execution is claimed by this document. Phase 5 remains open until all four same-commit
-live records compare equal, exact cleanup is verified, retained GCP no-drift passes afterward, and
-the resulting sanitized evidence is merged through protected CI.
+An authorized one-attempt run was made on 2026-08-10 against protected-main commit
+`4927d5f66c787c6d5da700baa06edcef8b4e4c6b`, with ceilings of BigQuery $1, PostgreSQL $0,
+Snowflake $2, and Redshift $3 and no automatic paid reruns. PostgreSQL passed the fixture, replay,
+and cleanup. The other three did not produce passing records, so no comparison is claimed.
+
+The attempt exposed a harness defect: BigQuery metadata and cleanup queries used a 10,000,000-byte
+limit, below BigQuery's 10 MiB minimum. The one owned table left by that cleanup failure was deleted
+and metadata confirmed zero matching tables. Snowflake's temporary user, database, warehouse,
+role, and resource monitor each returned zero matches after cleanup. Redshift's disposable
+workgroup, namespace, bucket, role, VPC, and Terraform state each returned zero after destroy.
+Post-run retained GCP stage-zero and platform plans both reported exact `No changes.`
+
+This correction raises the BigQuery limit to exactly 10 MiB, puts fence acquisition inside the
+owned cleanup boundary, and persists sanitized failure classification. It does not authorize a
+provider rerun. Phase 5 remains open until all four same-commit live records compare equal under
+newly reviewed paid-provider approvals and the resulting passing evidence is merged through
+protected CI.
