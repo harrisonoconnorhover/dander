@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, time, timedelta
@@ -842,6 +843,12 @@ def _json_load_value(value: object) -> object:
     """Encode validated Python scalars for BigQuery's JSON load client."""
     if isinstance(value, Decimal):
         return format(value, "f")
+    if isinstance(value, memoryview):
+        value = value.tobytes()
+    if isinstance(value, bytearray):
+        value = bytes(value)
+    if isinstance(value, bytes):
+        return base64.b64encode(value).decode("ascii")
     if isinstance(value, (datetime, date, time)):
         return value.isoformat()
     if isinstance(value, Mapping):

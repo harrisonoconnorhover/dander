@@ -2,38 +2,37 @@
 
 ## Finished
 
-- Ran the bounded live fixture once per provider under the approved ceilings; PostgreSQL passed.
-- Cleaned every owned provider object after BigQuery, Snowflake, and Redshift failed.
-- Verified retained GCP stage-zero and platform Terraform both report exact `No changes.`
-- Fixed BigQuery's metadata-query floor and expanded cleanup around fence acquisition.
-- Added sanitized failed-run stage/type evidence without provider messages, SQL, credentials, or rows.
+- Re-ran the four-warehouse gate from protected-main commit `4270643` under renewed ceilings.
+- Confirmed PostgreSQL passes the full fixture, replay, canonical hash, and owned cleanup.
+- Proved BigQuery cleanup succeeds after its first live write fails on raw Python `bytes`.
+- Added BigQuery JSON-load encoding for canonical binary values.
+- Added focused regression coverage for the `BYTES` projection.
 
 ## Try It
 
-Run `.venv/bin/pytest -q tests/portability/test_warehouse_correctness.py`.
+Run `.venv/bin/pytest -q tests/writer/test_bigquery_writer.py`.
 
 ## Checks
 
-- Focused conformance tests pass (9 tests).
-- Full pytest passes (1,200 passed, 28 expected opt-in skips).
-- Repository-wide Ruff lint/format and strict mypy pass with the protected-CI dependency set.
-- Protected CI passed all five checks on PR #183 for the implementation commit.
+- BigQuery writer plus warehouse-correctness tests pass (44 tests).
+- Repository-wide Ruff lint/format, strict mypy, and full pytest pass in the protected-CI dependency set.
+- Protected CI pending.
 
 ## Decisions
 
-- Failed evidence records only safe stage/type metadata and cannot satisfy comparison.
-- The BigQuery query cap is exactly its 10 MiB minimum, still far below the approved $1 ceiling.
-- No paid provider receives an automatic rerun after a failed attempt.
+- BigQuery `BYTES` values use the base64 string representation required by its JSON load API.
+- Passing evidence must move to the corrected protected-main commit; relabeling modified code as
+  commit `4270643` would be invalid evidence.
+- Existing Snowflake and Redshift cost guards remain active while protected CI runs.
 
 ## Remaining
 
-- Merge the focused harness correction through protected CI.
-- Obtain new explicit approvals before any BigQuery, Snowflake, or Redshift rerun.
-- Run all four providers on one protected-main correction commit.
-- Merge equal passing evidence and reassess the Phase 5 exit gate.
+- Merge this focused BigQuery correction through protected CI.
+- Restart all four provider records on the resulting protected-main commit.
+- Compare equal evidence, verify cleanup and GCP no-drift, then merge sanitized proof.
+- Reassess the revised Phase 5 exit gate without beginning Phase 6.
 
 ## Review First
 
-- `scripts/benchmarks/warehouse_correctness.py`
-- `tests/portability/test_warehouse_correctness.py`
-- `docs/warehouse-correctness-conformance.md`
+- `src/dander/writer/bigquery.py`
+- `tests/writer/test_bigquery_writer.py`
