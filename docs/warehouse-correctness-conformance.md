@@ -105,7 +105,10 @@ Post-run verification found zero BigQuery owned tables, zero PostgreSQL test con
 Snowflake test users/databases/warehouses/roles/resource monitors, and zero Redshift Terraform or
 named AWS proof resources. Fresh retained GCP stage-zero and current-equivalent platform plans both
 reported exact `No changes.`; the platform plan contained 113 no-op resources. No retained GCP
-apply occurred.
+apply occurred. The current-equivalent platform plan replayed the latest accepted source-free
+deployment inputs, including its 600-second job timeout and deployed `0.7.0` projection-label
+metadata. A diagnostic plan using current repository defaults proposed only five job
+timeout/version-label updates; it was rejected as the wrong retained baseline and was not applied.
 
 This closes the Phase 5 shared correctness requirement. Provider-specific types, fallbacks,
 transports, materializations, scale, cost, soak, pairwise profiles, and support promotion remain

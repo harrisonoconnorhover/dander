@@ -72,3 +72,4 @@ reported zero matching users, databases, warehouses, roles, and resource monitor
 Redshift Terraform state, workgroup, namespace, bucket, role, and VPC inventory returned zero.
 Fresh retained GCP stage-zero and current-equivalent platform plans each reported exact
 `No changes.` No provider coordinate, credential, private key, DSN, or row value is committed.
+The sanitized evidence ledger is reconciled through protected PR #186.

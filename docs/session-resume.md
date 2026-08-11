@@ -37,7 +37,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Redshift on protected-main commit `c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad`. All four records
   produced one equal normalized hash after replay and verified owned cleanup. Provider account
   objects were removed, and fresh retained GCP stage-zero and current-equivalent platform plans
-  each reported exact `No changes.`
+  each reported exact `No changes.` The platform proof reused the last accepted source-free
+  deployment inputs; a current-default diagnostic that proposed only timeout/version-label changes
+  was not applied.
 
 - On 2026-08-10, public Dander `0.8.0rc8` passed the complete lifecycle gate for the named
   Fargate-to-BigQuery/GCP composition. The source-free, byte-identical GAR/ECR image completed

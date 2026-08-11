@@ -9,7 +9,8 @@ Phase 5 implementation checkpoint: protected `main` at
 
 Phase 5 exit-evidence candidate: protected `main` at
 `c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad` after PRs #184 and #185. The shared live records are
-stored under `docs/evidence/warehouse-correctness/2026-08-11/`.
+stored under `docs/evidence/warehouse-correctness/2026-08-11/` and reconciled through protected
+evidence PR #186.
 
 Prepared: 2026-08-06; reconciled: 2026-08-11
 
