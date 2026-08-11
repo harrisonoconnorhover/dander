@@ -9,10 +9,16 @@ Azure-to-BigQuery or any other cloud/warehouse pair.
 
 ## Approval boundary
 
-Before provider registration or any write, record an accepted source-free candidate digest and
-explicit per-provider ceilings for Azure, Snowflake, and any retained-GCP verification. Approval
-must cover the specific provider registrations, disposable subnet, saved-plan applies, image copy,
-secret writes, and job executions. There are no automatic paid reruns.
+Before provider registration or any write, record explicit per-provider ceilings for Azure,
+Snowflake, and any retained-GCP verification plus approval to publish the source-free candidate.
+Approval must cover the specific provider registrations, disposable subnet, saved-plan applies,
+image publication and copy, secret writes, and job executions.
+
+Stage zero creates the user-assigned managed identity whose Azure-assigned client ID is required by
+the validated launcher profile. Therefore the exact source-free candidate is generated and
+published after the reviewed stage-zero apply, using that real non-secret client ID, but before the
+platform plan or apply and before any job execution. Record its accepted digest at that point.
+Approved repeat attempts remain bounded by the same per-attempt ceilings.
 
 Credentials, secret values, warehouse rows, Terraform state, and binary plans stay outside the
 repository. Saved plans and state use the secured operator artifact directories described in
@@ -20,12 +26,16 @@ repository. Saved plans and state use the secured operator artifact directories 
 
 ## Ordered proof
 
-1. Confirm the signed-in subscription, reviewed region, current operator IP, candidate digest, and
-   approved ceilings. Confirm the existing delegated Container Apps subnet exposes the
-   `Microsoft.KeyVault` service endpoint.
-2. Review and apply the exact stage-zero and platform plans. Populate only the manifest-declared
+1. Confirm the signed-in subscription, reviewed region, current operator IP, approved ceilings,
+   publication approval, and provider-registration approval.
+2. Register only the required providers, then review and apply the exact stage-zero plan. Read the
+   Azure-assigned managed-identity client ID from the stage-zero output.
+3. Generate the source-free project with that client ID, publish one candidate to staging GAR,
+   record its accepted digest, and copy the same OCI index into ACR without rebuilding.
+4. Create the approved disposable Container Apps subnet, require its `Microsoft.KeyVault` service
+   endpoint, then review and apply the exact platform plan. Populate only the manifest-declared
    PostgreSQL and Snowflake credentials outside Terraform.
-3. Run the read-only gate:
+5. Run the read-only gate:
 
    ```bash
    dander azure canonical-preflight \
@@ -34,14 +44,14 @@ repository. Saved plans and state use the secured operator artifact directories 
      --expected-image danderphase6.azurecr.io/dander/runtime@sha256:DIGEST
    ```
 
-4. Require initial execution, exact replay, overlapping-start fencing, interruption/cancellation,
+6. Require initial execution, exact replay, overlapping-start fencing, interruption/cancellation,
    paused and UTC-scheduled behavior, retry exhaustion, bounded logs, and alert routing to match
    the platform contract.
-5. Create a new version of one declared Key Vault secret outside Terraform. Because the job uses a
+7. Create a new version of one declared Key Vault secret outside Terraform. Because the job uses a
    versionless URI, allow Azure's documented refresh window, then start exactly one approved new
    execution and require the rotated credential to work. Do not automatically rerun on failure.
-6. Exercise immutable-image rollback and restoration without rebuilding either image.
-7. Remove disposable jobs, vault, logging, network, registry, identity, state, and warehouse proof
+8. Exercise immutable-image rollback and restoration without rebuilding either image.
+9. Remove disposable jobs, vault, logging, network, registry, identity, state, and warehouse proof
    objects in dependency order. Verify provider-owned cleanup and retained-GCP no drift.
 
 ## Sanitized evidence

@@ -1234,3 +1234,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Key Vault's list operation exposes base identifiers and attributes, not values or
   individual versions. Version rotation, runtime use, lifecycle behavior, and warehouse
   correctness remain live acceptance steps under explicit provider ceilings.
+
+## 2026-08-11 — Azure stage zero precedes the exact source-free candidate
+
+- **Dependency:** Azure assigns the user-assigned managed-identity client ID during stage zero,
+  while the validated Azure launcher profile requires that real non-secret identifier.
+- **Order:** Cost and mutation approval still precede every write. The reviewed stage-zero apply
+  creates the identity; only then is the exact source-free candidate generated, published to
+  staging GAR, and copied unchanged into ACR.
+- **Boundary:** Candidate publication remains mandatory before the platform plan or apply and every
+  job execution. This ordering change does not relax digest identity, plan review, or cleanup.
