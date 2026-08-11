@@ -1,6 +1,6 @@
 # Cloud Portability and First-Class Platform Roadmap
 
-Status: active roadmap; Phases 0 through 5 exit gates satisfied; Phase 6 has not begun
+Status: active roadmap; Phases 0 through 5 exit gates satisfied; Phase 6 in progress
 
 Initial planning baseline: `origin/main` at `9dc5562` (`0.6.0rc1`)
 

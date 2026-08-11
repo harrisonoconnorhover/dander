@@ -46,6 +46,10 @@ remain Phase 8 work.
   schema limits, transforms, graphs, and fencing through `dander runtime compatibility`, while the
   packaged capability manifest remains the support boundary. Local PostgreSQL benchmark results
   are regression evidence, not a paid or controlled-memory scale qualification.
+- Azure Container Apps Jobs and Azure Key Vault have a typed, deterministic local projection only.
+  Azure schedules are UTC-only and currently support one replica with 1 CPU/2 GiB or 2 CPU/4 GiB.
+  Resource-provider registration, Terraform, ACR image copy, identity federation, operations, and
+  live Snowflake/PostgreSQL acceptance have not yet run, so Azure remains unsupported.
 - The reserved `oci` extra is empty because Oracle's current SDK requires a `cryptography` version
   below Dander's audited fixed line. OCI implementation must resolve that dependency boundary or
   use a reviewed direct signed-HTTP client before it can enter the full image.

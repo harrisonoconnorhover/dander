@@ -1,6 +1,7 @@
 """Cloud-neutral deployment and execution projections."""
 
 from dander.deployment.projection import (
+    AZURE_CONTAINER_APPS_CAPABILITIES,
     CLOUD_RUN_CAPABILITIES,
     EXECUTION_PROJECTION_SCHEMA,
     FARGATE_CAPABILITIES,
@@ -25,6 +26,7 @@ from dander.deployment.runtime import (
 )
 
 __all__ = [
+    "AZURE_CONTAINER_APPS_CAPABILITIES",
     "CLOUD_RUN_CAPABILITIES",
     "EXECUTION_PROJECTION_SCHEMA",
     "FARGATE_CAPABILITIES",

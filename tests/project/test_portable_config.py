@@ -358,6 +358,82 @@ def test_version_two_resolves_complete_fargate_launcher(tmp_path: Path) -> None:
     }
 
 
+def test_version_two_resolves_complete_azure_snowflake_profile(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    profile = platforms["platforms"].pop("gcp")
+    profile["warehouse"] = {
+        "provider": "snowflake",
+        "account": "unit-account",
+        "user": "DANDER_RUNTIME",
+        "database": "DANDER",
+        "schema": "RAW",
+        "warehouse": "DANDER_XS",
+        "auth": {
+            "method": "oauth",
+            "token_env": "DANDER_SNOWFLAKE_OAUTH_TOKEN",
+        },
+    }
+    profile["state"] = {
+        "provider": "postgresql",
+        "authority_id": "postgresql:azure-phase6",
+        "dsn_env": "DANDER_POSTGRES_DSN",
+    }
+    profile["catalog"] = {"provider": "none"}
+    profile["secrets"] = {"provider": "azure_key_vault"}
+    platforms["platforms"]["azure_snowflake"] = profile
+    deployment = platforms["deployments"].pop("gcp_cloud_run")
+    deployment["platform"] = "azure_snowflake"
+    deployment["launcher"] = {
+        "provider": "azure_container_apps",
+        "region": "eastus",
+        "subscription_id": "11111111-1111-4111-8111-111111111111",
+        "resource_group_name": "dander-phase6",
+        "container_app_environment_name": "dander-phase6-env",
+        "acr_name": "danderphase6",
+        "key_vault_name": "dander-phase6-kv",
+        "managed_identity_name": "dander-phase6-runtime",
+        "managed_identity_client_id": "22222222-2222-4222-8222-222222222222",
+    }
+    deployment["runtime"]["memory"] = "2Gi"
+    deployment["pipelines"]["example_records"]["time_zone"] = "UTC"
+    deployment["pipelines"]["example_records"]["secret_bindings"] = {
+        "DANDER_POSTGRES_DSN": "postgres-dsn",
+        "DANDER_SNOWFLAKE_OAUTH_TOKEN": "snowflake-oauth-token",
+    }
+    platforms["deployments"]["azure_snowflake"] = deployment
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    resolved = load_project_config(project_path, deployment="azure_snowflake")
+
+    assert resolved.platform_name == "azure_snowflake"
+    assert resolved.warehouse_provider == "snowflake"
+    assert resolved.state_provider == "postgresql"
+    assert resolved.catalog_provider == "none"
+    assert resolved.secret_provider == "azure_key_vault"
+    assert resolved.launcher_provider == "azure_container_apps"
+    assert resolved.resolved_launcher_config()["acr_name"] == "danderphase6"
+    assert resolved.platform.runtime.memory == "2Gi"
+
+
+def test_azure_key_vault_profile_fails_closed_on_another_launcher(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    platforms["platforms"]["gcp"]["secrets"] = {"provider": "azure_key_vault"}
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    with pytest.raises(ProjectConfigError, match="Azure Key Vault projection"):
+        load_project_config(project_path)
+
+
 def test_config_migrate_check_is_read_only_then_write_is_atomic(tmp_path: Path) -> None:
     project_path = tmp_path / "dander.yaml"
     platforms_path = tmp_path / "dander.platforms.yaml"

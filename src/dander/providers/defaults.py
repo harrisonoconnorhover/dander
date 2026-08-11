@@ -1,6 +1,8 @@
 """Built-in provider registrations with lazy implementation loading."""
 
 from dander.providers.aws_secrets_manager import AwsSecretsManagerConfig
+from dander.providers.azure_container_apps import AzureContainerAppsLauncherConfig
+from dander.providers.azure_key_vault import AzureKeyVaultConfig
 from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig
 from dander.providers.cloud_run import CloudRunLauncherConfig
 from dander.providers.dataplex import DataplexCatalogConfig
@@ -114,6 +116,14 @@ def default_provider_registry() -> ProviderRegistry:
         ),
     )
     registry.register(
+        kind=ProviderKind.SECRETS,
+        provider_id="azure_key_vault",
+        config_model=AzureKeyVaultConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.azure_key_vault.runtime:AZURE_KEY_VAULT_FACTORY"
+        ),
+    )
+    registry.register(
         kind=ProviderKind.LAUNCHER,
         provider_id="cloud_run",
         config_model=CloudRunLauncherConfig,
@@ -135,6 +145,14 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=KubernetesLauncherConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.kubernetes.runtime:KUBERNETES_LAUNCHER_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.LAUNCHER,
+        provider_id="azure_container_apps",
+        config_model=AzureContainerAppsLauncherConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.azure_container_apps.runtime:AZURE_CONTAINER_APPS_LAUNCHER_FACTORY"
         ),
     )
     return registry

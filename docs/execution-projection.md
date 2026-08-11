@@ -55,3 +55,12 @@ references, optional cloud-neutral ServiceAccount annotations, explicit pod reso
 deadlines, and bounded retries. The chart adds `Forbid` schedule concurrency and completed-Job TTL
 cleanup while Dander leases remain the final overlap defense. Rendering and read-only verification
 do not qualify a hosted Kubernetes profile; a real cluster and PostgreSQL acceptance run remain.
+
+The Azure Container Apps Jobs provider projects a selected Azure profile into one UTC-scheduled or
+manual job contract. It requires an immutable digest in the selected ACR, one pre-authorized
+user-assigned managed identity, exact Container Apps environment placement, supported 1 CPU/2 GiB
+or 2 CPU/4 GiB sizing, launcher-owned retries and deadline, Log Analytics destinations, and
+versionless Key Vault references for declared secrets. Azure evaluates scheduled-job cron in UTC,
+so a non-UTC projection fails before provider access rather than silently changing wall-clock
+behavior. This contract is locally conformance-tested only; Terraform and live-profile evidence
+remain separate Phase 6 gates.

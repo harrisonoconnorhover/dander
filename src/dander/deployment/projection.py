@@ -380,6 +380,29 @@ KUBERNETES_CAPABILITIES = LauncherCapabilities(
 )
 
 
+AZURE_CONTAINER_APPS_CAPABILITIES = LauncherCapabilities(
+    launcher="azure_container_apps",
+    cpu_millis=frozenset({1_000, 2_000}),
+    minimum_memory_mib=2_048,
+    maximum_memory_mib=4_096,
+    maximum_deadline_seconds=86_400,
+    maximum_launcher_retries=10,
+    maximum_task_count=1,
+    maximum_parallelism=1,
+    supports_ephemeral_storage=False,
+    supports_schedules=True,
+    supports_time_zones=True,
+    supports_network_placement=True,
+    extension_names=frozenset(
+        {
+            "azure_acr_login_server",
+            "azure_key_vault_uri",
+            "azure_managed_identity_client_id",
+        }
+    ),
+)
+
+
 def validate_launcher_projection(
     template: ExecutionTemplate,
     capabilities: LauncherCapabilities,

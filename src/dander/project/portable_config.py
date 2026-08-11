@@ -23,6 +23,10 @@ from dander.project.config import (
     ProjectConfigError,
     _load_yaml_mapping,
 )
+from dander.providers.azure_container_apps import (  # noqa: TC001
+    AzureContainerAppsLauncherConfig,
+)
+from dander.providers.azure_key_vault import AzureKeyVaultConfig  # noqa: TC001
 from dander.providers.bigquery import BigQueryStateConfig, BigQueryWarehouseConfig  # noqa: TC001
 from dander.providers.cloud_run import CloudRunLauncherConfig  # noqa: TC001
 from dander.providers.dataplex import DataplexCatalogConfig  # noqa: TC001
@@ -134,13 +138,16 @@ CatalogSpec = Annotated[
 
 
 SecretProviderSpec = Annotated[
-    GcpSecretManagerConfig | EnvironmentSecretConfig,
+    GcpSecretManagerConfig | EnvironmentSecretConfig | AzureKeyVaultConfig,
     Field(discriminator="provider"),
 ]
 
 
 LauncherSpec = Annotated[
-    CloudRunLauncherConfig | FargateLauncherConfig | KubernetesLauncherConfig,
+    CloudRunLauncherConfig
+    | FargateLauncherConfig
+    | KubernetesLauncherConfig
+    | AzureContainerAppsLauncherConfig,
     Field(discriminator="provider"),
 ]
 
@@ -337,12 +344,26 @@ def _resolve(
     selected = platforms.deployments[selected_name]
     profile = platforms.platforms[selected.platform]
     if (
+        profile.secrets.provider == "azure_key_vault"
+        and selected.launcher.provider != "azure_container_apps"
+    ):
+        raise ProjectConfigError(
+            "Azure Key Vault projection currently requires launcher.provider='azure_container_apps'"
+        )
+    if (
         selected.launcher.provider == "cloud_run"
         and profile.secrets.provider != "gcp_secret_manager"
     ):
         raise ProjectConfigError(
             "Cloud Run requires secrets.provider='gcp_secret_manager'; "
             "environment secrets are local or operator-managed Kubernetes only"
+        )
+    if (
+        selected.launcher.provider == "azure_container_apps"
+        and profile.secrets.provider != "azure_key_vault"
+    ):
+        raise ProjectConfigError(
+            "Azure Container Apps currently requires secrets.provider='azure_key_vault'"
         )
     unknown_pipelines = sorted(set(selected.pipelines) - set(logical.pipelines))
     if unknown_pipelines:
