@@ -8,6 +8,11 @@ output "key_vault_uri" {
   value       = trimsuffix(azurerm_key_vault.runtime.vault_uri, "/")
 }
 
+output "key_vault_operator_principal_id" {
+  description = "Operator principal allowed to create and rotate Key Vault secrets."
+  value       = azurerm_role_assignment.key_vault_operator.principal_id
+}
+
 output "jobs" {
   description = "Container Apps Job names and ids keyed by pipeline."
   value = {

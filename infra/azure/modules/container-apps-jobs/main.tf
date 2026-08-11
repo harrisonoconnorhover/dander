@@ -118,6 +118,12 @@ resource "azurerm_role_assignment" "key_vault_secrets" {
   principal_type       = "ServicePrincipal"
 }
 
+resource "azurerm_role_assignment" "key_vault_operator" {
+  scope                = azurerm_key_vault.runtime.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = var.key_vault_operator_principal_id
+}
+
 resource "azurerm_container_app_job" "pipeline" {
   for_each = var.execution_projections
 

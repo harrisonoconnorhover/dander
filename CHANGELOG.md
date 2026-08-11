@@ -8,6 +8,9 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Bind Azure proof-secret creation and rotation to the exact signed-in Terraform operator with
+  vault-scoped `Key Vault Secrets Officer`, while preserving the runtime identity's read-only
+  `Key Vault Secrets User` role.
 - Add keyless Azure Container Apps-to-Google workload federation using the attached user-assigned
   identity, an exact Entra application audience, in-memory Google token exchange, and a bounded
   same-process credential-refresh probe. The profile remains experimental until live acceptance.

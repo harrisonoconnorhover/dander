@@ -1198,3 +1198,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   Azure Snowflake/PostgreSQL/Key-Vault profile. Provider-mocked Terraform and the bounded
   600-second refresh command are preparation only; live exchange, refresh, revocation, cleanup,
   and support promotion still require an accepted candidate and approved provider ceilings.
+
+## 2026-08-11 — The Azure plan names one vault-scoped secret operator
+
+- **Need:** The named Azure profile cannot start until its PostgreSQL and Snowflake credentials
+  exist in Key Vault, and its rotation proof requires creating a newer secret version. The runtime
+  identity's read-only role cannot perform either operation.
+- **Decision:** The platform plan grants the authenticated Terraform principal `Key Vault Secrets
+  Officer` on only the deployment vault. The runtime identity remains `Key Vault Secrets User`;
+  no group, subscription-wide administrator, or secret value enters Terraform.
+- **Boundary:** This is local plan construction until a separately approved apply. Secret values
+  remain operator inputs outside Terraform, and live rotation must prove a later job execution sees
+  a versionless secret update before the Azure profile can be promoted.

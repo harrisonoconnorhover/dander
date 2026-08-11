@@ -14,19 +14,20 @@ mock_provider "azurerm" {
 }
 
 variables {
-  name                           = "dander"
-  subscription_id                = "11111111-1111-4111-8111-111111111111"
-  tenant_id                      = "22222222-2222-4222-8222-222222222222"
-  location                       = "eastus"
-  resource_group_name            = "dander-phase6"
-  container_app_environment_name = "dander-phase6-env"
-  acr_id                         = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.ContainerRegistry/registries/danderphase6"
-  acr_login_server               = "danderphase6.azurecr.io"
-  key_vault_name                 = "dander-phase6-kv"
-  key_vault_allowed_ip_rule      = "203.0.113.10"
-  managed_identity_id            = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.ManagedIdentity/userAssignedIdentities/dander-phase6-runtime"
-  managed_identity_client_id     = "33333333-3333-4333-8333-333333333333"
-  managed_identity_principal_id  = "44444444-4444-4444-8444-444444444444"
+  name                            = "dander"
+  subscription_id                 = "11111111-1111-4111-8111-111111111111"
+  tenant_id                       = "22222222-2222-4222-8222-222222222222"
+  location                        = "eastus"
+  resource_group_name             = "dander-phase6"
+  container_app_environment_name  = "dander-phase6-env"
+  acr_id                          = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.ContainerRegistry/registries/danderphase6"
+  acr_login_server                = "danderphase6.azurecr.io"
+  key_vault_name                  = "dander-phase6-kv"
+  key_vault_allowed_ip_rule       = "203.0.113.10"
+  key_vault_operator_principal_id = "55555555-5555-4555-8555-555555555555"
+  managed_identity_id             = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.ManagedIdentity/userAssignedIdentities/dander-phase6-runtime"
+  managed_identity_client_id      = "33333333-3333-4333-8333-333333333333"
+  managed_identity_principal_id   = "44444444-4444-4444-8444-444444444444"
   execution_projections = {
     bigquery_fixture = {
       launcher          = "azure_container_apps"
@@ -109,5 +110,15 @@ run "projects_exact_job_contract" {
       azurerm_key_vault.runtime.network_acls[0].bypass == "AzureServices"
     )
     error_message = "Key Vault must default-deny network access while allowing the Azure service path."
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.key_vault_operator.principal_id == "55555555-5555-4555-8555-555555555555" &&
+      azurerm_role_assignment.key_vault_operator.role_definition_name == "Key Vault Secrets Officer" &&
+      azurerm_role_assignment.key_vault_secrets.principal_id == "44444444-4444-4444-8444-444444444444" &&
+      azurerm_role_assignment.key_vault_secrets.role_definition_name == "Key Vault Secrets User"
+    )
+    error_message = "The signed-in operator may rotate secrets while the runtime remains read-only."
   }
 }

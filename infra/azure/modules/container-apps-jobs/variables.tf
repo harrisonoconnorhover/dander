@@ -48,6 +48,16 @@ variable "key_vault_allowed_ip_rule" {
   description = "One reviewed operator public IPv4 address for Key Vault data access."
 }
 
+variable "key_vault_operator_principal_id" {
+  type        = string
+  description = "Signed-in operator principal allowed to create and rotate proof secrets."
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$", var.key_vault_operator_principal_id))
+    error_message = "key_vault_operator_principal_id must be an RFC 4122 UUID."
+  }
+}
+
 variable "managed_identity_id" {
   type        = string
   description = "User-assigned managed identity resource id."

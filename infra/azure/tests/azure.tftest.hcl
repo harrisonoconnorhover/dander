@@ -80,4 +80,9 @@ run "wires_stage_zero_resources_into_jobs" {
     condition     = module.container_apps_jobs.jobs["warehouse_fixture"].name == "dander-00626d3b5f01"
     error_message = "The Azure root must preserve deterministic manifest-to-job naming."
   }
+
+  assert {
+    condition     = output.key_vault_operator_principal_id == "44444444-4444-4444-8444-444444444444"
+    error_message = "The Azure root must bind secret administration to the authenticated operator."
+  }
 }
