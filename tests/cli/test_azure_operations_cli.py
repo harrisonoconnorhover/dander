@@ -169,7 +169,7 @@ def test_identity_refresh_probe_requires_named_profile_and_confirmation(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    operations, _binding = _install_fake(monkeypatch)
+    operations, binding = _install_fake(monkeypatch)
     monkeypatch.setattr(
         azure_command,
         "load_project_config",
@@ -214,6 +214,72 @@ def test_identity_refresh_probe_requires_named_profile_and_confirmation(
                 "refresh_margin_seconds": 15,
             },
         )
+    ]
+    assert binding["gcp_project"] == "unit-project"
+
+
+def test_verify_passes_explicit_gcp_project_to_the_binding(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, object]] = []
+    binding = object()
+
+    class _Binding:
+        @classmethod
+        def from_project(cls, **kwargs: object) -> object:
+            calls.append(("binding", kwargs))
+            return binding
+
+    class _Verifier:
+        def __init__(self, selected: object) -> None:
+            assert selected is binding
+
+        def verify(self, *, expected_image: str) -> AzureDeploymentVerification:
+            calls.append(("verify", expected_image))
+            return AzureDeploymentVerification(
+                subscription="11111111-1111-4111-8111-111111111111",
+                resource_group="dander-phase6",
+                environment="environment-id",
+                job="job-id",
+                trigger_type="manual",
+                image=expected_image,
+                registry="registry-id",
+                managed_identity="identity-id",
+                key_vault="vault-id",
+                log_analytics_workspace="workspace-id",
+            )
+
+    monkeypatch.setattr(azure_command, "AzureDeploymentBinding", _Binding)
+    monkeypatch.setattr(azure_command, "AzureDeploymentVerifier", _Verifier)
+    image = "danderphase6.azurecr.io/dander/runtime@sha256:" + "a" * 64
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "azure",
+            "verify",
+            *_base_args(tmp_path),
+            "--gcp-project",
+            "unit-project",
+            "--expected-image",
+            image,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls == [
+        (
+            "binding",
+            {
+                "config": tmp_path / "dander.yaml",
+                "deployment": "azure_snowflake",
+                "pipeline_id": "warehouse_fixture",
+                "name": "dander",
+                "gcp_project": "unit-project",
+            },
+        ),
+        ("verify", image),
     ]
 
 

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 _DEPLOYMENT_NAME = re.compile(r"^[a-z][a-z0-9-]{1,22}[a-z0-9]$")
 _PIPELINE_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,127}$")
+_GCP_PROJECT = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _ACR_IMAGE = re.compile(
     r"^(?P<registry>[a-z][a-z0-9]{4,49})\.azurecr\.io/"
     r"[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$"
@@ -93,6 +94,7 @@ class AzureDeploymentBinding:
         deployment: str,
         pipeline_id: str,
         name: str = "dander",
+        gcp_project: str | None = None,
     ) -> AzureDeploymentBinding:
         """Resolve one Azure pipeline from the validated project manifest."""
         resolved_config = config.expanduser().resolve()
@@ -141,7 +143,18 @@ class AzureDeploymentBinding:
         google_audience = None
         google_application_id_uri = None
         if manifest.secret_provider == "gcp_secret_manager":
-            project_value = manifest.warehouse_config.get("project")
+            configured_project = manifest.warehouse_config.get("project")
+            if gcp_project is not None and _GCP_PROJECT.fullmatch(gcp_project) is None:
+                raise AzureDeploymentVerificationError("Invalid GCP project identifier")
+            if (
+                isinstance(configured_project, str)
+                and gcp_project is not None
+                and configured_project != gcp_project
+            ):
+                raise AzureDeploymentVerificationError(
+                    "Explicit GCP project does not match the project manifest"
+                )
+            project_value = gcp_project or configured_project
             runtime_id = manifest.terraform_pipelines()[pipeline_id].get(
                 "runtime_service_account_id"
             )

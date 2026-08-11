@@ -6,6 +6,7 @@ import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -353,6 +354,52 @@ def test_verifier_checks_gcp_federation_and_runtime_secret_references() -> None:
     )
 
     assert result.image == _IMAGE
+
+
+def test_binding_uses_explicit_gcp_project_for_version_two_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    manifest = SimpleNamespace(
+        launcher_provider="azure_container_apps",
+        secret_provider="gcp_secret_manager",
+        warehouse_config={"provider": "bigquery", "location": "US"},
+        pipelines={"warehouse_fixture": SimpleNamespace(paused=True, secrets={})},
+        platform=SimpleNamespace(runtime=SimpleNamespace(timeout_seconds=900, max_retries=0)),
+        validate_references=lambda _root: None,
+        resolved_launcher_config=lambda: {
+            "region": "eastus",
+            "subscription_id": _SUBSCRIPTION_ID,
+            "resource_group_name": "dander-phase6",
+            "container_app_environment_name": "dander-phase6-env",
+            "acr_name": "danderphase6",
+            "key_vault_name": "dander-phase6-kv",
+            "managed_identity_name": "dander-phase6-runtime",
+            "managed_identity_client_id": _CLIENT_ID,
+            "google_workload_identity_audience": (
+                "//iam.googleapis.com/projects/1009770943166/locations/global/"
+                "workloadIdentityPools/dander-phase6-azure/providers/container-apps"
+            ),
+            "google_application_id_uri": "api://77777777-7777-4777-8777-777777777777",
+        },
+        terraform_pipelines=lambda: {
+            "warehouse_fixture": {"runtime_service_account_id": "dander-runtime"}
+        },
+    )
+    monkeypatch.setattr(
+        "dander.providers.azure_container_apps.verification.load_project_config",
+        lambda *_args, **_kwargs: manifest,
+    )
+
+    binding = AzureDeploymentBinding.from_project(
+        config=tmp_path / "dander.yaml",
+        deployment="azure_bigquery",
+        pipeline_id="warehouse_fixture",
+        gcp_project="unit-project",
+    )
+
+    assert binding.google_project == "unit-project"
+    assert binding.google_service_account == "dander-runtime@unit-project.iam.gserviceaccount.com"
 
 
 @pytest.mark.parametrize(
