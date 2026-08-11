@@ -6,13 +6,13 @@ import json
 import re
 import subprocess
 from dataclasses import asdict, dataclass
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Protocol, cast
 
 from dander.identity.refresh_probe import GoogleRefreshProbeError, validate_probe_target
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from dander.providers.azure_container_apps.verification import AzureDeploymentBinding
 
 _EXECUTION_NAME = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
@@ -132,7 +132,7 @@ class AzureContainerAppsOperations:
         )
 
     def _start(self, *overrides: str) -> AzureContainerAppsExecution:
-        payload = self._json(
+        start_args = (
             "containerapp",
             "job",
             "start",
@@ -140,8 +140,36 @@ class AzureContainerAppsOperations:
             self.binding.job_name,
             "--resource-group",
             self.binding.resource_group_name,
-            *overrides,
         )
+        if overrides:
+            if overrides[0] != "--args" or len(overrides) < 2:
+                raise AzureContainerAppsOperationError("Invalid Azure execution override")
+            template_path: Path | None = None
+            try:
+                with NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    suffix=".json",
+                    delete=False,
+                ) as template_file:
+                    template_path = Path(template_file.name)
+                    json.dump(
+                        {
+                            "containers": [
+                                {
+                                    "name": "runtime",
+                                    "args": list(overrides[1:]),
+                                }
+                            ]
+                        },
+                        template_file,
+                    )
+                payload = self._json(*start_args, "--yaml", str(template_path))
+            finally:
+                if template_path is not None:
+                    template_path.unlink(missing_ok=True)
+        else:
+            payload = self._json(*start_args)
         if not isinstance(payload, dict) or not isinstance(payload.get("name"), str):
             raise AzureContainerAppsOperationError(
                 "Azure did not return an execution name after starting the job"
