@@ -2,37 +2,35 @@
 
 ## Finished
 
-- Published and copied one source-free protected-main OCI index byte-identically into ACR.
-- Passed the canonical live execution, replay, overlap fencing, and controlled interruption proof.
-- Corrected `azure cancel` to report request acknowledgement instead of a false terminal result.
+- Added explicit Azure BigQuery `--gcp-project` planning input for version-2 profiles.
+- Added focused CLI coverage for the missing-input failure and successful projection.
+- Documented why the GCP project remains deployment scope rather than platform configuration.
 
 ## Try It
 
-Run `uv run pytest tests/providers/test_azure_container_apps_operations.py`.
+Run `uv run pytest tests/cli/test_init_cli.py -k azure_bigquery`.
 
 ## Checks
 
-- Protected main at `35758a7` was fully green before candidate publication.
-- The image-only apply changed one job and the immediate follow-up plan reported no changes.
-- Initial execution and replay succeeded; concurrent starts produced one success and one zero-row skip.
-- Controlled stop reconciled the abandoned run as `interrupted_run`; recovery succeeded.
-- Focused local checks and protected CI remain to run for the acknowledgement correction.
+- `uv run pytest tests/cli/test_init_cli.py -q` passed (16 tests).
+- Related Azure Terraform, portable-config, and operations suites passed (35 tests).
+- Ruff check/format and mypy passed for the changed Python files.
+- Protected CI remains to run.
 
 ## Decisions
 
-- Treat Azure stop as a request acknowledgement; use provider status for terminal truth.
-- Keep the accepted release digest unchanged because this correction affects only operator output.
+- Keep the concrete GCP project explicit at Azure plan time; do not add it to the reusable profile.
+- Keep the accepted runtime digest unchanged because this correction affects only operator planning.
 
 ## Remaining
 
 - Merge this focused correction through protected CI.
-- Complete schedule, retry, parallelism, alert, rotation, rollback, and federation proofs.
-- Verify Snowflake aggregates without retaining rows or credentials.
+- Resume the approved Azure-to-Google live federation plan and refresh proof.
 - Clean up disposable Azure, Snowflake, and federation resources.
-- Merge sanitized evidence and finish Azure plus retained-GCP no-drift checks.
+- Merge sanitized Phase 6 evidence and verify retained-GCP no drift.
 
 ## Review First
 
-- `src/dander/providers/azure_container_apps/operations.py`
-- `tests/providers/test_azure_container_apps_operations.py`
-- `tickets/DANDER-110-azure-image-lifecycle-operations.md`
+- `src/dander/cli/azure_command.py`
+- `tests/cli/test_init_cli.py`
+- `acceptance/cloud-portability/phase6/azure-google-federation/README.md`
