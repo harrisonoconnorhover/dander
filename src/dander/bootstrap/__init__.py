@@ -10,6 +10,7 @@ from dander.bootstrap.azure_admin import (
     AzureAdministrativeBootstrap,
     AzureAdministrativeBootstrapError,
 )
+from dander.bootstrap.azure_image import AzureRuntimeImagePromoter
 from dander.bootstrap.azure_terraform import AzureTerraformBootstrap, AzureTerraformBootstrapError
 from dander.bootstrap.permissions import require_stage_zero_permissions
 from dander.bootstrap.project import (
@@ -39,6 +40,7 @@ __all__ = [
     "AwsTerraformBootstrapError",
     "AzureAdministrativeBootstrap",
     "AzureAdministrativeBootstrapError",
+    "AzureRuntimeImagePromoter",
     "AzureTerraformBootstrap",
     "AzureTerraformBootstrapError",
     "DeploymentSummary",

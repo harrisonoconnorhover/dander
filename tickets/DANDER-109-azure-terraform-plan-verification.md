@@ -1,6 +1,6 @@
 # DANDER-109 — Plan and verify Azure Container Apps deployments
 
-Status: implemented locally; protected CI and live proof pending
+Status: merged through protected PR #189; live proof pending
 
 ## Requirement
 
@@ -26,7 +26,7 @@ Add a read-only verifier that proves a deployed job still matches its manifest a
 - [x] Read-only verification checks the exact subscription, environment, logs, job, immutable image,
   registry identity, ACR static-credential setting, and RBAC Key Vault without reading secrets.
 - [x] Terraform provider-mocked tests and focused Python contract tests pass.
-- [ ] Protected CI passes and this ticket merges before any live Azure apply.
+- [x] Protected CI passes and this ticket merges before any live Azure apply.
 
 ## Evidence boundary
 

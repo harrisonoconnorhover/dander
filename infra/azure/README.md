@@ -36,6 +36,26 @@ operator only the Blob data role needed to use that Entra-authenticated backend.
 `runtime_identity_client_id` from the printed Terraform output command and place that non-secret
 identifier in the named launcher configuration.
 
+## Runtime image promotion
+
+After stage zero exists and a source-free candidate has an accepted local artifact record, copy the
+same OCI index into ACR. This is a live registry mutation and requires separate publication, cost,
+and execution approval before running it:
+
+```bash
+dander image-promote-azure \
+  --source-image us-central1-docker.pkg.dev/example/dander/runtime@sha256:DIGEST \
+  --subscription-id 11111111-1111-4111-8111-111111111111 \
+  --acr-name danderphase6 \
+  --acr-repository dander/runtime
+```
+
+The command authenticates Docker through the signed-in Azure identity. It never requests ACR
+administrator credentials and never rebuilds. The deterministic destination tag is accepted only
+when stable ACR metadata reports the source index digest and the immutable digest reference exposes
+the same platform manifests. A successful copy writes the ignored local record
+`.dander/runtime-artifact-azure.json`.
+
 ## Platform plan
 
 After an accepted OCI release is copied into ACR by digest, plan the selected deployment:
@@ -62,6 +82,28 @@ Run `dander init-azure-apply` only after reviewing the exact saved plan and rece
 approval for the live Azure changes. Then use `dander azure verify` for read-only checks of the
 subscription, environment, logs, job trigger/resources/image, managed identity, ACR, and Key Vault.
 
+## Job lifecycle
+
+The lifecycle CLI resolves the exact job from `dander.yaml` and the named deployment. Status,
+verification, and bounded logs are read-only; run, cancel, and replay ask for confirmation because
+they are live provider operations:
+
+```bash
+dander azure run --deployment azure_snowflake --pipeline warehouse_fixture
+dander azure status --deployment azure_snowflake --pipeline warehouse_fixture
+dander azure logs --deployment azure_snowflake --pipeline warehouse_fixture \
+  --execution-name dander-00626d3b5f01-abc1234 --limit 100
+dander azure cancel --deployment azure_snowflake --pipeline warehouse_fixture \
+  --execution-name dander-00626d3b5f01-abc1234
+dander azure replay --deployment azure_snowflake --pipeline warehouse_fixture \
+  --execution-name dander-00626d3b5f01-abc1234
+```
+
+Azure assigns execution names. Replay is allowed only from a terminal execution and starts the
+same immutable job template; Dander's persisted inclusive cursor remains responsible for
+idempotent logical replay. Log reads query only the selected execution and enforce an explicit
+row limit.
+
 ## Boundaries
 
 - ACR administrator credentials and Storage shared keys remain disabled; state network access
@@ -70,5 +112,6 @@ subscription, environment, logs, job trigger/resources/image, managed identity, 
 - Key Vault network access defaults to deny and admits only Azure's trusted-service path plus the
   reviewed operator IP.
 - Secret values are an operator action outside Terraform and must never enter a plan or state.
-- Image copy, job lifecycle operations, external identity federation, live profile proof, and
-  support promotion are separate Phase 6 gates.
+- The locally tested image-copy and job-operation commands are not live evidence. Actual image
+  copy, job lifecycle execution, external identity federation, live profile proof, and support
+  promotion remain separate Phase 6 gates.
