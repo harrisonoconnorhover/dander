@@ -2,24 +2,26 @@
 
 ## Finished
 
-- Normalized Azure's `configuration.secrets: null` response to an empty collection.
-- Preserved exact non-empty Key Vault reference verification and failure behavior.
-- Added focused coverage using the live provider response shape.
+- Transported Azure execution overrides through the provider-supported YAML template input.
+- Prevented runtime flags such as `--project` from being parsed as Azure CLI flags.
+- Kept the override limited to the `runtime` container's bounded argument list.
+- Added exact execution-template contract coverage.
 
 ## Try It
 
-Run `uv run pytest tests/providers/test_azure_deployment_verification.py`.
+Run `uv run pytest tests/providers/test_azure_container_apps_operations.py`.
 
 ## Checks
 
-- Focused Azure deployment-verification tests passed (13 tests).
+- Focused Azure Container Apps operation tests passed (7 tests).
 - Ruff check/format and mypy passed for the changed Python files.
 - Protected CI remains to run.
 
 ## Decisions
 
-- Treat provider `null` as empty only at the collection boundary.
-- Keep all exact checks unchanged when manifest-declared Key Vault references exist.
+- Use Azure's execution-template transport when container arguments begin with dashes.
+- Write only the non-secret bounded argument template to a mode-restricted temporary file.
+- Delete the temporary template immediately after the Azure CLI call.
 
 ## Remaining
 
@@ -30,5 +32,5 @@ Run `uv run pytest tests/providers/test_azure_deployment_verification.py`.
 
 ## Review First
 
-- `src/dander/providers/azure_container_apps/verification.py`
-- `tests/providers/test_azure_deployment_verification.py`
+- `src/dander/providers/azure_container_apps/operations.py`
+- `tests/providers/test_azure_container_apps_operations.py`

@@ -64,6 +64,8 @@ class _Runner:
         for key, values in responses.items():
             self.responses[key].extend(values)
         self.commands: list[tuple[str, ...]] = []
+        self.execution_templates: list[object] = []
+        self.execution_template_paths: list[Path] = []
 
     def __call__(
         self,
@@ -77,7 +79,14 @@ class _Runner:
         assert cwd == Path("/tmp/dander-azure-operations-test")
         assert check and capture_output and text
         self.commands.append(args)
-        key = args[1 : args.index("--subscription")]
+        key_parts = list(args[1 : args.index("--subscription")])
+        if "--yaml" in key_parts:
+            path_index = key_parts.index("--yaml") + 1
+            template_path = Path(key_parts[path_index])
+            self.execution_template_paths.append(template_path)
+            self.execution_templates.append(json.loads(template_path.read_text(encoding="utf-8")))
+            key_parts[path_index] = "<execution-template>"
+        key = tuple(key_parts)
         if not self.responses[key]:
             raise AssertionError(f"No fake Azure response for {key}")
         return subprocess.CompletedProcess(
@@ -140,19 +149,8 @@ def test_identity_refresh_probe_overrides_only_bounded_runtime_arguments() -> No
         _JOB,
         "--resource-group",
         "dander-phase6",
-        "--args",
-        "runtime",
-        "identity-refresh-probe",
-        "--project",
-        "unit-project",
-        "--dataset",
-        "raw",
-        "--table",
-        "proof_rows",
-        "--max-wait-seconds",
-        "900",
-        "--refresh-margin-seconds",
-        "15",
+        "--yaml",
+        "<execution-template>",
     )
     show_key = (
         "containerapp",
@@ -182,7 +180,30 @@ def test_identity_refresh_probe_overrides_only_bounded_runtime_arguments() -> No
     )
 
     assert execution.state == "running"
-    assert start_key == runner.commands[0][1 : runner.commands[0].index("--subscription")]
+    assert runner.execution_templates == [
+        {
+            "containers": [
+                {
+                    "name": "runtime",
+                    "args": [
+                        "runtime",
+                        "identity-refresh-probe",
+                        "--project",
+                        "unit-project",
+                        "--dataset",
+                        "raw",
+                        "--table",
+                        "proof_rows",
+                        "--max-wait-seconds",
+                        "900",
+                        "--refresh-margin-seconds",
+                        "15",
+                    ],
+                }
+            ]
+        }
+    ]
+    assert all(not path.exists() for path in runner.execution_template_paths)
     assert not set(runner.commands[0]).intersection({"--image", "--env-vars", "--command"})
 
 
