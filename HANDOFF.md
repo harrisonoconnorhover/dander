@@ -10,14 +10,14 @@
 
 ## Try It
 
-Run `.venv/bin/python -m scripts.benchmarks.warehouse_correctness compare` with the four committed
-provider records and a temporary output path.
+Run `uv run python -m scripts.benchmarks.warehouse_correctness compare`, passing each committed
+provider record with its own `--evidence` argument and a temporary `--output` path.
 
 ## Checks
 
 - Four live provider records pass; the comparison reports equal rows and verified cleanup.
 - Retained GCP stage-zero and current-equivalent platform plans report exact `No changes.`
-- PR #185 protected CI and post-merge protected-main CI passed all five jobs.
+- PRs #184, #185, and #186 merged through protection; final protected-main CI passed all five jobs.
 - Evidence JSON shape and forbidden-field checks pass.
 
 ## Decisions
@@ -29,9 +29,10 @@ provider records and a temporary output path.
 
 ## Remaining
 
-- Complete protected CI and merge the sanitized evidence PR.
-- Reassess the revised Phase 5 exit gate and report the binary Phase 6 recommendation.
-- Do not begin Phase 6 or Azure implementation in this task.
+- Phase 6 may begin under the revised Phase 5 exit gate, but this task deliberately starts neither
+  Phase 6 nor Azure implementation.
+- Complete provider-promotion conformance and Phase 8 qualification before making broader support,
+  scale, cost, soak, or release claims.
 
 ## Review First
 
