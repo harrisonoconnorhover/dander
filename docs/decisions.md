@@ -1268,3 +1268,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Secret values never enter Terraform, state, plans, shell history, or evidence. The
   mode changes only creation order and does not weaken preflight, immutable-image, approval, or
   cleanup requirements.
+
+## 2026-08-11 — Explicitly source-only pipelines publish source metadata
+
+- **Finding:** Provider-backed state includes a durable metadata store, so the executor enters its
+  metadata stage even when a pipeline deliberately selects no SQL models. Loading a transform
+  project in that case rejected the otherwise valid source-only pipeline after ingestion committed.
+- **Decision:** An explicitly empty model selection with model building disabled publishes a
+  source-only manifest with zero model assets. Unspecified or non-empty model selections retain the
+  existing transform-project discovery and validation.
+- **Boundary:** This changes no ingestion, warehouse, state, SQL, fencing, or catalog-provider
+  semantics. It only allows the already-defined source metadata snapshot to represent zero models.

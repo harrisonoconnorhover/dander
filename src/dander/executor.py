@@ -241,21 +241,24 @@ class PipelineExecutor:
                     models=models,
                     assertions=assertions,
                 )
-                transform_project = TransformProject.load(
-                    self._models_dir,
-                    catalog=self._catalog,
-                    raw_namespace=self._raw_namespace,
-                    target_dialect=getattr(
-                        self._transform_runner,
-                        "target_dialect",
-                        SqlDialect.BIGQUERY,
-                    ),
-                )
                 spine = MetadataSpine()
-                compiled_assets = spine.compile(
-                    transform_project,
-                    selected=self._selected_models,
-                )
+                if self._selected_models == () and not self._build_models:
+                    compiled_assets = ()
+                else:
+                    transform_project = TransformProject.load(
+                        self._models_dir,
+                        catalog=self._catalog,
+                        raw_namespace=self._raw_namespace,
+                        target_dialect=getattr(
+                            self._transform_runner,
+                            "target_dialect",
+                            SqlDialect.BIGQUERY,
+                        ),
+                    )
+                    compiled_assets = spine.compile(
+                        transform_project,
+                        selected=self._selected_models,
+                    )
                 manifest = spine.pipeline_manifest(
                     pipeline_id=self._pipeline_id,
                     source=self._source_config,

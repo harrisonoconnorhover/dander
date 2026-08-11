@@ -226,6 +226,8 @@ def _executor(
     raw_namespace: str | None = "raw",
     source_relations: dict[str, RelationRef] | None = None,
     catalog_publisher: CatalogPublisher | None = None,
+    selected_models: Iterable[str] | None = ("stg_widgets",),
+    build_models: bool = True,
 ) -> PipelineExecutor:
     source = SourceConfig(
         name="example",
@@ -250,9 +252,9 @@ def _executor(
         raw_namespace=raw_namespace,
         source_relations=source_relations,
         models_dir=models_dir,
-        selected_models=("stg_widgets",),
-        build_models=True,
-        transform_runner=_Transform(fail=fail_transform),
+        selected_models=selected_models,
+        build_models=build_models,
+        transform_runner=_Transform(fail=fail_transform) if build_models else None,
         metadata_store=metadata,
         catalog_publisher=catalog_publisher,
         leases=leases,
@@ -298,6 +300,32 @@ def test_executor_preserves_launcher_supplied_run_id(tmp_path: Path) -> None:
 
     assert result.run_id == "launcher-run-42"
     assert history.started == ("launcher-run-42", "example", "example_pipeline")
+
+
+def test_executor_publishes_source_only_metadata_for_explicit_empty_model_selection(
+    tmp_path: Path,
+) -> None:
+    history = _History()
+    metadata = _Metadata()
+
+    result = _executor(
+        tmp_path,
+        history=history,
+        metadata=metadata,
+        selected_models=(),
+        build_models=False,
+    ).execute()
+
+    assert history.checkpoints == [RunStage.METADATA]
+    assert history.finished == (RunStatus.SUCCEEDED, None, 0, 0, 0)
+    assert result.assets == 0
+    assert metadata.manifest is not None
+    assert metadata.manifest["assets"] == []
+    source = metadata.manifest["source"]
+    assert isinstance(source, dict)
+    endpoints = source["endpoints"]
+    assert isinstance(endpoints, list)
+    assert endpoints[0]["relation"] == "valid-project-123.raw.example_widgets"
 
 
 def test_executor_publishes_through_provider_neutral_catalog_boundary(tmp_path: Path) -> None:
