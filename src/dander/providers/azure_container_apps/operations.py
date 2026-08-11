@@ -144,6 +144,7 @@ class AzureContainerAppsOperations:
         if overrides:
             if overrides[0] != "--args" or len(overrides) < 2:
                 raise AzureContainerAppsOperationError("Invalid Azure execution override")
+            execution_template = self._execution_template(args=overrides[1:])
             template_path: Path | None = None
             try:
                 with NamedTemporaryFile(
@@ -153,17 +154,7 @@ class AzureContainerAppsOperations:
                     delete=False,
                 ) as template_file:
                     template_path = Path(template_file.name)
-                    json.dump(
-                        {
-                            "containers": [
-                                {
-                                    "name": "runtime",
-                                    "args": list(overrides[1:]),
-                                }
-                            ]
-                        },
-                        template_file,
-                    )
+                    json.dump(execution_template, template_file)
                 payload = self._json(*start_args, "--yaml", str(template_path))
             finally:
                 if template_path is not None:
@@ -177,6 +168,48 @@ class AzureContainerAppsOperations:
         execution_name = cast("str", payload["name"])
         self._validate_execution_name(execution_name)
         return self.describe(execution_name)
+
+    def _execution_template(self, *, args: tuple[str, ...]) -> dict[str, object]:
+        job = self._json(
+            "containerapp",
+            "job",
+            "show",
+            "--name",
+            self.binding.job_name,
+            "--resource-group",
+            self.binding.resource_group_name,
+        )
+        if not isinstance(job, dict):
+            raise AzureContainerAppsOperationError("Azure returned an invalid job template")
+        properties = job.get("properties")
+        if not isinstance(properties, dict):
+            raise AzureContainerAppsOperationError("Azure returned an invalid job template")
+        template = properties.get("template")
+        if not isinstance(template, dict):
+            raise AzureContainerAppsOperationError("Azure returned an invalid job template")
+        containers = template.get("containers")
+        init_containers = template.get("initContainers")
+        if (
+            not isinstance(containers, list)
+            or len(containers) != 1
+            or not isinstance(containers[0], dict)
+            or containers[0].get("name") != "runtime"
+            or not isinstance(containers[0].get("image"), str)
+            or not isinstance(containers[0].get("env"), list)
+            or not isinstance(containers[0].get("resources"), dict)
+            or init_containers not in (None, [])
+            or containers[0].get("volumeMounts") not in (None, [])
+        ):
+            raise AzureContainerAppsOperationError(
+                "Azure job template does not match the single-container runtime contract"
+            )
+        container = {
+            key: value
+            for key in ("name", "image", "command", "env", "resources")
+            if (value := containers[0].get(key)) is not None
+        }
+        container["args"] = list(args)
+        return {"containers": [container]}
 
     def replay(self, execution_name: str) -> AzureContainerAppsExecution:
         """Start a fresh run after one terminal execution using the persisted inclusive cursor."""

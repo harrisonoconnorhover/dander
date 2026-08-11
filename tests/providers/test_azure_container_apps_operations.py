@@ -141,6 +141,15 @@ def test_start_uses_exact_manifest_job_and_returns_provider_execution() -> None:
 
 
 def test_identity_refresh_probe_overrides_only_bounded_runtime_arguments() -> None:
+    template_key = (
+        "containerapp",
+        "job",
+        "show",
+        "--name",
+        _JOB,
+        "--resource-group",
+        "dander-phase6",
+    )
     start_key = (
         "containerapp",
         "job",
@@ -166,6 +175,27 @@ def test_identity_refresh_probe_overrides_only_bounded_runtime_arguments() -> No
     )
     runner = _Runner(
         {
+            template_key: [
+                {
+                    "properties": {
+                        "template": {
+                            "containers": [
+                                {
+                                    "name": "runtime",
+                                    "image": "danderphase6.azurecr.io/dander@sha256:" + "a" * 64,
+                                    "args": ["runtime", "execute"],
+                                    "env": [
+                                        {"name": "HOME", "value": "/tmp"},
+                                        {"name": "API_TOKEN", "secretRef": "secret-reference"},
+                                    ],
+                                    "resources": {"cpu": 1, "memory": "2Gi"},
+                                }
+                            ],
+                            "initContainers": None,
+                        }
+                    }
+                }
+            ],
             start_key: [{"name": _EXECUTION}],
             show_key: [_execution(status="Running")],
         }
@@ -185,6 +215,12 @@ def test_identity_refresh_probe_overrides_only_bounded_runtime_arguments() -> No
             "containers": [
                 {
                     "name": "runtime",
+                    "image": "danderphase6.azurecr.io/dander@sha256:" + "a" * 64,
+                    "env": [
+                        {"name": "HOME", "value": "/tmp"},
+                        {"name": "API_TOKEN", "secretRef": "secret-reference"},
+                    ],
+                    "resources": {"cpu": 1, "memory": "2Gi"},
                     "args": [
                         "runtime",
                         "identity-refresh-probe",
@@ -204,7 +240,7 @@ def test_identity_refresh_probe_overrides_only_bounded_runtime_arguments() -> No
         }
     ]
     assert all(not path.exists() for path in runner.execution_template_paths)
-    assert not set(runner.commands[0]).intersection({"--image", "--env-vars", "--command"})
+    assert not set(runner.commands[1]).intersection({"--image", "--env-vars", "--command"})
 
 
 def test_latest_normalizes_the_most_recent_execution() -> None:
