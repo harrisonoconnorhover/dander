@@ -17,7 +17,7 @@ tests/providers/test_azure_container_apps_runtime.py`.
 
 - Full repository pytest, Ruff, and mypy pass with the federation, projection, CLI, and refresh code.
 - Azure module and disposable federation Terraform mock tests pass; the new root validates cleanly.
-- Protected main CI is green through merged PR #190; this federation slice is not yet published.
+- Protected main CI is green through merged PR #190; federation PR #191 is pending protected CI.
 - No provider registration, resource creation, image copy, job execution, or paid query ran.
 
 ## Decisions
@@ -28,7 +28,7 @@ tests/providers/test_azure_container_apps_runtime.py`.
 
 ## Remaining
 
-- Merge this federation slice through a focused protected PR.
+- Merge focused federation PR #191 after protected CI and review.
 - Prepare the named Azure Snowflake/PostgreSQL/Key-Vault acceptance tooling locally.
 - Obtain candidate-publication approval before publishing or copying an image.
 - Obtain explicit Azure, GCP, and Snowflake mutation ceilings before live proof.
