@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import hashlib
 import json
 import math
@@ -955,7 +956,7 @@ def _open_redshift(profile: Mapping[str, object]) -> _WarehouseSession:
     relation = RelationRef(catalog=database, namespace=schema_name, name="records")
 
     def read_rows() -> Sequence[Mapping[str, object]]:
-        columns = ", ".join(_quote(field.name) for field in COMMON_SCHEMA.fields)
+        columns = _redshift_read_projection(COMMON_SCHEMA)
         with open_connection(fence.connection_factory) as connection:
             rows = execute(
                 connection,
@@ -963,7 +964,7 @@ def _open_redshift(profile: Mapping[str, object]) -> _WarehouseSession:
                 f"ORDER BY {_quote('id')}",
                 fetch="all",
             ).rows
-        return _rows_from_sequences(rows)
+        return _decode_redshift_read_rows(rows)
 
     def owned_keys() -> tuple[str, ...]:
         keys: list[str] = []
@@ -1028,6 +1029,40 @@ def _open_redshift(profile: Mapping[str, object]) -> _WarehouseSession:
         cleanup_verified=cleanup_verified,
         close=lambda: None,
     )
+
+
+def _redshift_read_projection(schema: RelationSchema) -> str:
+    return ", ".join(
+        (
+            f"FROM_VARBYTE({_quote(field.name)}, 'base64') AS {_quote(field.name)}"
+            if field.data_type.kind is LogicalTypeKind.BINARY
+            else _quote(field.name)
+        )
+        for field in schema.fields
+    )
+
+
+def _decode_redshift_read_rows(rows: object) -> tuple[dict[str, object], ...]:
+    decoded_rows = _rows_from_sequences(rows)
+    binary_names = tuple(
+        field.name
+        for field in COMMON_SCHEMA.fields
+        if field.data_type.kind is LogicalTypeKind.BINARY
+    )
+    for row in decoded_rows:
+        for name in binary_names:
+            value = row[name]
+            if value is None:
+                continue
+            if not isinstance(value, str):
+                raise WarehouseCorrectnessError("Redshift binary readback has the wrong type")
+            try:
+                row[name] = base64.b64decode(value, validate=True)
+            except (binascii.Error, ValueError) as error:
+                raise WarehouseCorrectnessError(
+                    "Redshift binary readback is not valid base64"
+                ) from error
+    return decoded_rows
 
 
 def _normalize_row(row: Mapping[str, object], schema: RelationSchema) -> dict[str, object]:
