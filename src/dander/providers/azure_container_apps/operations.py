@@ -8,6 +8,8 @@ import subprocess
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
+from dander.identity.refresh_probe import GoogleRefreshProbeError, validate_probe_target
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -95,6 +97,41 @@ class AzureContainerAppsOperations:
 
     def start(self) -> AzureContainerAppsExecution:
         """Start one on-demand execution and return its provider-assigned identity."""
+        return self._start()
+
+    def start_identity_refresh_probe(
+        self,
+        *,
+        project: str,
+        dataset: str,
+        table: str,
+        max_wait_seconds: int = 900,
+        refresh_margin_seconds: int = 15,
+    ) -> AzureContainerAppsExecution:
+        """Start one bounded Google refresh probe through the immutable job image."""
+        try:
+            validate_probe_target(project=project, dataset=dataset, table=table)
+        except GoogleRefreshProbeError as error:
+            raise AzureContainerAppsOperationError(str(error)) from error
+        if not 1 <= max_wait_seconds <= 1_800 or not 0 <= refresh_margin_seconds <= 60:
+            raise AzureContainerAppsOperationError("Credential refresh proof bounds are invalid")
+        return self._start(
+            "--args",
+            "runtime",
+            "identity-refresh-probe",
+            "--project",
+            project,
+            "--dataset",
+            dataset,
+            "--table",
+            table,
+            "--max-wait-seconds",
+            str(max_wait_seconds),
+            "--refresh-margin-seconds",
+            str(refresh_margin_seconds),
+        )
+
+    def _start(self, *overrides: str) -> AzureContainerAppsExecution:
         payload = self._json(
             "containerapp",
             "job",
@@ -103,6 +140,7 @@ class AzureContainerAppsOperations:
             self.binding.job_name,
             "--resource-group",
             self.binding.resource_group_name,
+            *overrides,
         )
         if not isinstance(payload, dict) or not isinstance(payload.get("name"), str):
             raise AzureContainerAppsOperationError(

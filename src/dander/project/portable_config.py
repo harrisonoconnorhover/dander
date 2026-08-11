@@ -358,12 +358,26 @@ def _resolve(
             "Cloud Run requires secrets.provider='gcp_secret_manager'; "
             "environment secrets are local or operator-managed Kubernetes only"
         )
+    if selected.launcher.provider == "azure_container_apps" and profile.secrets.provider not in {
+        "azure_key_vault",
+        "gcp_secret_manager",
+    }:
+        raise ProjectConfigError(
+            "Azure Container Apps requires Azure Key Vault or the named GCP secret profile"
+        )
     if (
         selected.launcher.provider == "azure_container_apps"
-        and profile.secrets.provider != "azure_key_vault"
+        and profile.secrets.provider == "gcp_secret_manager"
+        and (
+            profile.warehouse.provider != "bigquery"
+            or profile.state.provider != "bigquery"
+            or profile.catalog.provider != "dataplex"
+            or selected.launcher.google_workload_identity_audience is None
+            or selected.launcher.google_application_id_uri is None
+        )
     ):
         raise ProjectConfigError(
-            "Azure Container Apps currently requires secrets.provider='azure_key_vault'"
+            "Azure GCP secrets require the named BigQuery/Dataplex federation profile"
         )
     unknown_pipelines = sorted(set(selected.pipelines) - set(logical.pipelines))
     if unknown_pipelines:

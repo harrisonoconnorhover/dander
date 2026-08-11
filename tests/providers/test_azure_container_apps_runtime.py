@@ -8,6 +8,7 @@ import pytest
 
 from dander.deployment import ExecutionProjectionError, LauncherRuntime, ResolvedTemplateRequest
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
+from dander.providers.gcp_launcher import GcpLauncherContext, gcp_launcher_factory_context
 
 _SUBSCRIPTION_ID = "11111111-1111-4111-8111-111111111111"
 _CLIENT_ID = "22222222-2222-4222-8222-222222222222"
@@ -38,10 +39,18 @@ _PIPELINES: dict[str, dict[str, object]] = {
 }
 
 
-def _runtime() -> LauncherRuntime:
+def _runtime(
+    *,
+    launcher: dict[str, object] | None = None,
+    gcp: GcpLauncherContext | None = None,
+) -> LauncherRuntime:
     registry = default_provider_registry()
-    config = registry.parse(ProviderKind.LAUNCHER, _LAUNCHER)
-    runtime = registry.build(ProviderKind.LAUNCHER, config)
+    config = registry.parse(ProviderKind.LAUNCHER, launcher or _LAUNCHER)
+    runtime = registry.build(
+        ProviderKind.LAUNCHER,
+        config,
+        context=gcp_launcher_factory_context(gcp) if gcp is not None else None,
+    )
     assert isinstance(runtime, LauncherRuntime)
     return runtime
 
@@ -51,11 +60,12 @@ def _request(
     pipelines: dict[str, dict[str, object]] | None = None,
     image: str = _IMAGE,
     memory: str = "2Gi",
+    profile_id: str = "azure_snowflake",
 ) -> ResolvedTemplateRequest:
     return ResolvedTemplateRequest(
         pipelines=_PIPELINES if pipelines is None else pipelines,
         image=image,
-        profile_id="azure_snowflake",
+        profile_id=profile_id,
         cpu=1,
         memory=memory,
         deadline_seconds=900,
@@ -116,6 +126,60 @@ def test_azure_factory_is_lazy_and_projects_only_non_secret_identity() -> None:
     serialized = repr(template.as_dict())
     assert "oauth-token-value" not in serialized
     assert "postgresql://" not in serialized
+
+
+def test_azure_factory_projects_keyless_google_federation_only_for_gcp_profile() -> None:
+    launcher: dict[str, object] = {
+        **_LAUNCHER,
+        "google_workload_identity_audience": (
+            "//iam.googleapis.com/projects/1009770943166/locations/global/"
+            "workloadIdentityPools/dander-phase6-azure/providers/container-apps"
+        ),
+        "google_application_id_uri": "api://33333333-3333-4333-8333-333333333333",
+    }
+    runtime = _runtime(
+        launcher=launcher,
+        gcp=GcpLauncherContext(project="unit-project", require_guarded_free_tier=False),
+    )
+
+    template = runtime.templates.build(
+        _request(
+            pipelines={
+                "warehouse_fixture": {
+                    **_PIPELINES["warehouse_fixture"],
+                    "runtime_service_account_id": "dander-runtime",
+                    "secret_env": {"API_TOKEN": "source-api-token"},
+                }
+            },
+            profile_id="gcp",
+        )
+    )["warehouse_fixture"]
+    environment = dict(template.environment)
+
+    assert environment["DANDER_AZURE_GCP_APPLICATION_ID_URI"] == (
+        "api://33333333-3333-4333-8333-333333333333"
+    )
+    assert environment["DANDER_GCP_SERVICE_ACCOUNT"] == (
+        "dander-runtime@unit-project.iam.gserviceaccount.com"
+    )
+    assert environment["GCP_PROJECT_ID"] == "unit-project"
+    assert dict(template.secret_bindings)["API_TOKEN"].reference == (
+        "gcp-sm://projects/unit-project/secrets/source-api-token/versions/latest"
+    )
+
+
+def test_azure_google_federation_rejects_missing_gcp_context() -> None:
+    launcher: dict[str, object] = {
+        **_LAUNCHER,
+        "google_workload_identity_audience": (
+            "//iam.googleapis.com/projects/1009770943166/locations/global/"
+            "workloadIdentityPools/dander-phase6-azure/providers/container-apps"
+        ),
+        "google_application_id_uri": "api://33333333-3333-4333-8333-333333333333",
+    }
+
+    with pytest.raises(ExecutionProjectionError, match="GCP platform"):
+        _runtime(launcher=launcher).templates.build(_request())
 
 
 @pytest.mark.parametrize(

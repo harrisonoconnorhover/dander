@@ -1,6 +1,25 @@
 locals {
   container_app_environment_id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.App/managedEnvironments/${var.container_app_environment_name}"
   key_vault_uri                = "https://${var.key_vault_name}.vault.azure.net"
+  gcp_secret_environment = {
+    for id, projection in var.execution_projections : id => {
+      for name, binding in projection.secret_bindings :
+      name => trimprefix(binding.reference, "gcp-sm://")
+      if binding.provider == "gcp_secret_manager"
+    }
+  }
+  azure_secret_environment = {
+    for id, projection in var.execution_projections : id => {
+      for name, binding in projection.secret_bindings : name => binding
+      if binding.provider == "azure_key_vault"
+    }
+  }
+  container_environment = {
+    for id, projection in var.execution_projections : id => merge(
+      projection.environment,
+      local.gcp_secret_environment[id],
+    )
+  }
   resource_names = {
     for id in keys(var.execution_projections) :
     id => "${substr(var.name, 0, 12)}-${substr(sha1(id), 0, 12)}"
@@ -32,8 +51,13 @@ check "secret_references_match_selected_key_vault" {
     condition = alltrue(flatten([
       for projection in values(var.execution_projections) : [
         for binding in values(projection.secret_bindings) : (
-          binding.provider == "azure_key_vault" &&
-          startswith(binding.reference, "azure-kv://${local.key_vault_uri}/secrets/")
+          (
+            binding.provider == "azure_key_vault" &&
+            startswith(binding.reference, "azure-kv://${local.key_vault_uri}/secrets/")
+            ) || (
+            binding.provider == "gcp_secret_manager" &&
+            startswith(binding.reference, "gcp-sm://projects/")
+          )
         )
       ]
     ]))
@@ -116,7 +140,7 @@ resource "azurerm_container_app_job" "pipeline" {
   }
 
   dynamic "secret" {
-    for_each = each.value.secret_bindings
+    for_each = local.azure_secret_environment[each.key]
     content {
       name                = "secret-${substr(sha1(secret.key), 0, 16)}"
       identity            = var.managed_identity_id
@@ -133,7 +157,7 @@ resource "azurerm_container_app_job" "pipeline" {
       args   = each.value.command
 
       dynamic "env" {
-        for_each = each.value.environment
+        for_each = local.container_environment[each.key]
         content {
           name  = env.key
           value = env.value
@@ -141,7 +165,7 @@ resource "azurerm_container_app_job" "pipeline" {
       }
 
       dynamic "env" {
-        for_each = each.value.secret_bindings
+        for_each = local.azure_secret_environment[each.key]
         content {
           name        = env.key
           secret_name = "secret-${substr(sha1(env.key), 0, 16)}"

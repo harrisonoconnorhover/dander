@@ -18,6 +18,7 @@ from dander.bootstrap.terraform import (
 )
 from dander.deployment import ExecutionProjectionError, ResolvedTemplateRequest
 from dander.providers import ProviderFactoryError
+from dander.providers.gcp_launcher import GcpLauncherContext
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -43,6 +44,8 @@ _ACR_IMAGE = re.compile(
     r"^(?P<registry>[a-z][a-z0-9]{4,49})\.azurecr\.io/"
     r"(?P<repository>[A-Za-z0-9._/-]+)@sha256:(?P<digest>[0-9a-f]{64})$"
 )
+_PROFILE_ID = re.compile(r"^[a-z][a-z0-9_]{1,62}$")
+_GCP_PROJECT = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 
 
 class AzureTerraformBootstrapError(RuntimeError):
@@ -78,6 +81,8 @@ class AzureTerraformBootstrap:
         alert_target: str | None = None,
         infrastructure_subnet_id: str | None = None,
         name: str = "dander",
+        profile_id: str = "azure_snowflake",
+        gcp_project: str | None = None,
     ) -> Path:
         """Produce one immutable Azure plan and optionally apply that exact plan."""
         raw_launcher = dict(launcher_config)
@@ -94,6 +99,10 @@ class AzureTerraformBootstrap:
             )
         if not deployment_name.strip():
             raise AzureTerraformBootstrapError("Manifest deployment name must not be blank")
+        if _PROFILE_ID.fullmatch(profile_id) is None:
+            raise AzureTerraformBootstrapError("Invalid Azure platform profile id")
+        if gcp_project is not None and _GCP_PROJECT.fullmatch(gcp_project) is None:
+            raise AzureTerraformBootstrapError("Invalid Azure federation GCP project")
         try:
             key_vault_address = ip_address(key_vault_allowed_ip_rule)
         except ValueError as error:
@@ -149,14 +158,24 @@ class AzureTerraformBootstrap:
                 "Azure infrastructure subnet must be a subnet in the selected subscription"
             )
         try:
-            launcher = build_launcher_runtime(launcher_config=raw_launcher)
+            launcher = build_launcher_runtime(
+                launcher_config=raw_launcher,
+                gcp_context=(
+                    GcpLauncherContext(
+                        project=gcp_project,
+                        require_guarded_free_tier=require_guarded_free_tier,
+                    )
+                    if gcp_project is not None
+                    else None
+                ),
+            )
             projections = {
                 pipeline_id: template.as_dict()
                 for pipeline_id, template in launcher.templates.build(
                     ResolvedTemplateRequest(
                         pipelines=expanded_pipelines,
                         image=container_image,
-                        profile_id="azure_snowflake",
+                        profile_id=profile_id,
                         cpu=runtime_cpu,
                         memory=runtime_memory,
                         deadline_seconds=runtime_timeout_seconds,
@@ -200,7 +219,7 @@ class AzureTerraformBootstrap:
             + dumps(
                 {
                     "dander-deployment": deployment_name,
-                    "dander-profile": "azure_snowflake",
+                    "dander-profile": profile_id,
                 },
                 sort_keys=True,
                 separators=(",", ":"),

@@ -48,9 +48,12 @@ remain Phase 8 work.
   are regression evidence, not a paid or controlled-memory scale qualification.
 - Azure Container Apps Jobs and Azure Key Vault have a typed projection plus locally validated,
   plan-first Terraform, digest-preserving ACR promotion tooling, provider-native lifecycle
-  operations, bounded Log Analytics reads, and deployment verification. Azure schedules are
+  operations, bounded Log Analytics reads, deployment verification, and a locally validated
+  Azure-to-Google managed-identity adapter with disposable federation Terraform and refresh-probe
+  tooling. Azure schedules are
   UTC-only and currently support one replica with 1 CPU/2 GiB or 2 CPU/4 GiB. Resource-provider
-  registration, credentialed Azure planning/apply, actual ACR image copy, identity federation,
+  registration, credentialed Azure planning/apply, actual ACR image copy, live identity exchange,
+  refresh and revocation,
   live lifecycle execution, and live Snowflake/PostgreSQL acceptance have not yet run, so Azure
   remains unsupported.
 - The reserved `oci` extra is empty because Oracle's current SDK requires a `cryptography` version

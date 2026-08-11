@@ -434,6 +434,48 @@ def test_azure_key_vault_profile_fails_closed_on_another_launcher(tmp_path: Path
         load_project_config(project_path)
 
 
+def test_version_two_resolves_azure_bigquery_federation_profile(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    deployment = platforms["deployments"].pop("gcp_cloud_run")
+    deployment["launcher"] = {
+        "provider": "azure_container_apps",
+        "region": "eastus",
+        "subscription_id": "11111111-1111-4111-8111-111111111111",
+        "resource_group_name": "dander-phase6",
+        "container_app_environment_name": "dander-phase6-env",
+        "acr_name": "danderphase6",
+        "key_vault_name": "dander-phase6-kv",
+        "managed_identity_name": "dander-phase6-runtime",
+        "managed_identity_client_id": "22222222-2222-4222-8222-222222222222",
+        "google_workload_identity_audience": (
+            "//iam.googleapis.com/projects/1009770943166/locations/global/"
+            "workloadIdentityPools/dander-phase6-azure/providers/container-apps"
+        ),
+        "google_application_id_uri": "api://33333333-3333-4333-8333-333333333333",
+    }
+    deployment["runtime"]["memory"] = "2Gi"
+    deployment["safety"]["require_guarded_free_tier"] = False
+    deployment["pipelines"]["example_records"]["time_zone"] = "UTC"
+    platforms["deployments"]["azure_bigquery"] = deployment
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    resolved = load_project_config(project_path, deployment="azure_bigquery")
+
+    assert resolved.warehouse_provider == "bigquery"
+    assert resolved.state_provider == "bigquery"
+    assert resolved.catalog_provider == "dataplex"
+    assert resolved.secret_provider == "gcp_secret_manager"
+    assert resolved.launcher_provider == "azure_container_apps"
+    assert resolved.resolved_launcher_config()["google_application_id_uri"] == (
+        "api://33333333-3333-4333-8333-333333333333"
+    )
+
+
 def test_config_migrate_check_is_read_only_then_write_is_atomic(tmp_path: Path) -> None:
     project_path = tmp_path / "dander.yaml"
     platforms_path = tmp_path / "dander.platforms.yaml"

@@ -150,6 +150,64 @@ def test_azure_apply_uses_only_the_saved_plan(
     assert all(call[:2] != ("terraform", "plan") for call in calls)
 
 
+def test_azure_bootstrap_projects_gcp_federation_without_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_run(
+        args: tuple[str, ...],
+        *,
+        cwd: Path,
+        check: bool,
+        env: dict[str, str],
+        umask: int,
+    ) -> subprocess.CompletedProcess[str]:
+        del check, env, umask
+        calls.append(args)
+        for argument in args:
+            if argument.startswith("-out="):
+                (cwd / argument.removeprefix("-out=")).touch()
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    launcher = {
+        **_launcher(),
+        "google_workload_identity_audience": (
+            "//iam.googleapis.com/projects/1009770943166/locations/global/"
+            "workloadIdentityPools/dander-phase6-azure/providers/container-apps"
+        ),
+        "google_application_id_uri": "api://33333333-3333-4333-8333-333333333333",
+    }
+    _execute(
+        AzureTerraformBootstrap(tmp_path),
+        deployment_name="azure_bigquery",
+        launcher_config=launcher,
+        profile_id="gcp",
+        gcp_project="unit-project",
+        pipelines={
+            "warehouse_fixture": {
+                **_pipelines()["warehouse_fixture"],
+                "secret_env": {"API_TOKEN": "source-api-token"},
+            }
+        },
+    )
+
+    terraform_plan = calls[1]
+    projection_argument = next(
+        item for item in terraform_plan if item.startswith("-var=execution_projections=")
+    )
+    projection = json.loads(projection_argument.removeprefix("-var=execution_projections="))[
+        "warehouse_fixture"
+    ]
+    assert projection["environment"]["DANDER_GCP_SERVICE_ACCOUNT"] == (
+        "dander-runtime@unit-project.iam.gserviceaccount.com"
+    )
+    assert projection["secret_bindings"]["API_TOKEN"]["provider"] == "gcp_secret_manager"
+    assert "private_key" not in projection_argument
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [

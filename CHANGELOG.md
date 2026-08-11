@@ -8,6 +8,11 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Add keyless Azure Container Apps-to-Google workload federation using the attached user-assigned
+  identity, an exact Entra application audience, in-memory Google token exchange, and a bounded
+  same-process credential-refresh probe. The profile remains experimental until live acceptance.
+- Add disposable, provider-mocked Phase 6 federation Terraform that pins Google trust and service
+  account impersonation to one Azure managed-identity object ID without client secrets or keys.
 - Preserve validated provider extensions from connector, graph, and model declarations through
   canonical warehouse targets without changing existing BigQuery schema inputs.
 - Carry additive warehouse load/transform telemetry through endpoint results into terminal run

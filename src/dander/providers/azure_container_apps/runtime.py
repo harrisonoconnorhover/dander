@@ -22,6 +22,7 @@ from dander.deployment.projection import (
 )
 from dander.deployment.runtime import LauncherRuntime, ResolvedTemplateRequest
 from dander.providers.azure_container_apps.config import AzureContainerAppsLauncherConfig
+from dander.providers.gcp_launcher import GcpLauncherContext, optional_gcp_launcher_context
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.runtime_contract import RUNTIME_CONTRACT
 
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 _IMAGE_PATH = re.compile(r"^[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$")
 _CRON_PART = re.compile(r"^[A-Za-z0-9*/,-]+$")
 _KEY_VAULT_SECRET = re.compile(r"^[A-Za-z0-9-]{1,127}$")
+_GCP_SERVICE_ACCOUNT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +40,7 @@ class AzureContainerAppsTemplateFactory:
     """Project one selected profile into Azure Container Apps Jobs."""
 
     config: AzureContainerAppsLauncherConfig
+    gcp: GcpLauncherContext | None = None
 
     def build(self, request: ResolvedTemplateRequest) -> dict[str, ExecutionTemplate]:
         """Build immutable Azure templates without contacting Azure."""
@@ -50,18 +53,41 @@ class AzureContainerAppsTemplateFactory:
         memory_mib = _memory_mib(request.memory)
         cpu_millis = request.cpu * 1_000
         _validate_azure_size(cpu_millis=cpu_millis, memory_mib=memory_mib)
+        if self.gcp is not None:
+            if self.gcp.require_guarded_free_tier:
+                raise ExecutionProjectionError(
+                    "Azure cannot run the GCP guarded-free-tier preflight"
+                )
+            if (
+                self.config.google_workload_identity_audience is None
+                or self.config.google_application_id_uri is None
+            ):
+                raise ExecutionProjectionError(
+                    "Azure BigQuery projection requires Google workload federation"
+                )
+        elif self.config.google_workload_identity_audience is not None:
+            raise ExecutionProjectionError(
+                "Azure Google workload federation requires a GCP platform profile"
+            )
         templates: dict[str, ExecutionTemplate] = {}
         for pipeline_id, pipeline in sorted(request.pipelines.items()):
             secret_env = pipeline["secret_env"]
             if not isinstance(secret_env, Mapping):
                 raise ExecutionProjectionError("pipeline secret bindings are invalid")
-            if any(
-                not isinstance(secret_id, str) or _KEY_VAULT_SECRET.fullmatch(secret_id) is None
-                for secret_id in secret_env.values()
-            ):
-                raise ExecutionProjectionError(
-                    "Azure Key Vault secret ids must use letters, numbers, or hyphens"
-                )
+            if self.gcp is None:
+                if any(
+                    not isinstance(secret_id, str) or _KEY_VAULT_SECRET.fullmatch(secret_id) is None
+                    for secret_id in secret_env.values()
+                ):
+                    raise ExecutionProjectionError(
+                        "Azure Key Vault secret ids must use letters, numbers, or hyphens"
+                    )
+            else:
+                role_name = str(pipeline["runtime_service_account_id"])
+                if _GCP_SERVICE_ACCOUNT_ID.fullmatch(role_name) is None:
+                    raise ExecutionProjectionError(
+                        "Azure BigQuery projection requires a valid GCP service-account id"
+                    )
             schedule = _azure_schedule(
                 expression=str(pipeline["schedule"]),
                 time_zone=str(pipeline["time_zone"]),
@@ -91,6 +117,33 @@ class AzureContainerAppsTemplateFactory:
                 "pipeline": pipeline_id,
                 "profile": request.profile_id,
             }
+            environment = {
+                "AZURE_CLIENT_ID": str(self.config.managed_identity_client_id),
+                "AZURE_RESOURCE_GROUP": self.config.resource_group_name,
+                "AZURE_SUBSCRIPTION_ID": str(self.config.subscription_id),
+                "DANDER_IMAGE_DIGEST": digest,
+                "DANDER_LAUNCHER": "azure_container_apps",
+                "DANDER_PRINCIPAL": self.config.managed_identity_resource_id,
+                "HOME": "/tmp",
+                "TMPDIR": "/tmp",
+            }
+            if self.gcp is not None:
+                assert self.config.google_application_id_uri is not None
+                assert self.config.google_workload_identity_audience is not None
+                environment.update(
+                    {
+                        "BQ_DATASET_METADATA": "dander_meta",
+                        "BQ_DATASET_RAW": "raw",
+                        "DANDER_AZURE_GCP_APPLICATION_ID_URI": (
+                            self.config.google_application_id_uri
+                        ),
+                        "DANDER_GCP_SERVICE_ACCOUNT": (
+                            f"{role_name}@{self.gcp.project}.iam.gserviceaccount.com"
+                        ),
+                        "DANDER_GCP_WIF_AUDIENCE": (self.config.google_workload_identity_audience),
+                        "GCP_PROJECT_ID": self.gcp.project,
+                    }
+                )
             template = ExecutionTemplate(
                 schema=EXECUTION_PROJECTION_SCHEMA,
                 contract=RUNTIME_CONTRACT,
@@ -100,27 +153,19 @@ class AzureContainerAppsTemplateFactory:
                 image=request.image,
                 command=command,
                 configuration_reference="/app/dander.yaml",
-                environment=tuple(
-                    sorted(
-                        {
-                            "AZURE_CLIENT_ID": str(self.config.managed_identity_client_id),
-                            "AZURE_RESOURCE_GROUP": self.config.resource_group_name,
-                            "AZURE_SUBSCRIPTION_ID": str(self.config.subscription_id),
-                            "DANDER_IMAGE_DIGEST": digest,
-                            "DANDER_LAUNCHER": "azure_container_apps",
-                            "DANDER_PRINCIPAL": self.config.managed_identity_resource_id,
-                            "HOME": "/tmp",
-                            "TMPDIR": "/tmp",
-                        }.items()
-                    )
-                ),
+                environment=tuple(sorted(environment.items())),
                 secret_bindings=tuple(
                     (
                         str(environment_name),
                         SecretReference(
-                            provider="azure_key_vault",
+                            provider=(
+                                "gcp_secret_manager" if self.gcp is not None else "azure_key_vault"
+                            ),
                             reference=(
-                                f"azure-kv://{self.config.key_vault_uri}/secrets/{secret_id}"
+                                f"gcp-sm://projects/{self.gcp.project}/secrets/"
+                                f"{secret_id}/versions/latest"
+                                if self.gcp is not None
+                                else f"azure-kv://{self.config.key_vault_uri}/secrets/{secret_id}"
                             ),
                         ),
                     )
@@ -171,13 +216,13 @@ def build_azure_container_apps_launcher(
     context: Mapping[str, object],
 ) -> LauncherRuntime:
     """Build Azure projection behavior only after explicit launcher selection."""
-    del context
     if not isinstance(config, AzureContainerAppsLauncherConfig):
         raise TypeError("Azure Container Apps factory received the wrong configuration")
+    gcp = optional_gcp_launcher_context(context)
     return LauncherRuntime(
         provider_id="azure_container_apps",
         region=config.region,
-        templates=AzureContainerAppsTemplateFactory(config),
+        templates=AzureContainerAppsTemplateFactory(config, gcp),
         capabilities=AZURE_CONTAINER_APPS_CAPABILITIES,
     )
 

@@ -76,7 +76,13 @@ class AzureDeploymentBinding:
     schedule_paused: bool
     runtime_timeout_seconds: int
     runtime_max_retries: int
+    secret_provider: str
+    secret_bindings: tuple[tuple[str, str], ...]
     secret_ids: tuple[str, ...]
+    google_project: str | None
+    google_workload_identity_audience: str | None
+    google_application_id_uri: str | None
+    google_service_account: str | None
     project_dir: Path
 
     @classmethod
@@ -130,6 +136,31 @@ class AzureDeploymentBinding:
         environment_name = required["container_app_environment_name"]
         identity_name = required["managed_identity_name"]
         resource_root = f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
+        google_project = None
+        google_service_account = None
+        google_audience = None
+        google_application_id_uri = None
+        if manifest.secret_provider == "gcp_secret_manager":
+            project_value = manifest.warehouse_config.get("project")
+            runtime_id = manifest.terraform_pipelines()[pipeline_id].get(
+                "runtime_service_account_id"
+            )
+            google_audience = launcher.get("google_workload_identity_audience")
+            google_application_id_uri = launcher.get("google_application_id_uri")
+            if not all(
+                isinstance(value, str) and value
+                for value in (
+                    project_value,
+                    runtime_id,
+                    google_audience,
+                    google_application_id_uri,
+                )
+            ):
+                raise AzureDeploymentVerificationError(
+                    "Azure BigQuery federation configuration is incomplete"
+                )
+            google_project = cast("str", project_value)
+            google_service_account = f"{runtime_id}@{google_project}.iam.gserviceaccount.com"
         return cls(
             subscription_id=subscription_id,
             location=required["region"],
@@ -152,7 +183,19 @@ class AzureDeploymentBinding:
             schedule_paused=pipeline.paused,
             runtime_timeout_seconds=manifest.platform.runtime.timeout_seconds,
             runtime_max_retries=manifest.platform.runtime.max_retries,
+            secret_provider=manifest.secret_provider,
+            secret_bindings=tuple(sorted(pipeline.secrets.items())),
             secret_ids=tuple(sorted(pipeline.secrets.values())),
+            google_project=google_project,
+            google_workload_identity_audience=(
+                cast("str", google_audience) if google_audience is not None else None
+            ),
+            google_application_id_uri=(
+                cast("str", google_application_id_uri)
+                if google_application_id_uri is not None
+                else None
+            ),
+            google_service_account=google_service_account,
             project_dir=resolved_config.parent,
         )
 
@@ -282,10 +325,14 @@ class AzureDeploymentVerifier:
             raise AzureDeploymentVerificationError(
                 "Container Apps Job returned invalid Key Vault references"
             )
-        expected_secret_urls = {
-            f"{self.binding.key_vault_uri}/secrets/{secret_id}"
-            for secret_id in self.binding.secret_ids
-        }
+        expected_secret_urls = (
+            {
+                f"{self.binding.key_vault_uri}/secrets/{secret_id}"
+                for secret_id in self.binding.secret_ids
+            }
+            if self.binding.secret_provider == "azure_key_vault"
+            else set()
+        )
         actual_secret_urls = {
             str(item.get("keyVaultUrl") or item.get("keyVaultSecretId"))
             for item in secrets
@@ -319,6 +366,27 @@ class AzureDeploymentVerifier:
             raise AzureDeploymentVerificationError(
                 "Container Apps Job environment does not match the runtime contract"
             )
+        if self.binding.secret_provider == "gcp_secret_manager":
+            expected_google_environment = {
+                "DANDER_AZURE_GCP_APPLICATION_ID_URI": self.binding.google_application_id_uri,
+                "DANDER_GCP_SERVICE_ACCOUNT": self.binding.google_service_account,
+                "DANDER_GCP_WIF_AUDIENCE": self.binding.google_workload_identity_audience,
+                "GCP_PROJECT_ID": self.binding.google_project,
+                **{
+                    environment_name: (
+                        f"projects/{self.binding.google_project}/secrets/"
+                        f"{secret_id}/versions/latest"
+                    )
+                    for environment_name, secret_id in self.binding.secret_bindings
+                },
+            }
+            if any(
+                environment_values.get(name) != value
+                for name, value in expected_google_environment.items()
+            ):
+                raise AzureDeploymentVerificationError(
+                    "Container Apps Job Google federation environment does not match the manifest"
+                )
         registry = self._json(
             "acr",
             "show",

@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Merged Azure plan-first infrastructure and verification through protected PR #189 with green main CI.
-- Added accepted-record-gated ACR registry copy with exact index and platform-manifest verification.
-- Added manifest-bound Azure run, status, bounded logs, cancel, and replay operations.
-- Added interactive confirmation for every image or job mutation and local mocked contract tests.
-- Kept provider registration, resource creation, image copy, execution, and spending untouched.
+- Kept protected main green through merged Azure contract, infrastructure, and lifecycle PRs #188-#190.
+- Added renewable Container Apps managed-identity to Google credentials without files or static keys.
+- Added the exact Azure BigQuery/Dataplex/GCP-secrets projection beside unchanged Snowflake/Key Vault behavior.
+- Added disposable Entra/Google federation Terraform pinned to one Azure identity object ID.
+- Added a bounded 600-second refresh probe with explicit confirmation and no automatic paid rerun.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_azure_image_promotion.py
-tests/providers/test_azure_container_apps_operations.py tests/cli/test_azure_operations_cli.py`.
+Run `uv run pytest -q tests/identity/test_azure_google.py tests/identity/test_refresh_probe.py
+tests/providers/test_azure_container_apps_runtime.py`.
 
 ## Checks
 
-- Focused pytest, Ruff, and mypy pass for Azure promotion and operations.
-- Protected main CI is green through PR #189; protected CI for this operations slice is pending.
-- No live Azure command from the new promotion or operations paths was executed.
+- Full repository pytest, Ruff, and mypy pass with the federation, projection, CLI, and refresh code.
+- Azure module and disposable federation Terraform mock tests pass; the new root validates cleanly.
+- Protected main CI is green through merged PR #190; this federation slice is not yet published.
+- No provider registration, resource creation, image copy, job execution, or paid query ran.
 
 ## Decisions
 
-- Promotion uses Buildx registry copy plus stable ACR image metadata; it never rebuilds or uses static ACR credentials.
-- Azure owns execution names; Dander's persisted inclusive cursor owns logical replay correctness.
-- Logs use a bounded Log Analytics query tied to one validated execution.
+- Container Apps uses `ManagedIdentityCredential`; Google Auth exchanges tokens in memory for 600-second credentials.
+- Google trust checks Entra tenant, application audience, and the exact managed-identity object ID.
+- Azure Snowflake/Key Vault and Azure BigQuery/GCP-secrets remain distinct named profiles.
 
 ## Remaining
 
-- Merge this operations slice through a focused protected PR.
-- Prepare Azure-to-Google federation and named Snowflake proof tooling locally.
+- Merge this federation slice through a focused protected PR.
+- Prepare the named Azure Snowflake/PostgreSQL/Key-Vault acceptance tooling locally.
 - Obtain candidate-publication approval before publishing or copying an image.
 - Obtain explicit Azure, GCP, and Snowflake mutation ceilings before live proof.
 - Run approved lifecycle, cleanup, rollback, and no-drift acceptance.
 
 ## Review First
 
-- `src/dander/bootstrap/azure_image.py`
-- `src/dander/providers/azure_container_apps/operations.py`
-- `src/dander/cli/azure_command.py`
+- `src/dander/identity/azure_google.py`
+- `src/dander/providers/azure_container_apps/runtime.py`
+- `acceptance/cloud-portability/phase6/azure-google-federation/`
