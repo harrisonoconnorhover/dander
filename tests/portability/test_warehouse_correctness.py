@@ -308,6 +308,31 @@ def test_bigquery_metadata_queries_allow_the_minimum_billable_partition() -> Non
     assert correctness._BIGQUERY_MAXIMUM_BYTES_BILLED == 10 * 1_024 * 1_024
 
 
+def test_redshift_readback_projects_binary_through_strict_base64() -> None:
+    projection = correctness._redshift_read_projection(correctness.COMMON_SCHEMA)
+    values: list[object] = [None] * len(correctness.COMMON_SCHEMA.fields)
+    payload_index = next(
+        index
+        for index, field in enumerate(correctness.COMMON_SCHEMA.fields)
+        if field.name == "payload"
+    )
+    values[payload_index] = "AP8="
+
+    rows = correctness._decode_redshift_read_rows((tuple(values),))
+
+    assert 'FROM_VARBYTE("payload", \'base64\') AS "payload"' in projection
+    assert projection.count("FROM_VARBYTE(") == 1
+    assert rows[0]["payload"] == b"\x00\xff"
+
+    values[payload_index] = "not-base64!"
+    with pytest.raises(correctness.WarehouseCorrectnessError, match="not valid base64"):
+        correctness._decode_redshift_read_rows((tuple(values),))
+
+    values[payload_index] = b"already-bytes"
+    with pytest.raises(correctness.WarehouseCorrectnessError, match="wrong type"):
+        correctness._decode_redshift_read_rows((tuple(values),))
+
+
 def test_comparison_requires_exact_four_provider_hash_and_candidate_equality() -> None:
     evidence = tuple(_evidence(provider) for provider in sorted(correctness._PROVIDERS))
 

@@ -1225,7 +1225,7 @@ def test_redshift_direct_load_parses_explicit_super_without_s3_or_query_attribut
         for _, statement, _ in backend.statements
         if statement.startswith("CREATE TEMP TABLE")
     )
-    assert direct_statement.endswith("VALUES (%s, %s, %s)")
+    assert direct_statement.endswith("VALUES (%s, TO_VARBYTE(%s, 'hex'), %s)")
     assert direct_parameters == (("one", b'{"ready":true}', 0),)
     assert 'JSON_PARSE(staged."payload") AS "payload"' in next(
         statement for _, statement, _ in backend.statements if statement.startswith("MERGE INTO")
@@ -1247,6 +1247,56 @@ def test_redshift_direct_load_parses_explicit_super_without_s3_or_query_attribut
     history_before = set(backend.history)
     assert writer.write(({"id": "one", "payload": {"ready": True}},), target) == 0
     assert backend.history == history_before
+    assert not tuple(tmp_path.iterdir())
+
+
+def test_redshift_direct_load_decodes_driver_hex_for_canonical_binary(tmp_path: Path) -> None:
+    runtime, backend, s3 = _direct_redshift_runtime(tmp_path)
+    backend.schema_rows = [
+        ("id", "character varying", 65_535, None, None, "NO"),
+        ("payload", "binary varying", None, None, None, "YES"),
+    ]
+    relation = RelationRef(catalog="analytics", namespace="raw", name="binary_records")
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="redshift_binary_records",
+            run_id="run-binary",
+            token=8,
+            authority_id="postgresql:test-state",
+        ),
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=1,
+        schema_evolution=SchemaEvolution.ADDITIVE,
+    )
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING"),
+            WriteField(name="payload", data_type="BYTES"),
+        ),
+        publication_fence=publication,
+    )
+
+    assert writer.write(({"id": "one", "payload": b"\x00\xff"},), target) == 1
+
+    direct_statement, direct_parameters = next(
+        (statement, parameters)
+        for _, statement, parameters in backend.statements
+        if statement.startswith('INSERT INTO "dander_stage_')
+        and "dander_stage_loads" not in statement
+    )
+    assert direct_statement.endswith("VALUES (%s, TO_VARBYTE(%s, 'hex'), %s)")
+    assert direct_parameters == (("one", b"\x00\xff", 0),)
+    assert s3.region_checks == 0
+    assert not s3.uploads and not s3.puts and not s3.deleted
+    assert all(
+        operation.transport is WriteTransport.DIRECT for operation in writer.drain_telemetry()
+    )
     assert not tuple(tmp_path.iterdir())
 
 

@@ -20,6 +20,10 @@ rows before and after replay.
 
 Physical transports are deliberately not compared. BigQuery uses its load-job SCD1 adapter,
 PostgreSQL uses COPY, and the bounded Snowflake and Redshift profiles force their direct paths.
+The current Redshift Python driver sends byte parameters as hex text, so the direct path explicitly
+decodes binary placeholders with `TO_VARBYTE`; for readback, the harness projects `VARBYTE` as
+base64 text and strictly decodes it back to bytes before canonical normalization because the same
+driver otherwise treats raw binary as UTF-8 text.
 Provider-specific types, JSON fallbacks, staged transports, other write modes, materializations,
 and fencing behavior retain their separate adapter/qualification tests.
 
@@ -48,7 +52,7 @@ The recorded ceiling is evidence, not a hard provider spending cap.
 Run each profile against the same full protected-main commit:
 
 ```bash
-uv run python scripts/benchmarks/warehouse_correctness.py run \
+uv run python -m scripts.benchmarks.warehouse_correctness run \
   --profile-json /secure/bigquery-profile.json \
   --candidate-commit COMMIT_SHA \
   --approved-cost-ceiling-usd 1.00 \
@@ -59,7 +63,7 @@ uv run python scripts/benchmarks/warehouse_correctness.py run \
 Repeat for PostgreSQL, Snowflake, and Redshift, then compare exactly four records:
 
 ```bash
-uv run python scripts/benchmarks/warehouse_correctness.py compare \
+uv run python -m scripts.benchmarks.warehouse_correctness compare \
   --evidence /secure/bigquery-evidence.json \
   --evidence /secure/postgresql-evidence.json \
   --evidence /secure/snowflake-evidence.json \

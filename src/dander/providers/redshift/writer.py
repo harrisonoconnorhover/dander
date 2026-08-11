@@ -557,7 +557,10 @@ def _direct_insert(
     rows: tuple[dict[str, object], ...],
 ) -> tuple[str, tuple[tuple[object, ...], ...]]:
     columns = ", ".join(_quote(field.name) for field in schema.fields)
-    placeholders = ", ".join("%s" for _field in schema.fields)
+    placeholders = ", ".join(
+        "TO_VARBYTE(%s, 'hex')" if field.data_type.kind is LogicalTypeKind.BINARY else "%s"
+        for field in schema.fields
+    )
     statement = f"INSERT INTO {_quote(temporary)} ({columns}) VALUES ({placeholders})"
     parameters = tuple(tuple(row[field.name] for field in schema.fields) for row in rows)
     return statement, parameters
