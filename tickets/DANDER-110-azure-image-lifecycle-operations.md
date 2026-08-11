@@ -23,6 +23,8 @@ logs, stop, and replay operations while keeping all live mutations behind explic
 - [x] Logs use a bounded Log Analytics query correlated to one validated execution name.
 - [x] Stop requires a running execution; replay requires a terminal execution and relies on the
   runtime's persisted inclusive cursor.
+- [x] A successful stop request reports `cancellation_requested`, not a synthetic terminal state;
+  the read-only status command remains authoritative because Azure may settle the execution later.
 - [x] Image copy, start, stop, and replay require interactive confirmation in the CLI.
 - [x] Focused tests use mocked command runners and make no Azure call.
 - [x] Protected CI passed and this ticket merged before any live ACR copy or job execution.
