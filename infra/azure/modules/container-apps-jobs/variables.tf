@@ -80,7 +80,7 @@ variable "execution_projections" {
 
 variable "infrastructure_subnet_id" {
   type        = string
-  description = "Optional existing delegated subnet for the managed environment."
+  description = "Optional existing delegated subnet for the managed environment; required for Key Vault references and configured with the Microsoft.KeyVault service endpoint."
   default     = null
   nullable    = true
 }

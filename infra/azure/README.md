@@ -70,13 +70,17 @@ dander init-azure-plan \
 ```
 
 This creates a saved plan only. An optional existing delegated subnet can be selected with
-`--infrastructure-subnet-id`; selecting it makes the environment internal. An existing reviewed
-Action Group can be selected with `--alert-action-group-id`. Paused pipelines remain manual jobs;
-active schedules use Azure's UTC-only five-field cron.
+`--infrastructure-subnet-id`; selecting it makes the environment internal. The subnet is required
+when the profile uses Azure Key Vault references and must already have the `Microsoft.KeyVault`
+service endpoint enabled. Container Apps is not a Key Vault trusted service, so the plan fails
+closed instead of relying on the vault's trusted-service bypass. An existing reviewed Action Group
+can be selected with `--alert-action-group-id`. Paused pipelines remain manual jobs; active
+schedules use Azure's UTC-only five-field cron.
 
 Replace the documentation-only Key Vault IP with the operator's current public IPv4 address. Key
-Vault defaults to deny, admits that exact operator IP for secret administration, and retains the
-Azure trusted-service path used by the managed-identity secret reference.
+Vault defaults to deny, admits that exact operator IP for secret administration, and admits the
+exact Container Apps subnet for managed-identity secret references. The plan does not create or
+modify that existing subnet.
 
 Run `dander init-azure-apply` only after reviewing the exact saved plan and receiving explicit
 approval for the live Azure changes. Then use `dander azure verify` for read-only checks of the
@@ -115,8 +119,8 @@ row limit.
 - The runtime identity receives only `AcrPull` and `Key Vault Secrets User` in this root.
 - The signed-in plan operator receives `Key Vault Secrets Officer` only on this deployment vault;
   no group, subscription-wide secret administrator, or second operator is inferred.
-- Key Vault network access defaults to deny and admits only Azure's trusted-service path plus the
-  reviewed operator IP.
+- Key Vault network access defaults to deny and admits only the exact Container Apps subnet plus
+  the reviewed operator IP; the broad Azure trusted-service bypass is disabled.
 - Secret values are an operator action outside Terraform and must never enter a plan or state.
 - The locally tested image-copy and job-operation commands are not live evidence. Actual image
   copy, job lifecycle execution, external identity federation, live profile proof, and support

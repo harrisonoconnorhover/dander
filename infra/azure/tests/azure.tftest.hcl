@@ -55,6 +55,7 @@ variables {
   key_vault_name                 = "dander-phase6-kv"
   key_vault_allowed_ip_rule      = "203.0.113.10"
   managed_identity_name          = "dander-phase6-runtime"
+  infrastructure_subnet_id       = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.Network/virtualNetworks/dander-phase6/subnets/container-apps"
   execution_projections = {
     warehouse_fixture = {
       launcher          = "azure_container_apps"

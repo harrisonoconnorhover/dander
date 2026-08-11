@@ -1210,3 +1210,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** This is local plan construction until a separately approved apply. Secret values
   remain operator inputs outside Terraform, and live rotation must prove a later job execution sees
   a versionless secret update before the Azure profile can be promoted.
+
+## 2026-08-11 — Azure Key Vault references require one explicit subnet path
+
+- **Finding:** Microsoft does not list Container Apps among the services that can bypass a Key
+  Vault firewall. Managed identity supplies authentication and authorization, but not network
+  admission, so the earlier trusted-service assumption would have blocked the named profile.
+- **Decision:** Any Azure execution projection containing a Key Vault reference requires the exact
+  Container Apps infrastructure subnet. The vault admits that subnet and the operator `/32`, keeps
+  default deny, and disables the broad trusted-service bypass.
+- **Boundary:** Dander does not create or modify the existing delegated subnet; it must already
+  expose the `Microsoft.KeyVault` service endpoint. The GCP-secret federation profile remains able
+  to use Azure's managed network because its jobs do not read the deployment vault.

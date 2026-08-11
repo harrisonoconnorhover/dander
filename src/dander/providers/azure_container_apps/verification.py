@@ -412,10 +412,22 @@ class AzureDeploymentVerifier:
         )
         vault_properties = _mapping(vault.get("properties"))
         vault_network_acls = _mapping(vault_properties.get("networkAcls"))
+        vault_subnet_rules = vault_network_acls.get("virtualNetworkRules")
         if (
             str(vault_properties.get("vaultUri", "")).rstrip("/") != self.binding.key_vault_uri
             or vault_properties.get("enableRbacAuthorization") is not True
             or vault_network_acls.get("defaultAction") != "Deny"
+            or vault_network_acls.get("bypass") != "None"
+            or (
+                self.binding.secret_provider == "azure_key_vault"
+                and (
+                    not isinstance(vault_subnet_rules, list)
+                    or not any(
+                        isinstance(rule, dict) and isinstance(rule.get("id"), str)
+                        for rule in vault_subnet_rules
+                    )
+                )
+            )
         ):
             raise AzureDeploymentVerificationError(
                 "Key Vault does not meet the RBAC and network secret-reference contract"

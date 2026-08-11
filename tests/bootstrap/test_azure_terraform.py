@@ -15,6 +15,10 @@ if TYPE_CHECKING:
 
 _SUBSCRIPTION_ID = "11111111-1111-4111-8111-111111111111"
 _CLIENT_ID = "22222222-2222-4222-8222-222222222222"
+_SUBNET_ID = (
+    f"/subscriptions/{_SUBSCRIPTION_ID}/resourceGroups/dander-phase6/"
+    "providers/Microsoft.Network/virtualNetworks/dander-phase6/subnets/container-apps"
+)
 
 
 def _launcher() -> dict[str, object]:
@@ -71,6 +75,7 @@ def _execute(bootstrap: AzureTerraformBootstrap, **overrides: object) -> Path:
             f"/subscriptions/{_SUBSCRIPTION_ID}/resourceGroups/dander-phase6/"
             "providers/microsoft.insights/actionGroups/dander-phase6"
         ),
+        "infrastructure_subnet_id": _SUBNET_ID,
         "name": "dander",
     }
     arguments.update(overrides)
@@ -121,6 +126,7 @@ def test_azure_bootstrap_builds_manifest_projection_without_apply(
         "reference": ("azure-kv://https://dander-phase6-kv.vault.azure.net/secrets/postgres-dsn"),
     }
     assert "postgresql://" not in projection_argument
+    assert f"-var=infrastructure_subnet_id={_SUBNET_ID}" in terraform_plan
 
 
 def test_azure_apply_uses_only_the_saved_plan(
@@ -192,6 +198,7 @@ def test_azure_bootstrap_projects_gcp_federation_without_credentials(
                 "secret_env": {"API_TOKEN": "source-api-token"},
             }
         },
+        infrastructure_subnet_id=None,
     )
 
     terraform_plan = calls[1]
@@ -217,6 +224,7 @@ def test_azure_bootstrap_projects_gcp_federation_without_credentials(
         ({"pipelines": {}}, "at least one pipeline"),
         ({"alert_target": "not-an-id"}, "alert target"),
         ({"key_vault_allowed_ip_rule": "0.0.0.0/0"}, "Key Vault allowed IP"),
+        ({"infrastructure_subnet_id": None}, "infrastructure subnet"),
     ],
 )
 def test_azure_bootstrap_rejects_unsafe_inputs_before_terraform(

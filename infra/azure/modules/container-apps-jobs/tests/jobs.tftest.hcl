@@ -28,6 +28,7 @@ variables {
   managed_identity_id             = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.ManagedIdentity/userAssignedIdentities/dander-phase6-runtime"
   managed_identity_client_id      = "33333333-3333-4333-8333-333333333333"
   managed_identity_principal_id   = "44444444-4444-4444-8444-444444444444"
+  infrastructure_subnet_id        = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.Network/virtualNetworks/dander-phase6/subnets/container-apps"
   execution_projections = {
     bigquery_fixture = {
       launcher          = "azure_container_apps"
@@ -107,9 +108,11 @@ run "projects_exact_job_contract" {
   assert {
     condition = (
       azurerm_key_vault.runtime.network_acls[0].default_action == "Deny" &&
-      azurerm_key_vault.runtime.network_acls[0].bypass == "AzureServices"
+      azurerm_key_vault.runtime.network_acls[0].bypass == "None" &&
+      length(azurerm_key_vault.runtime.network_acls[0].virtual_network_subnet_ids) == 1 &&
+      contains(azurerm_key_vault.runtime.network_acls[0].virtual_network_subnet_ids, "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/dander-phase6/providers/Microsoft.Network/virtualNetworks/dander-phase6/subnets/container-apps")
     )
-    error_message = "Key Vault must default-deny network access while allowing the Azure service path."
+    error_message = "Key Vault must default-deny network access and admit the exact Container Apps subnet."
   }
 
   assert {
@@ -121,4 +124,14 @@ run "projects_exact_job_contract" {
     )
     error_message = "The signed-in operator may rotate secrets while the runtime remains read-only."
   }
+}
+
+run "rejects_key_vault_profile_without_subnet" {
+  command = plan
+
+  variables {
+    infrastructure_subnet_id = null
+  }
+
+  expect_failures = [check.key_vault_references_have_network_path]
 }

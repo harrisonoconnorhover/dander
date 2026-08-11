@@ -1,7 +1,7 @@
 ---
 id: DANDER-112
 title: Bind Azure proof-secret rotation to one operator
-status: in_progress
+status: done
 phase: 6
 ---
 
@@ -20,7 +20,7 @@ Terraform.
   vault.
 - [x] The runtime identity remains limited to `Key Vault Secrets User` for the same vault.
 - [x] Provider-mocked tests distinguish the operator and runtime principals and assert both roles.
-- [ ] Protected CI passes and the focused correction merges before any Azure apply.
+- [x] Protected CI passed and the focused correction merged as PR #192 before any Azure apply.
 
 ## Boundary
 

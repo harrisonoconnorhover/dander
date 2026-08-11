@@ -74,7 +74,7 @@ variable "execution_projections" {
 }
 
 variable "infrastructure_subnet_id" {
-  description = "Optional existing delegated subnet for the Container Apps environment."
+  description = "Optional existing delegated subnet for the Container Apps environment; required for Key Vault references and configured with the Microsoft.KeyVault service endpoint."
   type        = string
   default     = null
   nullable    = true
