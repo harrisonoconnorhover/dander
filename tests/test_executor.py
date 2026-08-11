@@ -239,6 +239,18 @@ def test_executor_records_one_truthful_complete_lifecycle(tmp_path: Path) -> Non
     assert assets[0]["metrics"][0]["calculation"] == "COUNT(DISTINCT `id`)"
 
 
+def test_executor_preserves_launcher_supplied_run_id(tmp_path: Path) -> None:
+    _models(tmp_path)
+    history = _History()
+
+    result = _executor(tmp_path, history=history, metadata=_Metadata()).execute(
+        run_id="launcher-run-42"
+    )
+
+    assert result.run_id == "launcher-run-42"
+    assert history.started == ("launcher-run-42", "example", "example_pipeline")
+
+
 def test_executor_marks_transform_failure_without_claiming_ingestion_only_success(
     tmp_path: Path,
 ) -> None:

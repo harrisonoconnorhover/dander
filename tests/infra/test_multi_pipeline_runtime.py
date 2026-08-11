@@ -49,6 +49,10 @@ def test_scheduled_module_preserves_greenhouse_and_creates_each_pipeline() -> No
     assert "memory = var.runtime_memory" in normalized
     assert 'var.require_guarded_free_tier ? ["--guarded-free-tier"] : []' in normalized
     assert '["--batch-rows", tostring(var.runtime_batch_rows)]' in normalized
+    assert '"runtime", each.key' in normalized
+    assert '"--config", "/app/dander.yaml"' in normalized
+    assert '"--connectors-dir", "/app/connectors"' in normalized
+    assert '"--models-dir", "/app/models"' in normalized
     assert 'timeout = "300s"' not in normalized
     assert "max_retries = 1" not in normalized
     assert 'cpu = "1"' not in normalized

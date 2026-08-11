@@ -120,19 +120,25 @@ class _ControlStores:
     metadata: MetadataStore | None
 
 
-def execute_run(options: RunOptions, *, console: Console) -> None:
+def execute_run(
+    options: RunOptions,
+    *,
+    console: Console,
+    run_id: str | None = None,
+    render: bool = True,
+) -> PipelineExecutionResult | None:
     """Resolve, execute, and render one ``dander run`` request."""
     resolved = _resolve_run(options)
     if options.dry_run:
         _render_dry_run(options, resolved, console=console)
-        return
+        return None
     if not resolved.project:
         raise ClickException("GCP project is required via --project or GCP_PROJECT_ID")
 
     _verify_safety(options, resolved)
     executor = _build_executor(options, resolved)
     try:
-        result = executor.execute()
+        result = executor.execute() if run_id is None else executor.execute(run_id=run_id)
     except (
         CatalogPublishError,
         SemanticRegistryError,
@@ -141,7 +147,9 @@ def execute_run(options: RunOptions, *, console: Console) -> None:
         GraphRuntimeError,
     ) as error:
         raise ClickException(str(error)) from error
-    _render_result(result, resolved.graph_plan, console=console)
+    if render:
+        _render_result(result, resolved.graph_plan, console=console)
+    return result
 
 
 def _resolve_run(options: RunOptions) -> _ResolvedRun:

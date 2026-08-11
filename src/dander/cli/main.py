@@ -90,6 +90,7 @@ from dander.project import (
     load_project_config,
     scaffold_project,
 )
+from dander.runtime_contract import RuntimeContractError, RuntimeOutcome, resolve_runtime_run_id
 from dander.sandbox import GuardedFreeTierVerifier, SandboxSafetyError
 from dander.security import (
     DefaultSecretStore,
@@ -1210,6 +1211,67 @@ def run(
         ),
         console=console,
     )
+
+
+@app.command()
+def runtime(
+    pipeline: str = typer.Argument(..., help="Pipeline name from the bundled dander.yaml."),
+    project: str | None = typer.Option(None, "--project", help="Override GCP_PROJECT_ID."),
+    dataset: str | None = typer.Option(None, "--dataset", help="Override BQ_DATASET_RAW."),
+    project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    connectors_dir: Path = typer.Option(  # noqa: B008
+        _DEFAULT_CONNECTORS_DIR, "--connectors-dir"
+    ),
+    models_dir: Path = typer.Option(_DEFAULT_MODELS_DIR, "--models-dir"),  # noqa: B008
+    guarded_free_tier: bool = typer.Option(False, "--guarded-free-tier"),
+    batch_rows: int = typer.Option(10_000, "--batch-rows", min=1, max=100_000),
+    budget_name: str = typer.Option("dander-sbx-cap", "--budget-name", hidden=True),
+    run_id: str | None = typer.Option(
+        None,
+        "--run-id",
+        envvar="DANDER_RUN_ID",
+        help="Optional launcher correlation id; generated when omitted.",
+    ),
+) -> None:
+    """Execute one OCI runtime-contract request and emit a terminal JSON record."""
+    try:
+        resolved_run_id = resolve_runtime_run_id(run_id)
+    except RuntimeContractError as error:
+        raise typer.BadParameter(str(error), param_hint="--run-id") from error
+
+    options = RunOptions(
+        pipeline_or_source=pipeline,
+        project=project,
+        dataset=dataset,
+        connectors_dir=connectors_dir,
+        project_config=project_config,
+        dry_run=False,
+        sandbox=False,
+        guarded_free_tier=guarded_free_tier,
+        batch_rows=batch_rows,
+        budget_name=budget_name,
+        state_path=Path(".dander/state.db"),
+        build_models=False,
+        models_dir=models_dir,
+        selected_models=None,
+        catalog_output=None,
+        publish_dataplex=False,
+        dataplex_location="us",
+    )
+    try:
+        result = execute_run(
+            options,
+            console=console,
+            run_id=resolved_run_id,
+            render=False,
+        )
+    except Exception:
+        typer.echo(
+            RuntimeOutcome.failed(run_id=resolved_run_id, pipeline_id=pipeline).to_json()
+        )
+        raise typer.Exit(code=1) from None
+    assert result is not None
+    typer.echo(RuntimeOutcome.completed(result).to_json())
 
 
 def _run_post_ingestion(

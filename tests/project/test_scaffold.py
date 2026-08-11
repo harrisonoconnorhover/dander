@@ -30,7 +30,10 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     assert dockerfile.index("COPY --chown=65532:65532 dander.yaml") < dockerfile.index(
         "dander plugins install"
     )
-    assert 'CMD ["run", "greenhouse_jobs"]' in (project / "Dockerfile").read_text(encoding="utf-8")
+    assert 'CMD ["runtime", "greenhouse_jobs"]' in (project / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert 'org.opencontainers.image.title="Dander Runtime"' in dockerfile
     assert "--guarded-free-tier" not in (project / "Dockerfile").read_text(encoding="utf-8")
     for relative in (
         ".dockerignore",

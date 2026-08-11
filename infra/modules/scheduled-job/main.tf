@@ -194,17 +194,14 @@ resource "google_cloud_run_v2_job" "ingestion" {
       containers {
         image = var.container_image
         args = concat(
-          ["run", each.key, "--config", "/app/dander.yaml"],
+          [
+            "runtime", each.key,
+            "--config", "/app/dander.yaml",
+            "--connectors-dir", "/app/connectors",
+            "--models-dir", "/app/models",
+          ],
           var.require_guarded_free_tier ? ["--guarded-free-tier"] : [],
           ["--batch-rows", tostring(var.runtime_batch_rows)],
-          each.value.build_models ? concat(
-            ["--build-models", "--models-dir", "/app/models"],
-            flatten([
-              for model in each.value.models : ["--select-model", model]
-            ]),
-            ["--catalog-output", "/tmp/dander-catalog.json"],
-          ) : [],
-          each.value.publish_dataplex ? ["--publish-dataplex"] : [],
         )
 
         resources {
