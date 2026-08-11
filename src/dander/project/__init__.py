@@ -10,6 +10,7 @@ from dander.project.config import (
     PluginSpec,
     ProjectConfigError,
     load_project_config,
+    load_project_plugins,
 )
 from dander.project.portable_config import (
     DanderLogicalProjectV2,
@@ -40,6 +41,7 @@ __all__ = [
     "ProjectMigration",
     "ProjectConfigError",
     "load_project_config",
+    "load_project_plugins",
     "prepare_version_one_migration",
     "ProjectScaffoldError",
     "scaffold_project",

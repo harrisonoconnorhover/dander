@@ -94,6 +94,7 @@ from dander.project import (
     ProjectConfigError,
     ProjectScaffoldError,
     load_project_config,
+    load_project_plugins,
     scaffold_project,
 )
 from dander.sandbox import GuardedFreeTierVerifier, SandboxSafetyError
@@ -219,11 +220,11 @@ def install_plugins(
 ) -> None:
     """Install the manifest's exact connector-plugin package pins."""
     try:
-        manifest = load_project_config(project_config)
+        plugins = load_project_plugins(project_config)
     except ProjectConfigError as error:
         raise ClickException(str(error)) from error
     requirements = [
-        f"{plugin.distribution}=={plugin.version}" for _, plugin in sorted(manifest.plugins.items())
+        f"{plugin.distribution}=={plugin.version}" for _, plugin in sorted(plugins.items())
     ]
     if not requirements:
         console.print("No connector plugins are declared in dander.yaml.")
@@ -249,7 +250,7 @@ def install_plugins(
     if completed.returncode != 0:
         raise ClickException("Connector plugin installation failed")
     try:
-        load_connector_plugins(manifest.plugins)
+        load_connector_plugins(plugins)
     except ConnectorPluginError as error:
         raise ClickException(f"Installed connector plugins are incompatible: {error}") from error
     console.print(f"[green]Installed {plugin_count} connector plugin(s).[/green]")

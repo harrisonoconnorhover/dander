@@ -89,6 +89,43 @@ def test_plugins_install_is_a_noop_without_declarations(
     assert "No connector plugins are declared" in result.output
 
 
+def test_plugins_install_does_not_require_a_v2_deployment_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = tmp_path / "dander.yaml"
+    manifest.write_text(
+        """
+version: 2
+plugins:
+  salesforce:
+    distribution: dander-connector-salesforce
+    version: 0.1.0
+pipelines:
+  example:
+    source: example
+    models: [example]
+""".strip(),
+        encoding="utf-8",
+    )
+    captured: list[tuple[str, ...]] = []
+
+    def run(command: tuple[str, ...], *, check: bool) -> subprocess.CompletedProcess[str]:
+        assert check is False
+        captured.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(cli_module.shutil, "which", lambda _: None)
+    monkeypatch.setattr(cli_module.subprocess, "run", run)
+    monkeypatch.setattr(cli_module, "load_connector_plugins", lambda _: None)
+
+    result = CliRunner().invoke(app, ["plugins", "install", "--config", str(manifest)])
+
+    assert result.exit_code == 0, result.output
+    assert captured[0][2] == "pip"
+    assert "dander-connector-salesforce==0.1.0" in captured[0]
+
+
 def test_plugins_scaffold_creates_named_project(tmp_path: Path) -> None:
     destination = tmp_path / "acme"
 
