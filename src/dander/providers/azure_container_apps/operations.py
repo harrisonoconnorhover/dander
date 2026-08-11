@@ -267,7 +267,7 @@ class AzureContainerAppsOperations:
         return tuple(events)
 
     def cancel(self, execution_name: str) -> AzureContainerAppsExecution:
-        """Stop one running Container Apps Job execution."""
+        """Request a stop for one running Container Apps Job execution."""
         execution = self.describe(execution_name)
         if execution.state != "running":
             raise AzureContainerAppsOperationError("Only a running execution can be cancelled")
@@ -284,9 +284,8 @@ class AzureContainerAppsOperations:
         )
         return AzureContainerAppsExecution(
             name=execution.name,
-            state="cancelled",
+            state="cancellation_requested",
             started_at=execution.started_at,
-            failure_code="operator_cancelled",
         )
 
     def _execute(self, *args: str) -> None:

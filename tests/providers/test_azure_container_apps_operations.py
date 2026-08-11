@@ -301,8 +301,9 @@ def test_cancel_requires_a_running_owned_execution() -> None:
 
     execution = AzureContainerAppsOperations(_binding(), runner=runner).cancel(_EXECUTION)
 
-    assert execution.state == "cancelled"
-    assert execution.failure_code == "operator_cancelled"
+    assert execution.state == "cancellation_requested"
+    assert execution.failure_code is None
+    assert execution.terminal is False
 
 
 def test_replay_requires_terminal_status_then_starts_a_fresh_provider_execution() -> None:

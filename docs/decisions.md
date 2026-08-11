@@ -1180,7 +1180,9 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   written.
 - **Lifecycle:** Start, status, stop, replay, and bounded Log Analytics use Azure Container Apps Job
   execution identities. Foreign execution names, unknown statuses, stopping a terminal run, and
-  replaying a non-terminal run fail before mutation.
+  replaying a non-terminal run fail before mutation. A successful stop request reports
+  `cancellation_requested`; only a later read-only provider status may report terminal
+  cancellation because Azure can acknowledge a stop before the execution settles.
 - **Boundary:** Azure assigns execution names, while replay correctness remains owned by Dander's
   persisted inclusive cursor. Local mocked operations are construction evidence only; live image
   copy, execution, interruption, cleanup, and no-drift still require explicit approval.
