@@ -240,12 +240,12 @@ class DanderProject(BaseModel):
         default_factory=_default_catalog_config,
         exclude=True,
     )
-    secret_provider: Literal["gcp_secret_manager", "environment"] = Field(
+    secret_provider: Literal["gcp_secret_manager", "environment", "azure_key_vault"] = Field(
         default="gcp_secret_manager",
         exclude=True,
     )
-    launcher_provider: Literal["cloud_run", "fargate", "kubernetes"] = Field(
-        default="cloud_run", exclude=True
+    launcher_provider: Literal["cloud_run", "fargate", "kubernetes", "azure_container_apps"] = (
+        Field(default="cloud_run", exclude=True)
     )
     launcher_config: dict[str, object] = Field(default_factory=dict, exclude=True)
     deployed_pipeline_ids: tuple[str, ...] | None = Field(default=None, exclude=True)

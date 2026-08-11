@@ -2,40 +2,38 @@
 
 ## Finished
 
-- Merged the BigQuery and Redshift binary correctness fixes through protected PRs #184 and #185.
-- Ran BigQuery, PostgreSQL, Snowflake, and Redshift from protected-main commit `c0f3e2c`.
-- Produced one equal normalized three-row hash after exact replay on all four warehouses.
-- Verified provider-owned cleanup and removed all disposable PostgreSQL, Snowflake, and AWS assets.
-- Recorded sanitized evidence and reconciled the Phase 5 roadmap, tickets, matrix, and limitations.
+- Re-verified the Phase 5 exit gate on protected `main` and began Phase 6 locally.
+- Added typed Azure Container Apps Jobs and Azure Key Vault provider contracts.
+- Added deterministic ACR digest, managed identity, UTC schedule, resource, and secret projections.
+- Kept all Azure provider writes behind a separate explicit cost/approval gate.
 
 ## Try It
 
-Run `uv run python -m scripts.benchmarks.warehouse_correctness compare`, passing each committed
-provider record with its own `--evidence` argument and a temporary `--output` path.
+Run `uv run --extra dev pytest -q tests/providers/test_azure_container_apps_runtime.py
+tests/providers/test_azure_key_vault_runtime.py tests/project/test_portable_config.py`.
 
 ## Checks
 
-- Four live provider records pass; the comparison reports equal rows and verified cleanup.
-- Retained GCP stage-zero and current-equivalent platform plans report exact `No changes.`
-- PRs #184, #185, and #186 merged through protection; final protected-main CI passed all five jobs.
-- Evidence JSON shape and forbidden-field checks pass.
+- Focused Azure, launcher, secret-provider, dependency, and portable-config tests pass.
+- Ruff passes on the Phase 6 contract scope.
+- Azure subscription preflight is enabled; required resource providers remain unregistered.
 
 ## Decisions
 
-- The live proof covers only the common canonical scalar intersection.
-- Snowflake, Redshift, and PostgreSQL/Kubernetes remain experimental despite Phase 5 correctness.
-- Scale, throughput, crossover, cost, soak, pairwise profiles, and release qualification stay in
-  Phase 8 or provider-promotion gates.
+- Azure cron is UTC-only and fails closed for other time zones.
+- The first canonical Azure shape is Snowflake + PostgreSQL state + no catalog + Key Vault.
+- Live proof must use a newly approved candidate built after the Azure implementation merges.
 
 ## Remaining
 
-- Phase 6 may begin under the revised Phase 5 exit gate, but this task deliberately starts neither
-  Phase 6 nor Azure implementation.
-- Complete provider-promotion conformance and Phase 8 qualification before making broader support,
-  scale, cost, soak, or release claims.
+- Merge this contract through a focused protected PR.
+- Add plan-first Azure state/ACR/Container Apps Terraform plus deployment verification.
+- Add ACR copy and launcher operations without performing provider writes.
+- Obtain publication and provider-cost approvals before candidate or live proof mutations.
+- Run approved identity, lifecycle, cleanup, rollback, and no-drift acceptance.
 
 ## Review First
 
-- `docs/evidence/warehouse-correctness/2026-08-11/comparison.json`
-- `tickets/DANDER-107-four-warehouse-correctness.md`
-- `docs/warehouse-correctness-conformance.md`
+- `src/dander/providers/azure_container_apps/runtime.py`
+- `src/dander/security/azure_key_vault.py`
+- `tests/providers/test_azure_container_apps_runtime.py`
