@@ -187,6 +187,12 @@ class AzureTerraformBootstrap:
             }
         except (ExecutionProjectionError, ProviderFactoryError) as error:
             raise AzureTerraformBootstrapError(str(error)) from error
+        requires_key_vault_network = _has_azure_key_vault_bindings(projections)
+        if requires_key_vault_network and infrastructure_subnet_id is None:
+            raise AzureTerraformBootstrapError(
+                "Azure Key Vault references require an infrastructure subnet with the "
+                "Microsoft.KeyVault service endpoint enabled"
+            )
 
         self._run(
             "terraform",
@@ -339,6 +345,21 @@ class AzureTerraformBootstrap:
             raise AzureTerraformBootstrapError(
                 f"{command} failed with exit code {error.returncode}"
             ) from error
+
+
+def _has_azure_key_vault_bindings(
+    projections: Mapping[str, Mapping[str, object]],
+) -> bool:
+    for projection in projections.values():
+        bindings = projection.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+        if any(
+            isinstance(binding, dict) and binding.get("provider") == "azure_key_vault"
+            for binding in bindings.values()
+        ):
+            return True
+    return False
 
 
 __all__ = ["AzureTerraformBootstrap", "AzureTerraformBootstrapError"]

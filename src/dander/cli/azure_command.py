@@ -415,7 +415,14 @@ def init_azure_plan(
     platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
     key_vault_allowed_ip_rule: str = typer.Option(..., "--key-vault-allowed-ip"),
     alert_target: str | None = typer.Option(None, "--alert-action-group-id"),
-    infrastructure_subnet_id: str | None = typer.Option(None, "--infrastructure-subnet-id"),
+    infrastructure_subnet_id: str | None = typer.Option(
+        None,
+        "--infrastructure-subnet-id",
+        help=(
+            "Existing delegated Container Apps subnet; required for Azure Key Vault references "
+            "and expected to have the Microsoft.KeyVault service endpoint."
+        ),
+    ),
     name: str = typer.Option("dander", "--name"),
     infra_dir: Path = typer.Option(_DEFAULT_AZURE_INFRA_DIR, hidden=True),  # noqa: B008
 ) -> None:

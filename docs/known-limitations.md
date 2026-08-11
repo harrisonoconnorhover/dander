@@ -50,7 +50,10 @@ remain Phase 8 work.
   plan-first Terraform, digest-preserving ACR promotion tooling, provider-native lifecycle
   operations, bounded Log Analytics reads, deployment verification, and a locally validated
   Azure-to-Google managed-identity adapter with disposable federation Terraform and refresh-probe
-  tooling. Azure schedules are
+  tooling. The named Key Vault profile requires an existing delegated Container Apps subnet with
+  the `Microsoft.KeyVault` service endpoint; Dander admits that exact subnet and the reviewed
+  operator IP while disabling the inapplicable Azure trusted-service bypass. Dander does not
+  create or modify the subnet. Azure schedules are
   UTC-only and currently support one replica with 1 CPU/2 GiB or 2 CPU/4 GiB. Resource-provider
   registration, credentialed Azure planning/apply, actual ACR image copy, live identity exchange,
   refresh and revocation,

@@ -65,6 +65,20 @@ check "secret_references_match_selected_key_vault" {
   }
 }
 
+check "key_vault_references_have_network_path" {
+  assert {
+    condition = (
+      length(flatten([
+        for projection in values(var.execution_projections) : [
+          for binding in values(projection.secret_bindings) : binding
+          if binding.provider == "azure_key_vault"
+        ]
+      ])) == 0 || var.infrastructure_subnet_id != null
+    )
+    error_message = "Azure Key Vault secret references require a Container Apps infrastructure subnet with the Microsoft.KeyVault service endpoint enabled."
+  }
+}
+
 resource "azurerm_log_analytics_workspace" "runtime" {
   name                = "${var.name}-logs"
   location            = var.location
@@ -98,9 +112,10 @@ resource "azurerm_key_vault" "runtime" {
   tags                          = local.tags
 
   network_acls {
-    bypass         = "AzureServices"
-    default_action = "Deny"
-    ip_rules       = [var.key_vault_allowed_ip_rule]
+    bypass                     = "None"
+    default_action             = "Deny"
+    ip_rules                   = [var.key_vault_allowed_ip_rule]
+    virtual_network_subnet_ids = var.infrastructure_subnet_id == null ? [] : [var.infrastructure_subnet_id]
   }
 }
 

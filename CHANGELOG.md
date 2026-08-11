@@ -21,6 +21,12 @@ capabilities enter through the next minor release.
 - Carry additive warehouse load/transform telemetry through endpoint results into terminal run
   telemetry, including optional resource, queue, execution, spill, and capacity-unit measures.
 
+### Fixed
+
+- Route Azure Container Apps Key Vault references through one exact infrastructure subnet and
+  disable the inapplicable trusted-service bypass; Key Vault profiles now fail planning when no
+  subnet path is supplied.
+
 ## 0.8.0rc8 — 2026-08-10 (beta)
 
 ### Fixed

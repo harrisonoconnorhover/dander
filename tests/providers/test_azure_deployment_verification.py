@@ -174,7 +174,18 @@ def _payloads() -> dict[tuple[str, ...], dict[str, object]]:
             "properties": {
                 "vaultUri": "https://dander-phase6-kv.vault.azure.net/",
                 "enableRbacAuthorization": True,
-                "networkAcls": {"defaultAction": "Deny"},
+                "networkAcls": {
+                    "bypass": "None",
+                    "defaultAction": "Deny",
+                    "virtualNetworkRules": [
+                        {
+                            "id": (
+                                f"{_ROOT}/providers/Microsoft.Network/virtualNetworks/"
+                                "dander-phase6/subnets/container-apps"
+                            )
+                        }
+                    ],
+                },
             },
         },
     }
@@ -270,6 +281,7 @@ def test_verifier_checks_gcp_federation_and_runtime_secret_references() -> None:
         ("trigger", "trigger"),
         ("registry_admin", "artifact contract"),
         ("vault_rbac", "RBAC and network"),
+        ("vault_network", "RBAC and network"),
     ],
 )
 def test_verifier_fails_closed_on_drift(mutation: str, message: str) -> None:
@@ -303,7 +315,7 @@ def test_verifier_fails_closed_on_drift(mutation: str, message: str) -> None:
             "dander-phase6",
         )
         payloads[acr_key]["adminUserEnabled"] = True
-    else:
+    elif mutation == "vault_rbac":
         vault_key = (
             "keyvault",
             "show",
@@ -313,6 +325,16 @@ def test_verifier_fails_closed_on_drift(mutation: str, message: str) -> None:
             "dander-phase6",
         )
         payloads[vault_key]["properties"]["enableRbacAuthorization"] = False  # type: ignore[index]
+    else:
+        vault_key = (
+            "keyvault",
+            "show",
+            "--name",
+            "dander-phase6-kv",
+            "--resource-group",
+            "dander-phase6",
+        )
+        payloads[vault_key]["properties"]["networkAcls"]["virtualNetworkRules"] = []  # type: ignore[index]
 
     with pytest.raises(AzureDeploymentVerificationError, match=message):
         AzureDeploymentVerifier(binding, runner=_Runner(payloads)).verify(expected_image=_IMAGE)

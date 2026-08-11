@@ -1,6 +1,6 @@
 # DANDER-110 — Promote and operate Azure Container Apps runtimes
 
-Status: implemented locally; protected CI and live proof pending
+Status: merged through protected PR #190; live proof pending
 
 ## Requirement
 
@@ -25,7 +25,7 @@ logs, stop, and replay operations while keeping all live mutations behind explic
   runtime's persisted inclusive cursor.
 - [x] Image copy, start, stop, and replay require interactive confirmation in the CLI.
 - [x] Focused tests use mocked command runners and make no Azure call.
-- [ ] Protected CI passes and this ticket merges before any live ACR copy or job execution.
+- [x] Protected CI passed and this ticket merged before any live ACR copy or job execution.
 
 ## Evidence boundary
 
