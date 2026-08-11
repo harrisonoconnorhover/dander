@@ -62,5 +62,6 @@ user-assigned managed identity, exact Container Apps environment placement, supp
 or 2 CPU/4 GiB sizing, launcher-owned retries and deadline, Log Analytics destinations, and
 versionless Key Vault references for declared secrets. Azure evaluates scheduled-job cron in UTC,
 so a non-UTC projection fails before provider access rather than silently changing wall-clock
-behavior. This contract is locally conformance-tested only; Terraform and live-profile evidence
-remain separate Phase 6 gates.
+behavior. Plan-first Terraform now consumes this projection exactly and has provider-mocked
+contract evidence; no Azure resource has been created, and live-profile evidence remains a
+separate Phase 6 gate.

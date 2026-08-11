@@ -1157,3 +1157,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** This satisfies Phase 5 common-intersection correctness. Provider/profile support,
   scale, throughput, crossover, cost, soak, and pairwise qualification remain separate Phase 8 or
   promotion requirements.
+
+## 2026-08-11 — Azure bootstrap uses reviewed plans and Entra-authenticated state
+
+- **Stage zero:** One saved plan creates the resource group, default-deny operator-`/32` versioned
+  private Storage container, Basic ACR with administrator credentials disabled, and user-assigned
+  runtime identity. Automatic resource-provider registration is disabled and remains a separately
+  approved live mutation.
+- **Projection:** Paused pipelines become manual Container Apps Jobs; active pipelines use the
+  validated UTC cron. Deadline, retry, CPU/memory, identity, ACR digest, Key Vault references,
+  default-deny vault networking with one operator IP, logging, optional internal subnet, and
+  existing Action Group routing remain exact inputs.
+- **Boundary:** Terraform contains secret references but never values. Local/provider-mocked tests
+  do not qualify Azure; image copy, operations, federation, paid proof, cleanup, and support
+  promotion remain separate Phase 6 gates.

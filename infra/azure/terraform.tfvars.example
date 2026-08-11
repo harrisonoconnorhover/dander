@@ -1,0 +1,13 @@
+subscription_id                  = "11111111-1111-4111-8111-111111111111"
+location                         = "eastus"
+name                             = "dander"
+resource_group_name              = "dander-phase6"
+container_app_environment_name   = "dander-phase6-env"
+acr_name                         = "danderphase6"
+key_vault_name                   = "dander-phase6-kv"
+key_vault_allowed_ip_rule        = "203.0.113.10"
+managed_identity_name            = "dander-phase6-runtime"
+infrastructure_subnet_id         = null
+
+# Supply execution_projections only through `dander init-azure-plan`; do not hand-author them.
+execution_projections = {}

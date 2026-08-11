@@ -83,6 +83,16 @@ jobs:
           terraform -chdir=aws validate
           terraform -chdir=aws/modules/fargate init -backend=false -input=false
           terraform -chdir=aws/modules/fargate test
+      - name: Validate Azure Terraform stacks
+        run: |
+          terraform -chdir=azure/bootstrap-admin init -backend=false -input=false
+          terraform -chdir=azure/bootstrap-admin validate
+          terraform -chdir=azure/bootstrap-admin test
+          terraform -chdir=azure init -backend=false -input=false
+          terraform -chdir=azure validate
+          terraform -chdir=azure test
+          terraform -chdir=azure/modules/container-apps-jobs init -backend=false -input=false
+          terraform -chdir=azure/modules/container-apps-jobs test
       - name: Validate Kubernetes Helm chart
         run: |
           helm lint kubernetes/chart/dander --values ../tests/fixtures/kubernetes-values.yaml
