@@ -418,6 +418,22 @@ def load_project_config(
         raise _project_validation_error(path, error) from error
 
 
+def load_project_plugins(path: Path) -> dict[str, PluginSpec]:
+    """Load project-wide plugin pins without selecting a v2 deployment."""
+    raw = _load_yaml_mapping(path, label="Dander project configuration")
+    if raw.get("version") == 2:
+        from dander.project.portable_config import DanderLogicalProjectV2
+
+        try:
+            return DanderLogicalProjectV2.model_validate(raw).plugins
+        except ValidationError as error:
+            raise _project_validation_error(path, error) from error
+    try:
+        return DanderProject.model_validate(raw).plugins
+    except ValidationError as error:
+        raise _project_validation_error(path, error) from error
+
+
 def _load_yaml_mapping(path: Path, *, label: str) -> dict[str, object]:
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
