@@ -403,6 +403,35 @@ AZURE_CONTAINER_APPS_CAPABILITIES = LauncherCapabilities(
 )
 
 
+OCI_CONTAINER_INSTANCES_CAPABILITIES = LauncherCapabilities(
+    launcher="oci_container_instances",
+    cpu_millis=frozenset({1_000, 2_000, 4_000, 6_000, 8_000}),
+    minimum_memory_mib=1_024,
+    maximum_memory_mib=1_540_096,
+    maximum_deadline_seconds=86_400,
+    maximum_launcher_retries=10,
+    maximum_task_count=1,
+    maximum_parallelism=1,
+    supports_ephemeral_storage=False,
+    supports_schedules=True,
+    supports_time_zones=True,
+    supports_network_placement=True,
+    extension_names=frozenset(
+        {
+            "oci_assign_public_ip",
+            "oci_availability_domain",
+            "oci_compartment_id",
+            "oci_graceful_shutdown_seconds",
+            "oci_registry_endpoint",
+            "oci_restart_policy",
+            "oci_shape",
+            "oci_tenancy_id",
+            "oci_vault_id",
+        }
+    ),
+)
+
+
 def validate_launcher_projection(
     template: ExecutionTemplate,
     capabilities: LauncherCapabilities,

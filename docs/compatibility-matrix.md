@@ -30,6 +30,12 @@ Catalog selection is independent from this state/warehouse matrix. Dataplex is s
 the released GCP profile, `none` is a complete no-cloud-mutation provider, and AWS Glue is an
 experimental direct API projection with local create/update/readback conformance only.
 
+Launcher/profile selection has an additional fail-closed boundary. The experimental OCI Container
+Instances projection currently accepts only PostgreSQL state plus PostgreSQL warehouse, no external
+catalog, and OCI Vault. That typed combination is local construction evidence, not a live-profile or
+support promotion; all other OCI state, warehouse, catalog, secret, and cross-cloud identity
+combinations remain unsupported.
+
 ## Warehouse capabilities
 
 The same command publishes the exact implemented warehouse surface. These declarations are

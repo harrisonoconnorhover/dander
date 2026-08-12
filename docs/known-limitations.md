@@ -70,8 +70,15 @@ remain Phase 8 work.
   pairwise-profile, or release qualification, so Azure remains experimental rather than supported.
 - The `oci` extra now installs Oracle's SDK `2.184.1` or newer without downgrading Dander's audited
   `cryptography` line. OCI Vault has a lazy, resource-principal-only resolver for exact secret OCIDs
-  and versionless vault/name references, but no OCI launcher or live OCI profile is yet qualified.
-  SDK presence and local Vault tests do not create an OCI support claim.
+  and versionless vault/name references. OCI Container Instances now has a typed, lazy execution
+  projection for only the PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile. It requires an exact
+  digest in the selected OCIR repository, a resource-principal dynamic group, UTC five-field cron,
+  whole-GiB memory, and one container attempt with provider restart policy `NEVER`; unsupported
+  profiles and inputs fail before OCI access. OCI OCPUs are provider billing/resource units rather
+  than a cross-provider performance claim, and the fixed 15 GB ephemeral-storage allocation is not
+  configurable through this projection. Terraform, the launch Function, lifecycle reconciliation,
+  CLI operations, digest promotion, and the live OCI profile remain incomplete. No OCI launcher
+  support claim exists until those separate gates pass.
 
 ## Ingestion and schemas
 

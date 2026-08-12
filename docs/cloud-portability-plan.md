@@ -1201,6 +1201,14 @@ Tickets:
 6. PostgreSQL canonical live profile and external-identity feasibility report;
 7. schedule, retry, parallelism, interruption, rollback, and reconciliation proof.
 
+Progress on 2026-08-12: the OCI SDK/Vault provider and the separate typed Container Instances
+launcher projection are implemented behind lazy provider selection. The launcher accepts only the
+named PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile and exact digest-qualified OCIR images;
+infrastructure, promotion, scheduling Function, operations, reconciliation, credential-refresh,
+live-profile, cleanup, and no-drift evidence remain open. This progress is not an exit-gate or
+support claim, and paid OCI mutation remains disabled pending credential preflight and an explicit
+per-attempt ceiling.
+
 Exit gate:
 
 - the same release digest passes OCI launcher conformance and the named OCI profile; unsupported
