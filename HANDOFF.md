@@ -2,10 +2,10 @@
 
 ## Finished
 
-- Prepared the exact protected-main `dander-platform==0.9.0rc7` candidate.
-- Diagnosed live OCIR Buildx authentication without uploading an artifact.
-- Confirmed the short-lived token and exact `pull,push` repository scope are valid.
-- Changed isolated Docker credentials to OCIR's supported `BEARER_TOKEN` login form.
+- Published the exact protected-main `dander-platform==0.9.0rc7` candidate.
+- Diagnosed live OCIR Buildx authorization without uploading an artifact.
+- Confirmed the existing token scope correctly includes the tenancy namespace.
+- Preserved OCI's bearer token in Docker's native `registrytoken` field.
 - Kept the scoped token out of command arguments and ephemeral after command exit.
 
 ## Try It
@@ -14,21 +14,21 @@ Run `pytest -q tests/bootstrap/test_oci_image_promotion.py tests/bootstrap/test_
 
 ## Checks
 
-- Live registry probes returned `403` for `identitytoken` and authenticated `not found` for the
-  same token in `BEARER_TOKEN` Basic form.
+- Live registry probes returned `403` without the namespace and authenticated `not found` for the
+  namespace-qualified token in Docker's `registrytoken` field.
 - Focused tests cover both OCIR publication paths and isolated Docker configuration.
 - Protected-main CI passed for the scoped-token correction before the RC7 cut.
 
 ## Decisions
 
-- Use Docker's ordinary `auth` field with the fixed OCIR access-token username.
-- Preserve the one-use mode-`0600` Docker configuration and exact repository scope.
+- Use Docker's native registry-token field for OCI's already-exchanged bearer token.
+- Preserve the one-use mode-`0600` Docker configuration and namespace-qualified repository scope.
 - Keep OCI experimental until Phase 7 live acceptance and Phase 8 qualification pass.
 
 ## Remaining
 
-- Merge and publish `v0.9.0rc7` through protected CI.
-- Resume digest-preserving OCIR promotion from the exact accepted runtime index.
+- Merge the corrected scoped-token transport through protected CI and cut its candidate.
+- Resume digest-preserving OCIR promotion from that exact accepted runtime index.
 - Publish and deploy the exact-wheel OCI lifecycle controller.
 - Complete the bounded live lifecycle acceptance matrix.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.

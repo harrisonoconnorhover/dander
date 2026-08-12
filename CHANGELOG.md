@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Preserve OCI's namespace-qualified repository bearer credential in Docker's native
+  registry-token field so Buildx uses the already-issued token directly.
+
 ## 0.9.0rc7 — 2026-08-12 (beta)
 
 ### Fixed

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import os
@@ -240,12 +239,10 @@ def _temporary_docker_config(*, host: str, access_token: str) -> Iterator[Path]:
         auths = document.get("auths", {})
         if not isinstance(auths, dict):
             raise ProjectBootstrapError("Docker configuration has invalid registry entries")
-        # OCI's scoped access-token endpoint returns a bearer token, but Docker
-        # interprets ``identitytoken`` as a token for its own registry OAuth
-        # exchange.  OCIR instead accepts the scoped token through Docker's
-        # Basic-auth credential shape with the fixed BEARER_TOKEN username.
-        credential = base64.b64encode(f"BEARER_TOKEN:{access_token}".encode()).decode()
-        document["auths"] = {**auths, host: {"auth": credential}}
+        # OCIR issues the already-exchanged repository bearer token. Keep it in
+        # Docker's RegistryToken field so Buildx does not attempt another OAuth
+        # exchange and narrow it incorrectly.
+        document["auths"] = {**auths, host: {"registrytoken": access_token}}
         with TemporaryDirectory(prefix="dander-ocir-") as directory:
             config_dir = Path(directory)
             config_path = config_dir / "config.json"

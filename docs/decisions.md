@@ -1442,15 +1442,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Missing or inconsistent exact metadata still fails closed before registry-token
   creation or artifact copy; an omitted optional field in list summaries is not treated as false.
 
-## 2026-08-12 — OCIR scoped tokens use Docker's Basic credential shape
+## 2026-08-12 — OCIR scoped tokens use Docker's registry-token field
 
-- **Provider evidence:** The live OCIR distribution endpoint accepted the scoped token directly,
-  but Docker Buildx returned `403 Forbidden` when the token was stored as `identitytoken`. The same
-  token produced the expected authenticated `not found` response when supplied using the fixed
-  `BEARER_TOKEN` username.
-- **Decision:** Encode `BEARER_TOKEN:<scoped-token>` in Docker's standard `auth` entry inside the
-  mode-`0600` temporary configuration. Never pass the token on a command line or retain it after
-  promotion/controller publication exits.
-- **Boundary:** This changes only Docker's credential representation; OCI session authentication,
-  repository scope, token lifetime validation, digest verification, and artifact behavior remain
-  unchanged.
+- **Provider evidence:** A two-dimensional live probe confirmed that OCIR authorizes the existing
+  `repository:<namespace>/dander/runtime:pull,push` scope and denies a scope without the namespace.
+  With the correct scope held constant, Docker Buildx returned authenticated `not found` only when
+  OCI's bearer token was stored in Docker's `registrytoken` field; `identitytoken` and
+  `BEARER_TOKEN` Basic forms returned `403`.
+- **Decision:** Preserve OCI's already-exchanged, namespace-qualified bearer credential in the
+  mode-`0600` temporary Docker configuration as `registrytoken`. Never pass the token on a command
+  line or retain it after promotion/controller publication exits.
+- **Boundary:** OCI session authentication, token lifetime validation, repository verification,
+  digest verification, and artifact behavior remain unchanged. The earlier `BEARER_TOKEN` Basic
+  finding is superseded by this controlled live evidence.

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import subprocess
@@ -164,9 +163,8 @@ class _Runner:
             config_path = Path(args[2]) / "config.json"
             self.config_paths.append(config_path)
             config = json.loads(config_path.read_text(encoding="utf-8"))
-            encoded = config["auths"]["ocir.us-ashburn-1.oci.oraclecloud.com"]["auth"]
-            assert base64.b64decode(encoded).decode() == f"BEARER_TOKEN:{_TOKEN}"
-            assert "identitytoken" not in config["auths"]["ocir.us-ashburn-1.oci.oraclecloud.com"]
+            credential = config["auths"]["ocir.us-ashburn-1.oci.oraclecloud.com"]
+            assert credential == {"registrytoken": _TOKEN}
             assert config["credHelpers"] == {"us-central1-docker.pkg.dev": "gcloud"}
             assert "currentContext" not in config
             assert config["cliPluginsExtraDirs"][0] == str(Path(__file__).parent)
