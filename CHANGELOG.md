@@ -6,6 +6,25 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc2 — 2026-08-12 (beta)
+
+### Added
+
+- Add the first-class experimental OCI Container Instances profile for PostgreSQL state and
+  warehouse, no catalog, and OCI Vault, with a typed provider-neutral launcher projection.
+- Add plan-first native OCI stage-zero and foundation Terraform with Object Storage remote state,
+  a private immutable OCIR repository, private networking, Vault, resource principals, logging,
+  notifications, schedules, and deployment no-drift verification.
+- Add the narrow OCI Functions lifecycle controller for idempotent launch, overlap exclusion,
+  bounded retry, interruption, replay, deadline cleanup, log capture, and event reconciliation.
+- Add digest-preserving runtime promotion into OCIR and exact-wheel controller publication using
+  short-lived repository-scoped access tokens derived from OCI SecurityToken sessions.
+
+### Fixed
+
+- Require the OCI controller build context to come only from an exact SHA-256-qualified reviewed
+  wheel and fail closed on immutable tag, repository policy, platform, or artifact-record drift.
+
 ## 0.9.0rc1 — 2026-08-11 (beta)
 
 ### Added

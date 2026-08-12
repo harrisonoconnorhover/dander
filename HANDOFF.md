@@ -2,38 +2,35 @@
 
 ## Finished
 
-- Merged protected PR #216 for digest-preserving OCIR runtime promotion.
-- Added OCI controller publication bound to one exact reviewed wheel SHA-256.
-- Build inputs now come only from the wheel through an ephemeral source-free context.
-- Added deterministic immutable tagging, amd64 verification, and sanitized artifact recording.
-- Added fail-closed rerun, scoped-token, confirmation, and cleanup contracts.
+- Merged protected PR #217 for exact-wheel OCI controller publication.
+- Prepared Dander `0.9.0rc2` from protected main without publishing it.
+- Reconciled exact release-version references and added Phase 7 candidate notes.
 
 ## Try It
 
-Run `uv run pytest tests/bootstrap/test_oci_controller_publication.py tests/cli/test_oci_cli.py`.
+Run `python3 scripts/check_release_metadata.py`, then build and inspect the distribution.
 
 ## Checks
 
-- Focused controller, OCIR promotion, and OCI CLI tests pass.
-- Focused Ruff lint/format and Mypy pass.
-- Protected-main CI at `fae47a3cf860ba74a7c40b63c84ca21b9db7c6a2` passes.
+- Protected-main CI at `653e93f498b3b702daefc8872d48f9c589a31e46` passes.
+- Release metadata, lock, wheel/sdist, exact-wheel, Ruff, Mypy, and focused tests pass locally.
+- Full protected CI remains required before merge and again on protected main before tagging.
 
 ## Decisions
 
-- The controller is a wheel-built amd64 Function image, separate from the copied task runtime.
-- A dirty checkout cannot contribute files to the controller build context.
-- Existing controller tags require an exact local wheel/tag/digest binding.
+- Publish only from an exact `v0.9.0rc2` tag on the green protected-main merge commit.
+- Keep OCI experimental until Phase 7 live acceptance and Phase 8 support qualification pass.
+- Do not tag, publish, or create paid OCI resources without explicit approvals.
 
 ## Remaining
 
-- Merge the protected controller-publication PR and verify protected-main CI.
-- Prepare the Phase 7 release candidate without publishing it.
-- Obtain explicit approval for public candidate publication and a numeric OCI per-attempt ceiling.
-- Run approved live OCI publication, profile, rotation, rollback, cleanup, and no-drift proof.
+- Merge this version-only PR through protected CI after publication approval.
+- Tag and publish `0.9.0rc2` through the reviewed `pypi` environment.
+- Run the approved live OCI profile, rotation, rollback, cleanup, and no-drift proof.
 - Merge sanitized evidence and make the binary Phase 7 exit-gate recommendation.
 
 ## Review First
 
-- `src/dander/bootstrap/oci_image.py`
-- `tests/bootstrap/test_oci_controller_publication.py`
-- `src/dander/cli/oci_command.py`
+- `pyproject.toml`
+- `CHANGELOG.md`
+- `scripts/check_release_metadata.py`
