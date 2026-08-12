@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc11 — 2026-08-12 (beta)
+
+### Fixed
+
+- Mark the starter Greenhouse model as portable SQL so the same generated project renders through
+  the selected PostgreSQL dialect without changing its BigQuery behavior.
+
 ## 0.9.0rc10 — 2026-08-12 (beta)
 
 ### Fixed
