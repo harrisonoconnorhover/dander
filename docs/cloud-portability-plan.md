@@ -15,7 +15,9 @@ evidence PR #186.
 Phase 6 implementation checkpoint: protected `main` at
 `eb074c58a9b3d8c1296c28849639a04c07fdb4bf` after PRs #189 through #208. Public candidate
 `0.9.0rc1` was tagged from protected `main` at `2b90f7ad9d02ad303d3543f1e27febc7193e9c82`.
-The sanitized lifecycle record is stored under `docs/evidence/azure/2026-08-11/`.
+The sanitized lifecycle record was merged through PR #210 at protected `main`
+`0197d931ad1b86f3101a5f2d51170a77c23fe1b7` and is stored under
+`docs/evidence/azure/2026-08-11/`.
 
 Prepared: 2026-08-06; reconciled: 2026-08-12
 

@@ -17,7 +17,7 @@ Read `docs/cloud-portability-azure-lifecycle-acceptance.md` and its linked JSON 
 - Public `0.9.0rc1` install, generated-project validation, and packaged Terraform validation passed.
 - Fresh isolated GCP and retained GCP plans reported exact `No changes.`.
 - Retained GCP reproduced 28 stage-zero and 113 platform no-ops with no apply.
-- Disposable Azure, Entra, GCP federation, Snowflake, and proof-data resources are absent.
+- PR #210 and protected-main CI run `31563211592` passed; disposable proof resources are absent.
 
 ## Decisions
 
@@ -27,9 +27,9 @@ Read `docs/cloud-portability-azure-lifecycle-acceptance.md` and its linked JSON 
 
 ## Remaining
 
-- Merge this evidence PR through protected CI.
 - Start Phase 7 only after a new explicit instruction and cost/credential preflight.
 - Keep retained-GCP private operator inputs outside the repository.
+- Azure remains experimental until its applicable Phase 8 qualification passes.
 
 ## Review First
 
