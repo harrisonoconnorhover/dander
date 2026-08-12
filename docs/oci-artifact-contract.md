@@ -35,7 +35,10 @@ The `runtime-all` extra is the deterministic union of those dependency sets. Rep
 generated source-free Dockerfiles install it, then validate every required distribution from
 package metadata without importing an SDK. This catches an incomplete build before an image can be
 published. The packaged capability manifest remains authoritative about adapters actually present
-and supported in that image. Adding the OCI SDK and Vault resolver does not add an OCI launcher or
-profile before their separate implementation and live gates pass.
+and supported in that image. The OCI SDK and Vault resolver alone did not add a launcher. The
+separately registered OCI Container Instances projection remains experimental and outside the
+packaged support manifest until its infrastructure, operations, same-digest live profile, and
+Phase 8 qualification gates pass.
+
 The image uses the maintained Debian `libpq5` package with pure-Python Psycopg instead of bundling
 an opaque database client library inside a wheel.

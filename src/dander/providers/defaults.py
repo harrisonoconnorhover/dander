@@ -12,6 +12,7 @@ from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
 from dander.providers.glue import GlueCatalogConfig
 from dander.providers.kubernetes import KubernetesLauncherConfig
 from dander.providers.no_catalog import NoCatalogConfig
+from dander.providers.oci_container_instances import OciContainerInstancesLauncherConfig
 from dander.providers.oci_vault import OciVaultConfig
 from dander.providers.postgresql import PostgreSQLStateConfig, PostgreSQLWarehouseConfig
 from dander.providers.redshift import RedshiftWarehouseConfig
@@ -160,6 +161,15 @@ def default_provider_registry() -> ProviderRegistry:
         config_model=AzureContainerAppsLauncherConfig,
         load_factory=lazy_provider_factory(
             "dander.providers.azure_container_apps.runtime:AZURE_CONTAINER_APPS_LAUNCHER_FACTORY"
+        ),
+    )
+    registry.register(
+        kind=ProviderKind.LAUNCHER,
+        provider_id="oci_container_instances",
+        config_model=OciContainerInstancesLauncherConfig,
+        load_factory=lazy_provider_factory(
+            "dander.providers.oci_container_instances.runtime:"
+            "OCI_CONTAINER_INSTANCES_LAUNCHER_FACTORY"
         ),
     )
     return registry

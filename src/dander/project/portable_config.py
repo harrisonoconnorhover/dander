@@ -36,6 +36,10 @@ from dander.providers.gcp_secret_manager import GcpSecretManagerConfig  # noqa: 
 from dander.providers.glue import GlueCatalogConfig  # noqa: TC001
 from dander.providers.kubernetes import KubernetesLauncherConfig  # noqa: TC001
 from dander.providers.no_catalog import NoCatalogConfig  # noqa: TC001
+from dander.providers.oci_container_instances import (  # noqa: TC001
+    OciContainerInstancesLauncherConfig,
+)
+from dander.providers.oci_vault import OciVaultConfig  # noqa: TC001
 from dander.providers.postgresql import (  # noqa: TC001
     PostgreSQLStateConfig,
     PostgreSQLWarehouseConfig,
@@ -138,7 +142,7 @@ CatalogSpec = Annotated[
 
 
 SecretProviderSpec = Annotated[
-    GcpSecretManagerConfig | EnvironmentSecretConfig | AzureKeyVaultConfig,
+    GcpSecretManagerConfig | EnvironmentSecretConfig | AzureKeyVaultConfig | OciVaultConfig,
     Field(discriminator="provider"),
 ]
 
@@ -147,7 +151,8 @@ LauncherSpec = Annotated[
     CloudRunLauncherConfig
     | FargateLauncherConfig
     | KubernetesLauncherConfig
-    | AzureContainerAppsLauncherConfig,
+    | AzureContainerAppsLauncherConfig
+    | OciContainerInstancesLauncherConfig,
     Field(discriminator="provider"),
 ]
 
@@ -351,6 +356,13 @@ def _resolve(
             "Azure Key Vault projection currently requires launcher.provider='azure_container_apps'"
         )
     if (
+        profile.secrets.provider == "oci_vault"
+        and selected.launcher.provider != "oci_container_instances"
+    ):
+        raise ProjectConfigError(
+            "OCI Vault projection currently requires launcher.provider='oci_container_instances'"
+        )
+    if (
         selected.launcher.provider == "cloud_run"
         and profile.secrets.provider != "gcp_secret_manager"
     ):
@@ -378,6 +390,16 @@ def _resolve(
     ):
         raise ProjectConfigError(
             "Azure GCP secrets require the named BigQuery/Dataplex federation profile"
+        )
+    if selected.launcher.provider == "oci_container_instances" and (
+        profile.secrets.provider != "oci_vault"
+        or profile.warehouse.provider != "postgresql"
+        or profile.state.provider != "postgresql"
+        or profile.catalog.provider != "none"
+    ):
+        raise ProjectConfigError(
+            "OCI Container Instances currently requires the named "
+            "PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile"
         )
     unknown_pipelines = sorted(set(selected.pipelines) - set(logical.pipelines))
     if unknown_pipelines:

@@ -1318,3 +1318,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Sequencing:** Vault is independently reviewable before the Container Instances launcher, as
   required by the provider PR boundary. This slice makes no launcher, live-profile, or support
   claim; paid OCI mutation remains disabled until credential preflight and a per-attempt ceiling.
+
+## 2026-08-12 — OCI Container Instances starts with one fail-closed native profile
+
+- **Selection:** The lazy OCI launcher accepts only the named PostgreSQL state/PostgreSQL
+  warehouse/no-catalog/OCI-Vault profile. BigQuery and other cross-cloud identities remain
+  unsupported until a separate keyless refresh proof exists; static cloud keys are never a
+  fallback.
+- **Projection:** Images must use the exact selected OCIR repository and immutable digest. OCI
+  resource principals are mandatory, schedules are UTC-only, flex-shape memory uses whole GiB,
+  public IP assignment defaults off, and provider restart policy is `NEVER` so the later lifecycle
+  reconciler owns bounded whole-task attempts.
+- **Boundary:** OCI OCPUs and fixed ephemeral storage remain explicit provider semantics rather
+  than false cross-provider parity. This contract adds no Terraform, Function, API mutation, live
+  evidence, packaged support claim, or paid authorization.
