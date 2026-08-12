@@ -1218,8 +1218,11 @@ Runtime processes resolve versionless Vault references through resource principa
 values in Terraform or Function configuration. Accepted runtime indexes can be copied into the
 exact private immutable OCIR repository without rebuild using a short-lived repository-scoped token
 derived from the operator's SecurityToken session; source, destination, and per-platform digests
-must remain equal. Controller/runtime image publication, credential-refresh, live-profile,
-rollback, cleanup, and no-drift evidence remain open. This
+must remain equal. The separately built Function controller is bound to the exact reviewed wheel
+SHA-256: its Dockerfile, shim, and dependency pins are extracted from that wheel into an ephemeral
+source-free build context, published only for `linux/amd64`, and recorded by immutable digest.
+Live runtime/controller publication, credential-refresh, live-profile, rollback, cleanup, and
+no-drift evidence remain open. This
 progress is not an exit-gate or support claim, and paid OCI mutation remains disabled pending
 credential preflight and an explicit per-attempt ceiling.
 

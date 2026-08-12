@@ -108,6 +108,60 @@ def test_oci_image_promotion_requires_confirmation_and_passes_typed_inputs(
     ]
 
 
+def test_oci_controller_publication_requires_confirmation_and_exact_wheel_hash(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+    digest = "sha256:" + "c" * 64
+    wheel = tmp_path / "dander_platform-0.9.0rc2-py3-none-any.whl"
+    wheel.write_bytes(b"reviewed-wheel")
+
+    class _Publisher:
+        artifact_record_path = tmp_path / ".dander" / "oci-controller-artifact.json"
+
+        def __init__(self, project_dir: Path) -> None:
+            assert project_dir == tmp_path
+
+        def publish(self, **kwargs: object) -> str:
+            calls.append(kwargs)
+            return f"ocir.us-ashburn-1.oci.oraclecloud.com/unitnamespace/dander/runtime@{digest}"
+
+    monkeypatch.setattr(oci_command, "OciControllerImagePublisher", _Publisher)
+    args = [
+        "image-publish-oci-controller",
+        "--wheel",
+        str(wheel),
+        "--wheel-sha256",
+        "a" * 64,
+        "--compartment-id",
+        "ocid1.compartment.oc1.." + "b" * 32,
+        "--registry-namespace",
+        "unitnamespace",
+        "--oci-profile",
+        "DANDER",
+        "--config",
+        str(tmp_path / "dander.yaml"),
+    ]
+
+    refused = CliRunner().invoke(app, args, input="n\n")
+    accepted = CliRunner().invoke(app, args, input="y\n")
+
+    assert refused.exit_code == 1
+    assert accepted.exit_code == 0, accepted.output
+    assert calls == [
+        {
+            "wheel": wheel,
+            "wheel_sha256": "a" * 64,
+            "compartment_id": "ocid1.compartment.oc1.." + "b" * 32,
+            "region": "us-ashburn-1",
+            "namespace": "unitnamespace",
+            "repository_name": "dander/runtime",
+            "oci_profile": "DANDER",
+        }
+    ]
+
+
 def test_oci_foundation_apply_requires_confirmation(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

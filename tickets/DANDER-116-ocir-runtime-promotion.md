@@ -27,7 +27,7 @@ keyless operator boundary.
 - [x] Require explicit CLI confirmation and write only a local sanitized artifact record.
 - [x] Focused contracts cover copy, idempotency, repository policy, token lifetime, digest rewrite,
   platform drift, source-record mismatch, cleanup, and CLI confirmation.
-- [ ] Protected CI passes and this implementation merges before live OCIR publication.
+- [x] Protected CI passes and this implementation merges before live OCIR publication.
 - [ ] Separately approved live publication proves the real registry preserves the accepted index.
 
 ## Design
@@ -38,4 +38,5 @@ is removed even when copy or verification fails.
 
 ## Review Log
 
-Protected review and live publication remain pending.
+Protected implementation PR #216 merged at `fae47a3cf860ba74a7c40b63c84ca21b9db7c6a2`, and the
+protected-main CI run passed. Live publication remains pending.
