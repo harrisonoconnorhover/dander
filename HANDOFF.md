@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Merged the OCI SDK/Vault provider slice through protected PR #212.
-- Merged the typed OCI Container Instances launcher through protected PR #213.
-- Added native Object Storage state and immutable private OCIR stage zero.
-- Added the private VCN, Vault/key, resource-principal policy, Logging, and Notifications foundation.
-- Added SecurityToken-only plan/apply CLI and read-only no-drift verification for both remote states.
+- Implemented an idempotent OCI Function controller with one fresh Container Instance per attempt.
+- Added Resource Scheduler, pipeline-scoped lifecycle events, exact resource principals, logs, and alarms.
+- Added crash-recoverable Object Storage run records plus bounded logs, interruption, replay, and retry.
+- Added manifest-bound OCI run/status/logs/cancel/replay and exact launcher planning/no-drift inputs.
+- Added runtime resolution of versionless OCI Vault references and a source-free controller image.
 
 ## Try It
 
-Run `uv run pytest tests/bootstrap/test_oci_terraform.py tests/cli/test_oci_cli.py`.
+Run `uv run pytest tests/providers/test_oci_container_instances_controller.py`.
 
 ## Checks
 
-- Both OCI Terraform roots validate and their native tests pass.
-- The complete pytest suite, Ruff, and repository-wide strict Mypy passed.
-- Wheel and source distribution built and passed the distribution contract check.
-- Trivy reported no HIGH or CRITICAL infrastructure misconfigurations.
-- Protected-main CI for merged PR #213 passed all five jobs.
+- Complete pytest, Ruff lint/format, and repository-wide Mypy pass.
+- Both OCI Terraform roots validate; their native tests pass (2 foundation/controller, 1 stage zero).
+- Wheel/sdist build and the distribution contract pass.
+- The `linux/amd64` Function image builds and imports Dander `0.9.0rc1` with OCI SDK `2.184.1`.
+- No state, plan, key, or credential file is present in the worktree diff.
 
 ## Decisions
 
-- Stage zero and foundation are separate reviewed saved plans; secret values never enter Terraform.
-- Terraform's native OCI backend requires Terraform 1.12+ and uses only SecurityToken auth here.
-- Live OCI writes remain at $0 pending preflight and a numeric per-attempt ceiling.
+- The Function owns parallelism one, exit-75 whole-task retry, a 3,300-second deadline, and cleanup.
+- Scheduler delivery is UTC/hourly; event rules and controller dynamic groups are pipeline/exact-OCID scoped.
+- Runtime task images remain source-free; the Function image contains only the exact wheel and dependencies.
 
 ## Remaining
 
-- Merge this Terraform foundation through a protected PR.
-- Implement scheduling/lifecycle operations in a separate PR.
-- Build one new post-merge candidate and run the complete OCI live gate after account preflight.
-- Complete Phase 8 only after Phase 7 passes.
+- Merge this implementation through a protected PR and verify protected-main CI.
+- Obtain explicit approval for public candidate publication and a numeric OCI per-attempt ceiling.
+- Run read-only OCI preflight, reviewed plans, live profile/rotation/rollback/cleanup, and no drift.
+- Merge sanitized live evidence, then make the binary Phase 7 exit-gate recommendation.
 
 ## Review First
 
-- `src/dander/bootstrap/oci_terraform.py`
+- `src/dander/providers/oci_container_instances/controller.py`
+- `src/dander/providers/oci_container_instances/oci_adapter.py`
 - `infra/oci/main.tf`
-- `infra/oci/bootstrap-admin/main.tf`

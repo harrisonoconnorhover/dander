@@ -1202,17 +1202,23 @@ Tickets:
 7. schedule, retry, parallelism, interruption, rollback, and reconciliation proof.
 
 Progress on 2026-08-12: the OCI SDK/Vault provider, typed Container Instances launcher projection,
-and plan-first Terraform foundations are implemented behind provider-specific boundaries. The OCI
+plan-first Terraform foundations, and lifecycle-controller implementation are behind
+provider-specific boundaries. The OCI
 native remote-state bootstrap creates only a private versioned Object Storage bucket and private
 immutable OCIR repository; the second root creates a private VCN/subnet, default Vault with an
 auto-rotating key, compartment-scoped Container Instance resource-principal policy, Logging, and
 Notifications. Both use short-lived SecurityToken auth, saved plans outside the repository, and
 locally passing Terraform tests; a read-only verifier refreshes both remote states and fails on any
 planned drift. The launcher still accepts only the named PostgreSQL/PostgreSQL/
-no-catalog/OCI-Vault profile and exact digest-qualified OCIR images. Promotion, scheduling Function,
-operations, reconciliation, credential-refresh, live-profile, cleanup, and no-drift evidence remain
-open. This progress is not an exit-gate or support claim, and paid OCI mutation remains disabled
-pending credential preflight and an explicit per-attempt ceiling.
+no-catalog/OCI-Vault profile and exact digest-qualified OCIR images. The narrow Python 3.12 OCI
+Function owns deterministic idempotency, overlap exclusion, whole-task retries, deadlines,
+interruption, replay, bounded logs, terminal history, per-pipeline lifecycle-event reconciliation,
+and UTC Resource Scheduler delivery; operator commands use only expiring SecurityToken sessions.
+Runtime processes resolve versionless Vault references through resource principals without putting
+values in Terraform or Function configuration. Controller/runtime image publication,
+credential-refresh, live-profile, rollback, cleanup, and no-drift evidence remain open. This
+progress is not an exit-gate or support claim, and paid OCI mutation remains disabled pending
+credential preflight and an explicit per-attempt ceiling.
 
 Exit gate:
 

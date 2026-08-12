@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
 
+import pytest
 from typer.testing import CliRunner
 
+import dander.cli.oci_command as oci_command
 from dander.cli.main import app
+from dander.project import ProjectConfigError
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import pytest
+    from typing import Any
 
 
 def test_oci_admin_plan_is_non_mutating_and_prints_review_command(
@@ -135,3 +138,65 @@ def test_oci_deployment_verifier_checks_stage_zero_and_foundation(
     assert verified[0]["state_key"] == "dander/oci/bootstrap-admin/terraform.tfstate"
     assert verified[1]["state_key"] == "dander/oci/foundation/terraform.tfstate"
     assert '"status": "no_drift"' in result.output
+
+
+def test_launcher_projection_requires_controller_tag_in_selected_immutable_repository(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    launcher = {
+        "tenancy_id": "ocid1.tenancy.oc1.." + "a" * 32,
+        "compartment_id": "ocid1.compartment.oc1.." + "b" * 32,
+        "region": "us-ashburn-1",
+        "registry_namespace": "unitnamespace",
+        "repository_name": "dander/runtime",
+    }
+    manifest = SimpleNamespace(
+        launcher_provider="oci_container_instances",
+        validate_references=lambda _path: None,
+        resolved_launcher_config=lambda: launcher,
+        platform=SimpleNamespace(
+            runtime=SimpleNamespace(
+                cpu=1,
+                memory="2Gi",
+                timeout_seconds=900,
+                max_retries=1,
+                batch_rows=1_000,
+            ),
+            safety=SimpleNamespace(require_guarded_free_tier=True),
+        ),
+        terraform_pipelines=lambda: {},
+    )
+    monkeypatch.setattr(oci_command, "load_project_config", lambda *_args, **_kwargs: manifest)
+    monkeypatch.setattr(oci_command, "build_oci_execution_projections", lambda **_kwargs: {})
+    common = {
+        "config": tmp_path / "dander.yaml",
+        "platforms_config": None,
+        "deployment": "oci_postgresql",
+        "container_image": (
+            "ocir.us-ashburn-1.oci.oraclecloud.com/unitnamespace/dander/runtime@sha256:" + "a" * 64
+        ),
+        "tenancy_id": launcher["tenancy_id"],
+        "compartment_id": launcher["compartment_id"],
+        "region": launcher["region"],
+        "namespace": launcher["registry_namespace"],
+    }
+
+    assert (
+        oci_command._deployment_projections(  # noqa: SLF001
+            **cast("Any", common),
+            controller_image=(
+                "ocir.us-ashburn-1.oci.oraclecloud.com/unitnamespace/"
+                "dander/runtime:phase7-controller"
+            ),
+        )
+        == {}
+    )
+    with pytest.raises(ProjectConfigError, match="manifest-selected OCIR repository"):
+        oci_command._deployment_projections(  # noqa: SLF001
+            **cast("Any", common),
+            controller_image=(
+                "ocir.us-ashburn-1.oci.oraclecloud.com/unitnamespace/"
+                "dander/controller:phase7-controller"
+            ),
+        )

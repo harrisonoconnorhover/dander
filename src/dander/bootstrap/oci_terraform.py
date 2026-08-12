@@ -9,6 +9,15 @@ import shutil
 import subprocess
 from typing import TYPE_CHECKING
 
+from dander.bootstrap.terraform import (
+    TerraformBootstrapError,
+    build_launcher_runtime,
+    validate_runtime_settings,
+    validate_terraform_pipelines,
+)
+from dander.deployment import ExecutionProjectionError, ResolvedTemplateRequest
+from dander.providers import ProviderFactoryError
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
@@ -23,11 +32,64 @@ _NAME = re.compile(r"^[a-z][a-z0-9-]{1,23}$")
 _DYNAMIC_GROUP = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,99}$")
 _NAMESPACE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,99}$")
 _STATE_KEY = re.compile(r"^(?!/)(?!.*//)[A-Za-z0-9][A-Za-z0-9._/-]{0,1023}$")
+_CONTROLLER_IMAGE = re.compile(r"^[a-z0-9.-]+/[a-z0-9_-]+/[a-z0-9._/-]+:[A-Za-z0-9._-]+$")
+_IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _BACKEND_SCHEMA = "io.dander.oci-bootstrap-backend/v1"
 
 
 class OciTerraformBootstrapError(RuntimeError):
     """Raised when an OCI saved-plan lifecycle cannot complete safely."""
+
+
+def build_oci_execution_projections(
+    *,
+    container_image: str,
+    launcher_config: Mapping[str, object],
+    profile_id: str,
+    runtime_cpu: int,
+    runtime_memory: str,
+    runtime_timeout_seconds: int,
+    runtime_max_retries: int,
+    runtime_batch_rows: int,
+    require_guarded_free_tier: bool,
+    pipelines: Mapping[str, Mapping[str, object]],
+) -> dict[str, dict[str, object]]:
+    """Build validated OCI templates without contacting OCI."""
+    expanded_pipelines = dict(pipelines)
+    if not expanded_pipelines:
+        raise OciTerraformBootstrapError("OCI launcher planning requires at least one pipeline")
+    try:
+        validate_runtime_settings(
+            cpu=runtime_cpu,
+            memory=runtime_memory,
+            timeout_seconds=runtime_timeout_seconds,
+            max_retries=runtime_max_retries,
+            batch_rows=runtime_batch_rows,
+            require_guarded_free_tier=require_guarded_free_tier,
+        )
+        validate_terraform_pipelines(expanded_pipelines)
+        launcher = build_launcher_runtime(
+            launcher_config=dict(launcher_config),
+            gcp_context=None,
+        )
+        return {
+            pipeline_id: template.as_dict()
+            for pipeline_id, template in launcher.templates.build(
+                ResolvedTemplateRequest(
+                    pipelines=expanded_pipelines,
+                    image=container_image,
+                    profile_id=profile_id,
+                    cpu=runtime_cpu,
+                    memory=runtime_memory,
+                    deadline_seconds=runtime_timeout_seconds,
+                    launcher_retry_count=runtime_max_retries,
+                    batch_rows=runtime_batch_rows,
+                    alert_target="oci_notifications",
+                )
+            ).items()
+        }
+    except (ExecutionProjectionError, ProviderFactoryError, TerraformBootstrapError) as error:
+        raise OciTerraformBootstrapError(str(error)) from error
 
 
 class OciAdministrativeBootstrap:
@@ -318,6 +380,11 @@ class OciTerraformBootstrap:
         dynamic_group_name: str,
         config_file_profile: str = "DEFAULT",
         name: str = "dander",
+        controller_image: str | None = None,
+        controller_image_digest: str | None = None,
+        execution_projections: Mapping[str, object] | None = None,
+        controller_dynamic_group_name: str = "dander_phase7_controller",
+        scheduler_dynamic_group_name: str = "dander_phase7_scheduler",
     ) -> Path:
         """Produce one immutable remote-state-backed OCI foundation plan."""
         self._validate(
@@ -330,6 +397,13 @@ class OciTerraformBootstrap:
             dynamic_group_name=dynamic_group_name,
             config_file_profile=config_file_profile,
             name=name,
+        )
+        controller_args = self._controller_args(
+            controller_image=controller_image,
+            controller_image_digest=controller_image_digest,
+            execution_projections=execution_projections,
+            controller_dynamic_group_name=controller_dynamic_group_name,
+            scheduler_dynamic_group_name=scheduler_dynamic_group_name,
         )
         self._workspace.prepare()
         self._init(
@@ -348,8 +422,10 @@ class OciTerraformBootstrap:
             f"-var=compartment_id={compartment_id}",
             f"-var=region={region}",
             f"-var=config_file_profile={config_file_profile}",
+            f"-var=object_storage_namespace={namespace}",
             f"-var=dynamic_group_name={dynamic_group_name}",
             f"-var=name={name}",
+            *controller_args,
             f"-out={self._workspace.plan_path}",
         )
         self._workspace.secure_plan()
@@ -405,6 +481,11 @@ class OciTerraformBootstrap:
         dynamic_group_name: str,
         config_file_profile: str = "DEFAULT",
         name: str = "dander",
+        controller_image: str | None = None,
+        controller_image_digest: str | None = None,
+        execution_projections: Mapping[str, object] | None = None,
+        controller_dynamic_group_name: str = "dander_phase7_controller",
+        scheduler_dynamic_group_name: str = "dander_phase7_scheduler",
     ) -> None:
         """Refresh the OCI foundation and fail if its reviewed configuration would change."""
         self._validate(
@@ -417,6 +498,13 @@ class OciTerraformBootstrap:
             dynamic_group_name=dynamic_group_name,
             config_file_profile=config_file_profile,
             name=name,
+        )
+        controller_args = self._controller_args(
+            controller_image=controller_image,
+            controller_image_digest=controller_image_digest,
+            execution_projections=execution_projections,
+            controller_dynamic_group_name=controller_dynamic_group_name,
+            scheduler_dynamic_group_name=scheduler_dynamic_group_name,
         )
         self._workspace.prepare(preserve_plan=True)
         self._init(
@@ -436,8 +524,10 @@ class OciTerraformBootstrap:
             f"-var=compartment_id={compartment_id}",
             f"-var=region={region}",
             f"-var=config_file_profile={config_file_profile}",
+            f"-var=object_storage_namespace={namespace}",
             f"-var=dynamic_group_name={dynamic_group_name}",
             f"-var=name={name}",
+            *controller_args,
         )
 
     def _init(
@@ -462,6 +552,53 @@ class OciTerraformBootstrap:
             f"-backend-config=key={state_key}",
             "-backend-config=auth=SecurityToken",
             f"-backend-config=config_file_profile={config_file_profile}",
+        )
+
+    @staticmethod
+    def _controller_args(
+        *,
+        controller_image: str | None,
+        controller_image_digest: str | None,
+        execution_projections: Mapping[str, object] | None,
+        controller_dynamic_group_name: str,
+        scheduler_dynamic_group_name: str,
+    ) -> tuple[str, ...]:
+        projections = dict(execution_projections or {})
+        supplied = (
+            controller_image is not None,
+            controller_image_digest is not None,
+            bool(projections),
+        )
+        if any(supplied) and not all(supplied):
+            raise OciTerraformBootstrapError(
+                "OCI controller image, digest, and execution projections must be supplied together"
+            )
+        for value, label in (
+            (controller_dynamic_group_name, "OCI controller dynamic group"),
+            (scheduler_dynamic_group_name, "OCI scheduler dynamic group"),
+        ):
+            _require(_DYNAMIC_GROUP, value, label)
+        if not all(supplied):
+            return ()
+        assert controller_image is not None and controller_image_digest is not None
+        _require(_CONTROLLER_IMAGE, controller_image, "OCI controller image")
+        _require(_IMAGE_DIGEST, controller_image_digest, "OCI controller image digest")
+        try:
+            projections_json = json.dumps(
+                projections,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        except (TypeError, ValueError) as error:
+            raise OciTerraformBootstrapError(
+                "OCI execution projections are not JSON serializable"
+            ) from error
+        return (
+            f"-var=controller_image={controller_image}",
+            f"-var=controller_image_digest={controller_image_digest}",
+            f"-var=controller_dynamic_group_name={controller_dynamic_group_name}",
+            f"-var=scheduler_dynamic_group_name={scheduler_dynamic_group_name}",
+            f"-var=execution_projections={projections_json}",
         )
 
     @staticmethod
@@ -636,4 +773,5 @@ __all__ = [
     "OciAdministrativeBootstrap",
     "OciTerraformBootstrap",
     "OciTerraformBootstrapError",
+    "build_oci_execution_projections",
 ]

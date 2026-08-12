@@ -1,7 +1,12 @@
-tenancy_id         = "ocid1.tenancy.oc1..replace_me"
-compartment_id     = "ocid1.compartment.oc1..replace_me"
-region             = "us-ashburn-1"
-config_file_profile = "DANDER"
-dynamic_group_name = "dander_phase7_runtime"
+tenancy_id                    = "ocid1.tenancy.oc1..replace_me"
+compartment_id                = "ocid1.compartment.oc1..replace_me"
+region                        = "us-ashburn-1"
+object_storage_namespace      = "replace_me"
+config_file_profile           = "DANDER"
+dynamic_group_name            = "dander_phase7_runtime"
+controller_dynamic_group_name = "dander_phase7_controller"
+scheduler_dynamic_group_name  = "dander_phase7_scheduler"
 
-# Keep all values non-secret. Authenticate through a short-lived OCI SecurityToken profile.
+# The bootstrap CLI passes the reviewed remote-state bucket/key and optional controller image,
+# digest, and execution projections. Keep every value non-secret and authenticate only through a
+# short-lived OCI SecurityToken profile.

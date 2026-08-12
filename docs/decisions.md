@@ -1345,3 +1345,21 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Sequencing:** Secret values are seeded outside Terraform after the foundation apply, and the
   output subnet/Vault OCIDs become typed launcher inputs. Saved plans, bootstrap state, backend
   metadata, and Terraform caches stay in a mode-restricted operator directory outside Git.
+
+## 2026-08-12 — One narrow Function owns OCI lifecycle semantics
+
+- **Controller:** One Python 3.12 OCI Function per pipeline uses Object Storage conditional writes
+  for deterministic idempotency and maximum parallelism one. It creates a fresh Container Instance
+  for each whole-task attempt, retries only exit code 75, captures bounded logs before deletion,
+  and retains sanitized terminal history. A 3,300-second task limit reserves five minutes inside
+  OCI Functions' one-hour detached limit for interruption and cleanup.
+- **Delivery and identity:** UTC Resource Scheduler starts the Function no more often than hourly;
+  a pipeline-tagged Events rule assists reconciliation. Exact Function OCIDs form the controller
+  dynamic group. Functions and Container Instances use resource principals, while local operations
+  accept only expiring SecurityToken profiles. Static OCI API keys and cross-cloud keys are not
+  fallbacks.
+- **Secrets and artifacts:** Launch projections contain only validated Vault references. Each
+  runtime process resolves the `CURRENT` version and removes injected values at exit. The
+  controller is a digest-pinned `GENERIC_X86` Function image assembled from the exact reviewed
+  wheel; the task runtime remains the separately accepted source-free release image. Live OCI
+  publication and provider proof remain separate gates.

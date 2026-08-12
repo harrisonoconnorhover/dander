@@ -37,6 +37,7 @@ from dander.runtime_contract import (
     validate_runtime_identifier,
 )
 from dander.runtime_inspection import inspect_runtime, run_local_conformance
+from dander.runtime_secrets import RuntimeSecretBindingError, projected_secret_environment
 from dander.state import RunStage, classify_failure
 
 runtime_app = typer.Typer(
@@ -202,7 +203,11 @@ def execute_runtime(
         dataplex_location="us",
     )
     try:
-        with graceful_signal_handlers(), launcher_identity(context):
+        with (
+            graceful_signal_handlers(),
+            launcher_identity(context),
+            projected_secret_environment(),
+        ):
             result = execute_run(
                 options,
                 console=_CONSOLE,
@@ -222,7 +227,7 @@ def execute_runtime(
             ).to_json()
         )
         raise typer.Exit(code=RuntimeExitCode.CANCELLED) from None
-    except ClickException as error:
+    except (ClickException, RuntimeSecretBindingError) as error:
         failure = classify_failure(error, stage=RunStage.INGEST, run_id=context.run_id)
         if failure.code != "unexpected_error":
             retryable = is_retryable_failure(failure.code)

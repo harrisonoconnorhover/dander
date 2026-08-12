@@ -1,6 +1,10 @@
 """Cloud-provider registration and construction contracts."""
 
-from dander.providers.defaults import default_provider_registry
+from __future__ import annotations
+
+from importlib import import_module
+from typing import TYPE_CHECKING
+
 from dander.providers.dependencies import (
     FULL_RUNTIME_DISTRIBUTIONS,
     PROVIDER_DEPENDENCY_SETS,
@@ -17,6 +21,17 @@ from dander.providers.registry import (
     ProviderRegistry,
     lazy_provider_factory,
 )
+
+if TYPE_CHECKING:
+    from dander.providers.defaults import default_provider_registry
+
+
+def __getattr__(name: str) -> object:
+    """Avoid importing every provider config when one provider submodule is selected."""
+    if name == "default_provider_registry":
+        return getattr(import_module("dander.providers.defaults"), name)
+    raise AttributeError(name)
+
 
 __all__ = [
     "FULL_RUNTIME_DISTRIBUTIONS",
