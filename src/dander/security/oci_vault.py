@@ -17,7 +17,7 @@ _OCID_SUFFIX = r"[A-Za-z0-9]+"
 _REALM = r"oc[0-9]+"
 _REGION = r"[a-z0-9-]+"
 _SECRET_OCID = rf"ocid1\.vaultsecret\.{_REALM}\.{_REGION}\.{_OCID_SUFFIX}"
-_VAULT_OCID = rf"ocid1\.vault\.{_REALM}\.{_REGION}\.{_OCID_SUFFIX}"
+_VAULT_OCID = rf"ocid1\.vault\.{_REALM}\.{_REGION}\.(?:{_OCID_SUFFIX}\.)?{_OCID_SUFFIX}"
 _REFERENCE = re.compile(
     rf"^oci-vault://(?:"
     rf"(?P<secret_id>{_SECRET_OCID})|"

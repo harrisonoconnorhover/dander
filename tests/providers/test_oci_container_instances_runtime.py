@@ -12,7 +12,7 @@ from dander.providers import ProviderFactoryError, ProviderKind, default_provide
 _TENANCY_OCID = "ocid1.tenancy.oc1.." + "a" * 32
 _COMPARTMENT_OCID = "ocid1.compartment.oc1.." + "b" * 32
 _SUBNET_OCID = "ocid1.subnet.oc1.iad." + "c" * 32
-_VAULT_OCID = "ocid1.vault.oc1.iad." + "d" * 32
+_VAULT_OCID = "ocid1.vault.oc1.iad.liveprovidersegment." + "d" * 32
 _IMAGE = "ocir.us-ashburn-1.oci.oraclecloud.com/unitnamespace/dander/runtime@sha256:" + "e" * 64
 _LAUNCHER = {
     "provider": "oci_container_instances",

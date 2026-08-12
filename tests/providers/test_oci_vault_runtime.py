@@ -12,7 +12,7 @@ import pytest
 from dander.providers import ProviderKind, default_provider_registry
 from dander.security import SecretResolutionError, SecretRuntime
 
-_VAULT_ID = "ocid1.vault.oc1.iad." + "a" * 32
+_VAULT_ID = "ocid1.vault.oc1.iad.liveprovidersegment." + "a" * 32
 _TEST_RESOURCE_OCID = "ocid1.vaultsecret.oc1.iad." + "b" * 32
 
 
@@ -152,3 +152,14 @@ def test_oci_vault_resolver_cannot_cross_vaults() -> None:
 
     with pytest.raises(SecretResolutionError, match="cross vault"):
         runtime.store.get_secret(f"oci-vault://{other}/secrets/postgres-dsn")
+
+
+def test_oci_vault_still_accepts_vault_ocid_without_future_use_segment() -> None:
+    client = _Client()
+    vault_id = "ocid1.vault.oc1.iad." + "d" * 32
+
+    assert (
+        _runtime(client).store.get_secret(f"oci-vault://{vault_id}/secrets/postgres-dsn")
+        == "resolved-value"
+    )
+    assert client.requests[-1][1]["vault_id"] == vault_id

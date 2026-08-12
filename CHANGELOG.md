@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Accept live OCI Vault OCIDs that populate Oracle's reserved future-use segment while retaining
+  compatibility with the documented empty-segment form.
+
 ## 0.9.0rc8 — 2026-08-12 (beta)
 
 ### Fixed

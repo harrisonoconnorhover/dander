@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 _TENANCY_OCID = "ocid1.tenancy.oc1.." + "a" * 32
 _COMPARTMENT_OCID = "ocid1.compartment.oc1.." + "b" * 32
 _SUBNET_OCID = "ocid1.subnet.oc1.iad." + "c" * 32
-_VAULT_OCID = "ocid1.vault.oc1.iad." + "d" * 32
+_VAULT_OCID = "ocid1.vault.oc1.iad.liveprovidersegment." + "d" * 32
 
 
 def _documents() -> tuple[dict[str, object], dict[str, object]]:
