@@ -4,7 +4,7 @@ This root creates the provider-owned foundation for Dander's named OCI profile:
 
 - a private VCN/subnet with no public IPs or inbound rules;
 - NAT egress for PostgreSQL plus an OCI Services gateway for OCIR, Vault, and control APIs;
-- a default OCI Vault and auto-rotating software-protected key;
+- a default OCI Vault and software-protected key with an explicit 365-day auto-rotation schedule;
 - a compartment-scoped Container Instance dynamic group and least-privilege runtime policy; and
 - a private versioned run-record bucket, per-pipeline OCI Function, Resource Scheduler schedule,
   lifecycle event rule, invocation log, error alarm, and Notifications topic.

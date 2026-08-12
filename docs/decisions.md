@@ -1399,3 +1399,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Safety boundary:** Container Instances consume only `@sha256` references. OCI Functions require
   a tag but also receive its exact `image_digest`; existing controller tags require a local binding
   to the same reviewed wheel. This is an explicit provider limitation, not a claim of false parity.
+
+## 2026-08-12 — OCI key rotation uses an explicit annual schedule
+
+- **Provider evidence:** The live Ashburn Key Management API rejected a key create with automatic
+  rotation enabled but no `autoKeyRotationDetails`, even though Terraform accepted that plan.
+- **Decision:** Supply a 365-day rotation interval explicitly. This stays inside OCI's documented
+  60-to-365-day range, minimizes unnecessary key-version churn, and preserves automatic rotation.
+- **Boundary:** The schedule is part of the reviewed Terraform projection and its focused contract
+  test; it contains no secret material and does not weaken the versionless application-secret
+  rotation proof required by Phase 7.
