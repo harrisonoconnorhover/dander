@@ -14,8 +14,8 @@ call sites (mirrors the `SecretStoreProvider` / `ComputeProvider` abstractions i
 | `modules/github-wif` | Repository/ref-scoped GitHub OIDC and a keyless deployment identity. **Implemented.** |
 | `modules/cost-guard` | Project budget, Pub/Sub, and simulation-first Gen 2 billing kill switch. **Implemented.** |
 | `kubernetes/chart/dander` | Versioned Helm chart for an existing conforming cluster. **Locally validated; not live-qualified.** |
-| `azure/bootstrap-admin` | Azure Storage state, ACR, and user-assigned runtime identity. **Locally validated; not applied.** |
-| `azure/modules/container-apps-jobs` | Container Apps Jobs, Key Vault references, Log Analytics, alerts, and optional network placement. **Locally validated; not live-qualified.** |
+| `azure/bootstrap-admin` | Azure Storage state, ACR, and user-assigned runtime identity. **Live-proven for the named experimental Phase 6 profiles.** |
+| `azure/modules/container-apps-jobs` | Container Apps Jobs, Key Vault references, Log Analytics, alerts, and optional network placement. **Live-proven for the named experimental Phase 6 profiles.** |
 
 The main root always calls `modules/bigquery` and can opt into the remaining workload modules. The
 one-time `infra/bootstrap-admin` root creates the remote-state bucket, the Artifact Registry

@@ -1,6 +1,6 @@
 # DANDER-108 — Azure launcher and Key Vault contract
 
-Status: implemented locally; live qualification pending
+Status: done; contract and named live profiles qualified in Phase 6
 
 ## Requirement
 
@@ -20,10 +20,11 @@ values out of projections, and reject Azure semantics that cannot be represented
 - [x] `azure_key_vault` resolves only full vault secret URIs, remains SDK-lazy, audits references,
   excludes values, and cannot cross vault boundaries through one resolver.
 - [x] Version 2 configuration resolves the named Azure/Snowflake/PostgreSQL/no-catalog shape.
-- [ ] Terraform, ACR promotion, Azure operations, federation, and live profile proofs remain separate
-  Phase 6 tickets and require explicit approval before provider writes.
+- [x] Terraform, ACR promotion, Azure operations, federation, and live profile proofs remained
+  separate protected Phase 6 tickets and ran only after explicit provider-write and cost approval.
 
 ## Evidence boundary
 
-This ticket is deterministic local contract evidence only. It creates no Azure resources, registers
-no resource providers, copies no image, and makes no support claim.
+The contract portion of this ticket is deterministic local evidence. The separately approved live
+proof is recorded in `docs/cloud-portability-azure-lifecycle-acceptance.md`; it closes Phase 6 but
+does not promote Azure beyond experimental status before Phase 8 qualification.

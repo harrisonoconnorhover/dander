@@ -1291,3 +1291,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   BigQuery and passes it directly into the existing typed federation projection.
 - **Boundary:** This adds no configuration bag or provider behavior. Snowflake planning is
   unchanged, and the project remains an explicit reviewed operator input.
+
+## 2026-08-12 — Phase 6 closes without promoting Azure support
+
+- **Canonical result:** One source-free OCI digest remained byte-identical across GAR and ACR and
+  passed the complete Azure/Snowflake/PostgreSQL/no-catalog/Key-Vault profile: preflight, manual and
+  UTC-scheduled execution, replay, overlap fencing, interruption, retry exhaustion, alert routing,
+  versionless secret rotation, immutable rollback, cleanup, and retained-GCP no drift.
+- **Federation result:** A separate protected-main candidate passed BigQuery access before and after
+  in-process Google credential refresh, GCP Secret Manager access, Dataplex read-back, revocation,
+  and cleanup using only Azure managed identity and short-lived federation. Public `0.9.0rc1`
+  repeated that bounded path and passed the standard isolated-GCP public-artifact smoke.
+- **Boundary:** These results satisfy the Phase 6 architecture and live-profile gate. Azure remains
+  experimental until Phase 8 scale, throughput, crossover, cost, soak, pairwise-profile, and
+  release qualification; no Phase 7 or OCI implementation began.

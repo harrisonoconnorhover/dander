@@ -1,6 +1,6 @@
 # DANDER-109 — Plan and verify Azure Container Apps deployments
 
-Status: merged through protected PR #189; live proof pending
+Status: done; merged through protected PR #189 and live-qualified on 2026-08-11
 
 ## Requirement
 
@@ -30,6 +30,7 @@ Add a read-only verifier that proves a deployed job still matches its manifest a
 
 ## Evidence boundary
 
-This ticket contains local deterministic and provider-mocked evidence only. It does not register an
-Azure provider, create a resource, copy an image, publish a candidate, read a secret, or spend cloud
-credits. Live plan review, apply, cleanup, and no-drift evidence remain separate Phase 6 gates.
+The implementation PR contained only deterministic and provider-mocked evidence. The later
+separately approved run reviewed and applied the saved plans, verified the deployed jobs, removed
+the disposable resources, and ended with retained-GCP no drift. Sanitized evidence is linked from
+`docs/cloud-portability-azure-lifecycle-acceptance.md`.

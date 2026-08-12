@@ -66,9 +66,17 @@ behavior. The separate BigQuery portability profile uses the same managed identi
 only typed Google workload-identity audience/application coordinates and GCP Secret Manager
 references; the runtime exchanges managed-identity tokens in memory and never creates a credential
 file. Plan-first Terraform now consumes these projections exactly and has provider-mocked
-contract evidence; no Azure resource has been created, and live-profile evidence remains a
-separate Phase 6 gate. Local lifecycle tooling now binds start, status, bounded Log Analytics,
+contract evidence. Live-profile acceptance remained a separate Phase 6 gate from that construction
+work. Local lifecycle tooling now binds start, status, bounded Log Analytics,
 stop, replay, and deployment verification to the exact manifest-selected job. The ACR promotion
 path copies the accepted OCI index without rebuilding and writes its local Azure artifact record
 only after both the index digest and platform-manifest map match. These mocked contracts do not
-claim that a live Azure operation has passed.
+by themselves claim that a live Azure operation has passed.
+
+The bounded Phase 6 proof subsequently exercised the named Azure/Snowflake/PostgreSQL/Key-Vault
+profile through manual and UTC-scheduled execution, replay, overlap fencing, interruption, retry
+exhaustion, alert routing, secret rotation, rollback, cleanup, and no drift. The separate
+Azure-to-Google projection queried BigQuery across an in-process credential refresh, read one
+declared GCP secret and Dataplex entry, and failed closed after federation revocation. These proofs
+validate the existing typed projections; they do not add a generic extension bag or promote Azure
+beyond experimental status before Phase 8 qualification.

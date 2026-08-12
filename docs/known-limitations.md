@@ -50,17 +50,24 @@ remain Phase 8 work.
   plan-first Terraform, digest-preserving ACR promotion tooling, provider-native lifecycle
   operations, bounded Log Analytics reads, deployment verification, and a locally validated
   Azure-to-Google managed-identity adapter with disposable federation Terraform and refresh-probe
-  tooling. A separate read-only preflight rejects any composition other than the named
+  tooling. The named Azure/Snowflake/PostgreSQL/no-catalog/Key-Vault profile passed live manual and
+  UTC-scheduled execution, replay, overlap fencing, interruption, retry exhaustion, alert routing,
+  versionless secret rotation, immutable rollback, cleanup, and retained-GCP no drift. The
+  Azure-to-Google profile separately passed live BigQuery access across credential refresh, GCP
+  Secret Manager access, Dataplex read-back, revocation, and cleanup without a credential file or
+  long-lived cloud key. The local `dander azure status` command does not yet accept the explicit GCP
+  project needed to reconstruct that experimental cross-cloud deployment; it therefore fails
+  closed, and Azure-native status was used for the proof. The named Snowflake profile is unaffected.
+  A separate read-only preflight rejects any composition other than the named
   Azure/Snowflake/PostgreSQL/no-catalog/Key-Vault profile and verifies only declared secret names
-  and enabled state. The named Key Vault profile requires an existing delegated Container Apps subnet with
-  the `Microsoft.KeyVault` service endpoint; Dander admits that exact subnet and the reviewed
-  operator IP while disabling the inapplicable Azure trusted-service bypass. Dander does not
-  create or modify the subnet. Azure schedules are
+  and enabled state. The named Key Vault profile requires an existing delegated Container Apps
+  subnet with the `Microsoft.KeyVault` service endpoint; Dander admits that exact subnet and the
+  reviewed operator IP while disabling the inapplicable Azure trusted-service bypass. Dander does
+  not create or modify the subnet. Azure schedules are
   UTC-only and currently support one replica with 1 CPU/2 GiB or 2 CPU/4 GiB. Resource-provider
-  registration, credentialed Azure planning/apply, actual ACR image copy, live identity exchange,
-  refresh and revocation,
-  live lifecycle execution, and live Snowflake/PostgreSQL acceptance have not yet run, so Azure
-  remains unsupported.
+  registration and disposable network creation remain explicit operator-approved actions. These
+  bounded proofs close Phase 6 but do not supply Phase 8 scale, throughput, cost, soak,
+  pairwise-profile, or release qualification, so Azure remains experimental rather than supported.
 - The reserved `oci` extra is empty because Oracle's current SDK requires a `cryptography` version
   below Dander's audited fixed line. OCI implementation must resolve that dependency boundary or
   use a reviewed direct signed-HTTP client before it can enter the full image.

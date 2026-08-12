@@ -1,7 +1,7 @@
 ---
 id: DANDER-111
 title: Prove keyless Azure-to-Google workload federation
-status: in_progress
+status: done
 phase: 6
 ---
 
@@ -28,13 +28,15 @@ observe Google credential refresh in the same process.
 - [x] Azure BigQuery planning requires the reviewed GCP data-plane project explicitly instead of
   looking for deployment scope inside the reusable version-2 platform profile.
 - [x] Focused Python and provider-mocked Terraform contracts pass locally.
-- [ ] An accepted public candidate passes live BigQuery access before and after Google credential
-  refresh plus GCP secret access and Dataplex read-back under approved ceilings.
-- [ ] Revocation fails closed; all disposable Azure/Entra/GCP proof resources are removed; retained
+- [x] An accepted public candidate passes live BigQuery access before and after Google credential
+  refresh plus GCP secret access and Dataplex read-back under approved ceilings. Public
+  `dander-platform==0.9.0rc1` and its source-free digest were installed outside the checkout and
+  exercised from Azure Container Apps.
+- [x] Revocation fails closed; all disposable Azure/Entra/GCP proof resources are removed; retained
   GCP finishes with no Terraform drift; sanitized evidence is merged.
 
 ## Boundary
 
-No Azure provider registration, Terraform apply, image publication/copy, job execution, Google IAM
-mutation, or paid query is authorized by this ticket. Local construction evidence does not promote
-Azure or the cross-cloud profile to supported.
+Provider writes and paid queries ran only under the operator's explicit per-attempt approval. The
+sanitized live record excludes credentials, tokens, query text, rows, state, and plans. This proof
+does not promote Azure or the cross-cloud profile beyond experimental status.
