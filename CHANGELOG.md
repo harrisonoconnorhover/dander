@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc5 — 2026-08-12 (beta)
+
 ### Fixed
 
 - Keep the OCI foundation on its bounded-cost default Vault and disable unsupported automatic
