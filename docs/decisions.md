@@ -1409,3 +1409,12 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** The schedule is part of the reviewed Terraform projection and its focused contract
   test; it contains no secret material and does not weaken the versionless application-secret
   rotation proof required by Phase 7.
+
+## 2026-08-12 — OCIR repository verification follows summary with exact get
+
+- **Provider evidence:** The live repository-list summary omitted `is-immutable` when false, while
+  an exact repository get returned the required boolean together with private and available state.
+- **Decision:** Select exactly one named repository from the compartment list, then verify its ID,
+  name, visibility, lifecycle, and immutability capability from the exact get response.
+- **Boundary:** Missing or inconsistent exact metadata still fails closed before registry-token
+  creation or artifact copy; an omitted optional field in list summaries is not treated as false.
