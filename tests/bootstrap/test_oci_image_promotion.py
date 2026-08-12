@@ -113,11 +113,27 @@ class _Runner:
                             "items": [
                                 {
                                     "display-name": "dander/runtime",
-                                    "is-immutable": self.repository_immutable,
+                                    "id": "ocid1.containerrepo.oc1.iad.0.unitnamespace.runtime",
                                     "is-public": not self.repository_private,
                                     "lifecycle-state": "AVAILABLE",
                                 }
                             ]
+                        }
+                    }
+                ),
+            )
+        if args[0] == "oci" and "repository" in args and "get" in args:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                stdout=json.dumps(
+                    {
+                        "data": {
+                            "display-name": "dander/runtime",
+                            "id": "ocid1.containerrepo.oc1.iad.0.unitnamespace.runtime",
+                            "is-immutable": self.repository_immutable,
+                            "is-public": not self.repository_private,
+                            "lifecycle-state": "AVAILABLE",
                         }
                     }
                 ),

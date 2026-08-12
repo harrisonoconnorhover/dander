@@ -123,11 +123,43 @@ def _verify_repository(
     ]
     if len(matches) != 1:
         raise ProjectBootstrapError("The exact OCI runtime repository does not exist")
-    repository = matches[0]
+    repository_summary = matches[0]
+    repository_id = repository_summary.get("id")
+    if not isinstance(repository_id, str) or not repository_id:
+        raise ProjectBootstrapError("OCI returned invalid repository metadata")
+    response = runner(
+        (
+            *oci_prefix,
+            "artifacts",
+            "container",
+            "repository",
+            "get",
+            "--repository-id",
+            repository_id,
+            "--output",
+            "json",
+        ),
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    try:
+        document = json.loads(response.stdout)
+        repository = document["data"]
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        raise ProjectBootstrapError("OCI returned invalid repository metadata") from error
+    if not isinstance(repository, dict):
+        raise ProjectBootstrapError("OCI returned invalid repository metadata")
     repository_immutable = repository.get("is-immutable")
     if not isinstance(repository_immutable, bool):
         raise ProjectBootstrapError("OCI returned invalid repository metadata")
-    if repository.get("is-public") is not False or repository.get("lifecycle-state") != "AVAILABLE":
+    if (
+        repository.get("id") != repository_id
+        or repository.get("display-name") != repository_name
+        or repository.get("is-public") is not False
+        or repository.get("lifecycle-state") != "AVAILABLE"
+    ):
         raise ProjectBootstrapError("OCI runtime repository must be private and available")
     return repository_immutable
 
