@@ -1201,13 +1201,18 @@ Tickets:
 6. PostgreSQL canonical live profile and external-identity feasibility report;
 7. schedule, retry, parallelism, interruption, rollback, and reconciliation proof.
 
-Progress on 2026-08-12: the OCI SDK/Vault provider and the separate typed Container Instances
-launcher projection are implemented behind lazy provider selection. The launcher accepts only the
-named PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile and exact digest-qualified OCIR images;
-infrastructure, promotion, scheduling Function, operations, reconciliation, credential-refresh,
-live-profile, cleanup, and no-drift evidence remain open. This progress is not an exit-gate or
-support claim, and paid OCI mutation remains disabled pending credential preflight and an explicit
-per-attempt ceiling.
+Progress on 2026-08-12: the OCI SDK/Vault provider, typed Container Instances launcher projection,
+and plan-first Terraform foundations are implemented behind provider-specific boundaries. The OCI
+native remote-state bootstrap creates only a private versioned Object Storage bucket and private
+immutable OCIR repository; the second root creates a private VCN/subnet, default Vault with an
+auto-rotating key, compartment-scoped Container Instance resource-principal policy, Logging, and
+Notifications. Both use short-lived SecurityToken auth, saved plans outside the repository, and
+locally passing Terraform tests; a read-only verifier refreshes both remote states and fails on any
+planned drift. The launcher still accepts only the named PostgreSQL/PostgreSQL/
+no-catalog/OCI-Vault profile and exact digest-qualified OCIR images. Promotion, scheduling Function,
+operations, reconciliation, credential-refresh, live-profile, cleanup, and no-drift evidence remain
+open. This progress is not an exit-gate or support claim, and paid OCI mutation remains disabled
+pending credential preflight and an explicit per-attempt ceiling.
 
 Exit gate:
 

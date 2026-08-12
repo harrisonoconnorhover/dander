@@ -1,0 +1,7 @@
+tenancy_id         = "ocid1.tenancy.oc1..replace_me"
+compartment_id     = "ocid1.compartment.oc1..replace_me"
+region             = "us-ashburn-1"
+config_file_profile = "DANDER"
+dynamic_group_name = "dander_phase7_runtime"
+
+# Keep all values non-secret. Authenticate through a short-lived OCI SecurityToken profile.

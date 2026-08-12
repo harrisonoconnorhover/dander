@@ -3,36 +3,38 @@
 ## Finished
 
 - Merged the OCI SDK/Vault provider slice through protected PR #212.
-- Added a separate lazy, typed OCI Container Instances launcher projection.
-- Restricted OCI to the PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile.
-- Added exact OCIR digest, flex-shape, UTC schedule, network, and resource-principal validation.
+- Merged the typed OCI Container Instances launcher through protected PR #213.
+- Added native Object Storage state and immutable private OCIR stage zero.
+- Added the private VCN, Vault/key, resource-principal policy, Logging, and Notifications foundation.
+- Added SecurityToken-only plan/apply CLI and read-only no-drift verification for both remote states.
 
 ## Try It
 
-Run `uv run pytest tests/providers/test_oci_container_instances_runtime.py`.
+Run `uv run pytest tests/bootstrap/test_oci_terraform.py tests/cli/test_oci_cli.py`.
 
 ## Checks
 
-- Focused launcher/profile regressions passed: 51 tests.
+- Both OCI Terraform roots validate and their native tests pass.
 - The complete pytest suite, Ruff, and repository-wide strict Mypy passed.
-- Wheel and source distribution built with the OCI launcher modules included.
-- Protected-main CI for the merged Vault slice passed all five jobs.
+- Wheel and source distribution built and passed the distribution contract check.
+- Trivy reported no HIGH or CRITICAL infrastructure misconfigurations.
+- Protected-main CI for merged PR #213 passed all five jobs.
 
 ## Decisions
 
-- OCI retries are whole-task attempts owned by the later reconciler; native restart is `NEVER`.
-- OCI OCPUs and fixed ephemeral storage remain explicit provider semantics.
+- Stage zero and foundation are separate reviewed saved plans; secret values never enter Terraform.
+- Terraform's native OCI backend requires Terraform 1.12+ and uses only SecurityToken auth here.
 - Live OCI writes remain at $0 pending preflight and a numeric per-attempt ceiling.
 
 ## Remaining
 
-- Merge this launcher contract through a protected PR.
-- Implement Terraform, then scheduling/lifecycle operations in separate PRs.
+- Merge this Terraform foundation through a protected PR.
+- Implement scheduling/lifecycle operations in a separate PR.
 - Build one new post-merge candidate and run the complete OCI live gate after account preflight.
 - Complete Phase 8 only after Phase 7 passes.
 
 ## Review First
 
-- `src/dander/providers/oci_container_instances/runtime.py`
-- `src/dander/providers/oci_container_instances/config.py`
-- `tests/providers/test_oci_container_instances_runtime.py`
+- `src/dander/bootstrap/oci_terraform.py`
+- `infra/oci/main.tf`
+- `infra/oci/bootstrap-admin/main.tf`

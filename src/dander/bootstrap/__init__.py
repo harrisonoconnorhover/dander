@@ -12,6 +12,11 @@ from dander.bootstrap.azure_admin import (
 )
 from dander.bootstrap.azure_image import AzureRuntimeImagePromoter
 from dander.bootstrap.azure_terraform import AzureTerraformBootstrap, AzureTerraformBootstrapError
+from dander.bootstrap.oci_terraform import (
+    OciAdministrativeBootstrap,
+    OciTerraformBootstrap,
+    OciTerraformBootstrapError,
+)
 from dander.bootstrap.permissions import require_stage_zero_permissions
 from dander.bootstrap.project import (
     ProjectBootstrapError,
@@ -43,6 +48,9 @@ __all__ = [
     "AzureRuntimeImagePromoter",
     "AzureTerraformBootstrap",
     "AzureTerraformBootstrapError",
+    "OciAdministrativeBootstrap",
+    "OciTerraformBootstrap",
+    "OciTerraformBootstrapError",
     "DeploymentSummary",
     "DeploymentVerificationError",
     "DeploymentVerifier",
