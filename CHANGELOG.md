@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc4 — 2026-08-12 (beta)
+
+### Fixed
+
+- Give OCI KMS automatic key rotation an explicit 365-day schedule required by the live API.
+- Verify OCIR capability from exact repository metadata after list summaries omit optional fields.
+
 ## 0.9.0rc3 — 2026-08-12 (beta)
 
 ### Fixed

@@ -2,23 +2,22 @@
 
 ## Finished
 
-- Published exact protected-main candidate `dander-platform==0.9.0rc3` and verified its public wheel.
+- Merged the OCI KMS rotation correction through protected CI.
+- Merged exact OCIR repository-metadata verification through protected CI.
 - Completed OCI stage zero and migrated its state into the private versioned Object Storage bucket.
 - Published the source-free RC3 runtime index in the disposable GCP proof registry.
-- Captured the live OCI KMS requirement for an explicit automatic-rotation schedule.
-- Captured OCI's live list-summary versus exact-repository metadata behavior.
+- Prepared `dander-platform==0.9.0rc4` release metadata for the combined live corrections.
 
 ## Try It
 
-Run the focused OCI image-promotion and controller-publication tests.
+Run `uv run python scripts/check_release_metadata.py`.
 
 ## Checks
 
-- Protected-main CI passed for the exact `v0.9.0rc3` candidate.
+- Protected-main CI passed after both OCI live corrections merged.
 - Live OCI stage-zero retry reached zero drift after one private repository create.
-- The rotation-schedule correction passed PR CI; protected-main CI is running.
-- Live promotion failed closed before copying because OCI's list summary omitted immutability.
-- Focused tests and full protected CI remain required for the metadata correction.
+- Focused OCI tests, Ruff, Mypy, Terraform validation, and protected CI passed for the corrections.
+- RC4 distribution inspection and protected release CI remain required.
 
 ## Decisions
 
@@ -28,13 +27,13 @@ Run the focused OCI image-promotion and controller-publication tests.
 
 ## Remaining
 
-- Merge the exact-repository verification correction through protected CI.
-- Retry the one-resource foundation plan after the combined protected-main CI passes.
+- Publish and verify the exact protected-main `v0.9.0rc4` candidate.
+- Retry the one-resource foundation plan with the public RC4 operator.
 - Resume digest-preserving OCIR promotion from the accepted GCP runtime index.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.
 
 ## Review First
 
-- `src/dander/bootstrap/oci_image.py`
-- `tests/bootstrap/test_oci_image_promotion.py`
-- `tests/bootstrap/test_oci_controller_publication.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `HANDOFF.md`
