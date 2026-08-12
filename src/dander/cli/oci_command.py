@@ -12,8 +12,10 @@ from rich.console import Console
 
 from dander.bootstrap import (
     OciAdministrativeBootstrap,
+    OciRuntimeImagePromoter,
     OciTerraformBootstrap,
     OciTerraformBootstrapError,
+    ProjectBootstrapError,
     build_oci_execution_projections,
 )
 from dander.project import ProjectConfigError, load_project_config
@@ -28,6 +30,43 @@ _DEFAULT_OCI_INFRA_DIR = Path("infra/oci")
 _DEFAULT_OCI_ADMIN_DIR = Path("infra/oci/bootstrap-admin")
 console = Console()
 oci_app = typer.Typer(help="Operate manifest-bound OCI Container Instances pipelines.")
+
+
+def image_promote_oci(
+    source_image: str = typer.Option(
+        ..., "--source-image", help="Accepted source-free OCI image ending in @sha256 digest."
+    ),
+    compartment_id: str = typer.Option(..., "--compartment-id"),
+    region: str = typer.Option("us-ashburn-1", "--region"),
+    namespace: str = typer.Option(..., "--registry-namespace"),
+    repository_name: str = typer.Option("dander/runtime", "--repository"),
+    oci_profile: str = typer.Option("DEFAULT", "--oci-profile"),
+    tag_prefix: str = typer.Option("promoted", "--tag-prefix"),
+    config: Path = typer.Option(Path("dander.yaml"), "--config"),  # noqa: B008
+) -> None:
+    """Copy an accepted OCI index into OCIR using one short-lived scoped token."""
+    if not typer.confirm(
+        f"Copy the accepted runtime image into OCI repository {repository_name!r}?",
+        default=False,
+    ):
+        raise typer.Abort()
+    try:
+        promoter = OciRuntimeImagePromoter(config.resolve().parent)
+        image = promoter.promote(
+            source_image=source_image,
+            compartment_id=compartment_id,
+            region=region,
+            namespace=namespace,
+            repository_name=repository_name,
+            oci_profile=oci_profile,
+            tag_prefix=tag_prefix,
+        )
+    except ProjectBootstrapError as error:
+        raise ClickException(str(error)) from error
+    console.print(f"[green]Promoted byte-identical runtime image:[/green] {image}")
+    if promoter.artifact_record_path is not None:
+        console.print(f"OCI artifact record: {promoter.artifact_record_path}")
+    console.print("Next: use this immutable digest with dander init-oci-launcher-plan.")
 
 
 def _oci_operations(
@@ -631,6 +670,7 @@ def _print_plan(label: str, operator_artifact_dir: Path, plan_path: Path) -> Non
 def register_oci_commands(app: typer.Typer) -> None:
     """Register OCI plan-first administrative commands."""
     app.add_typer(oci_app, name="oci")
+    app.command("image-promote-oci")(image_promote_oci)
     app.command("init-oci-admin-plan")(init_oci_admin_plan)
     app.command("init-oci-admin-apply")(init_oci_admin_apply)
     app.command("init-oci-plan")(init_oci_plan)

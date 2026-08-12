@@ -30,7 +30,7 @@ state, SQL, ingestion, planner, or orchestration semantics.
 - [x] The source-free Python 3.12 controller recipe installs one exact Dander wheel and uses pinned
   `linux/amd64` Function base images matching Terraform's `GENERIC_X86` application.
 - [x] Focused Python and Terraform tests pass without OCI access.
-- [ ] Protected CI passes and this implementation merges before any live OCI deployment.
+- [x] Protected CI passes and this implementation merges before any live OCI deployment.
 - [ ] A separately approved live proof covers schedule, retry, overlap, interruption, replay,
   secret rotation, rollback, cleanup, and no drift.
 
@@ -50,4 +50,5 @@ implemented and static keys remain rejected.
 
 ## Review Log
 
-Protected review and live acceptance remain pending.
+Protected implementation PR #215 merged at `e79e30be67cc9abd1df14dfb941a0046c8bacc50`, and the
+protected-main CI run passed. Live acceptance remains pending.

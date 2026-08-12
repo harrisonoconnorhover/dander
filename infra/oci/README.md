@@ -22,16 +22,33 @@ then copied into the typed `oci_container_instances` launcher configuration.
 
 1. Run `dander init-oci-admin-plan`, review the saved stage-zero plan, and apply it only after
    explicit cost approval with `dander init-oci-admin-apply`.
-2. Run `dander init-oci-plan` and apply the reviewed foundation plan with `dander init-oci-apply`.
-3. Seed only the manifest-declared secret names in Vault. Secret values never enter Terraform.
-4. Build and push the [controller image](controller/README.md) from a clean protected-main wheel.
-5. Run `dander init-oci-launcher-plan` with the exact runtime digest, controller tag and controller
+2. Promote the accepted source-free runtime index without rebuilding it:
+
+   ```console
+   dander image-promote-oci \
+     --source-image SOURCE@sha256:DIGEST \
+     --compartment-id ocid1.compartment... \
+     --registry-namespace NAMESPACE \
+     --repository dander/runtime \
+     --oci-profile DANDER
+   ```
+
+   The command verifies the accepted local artifact record and source platform map, requires the
+   exact private immutable repository, requests a repository-scoped access token from the expiring
+   OCI `SecurityToken` session, and uses only a temporary Docker configuration. It rejects any
+   index or platform-digest rewrite and records the immutable result locally.
+3. Run `dander init-oci-plan` and apply the reviewed foundation plan with `dander init-oci-apply`.
+4. Seed only the manifest-declared secret names in Vault. Secret values never enter Terraform.
+5. Build and push the [controller image](controller/README.md) from a clean protected-main wheel.
+6. Run `dander init-oci-launcher-plan` with the exact runtime digest, controller tag and controller
    digest. Review and apply that saved plan through the same `init-oci-apply` boundary.
-6. Use `dander verify-oci-deployment` with all four controller inputs to require exact no drift.
+7. Use `dander verify-oci-deployment` with all four controller inputs to require exact no drift.
 
 The Function owns maximum parallelism one, whole-task retry only for runtime exit code 75, a
 3,300-second maximum runtime deadline, stop/delete cleanup, bounded logs, and immutable history.
 Resource Scheduler is UTC-only and does not admit a recurrence interval shorter than one hour.
 `dander oci run`, `cancel`, and `replay` require confirmation; `status` and `logs` are read-only.
 All operator API calls use an expiring `SecurityToken` profile, while the Function and Container
-Instances use resource principals. Static OCI API keys and static cloud keys are not fallbacks.
+Instances use resource principals. Runtime promotion derives a short-lived, repository-scoped
+registry token from that session and never changes the operator's persistent Docker configuration.
+Static OCI API keys, user auth tokens, registry passwords, and static cloud keys are not fallbacks.

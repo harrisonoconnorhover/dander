@@ -58,6 +58,56 @@ def test_oci_admin_plan_is_non_mutating_and_prints_review_command(
     assert "No OCI resources were created" in result.output
 
 
+def test_oci_image_promotion_requires_confirmation_and_passes_typed_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+    digest = "sha256:" + "a" * 64
+
+    class _Promoter:
+        artifact_record_path = tmp_path / ".dander" / "runtime-artifact-oci.json"
+
+        def __init__(self, project_dir: Path) -> None:
+            assert project_dir == tmp_path
+
+        def promote(self, **kwargs: object) -> str:
+            calls.append(kwargs)
+            return f"ocir.us-ashburn-1.oci.oraclecloud.com/unitnamespace/dander/runtime@{digest}"
+
+    monkeypatch.setattr(oci_command, "OciRuntimeImagePromoter", _Promoter)
+    args = [
+        "image-promote-oci",
+        "--source-image",
+        f"registry.example/source@{digest}",
+        "--compartment-id",
+        "ocid1.compartment.oc1.." + "b" * 32,
+        "--registry-namespace",
+        "unitnamespace",
+        "--oci-profile",
+        "DANDER",
+        "--config",
+        str(tmp_path / "dander.yaml"),
+    ]
+
+    refused = CliRunner().invoke(app, args, input="n\n")
+    accepted = CliRunner().invoke(app, args, input="y\n")
+
+    assert refused.exit_code == 1
+    assert accepted.exit_code == 0, accepted.output
+    assert calls == [
+        {
+            "source_image": f"registry.example/source@{digest}",
+            "compartment_id": "ocid1.compartment.oc1.." + "b" * 32,
+            "region": "us-ashburn-1",
+            "namespace": "unitnamespace",
+            "repository_name": "dander/runtime",
+            "oci_profile": "DANDER",
+            "tag_prefix": "promoted",
+        }
+    ]
+
+
 def test_oci_foundation_apply_requires_confirmation(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

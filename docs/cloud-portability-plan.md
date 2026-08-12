@@ -1215,8 +1215,11 @@ Function owns deterministic idempotency, overlap exclusion, whole-task retries, 
 interruption, replay, bounded logs, terminal history, per-pipeline lifecycle-event reconciliation,
 and UTC Resource Scheduler delivery; operator commands use only expiring SecurityToken sessions.
 Runtime processes resolve versionless Vault references through resource principals without putting
-values in Terraform or Function configuration. Controller/runtime image publication,
-credential-refresh, live-profile, rollback, cleanup, and no-drift evidence remain open. This
+values in Terraform or Function configuration. Accepted runtime indexes can be copied into the
+exact private immutable OCIR repository without rebuild using a short-lived repository-scoped token
+derived from the operator's SecurityToken session; source, destination, and per-platform digests
+must remain equal. Controller/runtime image publication, credential-refresh, live-profile,
+rollback, cleanup, and no-drift evidence remain open. This
 progress is not an exit-gate or support claim, and paid OCI mutation remains disabled pending
 credential preflight and an explicit per-attempt ceiling.
 

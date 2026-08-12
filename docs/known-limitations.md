@@ -84,8 +84,9 @@ remain Phase 8 work.
   interval shorter than one hour. OCI Vault references resolve the `CURRENT` version at the start
   of every runtime process and are removed from the process environment afterward; in-process
   rotation is not claimed. The controller image is a Python 3.12 `GENERIC_X86` image built from an
-  exact wheel, not the source-free task image. Digest promotion, provider deployment verification,
-  credential-rotation proof, and the complete live OCI profile remain unqualified. No OCI launcher
+  exact wheel, not the source-free task image. Digest-preserving OCIR promotion is implemented with
+  an ephemeral repository-scoped token, but live publication, provider deployment verification,
+  credential-rotation proof, and the complete OCI profile remain unqualified. No OCI launcher
   support claim exists until those separate gates pass.
 
 ## Ingestion and schemas

@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Implemented an idempotent OCI Function controller with one fresh Container Instance per attempt.
-- Added Resource Scheduler, pipeline-scoped lifecycle events, exact resource principals, logs, and alarms.
-- Added crash-recoverable Object Storage run records plus bounded logs, interruption, replay, and retry.
-- Added manifest-bound OCI run/status/logs/cancel/replay and exact launcher planning/no-drift inputs.
-- Added runtime resolution of versionless OCI Vault references and a source-free controller image.
+- Merged protected PR #215 for the OCI lifecycle controller; protected-main CI is green.
+- Added digest-preserving OCIR runtime promotion with no provider-specific rebuild.
+- Derived a repository-scoped registry token from the expiring OCI SecurityToken session.
+- Kept the token in a mode-0600 temporary Docker config while preserving source-registry helpers.
+- Added fail-closed repository, index, platform-map, idempotency, cleanup, and CLI contracts.
 
 ## Try It
 
-Run `uv run pytest tests/providers/test_oci_container_instances_controller.py`.
+Run `uv run pytest tests/bootstrap/test_oci_image_promotion.py`.
 
 ## Checks
 
-- Complete pytest, Ruff lint/format, and repository-wide Mypy pass.
-- Both OCI Terraform roots validate; their native tests pass (2 foundation/controller, 1 stage zero).
-- Wheel/sdist build and the distribution contract pass.
-- The `linux/amd64` Function image builds and imports Dander `0.9.0rc1` with OCI SDK `2.184.1`.
-- No state, plan, key, or credential file is present in the worktree diff.
+- Focused OCIR promotion and OCI CLI tests pass.
+- Focused Ruff lint/format and Mypy pass.
+- Protected-main CI at `e79e30be67cc9abd1df14dfb941a0046c8bacc50` passes.
 
 ## Decisions
 
-- The Function owns parallelism one, exit-75 whole-task retry, a 3,300-second deadline, and cleanup.
-- Scheduler delivery is UTC/hourly; event rules and controller dynamic groups are pipeline/exact-OCID scoped.
-- Runtime task images remain source-free; the Function image contains only the exact wheel and dependencies.
+- Runtime indexes are copied, never rebuilt, and must retain index plus platform digests.
+- OCIR user auth tokens and registry passwords remain prohibited; use scoped ephemeral access tokens.
+- The reviewed stage-zero repository must already be private, immutable, and available.
 
 ## Remaining
 
-- Merge this implementation through a protected PR and verify protected-main CI.
+- Merge the focused OCIR promotion implementation and verify protected-main CI.
+- Add protected controller-image publication from an exact reviewed wheel.
 - Obtain explicit approval for public candidate publication and a numeric OCI per-attempt ceiling.
 - Run read-only OCI preflight, reviewed plans, live profile/rotation/rollback/cleanup, and no drift.
 - Merge sanitized live evidence, then make the binary Phase 7 exit-gate recommendation.
 
 ## Review First
 
-- `src/dander/providers/oci_container_instances/controller.py`
-- `src/dander/providers/oci_container_instances/oci_adapter.py`
-- `infra/oci/main.tf`
+- `src/dander/bootstrap/oci_image.py`
+- `tests/bootstrap/test_oci_image_promotion.py`
+- `src/dander/cli/oci_command.py`
