@@ -1363,3 +1363,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   controller is a digest-pinned `GENERIC_X86` Function image assembled from the exact reviewed
   wheel; the task runtime remains the separately accepted source-free release image. Live OCI
   publication and provider proof remain separate gates.
+
+## 2026-08-12 — OCIR promotion uses a scoped token derived from SecurityToken auth
+
+- **Decision:** Copy the already accepted OCI runtime index with `docker buildx imagetools`; do not
+  rebuild it for OCI. Verify the source artifact record, source platform map, private immutable
+  destination repository, destination index digest, and destination platform map.
+- **Authentication:** Request a short-lived token limited to `pull,push` on the exact OCIR
+  repository through the OCI CLI's signed `SecurityToken` session. Put it only in a mode-`0600`
+  temporary Docker configuration that preserves existing source-registry helpers and is deleted at
+  command exit. Do not create or accept a user auth token, registry password, or static API key.
+- **Failure boundary:** Existing tags are accepted only when their digest is already identical.
+  Any repository-policy mismatch, short token lifetime, digest rewrite, or platform drift fails the
+  promotion before an OCI launcher may consume the image.

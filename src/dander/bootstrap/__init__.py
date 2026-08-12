@@ -12,6 +12,7 @@ from dander.bootstrap.azure_admin import (
 )
 from dander.bootstrap.azure_image import AzureRuntimeImagePromoter
 from dander.bootstrap.azure_terraform import AzureTerraformBootstrap, AzureTerraformBootstrapError
+from dander.bootstrap.oci_image import OciRuntimeImagePromoter
 from dander.bootstrap.oci_terraform import (
     OciAdministrativeBootstrap,
     OciTerraformBootstrap,
@@ -50,6 +51,7 @@ __all__ = [
     "AzureTerraformBootstrap",
     "AzureTerraformBootstrapError",
     "OciAdministrativeBootstrap",
+    "OciRuntimeImagePromoter",
     "OciTerraformBootstrap",
     "OciTerraformBootstrapError",
     "build_oci_execution_projections",
