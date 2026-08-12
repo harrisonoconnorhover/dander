@@ -2,38 +2,38 @@
 
 ## Finished
 
-- Merged protected PR #215 for the OCI lifecycle controller; protected-main CI is green.
-- Added digest-preserving OCIR runtime promotion with no provider-specific rebuild.
-- Derived a repository-scoped registry token from the expiring OCI SecurityToken session.
-- Kept the token in a mode-0600 temporary Docker config while preserving source-registry helpers.
-- Added fail-closed repository, index, platform-map, idempotency, cleanup, and CLI contracts.
+- Merged protected PR #216 for digest-preserving OCIR runtime promotion.
+- Added OCI controller publication bound to one exact reviewed wheel SHA-256.
+- Build inputs now come only from the wheel through an ephemeral source-free context.
+- Added deterministic immutable tagging, amd64 verification, and sanitized artifact recording.
+- Added fail-closed rerun, scoped-token, confirmation, and cleanup contracts.
 
 ## Try It
 
-Run `uv run pytest tests/bootstrap/test_oci_image_promotion.py`.
+Run `uv run pytest tests/bootstrap/test_oci_controller_publication.py tests/cli/test_oci_cli.py`.
 
 ## Checks
 
-- Focused OCIR promotion and OCI CLI tests pass.
+- Focused controller, OCIR promotion, and OCI CLI tests pass.
 - Focused Ruff lint/format and Mypy pass.
-- Protected-main CI at `e79e30be67cc9abd1df14dfb941a0046c8bacc50` passes.
+- Protected-main CI at `fae47a3cf860ba74a7c40b63c84ca21b9db7c6a2` passes.
 
 ## Decisions
 
-- Runtime indexes are copied, never rebuilt, and must retain index plus platform digests.
-- OCIR user auth tokens and registry passwords remain prohibited; use scoped ephemeral access tokens.
-- The reviewed stage-zero repository must already be private, immutable, and available.
+- The controller is a wheel-built amd64 Function image, separate from the copied task runtime.
+- A dirty checkout cannot contribute files to the controller build context.
+- Existing controller tags require an exact local wheel/tag/digest binding.
 
 ## Remaining
 
-- Merge the focused OCIR promotion implementation and verify protected-main CI.
-- Add protected controller-image publication from an exact reviewed wheel.
+- Merge the protected controller-publication PR and verify protected-main CI.
+- Prepare the Phase 7 release candidate without publishing it.
 - Obtain explicit approval for public candidate publication and a numeric OCI per-attempt ceiling.
-- Run read-only OCI preflight, reviewed plans, live profile/rotation/rollback/cleanup, and no drift.
-- Merge sanitized live evidence, then make the binary Phase 7 exit-gate recommendation.
+- Run approved live OCI publication, profile, rotation, rollback, cleanup, and no-drift proof.
+- Merge sanitized evidence and make the binary Phase 7 exit-gate recommendation.
 
 ## Review First
 
 - `src/dander/bootstrap/oci_image.py`
-- `tests/bootstrap/test_oci_image_promotion.py`
+- `tests/bootstrap/test_oci_controller_publication.py`
 - `src/dander/cli/oci_command.py`

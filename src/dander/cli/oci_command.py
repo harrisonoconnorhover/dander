@@ -12,6 +12,7 @@ from rich.console import Console
 
 from dander.bootstrap import (
     OciAdministrativeBootstrap,
+    OciControllerImagePublisher,
     OciRuntimeImagePromoter,
     OciTerraformBootstrap,
     OciTerraformBootstrapError,
@@ -67,6 +68,43 @@ def image_promote_oci(
     if promoter.artifact_record_path is not None:
         console.print(f"OCI artifact record: {promoter.artifact_record_path}")
     console.print("Next: use this immutable digest with dander init-oci-launcher-plan.")
+
+
+def image_publish_oci_controller(
+    wheel: Path = typer.Option(  # noqa: B008
+        ..., "--wheel", help="Exact reviewed Dander wheel."
+    ),
+    wheel_sha256: str = typer.Option(..., "--wheel-sha256"),
+    compartment_id: str = typer.Option(..., "--compartment-id"),
+    region: str = typer.Option("us-ashburn-1", "--region"),
+    namespace: str = typer.Option(..., "--registry-namespace"),
+    repository_name: str = typer.Option("dander/runtime", "--repository"),
+    oci_profile: str = typer.Option("DEFAULT", "--oci-profile"),
+    config: Path = typer.Option(Path("dander.yaml"), "--config"),  # noqa: B008
+) -> None:
+    """Build the OCI lifecycle controller solely from an exact reviewed wheel."""
+    if not typer.confirm(
+        f"Publish the wheel-bound OCI controller into repository {repository_name!r}?",
+        default=False,
+    ):
+        raise typer.Abort()
+    try:
+        publisher = OciControllerImagePublisher(config.resolve().parent)
+        image = publisher.publish(
+            wheel=wheel,
+            wheel_sha256=wheel_sha256,
+            compartment_id=compartment_id,
+            region=region,
+            namespace=namespace,
+            repository_name=repository_name,
+            oci_profile=oci_profile,
+        )
+    except ProjectBootstrapError as error:
+        raise ClickException(str(error)) from error
+    console.print(f"[green]Published immutable OCI controller image:[/green] {image}")
+    if publisher.artifact_record_path is not None:
+        console.print(f"OCI controller artifact record: {publisher.artifact_record_path}")
+    console.print("Next: pass this digest-qualified image to dander init-oci-launcher-plan.")
 
 
 def _oci_operations(
@@ -671,6 +709,7 @@ def register_oci_commands(app: typer.Typer) -> None:
     """Register OCI plan-first administrative commands."""
     app.add_typer(oci_app, name="oci")
     app.command("image-promote-oci")(image_promote_oci)
+    app.command("image-publish-oci-controller")(image_publish_oci_controller)
     app.command("init-oci-admin-plan")(init_oci_admin_plan)
     app.command("init-oci-admin-apply")(init_oci_admin_apply)
     app.command("init-oci-plan")(init_oci_plan)

@@ -1376,3 +1376,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Failure boundary:** Existing tags are accepted only when their digest is already identical.
   Any repository-policy mismatch, short token lifetime, digest rewrite, or platform drift fails the
   promotion before an OCI launcher may consume the image.
+
+## 2026-08-12 — OCI controller publication is bound to the reviewed wheel
+
+- **Build boundary:** The Function controller is not the portable task runtime. Build it for
+  `linux/amd64` from one exact SHA-256-qualified Dander wheel, extracting the Dockerfile, shim, and
+  dependency pins from that wheel into an ephemeral context; never build from the working tree.
+- **Registry boundary:** Publish a deterministic wheel-bound tag to the same reviewed private,
+  immutable OCIR repository using the repository-scoped SecurityToken-derived access token. Record
+  the resulting digest locally without credentials or local paths.
+- **Idempotency:** An existing immutable controller tag is reusable only when its digest has an
+  exact local artifact binding to the same wheel hash. Missing or mismatched bindings fail closed.

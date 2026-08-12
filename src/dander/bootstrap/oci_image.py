@@ -1,12 +1,16 @@
-"""Digest-preserving promotion of accepted runtime images into OCI OCIR."""
+"""Reviewed runtime and lifecycle-controller publication into OCI OCIR."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
+import zipfile
 from contextlib import contextmanager
+from email.parser import Parser
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Protocol
@@ -29,6 +33,13 @@ _NAMESPACE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,99}$")
 _REPOSITORY = re.compile(r"^[a-z0-9]+(?:[._/-][a-z0-9]+)*$")
 _PROFILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 _TAG_PREFIX = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+_WHEEL_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_CONTROLLER_ARTIFACT_SCHEMA = "io.dander.oci.controller.artifact/v1"
+_CONTROLLER_BUILD_FILES = (
+    "dander/templates/project/infra/oci/controller/Dockerfile",
+    "dander/templates/project/infra/oci/controller/func.py",
+    "dander/templates/project/infra/oci/controller/requirements.txt",
+)
 
 
 class _Runner(Protocol):
@@ -57,6 +68,165 @@ def _subprocess_runner(
         check=check,
         capture_output=capture_output,
         text=text,
+    )
+
+
+def _oci_prefix(*, profile: str, region: str) -> tuple[str, ...]:
+    return (
+        "oci",
+        "--profile",
+        profile,
+        "--auth",
+        "security_token",
+        "--region",
+        region,
+    )
+
+
+def _verify_repository(
+    *,
+    runner: _Runner,
+    cwd: Path,
+    oci_prefix: tuple[str, ...],
+    compartment_id: str,
+    repository_name: str,
+) -> None:
+    response = runner(
+        (
+            *oci_prefix,
+            "artifacts",
+            "container",
+            "repository",
+            "list",
+            "--compartment-id",
+            compartment_id,
+            "--all",
+            "--output",
+            "json",
+        ),
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    try:
+        document = json.loads(response.stdout)
+        items = document["data"]["items"]
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        raise ProjectBootstrapError("OCI returned invalid repository metadata") from error
+    if not isinstance(items, list):
+        raise ProjectBootstrapError("OCI returned invalid repository metadata")
+    matches = [
+        item
+        for item in items
+        if isinstance(item, dict) and item.get("display-name") == repository_name
+    ]
+    if len(matches) != 1:
+        raise ProjectBootstrapError("The exact OCI runtime repository does not exist")
+    repository = matches[0]
+    if (
+        repository.get("is-immutable") is not True
+        or repository.get("is-public") is not False
+        or repository.get("lifecycle-state") != "AVAILABLE"
+    ):
+        raise ProjectBootstrapError(
+            "OCI runtime repository must be private, immutable, and available"
+        )
+
+
+def _registry_token(
+    *,
+    runner: _Runner,
+    cwd: Path,
+    oci_prefix: tuple[str, ...],
+    host: str,
+    namespace: str,
+    repository_name: str,
+) -> str:
+    scope = f"repository:{namespace}/{repository_name}:pull,push"
+    response = runner(
+        (
+            *oci_prefix,
+            "container-registry",
+            "access-token",
+            "get",
+            "--service",
+            host,
+            "--scope",
+            scope,
+            "--output",
+            "json",
+        ),
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    try:
+        document = json.loads(response.stdout)
+        data = document["data"]
+        token = data["token"]
+        expires_in = data["expires-in"]
+        actual_scope = data["scope"]
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        raise ProjectBootstrapError("OCI returned an invalid registry access token") from error
+    if (
+        not isinstance(token, str)
+        or not token
+        or not isinstance(expires_in, int)
+        or expires_in < 300
+        or actual_scope != scope
+    ):
+        raise ProjectBootstrapError("OCI returned an invalid registry access token")
+    return token
+
+
+@contextmanager
+def _temporary_docker_config(*, host: str, identity_token: str) -> Iterator[Path]:
+    try:
+        source_dir = Path(os.environ.get("DOCKER_CONFIG", Path.home() / ".docker"))
+        source_path = source_dir / "config.json"
+        if source_path.is_file():
+            document = json.loads(source_path.read_text(encoding="utf-8"))
+            if not isinstance(document, dict):
+                raise ProjectBootstrapError("Docker configuration is not a JSON object")
+        else:
+            document = {}
+        auths = document.get("auths", {})
+        if not isinstance(auths, dict):
+            raise ProjectBootstrapError("Docker configuration has invalid registry entries")
+        document["auths"] = {**auths, host: {"identitytoken": identity_token}}
+        with TemporaryDirectory(prefix="dander-ocir-") as directory:
+            config_dir = Path(directory)
+            config_path = config_dir / "config.json"
+            config_path.write_text(
+                json.dumps(document, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            config_path.chmod(0o600)
+            yield config_dir
+    except (OSError, json.JSONDecodeError) as error:
+        raise ProjectBootstrapError(
+            "Could not create an isolated Docker configuration for OCIR"
+        ) from error
+
+
+def _inspect(
+    *,
+    runner: _Runner,
+    cwd: Path,
+    image: str,
+    docker_config: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    prefix: tuple[str, ...] = ("docker",)
+    if docker_config is not None:
+        prefix = ("docker", "--config", str(docker_config))
+    return runner(
+        (*prefix, "buildx", "imagetools", "inspect", "--raw", image),
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
     )
 
 
@@ -106,7 +276,11 @@ class OciRuntimeImagePromoter:
         expected_digest = source_match.group("digest")
         expected_platforms = source_record["platform_manifests"]
         assert isinstance(expected_platforms, dict)
-        source_raw = self._inspect(source_image).stdout
+        source_raw = _inspect(
+            runner=self._runner,
+            cwd=self._project_dir,
+            image=source_image,
+        ).stdout
         if _platform_manifests(source_raw, default_digest=expected_digest) != expected_platforms:
             raise ProjectBootstrapError(
                 "Source registry content no longer matches the accepted artifact record"
@@ -117,15 +291,7 @@ class OciRuntimeImagePromoter:
         tag = f"{tag_prefix}-{expected_digest.removeprefix('sha256:')[:12]}"
         tagged_destination = f"{destination_repository}:{tag}"
         image_uri = f"{namespace}/{repository_name}:{tag}"
-        oci_prefix = (
-            "oci",
-            "--profile",
-            oci_profile,
-            "--auth",
-            "security_token",
-            "--region",
-            region,
-        )
+        oci_prefix = _oci_prefix(profile=oci_profile, region=region)
         lookup = (
             *oci_prefix,
             "artifacts",
@@ -140,7 +306,9 @@ class OciRuntimeImagePromoter:
         )
 
         try:
-            self._verify_repository(
+            _verify_repository(
+                runner=self._runner,
+                cwd=self._project_dir,
                 oci_prefix=oci_prefix,
                 compartment_id=compartment_id,
                 repository_name=repository_name,
@@ -153,13 +321,15 @@ class OciRuntimeImagePromoter:
                 text=True,
             )
             created = existing.returncode != 0
-            token = self._registry_token(
+            token = _registry_token(
+                runner=self._runner,
+                cwd=self._project_dir,
                 oci_prefix=oci_prefix,
                 host=host,
                 namespace=namespace,
                 repository_name=repository_name,
             )
-            with self._temporary_docker_config(host=host, identity_token=token) as config_dir:
+            with _temporary_docker_config(host=host, identity_token=token) as config_dir:
                 if created:
                     self._runner(
                         (
@@ -197,8 +367,10 @@ class OciRuntimeImagePromoter:
                         "Existing immutable OCIR tag does not match the accepted OCI index"
                     )
                 immutable_destination = f"{destination_repository}@{destination_digest}"
-                destination_raw = self._inspect(
-                    immutable_destination,
+                destination_raw = _inspect(
+                    runner=self._runner,
+                    cwd=self._project_dir,
+                    image=immutable_destination,
                     docker_config=config_dir,
                 ).stdout
                 if (
@@ -268,145 +440,272 @@ class OciRuntimeImagePromoter:
             )
         return source_record
 
-    def _verify_repository(
-        self,
-        *,
-        oci_prefix: tuple[str, ...],
-        compartment_id: str,
-        repository_name: str,
-    ) -> None:
-        response = self._runner(
-            (
-                *oci_prefix,
-                "artifacts",
-                "container",
-                "repository",
-                "list",
-                "--compartment-id",
-                compartment_id,
-                "--all",
-                "--output",
-                "json",
-            ),
-            cwd=self._project_dir,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        try:
-            document = json.loads(response.stdout)
-            items = document["data"]["items"]
-        except (json.JSONDecodeError, KeyError, TypeError) as error:
-            raise ProjectBootstrapError("OCI returned invalid repository metadata") from error
-        if not isinstance(items, list):
-            raise ProjectBootstrapError("OCI returned invalid repository metadata")
-        matches = [
-            item
-            for item in items
-            if isinstance(item, dict) and item.get("display-name") == repository_name
-        ]
-        if len(matches) != 1:
-            raise ProjectBootstrapError("The exact OCI runtime repository does not exist")
-        repository = matches[0]
-        if (
-            repository.get("is-immutable") is not True
-            or repository.get("is-public") is not False
-            or repository.get("lifecycle-state") != "AVAILABLE"
-        ):
-            raise ProjectBootstrapError(
-                "OCI runtime repository must be private, immutable, and available"
-            )
 
-    def _registry_token(
+class OciControllerImagePublisher:
+    """Build one OCI Functions controller solely from an exact reviewed wheel."""
+
+    def __init__(self, project_dir: Path, *, runner: _Runner | None = None) -> None:
+        self._project_dir = project_dir.resolve()
+        self._runner = runner or _subprocess_runner
+        self._artifact_record_path: Path | None = None
+
+    @property
+    def artifact_record_path(self) -> Path | None:
+        """Return the controller artifact record written by the latest publication."""
+        return self._artifact_record_path
+
+    def publish(
         self,
         *,
-        oci_prefix: tuple[str, ...],
-        host: str,
+        wheel: Path,
+        wheel_sha256: str,
+        compartment_id: str,
+        region: str,
         namespace: str,
         repository_name: str,
+        oci_profile: str = "DEFAULT",
     ) -> str:
-        scope = f"repository:{namespace}/{repository_name}:pull,push"
-        response = self._runner(
-            (
-                *oci_prefix,
-                "container-registry",
-                "access-token",
-                "get",
-                "--service",
-                host,
-                "--scope",
-                scope,
-                "--output",
-                "json",
-            ),
-            cwd=self._project_dir,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        try:
-            document = json.loads(response.stdout)
-            data = document["data"]
-            token = data["token"]
-            expires_in = data["expires-in"]
-            actual_scope = data["scope"]
-        except (json.JSONDecodeError, KeyError, TypeError) as error:
-            raise ProjectBootstrapError("OCI returned an invalid registry access token") from error
-        if (
-            not isinstance(token, str)
-            or not token
-            or not isinstance(expires_in, int)
-            or expires_in < 300
-            or actual_scope != scope
-        ):
-            raise ProjectBootstrapError("OCI returned an invalid registry access token")
-        return token
+        """Publish an amd64 controller with a wheel-bound tag and scoped registry token."""
+        self._artifact_record_path = None
+        wheel_path = wheel.expanduser().resolve()
+        if _WHEEL_SHA256.fullmatch(wheel_sha256) is None:
+            raise ProjectBootstrapError("Invalid reviewed wheel SHA-256")
+        if _COMPARTMENT_OCID.fullmatch(compartment_id) is None:
+            raise ProjectBootstrapError("Invalid OCI controller-publication compartment")
+        if _REGION.fullmatch(region) is None:
+            raise ProjectBootstrapError("Invalid OCI controller-publication region")
+        if _NAMESPACE.fullmatch(namespace) is None:
+            raise ProjectBootstrapError("Invalid OCI registry namespace")
+        if _REPOSITORY.fullmatch(repository_name) is None:
+            raise ProjectBootstrapError("Invalid OCI registry repository name")
+        if _PROFILE.fullmatch(oci_profile) is None:
+            raise ProjectBootstrapError("Invalid OCI SecurityToken profile")
 
-    @contextmanager
-    def _temporary_docker_config(self, *, host: str, identity_token: str) -> Iterator[Path]:
+        version = self._verify_wheel(wheel_path=wheel_path, wheel_sha256=wheel_sha256)
+        host = f"ocir.{region}.oci.oraclecloud.com"
+        destination_repository = f"{host}/{namespace}/{repository_name}"
+        tag = f"controller-{wheel_sha256[:12]}"
+        tagged_destination = f"{destination_repository}:{tag}"
+        image_uri = f"{namespace}/{repository_name}:{tag}"
+        oci_prefix = _oci_prefix(profile=oci_profile, region=region)
+        lookup = (
+            *oci_prefix,
+            "artifacts",
+            "container",
+            "image",
+            "lookup",
+            "--image-uri",
+            image_uri,
+            "--query",
+            "data.digest",
+            "--raw-output",
+        )
+
         try:
-            source_dir = Path(os.environ.get("DOCKER_CONFIG", Path.home() / ".docker"))
-            source_path = source_dir / "config.json"
-            if source_path.is_file():
-                document = json.loads(source_path.read_text(encoding="utf-8"))
-                if not isinstance(document, dict):
-                    raise ProjectBootstrapError("Docker configuration is not a JSON object")
+            _verify_repository(
+                runner=self._runner,
+                cwd=self._project_dir,
+                oci_prefix=oci_prefix,
+                compartment_id=compartment_id,
+                repository_name=repository_name,
+            )
+            existing = self._runner(
+                lookup,
+                cwd=self._project_dir,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            created = existing.returncode != 0
+            if created:
+                destination_digest = ""
             else:
-                document = {}
-            auths = document.get("auths", {})
-            if not isinstance(auths, dict):
-                raise ProjectBootstrapError("Docker configuration has invalid registry entries")
-            document["auths"] = {**auths, host: {"identitytoken": identity_token}}
-            with TemporaryDirectory(prefix="dander-ocir-") as directory:
-                config_dir = Path(directory)
-                config_path = config_dir / "config.json"
-                config_path.write_text(
-                    json.dumps(document, separators=(",", ":")),
-                    encoding="utf-8",
+                destination_digest = existing.stdout.strip()
+                self._require_matching_record(
+                    wheel_sha256=wheel_sha256,
+                    tagged_image=tagged_destination,
+                    digest=destination_digest,
                 )
-                config_path.chmod(0o600)
-                yield config_dir
-        except (OSError, json.JSONDecodeError) as error:
+
+            token = _registry_token(
+                runner=self._runner,
+                cwd=self._project_dir,
+                oci_prefix=oci_prefix,
+                host=host,
+                namespace=namespace,
+                repository_name=repository_name,
+            )
+            with _temporary_docker_config(host=host, identity_token=token) as config_dir:
+                if created:
+                    with TemporaryDirectory(prefix="dander-oci-controller-") as directory:
+                        context_dir = Path(directory)
+                        self._extract_controller_context(
+                            wheel_path=wheel_path,
+                            context_dir=context_dir,
+                        )
+                        self._runner(
+                            (
+                                "docker",
+                                "--config",
+                                str(config_dir),
+                                "buildx",
+                                "build",
+                                "--platform",
+                                "linux/amd64",
+                                "--file",
+                                "infra/oci/controller/Dockerfile",
+                                "--build-arg",
+                                "DANDER_WHEEL=dander-controller.whl",
+                                "--provenance=false",
+                                "--sbom=false",
+                                "--push",
+                                "--tag",
+                                tagged_destination,
+                                ".",
+                            ),
+                            cwd=context_dir,
+                            check=True,
+                        )
+                    destination_digest = self._runner(
+                        lookup,
+                        cwd=self._project_dir,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout.strip()
+                if _DIGEST.fullmatch(destination_digest) is None:
+                    raise ProjectBootstrapError("OCIR returned an invalid controller image digest")
+                immutable_destination = f"{destination_repository}@{destination_digest}"
+                raw = _inspect(
+                    runner=self._runner,
+                    cwd=self._project_dir,
+                    image=immutable_destination,
+                    docker_config=config_dir,
+                ).stdout
+                platforms = _platform_manifests(raw, default_digest=destination_digest)
+                if set(platforms) != {"linux/amd64"}:
+                    raise ProjectBootstrapError(
+                        "OCI controller image must contain only the linux/amd64 runtime platform"
+                    )
+        except (FileNotFoundError, subprocess.CalledProcessError) as error:
+            raise ProjectBootstrapError("Could not publish the OCI lifecycle controller") from error
+
+        record_path = self._project_dir / ".dander" / "oci-controller-artifact.json"
+        try:
+            _write_artifact_record(
+                record_path,
+                {
+                    "schema": _CONTROLLER_ARTIFACT_SCHEMA,
+                    "image": immutable_destination,
+                    "tagged_image": tagged_destination,
+                    "image_digest": destination_digest,
+                    "platform_manifests": platforms,
+                    "wheel": wheel_path.name,
+                    "wheel_sha256": wheel_sha256,
+                    "package": "dander-platform",
+                    "version": version,
+                    "build": "exact-reviewed-wheel",
+                    "authentication": "SecurityToken-scoped-access-token",
+                },
+            )
+        except OSError as error:
             raise ProjectBootstrapError(
-                "Could not create an isolated Docker configuration for OCIR"
+                "OCI controller was published but its artifact record could not be written"
+            ) from error
+        self._artifact_record_path = record_path
+        return immutable_destination
+
+    def _verify_wheel(self, *, wheel_path: Path, wheel_sha256: str) -> str:
+        if not wheel_path.is_file() or not wheel_path.name.startswith("dander_platform-"):
+            raise ProjectBootstrapError("The reviewed Dander wheel does not exist")
+        hasher = hashlib.sha256()
+        try:
+            with wheel_path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    hasher.update(chunk)
+        except OSError as error:
+            raise ProjectBootstrapError("Could not read the reviewed Dander wheel") from error
+        if hasher.hexdigest() != wheel_sha256:
+            raise ProjectBootstrapError("The Dander wheel does not match the reviewed SHA-256")
+
+        try:
+            with zipfile.ZipFile(wheel_path) as archive:
+                infos = archive.infolist()
+                names = [info.filename for info in infos]
+                if len(names) != len(set(names)) or any(
+                    name.startswith("/") or "\\" in name or ".." in Path(name).parts
+                    for name in names
+                ):
+                    raise ProjectBootstrapError("The reviewed Dander wheel has unsafe paths")
+                for required in _CONTROLLER_BUILD_FILES:
+                    try:
+                        info = archive.getinfo(required)
+                    except KeyError as error:
+                        raise ProjectBootstrapError(
+                            "The reviewed Dander wheel is missing OCI controller build files"
+                        ) from error
+                    if info.is_dir():
+                        raise ProjectBootstrapError(
+                            "The reviewed Dander wheel has invalid OCI controller build files"
+                        )
+                metadata_names = [
+                    name
+                    for name in names
+                    if re.fullmatch(r"dander_platform-[^/]+\.dist-info/METADATA", name)
+                ]
+                if len(metadata_names) != 1:
+                    raise ProjectBootstrapError("The reviewed Dander wheel has invalid metadata")
+                metadata = Parser().parsestr(
+                    archive.read(metadata_names[0]).decode("utf-8", errors="strict")
+                )
+        except (OSError, UnicodeDecodeError, zipfile.BadZipFile) as error:
+            raise ProjectBootstrapError("The reviewed Dander wheel is invalid") from error
+        version = metadata.get("Version", "")
+        if metadata.get("Name") != "dander-platform" or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9.!+-]*", version
+        ):
+            raise ProjectBootstrapError("The reviewed Dander wheel has invalid metadata")
+        return version
+
+    def _extract_controller_context(self, *, wheel_path: Path, context_dir: Path) -> None:
+        try:
+            with zipfile.ZipFile(wheel_path) as archive:
+                for source in _CONTROLLER_BUILD_FILES:
+                    relative = source.removeprefix("dander/templates/project/")
+                    destination = context_dir / relative
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes(archive.read(source))
+            shutil.copyfile(wheel_path, context_dir / "dander-controller.whl")
+        except (KeyError, OSError, zipfile.BadZipFile) as error:
+            raise ProjectBootstrapError(
+                "Could not create the reviewed OCI controller build context"
             ) from error
 
-    def _inspect(
+    def _require_matching_record(
         self,
-        image: str,
         *,
-        docker_config: Path | None = None,
-    ) -> subprocess.CompletedProcess[str]:
-        prefix: tuple[str, ...] = ("docker",)
-        if docker_config is not None:
-            prefix = ("docker", "--config", str(docker_config))
-        return self._runner(
-            (*prefix, "buildx", "imagetools", "inspect", "--raw", image),
-            cwd=self._project_dir,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        wheel_sha256: str,
+        tagged_image: str,
+        digest: str,
+    ) -> None:
+        record_path = self._project_dir / ".dander" / "oci-controller-artifact.json"
+        try:
+            record = json.loads(record_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ProjectBootstrapError(
+                "Existing immutable OCI controller tag has no matching local artifact record"
+            ) from error
+        if (
+            not isinstance(record, dict)
+            or record.get("schema") != _CONTROLLER_ARTIFACT_SCHEMA
+            or record.get("wheel_sha256") != wheel_sha256
+            or record.get("tagged_image") != tagged_image
+            or record.get("image_digest") != digest
+            or record.get("image") != tagged_image.rsplit(":", 1)[0] + f"@{digest}"
+        ):
+            raise ProjectBootstrapError(
+                "Existing immutable OCI controller tag does not match the reviewed wheel"
+            )
 
 
-__all__ = ["OciRuntimeImagePromoter"]
+__all__ = ["OciControllerImagePublisher", "OciRuntimeImagePromoter"]
