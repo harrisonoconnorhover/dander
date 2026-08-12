@@ -49,7 +49,7 @@ PROVIDER_DEPENDENCY_SETS = (
         extra="azure",
         distributions=("azure-identity", "azure-keyvault-secrets"),
     ),
-    ProviderDependencySet(extra="oci", distributions=()),
+    ProviderDependencySet(extra="oci", distributions=("oci",)),
 )
 
 FULL_RUNTIME_DISTRIBUTIONS = tuple(

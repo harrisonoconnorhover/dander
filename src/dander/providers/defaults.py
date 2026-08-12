@@ -12,6 +12,7 @@ from dander.providers.gcp_secret_manager import GcpSecretManagerConfig
 from dander.providers.glue import GlueCatalogConfig
 from dander.providers.kubernetes import KubernetesLauncherConfig
 from dander.providers.no_catalog import NoCatalogConfig
+from dander.providers.oci_vault import OciVaultConfig
 from dander.providers.postgresql import PostgreSQLStateConfig, PostgreSQLWarehouseConfig
 from dander.providers.redshift import RedshiftWarehouseConfig
 from dander.providers.registry import ProviderKind, ProviderRegistry, lazy_provider_factory
@@ -122,6 +123,12 @@ def default_provider_registry() -> ProviderRegistry:
         load_factory=lazy_provider_factory(
             "dander.providers.azure_key_vault.runtime:AZURE_KEY_VAULT_FACTORY"
         ),
+    )
+    registry.register(
+        kind=ProviderKind.SECRETS,
+        provider_id="oci_vault",
+        config_model=OciVaultConfig,
+        load_factory=lazy_provider_factory("dander.providers.oci_vault.runtime:OCI_VAULT_FACTORY"),
     )
     registry.register(
         kind=ProviderKind.LAUNCHER,

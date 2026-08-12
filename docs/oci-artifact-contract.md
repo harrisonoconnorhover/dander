@@ -28,14 +28,14 @@ adapter rather than writing into the image filesystem.
 Python installations expose `bigquery`, `snowflake`, `redshift`, `postgres`, `gcp`, `aws`,
 `azure`, and `oci` extras. These install provider SDKs only; an extra is not an adapter or a support
 claim. Provider implementation imports remain lazy until that provider is selected. The `oci`
-extra is currently an empty reserved name: Oracle's available SDK constrains `cryptography` below
-the audited fixed version, so it is excluded until a compatible SDK or direct signed-HTTP adapter
-passes its own review.
+extra requires Oracle's SDK `2.184.1` or newer because that release admits Dander's audited
+`cryptography` 50 line. Earlier SDK releases remain incompatible with the full runtime.
 
 The `runtime-all` extra is the deterministic union of those dependency sets. Repository and
 generated source-free Dockerfiles install it, then validate every required distribution from
 package metadata without importing an SDK. This catches an incomplete build before an image can be
 published. The packaged capability manifest remains authoritative about adapters actually present
-and supported in that image; it continues to list only the proven GCP/BigQuery composition today.
+and supported in that image. Adding the OCI SDK and Vault resolver does not add an OCI launcher or
+profile before their separate implementation and live gates pass.
 The image uses the maintained Debian `libpq5` package with pure-Python Psycopg instead of bundling
 an opaque database client library inside a wheel.

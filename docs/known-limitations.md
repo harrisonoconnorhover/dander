@@ -68,9 +68,10 @@ remain Phase 8 work.
   registration and disposable network creation remain explicit operator-approved actions. These
   bounded proofs close Phase 6 but do not supply Phase 8 scale, throughput, cost, soak,
   pairwise-profile, or release qualification, so Azure remains experimental rather than supported.
-- The reserved `oci` extra is empty because Oracle's current SDK requires a `cryptography` version
-  below Dander's audited fixed line. OCI implementation must resolve that dependency boundary or
-  use a reviewed direct signed-HTTP client before it can enter the full image.
+- The `oci` extra now installs Oracle's SDK `2.184.1` or newer without downgrading Dander's audited
+  `cryptography` line. OCI Vault has a lazy, resource-principal-only resolver for exact secret OCIDs
+  and versionless vault/name references, but no OCI launcher or live OCI profile is yet qualified.
+  SDK presence and local Vault tests do not create an OCI support claim.
 
 ## Ingestion and schemas
 
