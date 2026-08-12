@@ -2,7 +2,7 @@
 
 ## Finished
 
-- Published public `dander-platform==0.9.0rc8` from protected main.
+- Prepared public `dander-platform==0.9.0rc9` from protected main.
 - Promoted one source-free two-platform runtime into OCIR with an identical OCI index digest.
 - Published the exact RC8 wheel-bound lifecycle controller into private OCIR.
 - Found the live Vault OCID future-use segment during fail-closed launcher validation.
@@ -26,7 +26,7 @@ Run `pytest -q tests/project/test_oci_portable_config.py tests/providers/test_oc
 
 ## Remaining
 
-- Merge the live Vault-OCID correction through protected CI and cut its candidate.
+- Merge and publish `v0.9.0rc9` through protected CI.
 - Review and apply the exact OCI launcher/controller plan.
 - Create and rotate only the named free PostgreSQL secret outside Terraform.
 - Complete the bounded live lifecycle acceptance matrix.
