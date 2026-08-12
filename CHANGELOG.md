@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc6 — 2026-08-12 (beta)
+
 ### Fixed
 
 - Keep OCI's temporary scoped-token Docker configuration independent of Docker Desktop's named
