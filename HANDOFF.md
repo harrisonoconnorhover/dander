@@ -2,35 +2,34 @@
 
 ## Finished
 
-- Confirmed live OCI account activation and isolated the Phase 7 compartment.
-- Captured Oracle's live rejection of repository-level tag immutability on create and update.
-- Adapted OCIR bootstrap/publication to private, verified digest addressing without false parity.
+- Merged protected PR #219 for OCI digest identity without false tag-immutability parity.
+- Verified full protected-main CI at `1cc7b1e47aaf1550ec299944c040343d3491643f`.
+- Prepared Dander `0.9.0rc3` release metadata from that protected baseline.
 
 ## Try It
 
-Run `uv run pytest -q` against the OCI Terraform, image-promotion, and controller-publication tests.
+Run `python3 scripts/check_release_metadata.py`, then build and inspect the distribution.
 
 ## Checks
 
-- Live OCI SecurityToken, Object Storage, and Container Instances preflight pass.
-- Stage zero created only its private versioned bucket before OCIR rejected `isImmutable`.
-- All 106 focused OCI/distribution/runtime tests, Ruff, Mypy, Terraform validation, and packaged
-  bootstrap inspection pass; full protected CI remains to run.
+- Protected-main Python, Terraform, secret, distribution, container, and vulnerability checks pass.
+- Release metadata, lock, focused tests, Ruff, Mypy, wheel/sdist inspection, and packaged OCI
+  bootstrap checks pass for `0.9.0rc3`; protected PR CI remains required.
 
 ## Decisions
 
-- Treat OCIR tag immutability as an explicit unavailable capability in this tenancy.
-- Preserve artifact immutability through verified digests and matching Function tag/digest inputs.
+- Publish only from exact tag `v0.9.0rc3` on the next green protected-main merge commit.
+- Keep the accepted public wheel and its digest outside the repository for live OCI proof.
 - Keep OCI experimental until Phase 7 live acceptance and Phase 8 qualification pass.
 
 ## Remaining
 
-- Merge the correction through protected CI and publish a new exact release candidate.
-- Resume the approved live OCI profile from the preserved partial stage-zero state.
+- Merge the version-only PR through protected CI, then tag and publish `0.9.0rc3`.
+- Resume the approved live OCI profile from the preserved partial stage-zero state with that wheel.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.
 
 ## Review First
 
-- `infra/oci/bootstrap-admin/main.tf`
-- `src/dander/bootstrap/oci_image.py`
-- `docs/decisions.md`
+- `pyproject.toml`
+- `CHANGELOG.md`
+- `scripts/check_release_metadata.py`

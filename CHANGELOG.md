@@ -6,6 +6,16 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc3 — 2026-08-12 (beta)
+
+### Fixed
+
+- Preserve OCI artifact identity when OCIR rejects its advertised repository tag-immutability
+  setting: keep the repository private, reject existing-tag mismatches, verify copied index and
+  platform digests, and deploy only digest-bound runtime/controller references.
+- Record the observed OCIR tag-immutability capability explicitly instead of claiming unsupported
+  provider parity.
+
 ## 0.9.0rc2 — 2026-08-12 (beta)
 
 ### Added
