@@ -1305,3 +1305,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** These results satisfy the Phase 6 architecture and live-profile gate. Azure remains
   experimental until Phase 8 scale, throughput, crossover, cost, soak, pairwise-profile, and
   release qualification; no Phase 7 or OCI implementation began.
+
+## 2026-08-12 — OCI Vault enters before the OCI launcher
+
+- **Dependency:** Oracle SDK `2.184.1` widens its `cryptography` constraint to admit Dander's
+  audited version 50 line. The `oci` and `runtime-all` extras therefore include that SDK without a
+  dependency downgrade; older incompatible SDK releases remain excluded.
+- **Secret boundary:** The OCI Vault provider resolves only an exact secret OCID or an exact
+  vault-OCID/name pair at the `CURRENT` stage. It uses the ambient resource principal, decodes one
+  base64 UTF-8 value, audits the reference but never the value, and imports the SDK only when
+  selected.
+- **Sequencing:** Vault is independently reviewable before the Container Instances launcher, as
+  required by the provider PR boundary. This slice makes no launcher, live-profile, or support
+  claim; paid OCI mutation remains disabled until credential preflight and a per-attempt ceiling.
