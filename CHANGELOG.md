@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc1 — 2026-08-11 (beta)
+
 ### Added
 
 - Add a read-only canonical Azure profile preflight that requires the exact
@@ -16,19 +18,40 @@ capabilities enter through the next minor release.
   `Key Vault Secrets User` role.
 - Add keyless Azure Container Apps-to-Google workload federation using the attached user-assigned
   identity, an exact Entra application audience, in-memory Google token exchange, and a bounded
-  same-process credential-refresh probe. The profile remains experimental until live acceptance.
+  same-process credential-refresh probe. The profile remains experimental until live acceptance
+  is reconciled and Phase 8 support qualification passes.
 - Add disposable, provider-mocked Phase 6 federation Terraform that pins Google trust and service
   account impersonation to one Azure managed-identity object ID without client secrets or keys.
 - Preserve validated provider extensions from connector, graph, and model declarations through
   canonical warehouse targets without changing existing BigQuery schema inputs.
 - Carry additive warehouse load/transform telemetry through endpoint results into terminal run
   telemetry, including optional resource, queue, execution, spill, and capacity-unit measures.
+- Add experimental Snowflake and Redshift warehouses with all five ingestion modes, bounded
+  direct/columnar transports, destination fencing, portable transforms and graphs, telemetry,
+  provider-specific schema fallbacks, and disposable live warehouse qualification.
+- Add experimental PostgreSQL state and warehouse runtimes with bounded `COPY`, five fenced writer
+  modes, transforms, graphs, assertions, and a packaged existing-cluster Kubernetes/Helm launcher.
+  Kubernetes remains unqualified against a live cluster.
+- Add version-2 platform profiles, typed lazy provider factories, canonical relation/schema and
+  portable SQL contracts, provider-neutral execution templates, compatibility reporting, and a
+  deterministic four-warehouse common-intersection correctness gate.
+- Add a plan-first Azure Container Apps Jobs launcher with Entra-authenticated remote state,
+  digest-preserving ACR promotion, managed identity, Key Vault, Log Analytics, alerts, lifecycle
+  operations, and fail-closed deployment verification. Azure remains experimental pending the
+  reconciled Phase 6 live record and Phase 8 qualification.
 
 ### Fixed
 
 - Route Azure Container Apps Key Vault references through one exact infrastructure subnet and
   disable the inapplicable trusted-service bypass; Key Vault profiles now fail planning when no
   subnet path is supplied.
+- Preserve source-only metadata publication, Azure cancellation acknowledgement, complete
+  execution-template containers, and in-memory Azure token suppliers across Google Auth clones.
+- Require the explicit GCP project for Azure federation, accept provider-normalized empty secret
+  collections, and transport Azure runtime arguments without shell parsing.
+- Install project-wide version-2 plugin pins without inventing an arbitrary deployment selection.
+- Bootstrap Key Vault-backed jobs in two reviewed plans and pin the supported Container Apps
+  consumption profile used by the live Azure lifecycle.
 
 ## 0.8.0rc8 — 2026-08-10 (beta)
 
