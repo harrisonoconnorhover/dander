@@ -33,6 +33,15 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-12, the named Azure/Snowflake/PostgreSQL/Key-Vault profile passed the complete Phase 6
+  lifecycle on one source-free, byte-identical GAR/ACR digest: preflight, manual and UTC-scheduled
+  execution, replay, overlap fencing, interruption, retry exhaustion, alert routing, versionless
+  secret rotation, immutable rollback, cleanup, and retained-GCP no drift. A separate
+  public `0.9.0rc1` passed Azure-to-Google BigQuery access across credential refresh, GCP Secret
+  Manager access, Dataplex read-back, revocation, isolated-GCP smoke, and cleanup. Azure remains experimental
+  pending Phase 8 qualification; Phase 7 has not begun. See
+  `docs/cloud-portability-azure-lifecycle-acceptance.md`.
+
 - On 2026-08-11, the Phase 5 common-scalar fixture passed BigQuery, PostgreSQL, Snowflake, and
   Redshift on protected-main commit `c0f3e2cb671eb6ddf1c34c60bc9e761d220cb9ad`. All four records
   produced one equal normalized hash after replay and verified owned cleanup. Provider account
@@ -63,8 +72,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander-servicenow-incidents-6g72x` all completed successfully.
 - The latest manual executable-graph run, `dander-greenhouse-graph-7gn9z`, completed successfully
   on 2026-08-04; its schedule remains intentionally paused.
-- The latest retained stage-zero and current-equivalent platform plans each reported exactly
-  `No changes.` after the four-warehouse proof. No retained-project apply occurred.
+- The latest retained stage-zero and current-equivalent platform plans reported exactly
+  `No changes.` after the Azure proof: 28 and 113 resources were no-ops respectively. No
+  retained-project apply occurred.
 - Continue the 30-day operating record in GitHub issue #26. The next normal scheduled runs are the
   remaining observation point for the reconciled stable image.
 

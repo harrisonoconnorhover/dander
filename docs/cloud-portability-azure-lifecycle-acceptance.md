@@ -1,11 +1,13 @@
 # Azure Container Apps lifecycle acceptance
 
-Status: protocol prepared; no live Azure resource or paid proof has run.
+Status: accepted on 2026-08-12; public-candidate supplement passed, disposable resources removed,
+and retained GCP unchanged.
 
-This protocol qualifies only the named Azure Container Apps, Snowflake OAuth warehouse,
+The canonical proof qualifies only the named Azure Container Apps, Snowflake OAuth warehouse,
 PostgreSQL state, no-catalog, and Azure Key Vault composition. The selected pipeline must bind both
-credential environment names to declared Key Vault secret identifiers. It does not qualify
-Azure-to-BigQuery or any other cloud/warehouse pair.
+credential environment names to declared Key Vault secret identifiers. A separate portability
+proof qualifies the Azure-to-BigQuery identity path for BigQuery, Dataplex, and GCP Secret Manager.
+Neither proof qualifies any other cloud/warehouse pair or promotes Azure beyond experimental use.
 
 ## Approval boundary
 
@@ -61,4 +63,40 @@ repository. Saved plans and state use the secured operator artifact directories 
 Retain only commit and digest identities, normalized states and counts, pass/fail booleans,
 timestamps, approved ceilings, cleanup results, and no-drift outcome. The read-only preflight may
 retain declared secret names and enabled booleans; it never retains values or unrelated vault
-entries. Live evidence remains pending until the full approved sequence passes.
+entries. The machine-readable record is
+[`docs/evidence/azure/2026-08-11/phase6.json`](evidence/azure/2026-08-11/phase6.json).
+
+## Accepted result
+
+- The source-free Azure/Snowflake/PostgreSQL/Key-Vault candidate used one byte-identical GAR/ACR
+  OCI index, digest
+  `sha256:a64d89a3beff1b56ed8b3b13f17b67f8f99d87e08ebf48e6ff01381ecdc94d59`.
+  Its build-context revision was
+  `0901a384d3bf1141b44bbf64268cff4f102cfc4fc2cbc8aaa28e94e9ded70fd`.
+  It passed the read-only canonical preflight, manual and UTC-scheduled execution, replay,
+  overlapping-start fencing, interruption, retry exhaustion, alert routing, versionless Key Vault
+  rotation, and immutable rollback/restoration.
+- The separate Azure-to-Google candidate at protected-main commit
+  `eb074c58a9b3d8c1296c28849639a04c07fdb4bf` retained identical GAR/ACR content at digest
+  `sha256:aa7da96e9b628c4bda5288a1a32edc1e2873c782459ce52d840248a60f851b4c`.
+  One process queried BigQuery before and after credential refresh; a second bounded execution read
+  one declared GCP secret and the corresponding Dataplex system entry without emitting values,
+  query text, or rows. Disabling the exact workload-identity provider then failed closed.
+- Public `dander-platform==0.9.0rc1`, tagged from protected-main commit `2b90f7ad`, installed outside
+  the checkout and produced source-free digest
+  `sha256:1e1bd9ed803b523626c6f4720caba92a84bf0f95473d0002e12371b1a4975519`.
+  The same OCI content ran in ACR and GAR with provenance and SBOM attached. From Azure it repeated
+  BigQuery access across credential refresh and GCP secret/Dataplex read-back. In an isolated GCP
+  project it completed Greenhouse, HubSpot, exact replay, owned-data cleanup, and Terraform
+  no-drift. This public-artifact smoke supplements rather than repeats the earlier complete
+  canonical Snowflake lifecycle.
+- Disposable Snowflake objects, Entra/GCP federation resources and principals, Azure jobs and
+  infrastructure, isolated-GCP proof data, and proof images were removed. Azure's mandatory purge
+  protection retains only the deleted Key Vault tombstone until 2026-11-10; it is not an active
+  vault. Fresh isolated-GCP and retained-GCP plans reported exact `No changes.` Retained GCP had 28
+  stage-zero and 113 platform resources as no-ops; no retained-GCP apply occurred.
+
+The Phase 6 exit gate passes because one accepted release digest passed both Azure launcher
+conformance and the complete named Azure profile, and the subsequently published candidate passed
+the required public-artifact supplement. Azure remains experimental pending Phase 8 scale,
+throughput, cost, soak, pairwise-profile, and release qualification. Phase 7 did not begin.

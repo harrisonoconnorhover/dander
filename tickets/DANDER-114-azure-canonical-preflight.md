@@ -1,7 +1,7 @@
 ---
 id: DANDER-114
 title: Preflight the canonical Azure acceptance profile
-status: in_progress
+status: done
 phase: 6
 ---
 
@@ -23,10 +23,10 @@ Azure/Snowflake/PostgreSQL/no-catalog/Key-Vault composition before any job execu
   paid-operation confirmation.
 - [x] Focused provider and CLI tests cover success, missing/disabled secrets, composition rejection,
   and sanitized output.
-- [ ] Protected CI passes and this focused preflight merges before live Azure acceptance.
+- [x] Protected CI passed and this focused preflight merged as PR #194 before live Azure acceptance.
 
 ## Boundary
 
-This is local construction for a later read-only provider check. It does not register a provider,
-create a resource, read a secret value, copy an image, start a job, query a warehouse, or authorize
-spending. Version rotation and runtime use remain live acceptance work.
+The command itself remains read-only and does not authorize spending. It passed against the live
+named profile before execution; the separately approved lifecycle then proved version rotation and
+runtime use without retaining secret values.

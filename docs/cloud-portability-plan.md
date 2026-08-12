@@ -1,6 +1,6 @@
 # Cloud Portability and First-Class Platform Roadmap
 
-Status: active roadmap; Phases 0 through 5 exit gates satisfied; Phase 6 in progress
+Status: active roadmap; Phases 0 through 6 exit gates satisfied; Phase 7 not begun
 
 Initial planning baseline: `origin/main` at `9dc5562` (`0.6.0rc1`)
 
@@ -12,7 +12,12 @@ Phase 5 exit-evidence candidate: protected `main` at
 stored under `docs/evidence/warehouse-correctness/2026-08-11/` and reconciled through protected
 evidence PR #186.
 
-Prepared: 2026-08-06; reconciled: 2026-08-11
+Phase 6 implementation checkpoint: protected `main` at
+`eb074c58a9b3d8c1296c28849639a04c07fdb4bf` after PRs #189 through #208. Public candidate
+`0.9.0rc1` was tagged from protected `main` at `2b90f7ad9d02ad303d3543f1e27febc7193e9c82`.
+The sanitized lifecycle record is stored under `docs/evidence/azure/2026-08-11/`.
+
+Prepared: 2026-08-06; reconciled: 2026-08-12
 
 The baseline descriptions below record the conditions this roadmap was designed to change. They
 are retained as architectural rationale rather than claims about the current implementation. The
@@ -641,9 +646,9 @@ credential.
 | ECS task role | BigQuery/Dataplex/GCP Secret Manager | AWS signed workload identity exchanged through Google Workload Identity Federation; Google token refresh occurs inside the running task | supported |
 | GKE/EKS/AKS/OKE service account | Same-cloud APIs | The cluster's documented workload-identity binding; each cluster type is a separate tested profile | supported only per proven cluster profile |
 | Kubernetes service account | Snowflake/PostgreSQL | TLS plus external-secret/operator-projected OAuth, key-pair, or database credential | supported in the named Kubernetes profile |
-| Azure user-assigned managed identity | ACR, Key Vault, Azure logging | Azure managed identity | supported |
-| Azure user-assigned managed identity | BigQuery/Dataplex/GCP Secret Manager | Azure workload identity exchanged through Google Workload Identity Federation, including refresh | supported after the Azure portability proof |
-| Azure job | Snowflake/PostgreSQL | Key Vault-projected OAuth, key-pair, or database credential over TLS | supported in the named Azure profile |
+| Azure user-assigned managed identity | ACR, Key Vault, Azure logging | Azure managed identity | experimental after Phase 6; support requires Phase 8 qualification |
+| Azure user-assigned managed identity | BigQuery/Dataplex/GCP Secret Manager | Azure workload identity exchanged through Google Workload Identity Federation, including refresh | experimental after Phase 6; support requires Phase 8 qualification |
+| Azure job | Snowflake/PostgreSQL | Key Vault-projected OAuth, key-pair, or database credential over TLS | experimental in the named Azure profile until Phase 8 qualification |
 | OCI Container Instance resource principal | OCIR, Vault, Logging/Monitoring | OCI resource principal and dynamic-group policy | supported |
 | OCI job | Snowflake/PostgreSQL | OCI Vault-resolved OAuth, key-pair, or database credential over TLS | supported in the named OCI profile |
 | OCI resource principal | BigQuery/Dataplex/GCP Secret Manager | External workload exchange still to be proven with refresh | experimental until Phase 7 proof |
@@ -938,8 +943,8 @@ release candidate.
 | Fargate + BigQuery state/warehouse + Dataplex + GCP secrets | supported | identical-digest AWS-to-Google federation and refresh proof |
 | Fargate + PostgreSQL state + Redshift + Glue + AWS secrets | supported | AWS canonical profile |
 | Kubernetes/Helm + PostgreSQL state/warehouse + no catalog + external secrets | supported | one named cluster profile plus portable chart conformance |
-| Azure Container Apps Jobs + PostgreSQL state + Snowflake + no catalog + Key Vault | supported | Azure canonical profile |
-| Azure Container Apps Jobs + BigQuery state/warehouse + Dataplex + GCP secrets | supported | Azure-to-Google federation and refresh proof |
+| Azure Container Apps Jobs + PostgreSQL state + Snowflake + no catalog + Key Vault | experimental after Phase 6; supported target after Phase 8 | Azure canonical profile plus Phase 8 qualification |
+| Azure Container Apps Jobs + BigQuery state/warehouse + Dataplex + GCP secrets | experimental after Phase 6; supported target after Phase 8 | Azure-to-Google federation/refresh proof plus Phase 8 qualification |
 | OCI Container Instances + PostgreSQL state/warehouse + no catalog + OCI Vault | supported | OCI canonical profile |
 | OCI Container Instances + BigQuery/Dataplex/GCP secrets | experimental | OCI external-identity feasibility, refresh, and revocation proof |
 | Non-AWS launcher + Redshift, Glue, or AWS Secrets Manager | unsupported | remains so until an explicit short-lived AWS federation profile is designed and proven |
@@ -1172,6 +1177,14 @@ Tickets:
 Exit gate:
 
 - the same release digest passes Azure launcher conformance and the named Azure profile.
+
+Satisfied on 2026-08-12 by the source-free digest
+`sha256:a64d89a3beff1b56ed8b3b13f17b67f8f99d87e08ebf48e6ff01381ecdc94d59`, which passed Azure
+launcher conformance and the complete named Azure/Snowflake/PostgreSQL/no-catalog/Key-Vault live
+profile. Public `0.9.0rc1` then passed the Azure-to-Google refresh, secret, catalog, revocation and
+isolated-GCP standard smoke, followed by provider cleanup and retained-GCP no drift. Azure remains
+experimental until the applicable Phase 8 qualification passes; Phase 7 implementation did not
+begin.
 
 ### Phase 7 — OCI first-class launcher
 

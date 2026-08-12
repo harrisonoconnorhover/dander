@@ -20,6 +20,17 @@ single deployment until their provider-neutral planning path is introduced.
 When a project has exactly one deployment, Dander selects it deterministically; multiple
 deployments never fall back to an arbitrary default.
 
+## Azure experimental profiles
+
+The named `azure_container_apps` profile combining Snowflake, PostgreSQL state, no catalog, and
+Azure Key Vault passed the bounded Phase 6 live lifecycle. The separate Azure-to-Google profile
+passed on public `0.9.0rc1`: BigQuery access across credential refresh plus GCP Secret Manager,
+Dataplex, revocation, cleanup, and isolated-GCP smoke. Both remain experimental: configuration
+outside these named shapes fails closed, and
+Phase 8 scale, cost, soak, pairwise-profile, and release qualification are still required before a
+support promotion. Dander creates neither an Azure subscription nor the delegated Container Apps
+subnet required by the Key Vault profile.
+
 ## Migrate a version 1 project
 
 Version 1 combined manifests remain supported during the compatibility window. First run the

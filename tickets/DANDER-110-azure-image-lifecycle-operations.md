@@ -1,6 +1,6 @@
 # DANDER-110 — Promote and operate Azure Container Apps runtimes
 
-Status: merged through protected PR #190; live proof pending
+Status: done; merged through protected PR #190 and live-qualified on 2026-08-11
 
 ## Requirement
 
@@ -31,6 +31,7 @@ logs, stop, and replay operations while keeping all live mutations behind explic
 
 ## Evidence boundary
 
-This ticket contains deterministic local contract evidence only. It does not register a provider,
-create an Azure resource, authenticate to ACR, copy an image, start or stop a job, publish a
-candidate, or spend cloud credits. Live lifecycle and cleanup remain separate Phase 6 gates.
+The implementation PR contained deterministic local contract evidence only. The separately
+approved Phase 6 run preserved registry digest identity and exercised start, schedule, status,
+bounded logs, stop, replay, rollback, cleanup, and no drift. Azure remains experimental pending
+Phase 8 qualification.

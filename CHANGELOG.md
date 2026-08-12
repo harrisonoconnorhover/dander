@@ -18,8 +18,8 @@ capabilities enter through the next minor release.
   `Key Vault Secrets User` role.
 - Add keyless Azure Container Apps-to-Google workload federation using the attached user-assigned
   identity, an exact Entra application audience, in-memory Google token exchange, and a bounded
-  same-process credential-refresh probe. The profile remains experimental until live acceptance
-  is reconciled and Phase 8 support qualification passes.
+  same-process credential-refresh probe. The profile remains experimental until Phase 8 support
+  qualification passes.
 - Add disposable, provider-mocked Phase 6 federation Terraform that pins Google trust and service
   account impersonation to one Azure managed-identity object ID without client secrets or keys.
 - Preserve validated provider extensions from connector, graph, and model declarations through
@@ -38,7 +38,7 @@ capabilities enter through the next minor release.
 - Add a plan-first Azure Container Apps Jobs launcher with Entra-authenticated remote state,
   digest-preserving ACR promotion, managed identity, Key Vault, Log Analytics, alerts, lifecycle
   operations, and fail-closed deployment verification. Azure remains experimental pending the
-  reconciled Phase 6 live record and Phase 8 qualification.
+  Phase 8 support qualification.
 
 ### Fixed
 
