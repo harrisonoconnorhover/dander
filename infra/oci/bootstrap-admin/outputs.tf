@@ -9,7 +9,7 @@ output "state_bucket_name" {
 }
 
 output "repository_id" {
-  description = "Immutable private OCIR repository OCID."
+  description = "Private OCIR repository OCID for digest-addressed artifacts."
   value       = oci_artifacts_container_repository.runtime.id
 }
 

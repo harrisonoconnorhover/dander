@@ -319,7 +319,7 @@ def init_oci_admin_plan(
     ),
     infra_dir: Path = typer.Option(_DEFAULT_OCI_ADMIN_DIR, hidden=True),  # noqa: B008
 ) -> None:
-    """Plan the OCI state bucket and immutable OCIR repository without applying."""
+    """Plan the OCI state bucket and private digest-addressed OCIR repository."""
     arguments = _admin_arguments(
         tenancy_id=tenancy_id,
         compartment_id=compartment_id,

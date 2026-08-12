@@ -88,6 +88,12 @@ remain Phase 8 work.
   an ephemeral repository-scoped token, but live publication, provider deployment verification,
   credential-rotation proof, and the complete OCI profile remain unqualified. No OCI launcher
   support claim exists until those separate gates pass.
+- OCI Container Registry advertises repository tag immutability, but the live Ashburn tenancy
+  rejected `isImmutable` on both create and update with `400 BAD_REQUEST`. Dander represents this
+  limitation honestly: the repository remains private, publication rejects an existing tag whose
+  digest differs, promoted indexes and platform manifests are re-read and compared, and every task
+  deployment uses an exact digest while OCI Functions receive the matching tag-and-digest pair.
+  Repository-level tag immutability is not claimed where OCI reports it unavailable.
 
 ## Ingestion and schemas
 

@@ -90,7 +90,7 @@ def _verify_repository(
     oci_prefix: tuple[str, ...],
     compartment_id: str,
     repository_name: str,
-) -> None:
+) -> bool:
     response = runner(
         (
             *oci_prefix,
@@ -124,14 +124,12 @@ def _verify_repository(
     if len(matches) != 1:
         raise ProjectBootstrapError("The exact OCI runtime repository does not exist")
     repository = matches[0]
-    if (
-        repository.get("is-immutable") is not True
-        or repository.get("is-public") is not False
-        or repository.get("lifecycle-state") != "AVAILABLE"
-    ):
-        raise ProjectBootstrapError(
-            "OCI runtime repository must be private, immutable, and available"
-        )
+    repository_immutable = repository.get("is-immutable")
+    if not isinstance(repository_immutable, bool):
+        raise ProjectBootstrapError("OCI returned invalid repository metadata")
+    if repository.get("is-public") is not False or repository.get("lifecycle-state") != "AVAILABLE":
+        raise ProjectBootstrapError("OCI runtime repository must be private and available")
+    return repository_immutable
 
 
 def _registry_token(
@@ -306,7 +304,7 @@ class OciRuntimeImagePromoter:
         )
 
         try:
-            _verify_repository(
+            repository_immutable = _verify_repository(
                 runner=self._runner,
                 cwd=self._project_dir,
                 oci_prefix=oci_prefix,
@@ -364,7 +362,7 @@ class OciRuntimeImagePromoter:
                             "byte-identical"
                         )
                     raise ProjectBootstrapError(
-                        "Existing immutable OCIR tag does not match the accepted OCI index"
+                        "Existing OCIR tag does not match the accepted OCI index"
                     )
                 immutable_destination = f"{destination_repository}@{destination_digest}"
                 destination_raw = _inspect(
@@ -397,6 +395,10 @@ class OciRuntimeImagePromoter:
                     "source_image": source_image,
                     "promotion": "registry-copy",
                     "authentication": "SecurityToken-scoped-access-token",
+                    "repository_tag_immutability": (
+                        "enabled" if repository_immutable else "provider-unavailable"
+                    ),
+                    "deployment_reference": "digest",
                 },
             )
         except OSError as error:
@@ -502,7 +504,7 @@ class OciControllerImagePublisher:
         )
 
         try:
-            _verify_repository(
+            repository_immutable = _verify_repository(
                 runner=self._runner,
                 cwd=self._project_dir,
                 oci_prefix=oci_prefix,
@@ -606,6 +608,10 @@ class OciControllerImagePublisher:
                     "version": version,
                     "build": "exact-reviewed-wheel",
                     "authentication": "SecurityToken-scoped-access-token",
+                    "repository_tag_immutability": (
+                        "enabled" if repository_immutable else "provider-unavailable"
+                    ),
+                    "deployment_reference": "tag-and-digest",
                 },
             )
         except OSError as error:
