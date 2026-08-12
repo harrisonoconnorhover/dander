@@ -124,7 +124,8 @@ run "projects_idempotent_lifecycle_controller" {
       oci_functions_application.controller[0].shape == "GENERIC_X86" &&
       oci_functions_function.pipeline["jobs"].image_digest == "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" &&
       oci_functions_function.pipeline["jobs"].detached_mode_timeout_in_seconds == 3600 &&
-      oci_resource_scheduler_schedule.pipeline["jobs"].state == "INACTIVE"
+      oci_resource_scheduler_schedule.pipeline["jobs"].state == "INACTIVE" &&
+      length(oci_resource_scheduler_schedule.pipeline["jobs"].resources[0].parameters) == 0
     )
     error_message = "The lifecycle controller must use private versioned records, an immutable Function, and paused-aware scheduling."
   }

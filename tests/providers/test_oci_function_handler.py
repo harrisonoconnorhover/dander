@@ -106,6 +106,16 @@ def test_manual_start_monitors_to_terminal_with_exact_idempotency_key() -> None:
     ]
 
 
+def test_empty_resource_scheduler_request_defaults_to_start() -> None:
+    result = function_handler.handler(object(), io.BytesIO(b""))
+
+    status, document = _document(result)
+    assert status == 200
+    assert isinstance(document, dict) and document["state"] == "succeeded"
+    assert _Controller.calls[0][0] == "start"
+    assert str(_Controller.calls[0][1]).startswith("schedule:jobs:")
+
+
 def test_lifecycle_event_reconciles_once_without_starting_or_polling() -> None:
     result = function_handler.handler(
         object(),

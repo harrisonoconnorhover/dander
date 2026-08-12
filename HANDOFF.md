@@ -2,32 +2,33 @@
 
 ## Finished
 
-- Prepared public `dander-platform==0.9.0rc9` from protected main.
-- Promoted one source-free two-platform runtime into OCIR with an identical OCI index digest.
-- Published the exact RC8 wheel-bound lifecycle controller into private OCIR.
-- Found the live Vault OCID future-use segment during fail-closed launcher validation.
-- Updated Vault configuration and runtime-reference parsing for Oracle's live OCID shape.
+- Published public `dander-platform==0.9.0rc9` from protected main.
+- Promoted the RC9 source-free runtime into OCIR with an identical OCI index digest.
+- Published the exact RC9 wheel-bound lifecycle controller into private OCIR.
+- Applied the reviewed additive launcher plan with an inactive schedule.
+- Removed the scheduler BODY after live state exposed Oracle's double encoding and drift.
 
 ## Try It
 
-Run `pytest -q tests/project/test_oci_portable_config.py tests/providers/test_oci_container_instances_runtime.py tests/providers/test_oci_vault_runtime.py`.
+Run `terraform test -test-directory=tests` from `infra/oci`, then `pytest -q tests/providers/test_oci_function_handler.py`.
 
 ## Checks
 
-- RC8 protected-main CI and trusted PyPI publication passed.
-- GAR and OCIR runtime index digests both equal `sha256:2ed916d9…50ef3`.
-- The launcher plan rejected the previously unmodeled live Vault OCID before any OCI change.
+- RC9 protected-main CI and trusted PyPI publication passed.
+- GAR and OCIR runtime index digests both equal `sha256:5d46e5cf…7a1386`.
+- Launcher apply added 11 resources, changed none, and destroyed none; live verification then found
+  only the scheduler BODY normalization drift.
 
 ## Decisions
 
-- Allow OCI Vault's observed single future-use OCID segment, plus the prior empty form.
-- Keep all other OCI identifier and provider-profile validation unchanged.
+- Omit the optional OCI scheduler BODY; the controller's empty request already means `start`.
+- Keep manual/event requests explicit and the live schedule inactive until acceptance.
 - Keep OCI experimental until Phase 7 live acceptance and Phase 8 qualification pass.
 
 ## Remaining
 
-- Merge and publish `v0.9.0rc9` through protected CI.
-- Review and apply the exact OCI launcher/controller plan.
+- Merge and publish the scheduler normalization correction through protected CI.
+- Reconcile the one live scheduler resource and prove Terraform no drift.
 - Create and rotate only the named free PostgreSQL secret outside Terraform.
 - Complete the bounded live lifecycle acceptance matrix.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.

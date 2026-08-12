@@ -249,11 +249,6 @@ resource "oci_resource_scheduler_schedule" "pipeline" {
 
   resources {
     id = oci_functions_function.pipeline[each.key].id
-
-    parameters {
-      parameter_type = "BODY"
-      value          = [jsonencode({ action = "start", source = "resource_scheduler" })]
-    }
   }
 }
 

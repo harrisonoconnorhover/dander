@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Omit OCI Resource Scheduler's optional request body so Oracle cannot double-encode the JSON,
+  while retaining the controller's existing empty-request start semantics.
+
 ## 0.9.0rc9 — 2026-08-12 (beta)
 
 ### Fixed
