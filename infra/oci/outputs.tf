@@ -9,7 +9,7 @@ output "vault_id" {
 }
 
 output "vault_key_id" {
-  description = "Auto-rotating software-protected key for runtime secrets."
+  description = "Software-protected key for runtime secrets; the default Vault supports manual key-version rotation."
   value       = oci_kms_key.runtime.id
 }
 

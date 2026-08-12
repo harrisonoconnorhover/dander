@@ -1410,6 +1410,19 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   test; it contains no secret material and does not weaken the versionless application-secret
   rotation proof required by Phase 7.
 
+## 2026-08-12 — The bounded-cost default OCI Vault uses manual master-key rotation
+
+- **Provider evidence:** After the explicit schedule reached the live Ashburn API, OCI rejected the
+  create with `400 InvalidParameter: Automatic key rotation is not supported with VIRTUAL vaults`.
+  Oracle documents automatic key rotation only for the separately billed virtual private Vault;
+  the selected Terraform `DEFAULT` tier is the shared virtual Vault.
+- **Decision:** Preserve the bounded-cost default Vault and software-protected key, disable its
+  unsupported automatic rotation setting, and represent manual key-version rotation honestly. Do
+  not silently select a roughly USD 3.72/hour private Vault for an experimental profile.
+- **Boundary:** This supersedes the preceding annual-schedule decision for the default Vault only.
+  Phase 7 still requires a live versionless application-secret rotation between runs without image
+  rebuild or secret logging; master-key scheduling and application-secret refresh are distinct.
+
 ## 2026-08-12 — OCIR repository verification follows summary with exact get
 
 - **Provider evidence:** The live repository-list summary omitted `is-immutable` when false, while

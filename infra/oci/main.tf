@@ -118,12 +118,8 @@ resource "oci_kms_key" "runtime" {
   display_name             = "${var.name}-runtime"
   management_endpoint      = oci_kms_vault.runtime.management_endpoint
   protection_mode          = "SOFTWARE"
-  is_auto_rotation_enabled = true
+  is_auto_rotation_enabled = false
   freeform_tags            = local.tags
-
-  auto_key_rotation_details {
-    rotation_interval_in_days = 365
-  }
 
   key_shape {
     algorithm = "AES"
