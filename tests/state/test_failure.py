@@ -31,6 +31,20 @@ def test_failure_classifier_uses_http_status_without_persisting_exception_text()
     assert len(failure.summary) <= 512
 
 
+def test_failure_classifier_normalizes_direct_provider_status() -> None:
+    class ServiceError(RuntimeError):
+        status = 429
+
+    failure = classify_failure(
+        ServiceError("OCI request detail must not persist"),
+        stage=RunStage.INGEST,
+        run_id="safe-run",
+    )
+
+    assert failure.code == "rate_limited"
+    assert "OCI request detail" not in failure.summary
+
+
 def test_unknown_failure_is_stage_specific_and_points_to_run_logs() -> None:
     failure = classify_failure(
         RuntimeError("customer payload must never persist"),

@@ -76,8 +76,16 @@ remain Phase 8 work.
   whole-GiB memory, and one container attempt with provider restart policy `NEVER`; unsupported
   profiles and inputs fail before OCI access. OCI OCPUs are provider billing/resource units rather
   than a cross-provider performance claim, and the fixed 15 GB ephemeral-storage allocation is not
-  configurable through this projection. Terraform, the launch Function, lifecycle reconciliation,
-  CLI operations, digest promotion, and the live OCI profile remain incomplete. No OCI launcher
+  configurable through this projection. A resource-principal OCI Function now owns deterministic
+  run identity, maximum parallelism one, whole-task retry only for exit code 75, bounded logs,
+  stop/delete cleanup, immutable terminal history, Resource Scheduler delivery, and lifecycle-event
+  reconciliation. The Function's one-hour detached limit leaves a five-minute cleanup reserve, so
+  OCI tasks are capped at 3,300 seconds. Resource Scheduler is UTC-only and cannot schedule an
+  interval shorter than one hour. OCI Vault references resolve the `CURRENT` version at the start
+  of every runtime process and are removed from the process environment afterward; in-process
+  rotation is not claimed. The controller image is a Python 3.12 `GENERIC_X86` image built from an
+  exact wheel, not the source-free task image. Digest promotion, provider deployment verification,
+  credential-rotation proof, and the complete live OCI profile remain unqualified. No OCI launcher
   support claim exists until those separate gates pass.
 
 ## Ingestion and schemas

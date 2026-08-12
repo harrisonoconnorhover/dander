@@ -28,6 +28,22 @@ output "notification_topic_id" {
   value       = oci_ons_notification_topic.runtime.id
 }
 
+output "run_records_bucket" {
+  description = "Private versioned Object Storage bucket for non-secret projections and runs."
+  value       = oci_objectstorage_bucket.run_records.name
+}
+
+output "controller" {
+  description = "Lifecycle Function and Resource Scheduler identifiers by pipeline."
+  value = {
+    for id, function in oci_functions_function.pipeline : id => {
+      function_id    = function.id
+      schedule_id    = oci_resource_scheduler_schedule.pipeline[id].id
+      schedule_state = oci_resource_scheduler_schedule.pipeline[id].state
+    }
+  }
+}
+
 output "network" {
   description = "Private runtime VCN resources used by run-scoped Container Instances."
   value = {

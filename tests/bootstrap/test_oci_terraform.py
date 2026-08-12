@@ -6,6 +6,7 @@ import json
 import stat
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -14,6 +15,9 @@ from dander.bootstrap import (
     OciTerraformBootstrap,
     OciTerraformBootstrapError,
 )
+
+if TYPE_CHECKING:
+    from typing import Any
 
 _ROOT = Path(__file__).parents[2]
 _TENANCY = "ocid1.tenancy.oc1.." + "a" * 32
@@ -105,7 +109,7 @@ def test_foundation_bootstrap_uses_native_backend_and_saved_plan(
 ) -> None:
     bootstrap = OciTerraformBootstrap(_ROOT / "infra/oci", tmp_path / "foundation")
 
-    plan = bootstrap.execute(**_FOUNDATION)
+    plan = bootstrap.execute(**cast("Any", _FOUNDATION))
     bootstrap.apply_saved_plan(**_FOUNDATION)
 
     init = terraform_calls[0]
@@ -127,7 +131,7 @@ def test_deployment_verification_reads_both_remote_states_and_requires_no_drift(
     foundation = OciTerraformBootstrap(_ROOT / "infra/oci", tmp_path / "foundation")
 
     admin.verify_no_drift(namespace="unitnamespace", **_ADMIN)
-    foundation.verify_no_drift(**_FOUNDATION)
+    foundation.verify_no_drift(**cast("Any", _FOUNDATION))
 
     verification_plans = [call for call in terraform_calls if "-detailed-exitcode" in call]
     assert len(verification_plans) == 2
@@ -146,7 +150,7 @@ def test_deployment_verification_fails_closed_on_drift(
     foundation = OciTerraformBootstrap(_ROOT / "infra/oci", tmp_path / "foundation")
 
     with pytest.raises(OciTerraformBootstrapError, match="found Terraform drift"):
-        foundation.verify_no_drift(**_FOUNDATION)
+        foundation.verify_no_drift(**cast("Any", _FOUNDATION))
 
 
 @pytest.mark.parametrize(

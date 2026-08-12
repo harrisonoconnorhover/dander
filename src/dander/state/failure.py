@@ -129,7 +129,11 @@ def _exception_chain(error: BaseException) -> tuple[BaseException, ...]:
 def _status_code(error: BaseException) -> int | None:
     response = getattr(error, "response", None)
     value = getattr(response, "status_code", None)
-    return value if isinstance(value, int) else None
+    if isinstance(value, int):
+        return value
+    # OCI SDK ServiceError and several provider SDKs expose the status directly.
+    direct = getattr(error, "status", None)
+    return direct if isinstance(direct, int) else None
 
 
 def _has_known_phrase(chain: tuple[BaseException, ...], phrase: str) -> bool:

@@ -408,7 +408,9 @@ OCI_CONTAINER_INSTANCES_CAPABILITIES = LauncherCapabilities(
     cpu_millis=frozenset({1_000, 2_000, 4_000, 6_000, 8_000}),
     minimum_memory_mib=1_024,
     maximum_memory_mib=1_540_096,
-    maximum_deadline_seconds=86_400,
+    # The detached lifecycle Function owns interruption and whole-task retries. OCI permits
+    # detached Functions to run for at most one hour; reserve five minutes for cleanup.
+    maximum_deadline_seconds=3_300,
     maximum_launcher_retries=10,
     maximum_task_count=1,
     maximum_parallelism=1,

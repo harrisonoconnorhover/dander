@@ -16,6 +16,7 @@ from dander.bootstrap.oci_terraform import (
     OciAdministrativeBootstrap,
     OciTerraformBootstrap,
     OciTerraformBootstrapError,
+    build_oci_execution_projections,
 )
 from dander.bootstrap.permissions import require_stage_zero_permissions
 from dander.bootstrap.project import (
@@ -51,6 +52,7 @@ __all__ = [
     "OciAdministrativeBootstrap",
     "OciTerraformBootstrap",
     "OciTerraformBootstrapError",
+    "build_oci_execution_projections",
     "DeploymentSummary",
     "DeploymentVerificationError",
     "DeploymentVerifier",
