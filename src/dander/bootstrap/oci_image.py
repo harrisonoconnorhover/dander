@@ -222,6 +222,20 @@ def _temporary_docker_config(*, host: str, identity_token: str) -> Iterator[Path
                 raise ProjectBootstrapError("Docker configuration is not a JSON object")
         else:
             document = {}
+        # Buildx keeps named-builder metadata below DOCKER_CONFIG. Copying a Docker
+        # Desktop currentContext into this one-use directory selects metadata that
+        # is intentionally absent, so registry-only imagetools operations must use
+        # the context-independent default instead.
+        document.pop("currentContext", None)
+        source_plugin_dir = source_dir / "cli-plugins"
+        if source_plugin_dir.is_dir():
+            plugin_dirs = document.get("cliPluginsExtraDirs", [])
+            if not isinstance(plugin_dirs, list) or not all(
+                isinstance(path, str) for path in plugin_dirs
+            ):
+                raise ProjectBootstrapError("Docker configuration has invalid plugin paths")
+            plugin_path = str(source_plugin_dir)
+            document["cliPluginsExtraDirs"] = list(dict.fromkeys((*plugin_dirs, plugin_path)))
         auths = document.get("auths", {})
         if not isinstance(auths, dict):
             raise ProjectBootstrapError("Docker configuration has invalid registry entries")

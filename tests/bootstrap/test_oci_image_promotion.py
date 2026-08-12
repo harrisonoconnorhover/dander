@@ -167,6 +167,9 @@ class _Runner:
                 "identitytoken": _TOKEN
             }
             assert config["credHelpers"] == {"us-central1-docker.pkg.dev": "gcloud"}
+            assert "currentContext" not in config
+            assert config["cliPluginsExtraDirs"][0] == str(Path(__file__).parent)
+            assert config["cliPluginsExtraDirs"][1].endswith("/docker/cli-plugins")
             if "create" in args:
                 self.created = True
                 return subprocess.CompletedProcess(args, 0, stdout="")
@@ -178,8 +181,15 @@ class _Runner:
 def _docker_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     directory = tmp_path / "docker"
     directory.mkdir()
+    (directory / "cli-plugins").mkdir()
     (directory / "config.json").write_text(
-        json.dumps({"credHelpers": {"us-central1-docker.pkg.dev": "gcloud"}}),
+        json.dumps(
+            {
+                "credHelpers": {"us-central1-docker.pkg.dev": "gcloud"},
+                "currentContext": "desktop-linux",
+                "cliPluginsExtraDirs": [str(Path(__file__).parent)],
+            }
+        ),
         encoding="utf-8",
     )
     monkeypatch.setenv("DOCKER_CONFIG", str(directory))
@@ -285,6 +295,21 @@ def test_oci_promoter_rejects_short_lived_or_malformed_token(
 
     with pytest.raises(ProjectBootstrapError, match="invalid registry access token"):
         _promote(tmp_path, _Runner(expires_in=60))
+
+
+def test_oci_promoter_rejects_malformed_docker_plugin_paths(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _write_source_record(tmp_path)
+    directory = _docker_config(monkeypatch, tmp_path)
+    (directory / "config.json").write_text(
+        json.dumps({"cliPluginsExtraDirs": "not-a-list"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ProjectBootstrapError, match="invalid plugin paths"):
+        _promote(tmp_path, _Runner())
 
 
 def test_oci_promoter_requires_the_reviewed_private_available_repository(

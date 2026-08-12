@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-12 — Scoped OCIR credentials do not inherit named-builder state
+
+- **Isolation:** OCIR promotion keeps its repository token in a one-use Docker configuration and
+  carries forward only ordinary registry helpers plus non-secret Buildx plugin search paths.
+- **Context:** The temporary configuration removes Docker Desktop's `currentContext`; Buildx
+  registry operations use the context-independent default because named-builder metadata is not
+  copied into the credential directory.
+- **Boundary:** This changes operator compatibility only. Artifact identity checks, repository
+  scope, short-lived authentication, and runtime image bytes remain unchanged.
+
 ## 2026-08-10 — PostgreSQL graphs reuse canonical plans and database-local fencing
 
 - **Planning:** PostgreSQL consumes the existing `GraphExecutionPlan` and renders its relational
