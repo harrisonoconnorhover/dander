@@ -1455,3 +1455,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** OCI session authentication, token lifetime validation, repository verification,
   digest verification, and artifact behavior remain unchanged. The earlier `BEARER_TOKEN` Basic
   finding is superseded by this controlled live evidence.
+
+## 2026-08-12 — OCI Vault OCIDs may populate the reserved future-use segment
+
+- **Provider evidence:** The bounded-cost Ashburn default Vault returned an OCID shaped as
+  `ocid1.vault.oc1.iad.<future-use>.<unique-id>`, while the initial parser and synthetic fixtures
+  admitted only the form with an empty future-use component. The launcher plan failed closed before
+  any resource change.
+- **Decision:** Admit exactly zero or one alphanumeric future-use segment for Vault OCIDs in both
+  launcher configuration and versionless secret references, and retain the prior empty form.
+- **Boundary:** Tenancy, compartment, subnet, secret-name, repository, and digest validation remain
+  unchanged; this is a provider-format correction, not broader OCID or launcher relaxation.
