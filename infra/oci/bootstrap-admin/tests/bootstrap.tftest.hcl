@@ -14,7 +14,7 @@ variables {
   repository_name   = "dander/runtime"
 }
 
-run "hardened_stage_zero" {
+run "private_digest_addressed_stage_zero" {
   command = plan
 
   assert {
@@ -28,9 +28,9 @@ run "hardened_stage_zero" {
 
   assert {
     condition = (
-      oci_artifacts_container_repository.runtime.is_immutable &&
-      !oci_artifacts_container_repository.runtime.is_public
+      !oci_artifacts_container_repository.runtime.is_public &&
+      oci_artifacts_container_repository.runtime.display_name == "dander/runtime"
     )
-    error_message = "OCIR must reject mutable tags and unauthenticated reads."
+    error_message = "OCIR must remain private and use the selected digest-addressed repository."
   }
 }

@@ -95,7 +95,7 @@ class _Runner:
                             "items": [
                                 {
                                     "display-name": "dander/runtime",
-                                    "is-immutable": True,
+                                    "is-immutable": False,
                                     "is-public": False,
                                     "lifecycle-state": "AVAILABLE",
                                 }
@@ -200,6 +200,8 @@ def test_controller_is_built_only_from_the_exact_reviewed_wheel(
     assert record["wheel_sha256"] == wheel_sha256
     assert record["version"] == "0.9.0rc2"
     assert record["platform_manifests"] == {"linux/amd64": _DESTINATION_DIGEST}
+    assert record["repository_tag_immutability"] == "provider-unavailable"
+    assert record["deployment_reference"] == "tag-and-digest"
     assert _TOKEN not in json.dumps(record)
 
 

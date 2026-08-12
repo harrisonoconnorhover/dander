@@ -18,7 +18,7 @@ docker buildx build --platform linux/amd64 \
 ```
 
 Inspect the pushed image, record its `sha256:` digest outside Git, and pass the tag and digest
-together to `dander init-oci-launcher-plan`. The controller uses the same private immutable OCIR
+together to `dander init-oci-launcher-plan`. The controller uses the same private OCIR
 repository selected by the manifest, but a separate unique tag from the task image. Never reuse a
 tag, rebuild an accepted candidate, or
 commit the wheel, registry credentials, saved plan, or Terraform state.

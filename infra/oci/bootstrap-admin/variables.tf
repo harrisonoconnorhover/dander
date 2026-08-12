@@ -50,7 +50,7 @@ variable "state_bucket_name" {
 }
 
 variable "repository_name" {
-  description = "Private immutable OCIR repository receiving verified Dander artifacts."
+  description = "Private OCIR repository receiving verified digest-addressed Dander artifacts."
   type        = string
   default     = "dander/runtime"
 

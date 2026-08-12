@@ -1336,8 +1336,8 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 ## 2026-08-12 — OCI foundation uses native state and two reviewed applies
 
 - **State boundary:** Stage zero creates only a private versioned Object Storage bucket and a
-  private immutable OCIR repository, then migrates its temporary local state to Terraform's native
-  OCI backend. Terraform 1.12 or newer and a short-lived `SecurityToken` profile are required;
+  private digest-addressed OCIR repository, then migrates its temporary local state to Terraform's
+  native OCI backend. Terraform 1.12 or newer and a short-lived `SecurityToken` profile are required;
   API-key and registry-password credentials are not accepted by this workflow.
 - **Foundation:** A second remote-state-backed plan creates the private egress-only VCN/subnet,
   default Vault and auto-rotating software key, compartment-scoped Container Instance dynamic
@@ -1383,7 +1383,19 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   `linux/amd64` from one exact SHA-256-qualified Dander wheel, extracting the Dockerfile, shim, and
   dependency pins from that wheel into an ephemeral context; never build from the working tree.
 - **Registry boundary:** Publish a deterministic wheel-bound tag to the same reviewed private,
-  immutable OCIR repository using the repository-scoped SecurityToken-derived access token. Record
-  the resulting digest locally without credentials or local paths.
-- **Idempotency:** An existing immutable controller tag is reusable only when its digest has an
+  OCIR repository using the repository-scoped SecurityToken-derived access token. Record the
+  resulting digest locally without credentials or local paths.
+- **Idempotency:** An existing controller tag is reusable only when its digest has an
   exact local artifact binding to the same wheel hash. Missing or mismatched bindings fail closed.
+
+## 2026-08-12 — OCIR capability is explicit while artifact identity remains digest-bound
+
+- **Provider evidence:** A live Ashburn tenancy returned `400 BAD_REQUEST` with “Setting
+  isImmutable is not currently supported” for both repository create and update, despite the
+  property appearing in Oracle's API, CLI, and Terraform surfaces.
+- **Decision:** Create a private OCIR repository without requesting that unsupported property.
+  Record whether OCI reports repository tag immutability, reject pre-existing tag mismatches, and
+  verify the destination index plus every runnable platform digest after publication.
+- **Safety boundary:** Container Instances consume only `@sha256` references. OCI Functions require
+  a tag but also receive its exact `image_digest`; existing controller tags require a local binding
+  to the same reviewed wheel. This is an explicit provider limitation, not a claim of false parity.

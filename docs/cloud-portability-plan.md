@@ -1205,7 +1205,7 @@ Progress on 2026-08-12: the OCI SDK/Vault provider, typed Container Instances la
 plan-first Terraform foundations, and lifecycle-controller implementation are behind
 provider-specific boundaries. The OCI
 native remote-state bootstrap creates only a private versioned Object Storage bucket and private
-immutable OCIR repository; the second root creates a private VCN/subnet, default Vault with an
+digest-addressed OCIR repository; the second root creates a private VCN/subnet, default Vault with an
 auto-rotating key, compartment-scoped Container Instance resource-principal policy, Logging, and
 Notifications. Both use short-lived SecurityToken auth, saved plans outside the repository, and
 locally passing Terraform tests; a read-only verifier refreshes both remote states and fails on any
@@ -1216,9 +1216,12 @@ interruption, replay, bounded logs, terminal history, per-pipeline lifecycle-eve
 and UTC Resource Scheduler delivery; operator commands use only expiring SecurityToken sessions.
 Runtime processes resolve versionless Vault references through resource principals without putting
 values in Terraform or Function configuration. Accepted runtime indexes can be copied into the
-exact private immutable OCIR repository without rebuild using a short-lived repository-scoped token
-derived from the operator's SecurityToken session; source, destination, and per-platform digests
-must remain equal. The separately built Function controller is bound to the exact reviewed wheel
+exact private OCIR repository without rebuild using a short-lived repository-scoped token derived
+from the operator's SecurityToken session; source, destination, and per-platform digests must
+remain equal. OCI currently rejects its advertised repository-level tag-immutability setting in
+the live Ashburn tenancy; Dander records that limitation, rejects existing-tag mismatches, and
+deploys only the verified digest (or OCI Functions' required matching tag-and-digest pair). The
+separately built Function controller is bound to the exact reviewed wheel
 SHA-256: its Dockerfile, shim, and dependency pins are extracted from that wheel into an ephemeral
 source-free build context, published only for `linux/amd64`, and recorded by immutable digest.
 Live runtime/controller publication, credential-refresh, live-profile, rollback, cleanup, and

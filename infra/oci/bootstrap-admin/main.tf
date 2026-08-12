@@ -26,7 +26,6 @@ resource "oci_objectstorage_bucket" "terraform_state" {
 resource "oci_artifacts_container_repository" "runtime" {
   compartment_id = var.compartment_id
   display_name   = var.repository_name
-  is_immutable   = true
   is_public      = false
   freeform_tags  = local.tags
 }

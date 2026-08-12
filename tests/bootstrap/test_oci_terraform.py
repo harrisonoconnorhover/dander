@@ -103,6 +103,13 @@ def test_admin_bootstrap_applies_exact_plan_then_migrates_native_state(
     assert "user_ocid" not in backend
 
 
+def test_admin_repository_is_private_and_does_not_request_unsupported_immutability() -> None:
+    configuration = (_ROOT / "infra/oci/bootstrap-admin/main.tf").read_text(encoding="utf-8")
+
+    assert "is_public      = false" in configuration
+    assert "is_immutable" not in configuration
+
+
 def test_foundation_bootstrap_uses_native_backend_and_saved_plan(
     tmp_path: Path,
     terraform_calls: list[tuple[str, ...]],

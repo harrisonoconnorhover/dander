@@ -76,12 +76,14 @@ class _Runner:
         destination_raw: str = _INDEX,
         expires_in: int = 900,
         repository_private: bool = True,
+        repository_immutable: bool = False,
     ) -> None:
         self.existing = existing
         self.destination_digest = destination_digest
         self.destination_raw = destination_raw
         self.expires_in = expires_in
         self.repository_private = repository_private
+        self.repository_immutable = repository_immutable
         self.created = False
         self.commands: list[tuple[str, ...]] = []
         self.config_paths: list[Path] = []
@@ -111,7 +113,7 @@ class _Runner:
                             "items": [
                                 {
                                     "display-name": "dander/runtime",
-                                    "is-immutable": True,
+                                    "is-immutable": self.repository_immutable,
                                     "is-public": not self.repository_private,
                                     "lifecycle-state": "AVAILABLE",
                                 }
@@ -212,6 +214,8 @@ def test_oci_promoter_copies_and_verifies_with_only_a_scoped_temporary_token(
     assert record["image"] == image
     assert record["promotion"] == "registry-copy"
     assert record["authentication"] == "SecurityToken-scoped-access-token"
+    assert record["repository_tag_immutability"] == "provider-unavailable"
+    assert record["deployment_reference"] == "digest"
 
 
 def test_oci_promoter_is_idempotent_for_an_existing_identical_tag(
@@ -267,15 +271,29 @@ def test_oci_promoter_rejects_short_lived_or_malformed_token(
         _promote(tmp_path, _Runner(expires_in=60))
 
 
-def test_oci_promoter_requires_the_reviewed_private_immutable_repository(
+def test_oci_promoter_requires_the_reviewed_private_available_repository(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     _write_source_record(tmp_path)
     _docker_config(monkeypatch, tmp_path)
 
-    with pytest.raises(ProjectBootstrapError, match="private, immutable, and available"):
+    with pytest.raises(ProjectBootstrapError, match="private and available"):
         _promote(tmp_path, _Runner(repository_private=False))
+
+
+def test_oci_promoter_records_repository_immutability_when_provider_supports_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _write_source_record(tmp_path)
+    _docker_config(monkeypatch, tmp_path)
+
+    promoter, _ = _promote(tmp_path, _Runner(repository_immutable=True))
+
+    assert promoter.artifact_record_path is not None
+    record = json.loads(promoter.artifact_record_path.read_text(encoding="utf-8"))
+    assert record["repository_tag_immutability"] == "enabled"
 
 
 def test_oci_promoter_rejects_source_record_mismatch_before_provider_access(
