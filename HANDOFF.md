@@ -2,7 +2,7 @@
 
 ## Finished
 
-- Published public `dander-platform==0.9.0rc9` from protected main.
+- Prepared public `dander-platform==0.9.0rc10` from protected main.
 - Promoted the RC9 source-free runtime into OCIR with an identical OCI index digest.
 - Published the exact RC9 wheel-bound lifecycle controller into private OCIR.
 - Applied the reviewed additive launcher plan with an inactive schedule.
@@ -27,7 +27,7 @@ Run `terraform test -test-directory=tests` from `infra/oci`, then `pytest -q tes
 
 ## Remaining
 
-- Merge and publish the scheduler normalization correction through protected CI.
+- Merge and publish `v0.9.0rc10` through protected CI.
 - Reconcile the one live scheduler resource and prove Terraform no drift.
 - Create and rotate only the named free PostgreSQL secret outside Terraform.
 - Complete the bounded live lifecycle acceptance matrix.
