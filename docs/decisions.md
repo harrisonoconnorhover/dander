@@ -1466,3 +1466,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   launcher configuration and versionless secret references, and retain the prior empty form.
 - **Boundary:** Tenancy, compartment, subnet, secret-name, repository, and digest validation remain
   unchanged; this is a provider-format correction, not broader OCID or launcher relaxation.
+
+## 2026-08-12 — OCI scheduled starts use the controller's empty-body default
+
+- **Provider evidence:** The live OCI Resource Scheduler stored the requested JSON object as a JSON
+  string, producing immediate Terraform drift and risking a non-object Function payload. Oracle's
+  provider models the BODY value as optional, while Dander already treats an empty Function request
+  as a scheduled `start` with an hour-bucketed idempotency key.
+- **Decision:** Omit the optional scheduler BODY parameter. Keep manual, replay, cancel, and event
+  requests explicit; scheduled invocations use the controller's existing empty-request contract.
+- **Boundary:** The schedule remains inactive until live acceptance. This changes neither the
+  runtime image nor OCI IAM, concurrency, retry, secret, or warehouse behavior.
