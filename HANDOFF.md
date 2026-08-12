@@ -2,38 +2,40 @@
 
 ## Finished
 
-- Prepared the exact protected-main `dander-platform==0.9.0rc5` candidate.
+- Published the exact protected-main `dander-platform==0.9.0rc5` candidate.
 - Completed OCI stage zero and migrated its state into the private versioned Object Storage bucket.
-- Published the source-free RC3 runtime index in the disposable GCP proof registry.
-- Confirmed the default OCI Vault rejects automatic master-key rotation before creating the key.
-- Corrected the foundation to retain the bounded-cost default Vault with manual key rotation.
+- Applied the RC5 OCI foundation and verified both stage-zero and foundation no-drift.
+- Published the source-free RC5 runtime index in the disposable GCP proof registry.
+- Corrected isolated OCIR promotion so Docker Desktop Buildx remains discoverable without copying
+  named-builder metadata into the temporary scoped-token configuration.
 
 ## Try It
 
-Run `terraform -chdir=infra/oci test`.
+Run `pytest -q tests/bootstrap/test_oci_image_promotion.py`.
 
 ## Checks
 
-- Protected-main CI passed for the default-Vault correction before the RC5 cut.
-- Live OCI stage-zero retry reached zero drift after one private repository create.
-- The live RC4 foundation plan was exactly one key create, zero changes, zero destroys.
-- Its apply failed closed with OCI's explicit default-Vault automatic-rotation limitation.
+- Protected-main CI passed for the default-Vault correction and RC5 release.
+- Live OCI stage zero and foundation both report no drift after RC5 apply.
+- RC5 source-free GAR publication preserved the reviewed multi-platform digest and attestations.
+- Isolated Docker-config regression coverage includes Docker Desktop context and plugin discovery.
 
 ## Decisions
 
-- Keep the bounded-cost default Vault and represent its manual master-key rotation honestly.
-- Verify exact OCIR metadata with a repository get after resolving one named list summary.
+- Keep Buildx available through only its non-secret plugin directory; do not copy named-builder
+  state into the temporary credential directory.
 - Keep OCI experimental until Phase 7 live acceptance and Phase 8 qualification pass.
 
 ## Remaining
 
-- Merge and publish `v0.9.0rc5` through protected CI.
-- Retry the one-resource foundation plan with the corrected public operator.
+- Merge the isolated Docker-config fix and publish its release candidate through protected CI.
 - Resume digest-preserving OCIR promotion from the accepted GCP runtime index.
+- Publish and deploy the exact-wheel OCI lifecycle controller.
+- Complete the bounded live lifecycle acceptance matrix.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.
 
 ## Review First
 
-- `infra/oci/main.tf`
-- `infra/oci/tests/oci.tftest.hcl`
-- `docs/known-limitations.md`
+- `src/dander/bootstrap/oci_image.py`
+- `tests/bootstrap/test_oci_image_promotion.py`
+- `HANDOFF.md`

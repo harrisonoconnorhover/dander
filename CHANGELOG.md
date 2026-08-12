@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Keep OCI's temporary scoped-token Docker configuration independent of Docker Desktop's named
+  builder metadata while preserving Buildx plugin discovery from the operator configuration.
+
 ## 0.9.0rc5 — 2026-08-12 (beta)
 
 ### Fixed
