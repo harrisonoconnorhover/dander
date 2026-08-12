@@ -1441,3 +1441,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   name, visibility, lifecycle, and immutability capability from the exact get response.
 - **Boundary:** Missing or inconsistent exact metadata still fails closed before registry-token
   creation or artifact copy; an omitted optional field in list summaries is not treated as false.
+
+## 2026-08-12 — OCIR scoped tokens use Docker's Basic credential shape
+
+- **Provider evidence:** The live OCIR distribution endpoint accepted the scoped token directly,
+  but Docker Buildx returned `403 Forbidden` when the token was stored as `identitytoken`. The same
+  token produced the expected authenticated `not found` response when supplied using the fixed
+  `BEARER_TOKEN` username.
+- **Decision:** Encode `BEARER_TOKEN:<scoped-token>` in Docker's standard `auth` entry inside the
+  mode-`0600` temporary configuration. Never pass the token on a command line or retain it after
+  promotion/controller publication exits.
+- **Boundary:** This changes only Docker's credential representation; OCI session authentication,
+  repository scope, token lifetime validation, digest verification, and artifact behavior remain
+  unchanged.

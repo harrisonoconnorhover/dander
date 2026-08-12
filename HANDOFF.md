@@ -2,35 +2,32 @@
 
 ## Finished
 
-- Prepared the exact protected-main `dander-platform==0.9.0rc6` candidate.
-- Completed OCI stage zero and migrated its state into the private versioned Object Storage bucket.
-- Applied the RC5 OCI foundation and verified both stage-zero and foundation no-drift.
-- Published the source-free RC5 runtime index in the disposable GCP proof registry.
-- Corrected isolated OCIR promotion so Docker Desktop Buildx remains discoverable without copying
-  named-builder metadata into the temporary scoped-token configuration.
+- Diagnosed live OCIR Buildx authentication without uploading an artifact.
+- Confirmed the short-lived token and exact `pull,push` repository scope are valid.
+- Changed isolated Docker credentials to OCIR's supported `BEARER_TOKEN` login form.
+- Kept the scoped token out of command arguments and ephemeral after command exit.
+- Covered both runtime promotion and controller publication projections.
 
 ## Try It
 
-Run `pytest -q tests/bootstrap/test_oci_image_promotion.py`.
+Run `pytest -q tests/bootstrap/test_oci_image_promotion.py tests/bootstrap/test_oci_controller_publication.py`.
 
 ## Checks
 
-- Protected-main CI passed for the default-Vault correction and RC5 release.
-- Protected-main CI passed for the isolated Docker-config correction before the RC6 cut.
-- Live OCI stage zero and foundation both report no drift after RC5 apply.
-- RC5 source-free GAR publication preserved the reviewed multi-platform digest and attestations.
-- Isolated Docker-config regression coverage includes Docker Desktop context and plugin discovery.
+- Live registry probes returned `403` for `identitytoken` and authenticated `not found` for the
+  same token in `BEARER_TOKEN` Basic form.
+- Focused tests cover both OCIR publication paths and isolated Docker configuration.
 
 ## Decisions
 
-- Keep Buildx available through only its non-secret plugin directory; do not copy named-builder
-  state into the temporary credential directory.
+- Use Docker's ordinary `auth` field with the fixed OCIR access-token username.
+- Preserve the one-use mode-`0600` Docker configuration and exact repository scope.
 - Keep OCI experimental until Phase 7 live acceptance and Phase 8 qualification pass.
 
 ## Remaining
 
-- Merge and publish `v0.9.0rc6` through protected CI.
-- Resume digest-preserving OCIR promotion from the accepted GCP runtime index.
+- Merge this focused fix through protected CI and cut the next candidate.
+- Resume digest-preserving OCIR promotion from the exact accepted runtime index.
 - Publish and deploy the exact-wheel OCI lifecycle controller.
 - Complete the bounded live lifecycle acceptance matrix.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.

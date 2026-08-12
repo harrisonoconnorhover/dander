@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -212,7 +213,7 @@ def _registry_token(
 
 
 @contextmanager
-def _temporary_docker_config(*, host: str, identity_token: str) -> Iterator[Path]:
+def _temporary_docker_config(*, host: str, access_token: str) -> Iterator[Path]:
     try:
         source_dir = Path(os.environ.get("DOCKER_CONFIG", Path.home() / ".docker"))
         source_path = source_dir / "config.json"
@@ -239,7 +240,12 @@ def _temporary_docker_config(*, host: str, identity_token: str) -> Iterator[Path
         auths = document.get("auths", {})
         if not isinstance(auths, dict):
             raise ProjectBootstrapError("Docker configuration has invalid registry entries")
-        document["auths"] = {**auths, host: {"identitytoken": identity_token}}
+        # OCI's scoped access-token endpoint returns a bearer token, but Docker
+        # interprets ``identitytoken`` as a token for its own registry OAuth
+        # exchange.  OCIR instead accepts the scoped token through Docker's
+        # Basic-auth credential shape with the fixed BEARER_TOKEN username.
+        credential = base64.b64encode(f"BEARER_TOKEN:{access_token}".encode()).decode()
+        document["auths"] = {**auths, host: {"auth": credential}}
         with TemporaryDirectory(prefix="dander-ocir-") as directory:
             config_dir = Path(directory)
             config_path = config_dir / "config.json"
@@ -373,7 +379,7 @@ class OciRuntimeImagePromoter:
                 namespace=namespace,
                 repository_name=repository_name,
             )
-            with _temporary_docker_config(host=host, identity_token=token) as config_dir:
+            with _temporary_docker_config(host=host, access_token=token) as config_dir:
                 if created:
                     self._runner(
                         (
@@ -583,7 +589,7 @@ class OciControllerImagePublisher:
                 namespace=namespace,
                 repository_name=repository_name,
             )
-            with _temporary_docker_config(host=host, identity_token=token) as config_dir:
+            with _temporary_docker_config(host=host, access_token=token) as config_dir:
                 if created:
                     with TemporaryDirectory(prefix="dander-oci-controller-") as directory:
                         context_dir = Path(directory)

@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Present short-lived repository-scoped OCI access tokens to Docker in OCIR's supported
+  `BEARER_TOKEN` login form while retaining isolated, ephemeral credential storage.
+
 ## 0.9.0rc6 — 2026-08-12 (beta)
 
 ### Fixed
