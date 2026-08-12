@@ -8,6 +8,7 @@ import pytest
 
 from dander import __version__
 from dander.project import ProjectScaffoldError, load_project_config, scaffold_project
+from dander.transform import TransformProject
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -71,6 +72,15 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     assert not list(project.rglob("*.tfplan"))
     assert not list(project.rglob("*.tfstate"))
     assert not list(project.rglob(".terraform"))
+
+    transforms = TransformProject.load(
+        project / "models",
+        catalog="dander",
+        raw_namespace="raw",
+        target_dialect="postgres",
+    )
+    model = transforms.models["stg_greenhouse__jobs"]
+    assert 'FROM "raw"."greenhouse_job_board_jobs"' in transforms.compile(model)
 
 
 def test_scaffold_refuses_to_overwrite_existing_directory(tmp_path: Path) -> None:
