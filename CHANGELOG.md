@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc8 — 2026-08-12 (beta)
+
 ### Fixed
 
 - Preserve OCI's namespace-qualified repository bearer credential in Docker's native

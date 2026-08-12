@@ -2,7 +2,7 @@
 
 ## Finished
 
-- Published the exact protected-main `dander-platform==0.9.0rc7` candidate.
+- Prepared the exact protected-main `dander-platform==0.9.0rc8` candidate.
 - Diagnosed live OCIR Buildx authorization without uploading an artifact.
 - Confirmed the existing token scope correctly includes the tenancy namespace.
 - Preserved OCI's bearer token in Docker's native `registrytoken` field.
@@ -27,7 +27,7 @@ Run `pytest -q tests/bootstrap/test_oci_image_promotion.py tests/bootstrap/test_
 
 ## Remaining
 
-- Merge the corrected scoped-token transport through protected CI and cut its candidate.
+- Merge and publish `v0.9.0rc8` through protected CI.
 - Resume digest-preserving OCIR promotion from that exact accepted runtime index.
 - Publish and deploy the exact-wheel OCI lifecycle controller.
 - Complete the bounded live lifecycle acceptance matrix.
