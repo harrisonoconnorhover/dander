@@ -42,9 +42,10 @@ run "projects_private_keyless_foundation" {
     condition = (
       oci_kms_vault.runtime.vault_type == "DEFAULT" &&
       oci_kms_key.runtime.protection_mode == "SOFTWARE" &&
-      oci_kms_key.runtime.is_auto_rotation_enabled
+      oci_kms_key.runtime.is_auto_rotation_enabled &&
+      oci_kms_key.runtime.auto_key_rotation_details[0].rotation_interval_in_days == 365
     )
-    error_message = "The runtime Vault must use the bounded-cost default tier and an auto-rotating key."
+    error_message = "The runtime Vault must use the bounded-cost default tier and an explicitly scheduled auto-rotating key."
   }
 
   assert {

@@ -121,6 +121,10 @@ resource "oci_kms_key" "runtime" {
   is_auto_rotation_enabled = true
   freeform_tags            = local.tags
 
+  auto_key_rotation_details {
+    rotation_interval_in_days = 365
+  }
+
   key_shape {
     algorithm = "AES"
     length    = 32
