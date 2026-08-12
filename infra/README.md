@@ -16,6 +16,8 @@ call sites (mirrors the `SecretStoreProvider` / `ComputeProvider` abstractions i
 | `kubernetes/chart/dander` | Versioned Helm chart for an existing conforming cluster. **Locally validated; not live-qualified.** |
 | `azure/bootstrap-admin` | Azure Storage state, ACR, and user-assigned runtime identity. **Live-proven for the named experimental Phase 6 profiles.** |
 | `azure/modules/container-apps-jobs` | Container Apps Jobs, Key Vault references, Log Analytics, alerts, and optional network placement. **Live-proven for the named experimental Phase 6 profiles.** |
+| `oci/bootstrap-admin` | Native OCI Object Storage state and a private immutable OCIR repository. **Implemented and locally validated; live proof pending.** |
+| `oci` | Private VCN/subnet, default Vault and rotating key, Container Instance resource-principal policy, Logging, and Notifications foundation. **Implemented and locally validated; live proof pending.** |
 
 The main root always calls `modules/bigquery` and can opt into the remaining workload modules. The
 one-time `infra/bootstrap-admin` root creates the remote-state bucket, the Artifact Registry
@@ -106,6 +108,8 @@ Each scheduler identity can invoke only its pipeline's named Cloud Run Job.
 - **Remote GCS backend** for state — never local state committed to the repo.
 - Azure uses an Entra-authenticated Azure Storage backend; its temporary bootstrap state and saved
   plans remain outside the repository.
+- OCI uses Terraform's native Object Storage backend with a short-lived `SecurityToken` profile;
+  its temporary bootstrap state and saved plans also remain outside the repository.
 - **No secret values** in `.tf`/`.tfvars`; reference Secret Manager. Commit only `*.tfvars.example`.
 - Project id / region are always parameterized, never hard-coded.
 - Stage-zero applies run through the CLI using the approved administrator. Platform applies use

@@ -1332,3 +1332,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** OCI OCPUs and fixed ephemeral storage remain explicit provider semantics rather
   than false cross-provider parity. This contract adds no Terraform, Function, API mutation, live
   evidence, packaged support claim, or paid authorization.
+
+## 2026-08-12 — OCI foundation uses native state and two reviewed applies
+
+- **State boundary:** Stage zero creates only a private versioned Object Storage bucket and a
+  private immutable OCIR repository, then migrates its temporary local state to Terraform's native
+  OCI backend. Terraform 1.12 or newer and a short-lived `SecurityToken` profile are required;
+  API-key and registry-password credentials are not accepted by this workflow.
+- **Foundation:** A second remote-state-backed plan creates the private egress-only VCN/subnet,
+  default Vault and auto-rotating software key, compartment-scoped Container Instance dynamic
+  group/policy, log group, and Notifications topic. No long-lived Container Instance is created.
+- **Sequencing:** Secret values are seeded outside Terraform after the foundation apply, and the
+  output subnet/Vault OCIDs become typed launcher inputs. Saved plans, bootstrap state, backend
+  metadata, and Terraform caches stay in a mode-restricted operator directory outside Git.
