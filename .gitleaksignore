@@ -13,3 +13,8 @@ b5ea9389a35354a3da154238abba2446f42069cf:tests/security/test_enterprise_auth.py:
 # rk_live_ prefixes gitleaks's stripe-access-token rule matches on, but the historical commit still
 # contains the original wording and can't be edited after the fact without rewriting pushed history.
 60dc73b90458055b5d8a9d7c7d3e830d283199be:tickets/DANDER-72-row-level-operations.md:stripe-access-token:345
+
+# tests/providers/test_oci_vault_runtime.py — a synthetic OCI Vault resource OCID assembled
+# from a fixed prefix plus repeated test characters. The scanner matched the original constant
+# name, not credential material; the current tree uses a neutral fixture name as well.
+75eb05281ec614fce4a596fcfd0ff452d9e8a1bc:tests/providers/test_oci_vault_runtime.py:generic-api-key:16

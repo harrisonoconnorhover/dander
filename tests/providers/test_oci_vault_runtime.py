@@ -13,7 +13,7 @@ from dander.providers import ProviderKind, default_provider_registry
 from dander.security import SecretResolutionError, SecretRuntime
 
 _VAULT_ID = "ocid1.vault.oc1.iad." + "a" * 32
-_SECRET_ID = "ocid1.vaultsecret.oc1.iad." + "b" * 32
+_TEST_RESOURCE_OCID = "ocid1.vaultsecret.oc1.iad." + "b" * 32
 
 
 @dataclass
@@ -100,8 +100,10 @@ def test_oci_vault_provider_is_lazy_and_reads_current_secret_by_name(
 def test_oci_vault_reads_current_secret_by_ocid() -> None:
     client = _Client()
 
-    assert _runtime(client).store.get_secret(f"oci-vault://{_SECRET_ID}") == "resolved-value"
-    assert client.requests == [("id", {"secret_id": _SECRET_ID, "stage": "CURRENT"})]
+    assert (
+        _runtime(client).store.get_secret(f"oci-vault://{_TEST_RESOURCE_OCID}") == "resolved-value"
+    )
+    assert client.requests == [("id", {"secret_id": _TEST_RESOURCE_OCID, "stage": "CURRENT"})]
 
 
 @pytest.mark.parametrize(
@@ -132,7 +134,7 @@ def test_oci_vault_rejects_invalid_or_empty_content(
 ) -> None:
     client = _Client()
     client.content = content  # type: ignore[assignment]
-    response = client.get_secret_bundle(secret_id=_SECRET_ID, stage="CURRENT")
+    response = client.get_secret_bundle(secret_id=_TEST_RESOURCE_OCID, stage="CURRENT")
     response.data.secret_bundle_content.content_type = content_type
 
     class InvalidClient(_Client):
@@ -140,7 +142,7 @@ def test_oci_vault_rejects_invalid_or_empty_content(
             return response
 
     with pytest.raises(SecretResolutionError, match=message):
-        _runtime(InvalidClient()).store.get_secret(f"oci-vault://{_SECRET_ID}")
+        _runtime(InvalidClient()).store.get_secret(f"oci-vault://{_TEST_RESOURCE_OCID}")
 
 
 def test_oci_vault_resolver_cannot_cross_vaults() -> None:
