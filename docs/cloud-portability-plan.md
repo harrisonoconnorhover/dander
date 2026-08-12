@@ -1205,8 +1205,8 @@ Progress on 2026-08-12: the OCI SDK/Vault provider, typed Container Instances la
 plan-first Terraform foundations, and lifecycle-controller implementation are behind
 provider-specific boundaries. The OCI
 native remote-state bootstrap creates only a private versioned Object Storage bucket and private
-digest-addressed OCIR repository; the second root creates a private VCN/subnet, default Vault with an
-auto-rotating key, compartment-scoped Container Instance resource-principal policy, Logging, and
+digest-addressed OCIR repository; the second root creates a private VCN/subnet, default Vault with a
+software-protected key, compartment-scoped Container Instance resource-principal policy, Logging, and
 Notifications. Both use short-lived SecurityToken auth, saved plans outside the repository, and
 locally passing Terraform tests; a read-only verifier refreshes both remote states and fails on any
 planned drift. The launcher still accepts only the named PostgreSQL/PostgreSQL/
@@ -1221,7 +1221,10 @@ from the operator's SecurityToken session; source, destination, and per-platform
 remain equal. OCI currently rejects its advertised repository-level tag-immutability setting in
 the live Ashburn tenancy; Dander records that limitation, rejects existing-tag mismatches, and
 deploys only the verified digest (or OCI Functions' required matching tag-and-digest pair). The
-separately built Function controller is bound to the exact reviewed wheel
+default Vault also rejects automatic master-key rotation, which Oracle reserves for the separately
+billed virtual private Vault tier; Dander records that limitation and retains the distinct required
+proof that a later run observes a new versionless application-secret value without an image rebuild.
+The separately built Function controller is bound to the exact reviewed wheel
 SHA-256: its Dockerfile, shim, and dependency pins are extracted from that wheel into an ephemeral
 source-free build context, published only for `linux/amd64`, and recorded by immutable digest.
 Live runtime/controller publication, credential-refresh, live-profile, rollback, cleanup, and

@@ -94,6 +94,12 @@ remain Phase 8 work.
   digest differs, promoted indexes and platform manifests are re-read and compared, and every task
   deployment uses an exact digest while OCI Functions receive the matching tag-and-digest pair.
   Repository-level tag immutability is not claimed where OCI reports it unavailable.
+- OCI automatic master-key rotation is not available on the bounded-cost default Vault. A live
+  Ashburn create rejected it with `400 InvalidParameter`; Oracle documents the feature for the
+  separately billed virtual private Vault tier. Dander therefore provisions a software-protected
+  key on the default Vault with manual key-version rotation and does not claim automatic key
+  rotation. The named profile must still prove versionless application-secret rotation between
+  runs without rebuilding the image or logging secret values.
 
 ## Ingestion and schemas
 

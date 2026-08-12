@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Keep the OCI foundation on its bounded-cost default Vault and disable unsupported automatic
+  master-key rotation instead of requiring the separately billed virtual private Vault tier.
+
 ## 0.9.0rc4 — 2026-08-12 (beta)
 
 ### Fixed
