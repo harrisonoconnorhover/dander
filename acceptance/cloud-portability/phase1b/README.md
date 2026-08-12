@@ -12,7 +12,7 @@ Terraform state, task descriptions, or logs.
 
 ## Prerequisites
 
-- Dander `0.9.0rc6`, Docker Buildx, Terraform 1.9+, `gcloud`, and AWS CLI authenticated with
+- Dander `0.9.0rc7`, Docker Buildx, Terraform 1.9+, `gcloud`, and AWS CLI authenticated with
   short-lived browser/SSO credentials.
 - `crane` pinned to `v0.20.6` (`go install
   github.com/google/go-containerregistry/cmd/crane@v0.20.6`).

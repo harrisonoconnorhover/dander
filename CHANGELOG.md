@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc7 — 2026-08-12 (beta)
+
 ### Fixed
 
 - Present short-lived repository-scoped OCI access tokens to Docker in OCIR's supported
