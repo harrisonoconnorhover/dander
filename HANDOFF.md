@@ -2,11 +2,11 @@
 
 ## Finished
 
+- Prepared public `dander-platform==0.9.0rc13` from protected main.
 - Published and deployed exact RC12 runtime/controller artifacts from protected main.
 - Recovered an expired-token Terraform apply without infrastructure or state loss.
 - Deployed the A1 projection and Function notification permission at verified no drift.
 - Isolated the live A1 create rejection to OCI's parent/child tag-equality contract.
-- Corrected tag parity with a focused provider request test.
 
 ## Try It
 
@@ -26,7 +26,7 @@ Run `uv run pytest -q tests/providers/test_oci_container_instances_adapter.py`.
 
 ## Remaining
 
-- Merge this correction through protected CI and publish the next exact candidate.
+- Merge and publish `v0.9.0rc13` through protected CI.
 - Promote and deploy the corrected controller, then prove a successful A1 run.
 - Complete success, rotation, overlap, retry, replay, cancel, schedule, and rollback proofs.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.
