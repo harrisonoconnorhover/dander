@@ -6,7 +6,7 @@
 - Verified both OCI Terraform roots at no drift with the Resource Scheduler still inactive.
 - Proved a managed A1 launch reaches a real Container Instance with exact runtime digest.
 - Corrected terminal observation, idempotent stop, and active-only bounded log capture.
-- Reconciled the failed proof, removed its instance, and released its active-run lock.
+- Prepared public `dander-platform==0.9.0rc14` from protected main.
 
 ## Try It
 
@@ -26,7 +26,7 @@ Run `uv run pytest -q tests/providers/test_oci_container_instances_adapter.py`.
 
 ## Remaining
 
-- Merge the terminal-reconciliation PR and publish/deploy the next protected release candidate.
+- Merge and publish `v0.9.0rc14` through protected CI, then deploy its exact artifacts.
 - Prove a successful named OCI/PostgreSQL profile and its bounded runtime log capture.
 - Complete overlap, retry, replay, cancel, schedule, rotation, and rollback proofs.
 - Complete cleanup, retained-GCP no drift, evidence, and the binary Phase 7 recommendation.

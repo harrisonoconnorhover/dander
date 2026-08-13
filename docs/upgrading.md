@@ -11,7 +11,7 @@ the [hosted quickstart](getting-started.md). A guarded installation must also re
 ## Upgrade the CLI and project image
 
 ```bash
-export DANDER_TARGET_VERSION="0.9.0rc13"
+export DANDER_TARGET_VERSION="0.9.0rc14"
 uv tool install --force "dander-platform==$DANDER_TARGET_VERSION"
 dander --version
 ```
