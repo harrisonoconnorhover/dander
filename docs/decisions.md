@@ -1503,3 +1503,11 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   metadata, output-column, test, lineage, and metric spine.
 - **Boundary:** Variants are explicit and fail closed when orphaned. Dander does not translate
   provider JSON-path behavior, weaken the portable SQL subset, or claim Snowflake/Redshift parity.
+
+## 2026-08-13 — Scope OCI scheduled-Function permission to the runtime compartment
+
+- **Provider evidence:** A live Resource Scheduler `START_RESOURCE` work request returned `404`
+  when the schedule dynamic group had only `use fn-invocation`, although manual invocation passed.
+- **Decision:** Oracle's scheduled-Functions contract requires `manage functions-family`; Dander
+  grants that verb only in the configured runtime compartment, not tenancy-wide.
+- **Boundary:** Manual operators and runtime resource principals keep their narrower permissions.

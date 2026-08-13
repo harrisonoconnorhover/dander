@@ -52,6 +52,9 @@ All operator API calls use an expiring `SecurityToken` profile, while the Functi
 Instances use resource principals. Runtime promotion derives a short-lived, repository-scoped
 registry token from that session and never changes the operator's persistent Docker configuration.
 Static OCI API keys, user auth tokens, registry passwords, and static cloud keys are not fallbacks.
+Oracle starts scheduled Functions through the `functions-family` resource action, so the
+single-schedule dynamic group receives `manage functions-family` only in the runtime compartment.
+It cannot manage Functions in other compartments.
 
 OCI automatic master-key rotation is available only on the separately billed virtual private
 Vault tier. The bounded-cost default Vault therefore uses a software key with manual key-version

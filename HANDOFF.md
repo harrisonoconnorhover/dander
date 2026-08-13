@@ -2,35 +2,37 @@
 
 ## Finished
 
-- Diagnosed the RC14 OCI run: ingestion/cleanup passed; BigQuery-only nested syntax broke the PostgreSQL transform.
-- Merged PR #244 with explicit provider SQL variants and a PostgreSQL Greenhouse JSONB variant.
-- Preserved `location_name`, one metadata/test spine, exact BigQuery behavior, and fail-closed unsupported targets.
-- Prepared `dander-platform==0.9.0rc15` release metadata from protected main.
+- Published public RC15 runtime/controller artifacts and deployed their exact immutable digests.
+- Passed local runtime conformance and the live OCI/PostgreSQL profile with 17 rows and 3 assertions.
+- Passed replay, maximum-parallelism-one overlap fencing, active cancellation, and disposable cleanup.
+- Reproduced the scheduled start failure as an Oracle work-request `404` before any container existed.
+- Corrected the scheduler dynamic-group permission to Oracle's required compartment-scoped `manage functions-family`.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py` and `uv run pytest -q tests/test_release_metadata.py`.
+Run `uv run pytest tests/bootstrap/test_oci_terraform.py -q`.
 
 ## Checks
 
-- PR #244 passed all five protected checks and merged at `3078ce7`.
-- Focused transform/scaffold/PostgreSQL tests and distribution validation passed.
-- Live local PostgreSQL run ingested 17 public rows and completed the corrected transform/assertions.
+- `uv run pytest tests/bootstrap/test_oci_terraform.py -q` — 12 passed.
+- `uv run ruff check tests/bootstrap/test_oci_terraform.py` — passed.
+- `terraform fmt -check -recursive infra/oci` — passed.
+- Both deployed OCI Terraform roots verified no drift before the live proofs.
 
 ## Decisions
 
-- Use explicit PostgreSQL SQL for JSONB path semantics; do not call provider JSON paths portable.
-- Release a new protected candidate before resuming paid OCI proof.
+- Grant the single-schedule dynamic group Oracle's required Function-family verb only in the runtime compartment.
+- Keep the schedule inactive until the protected correction is released and its scheduled proof passes.
 
 ## Remaining
 
-- Merge and publish `v0.9.0rc15`, then promote its exact image/controller artifacts.
-- Complete OCI success, replay, overlap, cancel, retry, schedule, rotation, rollback, cleanup, and no-drift proofs.
+- Merge and release the scheduler permission correction, then re-run the scheduled proof.
+- Complete OCI retry, secret rotation, rollback, alert, cleanup, and final no-drift proofs.
 - Complete Phase 7 evidence and binary exit-gate recommendation.
 - Complete Phase 8 qualification within approved ceilings.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `tests/test_release_metadata.py`
+- `infra/oci/main.tf`
+- `tests/bootstrap/test_oci_terraform.py`
+- `docs/decisions.md`
