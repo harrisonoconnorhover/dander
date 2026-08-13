@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 
 
-def test_distribution_identity_and_version_are_public_release() -> None:
+def test_distribution_identity_and_version_match_installed_package() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
     assert project["name"] == "dander-platform"
