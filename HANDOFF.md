@@ -4,9 +4,9 @@
 
 - Merged the GCS GraphStore through protected PR #258 at `81e750f29eba41a112db160b79f9e4983ed4e874`.
 - Verified exact-main CI run `31738745182`; all five jobs passed.
-- Added a bounded live qualification runner for bucket policy and GraphStore restart/conflict/replay.
-- Added coordinate-free evidence generation that omits cloud coordinates, revisions, rows, and errors.
-- Added nine credential-free qualification tests using the real adapter over its fake provider.
+- Live-qualified restart, replay, update/conflict, deletion, and bucket policy under a USD 0.25 cap.
+- Removed every object version and the disposable bucket; retained GCP remained 28/113 no-op.
+- Added coordinate-free evidence and accepted DANDER-122 for protected-main source only.
 
 ## Try It
 
@@ -14,28 +14,26 @@ Run `uv run pytest -q tests/control/test_graph_store.py tests/control/test_gcs_g
 
 ## Checks
 
-- Focused GraphStore plus qualification suite passed: 48 tests.
-- Focused Ruff lint and format checks passed.
-- Strict mypy passed for the qualification tests.
-- The runner's help path passed without provider access.
-- A focused credential-pattern scan found no matches.
+- Full pytest passed: 1,490 tests with 28 expected skips.
+- Ruff, format, strict mypy across 384 files, and Control-contract drift passed.
+- Dependency, changed-file secret, forbidden-artifact, wheel, and sdist checks passed.
+- All GCP/AWS/Azure/OCI and cross-cloud Terraform validation/tests passed.
+- Live GraphStore, bucket policy, cleanup, and retained 28/113 no-change plans passed.
 
 ## Decisions
 
-- The evidence records only portable outcomes and public source scope, never bucket or project names.
+- Evidence records only portable outcomes and source scope, never bucket or project names.
 - Public rc18 predates GCS support, so this proof cannot qualify that release artifact.
-- DANDER-122 remains in progress until the separately approved live proof and cleanup pass.
+- The first object-store architecture is accepted; S3 may reuse the contract without widening it.
 
 ## Remaining
 
-- Obtain approval for attempt `druff-d3-gcs-live-2026-08-13-attempt-1` with a USD 0.25 ceiling.
-- Create one disposable versioned GCS bucket and run the bounded qualification once.
-- Remove every object version and the bucket, then verify absence.
-- Reproduce the retained 28-resource and 113-resource no-drift plans.
-- Finalize sanitized evidence, DANDER-122, documentation, review, and protected PR.
+- Push the focused evidence branch and merge it through protected CI.
+- Verify exact-main CI after merge.
+- Begin the S3 GraphStore in a separate focused PR.
 
 ## Review First
 
 - `scripts/portability/gcs_graph_store_qualification.py`
 - `tests/portability/test_gcs_graph_store_qualification.py`
-- `tickets/DANDER-122-gcs-graph-store.md`
+- `docs/evidence/gcp/2026-08-13/druff-gcs-graph-store.json`

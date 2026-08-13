@@ -92,9 +92,12 @@ credential-bearing graph fields accept recognized secret references only, so the
 becomes a credential-value repository. Importing Control remains provider-free; the Google SDK
 loads only when this adapter is actually constructed without an injected client.
 
-The adapter's shared fake-provider conformance is implemented in DANDER-122. GCS remains
-unqualified until the separately approved live restart/conflict/cleanup, bucket-policy, and
-retained-infrastructure no-drift evidence passes.
+The adapter's shared fake-provider conformance and separately approved live
+restart/conflict/replay/cleanup proof passed in DANDER-122. The
+[coordinate-free evidence](evidence/gcp/2026-08-13/druff-gcs-graph-store.json) also records the
+required bucket policy, removal of all object versions and the bucket, and retained-infrastructure
+no drift. This qualifies protected-main source commit `81e750f`; public rc18 predates the adapter
+and is not qualified by this proof.
 
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
