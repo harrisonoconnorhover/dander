@@ -22,6 +22,7 @@ from dander.control.graph_store import (
     canonicalize_graph_document,
 )
 from dander.control.local_graph_store import RootedLocalGraphStore
+from dander.control.s3_graph_store import S3GraphStore
 
 __all__ = [
     "MAX_GRAPH_DOCUMENT_BYTES",
@@ -43,6 +44,7 @@ __all__ = [
     "GCSGraphStore",
     "InMemoryGraphStore",
     "RootedLocalGraphStore",
+    "S3GraphStore",
     "canonicalize_graph_document",
 ]
 

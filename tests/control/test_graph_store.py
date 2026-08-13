@@ -21,30 +21,34 @@ from dander.control import (
     GraphStoreNotFoundError,
     InMemoryGraphStore,
     RootedLocalGraphStore,
+    S3GraphStore,
     canonicalize_graph_document,
 )
 from dander.control.bundle import PACKAGED_BUNDLE_DIRECTORY
 from dander.control.models import PipelineGraphDocument
 from dander.pipeline.graph import graph_to_payload
 from tests.control.gcs_fakes import FakeGCSClient, FakeNotFoundError, FakePreconditionError
+from tests.control.s3_fakes import FakeS3Client
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.fixture(params=("memory", "local", "gcs"))
+@pytest.fixture(params=("memory", "local", "gcs", "s3"))
 def graph_store(request: pytest.FixtureRequest, tmp_path: Path) -> GraphStore:
     """Return each initial adapter behind exactly the same conformance tests."""
     if request.param == "memory":
         return InMemoryGraphStore()
     if request.param == "local":
         return RootedLocalGraphStore(tmp_path / "graphs")
-    return GCSGraphStore(
-        "unit-bucket",
-        client=FakeGCSClient(),
-        not_found_errors=(FakeNotFoundError,),
-        precondition_errors=(FakePreconditionError,),
-    )
+    if request.param == "gcs":
+        return GCSGraphStore(
+            "unit-bucket",
+            client=FakeGCSClient(),
+            not_found_errors=(FakeNotFoundError,),
+            precondition_errors=(FakePreconditionError,),
+        )
+    return S3GraphStore("unit-bucket", client=FakeS3Client())
 
 
 @pytest.fixture
