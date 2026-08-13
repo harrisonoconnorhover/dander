@@ -6,17 +6,23 @@ package and CLI. Releases are immutable and come only from an exact `v<version>`
 
 ## Candidate gate
 
-1. Merge the packaging commit and wait for post-merge CI, including `Distribution install`.
-2. Confirm `git status --short` is empty and the tag target is the tested `origin/main` commit.
-3. Confirm the GitHub `pypi` environment requires review and PyPI trusts this repository's
+1. Prepare the next package version and changelog while leaving installation and current-public
+   references on the actually published version. Normal CI validates both version sets and builds
+   the candidate without claiming it is public.
+2. After explicit publication approval, promote every current-public reference to the prepared
+   version in a protected PR. The publication-only metadata check must then pass.
+3. Merge the promotion commit and wait for post-merge CI, including `Distribution install`.
+4. Confirm `git status --short` is empty and the tag target is the tested `origin/main` commit.
+5. Confirm the GitHub `pypi` environment requires review and PyPI trusts this repository's
    `publish.yml` workflow for the `dander-platform` project.
-4. Create and push the exact `v<version>` tag only after explicit publication approval.
-5. Dispatch **Publish Python distribution** from that tag and approve its `pypi` environment.
-6. Install the published candidate into a new environment outside a checkout and repeat
+6. Create and push the exact `v<version>` tag only after explicit publication approval.
+7. Dispatch **Publish Python distribution** from that tag and approve its `pypi` environment.
+8. Install the published candidate into a new environment outside a checkout and repeat
    `dander --version`, `dander new`, `dander validate`, and Terraform validation.
 
 The workflow builds fresh artifacts from the tag, validates their identity and contents, and uses
-PyPI trusted publishing. It has no long-lived package token and refuses a branch or mismatched tag.
+PyPI trusted publishing. It has no long-lived package token and refuses a branch, mismatched tag,
+or tag whose prepared package version has not been promoted as the current public version.
 
 Phase 6 is acceptance-only for product code. If any functional runtime change is required after a
 candidate is published, stop the proof and publish the corrected commit as the next candidate

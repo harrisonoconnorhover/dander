@@ -21,10 +21,62 @@ ROOT_FILES = (
 )
 
 
-def test_release_metadata_matches_package_version() -> None:
+def test_prepared_and_public_release_metadata_are_internally_consistent() -> None:
     root = Path(__file__).parents[1]
 
     assert release_metadata_errors(root) == []
+
+
+def test_publication_check_rejects_unpromoted_prepared_version(tmp_path: Path) -> None:
+    root = Path(__file__).parents[1]
+    for relative in ROOT_FILES:
+        source = root / relative
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8").replace(
+            'version = "0.9.0rc18"',
+            'version = "0.9.0rc99"',
+            1,
+        ),
+        encoding="utf-8",
+    )
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        changelog.read_text(encoding="utf-8").replace(
+            "## Unreleased",
+            "## Unreleased\n\n## 0.9.0rc99 — prepared test",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    assert release_metadata_errors(tmp_path) == []
+    assert release_metadata_errors(tmp_path, require_public_package_match=True) == [
+        "prepared package version is 0.9.0rc99; current public version is 0.9.0rc17"
+    ]
+
+
+def test_publication_check_accepts_matching_package_and_public_versions(tmp_path: Path) -> None:
+    root = Path(__file__).parents[1]
+    for relative in ROOT_FILES:
+        source = root / relative
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8").replace(
+            'version = "0.9.0rc18"',
+            'version = "0.9.0rc17"',
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    assert release_metadata_errors(tmp_path, require_public_package_match=True) == []
 
 
 def test_release_metadata_check_reports_stale_readme(tmp_path: Path) -> None:
@@ -45,5 +97,5 @@ def test_release_metadata_check_reports_stale_readme(tmp_path: Path) -> None:
     )
 
     assert release_metadata_errors(tmp_path) == [
-        "README install command uses 0.1.0; package metadata uses 0.9.0rc17"
+        "README install command uses 0.1.0; current public version uses 0.9.0rc17"
     ]

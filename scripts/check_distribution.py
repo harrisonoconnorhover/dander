@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import argparse
 import email
+import re
 import tarfile
 import tomllib
 import zipfile
 from pathlib import Path, PurePosixPath
+from typing import cast
 
 ROOT = Path(__file__).resolve().parents[1]
 WHEEL_REQUIRED = {
@@ -166,15 +168,24 @@ def _check_metadata(
             f"expected {sorted(expected_extras)}, received {sorted(provided_extras)}"
         )
     description = metadata.get_payload()
+    public_version = _public_release_version()
     required_description = {
-        f"uv tool install dander-platform=={expected_version}",
-        f"Dander `{expected_version}` is the current public beta",
+        f"uv tool install dander-platform=={public_version}",
+        f"Dander `{public_version}` is the current public beta",
     }
     if not isinstance(description, str):
         raise ValueError("Distribution description is not text")
     missing = sorted(marker for marker in required_description if marker not in description)
     if missing:
         raise ValueError(f"Distribution description is stale: {', '.join(missing)}")
+
+
+def _public_release_version() -> str:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    matches = re.findall(r"Dander `([^`]+)` is the current public beta", readme)
+    if len(matches) != 1:
+        raise ValueError("README must identify exactly one current public Dander beta")
+    return cast("str", matches[0])
 
 
 def _project_identity() -> tuple[str, str]:

@@ -2,38 +2,39 @@
 
 ## Finished
 
-- Added immutable explicit DTOs for the future Dander Control API transport boundary.
-- Generated deterministic Draft 2020-12 schemas, canonical fixtures, hashes, and bundle manifest.
-- Added domain/transport round-trip, independent schema, negative-contract, and drift tests.
-- Added CI drift and wheel/source-distribution content checks.
-- Documented the bundle as release-ready and explicitly unpublished.
+- Prepared `dander-platform==0.9.0rc18` for the merged Dander Control contract bundle.
+- Separated the prepared package version from the actually public version in release validation.
+- Kept install, status, upgrade, audit, and Phase 1B references honestly on public RC17.
+- Made the protected publication workflow reject an unpromoted prepared version.
+- Documented the two-stage preparation and publication gate.
 
 ## Try It
 
-Run `uv run python scripts/check_control_contracts.py` to verify the committed bundle.
+Run `uv run python scripts/check_release_metadata.py`; publication mode intentionally fails until
+an explicitly approved promotion changes current-public references to RC18.
 
 ## Checks
 
 - Repository Ruff lint/format and mypy passed across 368 source files.
-- Full test suite passed: 1,422 tests, with 28 skipped.
-- Contract generation drift and independent Draft 2020-12 artifact validation passed.
-- Built wheel/source distribution passed content and unsafe-artifact checks.
-- Recursive Terraform formatting and Git whitespace checks passed.
+- Full test suite passed: 1,424 tests, with 28 skipped.
+- Normal release metadata validation passed for prepared RC18/public RC17.
+- Publication-mode validation failed closed on RC18 versus public RC17, as required.
+- Built RC18 wheel/source distribution and recursive Terraform formatting checks passed.
 
 ## Decisions
 
-- Dander domain validation remains semantic authority; transport DTOs only describe JSON.
-- Keep known node/config branches strict while preserving explicit unknown extension nodes.
-- Treat the recorded digest as repository identity, not evidence of release publication.
+- A prepared version is not described as public before its package exists.
+- Publication requires a separate approved promotion commit plus exact tag and environment review.
+- Historical Phase 7 evidence remains fixed on the exact RC17 artifact it proved.
 
 ## Remaining
 
-- Complete the independent adversarial review and protected PR/CI review.
-- Obtain explicit approval before publishing a Dander release artifact.
-- Generate the Druff consumer only from that approved immutable artifact.
+- Complete the final adversarial review and protected PR/CI review.
+- Obtain explicit approval before promoting, tagging, or publishing RC18.
+- Generate the Druff consumer only from the approved immutable RC18 artifact.
 
 ## Review First
 
-- `src/dander/control/models.py`
-- `src/dander/control/bundle.py`
-- `docs/control-contracts.md`
+- `scripts/check_release_metadata.py`
+- `.github/workflows/publish.yml`
+- `docs/releasing.md`
