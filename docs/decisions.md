@@ -1547,3 +1547,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   routing, expose opaque ETags separately from canonical content hashes, and add a narrow
   control-service projection adjacent to unchanged job launchers. Druff's static artifact remains
   a separate deployment input.
+
+## 2026-08-13 — Graph identity and concurrency remain separate across stores
+
+- **Canonical identity:** Graph content SHA-256 and the 5 MiB bound use exact compact, sorted,
+  UTF-8 JSON with unescaped Unicode, no non-finite numbers, and no trailing newline. Equivalent
+  canonical documents therefore compare equally across local and provider stores.
+- **Concurrency and listing:** Adapter-native revisions remain opaque and are never treated as
+  portable identity. List pages contain bounded summaries only, so provider adapters need not
+  retrieve or return up to 100 full graph bodies.
+- **Local idempotency:** Create/delete keys are scoped by project and operation. The rooted local
+  adapter uses a pending/completed mutation journal with restart reconciliation; validation and
+  failed preconditions never consume keys.
