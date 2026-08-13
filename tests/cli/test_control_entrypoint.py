@@ -6,6 +6,8 @@ import subprocess
 import sys
 import textwrap
 
+from click import unstyle
+
 
 def test_control_console_dispatch_does_not_import_provider_sdks() -> None:
     script = textwrap.dedent(
@@ -64,4 +66,4 @@ def test_non_control_console_dispatch_preserves_the_legacy_cli() -> None:
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Usage: dander [OPTIONS] COMMAND [ARGS]" in result.stdout
+    assert "Usage: dander [OPTIONS] COMMAND [ARGS]" in unstyle(result.stdout)
