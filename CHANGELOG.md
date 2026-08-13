@@ -6,6 +6,14 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc14 — 2026-08-12 (beta)
+
+### Fixed
+
+- Read OCI terminal lifecycle and exit codes from the dedicated Container API, make cleanup of an
+  already-inactive instance idempotent, and preserve bounded runtime logs during a short
+  exit-code-preserving finalization grace window.
+
 ## 0.9.0rc13 — 2026-08-12 (beta)
 
 ### Fixed
