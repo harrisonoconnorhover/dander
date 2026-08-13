@@ -2,11 +2,11 @@
 
 ## Finished
 
+- Prepared public `dander-platform==0.9.0rc12` from protected main.
 - Published and deployed exact RC11 runtime/controller artifacts from protected main.
 - Created the free PostgreSQL qualification project and versionless OCI Vault secret.
 - Verified stage-zero and launcher Terraform at no drift with the schedule inactive.
 - Ran the first live invocation; OCI rejected E4 creation before billing because account quota is zero.
-- Corrected FDK response context and detached-failure notification permission for RC12.
 
 ## Try It
 
@@ -26,7 +26,7 @@ Run `terraform test -test-directory=tests` from `infra/oci`, then `uv run pytest
 
 ## Remaining
 
-- Merge and publish RC12 through protected CI, then promote its exact artifacts.
+- Merge and publish `v0.9.0rc12` through protected CI, then promote its exact artifacts.
 - Apply the reviewed A1 projection and controller/policy correction.
 - Complete success, rotation, overlap, retry, replay, cancel, schedule, and rollback proofs.
 - Complete the bounded live lifecycle acceptance matrix.
