@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc17 — 2026-08-13 (beta)
+
+### Fixed
+
+- Resume a launcher retry under the same logical run ID only after an explicitly retryable
+  terminal failure, while rejecting permanent failures and mismatched run identities.
+
 ## 0.9.0rc16 — 2026-08-13 (beta)
 
 ### Fixed
