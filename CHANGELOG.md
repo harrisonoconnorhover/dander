@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc13 — 2026-08-12 (beta)
+
 ### Fixed
 
 - Keep each OCI container's free-form tags identical to its parent Container Instance, as the
