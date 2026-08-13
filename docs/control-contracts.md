@@ -99,6 +99,17 @@ required bucket policy, removal of all object versions and the bucket, and retai
 no drift. This qualifies protected-main source commit `81e750f`; public rc18 predates the adapter
 and is not qualified by this proof.
 
+The S3 adapter keeps that same public contract behind one explicitly bound general-purpose bucket
+and deterministic prefix. Exact quoted ETags are opaque revisions: conditional puts own creates,
+replacements, fences, and journal transitions, while conditional reads and deletes reject stale
+objects. Native exclusive `StartAfter` pagination plus validated `HeadObject` metadata produces
+healthy summaries without downloading graph bodies. Bounded range reads close their streams, and
+404/409/412 responses are interpreted by operation so a read absence cannot masquerade as a lost
+conditional mutation race. Directory buckets remain unsupported because they do not provide the
+ordered `StartAfter` contract. DANDER-123 remains in progress until a separately approved live AWS
+restart/conflict/versioning/cleanup proof passes; neither the current source nor public rc18 is
+live-qualified for S3.
+
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
 

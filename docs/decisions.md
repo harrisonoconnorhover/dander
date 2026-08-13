@@ -1589,3 +1589,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Bucket names, prefixes, SDK clients, and provider errors stay inside the adapter.
   Google SDK dependencies remain optional, inline credential fields fail closed in the shared
   canonicalizer, and live bucket/policy/no-drift qualification remains a separate approval gate.
+
+## 2026-08-13 — S3 GraphStore binds to general-purpose bucket semantics
+
+- **Concurrency:** Exact quoted ETags remain opaque revisions. Conditional puts own creates,
+  replacements, delete fences, and journal transitions; reads and deletes pin the observed ETag.
+  Operation-specific handling treats read-side 404 as absence and conditional 404/409/412 as a
+  lost race without exposing provider errors.
+- **Listing and recovery:** Native exclusive `StartAfter` pages feed body-free `HeadObject`
+  summaries. Hashed journals plus an ETag-matched delete fence preserve exact crash replay and
+  prevent a delayed retry from deleting a later recreation in a versioned bucket.
+- **Boundary:** This adapter supports general-purpose buckets only because directory buckets lack
+  the required ordered `StartAfter` behavior. AWS SDK imports remain lazy; the `aws` and
+  `runtime-all` boto3 floors are `1.35.69`, and live policy/versioning/cleanup proof remains a
+  separate approval gate.

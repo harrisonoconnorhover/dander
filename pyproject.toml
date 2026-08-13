@@ -76,7 +76,7 @@ gcp = [
   "google-cloud-storage>=3.4,<4",
 ]
 aws = [
-  "boto3>=1.35,<2",
+  "boto3>=1.35.69,<2",
 ]
 azure = [
   "azure-identity>=1.19,<2",
@@ -88,7 +88,7 @@ oci = [
 runtime-all = [
   "azure-identity>=1.19,<2",
   "azure-keyvault-secrets>=4.9,<5",
-  "boto3>=1.35,<2",
+  "boto3>=1.35.69,<2",
   "dlt[bigquery]>=1.0",
   "google-auth>=2.35",
   "google-cloud-bigquery>=3.25",
