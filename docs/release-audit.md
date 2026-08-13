@@ -27,6 +27,13 @@ cloud path remains outside the live proof.
 
 - Public Dander beta: `0.9.0rc18`; public Salesforce connector: `0.3.1`; public ServiceNow connector:
   `0.2.2`.
+- Public Dander `0.9.0rc18` was published from protected-main commit
+  `ae2f8f6bfda5fe54309c54eee623b83d0b2bd2a3` and immutable tag `v0.9.0rc18` by trusted-publishing
+  run `31719571923`. Its wheel and source distribution contain the deterministic
+  `io.dander.control.contracts/v1` bundle at
+  `sha256:344ef5ff2d685d5bedf7a1ddb119a42a6de08d90f285dc0a981e79c55452c1ed`; a fresh PyPI-only
+  installation matched all 25 manifest file hashes and passed CLI, scaffold, and Terraform
+  validation. See `docs/control-contracts.md` for artifact hashes and links.
 - Isolated portability acceptance used Dander `0.7.0rc2` and the public plugin candidates in a
   source-free image. The same accepted OCI content passed local and Cloud Run conformance.
   Salesforce ingested all four endpoints, published five governed models and Dataplex metadata,
