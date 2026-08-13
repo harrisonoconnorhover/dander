@@ -2,35 +2,35 @@
 
 ## Finished
 
-- Diagnosed the RC14 OCI run: ingestion and cleanup passed; the staging transform failed on BigQuery-only nested-field syntax.
-- Added explicit `<model>.<provider>.sql` selection with shared metadata and orphan-variant rejection.
-- Added a PostgreSQL Greenhouse model variant that preserves `location_name` through JSONB extraction.
-- Kept the base Greenhouse model exact BigQuery SQL instead of weakening the portable SQL contract.
+- Diagnosed the RC14 OCI run: ingestion/cleanup passed; BigQuery-only nested syntax broke the PostgreSQL transform.
+- Merged PR #244 with explicit provider SQL variants and a PostgreSQL Greenhouse JSONB variant.
+- Preserved `location_name`, one metadata/test spine, exact BigQuery behavior, and fail-closed unsupported targets.
+- Prepared `dander-platform==0.9.0rc15` release metadata from protected main.
 
 ## Try It
 
-Run `uv run pytest -q tests/transform/test_project.py tests/project/test_scaffold.py tests/providers/test_postgresql_transform_runtime.py`.
+Run `uv run python scripts/check_release_metadata.py` and `uv run pytest -q tests/test_release_metadata.py`.
 
 ## Checks
 
-- Ruff format/check passed for changed Python files.
-- Focused transform, scaffold, CLI, and PostgreSQL suites passed; one existing integration test skipped.
-- A live local PostgreSQL run ingested 17 public rows and completed the corrected transform/assertions.
+- PR #244 passed all five protected checks and merged at `3078ce7`.
+- Focused transform/scaffold/PostgreSQL tests and distribution validation passed.
+- Live local PostgreSQL run ingested 17 public rows and completed the corrected transform/assertions.
 
 ## Decisions
 
-- Use an explicit PostgreSQL model variant for JSONB path semantics; do not call provider JSON paths portable.
-- Keep variants attached to one base model and metadata spine, and fail closed when the base is absent.
+- Use explicit PostgreSQL SQL for JSONB path semantics; do not call provider JSON paths portable.
+- Release a new protected candidate before resuming paid OCI proof.
 
 ## Remaining
 
-- Commit, open the focused PR, and require protected CI.
-- Publish/promote the corrected candidate after merge.
-- Resume OCI success, replay, overlap, cancel, retry, schedule, rotation, rollback, cleanup, and no-drift proofs.
-- Complete Phase 7 evidence and Phase 8 qualification.
+- Merge and publish `v0.9.0rc15`, then promote its exact image/controller artifacts.
+- Complete OCI success, replay, overlap, cancel, retry, schedule, rotation, rollback, cleanup, and no-drift proofs.
+- Complete Phase 7 evidence and binary exit-gate recommendation.
+- Complete Phase 8 qualification within approved ceilings.
 
 ## Review First
 
-- `src/dander/transform/project.py`
-- `models/staging/stg_greenhouse__jobs.postgres.sql`
-- `tests/transform/test_project.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `tests/test_release_metadata.py`
