@@ -2,42 +2,36 @@
 
 ## Finished
 
-- Published `dander-platform==0.9.0rc18` from protected main through the approved trusted PyPI
-  workflow and created the immutable `v0.9.0rc18` tag and matching GitHub beta prerelease.
-- Verified the public wheel in a fresh environment outside every checkout.
-- Recorded the exact tag, commit, workflow, distribution hashes, contract digest, and verification
-  result in the release evidence ledger.
-- Completed DANDER-119 without changing the already-published package.
+- Added the provider-neutral GraphStore contract with strict identifiers and safe typed failures.
+- Added in-memory and root-confined durable local adapters behind the same semantics.
+- Defined exact canonical graph bytes, portable hashes, opaque revisions, and summary-only pages.
+- Added restart-safe create/delete idempotency with a recoverable local mutation journal.
+- Preserved the existing one-file loopback graph service without modification.
 
 ## Try It
 
-Install `dander-platform==0.9.0rc18` from PyPI. The installed manifest reports
-`io.dander.control.contracts/v1` at digest
-`344ef5ff2d685d5bedf7a1ddb119a42a6de08d90f285dc0a981e79c55452c1ed`.
+Run `uv run pytest -q tests/control/test_graph_store.py`.
 
 ## Checks
 
-- Promotion PR #254 and protected-main CI run `31718983212` passed all five jobs.
-- Trusted-publishing run `31719571923` passed build validation and PyPI publication.
-- Fresh PyPI install reported `dander 0.9.0rc18`; `dander new` and `dander validate` passed.
-- The generated project's Terraform configuration initialized and validated successfully.
-- All 25 installed contract files matched their manifest hashes and reviewed bundle digest.
+- Shared conformance passed for both adapters: 18 focused tests.
+- Ruff lint/format, strict mypy (371 files), and Control contract drift passed.
+- Full pytest passed: 1,442 tests with 28 expected skips; wheel/sdist inspection passed.
+- Independent completion review passed with no material findings.
 
 ## Decisions
 
-- `0.9.0rc18` is now the only approved immutable source for Druff D1 contract generation.
-- Historical RC17 Phase 7 evidence remains fixed to the artifact that produced it.
-- The public release changes no provider behavior or retained infrastructure.
+- Content hash and size use one exact canonical byte encoding; revisions stay opaque.
+- List pages contain summaries only; full documents are get/create/put results.
+- Local idempotency uses a pending/completed journal rather than two unrelated commits.
 
 ## Remaining
 
-- Merge this release-evidence reconciliation through protected CI.
-- Generate the Druff consumer from the verified public artifact.
-- Prove representative graph parsing, semantic round-trip, compatibility rejection, and CI drift.
-- Complete the remaining D1 exit gate before beginning D2.
+- Merge the focused protected PR and verify exact-main CI.
+- Build DANDER-121 hosted Control API over this port.
 
 ## Review First
 
-- `docs/control-contracts.md`
-- `tickets/DANDER-119-control-contract-bundle.md`
-- `docs/release-audit.md`
+- `src/dander/control/graph_store.py`
+- `src/dander/control/local_graph_store.py`
+- `tests/control/test_graph_store.py`

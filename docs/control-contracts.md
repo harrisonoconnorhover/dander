@@ -60,6 +60,24 @@ an acceptable contract input.
 Semantic rules such as graph wiring are still enforced by Dander. The schema is a transport
 contract and must not become a second planner, warehouse, provider, or orchestration authority.
 
+## Graph persistence boundary
+
+The internal `GraphStore` port validates each document through `PipelineGraphDocument` and the
+canonical domain serializer before persistence. Its portable identity is SHA-256 over one exact
+encoding: UTF-8 JSON, sorted keys, compact separators, unescaped Unicode, no non-finite numbers,
+and no trailing newline. Provider revisions remain separate opaque concurrency tokens.
+
+List pages contain only document-free summaries and at most 100 entries. Full documents are
+returned only by get/create/put. Create and delete idempotency keys are scoped by project and
+operation; successful identical retries replay exactly, conflicting reuse fails, and failed
+validation or preconditions do not consume a key. The initial rooted local adapter journals a
+pending mutation before changing a graph and marks it complete afterward, so a restart at either
+boundary is recoverable without arbitrary filesystem access.
+
+These are server-internal storage semantics for DANDER-120. They do not add hosted routes or alter
+the already-published `io.dander.control.contracts/v1` bundle. DANDER-121 will project them through
+the separately named hosted service while preserving `dander graph serve --file` unchanged.
+
 ## Regenerate and verify
 
 After an intentional DTO change, regenerate the committed bundle:
