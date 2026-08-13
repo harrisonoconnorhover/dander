@@ -274,7 +274,7 @@ resource "oci_identity_policy" "scheduler" {
   description    = "Permit only Dander Resource Schedules to invoke lifecycle Functions"
   freeform_tags  = local.tags
   statements = [
-    "Allow dynamic-group ${one(oci_identity_dynamic_group.scheduler).name} to use fn-invocation in compartment id ${var.compartment_id}",
+    "Allow dynamic-group ${one(oci_identity_dynamic_group.scheduler).name} to manage functions-family in compartment id ${var.compartment_id}",
   ]
 }
 
