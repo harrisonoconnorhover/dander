@@ -6,6 +6,12 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Added
+
+- Package deterministic `io.dander.control.contracts/v1` JSON Schemas and canonical fixtures for
+  the future Dander Control API, with explicit transport DTOs, a reviewed bundle digest, and CI
+  drift detection. The bundle is release-ready but has not been published in a Dander release.
+
 ## 0.9.0rc17 — 2026-08-13 (beta)
 
 ### Fixed

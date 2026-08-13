@@ -1,0 +1,1 @@
+{"error":{"code":"graph_invalid","correlation_id":"corr-synthetic","details":[{"code":"invalid","location":"nodes.0","message":"Invalid node."}],"message":"The graph is invalid."}}

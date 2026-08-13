@@ -1,0 +1,1 @@
+{"affected":2,"assertions":1,"assets":1,"can_cancel":false,"can_replay":true,"endpoints":1,"extracted":2,"failure_code":null,"failure_summary":null,"finished_at":"2026-08-13T12:01:00Z","logs_available":true,"models":1,"run_id":"run-synthetic","stage":"complete","started_at":"2026-08-13T12:00:00Z","state":"succeeded"}

@@ -1,0 +1,1 @@
+{"operations":[{"description":"Limit a string field.","display_name":"Truncate string","kind":"truncate_string","parameters":[{"control":"integer","default":null,"display_name":"Maximum length","minimum":0,"name":"max_length","operators":[],"options":[],"required":true}]}],"schema_version":1}

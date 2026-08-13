@@ -988,6 +988,16 @@ def _dump_graph_payload(graph: PipelineGraph) -> dict[str, Any]:
     return payload
 
 
+def graph_to_payload(graph: PipelineGraph) -> dict[str, Any]:
+    """Return Dander's canonical JSON-compatible graph document.
+
+    This public transport seam applies the same narrowly scoped omission rules as the YAML/JSON
+    writers without touching the filesystem. It is the single serialization source used by the
+    Control contract fixtures; callers must still validate graph semantics separately.
+    """
+    return _dump_graph_payload(graph)
+
+
 def dump_graph_to_yaml(graph: PipelineGraph, path: Path) -> None:
     """Dump a `PipelineGraph` to a YAML file.
 
