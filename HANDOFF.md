@@ -2,11 +2,11 @@
 
 ## Finished
 
-- Prepared public `dander-platform==0.9.0rc13` from protected main.
-- Published and deployed exact RC12 runtime/controller artifacts from protected main.
-- Recovered an expired-token Terraform apply without infrastructure or state loss.
-- Deployed the A1 projection and Function notification permission at verified no drift.
-- Isolated the live A1 create rejection to OCI's parent/child tag-equality contract.
+- Published and deployed the protected-main RC13 runtime and controller at exact OCI digests.
+- Verified both OCI Terraform roots at no drift with the Resource Scheduler still inactive.
+- Proved a managed A1 launch reaches a real Container Instance with exact runtime digest.
+- Corrected terminal observation, idempotent stop, and active-only bounded log capture.
+- Reconciled the failed proof, removed its instance, and released its active-run lock.
 
 ## Try It
 
@@ -14,22 +14,23 @@ Run `uv run pytest -q tests/providers/test_oci_container_instances_adapter.py`.
 
 ## Checks
 
-- RC12 protected-main CI, PyPI publication, cross-cloud promotion, and no-drift verification passed.
-- The diagnostic A1 instance was immediately deletion-requested; the managed run created none.
-- Focused OCI lifecycle tests passed (20); Ruff and strict typing passed.
+- Focused OCI provider/CLI suite passed (45); Ruff, strict typing, and diff checks passed.
+- Live failed container normalized to exit code 1 and `runtime_failed`; no live instances remain.
+- Neon `dander` connectivity passed; OCI Vault version 2 is ACTIVE without exposing the DSN.
 
 ## Decisions
 
-- Preserve identical parent and child OCI free-form tags because the live API requires parity.
-- Preserve the schedule as inactive until the controlled scheduled-run proof.
-- Keep OCI experimental until Phase 7 live acceptance and Phase 8 qualification pass.
+- Read terminal lifecycle and exit code from OCI's full Container endpoint, not its summary.
+- Treat stop responses 404, 405, and 409 as idempotent success before deletion.
+- Keep OCI experimental until all Phase 7 and Phase 8 gates pass.
 
 ## Remaining
 
-- Merge and publish `v0.9.0rc13` through protected CI.
-- Promote and deploy the corrected controller, then prove a successful A1 run.
-- Complete success, rotation, overlap, retry, replay, cancel, schedule, and rollback proofs.
-- Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.
+- Merge the terminal-reconciliation PR and publish/deploy the next protected release candidate.
+- Prove a successful named OCI/PostgreSQL profile and its bounded runtime log capture.
+- Complete overlap, retry, replay, cancel, schedule, rotation, and rollback proofs.
+- Complete cleanup, retained-GCP no drift, evidence, and the binary Phase 7 recommendation.
+- Complete Phase 8 scale, soak, cost, pairwise-profile, and release qualification.
 
 ## Review First
 

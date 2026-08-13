@@ -184,6 +184,10 @@ class OciLifecycleController:
                 container_id=status.container_id or execution.container_id,
                 updated_at=_timestamp(now),
             )
+            # OCI exposes RetrieveLogs only while the container remains active. Persist the
+            # provider-bounded tail on each observation; the launch wrapper supplies a short
+            # post-runtime grace window so the terminal event is observable before teardown.
+            self._capture_logs(updated)
             return self._repository.save(stored, updated).execution
         updated = replace(
             execution,
@@ -289,9 +293,9 @@ class OciLifecycleController:
         if execution.instance_id is None:
             return
         try:
+            self._capture_logs(execution)
             self._gateway.stop(execution.instance_id)
         finally:
-            self._capture_logs(execution)
             self._gateway.delete(execution.instance_id)
 
     def _now(self) -> datetime:

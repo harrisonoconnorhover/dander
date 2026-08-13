@@ -19,6 +19,7 @@ from dander.providers.oci_container_instances.controller import (
 _ACTIVE_PREFIX = "active"
 _HISTORY_PREFIX = "history"
 _LOG_PREFIX = "logs"
+_LOG_CAPTURE_GRACE_SECONDS = 15
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,11 +127,9 @@ class OciObjectRunRepository:
                 key,
                 content,
                 content_type="text/plain; charset=utf-8",
-                if_none_match="*",
             )
         except Exception as error:  # noqa: BLE001
-            if _status(error) != 412:
-                raise OciLifecycleError("Could not preserve bounded OCI runtime logs") from error
+            raise OciLifecycleError("Could not preserve bounded OCI runtime logs") from error
 
     def get_logs(self, execution: OciExecution, *, attempt: int | None = None) -> bytes:
         selected = attempt or execution.attempt
@@ -263,7 +262,18 @@ class OciSdkContainerGateway:
                 oci.container_instances.models.CreateContainerDetails(
                     display_name="runtime",
                     image_url=str(projection["image"]),
-                    arguments=[str(item) for item in _sequence(projection, "command")],
+                    # OCI removes the backing infrastructure as soon as the last process exits
+                    # and then rejects RetrieveLogs. Keep a short provider-owned grace window
+                    # after Dander finishes while preserving the runtime's exact exit code.
+                    command=["/bin/sh", "-c"],
+                    arguments=[
+                        (
+                            'dander "$@"; status=$?; '
+                            f'sleep {_LOG_CAPTURE_GRACE_SECONDS}; exit "$status"'
+                        ),
+                        "dander-runtime",
+                        *[str(item) for item in _sequence(projection, "command")],
+                    ],
                     environment_variables=environment,
                     is_resource_principal_disabled=False,
                     resource_config=oci.container_instances.models.CreateContainerResourceConfigDetails(
@@ -307,11 +317,20 @@ class OciSdkContainerGateway:
         lifecycle = str(getattr(instance, "lifecycle_state", "")).upper()
         containers = getattr(instance, "containers", None) or []
         if containers:
-            container = containers[0]
-            container_id = getattr(container, "id", None)
+            summary = containers[0]
+            container_id = getattr(summary, "container_id", None) or getattr(summary, "id", None)
+            container = summary
+            if isinstance(container_id, str):
+                # OCI's ContainerInstance response embeds only a container summary. In the
+                # live API that summary omits lifecycle_state and exit_code, so terminal
+                # attempts must be read through the dedicated Container endpoint.
+                response = self._client.get_container(container_id)
+                detailed = getattr(response, "data", None)
+                if detailed is not None:
+                    container = detailed
             container_state = str(getattr(container, "lifecycle_state", "")).upper()
             exit_code = getattr(container, "exit_code", None)
-            if container_state in {"TERMINATED", "FAILED"}:
+            if container_state in {"INACTIVE", "TERMINATED", "FAILED", "DELETED"}:
                 state = "succeeded" if exit_code == 0 else "failed"
                 return OciInstanceStatus(
                     state=cast("Any", state),
@@ -331,7 +350,9 @@ class OciSdkContainerGateway:
         try:
             self._client.stop_container_instance(instance_id)
         except Exception as error:  # noqa: BLE001
-            if _status(error) not in {404, 409}:
+            # OCI returns 405 (rather than 409) when an instance is already inactive.
+            # Stopping is idempotent at the controller boundary, so that is success.
+            if _status(error) not in {404, 405, 409}:
                 raise
 
     def delete(self, instance_id: str) -> None:

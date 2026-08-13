@@ -187,6 +187,27 @@ def test_success_preserves_logs_deletes_instance_and_releases_pipeline() -> None
     assert repository.active is None
 
 
+def test_running_observation_preserves_logs_before_oci_removes_inactive_infrastructure() -> None:
+    repository = _Repository()
+    gateway = _Gateway()
+    gateway.statuses = [
+        OciInstanceStatus("running", "container-one"),
+        OciInstanceStatus("succeeded", "container-one", 0),
+    ]
+    controller = _controller(repository=repository, gateway=gateway)
+    started = controller.start(idempotency_key="manual:log-grace")
+
+    running = controller.reconcile(started.run_id)
+    finished = controller.reconcile(started.run_id)
+
+    assert running is not None and running.state == "running"
+    assert finished is not None and finished.state == "succeeded"
+    assert repository.logs == [
+        (started.run_id, b"bounded:container-one"),
+        (started.run_id, b"bounded:container-one"),
+    ]
+
+
 def test_retryable_exit_creates_fresh_attempt_then_succeeds() -> None:
     repository = _Repository()
     gateway = _Gateway()
