@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Keep each OCI container's free-form tags identical to its parent Container Instance, as the
+  live create API requires, while retaining the same run, pipeline, attempt, and ownership labels.
+
 ## 0.9.0rc12 — 2026-08-12 (beta)
 
 ### Fixed

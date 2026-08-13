@@ -2,38 +2,37 @@
 
 ## Finished
 
-- Prepared public `dander-platform==0.9.0rc12` from protected main.
-- Published and deployed exact RC11 runtime/controller artifacts from protected main.
-- Created the free PostgreSQL qualification project and versionless OCI Vault secret.
-- Verified stage-zero and launcher Terraform at no drift with the schedule inactive.
-- Ran the first live invocation; OCI rejected E4 creation before billing because account quota is zero.
+- Published and deployed exact RC12 runtime/controller artifacts from protected main.
+- Recovered an expired-token Terraform apply without infrastructure or state loss.
+- Deployed the A1 projection and Function notification permission at verified no drift.
+- Isolated the live A1 create rejection to OCI's parent/child tag-equality contract.
+- Corrected tag parity with a focused provider request test.
 
 ## Try It
 
-Run `terraform test -test-directory=tests` from `infra/oci`, then `uv run pytest -q tests/providers/test_oci_function_handler.py`.
+Run `uv run pytest -q tests/providers/test_oci_container_instances_adapter.py`.
 
 ## Checks
 
-- RC11 protected-main CI, PyPI publication, OCIR promotion, and exact launcher verification passed.
-- Focused controller tests passed (22); OCI Terraform tests passed (2).
-- The rejected E4 attempt created no Container Instance and retained a sanitized terminal record.
+- RC12 protected-main CI, PyPI publication, cross-cloud promotion, and no-drift verification passed.
+- The diagnostic A1 instance was immediately deletion-requested; the managed run created none.
+- Focused OCI lifecycle tests passed (20); Ruff and strict typing passed.
 
 ## Decisions
 
-- Use the supported A1 profile because this account has A1 quota and zero E4 quota.
+- Preserve identical parent and child OCI free-form tags because the live API requires parity.
 - Preserve the schedule as inactive until the controlled scheduled-run proof.
 - Keep OCI experimental until Phase 7 live acceptance and Phase 8 qualification pass.
 
 ## Remaining
 
-- Merge and publish `v0.9.0rc12` through protected CI, then promote its exact artifacts.
-- Apply the reviewed A1 projection and controller/policy correction.
+- Merge this correction through protected CI and publish the next exact candidate.
+- Promote and deploy the corrected controller, then prove a successful A1 run.
 - Complete success, rotation, overlap, retry, replay, cancel, schedule, and rollback proofs.
-- Complete the bounded live lifecycle acceptance matrix.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.
 
 ## Review First
 
-- `src/dander/providers/oci_container_instances/function_handler.py`
-- `infra/oci/main.tf`
+- `src/dander/providers/oci_container_instances/oci_adapter.py`
+- `tests/providers/test_oci_container_instances_adapter.py`
 - `HANDOFF.md`
