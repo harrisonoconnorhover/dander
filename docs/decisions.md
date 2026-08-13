@@ -1575,3 +1575,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   preserving the published v1 `RunRequest` unchanged. A lightweight console dispatcher loads the
   Control command without importing legacy provider SDKs; all other commands retain the existing
   CLI tree.
+
+## 2026-08-13 — GCS GraphStore uses native generations plus durable mutation ownership
+
+- **Concurrency:** Graph objects use generation zero for create and exact generation matches for
+  replacement and deletion. Reads pin the observed generation and byte range; inclusive GCS list
+  offsets are explicitly skipped on continuation so cursors remain portable and exclusive. Safe
+  summary metadata avoids downloading graph bodies during healthy listing.
+- **Restart ownership:** Hashed create journals are reconciled before any later mutation, preserving
+  the original create result after a crash. Deletes first install a generation-matched fence in the
+  graph envelope, then remove that exact generation and complete a hashed replay journal. Identical
+  workers reload owned transition conflicts and return the same durable create/delete result.
+- **Boundary:** Bucket names, prefixes, SDK clients, and provider errors stay inside the adapter.
+  Google SDK dependencies remain optional, inline credential fields fail closed in the shared
+  canonicalizer, and live bucket/policy/no-drift qualification remains a separate approval gate.

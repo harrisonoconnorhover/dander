@@ -2,37 +2,37 @@
 
 ## Finished
 
-- Added the separately named hosted Control API over the provider-neutral GraphStore.
-- Added configured project discovery and in-memory/rooted-local multi-graph CRUD.
-- Added honest capabilities, typed catalogs, validation, preview, and normalized run routes.
-- Added HTTP-safe ETags, bounded requests/responses/pages/logs, safe errors, and mutation audits.
-- Kept the existing one-file loopback service unchanged and blocked external binds before OIDC.
+- Added the GCS GraphStore with lazy SDK loading and immutable bucket/prefix binding.
+- Added native generation create/update/delete fencing and generation-pinned bounded reads.
+- Added restart-safe hashed journals with concurrent exact create/delete convergence.
+- Added body-free metadata listing, inclusive-offset pagination, and shared mock conformance.
+- Added exact credential-field rejection unless the graph holds a recognized secret reference.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_hosted_control.py`.
+Run `uv run pytest -q tests/control/test_graph_store.py tests/control/test_gcs_graph_store.py`.
 
 ## Checks
 
-- Ruff/format and strict mypy pass across 378 source files.
-- Full pytest passes: 1,460 passed with 28 expected skips.
-- Contract drift passes; published run schema/fixture remain byte-for-byte unchanged.
-- Wheel/sdist build, release metadata, archive hygiene, and console entrypoint checks pass.
-- Completion review's two blockers were corrected and their focused regressions pass.
+- Corrected full pytest passes: 1,481 passed with 28 expected skips.
+- Ruff/format and strict mypy pass across 383 source files.
+- Contract drift and wheel/sdist metadata/archive checks passed.
+- Deterministic concurrent retry and zero-body-download listing regressions pass.
+- Independent completion review's two material findings are corrected.
 
 ## Decisions
 
-- Opaque revisions use reversible strong ETags; portable identity stays in `content_sha256`.
-- Lifecycle adapters own durable idempotency; unsupported operations fail closed.
-- Run start uses headers; the additive source bundle remains unpublished.
+- GCS generations remain opaque GraphStore revisions; content SHA remains portable identity.
+- Delete ownership is a generation-matched graph fence, not a best-effort side object.
+- Live GCS qualification remains separate and the ticket stays in progress until it passes.
 
 ## Remaining
 
-- Merge the focused protected PR and verify exact-main CI.
-- Publish the additive bundle only after separate public-release approval.
+- Merge the protected implementation PR and verify exact-main CI.
+- Obtain separate approval for live restart/conflict/cleanup and bucket/no-drift proof.
 
 ## Review First
 
-- `src/dander/control/application.py`
-- `src/dander/control/http.py`
-- `tests/control/test_hosted_control.py`
+- `src/dander/control/gcs_graph_store.py`
+- `tests/control/test_gcs_graph_store.py`
+- `src/dander/control/graph_store.py`

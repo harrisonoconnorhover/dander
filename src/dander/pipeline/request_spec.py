@@ -19,9 +19,9 @@ grammar those values must follow and the two validation rules (`_check_reference
 
 Recognized references (never resolved here):
 
-- **Secret reference:** ``secret:<name>``, ``env:<VAR_NAME>``, or a Secret Manager resource name
-  (``projects/.../secrets/.../versions/...``) — consistent with `SourceConfig.auth_ref`
-  (`dander.ingestion.source`).
+- **Secret reference:** ``secret:<name>``, ``env:<VAR_NAME>``, a Secret Manager resource name
+  (``projects/.../secrets/.../versions/...``), or a Dander provider-qualified runtime reference
+  such as ``gcp-sm://...`` or ``azure-kv://...``.
 - **Field reference:** ``field:<field_name>`` or mustache ``{{ <field_name> }}``.
 """
 
@@ -67,6 +67,10 @@ SENSITIVE_PARAM_NAMES: frozenset[str] = frozenset(
 _SECRET_MANAGER_RESOURCE_RE = re.compile(r"^projects/[^/\s]+/secrets/[^/\s]+/versions/[^/\s]+$")
 _ENV_REFERENCE_RE = re.compile(r"^env:[A-Za-z_][A-Za-z0-9_]*$")
 _SECRET_REFERENCE_RE = re.compile(r"^secret:\S+$")
+_PROVIDER_SECRET_REFERENCE_RE = re.compile(
+    r"^(?:env|gcp-sm|aws-sm|azure-kv|oci-vault)://"
+    r"[A-Za-z0-9][A-Za-z0-9._:/@-]{0,1023}$"
+)
 _FIELD_REFERENCE_RE = re.compile(r"^field:\S+$")
 _MUSTACHE_FIELD_REFERENCE_RE = re.compile(r"^\{\{\s*[A-Za-z_][A-Za-z0-9_.]*\s*\}\}$")
 
@@ -102,9 +106,10 @@ class HttpMethod(StrEnum):
 def is_secret_reference(value: str) -> bool:
     """Return whether `value` is a recognized secret reference.
 
-    Recognized forms: ``secret:<name>``, ``env:<VAR_NAME>``, or a Secret Manager resource name
-    (``projects/.../secrets/.../versions/...``). Never resolves the reference — this is a pure
-    shape check, consistent with how `SourceConfig.auth_ref` is treated elsewhere.
+    Recognized forms: ``secret:<name>``, ``env:<VAR_NAME>``, a Secret Manager resource name
+    (``projects/.../secrets/.../versions/...``), or one of Dander's provider-qualified runtime
+    references (``env://``, ``gcp-sm://``, ``aws-sm://``, ``azure-kv://``, ``oci-vault://``).
+    Never resolves the reference — this is a pure shape check.
 
     Args:
         value: The candidate string.
@@ -116,6 +121,7 @@ def is_secret_reference(value: str) -> bool:
         _SECRET_REFERENCE_RE.match(value)
         or _ENV_REFERENCE_RE.match(value)
         or _SECRET_MANAGER_RESOURCE_RE.match(value)
+        or _PROVIDER_SECRET_REFERENCE_RE.match(value)
     )
 
 
