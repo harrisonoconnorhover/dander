@@ -25,6 +25,7 @@ from pydantic import ValidationError
 
 from dander.control.models import PipelineGraphDocument
 from dander.pipeline.graph import graph_to_payload
+from dander.pipeline.request_spec import is_secret_reference
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -36,6 +37,21 @@ _PORTABLE_IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 _MAX_CURSOR_BYTES = 512
 _MAX_REVISION_LENGTH = 512
+_CREDENTIAL_FIELD_NAMES = frozenset(
+    {
+        "access_token",
+        "api_key",
+        "auth_token",
+        "client_secret",
+        "consumer_secret",
+        "credential",
+        "credentials",
+        "password",
+        "private_key",
+        "secret",
+        "token_secret",
+    }
+)
 
 type Clock = Callable[[], datetime]
 type RevisionFactory = Callable[[], str]
@@ -212,8 +228,11 @@ def canonicalize_graph_document(
         raise GraphStoreDocumentError("The graph document size bound is invalid.")
     try:
         transport = PipelineGraphDocument.model_validate(value)
-        _reject_non_finite(transport.model_dump(mode="python", by_alias=True))
+        transport_payload = transport.model_dump(mode="python", by_alias=True)
+        _reject_inline_credentials(transport_payload)
+        _reject_non_finite(transport_payload)
         payload = graph_to_payload(transport.to_domain())
+        _reject_inline_credentials(payload)
         document = PipelineGraphDocument.model_validate(payload)
         data = _canonical_json_bytes(payload)
     except (TypeError, ValueError, ValidationError) as error:
@@ -390,6 +409,28 @@ def _reject_non_finite(value: object) -> None:
     elif isinstance(value, (list, tuple)):
         for item in value:
             _reject_non_finite(item)
+
+
+def _reject_inline_credentials(value: object) -> None:
+    """Require recognized references at exact credential-bearing graph fields.
+
+    This deterministic rule intentionally does not scan arbitrary strings for entropy. It keeps
+    ordinary graph values valid while ensuring that obvious credential slots never become graph
+    persistence payloads. Error text never includes the field name or supplied value.
+    """
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if (
+                isinstance(key, str)
+                and key.casefold() in _CREDENTIAL_FIELD_NAMES
+                and item is not None
+                and (not isinstance(item, str) or not is_secret_reference(item))
+            ):
+                raise ValueError("credential-bearing graph fields require secret references")
+            _reject_inline_credentials(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _reject_inline_credentials(item)
 
 
 def _validated_max_bytes(value: int) -> int:

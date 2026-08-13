@@ -733,6 +733,7 @@ gcp = [
     { name = "google-auth" },
     { name = "google-cloud-dataplex" },
     { name = "google-cloud-secret-manager" },
+    { name = "google-cloud-storage" },
 ]
 oci = [
     { name = "oci" },
@@ -756,6 +757,7 @@ runtime-all = [
     { name = "google-cloud-bigquery-storage" },
     { name = "google-cloud-dataplex" },
     { name = "google-cloud-secret-manager" },
+    { name = "google-cloud-storage" },
     { name = "oci" },
     { name = "psycopg", extra = ["binary"], marker = "sys_platform != 'linux'" },
     { name = "psycopg", extra = ["pool"] },
@@ -796,6 +798,8 @@ requires-dist = [
     { name = "google-cloud-secret-manager", specifier = ">=2.20" },
     { name = "google-cloud-secret-manager", marker = "extra == 'gcp'", specifier = ">=2.20" },
     { name = "google-cloud-secret-manager", marker = "extra == 'runtime-all'", specifier = ">=2.20" },
+    { name = "google-cloud-storage", marker = "extra == 'gcp'", specifier = ">=3.4,<4" },
+    { name = "google-cloud-storage", marker = "extra == 'runtime-all'", specifier = ">=3.4,<4" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.23" },

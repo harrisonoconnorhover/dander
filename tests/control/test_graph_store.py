@@ -10,6 +10,7 @@ import pytest
 
 from dander.control import (
     MAX_GRAPH_DOCUMENT_BYTES,
+    GCSGraphStore,
     GraphStore,
     GraphStoreAlreadyExistsError,
     GraphStoreConflictError,
@@ -25,17 +26,25 @@ from dander.control import (
 from dander.control.bundle import PACKAGED_BUNDLE_DIRECTORY
 from dander.control.models import PipelineGraphDocument
 from dander.pipeline.graph import graph_to_payload
+from tests.control.gcs_fakes import FakeGCSClient, FakeNotFoundError, FakePreconditionError
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.fixture(params=("memory", "local"))
+@pytest.fixture(params=("memory", "local", "gcs"))
 def graph_store(request: pytest.FixtureRequest, tmp_path: Path) -> GraphStore:
     """Return each initial adapter behind exactly the same conformance tests."""
     if request.param == "memory":
         return InMemoryGraphStore()
-    return RootedLocalGraphStore(tmp_path / "graphs")
+    if request.param == "local":
+        return RootedLocalGraphStore(tmp_path / "graphs")
+    return GCSGraphStore(
+        "unit-bucket",
+        client=FakeGCSClient(),
+        not_found_errors=(FakeNotFoundError,),
+        precondition_errors=(FakePreconditionError,),
+    )
 
 
 @pytest.fixture
@@ -303,6 +312,54 @@ def test_canonical_bytes_reject_non_finite_values_and_exact_oversize_documents()
     )
     with pytest.raises(GraphStoreDocumentError, match="exceeds"):
         canonicalize_graph_document(oversized)
+
+
+def test_canonical_graph_rejects_literal_credentials_without_echoing_values() -> None:
+    literal = "inline-value-that-must-never-appear"
+    payload = {
+        "name": "credential_test",
+        "nodes": [
+            {
+                "id": "task",
+                "type": "task",
+                "name": "Task",
+                "config": {"password": literal},
+            }
+        ],
+        "edges": [],
+    }
+
+    with pytest.raises(GraphStoreDocumentError) as captured:
+        canonicalize_graph_document(payload)
+
+    assert literal not in str(captured.value)
+
+
+@pytest.mark.parametrize(
+    "reference",
+    (
+        "secret:source-password",
+        "gcp-sm://projects/unit-project/secrets/source-password/versions/latest",
+        "azure-kv://https://unit-vault.vault.azure.net/secrets/source-password",
+    ),
+)
+def test_canonical_graph_accepts_recognized_secret_references(reference: str) -> None:
+    canonical = canonicalize_graph_document(
+        {
+            "name": "credential_reference",
+            "nodes": [
+                {
+                    "id": "task",
+                    "type": "task",
+                    "name": "Task",
+                    "config": {"password": reference},
+                }
+            ],
+            "edges": [],
+        }
+    )
+
+    assert reference.encode() in canonical.data
 
 
 def test_rooted_local_store_survives_restart_with_revision_and_idempotency(

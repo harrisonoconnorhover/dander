@@ -1,5 +1,6 @@
 """Versioned browser-facing contracts and provider-neutral Control API ports."""
 
+from dander.control.gcs_graph_store import GCSGraphStore
 from dander.control.graph_store import (
     MAX_GRAPH_DOCUMENT_BYTES,
     MAX_GRAPH_PAGE_SIZE,
@@ -39,6 +40,7 @@ __all__ = [
     "GraphStoreIdentifierError",
     "GraphStoreNotFoundError",
     "GraphSummary",
+    "GCSGraphStore",
     "InMemoryGraphStore",
     "RootedLocalGraphStore",
     "canonicalize_graph_document",

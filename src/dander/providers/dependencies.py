@@ -42,6 +42,7 @@ PROVIDER_DEPENDENCY_SETS = (
             "google-auth",
             "google-cloud-dataplex",
             "google-cloud-secret-manager",
+            "google-cloud-storage",
         ),
     ),
     ProviderDependencySet(extra="aws", distributions=("boto3",)),

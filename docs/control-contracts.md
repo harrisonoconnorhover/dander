@@ -82,6 +82,20 @@ validation or preconditions do not consume a key. The initial rooted local adapt
 pending mutation before changing a graph and marks it complete afterward, so a restart at either
 boundary is recoverable without arbitrary filesystem access.
 
+The GCS adapter keeps the same contract behind one immutable bucket/prefix binding. It uses native
+object generations for create, update, delete fencing, and opaque revisions; reads pin both the
+observed generation and an explicit byte range; and pagination compensates for GCS's inclusive
+`start_offset`. Healthy list entries come from validated safe object metadata and never download
+full graph bodies. Hashed create/delete journals preserve exact restart replay without persisting
+raw idempotency keys, and workers that race the same key converge on the durable winner. Exact
+credential-bearing graph fields accept recognized secret references only, so the store never
+becomes a credential-value repository. Importing Control remains provider-free; the Google SDK
+loads only when this adapter is actually constructed without an injected client.
+
+The adapter's shared fake-provider conformance is implemented in DANDER-122. GCS remains
+unqualified until the separately approved live restart/conflict/cleanup, bucket-policy, and
+retained-infrastructure no-drift evidence passes.
+
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
 
