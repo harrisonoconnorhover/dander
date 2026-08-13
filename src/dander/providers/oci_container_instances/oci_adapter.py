@@ -227,6 +227,12 @@ class OciSdkContainerGateway:
         )
         cpu = cast("int", resources["cpu_millis"]) / 1_000
         memory = cast("int", resources["memory_mib"]) / 1_024
+        freeform_tags = {
+            "managed-by": "dander",
+            "dander-run-id": execution.run_id,
+            "dander-pipeline": execution.pipeline_id,
+            "dander-attempt": str(execution.attempt),
+        }
         details = oci.container_instances.models.CreateContainerInstanceDetails(
             compartment_id=str(extensions["oci_compartment_id"]),
             availability_domain=str(_mapping(network, "extensions")["oci_availability_domain"]),
@@ -277,19 +283,12 @@ class OciSdkContainerGateway:
                         is_non_root_user_check_enabled=True,
                         is_root_file_system_readonly=True,
                     ),
-                    freeform_tags={
-                        "dander-run-id": execution.run_id,
-                        "dander-pipeline": execution.pipeline_id,
-                        "dander-attempt": str(execution.attempt),
-                    },
+                    freeform_tags=freeform_tags,
                 )
             ],
-            freeform_tags={
-                "managed-by": "dander",
-                "dander-run-id": execution.run_id,
-                "dander-pipeline": execution.pipeline_id,
-                "dander-attempt": str(execution.attempt),
-            },
+            # OCI rejects the entire request unless every container's tags are null or exactly
+            # equal to its parent Container Instance's tags.
+            freeform_tags=freeform_tags,
         )
         response = self._client.create_container_instance(
             details,

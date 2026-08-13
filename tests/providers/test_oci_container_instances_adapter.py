@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -14,7 +15,10 @@ from dander.providers.oci_container_instances.controller import (
     OciLifecycleError,
     execution_run_id,
 )
-from dander.providers.oci_container_instances.oci_adapter import OciObjectRunRepository
+from dander.providers.oci_container_instances.oci_adapter import (
+    OciObjectRunRepository,
+    OciSdkContainerGateway,
+)
 
 
 class _ServiceError(RuntimeError):
@@ -189,3 +193,72 @@ def test_corrupt_execution_records_fail_closed_without_echoing_content() -> None
         repository.get("jobs")
 
     assert "customer-secret-content" not in str(raised.value)
+
+
+def test_container_and_parent_tags_match_the_oci_create_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def model(**kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(**kwargs)
+
+    models = SimpleNamespace(
+        CreateContainerDetails=model,
+        CreateContainerEmptyDirVolumeDetails=model,
+        CreateContainerInstanceDetails=model,
+        CreateContainerInstanceShapeConfigDetails=model,
+        CreateContainerResourceConfigDetails=model,
+        CreateContainerVnicDetails=model,
+        CreateLinuxSecurityContextDetails=model,
+        CreateVolumeMountDetails=model,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "oci",
+        SimpleNamespace(container_instances=SimpleNamespace(models=models)),
+    )
+
+    class Client:
+        details: SimpleNamespace | None = None
+
+        def create_container_instance(
+            self,
+            details: SimpleNamespace,
+            *,
+            opc_retry_token: str,
+        ) -> SimpleNamespace:
+            self.details = details
+            assert opc_retry_token.endswith("-a1")
+            return SimpleNamespace(
+                data=SimpleNamespace(id="ocid1.computecontainerinstance.oc1.iad.unit")
+            )
+
+    client = Client()
+    projection = {
+        "image": "ocir.us-ashburn-1.oci.oraclecloud.com/unit/dander@sha256:" + "a" * 64,
+        "command": ["runtime", "execute"],
+        "environment": {},
+        "secret_bindings": {},
+        "resources": {"cpu_millis": 1_000, "memory_mib": 2_048},
+        "network": {
+            "placement": "ocid1.subnet.oc1.iad.unit",
+            "extensions": {"oci_availability_domain": "unit-ad-1"},
+        },
+        "extensions": {
+            "oci_compartment_id": "ocid1.compartment.oc1..unit",
+            "oci_shape": "CI.Standard.A1.Flex",
+            "oci_graceful_shutdown_seconds": "120",
+        },
+    }
+
+    instance_id = OciSdkContainerGateway(client=client).create(projection, _execution())
+
+    assert instance_id == "ocid1.computecontainerinstance.oc1.iad.unit"
+    assert client.details is not None
+    parent_tags = client.details.freeform_tags
+    assert parent_tags == {
+        "managed-by": "dander",
+        "dander-run-id": _execution().run_id,
+        "dander-pipeline": "jobs",
+        "dander-attempt": "1",
+    }
+    assert client.details.containers[0].freeform_tags == parent_tags
