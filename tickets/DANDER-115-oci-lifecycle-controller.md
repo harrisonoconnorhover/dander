@@ -1,7 +1,7 @@
 ---
 id: DANDER-115
 title: Control OCI Container Instances lifecycle
-status: in-review
+status: accepted
 component: python
 epic: cloud-portability-phase-7
 depends_on: [DANDER-84]
@@ -31,7 +31,7 @@ state, SQL, ingestion, planner, or orchestration semantics.
   `linux/amd64` Function base images matching Terraform's `GENERIC_X86` application.
 - [x] Focused Python and Terraform tests pass without OCI access.
 - [x] Protected CI passes and this implementation merges before any live OCI deployment.
-- [ ] A separately approved live proof covers schedule, retry, overlap, interruption, replay,
+- [x] A separately approved live proof covers schedule, retry, overlap, interruption, replay,
   secret rotation, rollback, cleanup, and no drift.
 
 ## Design
@@ -51,4 +51,5 @@ implemented and static keys remain rejected.
 ## Review Log
 
 Protected implementation PR #215 merged at `e79e30be67cc9abd1df14dfb941a0046c8bacc50`, and the
-protected-main CI run passed. Live acceptance remains pending.
+protected-main CI run passed. Public `0.9.0rc17` completed the approved live lifecycle on
+2026-08-13; the sanitized record is `docs/evidence/oci/2026-08-13/phase7.json`.

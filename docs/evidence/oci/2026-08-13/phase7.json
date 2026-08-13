@@ -1,0 +1,99 @@
+{
+  "schema": "io.dander.evidence.oci.phase7/v1",
+  "date": "2026-08-13",
+  "status": "accepted",
+  "scope": {
+    "launcher": "oci_container_instances",
+    "state": "postgresql",
+    "warehouse": "postgresql",
+    "catalog": "none",
+    "secrets": "oci_vault",
+    "support_status": "experimental"
+  },
+  "approval": {
+    "per_attempt_usd_ceiling": "6.00",
+    "repeated_attempts_approved": true
+  },
+  "release": {
+    "version": "0.9.0rc17",
+    "protected_main_commit": "018d4722e1453c02fc676809679891b54e5e145e",
+    "wheel_sha256": "a5e5c7bf17e58243684bf208ac0cb84ef68122d92e9a071da83c380d2ee4129d",
+    "runtime_index_digest": "sha256:190e9caa082efcd72e9a2a586c082c266e48f99a0bb69b99e30114e3c8c886b9",
+    "runtime_platform_manifests": {
+      "linux/amd64": "sha256:cdd37fdc8d12678a9ed1473abb28ccdf05bd4d6bc13f2fcc84533ebc9ba5c69d",
+      "linux/arm64": "sha256:8eb0873e3d641f78f2d4b7ebffc0c70b921d445d17ebd004cd285d8130fde234"
+    },
+    "controller_digest": "sha256:ce027f189623e73f541df831d3abb4e122fa91971caa8d190c9284ddb98be0dd",
+    "gar_ocir_equal": true,
+    "registry_copy_without_rebuild": true,
+    "sbom_attached": true,
+    "provenance_attached": true
+  },
+  "proofs": {
+    "canonical_success": {
+      "run_id": "oci-256d5f90dc3f42bb0b2609a6",
+      "attempts": 1,
+      "rows_extracted": 17,
+      "rows_affected": 17,
+      "models": 1,
+      "assertions_passed": 3,
+      "passed": true
+    },
+    "scheduled_success": {
+      "version": "0.9.0rc16",
+      "run_id": "oci-e48d5dcbc437525ba988e461",
+      "rows_affected": 17,
+      "models": 1,
+      "assertions_passed": 3,
+      "path_unchanged_in_rc17": true,
+      "passed": true
+    },
+    "retry_exhaustion": {
+      "run_id": "oci-9c7f7f98a58f70d9e7fb283d",
+      "attempts": 2,
+      "distinct_instances": true,
+      "terminal_exit_code": 75,
+      "failure_code": "launcher_retry_exhausted",
+      "passed": true
+    },
+    "versionless_secret_rotation": {
+      "old_credential_rejected": true,
+      "current_credential_accepted": true,
+      "post_rotation_run_passed": true,
+      "image_rebuilt": false
+    },
+    "rollback": {
+      "rollback_version": "0.9.0rc16",
+      "rollback_run_id": "oci-2a83a1460a9edcdbecbc4007",
+      "restore_version": "0.9.0rc17",
+      "restore_run_id": "oci-df84f2ebdefaefd793fe7282",
+      "rollback_passed": true,
+      "restore_passed": true
+    },
+    "replay": true,
+    "overlap_exclusion": true,
+    "active_cancellation": true,
+    "bounded_logs": true,
+    "alarm_to_topic_routing": true,
+    "external_notification_delivery": "not_configured",
+    "oci_to_google_identity": "unsupported_fail_closed"
+  },
+  "cleanup": {
+    "non_deleted_container_instances": 0,
+    "schedule_state": "INACTIVE",
+    "canonical_release_restored": "0.9.0rc17",
+    "oci_stage_zero_no_drift": true,
+    "oci_foundation_no_drift": true,
+    "retained_gcp_stage_zero_no_drift": true,
+    "retained_gcp_platform_no_drift": true,
+    "retained_gcp_apply": false
+  },
+  "excluded": [
+    "credentials",
+    "secret_values",
+    "database_connection_strings",
+    "warehouse_rows",
+    "terraform_state",
+    "terraform_plans"
+  ]
+}

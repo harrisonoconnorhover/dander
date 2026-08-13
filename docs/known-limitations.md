@@ -84,10 +84,11 @@ remain Phase 8 work.
   interval shorter than one hour. OCI Vault references resolve the `CURRENT` version at the start
   of every runtime process and are removed from the process environment afterward; in-process
   rotation is not claimed. The controller image is a Python 3.12 `GENERIC_X86` image built from an
-  exact wheel, not the source-free task image. Digest-preserving OCIR promotion is implemented with
-  an ephemeral repository-scoped token, but live publication, provider deployment verification,
-  credential-rotation proof, and the complete OCI profile remain unqualified. No OCI launcher
-  support claim exists until those separate gates pass.
+  exact wheel, not the source-free task image. Public `0.9.0rc17` passed digest-preserving OCIR
+  publication, provider deployment verification, the named live PostgreSQL profile, versionless
+  application-secret rotation, scheduling, replay, fencing, interruption, retry exhaustion,
+  rollback, cleanup, and no drift. This closes Phase 7 only. OCI remains experimental until its
+  Phase 8 scale, cost, pairwise-profile, soak, and release qualification pass.
 - OCI Container Registry advertises repository tag immutability, but the live Ashburn tenancy
   rejected `isImmutable` on both create and update with `400 BAD_REQUEST`. Dander represents this
   limitation honestly: the repository remains private, publication rejects an existing tag whose
@@ -98,8 +99,12 @@ remain Phase 8 work.
   Ashburn create rejected it with `400 InvalidParameter`; Oracle documents the feature for the
   separately billed virtual private Vault tier. Dander therefore provisions a software-protected
   key on the default Vault with manual key-version rotation and does not claim automatic key
-  rotation. The named profile must still prove versionless application-secret rotation between
+  rotation. The named profile separately proved versionless application-secret rotation between
   runs without rebuilding the image or logging secret values.
+- OCI resource-principal session tokens are not a generic OIDC issuer/JWKS/audience contract for
+  Google Workload Identity Federation. OCI-to-BigQuery, Dataplex, and GCP Secret Manager therefore
+  remain unsupported and fail before launch; Dander does not accept a static Google key as a
+  substitute. The Phase 7 canonical PostgreSQL profile is unaffected.
 
 ## Ingestion and schemas
 

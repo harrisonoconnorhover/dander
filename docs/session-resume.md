@@ -1,4 +1,4 @@
-# Session Resume — 2026-08-11
+# Session Resume — 2026-08-13
 
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
@@ -33,13 +33,21 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-13, public Dander `0.9.0rc17` passed the complete Phase 7 lifecycle for the named
+  OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile. One equal GAR/OCIR
+  index passed manual success, scheduling, replay, overlap exclusion, cancellation, whole-task
+  retry exhaustion, bounded logs, versionless application-secret rotation, immutable
+  rollback/restoration, alarm-to-topic routing, cleanup, OCI no drift, and retained-GCP no drift.
+  Direct OCI-to-Google identity remains unsupported and fails closed. OCI remains experimental
+  pending Phase 8 qualification. See `docs/cloud-portability-oci-lifecycle-acceptance.md`.
+
 - On 2026-08-12, the named Azure/Snowflake/PostgreSQL/Key-Vault profile passed the complete Phase 6
   lifecycle on one source-free, byte-identical GAR/ACR digest: preflight, manual and UTC-scheduled
   execution, replay, overlap fencing, interruption, retry exhaustion, alert routing, versionless
   secret rotation, immutable rollback, cleanup, and retained-GCP no drift. A separate
   public `0.9.0rc1` passed Azure-to-Google BigQuery access across credential refresh, GCP Secret
   Manager access, Dataplex read-back, revocation, isolated-GCP smoke, and cleanup. Azure remains experimental
-  pending Phase 8 qualification; Phase 7 has not begun. See
+  pending Phase 8 qualification. See
   `docs/cloud-portability-azure-lifecycle-acceptance.md`.
 
 - On 2026-08-11, the Phase 5 common-scalar fixture passed BigQuery, PostgreSQL, Snowflake, and
@@ -73,7 +81,7 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 - The latest manual executable-graph run, `dander-greenhouse-graph-7gn9z`, completed successfully
   on 2026-08-04; its schedule remains intentionally paused.
 - The latest retained stage-zero and current-equivalent platform plans reported exactly
-  `No changes.` after the Azure proof: 28 and 113 resources were no-ops respectively. No
+  `No changes.` after the OCI proof. No
   retained-project apply occurred.
 - Continue the 30-day operating record in GitHub issue #26. The next normal scheduled runs are the
   remaining observation point for the reconciled stable image.

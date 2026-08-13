@@ -1,7 +1,7 @@
 ---
 id: DANDER-117
 title: Publish the OCI lifecycle controller from the reviewed wheel
-status: in-review
+status: accepted
 component: python
 epic: cloud-portability-phase-7
 depends_on: [DANDER-115, DANDER-116]
@@ -29,8 +29,8 @@ wheel to enter the live deployment.
   tag, and digest.
 - [x] Focused contracts cover wheel integrity, source-free context, idempotency, platform checks,
   CLI confirmation, and cleanup after failure.
-- [ ] Protected CI passes and this implementation merges before live controller publication.
-- [ ] Separately approved live publication proves the real OCIR and OCI Functions path.
+- [x] Protected CI passes and this implementation merges before live controller publication.
+- [x] Separately approved live publication proves the real OCIR and OCI Functions path.
 
 ## Design
 
@@ -39,4 +39,6 @@ reruns, while the immutable digest remains the only deployment identity.
 
 ## Review Log
 
-Protected review and live publication remain pending.
+Protected PR #217 merged at `653e93f498b3b702daefc8872d48f9c589a31e46`, and protected
+CI passed. Public `0.9.0rc17` produced the exact-wheel controller digest recorded in
+`docs/evidence/oci/2026-08-13/phase7.json`; OCI Functions invoked it in the approved live lifecycle.

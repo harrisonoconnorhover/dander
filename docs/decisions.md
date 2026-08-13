@@ -1511,3 +1511,23 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Decision:** Oracle's scheduled-Functions contract requires `manage functions-family`; Dander
   grants that verb only in the configured runtime compartment, not tenancy-wide.
 - **Boundary:** Manual operators and runtime resource principals keep their narrower permissions.
+
+## 2026-08-13 — OCI-to-Google identity remains unsupported
+
+- **Provider evidence:** OCI resource-principal session tokens are an OCI service contract, not a
+  generic OIDC issuer with the stable discovery, JWKS, audience, refresh, and revocation behavior
+  required by Dander's Google Workload Identity Federation gate.
+- **Decision:** Keep BigQuery, Dataplex, and GCP Secret Manager from OCI unsupported. Reject those
+  compositions before launch instead of accepting a static Google service-account key.
+- **Boundary:** This does not weaken the named OCI PostgreSQL/PostgreSQL/no-catalog/OCI-Vault
+  profile or preclude a future keyless broker design with its own reviewed identity proof.
+
+## 2026-08-13 — Phase 7 qualifies the named OCI profile without support promotion
+
+- **Live evidence:** Public `0.9.0rc17` preserved one GAR/OCIR index and passed the canonical OCI
+  profile, retry, rotation, rollback, cleanup, OCI no-drift, and retained-GCP no-drift gates. The
+  unchanged scheduler path was live-proven by public RC16 before RC17's narrow run-ledger fix.
+- **Decision:** Mark the Phase 7 exit gate satisfied while retaining OCI as experimental until the
+  applicable Phase 8 scale, cost, pairwise-profile, soak, and release checks pass.
+- **Boundary:** The enabled alarm reached the reviewed Notifications topic, but no external topic
+  subscriber existed. Record alarm routing as proven and external delivery as unconfigured.
