@@ -43,6 +43,10 @@ def _write_model(
     )
 
 
+def _write_variant(root: Path, name: str, dialect: str, sql: str) -> None:
+    (root / f"{name}.{dialect}.sql").write_text(dedent(sql))
+
+
 def test_load_orders_selected_model_dependencies_and_compiles_refs(tmp_path: Path) -> None:
     _write_model(
         tmp_path,
@@ -106,6 +110,46 @@ def test_exact_provider_model_compiles_only_for_declared_target(tmp_path: Path) 
     )
     with pytest.raises(TransformProjectError, match="cannot target bigquery"):
         project.compile(project.models["provider_model"])
+
+
+def test_provider_variant_uses_shared_metadata_for_selected_target(tmp_path: Path) -> None:
+    _write_model(
+        tmp_path,
+        "jobs",
+        "SELECT location.name AS location_name FROM {{ ref('raw_jobs') }}",
+        dialect="bigquery",
+    )
+    _write_variant(
+        tmp_path,
+        "jobs",
+        "postgres",
+        "SELECT location ->> 'name' AS location_name FROM {{ ref('raw_jobs') }}",
+    )
+
+    bigquery = TransformProject.load(
+        tmp_path,
+        catalog="valid-project-123",
+        target_dialect="bigquery",
+    )
+    postgres = TransformProject.load(
+        tmp_path,
+        catalog="dander",
+        target_dialect="postgres",
+    )
+
+    assert bigquery.models["jobs"].metadata.dialect.value == "bigquery"
+    assert "location.name" in bigquery.compile(bigquery.models["jobs"])
+    assert postgres.models["jobs"].metadata.dialect.value == "postgres"
+    assert postgres.models["jobs"].metadata.columns == bigquery.models["jobs"].metadata.columns
+    assert "location ->> 'name'" in postgres.compile(postgres.models["jobs"])
+    assert postgres.models["jobs"].sql_path.name == "jobs.postgres.sql"
+
+
+def test_provider_variant_without_base_model_fails_closed(tmp_path: Path) -> None:
+    _write_variant(tmp_path, "orphan", "postgres", "SELECT 'x' AS id")
+
+    with pytest.raises(TransformProjectError, match="has no base model"):
+        TransformProject.load(tmp_path, catalog="dander", target_dialect="postgres")
 
 
 def test_postgresql_project_uses_database_local_relations_by_default(tmp_path: Path) -> None:

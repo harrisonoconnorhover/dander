@@ -21,6 +21,10 @@ _SOURCE_ASSETS = (
         Path("models/staging/stg_greenhouse__jobs.sql"),
     ),
     (
+        Path("models/staging/stg_greenhouse__jobs.postgres.sql"),
+        Path("models/staging/stg_greenhouse__jobs.postgres.sql"),
+    ),
+    (
         Path("models/staging/stg_greenhouse__jobs.yml"),
         Path("models/staging/stg_greenhouse__jobs.yml"),
     ),

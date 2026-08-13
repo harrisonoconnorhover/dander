@@ -14,11 +14,15 @@ Existing files default to exact `bigquery` SQL and are never silently translated
 opts into `portable` is parsed into one restricted sqlglot AST and may render to the four declared
 warehouse dialects. Exact provider SQL compiles only for its matching target. Portable models must
 use `ref()` for physical relations; provider functions and ambiguous constructs fail validation.
+When provider semantics fall outside that subset, a model may add an exact
+`<model>.<provider>.sql` variant (for example, `model.postgres.sql`). The base model and variant
+share one YAML metadata spine, output columns, tests, lineage, and metrics; loading selects only
+the exact variant matching the target warehouse and rejects orphan variants.
 The current subset includes projections, filters, explicit joins, `UNION ALL`, aggregations,
 deterministic windows, closed scalar functions, and strict casts. It intentionally requires
 explicit null ordering, Unicode NFC literals, canonical identifiers, decimal `(38, 9)`, and
-microsecond time/timestamp precision. Provider variants, generic assertion rendering, and runtime
-selection arrive in separate portability slices; this contract alone is not a support claim.
+microsecond time/timestamp precision. Generic assertion rendering and runtime selection remain
+separate portability slices; this contract alone is not a support claim.
 
 ## Build contract
 

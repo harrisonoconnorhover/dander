@@ -248,6 +248,7 @@ packages = ["src/dander"]
 "infra/versions.tf" = "dander/templates/project/infra/versions.tf"
 "connectors/greenhouse_job_board.yaml" = "dander/templates/project/connectors/greenhouse_job_board.yaml"
 "models/staging/stg_greenhouse__jobs.sql" = "dander/templates/project/models/staging/stg_greenhouse__jobs.sql"
+"models/staging/stg_greenhouse__jobs.postgres.sql" = "dander/templates/project/models/staging/stg_greenhouse__jobs.postgres.sql"
 "models/staging/stg_greenhouse__jobs.yml" = "dander/templates/project/models/staging/stg_greenhouse__jobs.yml"
 "examples/salesforce/dander.yaml" = "dander/templates/project/examples/salesforce/dander.yaml"
 "connectors/salesforce_jwt.example.yaml" = "dander/templates/project/examples/salesforce/connectors/salesforce.yaml"

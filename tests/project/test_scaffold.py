@@ -56,6 +56,7 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
         "infra/main.tf",
         "infra/bootstrap-admin/main.tf",
         "models/staging/stg_greenhouse__jobs.sql",
+        "models/staging/stg_greenhouse__jobs.postgres.sql",
         "models/staging/stg_greenhouse__jobs.yml",
         "examples/salesforce/dander.yaml",
         "examples/salesforce/connectors/salesforce.yaml",
@@ -80,7 +81,9 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
         target_dialect="postgres",
     )
     model = transforms.models["stg_greenhouse__jobs"]
-    assert 'FROM "raw"."greenhouse_job_board_jobs"' in transforms.compile(model)
+    compiled = transforms.compile(model)
+    assert 'FROM "raw"."greenhouse_job_board_jobs"' in compiled
+    assert "location ->> 'name' AS location_name" in compiled
 
 
 def test_scaffold_refuses_to_overwrite_existing_directory(tmp_path: Path) -> None:

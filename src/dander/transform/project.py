@@ -24,10 +24,22 @@ _PROJECT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _POSTGRESQL_CATALOG = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _RAW_PREFIX = "raw_"
+_PROVIDER_VARIANT_SUFFIXES = {
+    f".{dialect.value}.sql": dialect for dialect in SqlDialect if dialect is not SqlDialect.PORTABLE
+}
 
 
 class TransformProjectError(ValueError):
     """Raised before execution when a transform project cannot be resolved safely."""
+
+
+def _provider_variant(path: Path) -> SqlDialect | None:
+    for suffix, dialect in _PROVIDER_VARIANT_SUFFIXES.items():
+        if path.name.endswith(suffix):
+            return dialect
+    if path.name.endswith(".portable.sql"):
+        raise TransformProjectError("Portable SQL cannot be declared as a provider variant")
+    return None
 
 
 @dataclass(frozen=True)
@@ -124,23 +136,52 @@ class TransformProject:
         Raises:
             TransformProjectError: If discovery, metadata, or model naming is invalid.
         """
+        try:
+            selected_dialect = SqlDialect(target_dialect)
+        except ValueError as error:
+            raise TransformProjectError(f"Unknown target SQL dialect: {target_dialect}") from error
+
+        sql_paths = sorted(models_dir.rglob("*.sql"))
+        base_paths: list[Path] = []
+        variants: dict[tuple[Path, SqlDialect], Path] = {}
+        for sql_path in sql_paths:
+            variant = _provider_variant(sql_path)
+            if variant is None:
+                base_paths.append(sql_path)
+                continue
+            base_path = sql_path.with_name(
+                sql_path.name.removesuffix(f".{variant.value}.sql") + ".sql"
+            )
+            variants[(base_path, variant)] = sql_path
+
+        known_bases = set(base_paths)
+        if orphaned := sorted(
+            variant_path
+            for (base_path, _), variant_path in variants.items()
+            if base_path not in known_bases
+        ):
+            raise TransformProjectError(f"Provider SQL variant has no base model: {orphaned[0]}")
+
         discovered: list[TransformModel] = []
-        for sql_path in sorted(models_dir.rglob("*.sql")):
-            sidecar = sql_path.with_suffix(".yml")
+        for base_path in base_paths:
+            sql_path = variants.get((base_path, selected_dialect), base_path)
+            sidecar = base_path.with_suffix(".yml")
             if not sidecar.exists():
-                alternate = sql_path.with_suffix(".yaml")
+                alternate = base_path.with_suffix(".yaml")
                 sidecar = alternate if alternate.exists() else sidecar
             if not sidecar.exists():
-                raise TransformProjectError(f"Missing YAML sidecar for model: {sql_path}")
+                raise TransformProjectError(f"Missing YAML sidecar for model: {base_path}")
             try:
                 metadata = load_model_metadata(sidecar)
                 sql = sql_path.read_text()
             except (OSError, TransformConfigError) as error:
                 raise TransformProjectError(str(error)) from error
-            if metadata.model != sql_path.stem:
+            if metadata.model != base_path.stem:
                 raise TransformProjectError(
-                    f"Model name {metadata.model!r} does not match SQL file {sql_path.name!r}"
+                    f"Model name {metadata.model!r} does not match SQL file {base_path.name!r}"
                 )
+            if sql_path != base_path:
+                metadata = metadata.model_copy(update={"dialect": selected_dialect})
             discovered.append(
                 TransformModel(
                     metadata=metadata,
@@ -154,7 +195,7 @@ class TransformProject:
             project_id=project_id,
             raw_namespace=raw_namespace,
             models=discovered,
-            target_dialect=target_dialect,
+            target_dialect=selected_dialect,
         )
 
     def ordered(self, selected: Iterable[str] | None = None) -> tuple[TransformModel, ...]:

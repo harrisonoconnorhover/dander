@@ -1490,3 +1490,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Live-path corrections:** Pass the OCI Functions invocation context to FDK responses and grant
   OCI's documented `fnapp` principal only `use ons-topics` for detached failure delivery. These are
   provider-contract fixes; they do not alter runtime, warehouse, scheduling, or retry semantics.
+
+## 2026-08-13 — Nested Greenhouse access uses an explicit PostgreSQL model variant
+
+- **Live evidence:** The OCI/PostgreSQL profile ingested and transactionally fenced the public
+  Greenhouse rows, then PostgreSQL rejected the staging model's BigQuery `location.name` syntax.
+  The model had been mislabeled portable even though canonical RECORD values use JSONB on
+  PostgreSQL and portable JSON-path semantics are intentionally undefined.
+- **Decision:** Keep the base model exact BigQuery SQL and add
+  `stg_greenhouse__jobs.postgres.sql` as an exact PostgreSQL variant using JSONB text extraction.
+  Model discovery selects `<model>.<provider>.sql` only for that target and applies the one shared
+  metadata, output-column, test, lineage, and metric spine.
+- **Boundary:** Variants are explicit and fail closed when orphaned. Dander does not translate
+  provider JSON-path behavior, weaken the portable SQL subset, or claim Snowflake/Redshift parity.
