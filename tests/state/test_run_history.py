@@ -103,6 +103,53 @@ def test_sqlite_run_history_persists_sanitized_failure_details(tmp_path: Path) -
     assert record.failure_summary == "Authentication failed. Verify the configured secret."
 
 
+def test_sqlite_retry_restarts_one_logical_run_and_clears_failed_attempt(tmp_path: Path) -> None:
+    store = SqliteRunHistoryStore(tmp_path / "state.db")
+    store.start("run-retry", "greenhouse", pipeline_id="greenhouse_jobs")
+    store.finish(
+        "run-retry",
+        RunStatus.FAILED,
+        endpoints=1,
+        extracted=3,
+        affected=0,
+        failure_stage=RunStage.INGEST,
+        failure_code="extraction_failed",
+        failure_summary="Source extraction failed after bounded retries.",
+    )
+
+    store.restart_retryable("run-retry", "greenhouse", pipeline_id="greenhouse_jobs")
+
+    records = store.recent(pipeline_id="greenhouse_jobs")
+    assert len(records) == 1
+    restarted = records[0]
+    assert restarted.status is RunStatus.RUNNING
+    assert restarted.stage is RunStage.INGEST
+    assert restarted.finished_at is None
+    assert (restarted.endpoints, restarted.extracted, restarted.affected) == (0, 0, 0)
+    assert restarted.failure_code is None
+    assert restarted.failure_summary is None
+
+
+def test_sqlite_retry_rejects_nonretryable_or_mismatched_run(tmp_path: Path) -> None:
+    store = SqliteRunHistoryStore(tmp_path / "state.db")
+    store.start("run-permanent", "greenhouse", pipeline_id="greenhouse_jobs")
+    store.finish(
+        "run-permanent",
+        RunStatus.FAILED,
+        endpoints=0,
+        extracted=0,
+        affected=0,
+        failure_stage=RunStage.INGEST,
+        failure_code="authentication_failed",
+        failure_summary="Authentication failed.",
+    )
+
+    with pytest.raises(RuntimeError, match="matching retryable failure"):
+        store.restart_retryable("run-permanent", "greenhouse", pipeline_id="greenhouse_jobs")
+
+    assert store.recent(pipeline_id="greenhouse_jobs")[0].failure_code == "authentication_failed"
+
+
 def test_sqlite_reconciles_only_older_active_runs_for_owned_pipeline(tmp_path: Path) -> None:
     store = SqliteRunHistoryStore(tmp_path / "state.db")
     store.start("old", "salesforce", pipeline_id="salesforce_crm")
@@ -212,6 +259,25 @@ def test_bigquery_history_batches_sparse_legacy_schema_migration() -> None:
     assert "ADD COLUMN IF NOT EXISTS stage STRING" in alters[0]
     assert "ADD COLUMN IF NOT EXISTS failure_summary STRING" in alters[0]
     assert alters[0].count("ADD COLUMN IF NOT EXISTS") == 8
+
+
+def test_bigquery_retry_is_atomic_and_restricted_to_retryable_failure() -> None:
+    client = _BigQueryClient()
+    store = BigQueryRunHistoryStore(
+        project="proof-project",
+        dataset="dander_meta",
+        client=client,
+    )
+
+    store.restart_retryable("run-retry", "greenhouse", pipeline_id="greenhouse_jobs")
+
+    script = client.queries[-1]
+    assert script.startswith("DECLARE matching_count INT64")
+    assert "ASSERT matching_count = 0 OR" in script
+    assert "status = 'failed'" in script
+    assert "'extraction_failed'" in script
+    assert "MERGE `proof-project.dander_meta._dander_runs`" in script
+    assert "finished_at = NULL" in script
 
 
 class _FailingQueryJob(_QueryJob):

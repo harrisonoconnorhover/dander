@@ -95,10 +95,21 @@ class _History(RunHistoryStore):
         self.finished: tuple[RunStatus, RunStage | None, int, int, int] | None = None
         self.failure: tuple[str | None, str | None] | None = None
         self.reconciled: tuple[str, str] | None = None
+        self.restarted = False
 
     def start(self, run_id: str, source: str, *, pipeline_id: str | None = None) -> None:
         assert pipeline_id is not None
         self.started = (run_id, source, pipeline_id)
+
+    def restart_retryable(
+        self,
+        run_id: str,
+        source: str,
+        *,
+        pipeline_id: str | None = None,
+    ) -> None:
+        self.restarted = True
+        self.start(run_id, source, pipeline_id=pipeline_id)
 
     def checkpoint(
         self,
@@ -300,6 +311,19 @@ def test_executor_preserves_launcher_supplied_run_id(tmp_path: Path) -> None:
 
     assert result.run_id == "launcher-run-42"
     assert history.started == ("launcher-run-42", "example", "example_pipeline")
+
+
+def test_executor_uses_retryable_history_restart_for_launcher_retry(tmp_path: Path) -> None:
+    _models(tmp_path)
+    history = _History()
+
+    result = _executor(tmp_path, history=history, metadata=_Metadata()).execute(
+        run_id="launcher-run-42",
+        retry=True,
+    )
+
+    assert result.run_id == "launcher-run-42"
+    assert history.restarted is True
 
 
 def test_executor_publishes_source_only_metadata_for_explicit_empty_model_selection(

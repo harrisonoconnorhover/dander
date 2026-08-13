@@ -65,6 +65,16 @@ class RunHistoryStore(ABC):
     def start(self, run_id: str, source: str, *, pipeline_id: str | None = None) -> None:
         """Record that a run started."""
 
+    def restart_retryable(
+        self,
+        run_id: str,
+        source: str,
+        *,
+        pipeline_id: str | None = None,
+    ) -> None:
+        """Restart one matching retryable failure without creating a duplicate run."""
+        raise RuntimeError("Run history store does not support retryable restarts")
+
     def checkpoint(
         self,
         run_id: str,
@@ -189,6 +199,47 @@ class BigQueryRunHistoryStore(RunHistoryStore):
             "endpoints, extracted, affected, models, assertions, assets, failure_stage) "
             "VALUES (@run_id, @pipeline_id, @source, 'running', 'ingest', "
             "CURRENT_TIMESTAMP(), NULL, 0, 0, 0, 0, 0, 0, NULL)",
+            job_config=config,
+        ).result()
+
+    def restart_retryable(
+        self,
+        run_id: str,
+        source: str,
+        *,
+        pipeline_id: str | None = None,
+    ) -> None:
+        """Atomically resume one logical run only after a retryable terminal failure."""
+        self._ensure_table()
+        config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("run_id", "STRING", run_id),
+                bigquery.ScalarQueryParameter("source", "STRING", source),
+                bigquery.ScalarQueryParameter("pipeline_id", "STRING", pipeline_id or source),
+            ]
+        )
+        self._client.query(
+            "DECLARE matching_count INT64; "
+            f"SET matching_count = (SELECT COUNT(*) FROM `{self._table}` "
+            "WHERE run_id = @run_id); "
+            "ASSERT matching_count = 0 OR (matching_count = 1 AND EXISTS ("
+            f"SELECT 1 FROM `{self._table}` WHERE run_id = @run_id "
+            "AND source_name = @source AND COALESCE(pipeline_id, source_name) = @pipeline_id "
+            "AND status = 'failed' AND failure_code IN ('catalog_failed', "
+            "'destination_write_failed', 'extraction_failed', 'lease_failed', "
+            "'rate_limited'))) AS 'run is not a matching retryable failure'; "
+            f"MERGE `{self._table}` AS target USING (SELECT @run_id AS run_id, "
+            "@pipeline_id AS pipeline_id, @source AS source_name) AS incoming "
+            "ON target.run_id = incoming.run_id "
+            "WHEN MATCHED THEN UPDATE SET status = 'running', stage = 'ingest', "
+            "finished_at = NULL, endpoints = 0, extracted = 0, affected = 0, models = 0, "
+            "assertions = 0, assets = 0, failure_stage = NULL, failure_code = NULL, "
+            "failure_summary = NULL "
+            "WHEN NOT MATCHED THEN INSERT (run_id, pipeline_id, source_name, status, stage, "
+            "started_at, finished_at, endpoints, extracted, affected, models, assertions, "
+            "assets, failure_stage, failure_code, failure_summary) VALUES (incoming.run_id, "
+            "incoming.pipeline_id, incoming.source_name, 'running', 'ingest', "
+            "CURRENT_TIMESTAMP(), NULL, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL)",
             job_config=config,
         ).result()
 
@@ -427,6 +478,31 @@ class SqliteRunHistoryStore(RunHistoryStore):
                 "VALUES (?, ?, ?, 'running', 'ingest')",
                 (run_id, source, pipeline_id or source),
             )
+
+    def restart_retryable(
+        self,
+        run_id: str,
+        source: str,
+        *,
+        pipeline_id: str | None = None,
+    ) -> None:
+        """Resume a failed logical run while rejecting unrelated or permanent outcomes."""
+        with sqlite3.connect(self._path) as connection:
+            result = connection.execute(
+                "INSERT INTO runs (run_id, source, pipeline_id, status, stage) "
+                "VALUES (?, ?, ?, 'running', 'ingest') "
+                "ON CONFLICT(run_id) DO UPDATE SET status = 'running', stage = 'ingest', "
+                "finished_at = NULL, endpoints = 0, extracted = 0, affected = 0, models = 0, "
+                "assertions = 0, assets = 0, failure_stage = NULL, failure_code = NULL, "
+                "failure_summary = NULL WHERE runs.source = excluded.source "
+                "AND COALESCE(runs.pipeline_id, runs.source) = excluded.pipeline_id "
+                "AND runs.status = 'failed' AND runs.failure_code IN ('catalog_failed', "
+                "'destination_write_failed', 'extraction_failed', 'lease_failed', "
+                "'rate_limited')",
+                (run_id, source, pipeline_id or source),
+            )
+            if result.rowcount != 1:
+                raise RuntimeError("Run is not a matching retryable failure")
 
     def checkpoint(
         self,

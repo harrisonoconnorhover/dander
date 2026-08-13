@@ -149,17 +149,19 @@ class PipelineExecutor:
         self._catalog_publisher = catalog_publisher or dataplex_publisher
         self._leases = leases
 
-    def execute(self, *, run_id: str | None = None) -> PipelineExecutionResult:
+    def execute(
+        self,
+        *,
+        run_id: str | None = None,
+        retry: bool = False,
+    ) -> PipelineExecutionResult:
         """Execute every enabled stage and record one truthful terminal outcome."""
         started_ns = time.monotonic_ns()
         run_id = run_id or uuid4().hex
         stage = RunStage.INGEST
         endpoints = extracted = affected = models = assertions = assets = 0
-        self._history.start(
-            run_id,
-            self._source_config.name,
-            pipeline_id=self._pipeline_id,
-        )
+        start_history = self._history.restart_retryable if retry else self._history.start
+        start_history(run_id, self._source_config.name, pipeline_id=self._pipeline_id)
         heartbeat: LeaseHeartbeat | None = None
         try:
             if self._leases is not None:
