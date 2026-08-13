@@ -164,6 +164,8 @@ def test_logs_are_tail_bounded_and_projection_reads_are_size_and_shape_checked()
     repository.save_logs(execution, b"a" * 300_000)
 
     assert repository.get_logs(execution) == b"a" * 262_144
+    repository.save_logs(execution, b"latest-complete-tail")
+    assert repository.get_logs(execution) == b"latest-complete-tail"
 
     projection = {"schema": "io.dander.execution/v1", "pipeline_id": "jobs"}
     client.put_object(
@@ -262,3 +264,72 @@ def test_container_and_parent_tags_match_the_oci_create_contract(
         "dander-attempt": "1",
     }
     assert client.details.containers[0].freeform_tags == parent_tags
+    assert client.details.containers[0].command == ["/bin/sh", "-c"]
+    assert client.details.containers[0].arguments == [
+        'dander "$@"; status=$?; sleep 15; exit "$status"',
+        "dander-runtime",
+        "runtime",
+        "execute",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("lifecycle_state", "exit_code", "expected_state", "expected_failure"),
+    [
+        ("INACTIVE", 0, "succeeded", None),
+        ("INACTIVE", 1, "failed", "runtime_failed"),
+        ("FAILED", 75, "failed", None),
+        ("DELETED", 1, "failed", "runtime_failed"),
+    ],
+)
+def test_status_reads_terminal_fields_from_the_dedicated_container_endpoint(
+    lifecycle_state: str,
+    exit_code: int,
+    expected_state: str,
+    expected_failure: str | None,
+) -> None:
+    class Client:
+        def get_container_instance(self, instance_id: str) -> SimpleNamespace:
+            assert instance_id == "instance-one"
+            return SimpleNamespace(
+                data=SimpleNamespace(
+                    lifecycle_state="INACTIVE",
+                    containers=[SimpleNamespace(container_id="container-one")],
+                )
+            )
+
+        def get_container(self, container_id: str) -> SimpleNamespace:
+            assert container_id == "container-one"
+            return SimpleNamespace(
+                data=SimpleNamespace(
+                    lifecycle_state=lifecycle_state,
+                    exit_code=exit_code,
+                )
+            )
+
+    status = OciSdkContainerGateway(client=Client()).status("instance-one")
+
+    assert status.state == expected_state
+    assert status.container_id == "container-one"
+    assert status.exit_code == exit_code
+    assert status.failure_code == expected_failure
+
+
+@pytest.mark.parametrize("provider_status", [404, 405, 409])
+def test_stop_treats_already_stopped_provider_responses_as_success(provider_status: int) -> None:
+    class Client:
+        def stop_container_instance(self, instance_id: str) -> None:
+            assert instance_id == "instance-one"
+            raise _ServiceError(provider_status)
+
+    OciSdkContainerGateway(client=Client()).stop("instance-one")
+
+
+def test_stop_propagates_unexpected_provider_failures() -> None:
+    class Client:
+        def stop_container_instance(self, instance_id: str) -> None:
+            assert instance_id == "instance-one"
+            raise _ServiceError(500)
+
+    with pytest.raises(_ServiceError):
+        OciSdkContainerGateway(client=Client()).stop("instance-one")
