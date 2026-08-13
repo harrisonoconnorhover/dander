@@ -55,7 +55,7 @@ def test_publication_check_rejects_unpromoted_prepared_version(tmp_path: Path) -
 
     assert release_metadata_errors(tmp_path) == []
     assert release_metadata_errors(tmp_path, require_public_package_match=True) == [
-        "prepared package version is 0.9.0rc99; current public version is 0.9.0rc17"
+        "prepared package version is 0.9.0rc99; current public version is 0.9.0rc18"
     ]
 
 
@@ -66,16 +66,6 @@ def test_publication_check_accepts_matching_package_and_public_versions(tmp_path
         destination = tmp_path / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
-    pyproject = tmp_path / "pyproject.toml"
-    pyproject.write_text(
-        pyproject.read_text(encoding="utf-8").replace(
-            'version = "0.9.0rc18"',
-            'version = "0.9.0rc17"',
-            1,
-        ),
-        encoding="utf-8",
-    )
-
     assert release_metadata_errors(tmp_path, require_public_package_match=True) == []
 
 
@@ -89,7 +79,7 @@ def test_release_metadata_check_reports_stale_readme(tmp_path: Path) -> None:
     readme = tmp_path / "README.md"
     readme.write_text(
         readme.read_text(encoding="utf-8").replace(
-            "dander-platform==0.9.0rc17",
+            "dander-platform==0.9.0rc18",
             "dander-platform==0.1.0",
             1,
         ),
@@ -97,5 +87,5 @@ def test_release_metadata_check_reports_stale_readme(tmp_path: Path) -> None:
     )
 
     assert release_metadata_errors(tmp_path) == [
-        "README install command uses 0.1.0; current public version uses 0.9.0rc17"
+        "README install command uses 0.1.0; current public version uses 0.9.0rc18"
     ]
