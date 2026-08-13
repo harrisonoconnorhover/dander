@@ -6,6 +6,14 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc15 — 2026-08-13 (beta)
+
+### Fixed
+
+- Select explicit provider SQL variants through one shared model metadata spine, fail closed on
+  orphan variants, and preserve the Greenhouse `location_name` transform on PostgreSQL through its
+  canonical JSONB fallback without relabeling BigQuery JSON-path syntax as portable.
+
 ## 0.9.0rc14 — 2026-08-12 (beta)
 
 ### Fixed
