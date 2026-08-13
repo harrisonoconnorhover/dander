@@ -2,37 +2,40 @@
 
 ## Finished
 
-- Added the GCS GraphStore with lazy SDK loading and immutable bucket/prefix binding.
-- Added native generation create/update/delete fencing and generation-pinned bounded reads.
-- Added restart-safe hashed journals with concurrent exact create/delete convergence.
-- Added body-free metadata listing, inclusive-offset pagination, and shared mock conformance.
-- Added exact credential-field rejection unless the graph holds a recognized secret reference.
+- Merged the GCS GraphStore through protected PR #258 at `81e750f29eba41a112db160b79f9e4983ed4e874`.
+- Verified exact-main CI run `31738745182`; all five jobs passed.
+- Added a bounded live qualification runner for bucket policy and GraphStore restart/conflict/replay.
+- Added coordinate-free evidence generation that omits cloud coordinates, revisions, rows, and errors.
+- Added nine credential-free qualification tests using the real adapter over its fake provider.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_graph_store.py tests/control/test_gcs_graph_store.py`.
+Run `uv run pytest -q tests/control/test_graph_store.py tests/control/test_gcs_graph_store.py tests/portability/test_gcs_graph_store_qualification.py`.
 
 ## Checks
 
-- Corrected full pytest passes: 1,481 passed with 28 expected skips.
-- Ruff/format and strict mypy pass across 383 source files.
-- Contract drift and wheel/sdist metadata/archive checks passed.
-- Deterministic concurrent retry and zero-body-download listing regressions pass.
-- Independent completion review's two material findings are corrected.
+- Focused GraphStore plus qualification suite passed: 48 tests.
+- Focused Ruff lint and format checks passed.
+- Strict mypy passed for the qualification tests.
+- The runner's help path passed without provider access.
+- A focused credential-pattern scan found no matches.
 
 ## Decisions
 
-- GCS generations remain opaque GraphStore revisions; content SHA remains portable identity.
-- Delete ownership is a generation-matched graph fence, not a best-effort side object.
-- Live GCS qualification remains separate and the ticket stays in progress until it passes.
+- The evidence records only portable outcomes and public source scope, never bucket or project names.
+- Public rc18 predates GCS support, so this proof cannot qualify that release artifact.
+- DANDER-122 remains in progress until the separately approved live proof and cleanup pass.
 
 ## Remaining
 
-- Merge the protected implementation PR and verify exact-main CI.
-- Obtain separate approval for live restart/conflict/cleanup and bucket/no-drift proof.
+- Obtain approval for attempt `druff-d3-gcs-live-2026-08-13-attempt-1` with a USD 0.25 ceiling.
+- Create one disposable versioned GCS bucket and run the bounded qualification once.
+- Remove every object version and the bucket, then verify absence.
+- Reproduce the retained 28-resource and 113-resource no-drift plans.
+- Finalize sanitized evidence, DANDER-122, documentation, review, and protected PR.
 
 ## Review First
 
-- `src/dander/control/gcs_graph_store.py`
-- `tests/control/test_gcs_graph_store.py`
-- `src/dander/control/graph_store.py`
+- `scripts/portability/gcs_graph_store_qualification.py`
+- `tests/portability/test_gcs_graph_store_qualification.py`
+- `tickets/DANDER-122-gcs-graph-store.md`
