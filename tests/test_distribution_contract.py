@@ -14,7 +14,7 @@ def test_distribution_identity_and_version_match_installed_package() -> None:
 
     assert project["name"] == "dander-platform"
     assert project["version"] == version("dander-platform")
-    assert project["scripts"]["dander"] == "dander.cli.main:app"
+    assert project["scripts"]["dander"] == "dander.cli.entrypoint:main"
 
 
 def test_every_clean_infrastructure_asset_is_explicitly_packaged() -> None:

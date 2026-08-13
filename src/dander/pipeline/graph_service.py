@@ -21,6 +21,11 @@ from typing import TYPE_CHECKING, ClassVar
 import yaml
 from pydantic import ValidationError
 
+from dander.control.catalogs import (
+    build_connector_catalog,
+    build_typed_operation_catalog,
+    build_typed_plugin_catalog,
+)
 from dander.pipeline.errors import GraphValidationError
 from dander.pipeline.graph import (
     PipelineGraph,
@@ -35,8 +40,6 @@ from dander.pipeline.graph_operations import (
     GraphOperationValidationError,
 )
 from dander.pipeline.graph_ops import validate_field_wiring
-from dander.pipeline.operations import build_operation_catalog
-from dander.plugins.catalog import build_plugin_catalog
 
 if TYPE_CHECKING:
     from dander.plugins import InstalledConnectorPlugin
@@ -173,9 +176,13 @@ def create_graph_server(
     store_for_handler = store
     origin_for_handler = origin
     operations_for_handler = operations
-    connector_catalog_for_handler = _connector_catalog(connector_plugins)
-    plugin_catalog_for_handler = build_plugin_catalog(connector_plugins)
-    operation_catalog_for_handler = build_operation_catalog()
+    connector_catalog_for_handler = build_connector_catalog(connector_plugins).model_dump(
+        mode="json"
+    )
+    plugin_catalog_for_handler = build_typed_plugin_catalog(connector_plugins).model_dump(
+        mode="json"
+    )
+    operation_catalog_for_handler = build_typed_operation_catalog().model_dump(mode="json")
 
     class BoundGraphRequestHandler(_GraphRequestHandler):
         store = store_for_handler
@@ -449,49 +456,6 @@ class _GraphRequestHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         """Keep the local bridge quiet; the CLI prints its bound file and address."""
-
-
-def _connector_catalog(plugins: tuple[InstalledConnectorPlugin, ...]) -> dict[str, object]:
-    """Project installed-plugin descriptors into the non-secret Druff discovery contract."""
-    connectors: list[dict[str, object]] = []
-    for installed in plugins:
-        plugin = installed.plugin
-        for connector in plugin.connectors:
-            endpoints = [
-                {
-                    "id": endpoint.endpoint_id,
-                    "display_name": endpoint.display_name,
-                    "graph_binding": {
-                        "connector": connector.connector_id,
-                        "endpoint": endpoint.endpoint_id,
-                    },
-                    "fields": [
-                        {
-                            "name": field.name,
-                            "display_name": field.display_name,
-                            "data_type": field.data_type,
-                            "required": field.required,
-                        }
-                        for field in endpoint.fields
-                    ],
-                }
-                for endpoint in connector.endpoints
-            ]
-            connectors.append(
-                {
-                    "id": connector.connector_id,
-                    "display_name": connector.display_name,
-                    "engine": connector.engine,
-                    "description": connector.description,
-                    "plugin": {
-                        "id": plugin.plugin_id,
-                        "distribution": installed.distribution,
-                        "version": installed.version,
-                    },
-                    "endpoints": endpoints,
-                }
-            )
-    return {"connectors": connectors}
 
 
 def _validate_graph_payload(payload: object) -> PipelineGraph:

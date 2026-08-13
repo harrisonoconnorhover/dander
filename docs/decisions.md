@@ -1559,3 +1559,19 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Local idempotency:** Create/delete keys are scoped by project and operation. The rooted local
   adapter uses a pending/completed mutation journal with restart reconciliation; validation and
   failed preconditions never consume keys.
+
+## 2026-08-13 — Hosted Control remains loopback-only until OIDC
+
+- **Exposure:** `dander control serve` is a separate multi-graph service and rejects non-loopback
+  binds until DANDER-126 supplies external OIDC and centralized authorization. The existing
+  `dander graph serve --file` behavior remains physically separate and unchanged.
+- **Transport:** Provider-native revisions are reversibly base64url-wrapped in strong ETags;
+  malformed, weak, wildcard, multiple, or oversized validators fail before store access. Graph
+  requests and every response are bounded, and ordinary errors never echo raw exceptions.
+- **Operations:** Hosted validation is canonical and provider-neutral. Preview and run controls
+  depend on normalized application ports whose selected adapters own revision checks and durable
+  mutation idempotency; absent ports are omitted from capabilities and fail closed.
+- **Compatibility and startup:** Run start carries its strong ETag and idempotency key in headers,
+  preserving the published v1 `RunRequest` unchanged. A lightweight console dispatcher loads the
+  Control command without importing legacy provider SDKs; all other commands retain the existing
+  CLI tree.

@@ -15,12 +15,17 @@ from dander.control.models import (
     CapabilitiesResponse,
     ConnectorCatalogResponse,
     DeploymentPreviewResponse,
+    GraphCreateRequest,
+    GraphPageResponse,
+    GraphResourceResponse,
     GraphValidationResponse,
     LogPageResponse,
     MutationResult,
     OperationCatalogResponse,
     PipelineGraphDocument,
     PluginCatalogResponse,
+    ProjectListResponse,
+    RunPageResponse,
     RunRequest,
     RunStatusResponse,
 )
@@ -37,12 +42,17 @@ CONTRACT_MODELS: Final[dict[str, type[BaseModel]]] = {
     "capabilities": CapabilitiesResponse,
     "connector-catalog": ConnectorCatalogResponse,
     "deployment-preview": DeploymentPreviewResponse,
+    "graph-create": GraphCreateRequest,
+    "graph-page": GraphPageResponse,
+    "graph-resource": GraphResourceResponse,
     "graph-validation": GraphValidationResponse,
     "log-page": LogPageResponse,
     "mutation-result": MutationResult,
     "operation-catalog": OperationCatalogResponse,
     "pipeline-graph": PipelineGraphDocument,
     "plugin-catalog": PluginCatalogResponse,
+    "project-list": ProjectListResponse,
+    "run-page": RunPageResponse,
     "run-request": RunRequest,
     "run-status": RunStatusResponse,
 }
@@ -365,6 +375,7 @@ def _writer_nodes(target_fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _fixtures() -> dict[str, tuple[str, dict[str, Any]]]:
     digest = "0" * 64
+    graph = _graph_fixture()
     return {
         "api-error": (
             "api-error",
@@ -459,6 +470,36 @@ def _fixtures() -> dict[str, tuple[str, dict[str, Any]]]:
                 ],
             },
         ),
+        "graph-page": (
+            "graph-page",
+            {
+                "items": [
+                    {
+                        "project": "synthetic-project",
+                        "graph": "control-contract-fixture",
+                        "content_sha256": digest,
+                        "created_at": "2026-08-13T12:00:00Z",
+                        "updated_at": "2026-08-13T12:00:00Z",
+                    }
+                ],
+                "next_cursor": None,
+            },
+        ),
+        "graph-create": (
+            "graph-create",
+            {"graph": "control-contract-fixture", "document": graph},
+        ),
+        "graph-resource": (
+            "graph-resource",
+            {
+                "project": "synthetic-project",
+                "graph": "control-contract-fixture",
+                "content_sha256": digest,
+                "created_at": "2026-08-13T12:00:00Z",
+                "updated_at": "2026-08-13T12:00:00Z",
+                "document": graph,
+            },
+        ),
         "log-page": (
             "log-page",
             {
@@ -509,7 +550,7 @@ def _fixtures() -> dict[str, tuple[str, dict[str, Any]]]:
                 ],
             },
         ),
-        "pipeline-graph": ("pipeline-graph", _graph_fixture()),
+        "pipeline-graph": ("pipeline-graph", graph),
         "pipeline-graph-alias-input": (
             "pipeline-graph",
             {
@@ -550,6 +591,14 @@ def _fixtures() -> dict[str, tuple[str, dict[str, Any]]]:
                     }
                 ],
             },
+        ),
+        "project-list": (
+            "project-list",
+            {"projects": [{"id": "synthetic-project"}]},
+        ),
+        "run-page": (
+            "run-page",
+            {"items": [], "next_cursor": None},
         ),
         "run-request": (
             "run-request",
@@ -656,6 +705,20 @@ def bundle_drift(destination: Path = PACKAGED_BUNDLE_DIRECTORY) -> tuple[str, ..
         if actual != expected:
             errors.append(path)
     return tuple(errors)
+
+
+def packaged_bundle_digest(destination: Path = PACKAGED_BUNDLE_DIRECTORY) -> str:
+    """Return the validated digest advertised by the installed Control contract bundle."""
+    try:
+        manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
+        digest = manifest["bundle_sha256"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
+        raise RuntimeError("The installed Control contract manifest is invalid.") from error
+    if manifest.get("bundle_id") != BUNDLE_ID or not isinstance(digest, str):
+        raise RuntimeError("The installed Control contract manifest has the wrong identity.")
+    if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+        raise RuntimeError("The installed Control contract digest is invalid.")
+    return digest
 
 
 def _bundle_digest(files: dict[str, bytes]) -> str:

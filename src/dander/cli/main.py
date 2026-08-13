@@ -46,6 +46,7 @@ from dander.catalog import (
 from dander.cli.aws_command import register_aws_commands
 from dander.cli.azure_command import register_azure_commands
 from dander.cli.config_command import config_app
+from dander.cli.control_command import control_app
 from dander.cli.init_command import (
     InitOptions,
     execute_init,
@@ -130,6 +131,7 @@ graph_app = typer.Typer(help="Open validated pipeline graphs to local visual edi
 plugins_app = typer.Typer(help="Install and inspect explicitly pinned connector plugins.")
 connector_app = typer.Typer(help="Inspect and check configured connector capabilities.")
 app.add_typer(config_app, name="config")
+app.add_typer(control_app, name="control")
 app.add_typer(verify_app, name="verify")
 app.add_typer(metadata_app, name="metadata")
 app.add_typer(graph_app, name="graph")

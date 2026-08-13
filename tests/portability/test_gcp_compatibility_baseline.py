@@ -56,6 +56,6 @@ def test_cli_and_distribution_keep_the_public_gcp_compatibility_surface() -> Non
     packaged = config["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
 
     assert project["name"] == "dander-platform"
-    assert project["scripts"]["dander"] == "dander.cli.main:app"
+    assert project["scripts"]["dander"] == "dander.cli.entrypoint:main"
     assert "infra/main.tf" in packaged
     assert "infra/modules/scheduled-job/main.tf" in packaged
