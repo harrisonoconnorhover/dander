@@ -1,6 +1,6 @@
 # Cloud Portability and First-Class Platform Roadmap
 
-Status: active roadmap; Phases 0 through 7 exit gates satisfied; Phase 8 qualification pending
+Status: active roadmap; Phases 0 through 7 exit gates satisfied; Phase 8 in progress
 
 Initial planning baseline: `origin/main` at `9dc5562` (`0.6.0rc1`)
 
@@ -19,7 +19,11 @@ The sanitized lifecycle record was merged through PR #210 at protected `main`
 `0197d931ad1b86f3101a5f2d51170a77c23fe1b7` and is stored under
 `docs/evidence/azure/2026-08-11/`.
 
-Prepared: 2026-08-06; reconciled: 2026-08-12
+Phase 7 lifecycle evidence was reconciled through PR #250 at protected `main`
+`536b31b701a67a5b7eeb68e09e1d87a4c59898f9`. Public `0.9.0rc17` passed the named OCI profile,
+and its sanitized record is stored under `docs/evidence/oci/2026-08-13/`.
+
+Prepared: 2026-08-06; reconciled: 2026-08-13
 
 The baseline descriptions below record the conditions this roadmap was designed to change. They
 are retained as architectural rationale rather than claims about the current implementation. The

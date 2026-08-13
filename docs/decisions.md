@@ -1,5 +1,18 @@
 # Engineering Decisions
 
+## 2026-08-13 — Phase 8 qualification fails closed on partial evidence
+
+- **Evidence contract:** Scale reports distinguish measured zero from unavailable data and cannot
+  report `passed` without the exact candidate, provider coordinates, workload shape, approved cost
+  ceiling, provider job IDs, complete common measurements, explicit cost evidence, and passed SLO
+  assertions.
+- **Order:** AWS-native Fargate support is implementation work, not a live-proof rerun. Complete it
+  before cutting the shared qualification candidate; then run Kubernetes, scale, pairwise, and
+  soak evidence against that exact artifact.
+- **Soak boundary:** Two retained ServiceNow failures on 2026-08-10 and 2026-08-11 are not
+  diagnosable from the sanitized ledger and Cloud Logging. A focused diagnostic patch and a new
+  clean observation window are required; a later successful run does not erase that gap.
+
 ## 2026-08-12 — Scoped OCIR credentials do not inherit named-builder state
 
 - **Isolation:** OCIR promotion keeps its repository token in a one-use Docker configuration and

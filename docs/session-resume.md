@@ -51,6 +51,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   from this exact release artifact, never an unpublished checkout. RC19 packages all graph-store
   adapters, but only GCS is live-qualified; S3, Azure, and OCI remain unpromoted.
 
+- On 2026-08-13, a read-only Phase 8 re-baseline confirmed all four retained schedules enabled and
+  their latest executions successful. ServiceNow executions on 2026-08-10 and 2026-08-11 failed
+  as `unexpected_error`; neither the durable ledger nor Cloud Logging retained a safe exception
+  identity. That diagnosability defect blocks the current soak gate and is tracked separately from
+  the normalized Phase 8 report contract. The AWS-native Fargate profile is also implementation
+  work because the accepted Fargate projection remains GCP-only. See
+  `docs/cloud-portability-phase8-qualification.md`.
+
 - On 2026-08-13, public Dander `0.9.0rc17` passed the complete Phase 7 lifecycle for the named
   OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile. One equal GAR/OCIR
   index passed manual success, scheduling, replay, overlap exclusion, cancellation, whole-task
@@ -101,8 +109,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 - The latest retained stage-zero and current-equivalent platform plans reported exactly
   `No changes.` after the OCI proof. No
   retained-project apply occurred.
-- Continue the 30-day operating record in GitHub issue #26. The next normal scheduled runs are the
-  remaining observation point for the reconciled stable image.
+- Continue the 30-day operating record in GitHub issue #26. Do not close it until the diagnostic
+  defect is corrected and the required clean observation evidence is current.
 
 ## Safety boundaries
 
