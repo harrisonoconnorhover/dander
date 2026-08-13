@@ -32,9 +32,11 @@ experimental direct API projection with local create/update/readback conformance
 
 Launcher/profile selection has an additional fail-closed boundary. The experimental OCI Container
 Instances projection currently accepts only PostgreSQL state plus PostgreSQL warehouse, no external
-catalog, and OCI Vault. That typed combination is local construction evidence, not a live-profile or
-support promotion; all other OCI state, warehouse, catalog, secret, and cross-cloud identity
-combinations remain unsupported.
+catalog, and OCI Vault. Public `0.9.0rc17` passed the complete bounded live lifecycle for that exact
+composition, including schedule, replay, overlap, interruption, retry, Vault rotation, rollback,
+cleanup, and no drift. This is Phase 7 live-profile evidence, not support promotion; OCI remains
+experimental pending Phase 8 qualification. All other OCI state, warehouse, catalog, secret, and
+cross-cloud identity combinations remain unsupported.
 
 ## Warehouse capabilities
 

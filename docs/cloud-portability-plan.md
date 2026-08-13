@@ -1201,42 +1201,22 @@ Tickets:
 6. PostgreSQL canonical live profile and external-identity feasibility report;
 7. schedule, retry, parallelism, interruption, rollback, and reconciliation proof.
 
-Progress on 2026-08-12: the OCI SDK/Vault provider, typed Container Instances launcher projection,
-plan-first Terraform foundations, and lifecycle-controller implementation are behind
-provider-specific boundaries. The OCI
-native remote-state bootstrap creates only a private versioned Object Storage bucket and private
-digest-addressed OCIR repository; the second root creates a private VCN/subnet, default Vault with a
-software-protected key, compartment-scoped Container Instance resource-principal policy, Logging, and
-Notifications. Both use short-lived SecurityToken auth, saved plans outside the repository, and
-locally passing Terraform tests; a read-only verifier refreshes both remote states and fails on any
-planned drift. The launcher still accepts only the named PostgreSQL/PostgreSQL/
-no-catalog/OCI-Vault profile and exact digest-qualified OCIR images. The narrow Python 3.12 OCI
-Function owns deterministic idempotency, overlap exclusion, whole-task retries, deadlines,
-interruption, replay, bounded logs, terminal history, per-pipeline lifecycle-event reconciliation,
-and UTC Resource Scheduler delivery; operator commands use only expiring SecurityToken sessions.
-Runtime processes resolve versionless Vault references through resource principals without putting
-values in Terraform or Function configuration. Accepted runtime indexes can be copied into the
-exact private OCIR repository without rebuild using a short-lived repository-scoped token derived
-from the operator's SecurityToken session; source, destination, and per-platform digests must
-remain equal. OCI currently rejects its advertised repository-level tag-immutability setting in
-the live Ashburn tenancy; Dander records that limitation, rejects existing-tag mismatches, and
-deploys only the verified digest (or OCI Functions' required matching tag-and-digest pair). The
-default Vault also rejects automatic master-key rotation, which Oracle reserves for the separately
-billed virtual private Vault tier; Dander records that limitation and retains the distinct required
-proof that a later run observes a new versionless application-secret value without an image rebuild.
-The separately built Function controller is bound to the exact reviewed wheel
-SHA-256: its Dockerfile, shim, and dependency pins are extracted from that wheel into an ephemeral
-source-free build context, published only for `linux/amd64`, and recorded by immutable digest.
-Live runtime/controller publication, credential-refresh, live-profile, rollback, cleanup, and
-no-drift evidence remain open. This
-progress is not an exit-gate or support claim, and paid OCI mutation remains disabled pending
-credential preflight and an explicit per-attempt ceiling.
-
 Exit gate:
 
 - the same release digest passes OCI launcher conformance and the named OCI profile; unsupported
   cross-cloud identity combinations are explicitly marked rather than bypassed with static cloud
   keys.
+
+Satisfied on 2026-08-13 by public `dander-platform==0.9.0rc17` and source-free runtime index
+`sha256:190e9caa082efcd72e9a2a586c082c266e48f99a0bb69b99e30114e3c8c886b9`. The exact GAR/OCIR
+content passed the named OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault live
+profile. The bounded proof covered manual and scheduled execution, replay, overlap exclusion,
+interruption, whole-task retry exhaustion, bounded logs, versionless application-secret rotation,
+immutable rollback/restoration, alarm-to-topic routing, cleanup, OCI no drift, and retained-GCP no
+drift. Direct OCI-to-Google identity remains unsupported and fails closed because OCI resource
+principal tokens do not meet the existing generic OIDC refresh/revocation contract; no static key
+bypass is permitted. OCI remains experimental until Phase 8 qualification passes. See
+`docs/cloud-portability-oci-lifecycle-acceptance.md`.
 
 ### Phase 8 — Scale qualification and support release
 

@@ -1,6 +1,6 @@
 # Dander Platform Release Audit
 
-Audited on 2026-08-12 against the product promise in `steering/00-project-overview.md`.
+Audited on 2026-08-13 against the product promise in `steering/00-project-overview.md`.
 “Live-proven” means the behavior was observed in a disposable provider account or retained GCP
 project. “Implemented” means automated tests cover the contract while an optional provider or
 cloud path remains outside the live proof.
@@ -20,7 +20,8 @@ cloud path remains outside the live proof.
 | Single metadata spine | Live-proven | The run ledger and catalog store pipeline lifecycle, source/model schema, lineage, tests, and governed metrics in BigQuery; Dataplex publication remains optional. |
 | Canonical visual authoring | Live-proven for the bounded graph slice | Druff opens and saves canonical `PipelineGraph`, discovers presentation-safe connector and operation descriptors, starts an already-deployed run, and previews a non-applyable full-manifest plan through Dander's loopback service. |
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
-| Infrastructure reconciliation safety | Live-proven | Fresh retained stage-zero and platform plans after the Azure proof reported exact `No changes.` with `28` and `113` no-op resources respectively. No retained-project apply occurred. |
+| OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
+| Infrastructure reconciliation safety | Live-proven | Fresh OCI stage-zero/foundation and retained-GCP stage-zero/platform plans after the OCI proof reported exact `No changes.` No retained-project apply occurred. |
 
 ## Current release and deployment record
 
@@ -52,6 +53,13 @@ cloud path remains outside the live proof.
   `0.9.0rc1` then passed the separate Azure-to-Google refresh, GCP-secret, Dataplex, revocation,
   isolated-GCP smoke, cleanup, and no-drift proof. Azure remains experimental pending Phase 8; see
   `docs/cloud-portability-azure-lifecycle-acceptance.md`.
+- Public Dander `0.9.0rc17` passed the complete Phase 7 lifecycle for the named OCI profile using
+  equal GAR/OCIR index digest
+  `sha256:190e9caa082efcd72e9a2a586c082c266e48f99a0bb69b99e30114e3c8c886b9`.
+  The proof covered scheduling, replay, fencing, interruption, retry exhaustion, Vault
+  application-secret rotation, rollback/restoration, alarm-to-topic routing, cleanup, OCI no
+  drift, and retained-GCP no drift. OCI remains experimental pending Phase 8; see
+  `docs/cloud-portability-oci-lifecycle-acceptance.md`.
 - Retained source-free Dander image: `sha256:68e112c43b365018b735be7934446e15dfe6169fc64062b62b8bb97ea4f93b96`,
   built with Dander `0.7.1`, Salesforce `0.3.1`, and ServiceNow `0.2.2`.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:

@@ -1,7 +1,7 @@
 ---
 id: DANDER-116
 title: Promote the accepted runtime index into OCIR
-status: in-review
+status: accepted
 component: python
 epic: cloud-portability-phase-7
 depends_on: [DANDER-115]
@@ -17,7 +17,9 @@ keyless operator boundary.
 ## Acceptance Criteria
 
 - [x] Require the exact accepted runtime artifact record and re-verify its source platform map.
-- [x] Require the selected destination repository to exist, be private, immutable, and available.
+- [x] Require the selected destination repository to exist, be private, and be available; record
+  repository tag immutability explicitly and retain digest-bound mismatch rejection when Oracle
+  reports that capability unavailable.
 - [x] Derive a short-lived `pull,push` token scoped to only that repository from an authenticated
   OCI `SecurityToken` profile.
 - [x] Preserve existing source-registry helpers in a mode-`0600` temporary Docker configuration;
@@ -28,7 +30,7 @@ keyless operator boundary.
 - [x] Focused contracts cover copy, idempotency, repository policy, token lifetime, digest rewrite,
   platform drift, source-record mismatch, cleanup, and CLI confirmation.
 - [x] Protected CI passes and this implementation merges before live OCIR publication.
-- [ ] Separately approved live publication proves the real registry preserves the accepted index.
+- [x] Separately approved live publication proves the real registry preserves the accepted index.
 
 ## Design
 
@@ -39,4 +41,5 @@ is removed even when copy or verification fails.
 ## Review Log
 
 Protected implementation PR #216 merged at `fae47a3cf860ba74a7c40b63c84ca21b9db7c6a2`, and the
-protected-main CI run passed. Live publication remains pending.
+protected-main CI run passed. Public `0.9.0rc17` then preserved the accepted GAR index and both
+platform manifests in OCIR on 2026-08-13.
