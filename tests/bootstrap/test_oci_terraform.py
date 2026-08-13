@@ -113,14 +113,9 @@ def test_admin_repository_is_private_and_does_not_request_unsupported_immutabili
 def test_scheduler_can_start_functions_only_in_the_runtime_compartment() -> None:
     configuration = (_ROOT / "infra/oci/main.tf").read_text(encoding="utf-8")
 
-    assert (
-        "to manage functions-family in compartment id ${var.compartment_id}"
-        in configuration
-    )
+    assert "to manage functions-family in compartment id ${var.compartment_id}" in configuration
     assert "to manage functions-family in tenancy" not in configuration
-    assert (
-        "to use fn-invocation in compartment id ${var.compartment_id}" not in configuration
-    )
+    assert "to use fn-invocation in compartment id ${var.compartment_id}" not in configuration
 
 
 def test_foundation_bootstrap_uses_native_backend_and_saved_plan(
