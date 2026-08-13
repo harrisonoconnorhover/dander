@@ -157,6 +157,7 @@ def execute_run(
     *,
     console: Console,
     run_id: str | None = None,
+    retry: bool = False,
     render: bool = True,
 ) -> PipelineExecutionResult | None:
     """Resolve, execute, and render one ``dander run`` request."""
@@ -171,7 +172,14 @@ def execute_run(
     _verify_safety(options, resolved)
     executor = _build_executor(options, resolved)
     try:
-        result = executor.execute() if run_id is None else executor.execute(run_id=run_id)
+        if run_id is None:
+            result = executor.execute(retry=True) if retry else executor.execute()
+        else:
+            result = (
+                executor.execute(run_id=run_id, retry=True)
+                if retry
+                else executor.execute(run_id=run_id)
+            )
     except (
         CatalogPublishError,
         SemanticRegistryError,

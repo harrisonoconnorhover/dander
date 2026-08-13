@@ -197,6 +197,23 @@ def test_postgresql_state_schema_and_stores_conform(
     assert records["current"].stage is RunStage.COMPLETE
     assert records["current"].models == 5
 
+    runtime.history.start("retryable", "salesforce", pipeline_id="salesforce")
+    runtime.history.finish(
+        "retryable",
+        RunStatus.FAILED,
+        endpoints=1,
+        extracted=2,
+        affected=0,
+        failure_stage=RunStage.INGEST,
+        failure_code="extraction_failed",
+        failure_summary="Source extraction failed after bounded retries.",
+    )
+    runtime.history.restart_retryable("retryable", "salesforce", pipeline_id="salesforce")
+    restarted = {record.run_id: record for record in runtime.history.recent(limit=10)}["retryable"]
+    assert restarted.status is RunStatus.RUNNING
+    assert restarted.finished_at is None
+    assert restarted.failure_code is None
+
     metadata = cast("MetadataStore", runtime.metadata)
     metadata.publish(
         pipeline_id="salesforce",

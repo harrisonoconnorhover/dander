@@ -347,6 +347,34 @@ class PostgreSQLRunHistoryStore(RunHistoryStore):
                 (run_id, pipeline_id or source, source),
             )
 
+    def restart_retryable(
+        self,
+        run_id: str,
+        source: str,
+        *,
+        pipeline_id: str | None = None,
+    ) -> None:
+        """Atomically resume one logical run only after a retryable terminal failure."""
+        with self._database.pool.connection() as connection:
+            result = connection.execute(
+                sql.SQL(
+                    "INSERT INTO {} AS existing "
+                    "(run_id, pipeline_id, source_name, status, stage, started_at) "
+                    "VALUES (%s, %s, %s, 'running', 'ingest', clock_timestamp()) "
+                    "ON CONFLICT (run_id) DO UPDATE SET status = 'running', stage = 'ingest', "
+                    "finished_at = NULL, endpoints = 0, extracted = 0, affected = 0, models = 0, "
+                    "assertions = 0, assets = 0, failure_stage = NULL, failure_code = NULL, "
+                    "failure_summary = NULL WHERE existing.pipeline_id = EXCLUDED.pipeline_id "
+                    "AND existing.source_name = EXCLUDED.source_name "
+                    "AND existing.status = 'failed' "
+                    "AND existing.failure_code IN ('catalog_failed', 'destination_write_failed', "
+                    "'extraction_failed', 'lease_failed', 'rate_limited')"
+                ).format(self._database.relation("dander_runs")),
+                (run_id, pipeline_id or source, source),
+            )
+            if result.rowcount != 1:
+                raise RuntimeError("Run is not a matching retryable failure")
+
     def checkpoint(
         self,
         run_id: str,

@@ -212,6 +212,7 @@ def execute_runtime(
                 options,
                 console=_CONSOLE,
                 run_id=context.run_id,
+                retry=context.attempt > 1,
                 render=False,
             )
     except RuntimeCancelledError:

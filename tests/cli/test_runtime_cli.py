@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 def _invoke(
     monkeypatch: MonkeyPatch,
     execute: Callable[..., PipelineExecutionResult | None],
+    *,
+    attempt: int = 1,
 ) -> Result:
     monkeypatch.setattr(runtime_module, "execute_run", execute)
     return CliRunner().invoke(
@@ -52,6 +54,7 @@ def _invoke(
         env={
             "DANDER_RUN_ID": "cloud-run:execution-42",
             "DANDER_LAUNCHER": "cloud_run",
+            "DANDER_ATTEMPT": str(attempt),
         },
     )
 
@@ -66,9 +69,16 @@ def test_runtime_execute_uses_launcher_run_id_and_emits_json_lines(
         *,
         console: Console,
         run_id: str | None = None,
+        retry: bool = False,
         render: bool = True,
     ) -> PipelineExecutionResult:
-        captured.update(options=options, console=console, run_id=run_id, render=render)
+        captured.update(
+            options=options,
+            console=console,
+            run_id=run_id,
+            retry=retry,
+            render=render,
+        )
         assert run_id is not None
         return PipelineExecutionResult(
             run_id=run_id,
@@ -105,6 +115,31 @@ def test_runtime_execute_uses_launcher_run_id_and_emits_json_lines(
     assert options.batch_rows == 2500
     assert str(options.catalog_output) == "/tmp/dander-catalog.json"
     assert captured["render"] is False
+    assert captured["retry"] is False
+
+
+def test_runtime_execute_marks_later_launcher_attempt_as_retry(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def execute(options: RunOptions, **kwargs: object) -> PipelineExecutionResult:
+        captured.update(kwargs)
+        run_id = cast("str", kwargs["run_id"])
+        return PipelineExecutionResult(
+            run_id=run_id,
+            pipeline_id=options.pipeline_or_source,
+            ingestion=PipelineRunResult(run_id=run_id, source="fixture", endpoints=()),
+            models=(),
+            assertions=0,
+            assets=0,
+        )
+
+    result = _invoke(monkeypatch, execute, attempt=2)
+
+    assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
+    assert captured["run_id"] == "cloud-run:execution-42"
+    assert captured["retry"] is True
 
 
 def test_runtime_execute_selects_named_version_two_deployment(
