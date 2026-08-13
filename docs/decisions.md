@@ -1477,3 +1477,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   requests explicit; scheduled invocations use the controller's existing empty-request contract.
 - **Boundary:** The schedule remains inactive until live acceptance. This changes neither the
   runtime image nor OCI IAM, concurrency, retry, secret, or warehouse behavior.
+
+## 2026-08-12 — Live OCI qualification follows available A1 quota
+
+- **Provider evidence:** The new Ashburn trial tenancy reported zero `standard-e4-core-count` in
+  every availability domain and rejected Container Instance creation with `LimitExceeded`. The
+  same account reported available A1 core and memory quota, and the accepted runtime image already
+  contains a verified `linux/arm64` manifest.
+- **Decision:** Qualify the existing typed `CI.Standard.A1.Flex` launcher profile at one OCPU and
+  two GiB instead of requesting an E4 entitlement solely for the acceptance run. Keep E4 support
+  explicit but unqualified in this account.
+- **Live-path corrections:** Pass the OCI Functions invocation context to FDK responses and grant
+  OCI's documented `fnapp` principal only `use ons-topics` for detached failure delivery. These are
+  provider-contract fixes; they do not alter runtime, warehouse, scheduling, or retry semantics.

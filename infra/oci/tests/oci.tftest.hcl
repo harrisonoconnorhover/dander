@@ -133,7 +133,11 @@ run "projects_idempotent_lifecycle_controller" {
   assert {
     condition = (
       oci_identity_dynamic_group.controller[0].matching_rule == format("ANY {resource.id='%s'}", oci_functions_function.pipeline["jobs"].id) &&
-      length(oci_identity_policy.controller[0].statements) == 3 &&
+      length(oci_identity_policy.controller[0].statements) == 4 &&
+      contains(
+        oci_identity_policy.controller[0].statements,
+        "Allow any-user to use ons-topics in compartment id ocid1.compartment.oc1..bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb where all {request.principal.type='fnapp', request.principal.compartment.id='ocid1.compartment.oc1..bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}",
+      ) &&
       oci_events_rule.container_lifecycle["jobs"].is_enabled &&
       strcontains(oci_events_rule.container_lifecycle["jobs"].condition, "dander-pipeline") &&
       oci_logging_log.function_invocations[0].configuration[0].source[0].category == "invoke" &&

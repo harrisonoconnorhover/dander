@@ -6,6 +6,9 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+- Pass the OCI Functions invocation context into FDK responses and authorize only the Functions
+  application principal to publish detached failure records to the configured Notifications topic.
+
 ## 0.9.0rc11 — 2026-08-12 (beta)
 
 ### Fixed

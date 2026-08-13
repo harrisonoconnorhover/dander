@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 def handler(ctx: object, data: BinaryIO | None = None) -> object:
     """Handle detached schedules/manual starts and short event/cancel operations."""
-    del ctx
     try:
         payload = _payload(data)
         namespace = _required_environment("DANDER_OCI_NAMESPACE")
@@ -64,9 +63,10 @@ def handler(ctx: object, data: BinaryIO | None = None) -> object:
             execution = _monitor(controller, execution)
         else:  # pragma: no cover - _action is exhaustive.
             raise OciLifecycleError("Unsupported OCI controller action")
-        return _response(200, None if execution is None else execution.as_dict())
+        return _response(ctx, 200, None if execution is None else execution.as_dict())
     except OciLifecycleError as error:
         return _response(
+            ctx,
             409,
             {
                 "schema": "io.dander.oci-controller-error/v1",
@@ -141,13 +141,14 @@ def _required_string(payload: Mapping[str, object], name: str) -> str:
     return value
 
 
-def _response(status: int, document: object) -> object:
+def _response(ctx: object, status: int, document: object) -> object:
     body = json.dumps(document, sort_keys=True, separators=(",", ":"))
     try:
         from fdk import response  # type: ignore[import-not-found]
     except ImportError:
         return {"status": status, "body": body}
     return response.Response(
+        ctx,
         status_code=status,
         response_data=body,
         headers={"Content-Type": "application/json"},

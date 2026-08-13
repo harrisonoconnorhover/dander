@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import io
 import json
+import sys
 from dataclasses import replace
+from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -142,3 +144,37 @@ def test_rejected_payload_is_bounded_and_does_not_echo_input() -> None:
 
     with pytest.raises(OciLifecycleError, match="too large"):
         function_handler._payload(io.BytesIO(b"x" * 65_537))
+
+
+def test_fdk_response_receives_the_invocation_context(monkeypatch: MonkeyPatch) -> None:
+    context = object()
+    calls: list[tuple[object, dict[str, object]]] = []
+
+    class _Response:
+        def __init__(self, ctx: object, **kwargs: object) -> None:
+            calls.append((ctx, kwargs))
+
+    fdk = ModuleType("fdk")
+    fdk.response = SimpleNamespace(Response=_Response)  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "fdk", fdk)
+
+    result = function_handler.handler(
+        context,
+        io.BytesIO(b'{"action":"customer-secret-value"}'),
+    )
+
+    assert isinstance(result, _Response)
+    assert calls == [
+        (
+            context,
+            {
+                "status_code": 409,
+                "response_data": (
+                    '{"failure_code":"controller_rejected","message":'
+                    '"OCI controller action is unsupported",'
+                    '"schema":"io.dander.oci-controller-error/v1"}'
+                ),
+                "headers": {"Content-Type": "application/json"},
+            },
+        )
+    ]

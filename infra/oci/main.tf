@@ -232,6 +232,7 @@ resource "oci_identity_policy" "controller" {
     "Allow dynamic-group ${one(oci_identity_dynamic_group.controller).name} to manage compute-container-family in compartment id ${var.compartment_id}",
     "Allow dynamic-group ${one(oci_identity_dynamic_group.controller).name} to use virtual-network-family in compartment id ${var.compartment_id}",
     "Allow dynamic-group ${one(oci_identity_dynamic_group.controller).name} to manage objects in compartment id ${var.compartment_id} where target.bucket.name='${oci_objectstorage_bucket.run_records.name}'",
+    "Allow any-user to use ons-topics in compartment id ${var.compartment_id} where all {request.principal.type='fnapp', request.principal.compartment.id='${var.compartment_id}'}",
   ]
 }
 
