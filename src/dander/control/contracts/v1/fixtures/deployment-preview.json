@@ -1,0 +1,1 @@
+{"affected_jobs":["records"],"candidate_image":"registry.invalid/dander@sha256:0000000000000000000000000000000000000000000000000000000000000000","plan_sha256":"0000000000000000000000000000000000000000000000000000000000000000","plan_summary":"Plan: 1 to add, 0 to change, 0 to destroy.","plan_text":"Synthetic bounded plan.","revision":"opaque-revision"}

@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Recorded the exact Dander/Druff Phase D0 baselines, green CI, Phase 7 cleanup, and governance state.
-- Inventoried the local Graph API, canonical domain operations, provider/runtime contracts, and filesystem coupling.
-- Confirmed static Druff plus an external-OIDC Dander Control API as the bounded architecture.
-- Defined generated transport, GraphStore, revision, service projection, compatibility, PR, and live-proof gates.
-- Incorporated the independent adversarial architecture corrections without application or cloud changes.
+- Added immutable explicit DTOs for the future Dander Control API transport boundary.
+- Generated deterministic Draft 2020-12 schemas, canonical fixtures, hashes, and bundle manifest.
+- Added domain/transport round-trip, independent schema, negative-contract, and drift tests.
+- Added CI drift and wheel/source-distribution content checks.
+- Documented the bundle as release-ready and explicitly unpublished.
 
 ## Try It
 
-Read `docs/druff-control-plane-roadmap.md`; no service or provider command is introduced by D0.
+Run `uv run python scripts/check_control_contracts.py` to verify the committed bundle.
 
 ## Checks
 
-- `terraform fmt -check -recursive infra` passed.
-- `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src tests` passed.
-- `uv run pytest` passed: 1,407 tests, with 28 skipped.
-- Protected CI and the repository secret scan remain required before merge.
+- Repository Ruff lint/format and mypy passed across 368 source files.
+- Full test suite passed: 1,422 tests, with 28 skipped.
+- Contract generation drift and independent Draft 2020-12 artifact validation passed.
+- Built wheel/source distribution passed content and unsafe-artifact checks.
+- Recursive Terraform formatting and Git whitespace checks passed.
 
 ## Decisions
 
-- Dander remains the only semantic and provider authority; Druff remains a static generated client.
-- Use explicit transport DTOs, GraphStore-first routing, and separate opaque revisions/content hashes.
-- Keep control-service, static-site, and existing job-launcher deployment semantics distinct.
+- Dander domain validation remains semantic authority; transport DTOs only describe JSON.
+- Keep known node/config branches strict while preserving explicit unknown extension nodes.
+- Treat the recorded digest as repository identity, not evidence of release publication.
 
 ## Remaining
 
-- Merge the paired D0 documentation PRs after checks and completion review.
-- Publish the Dander contract producer before Druff generates its consumer.
-- Keep provider live work behind local gates, reviewed plans, numeric ceilings, and separate approval.
+- Complete the independent adversarial review and protected PR/CI review.
+- Obtain explicit approval before publishing a Dander release artifact.
+- Generate the Druff consumer only from that approved immutable artifact.
 
 ## Review First
 
-- `docs/druff-control-plane-roadmap.md`
-- `tickets/DANDER-119-control-contract-bundle.md`
-- `tickets/DANDER-120-graph-store-local.md`
+- `src/dander/control/models.py`
+- `src/dander/control/bundle.py`
+- `docs/control-contracts.md`

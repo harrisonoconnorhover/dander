@@ -1,0 +1,1 @@
+{"content_sha256":"0000000000000000000000000000000000000000000000000000000000000000","graph_name":"control_contract_fixture","issues":[{"location":"nodes.0.config","message":"Invalid node config.","type":"value_error"}],"valid":false}

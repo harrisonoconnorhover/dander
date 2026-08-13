@@ -10,6 +10,7 @@ uv sync --frozen --extra dev --extra postgres
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src tests
+uv run python scripts/check_control_contracts.py
 uv run pytest
 uv export --frozen --format requirements.txt --no-dev --no-emit-project \
   --output-file /tmp/dander-requirements.txt

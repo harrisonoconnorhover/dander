@@ -12,6 +12,8 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 WHEEL_REQUIRED = {
+    "dander/control/contracts/v1/manifest.json",
+    "dander/control/contracts/v1/schemas/pipeline-graph.schema.json",
     "dander/runtime-compatibility.json",
     "dander/templates/project/.dockerignore",
     "dander/templates/project/.gitignore",
@@ -46,6 +48,7 @@ SDIST_REQUIRED = {
     "LICENSE",
     "README.md",
     "docs/compatibility-matrix.md",
+    "docs/control-contracts.md",
     "docs/postgresql-benchmarks.md",
     "docs/warehouse-staging.md",
     "examples/salesforce/dander.yaml",
@@ -55,6 +58,10 @@ SDIST_REQUIRED = {
     "infra/azure/modules/container-apps-jobs/main.tf",
     "pyproject.toml",
     "scripts/benchmarks/postgresql.py",
+    "scripts/check_control_contracts.py",
+    "scripts/generate_control_contracts.py",
+    "src/dander/control/contracts/v1/manifest.json",
+    "src/dander/control/contracts/v1/schemas/pipeline-graph.schema.json",
     "src/dander/project/scaffold.py",
 }
 
