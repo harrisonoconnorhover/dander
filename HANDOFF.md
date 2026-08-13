@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Prepared public `dander-platform==0.9.0rc11` from protected main.
-- Promoted the RC9 source-free runtime into OCIR with an identical OCI index digest.
-- Published the exact RC9 wheel-bound lifecycle controller into private OCIR.
-- Applied the reviewed additive launcher plan with an inactive schedule.
-- Removed the scheduler BODY after live state exposed Oracle's double encoding and drift.
+- Published and deployed exact RC11 runtime/controller artifacts from protected main.
+- Created the free PostgreSQL qualification project and versionless OCI Vault secret.
+- Verified stage-zero and launcher Terraform at no drift with the schedule inactive.
+- Ran the first live invocation; OCI rejected E4 creation before billing because account quota is zero.
+- Corrected FDK response context and detached-failure notification permission for RC12.
 
 ## Try It
 
-Run `terraform test -test-directory=tests` from `infra/oci`, then `pytest -q tests/providers/test_oci_function_handler.py`.
+Run `terraform test -test-directory=tests` from `infra/oci`, then `uv run pytest -q tests/providers/test_oci_function_handler.py`.
 
 ## Checks
 
-- RC9 protected-main CI and trusted PyPI publication passed.
-- GAR and OCIR runtime index digests both equal `sha256:5d46e5cf…7a1386`.
-- Launcher apply added 11 resources, changed none, and destroyed none; live verification then found
-  only the scheduler BODY normalization drift.
+- RC11 protected-main CI, PyPI publication, OCIR promotion, and exact launcher verification passed.
+- Focused controller tests passed (22); OCI Terraform tests passed (2).
+- The rejected E4 attempt created no Container Instance and retained a sanitized terminal record.
 
 ## Decisions
 
-- Omit the optional OCI scheduler BODY; the controller's empty request already means `start`.
-- Keep manual/event requests explicit and the live schedule inactive until acceptance.
+- Use the supported A1 profile because this account has A1 quota and zero E4 quota.
+- Preserve the schedule as inactive until the controlled scheduled-run proof.
 - Keep OCI experimental until Phase 7 live acceptance and Phase 8 qualification pass.
 
 ## Remaining
 
-- Merge and publish `v0.9.0rc11` through protected CI.
-- Reconcile the one live scheduler resource and prove Terraform no drift.
-- Create and rotate only the named free PostgreSQL secret outside Terraform.
+- Merge and publish RC12 through protected CI, then promote its exact artifacts.
+- Apply the reviewed A1 projection and controller/policy correction.
+- Complete success, rotation, overlap, retry, replay, cancel, schedule, and rollback proofs.
 - Complete the bounded live lifecycle acceptance matrix.
 - Complete cleanup, no-drift evidence, and the binary Phase 7 recommendation.
 
 ## Review First
 
-- `src/dander/providers/oci_container_instances/config.py`
-- `src/dander/security/oci_vault.py`
+- `src/dander/providers/oci_container_instances/function_handler.py`
+- `infra/oci/main.tf`
 - `HANDOFF.md`
