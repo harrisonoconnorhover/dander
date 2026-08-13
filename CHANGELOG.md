@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc16 — 2026-08-13 (beta)
+
+### Fixed
+
+- Grant OCI Resource Scheduler its documented scheduled-Function action through a single-schedule
+  dynamic group scoped to `manage functions-family` only in the configured runtime compartment.
+
 ## 0.9.0rc15 — 2026-08-13 (beta)
 
 ### Fixed
