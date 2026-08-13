@@ -2,42 +2,42 @@
 
 ## Finished
 
-- Promoted current-public install, status, upgrade, audit, session, and Phase 1B references from
-  `0.9.0rc17` to the explicitly approved `0.9.0rc18` candidate.
-- Updated release-metadata tests so publication mode proves prepared and public RC18 match.
-- Preserved every historical RC17 Phase 7 acceptance, limitation, decision, and evidence record.
-- Left the already-reviewed RC18 package contents, version, lockfile, changelog, and workflow
-  unchanged.
+- Published `dander-platform==0.9.0rc18` from protected main through the approved trusted PyPI
+  workflow and created the immutable `v0.9.0rc18` tag and matching GitHub beta prerelease.
+- Verified the public wheel in a fresh environment outside every checkout.
+- Recorded the exact tag, commit, workflow, distribution hashes, contract digest, and verification
+  result in the release evidence ledger.
+- Completed DANDER-119 without changing the already-published package.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py --publication`; it now passes for RC18.
+Install `dander-platform==0.9.0rc18` from PyPI. The installed manifest reports
+`io.dander.control.contracts/v1` at digest
+`344ef5ff2d685d5bedf7a1ddb119a42a6de08d90f285dc0a981e79c55452c1ed`.
 
 ## Checks
 
-- Ruff lint and format passed across 398 files.
-- Mypy passed across 368 source files after syncing the exact CI `dev` and `postgres` extras.
-- Control-contract drift validation passed for `io.dander.control.contracts/v1`.
-- Full tests passed: 1,424 passed and 28 skipped.
-- Normal/publication metadata checks and wheel/source-distribution validation passed.
+- Promotion PR #254 and protected-main CI run `31718983212` passed all five jobs.
+- Trusted-publishing run `31719571923` passed build validation and PyPI publication.
+- Fresh PyPI install reported `dander 0.9.0rc18`; `dander new` and `dander validate` passed.
+- The generated project's Terraform configuration initialized and validated successfully.
+- All 25 installed contract files matched their manifest hashes and reviewed bundle digest.
 
 ## Decisions
 
-- Promotion changes only current-public references; exact historical artifact claims remain fixed.
-- The promotion commit may merge only after independent review and protected CI pass.
-- Druff consumption still waits for the immutable RC18 tag, successful PyPI workflow, and clean
-  outside-checkout install verification.
+- `0.9.0rc18` is now the only approved immutable source for Druff D1 contract generation.
+- Historical RC17 Phase 7 evidence remains fixed to the artifact that produced it.
+- The public release changes no provider behavior or retained infrastructure.
 
 ## Remaining
 
-- Complete the independent promotion review.
-- Open, pass, and merge the focused protected promotion PR.
-- Create `v0.9.0rc18` and complete the approval-gated PyPI workflow.
-- Install and verify public RC18 in a fresh environment outside the checkout.
+- Merge this release-evidence reconciliation through protected CI.
 - Generate the Druff consumer from the verified public artifact.
+- Prove representative graph parsing, semantic round-trip, compatibility rejection, and CI drift.
+- Complete the remaining D1 exit gate before beginning D2.
 
 ## Review First
 
-- `scripts/check_release_metadata.py`
-- `tests/test_release_metadata.py`
-- `.github/workflows/publish.yml`
+- `docs/control-contracts.md`
+- `tickets/DANDER-119-control-contract-bundle.md`
+- `docs/release-audit.md`

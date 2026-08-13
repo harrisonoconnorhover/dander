@@ -1,6 +1,6 @@
 # Dander Control contract bundle
 
-Status: packaged and release-ready; not yet published in a Dander release
+Status: published in Dander `0.9.0rc18`
 
 Dander is the authority for data crossing the future Control API boundary. The deterministic
 `io.dander.control.contracts/v1` bundle lives in `src/dander/control/contracts/v1` and is included
@@ -23,8 +23,25 @@ digest is:
 344ef5ff2d685d5bedf7a1ddb119a42a6de08d90f285dc0a981e79c55452c1ed
 ```
 
-This digest identifies the repository bundle only. It is not evidence that a release was
-published. Publication remains a separate protected-release action requiring explicit approval.
+The same digest is present in the immutable public `dander-platform==0.9.0rc18` wheel and source
+distribution published from protected-main commit
+`ae2f8f6bfda5fe54309c54eee623b83d0b2bd2a3` at tag `v0.9.0rc18`. The approved trusted-publishing
+workflow is [run 31719571923](https://github.com/harrisonoconnorhover/dander/actions/runs/31719571923),
+and the matching beta prerelease is
+[Dander 0.9.0rc18](https://github.com/harrisonoconnorhover/dander/releases/tag/v0.9.0rc18).
+
+The public artifact identities are:
+
+- wheel `dander_platform-0.9.0rc18-py3-none-any.whl`:
+  `sha256:4500b32451c02b6331a337b6d38eb96cc49a29838b6e3ea5a2b87b9daf85406c`;
+- source distribution `dander_platform-0.9.0rc18.tar.gz`:
+  `sha256:bf5ead721ab2b61eff4b50be5c3ab9cb03edb59257c0b2a3f1c0019c7045c3ae`.
+
+A fresh PyPI-only install outside any checkout reported `dander 0.9.0rc18`, generated and
+validated the source-free starter project, passed Terraform initialization and validation, and
+independently matched all 25 installed contract files to the manifest hashes. This publication
+record authorizes Druff to generate from the release artifact; it does not make a source checkout
+an acceptable contract input.
 
 ## Boundary rules
 

@@ -5,7 +5,7 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Public releases
 
-- Dander `0.9.0rc18` is the current public beta candidate.
+- Dander `0.9.0rc18` is the current public beta.
 - Salesforce `0.3.1` and ServiceNow `0.2.2` are the current stable connector releases for Dander
   `0.7.x`; their accepted release candidates remain recorded in the Phase 1 evidence.
 - Druff's fork contains Josh's reconciled graph-client ancestry and the later persistence,
@@ -32,6 +32,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- On 2026-08-13, protected Dander `0.9.0rc18` published the deterministic
+  `io.dander.control.contracts/v1` bundle from commit
+  `ae2f8f6bfda5fe54309c54eee623b83d0b2bd2a3`. A fresh PyPI-only installation outside any checkout
+  matched the bundle digest and all 25 manifest file hashes, generated and validated a source-free
+  project, and passed Terraform validation. Druff may now generate its D1 consumer from this exact
+  release artifact; it must not consume an unpublished checkout.
 
 - On 2026-08-13, public Dander `0.9.0rc17` passed the complete Phase 7 lifecycle for the named
   OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile. One equal GAR/OCIR
