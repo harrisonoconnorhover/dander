@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Added the GCS GraphStore with lazy SDK loading and immutable bucket/prefix binding.
-- Added native generation create/update/delete fencing and generation-pinned bounded reads.
-- Added restart-safe hashed journals with concurrent exact create/delete convergence.
-- Added body-free metadata listing, inclusive-offset pagination, and shared mock conformance.
-- Added exact credential-field rejection unless the graph holds a recognized secret reference.
+- Merged the GCS GraphStore through protected PR #258 at `81e750f29eba41a112db160b79f9e4983ed4e874`.
+- Verified exact-main CI run `31738745182`; all five jobs passed.
+- Live-qualified restart, replay, update/conflict, deletion, and bucket policy under a USD 0.25 cap.
+- Removed every object version and the disposable bucket; retained GCP remained 28/113 no-op.
+- Added coordinate-free evidence and accepted DANDER-122 for protected-main source only.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_graph_store.py tests/control/test_gcs_graph_store.py`.
+Run `uv run pytest -q tests/control/test_graph_store.py tests/control/test_gcs_graph_store.py tests/portability/test_gcs_graph_store_qualification.py`.
 
 ## Checks
 
-- Corrected full pytest passes: 1,481 passed with 28 expected skips.
-- Ruff/format and strict mypy pass across 383 source files.
-- Contract drift and wheel/sdist metadata/archive checks passed.
-- Deterministic concurrent retry and zero-body-download listing regressions pass.
-- Independent completion review's two material findings are corrected.
+- Full pytest passed: 1,490 tests with 28 expected skips.
+- Ruff, format, strict mypy across 384 files, and Control-contract drift passed.
+- Dependency, changed-file secret, forbidden-artifact, wheel, and sdist checks passed.
+- All GCP/AWS/Azure/OCI and cross-cloud Terraform validation/tests passed.
+- Live GraphStore, bucket policy, cleanup, and retained 28/113 no-change plans passed.
 
 ## Decisions
 
-- GCS generations remain opaque GraphStore revisions; content SHA remains portable identity.
-- Delete ownership is a generation-matched graph fence, not a best-effort side object.
-- Live GCS qualification remains separate and the ticket stays in progress until it passes.
+- Evidence records only portable outcomes and source scope, never bucket or project names.
+- Public rc18 predates GCS support, so this proof cannot qualify that release artifact.
+- The first object-store architecture is accepted; S3 may reuse the contract without widening it.
 
 ## Remaining
 
-- Merge the protected implementation PR and verify exact-main CI.
-- Obtain separate approval for live restart/conflict/cleanup and bucket/no-drift proof.
+- Push the focused evidence branch and merge it through protected CI.
+- Verify exact-main CI after merge.
+- Begin the S3 GraphStore in a separate focused PR.
 
 ## Review First
 
-- `src/dander/control/gcs_graph_store.py`
-- `tests/control/test_gcs_graph_store.py`
-- `src/dander/control/graph_store.py`
+- `scripts/portability/gcs_graph_store_qualification.py`
+- `tests/portability/test_gcs_graph_store_qualification.py`
+- `docs/evidence/gcp/2026-08-13/druff-gcs-graph-store.json`

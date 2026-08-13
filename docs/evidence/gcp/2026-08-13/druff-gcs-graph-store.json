@@ -1,0 +1,45 @@
+{
+  "approval": {
+    "automatic_paid_rerun": false,
+    "cost_ceiling_usd": "0.25",
+    "reference": "druff-d3-gcs-live-2026-08-13-attempt-1"
+  },
+  "bucket_policy": {
+    "expected_location": true,
+    "provider_default_encryption": true,
+    "public_access_prevention": true,
+    "soft_delete_disabled": true,
+    "standard_storage": true,
+    "uniform_bucket_access": true,
+    "versioning": true
+  },
+  "cleanup": {
+    "all_object_versions_removed": true,
+    "bucket_removed": true,
+    "retained_platform_no_drift": true,
+    "retained_stage_zero_no_drift": true
+  },
+  "graph_store": {
+    "absent_after_delete": true,
+    "bucket_binding": true,
+    "create_read_equal": true,
+    "create_replay_exact_after_restart": true,
+    "create_replay_exact_after_update": true,
+    "delete_replay_exact_after_restart": true,
+    "empty_list_after_delete": true,
+    "fixture_canonical_bytes": 8468,
+    "fixture_content_sha256": "8d4b78b016880a28a55d2f7f8949616e617bc141abc4637afd2bb4015f634f2a",
+    "list_summary_equal": true,
+    "restart_persistence_after_update": true,
+    "stale_delete_rejected": true,
+    "stale_update_rejected": true
+  },
+  "implementation": {
+    "protected_main_commit": "81e750f29eba41a112db160b79f9e4983ed4e874",
+    "public_distribution_qualified": false,
+    "scope": "protected_main_source"
+  },
+  "provider": "gcp",
+  "recorded_at": "2026-08-13T22:42:45.532812Z",
+  "schema": "io.dander.druff.gcs-graph-store-qualification/v1"
+}
