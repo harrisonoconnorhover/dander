@@ -34,6 +34,8 @@ dependencies = [
   "requests>=2.32",                # rate-limited session injected into dlt REST clients
   "tenacity>=8.5",                 # backoff/retry for the hand-rolled path
   "pyyaml>=6.0",
+  "fastapi>=0.115",                # hosted Control API transport
+  "uvicorn>=0.30",                 # hosted Control API server
 ]
 
 [project.urls]
@@ -45,7 +47,7 @@ Changelog = "https://github.com/harrisonoconnorhover/dander/blob/main/CHANGELOG.
 Security = "https://github.com/harrisonoconnorhover/dander/security/policy"
 
 [project.scripts]
-dander = "dander.cli.main:app"
+dander = "dander.cli.entrypoint:main"
 dander-synthetic-api = "dander.dev.synthetic_vendor:main"
 
 [project.optional-dependencies]
@@ -100,7 +102,6 @@ runtime-all = [
   "snowflake-connector-python>=3.12,<5",
 ]
 dev = [
-  "fastapi>=0.115",
   "jsonschema>=4.23",
   "ruff>=0.6",
   "mypy>=1.11",
@@ -109,7 +110,6 @@ dev = [
   "types-jsonschema>=4.23",
   "types-pyyaml",
   "types-protobuf",
-  "uvicorn>=0.30",
 ]
 
 [build-system]

@@ -687,6 +687,7 @@ version = "0.9.0rc18"
 source = { editable = "." }
 dependencies = [
     { name = "dlt", extra = ["bigquery"] },
+    { name = "fastapi" },
     { name = "google-auth" },
     { name = "google-cloud-bigquery" },
     { name = "google-cloud-bigquery-storage" },
@@ -702,6 +703,7 @@ dependencies = [
     { name = "sqlglot" },
     { name = "tenacity" },
     { name = "typer" },
+    { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
@@ -718,7 +720,6 @@ bigquery = [
     { name = "google-cloud-bigquery-storage" },
 ]
 dev = [
-    { name = "fastapi" },
     { name = "jsonschema" },
     { name = "mypy" },
     { name = "pytest" },
@@ -727,7 +728,6 @@ dev = [
     { name = "types-jsonschema" },
     { name = "types-protobuf" },
     { name = "types-pyyaml" },
-    { name = "uvicorn" },
 ]
 gcp = [
     { name = "google-auth" },
@@ -780,7 +780,7 @@ requires-dist = [
     { name = "dlt", extras = ["bigquery"], specifier = ">=1.0" },
     { name = "dlt", extras = ["bigquery"], marker = "extra == 'bigquery'", specifier = ">=1.0" },
     { name = "dlt", extras = ["bigquery"], marker = "extra == 'runtime-all'", specifier = ">=1.0" },
-    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.115" },
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "google-auth", specifier = ">=2.35" },
     { name = "google-auth", marker = "extra == 'gcp'", specifier = ">=2.35" },
     { name = "google-auth", marker = "extra == 'runtime-all'", specifier = ">=2.35" },
@@ -827,7 +827,7 @@ requires-dist = [
     { name = "types-jsonschema", marker = "extra == 'dev'", specifier = ">=4.23" },
     { name = "types-protobuf", marker = "extra == 'dev'" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },
-    { name = "uvicorn", marker = "extra == 'dev'", specifier = ">=0.30" },
+    { name = "uvicorn", specifier = ">=0.30" },
 ]
 provides-extras = ["bigquery", "snowflake", "redshift", "postgres", "gcp", "aws", "azure", "oci", "runtime-all", "dev"]
 

@@ -457,6 +457,48 @@ class PipelineGraphDocument(ControlModel):
         return cls.model_validate(graph.model_dump(mode="json", by_alias=True))
 
 
+class GraphSummaryResponse(ControlModel):
+    """Document-free metadata for one graph in a bounded hosted list response."""
+
+    project: str
+    graph: str
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    created_at: str
+    updated_at: str
+
+
+class GraphResourceResponse(GraphSummaryResponse):
+    """One hosted graph resource; its opaque revision travels only in the HTTP ETag."""
+
+    document: PipelineGraphDocument
+
+
+class GraphCreateRequest(ControlModel):
+    """Create one named graph through the hosted project collection route."""
+
+    graph: str
+    document: PipelineGraphDocument
+
+
+class GraphPageResponse(ControlModel):
+    """A bounded graph-summary page that never embeds full graph documents."""
+
+    items: tuple[GraphSummaryResponse, ...] = Field(max_length=100)
+    next_cursor: str | None = None
+
+
+class ProjectSummaryResponse(ControlModel):
+    """One configured logical project, never a provider project payload."""
+
+    id: str
+
+
+class ProjectListResponse(ControlModel):
+    """The bounded logical projects configured for this Dander installation."""
+
+    projects: tuple[ProjectSummaryResponse, ...] = Field(max_length=100)
+
+
 class GraphValidationDetail(ControlModel):
     location: str
     message: str
@@ -595,6 +637,13 @@ class RunStatusResponse(ControlModel):
     can_cancel: bool = False
     can_replay: bool = False
     logs_available: bool = False
+
+
+class RunPageResponse(ControlModel):
+    """A bounded page of normalized, non-sensitive run summaries."""
+
+    items: tuple[RunStatusResponse, ...] = Field(max_length=100)
+    next_cursor: str | None = None
 
 
 class LogLevel(StrEnum):

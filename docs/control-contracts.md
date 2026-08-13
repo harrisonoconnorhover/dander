@@ -1,6 +1,7 @@
 # Dander Control contract bundle
 
-Status: published in Dander `0.9.0rc18`
+Status: the original bundle is published in Dander `0.9.0rc18`; the additive hosted-resource
+revision on protected source is not yet published
 
 Dander is the authority for data crossing the future Control API boundary. The deterministic
 `io.dander.control.contracts/v1` bundle lives in `src/dander/control/contracts/v1` and is included
@@ -22,6 +23,13 @@ digest is:
 ```text
 344ef5ff2d685d5bedf7a1ddb119a42a6de08d90f285dc0a981e79c55452c1ed
 ```
+
+That digest identifies the immutable public `0.9.0rc18` artifact. DANDER-121 adds the previously
+missing project list, graph create/resource/page, and run page envelopes without changing existing
+contract meanings. The resulting source digest is
+`e88f732308db41872d0438b9b79df345647c4552a1c750e0230515939d09a246`. It remains unpublished
+until a separately approved immutable release; Druff must continue consuming the public rc18
+digest until that release exists.
 
 The same digest is present in the immutable public `dander-platform==0.9.0rc18` wheel and source
 distribution published from protected-main commit
@@ -74,9 +82,24 @@ validation or preconditions do not consume a key. The initial rooted local adapt
 pending mutation before changing a graph and marks it complete afterward, so a restart at either
 boundary is recoverable without arbitrary filesystem access.
 
-These are server-internal storage semantics for DANDER-120. They do not add hosted routes or alter
-the already-published `io.dander.control.contracts/v1` bundle. DANDER-121 will project them through
-the separately named hosted service while preserving `dander graph serve --file` unchanged.
+These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
+separately named hosted service while preserving `dander graph serve --file` unchanged.
+
+## Hosted Control service
+
+`dander control serve` is distinct from the existing one-file bridge. It exposes configured
+logical projects and multi-graph CRUD, validation, capability/catalog discovery, and normalized
+preview/run routes over `GraphStore`. Until DANDER-126 adds OIDC authorization, the command rejects
+every non-loopback bind. Unwired preview and lifecycle operations remain absent from capabilities
+and fail closed instead of falling through to the GCP-specific local wrapper.
+
+Opaque store revisions are base64url-wrapped in strong quoted HTTP ETags and decoded exactly for
+conditional operations. Run start uses `If-Match` plus `Idempotency-Key` headers so the published
+v1 `RunRequest` meaning remains unchanged. Create/cancel/replay likewise have one explicit
+idempotency source, graph bodies are streamed only to a fixed limit, header-only mutations reject
+bodies, list and log pages are bounded, oversized responses fail closed, and mutation audit
+records contain only method, route template, status, and correlation ID. Response DTOs omit
+provider payloads, credentials, secret values, SQL, rows, and raw exception messages.
 
 ## Regenerate and verify
 

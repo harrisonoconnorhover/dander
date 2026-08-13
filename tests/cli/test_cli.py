@@ -317,3 +317,11 @@ def test_graph_operations_require_project_and_pipeline_together(tmp_path: Path) 
     assert result.exit_code == 1
     assert result.exception is not None
     assert "--pipeline and --project must be supplied together" in str(result.exception)
+
+
+def test_control_service_rejects_external_bind_before_oidc() -> None:
+    result = CliRunner().invoke(app, ["control", "serve", "--host", "0.0.0.0", "--ephemeral"])
+
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert "only to loopback until OIDC" in str(result.exception)
