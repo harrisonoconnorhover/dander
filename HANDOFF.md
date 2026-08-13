@@ -2,39 +2,37 @@
 
 ## Finished
 
-- Public `0.9.0rc17` passed the named OCI/PostgreSQL lifecycle on one digest-preserved GAR/OCIR index.
-- Proved scheduling, replay, fencing, cancellation, retry exhaustion, Vault rotation, and bounded logs.
-- Proved immutable RC16 rollback and RC17 restoration, then removed every live Container Instance.
-- Verified both OCI Terraform roots and both retained-GCP roots at exact no drift.
-- Recorded the Phase 7 acceptance, provider limitations, ticket completion, and fail-closed OCI-to-Google boundary.
+- Recorded the exact Dander/Druff Phase D0 baselines, green CI, Phase 7 cleanup, and governance state.
+- Inventoried the local Graph API, canonical domain operations, provider/runtime contracts, and filesystem coupling.
+- Confirmed static Druff plus an external-OIDC Dander Control API as the bounded architecture.
+- Defined generated transport, GraphStore, revision, service projection, compatibility, PR, and live-proof gates.
+- Incorporated the independent adversarial architecture corrections without application or cloud changes.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py` and `uv run pytest -q tests/test_release_metadata.py`.
+Read `docs/druff-control-plane-roadmap.md`; no service or provider command is introduced by D0.
 
 ## Checks
 
-- Protected-main CI run `31697938533` — passed all required jobs.
-- Public release workflow `31698916153` — passed; wheel and source distribution published.
-- RC17 live profile — 17 rows, one model, three assertions; passed.
-- OCI stage-zero/foundation and retained-GCP stage-zero/platform plans — exact no changes.
-- Final OCI inventory — zero non-deleted Container Instances; schedule inactive.
+- `terraform fmt -check -recursive infra` passed.
+- `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src tests` passed.
+- `uv run pytest` passed: 1,407 tests, with 28 skipped.
+- Protected CI and the repository secret scan remain required before merge.
 
 ## Decisions
 
-- Keep OCI-to-Google unsupported; do not substitute static Google keys for missing federation.
-- Keep OCIR tag immutability and default-Vault master-key rotation limitations explicit.
-- Phase 7 passes, but OCI remains experimental until Phase 8 qualification.
+- Dander remains the only semantic and provider authority; Druff remains a static generated client.
+- Use explicit transport DTOs, GraphStore-first routing, and separate opaque revisions/content hashes.
+- Keep control-service, static-site, and existing job-launcher deployment semantics distinct.
 
 ## Remaining
 
-- Merge the focused Phase 7 evidence PR after protected CI and completion review.
-- Execute the approved Phase 8 benchmark and pairwise-profile matrix under explicit ceilings.
-- Complete current-profile release-candidate soak and operations documentation.
-- Freeze the tested support matrix only after all Phase 8 gates pass.
+- Merge the paired D0 documentation PRs after checks and completion review.
+- Publish the Dander contract producer before Druff generates its consumer.
+- Keep provider live work behind local gates, reviewed plans, numeric ceilings, and separate approval.
 
 ## Review First
 
-- `docs/cloud-portability-oci-lifecycle-acceptance.md`
-- `docs/evidence/oci/2026-08-13/phase7.json`
-- `docs/cloud-portability-plan.md`
+- `docs/druff-control-plane-roadmap.md`
+- `tickets/DANDER-119-control-contract-bundle.md`
+- `tickets/DANDER-120-graph-store-local.md`

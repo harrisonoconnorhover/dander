@@ -1531,3 +1531,19 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   applicable Phase 8 scale, cost, pairwise-profile, soak, and release checks pass.
 - **Boundary:** The enabled alarm reached the reviewed Notifications topic, but no external topic
   subscriber existed. Record alarm routing as proven and external delivery as unconfigured.
+
+## 2026-08-13 — Druff remains static over one Dander-owned Control API
+
+- **Semantic boundary:** Dander continues to own graph models and validation, catalogs, planning,
+  execution, state, providers, and deployment. Druff consumes one generated Control API contract
+  and keeps only advisory presentation validation; no provider client or execution semantics enter
+  the browser.
+- **Hosting and identity:** Druff remains a deterministic static export. A public OIDC client uses
+  authorization code plus PKCE, while Dander validates tokens and centrally authorizes every hosted
+  request. The public bootstrap descriptor and Dander's CORS/OIDC trust settings are generated from
+  one typed deployment input; the descriptor is discovery data, not an authority.
+- **New contracts:** Publish an explicit Dander transport DTO bundle instead of treating today's
+  incomplete Pydantic JSON Schema as exact. Land the GraphStore port before hosted multi-graph
+  routing, expose opaque ETags separately from canonical content hashes, and add a narrow
+  control-service projection adjacent to unchanged job launchers. Druff's static artifact remains
+  a separate deployment input.
