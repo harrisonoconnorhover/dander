@@ -27,6 +27,7 @@ WHEEL_REQUIRED = {
     "dander/templates/project/infra/azure/modules/container-apps-jobs/main.tf",
     "dander/templates/project/infra/main.tf",
     "dander/templates/project/models/staging/stg_greenhouse__jobs.sql",
+    "dander/templates/project/models/staging/stg_greenhouse__jobs.postgres.sql",
     "dander/templates/project/models/staging/stg_greenhouse__jobs.yml",
     "dander/templates/project/examples/salesforce/dander.yaml",
     "dander/templates/project/examples/salesforce/connectors/salesforce.yaml",

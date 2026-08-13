@@ -2,7 +2,7 @@
 model: stg_greenhouse__jobs
 description: Published Greenhouse jobs cleaned to one row per job.
 owner: data-eng
-dialect: portable
+dialect: bigquery
 materialization: view
 dataset: staging
 source_system: greenhouse_job_board
