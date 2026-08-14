@@ -60,10 +60,11 @@ approval reference. Omitting or adding an objective cannot silently turn a parti
 qualification evidence.
 
 Common measurements use `measured` or `unavailable`; an unavailable metric is never serialized as
-zero. Report status is separately `not_evaluated`, `failed`, or `passed`. A passed report requires
-every common metric, explicit USD cost evidence including an honestly measured zero, and every
-approved objective to pass. Bounded-memory reports additionally require an externally enforced
-limit, logical input at least ten times that limit, and peak RSS no greater than 80 percent.
+zero, and a boolean cannot be accepted as numeric evidence. Report status is separately
+`not_evaluated`, `failed`, or `passed`. A passed report requires every common metric, explicit USD
+cost evidence including an honestly measured zero, and every approved objective to pass.
+Bounded-memory reports additionally require an externally enforced limit, logical input at least
+ten times that limit, and peak RSS no greater than 80 percent.
 
 ## Deterministic profile and pairwise matrix
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import tempfile
 import time
 from pathlib import Path
@@ -38,13 +39,14 @@ from dander.runtime_contract import (
 )
 from dander.runtime_inspection import inspect_runtime, run_local_conformance
 from dander.runtime_secrets import RuntimeSecretBindingError, projected_secret_environment
-from dander.state import RunStage, classify_failure
+from dander.state import FailureDetails, RunStage, classify_failure
 
 runtime_app = typer.Typer(
     help="Execute and inspect Dander's launcher-neutral OCI runtime contract.",
     no_args_is_help=True,
 )
 _CONSOLE = Console()
+_LOGGER = logging.getLogger(__name__)
 
 
 @runtime_app.command("identity-refresh-probe", hidden=True)
@@ -215,7 +217,15 @@ def execute_runtime(
                 retry=context.attempt > 1,
                 render=False,
             )
-    except RuntimeCancelledError:
+    except RuntimeCancelledError as error:
+        failure = classify_failure(error, stage=RunStage.INGEST, run_id=context.run_id)
+        _log_failure_diagnostic(
+            failure=failure,
+            run_id=context.run_id,
+            pipeline_id=pipeline,
+            stage="cancelled",
+            started_ns=started_ns,
+        )
         typer.echo(
             RuntimeEvent.failed(
                 context=context,
@@ -232,6 +242,13 @@ def execute_runtime(
         failure = classify_failure(error, stage=RunStage.INGEST, run_id=context.run_id)
         if failure.code != "unexpected_error":
             retryable = is_retryable_failure(failure.code)
+            _log_failure_diagnostic(
+                failure=failure,
+                run_id=context.run_id,
+                pipeline_id=pipeline,
+                stage="runtime",
+                started_ns=started_ns,
+            )
             typer.echo(
                 RuntimeEvent.failed(
                     context=context,
@@ -249,6 +266,13 @@ def execute_runtime(
                 else RuntimeExitCode.PERMANENT_FAILURE
             )
             raise typer.Exit(code=code) from None
+        _log_failure_diagnostic(
+            failure=failure,
+            run_id=context.run_id,
+            pipeline_id=pipeline,
+            stage="configuration",
+            started_ns=started_ns,
+        )
         typer.echo(
             RuntimeEvent.failed(
                 context=context,
@@ -264,6 +288,13 @@ def execute_runtime(
     except Exception as error:
         failure = classify_failure(error, stage=RunStage.INGEST, run_id=context.run_id)
         retryable = is_retryable_failure(failure.code)
+        _log_failure_diagnostic(
+            failure=failure,
+            run_id=context.run_id,
+            pipeline_id=pipeline,
+            stage="runtime",
+            started_ns=started_ns,
+        )
         typer.echo(
             RuntimeEvent.failed(
                 context=context,
@@ -286,6 +317,26 @@ def execute_runtime(
             platform=platform,
             duration_ms=_elapsed_ms(started_ns),
         ).to_json()
+    )
+
+
+def _log_failure_diagnostic(
+    *,
+    failure: FailureDetails,
+    run_id: str,
+    pipeline_id: str,
+    stage: str,
+    started_ns: int,
+) -> None:
+    diagnostic = {
+        "event": "pipeline_failed",
+        "pipeline_id": pipeline_id,
+        **failure.diagnostic_payload(run_id=run_id, stage=stage),
+        "duration_ms": _elapsed_ms(started_ns),
+    }
+    _LOGGER.warning(
+        json.dumps(diagnostic, separators=(",", ":"), sort_keys=True),
+        extra={"dander_event": "pipeline_failed", **diagnostic},
     )
 
 

@@ -188,6 +188,8 @@ def test_run_performance_distinguishes_measured_zero_from_unavailable() -> None:
 
 
 def test_run_performance_requires_fixed_common_names_and_sorted_provider_metrics() -> None:
+    with pytest.raises(ValueError, match="must not be a boolean"):
+        PerformanceMeasurement.measured("rows", "rows", True)
     with pytest.raises(ValueError, match="name='rows'"):
         _performance(rows=PerformanceMeasurement.measured("records", "rows", 1))
     with pytest.raises(ValueError, match="unique and sorted"):

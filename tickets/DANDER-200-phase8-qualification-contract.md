@@ -36,7 +36,7 @@ one versioned qualification envelope; do not infer qualification from historical
 - Rebased onto protected-main descendant `6af0e64`; the contract remains additive to runtime
   telemetry and historical partial reports remain `not_evaluated`.
 - Passed reports require measured, non-estimated USD cost evidence and provider-specific metrics
-  cannot duplicate common measurement names.
+  cannot duplicate common measurement names; boolean values cannot masquerade as numeric evidence.
 - An approved objective manifest and stable approval reference prevent a producer from omitting an
   applicable SLO while retaining `passed`.
 - Phase 8 tickets moved to 200–207 after concurrent Druff work assigned the checkpoint's earlier

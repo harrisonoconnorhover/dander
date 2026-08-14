@@ -35,5 +35,7 @@ persist unrestricted exception text.
   exception message or object representation.
 - `PipelineExecutor` writes one deterministic diagnostic JSON record with run, pipeline, stage,
   code, duration, class chain, and status while leaving durable history unchanged.
+- The launcher-neutral runtime CLI emits the same sanitized identity when secret resolution,
+  provider construction, or other setup fails before `PipelineExecutor` can run.
 - Local failure, executor, runtime-CLI, telemetry, and qualification tests pass. Retained-provider
   evidence remains approval-gated and is intentionally not claimed here.

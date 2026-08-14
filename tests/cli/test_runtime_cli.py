@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, cast
 
@@ -19,7 +20,7 @@ from dander.runtime_contract import RuntimeCancelledError, RuntimeExitCode
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from pytest import MonkeyPatch
+    from pytest import LogCaptureFixture, MonkeyPatch
     from rich.console import Console
     from typer.testing import Result
 
@@ -299,3 +300,40 @@ def test_runtime_execute_sanitizes_fargate_identity_failure(
     terminal = json.loads(result.output.splitlines()[-1])
     assert terminal["failure_code"] == "authentication_failed"
     assert "temporary credential detail" not in result.output
+
+
+def test_runtime_execute_logs_diagnostic_for_pre_executor_sdk_failure(
+    monkeypatch: MonkeyPatch,
+    caplog: LogCaptureFixture,
+) -> None:
+    class ClientError(RuntimeError):
+        def __init__(self) -> None:
+            super().__init__("secret-value-must-not-escape")
+            self.response = {"ResponseMetadata": {"HTTPStatusCode": 403}}
+
+    @contextmanager
+    def secret_failure() -> Iterator[None]:
+        raise ClientError
+        yield
+
+    monkeypatch.setattr(runtime_module, "projected_secret_environment", secret_failure)
+    with caplog.at_level(logging.WARNING, logger=runtime_module.__name__):
+        result = _invoke(monkeypatch, lambda *_args, **_kwargs: None)
+
+    assert result.exit_code == RuntimeExitCode.PERMANENT_FAILURE
+    record = next(
+        item for item in caplog.records if getattr(item, "dander_event", None) == "pipeline_failed"
+    )
+    diagnostic = json.loads(record.message)
+    assert diagnostic == {
+        "duration_ms": diagnostic["duration_ms"],
+        "event": "pipeline_failed",
+        "exception_class_chain": ["ClientError"],
+        "failure_code": "permission_denied",
+        "pipeline_id": "greenhouse_jobs",
+        "run_id": "cloud-run:execution-42",
+        "stage": "runtime",
+        "status_code": 403,
+    }
+    assert "secret-value-must-not-escape" not in record.message
+    assert "secret-value-must-not-escape" not in result.output
