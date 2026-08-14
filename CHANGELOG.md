@@ -6,6 +6,28 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc21 — 2026-08-14 (beta)
+
+### Added
+
+- Add the fail-closed Phase 8 qualification report with exact candidate, workload, cost, metric,
+  and context-bound objective evidence.
+- Add the typed AWS-native Fargate profile for Redshift, PostgreSQL state, Glue, and AWS Secrets
+  Manager with manifest-scoped runtime permissions.
+- Add sanitized failure diagnostics across executor and pre-executor runtime boundaries without
+  persisting exception text or duplicating authoritative events.
+
+### Fixed
+
+- Initialize local Control-service GraphStore volumes through a privileged one-shot helper so a
+  fresh named volume is writable by the non-root runtime.
+
+### Known limitations
+
+- RC21 is a private qualification candidate until the exact artifact passes the Phase 8 live,
+  scale, pairwise, audit, and soak gates. AWS-native support is not promoted without live AWS
+  qualification, and the Kubernetes lifecycle adapter remains in the separate Druff workstream.
+
 ## 0.9.0rc20 — 2026-08-14 (beta)
 
 ### Added

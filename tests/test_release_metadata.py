@@ -37,7 +37,7 @@ def test_publication_check_rejects_unpromoted_prepared_version(tmp_path: Path) -
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         pyproject.read_text(encoding="utf-8").replace(
-            'version = "0.9.0rc20"',
+            'version = "0.9.0rc21"',
             'version = "0.9.0rc99"',
             1,
         ),
@@ -66,6 +66,15 @@ def test_publication_check_accepts_matching_package_and_public_versions(tmp_path
         destination = tmp_path / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8").replace(
+            'version = "0.9.0rc21"',
+            'version = "0.9.0rc20"',
+            1,
+        ),
+        encoding="utf-8",
+    )
     assert release_metadata_errors(tmp_path, require_public_package_match=True) == []
 
 

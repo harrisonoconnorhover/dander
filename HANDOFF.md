@@ -2,37 +2,40 @@
 
 ## Finished
 
-- Corrected the D7 named-volume initializer after its first live Docker start failed closed.
-- Granted only `FOWNER` in addition to `CHOWN` for the fixed owner/mode command.
-- Kept it networkless, read-only, no-new-privileges, and limited to the named volume.
-- Rebased over protected Phase 8 merge `fe325ff` without changing its implementation.
+- Merged the Phase 8 qualification contract, diagnostics, and AWS-native profile through PR #269 at protected main `fe325ff`.
+- Protected exact-main CI passed all five jobs; DANDER-200 and DANDER-202 are complete.
+- Prepared private `0.9.0rc21` candidate metadata without changing public RC20 references.
+- Rebased over protected main `ee03b94`, preserving its D7 correction; Kubernetes lifecycle-adapter work remains in the separate Druff stream.
+- Recorded the user's USD 10 aggregate live-cloud authorization; spend remains USD 0.
 
 ## Try It
 
-Render the D7 local profile and start Compose with an empty named volume; initialization must exit zero.
+Run `uv run python scripts/check_release_metadata.py`; publication mode must still reject private RC21 against public RC20.
 
 ## Checks
 
-- The pre-change start failed exactly at `chmod 0700`; the empty stack was removed completely.
-- The corrected initializer exited zero and the active live verifier passed all ten checks.
-- Six focused and the full test suite passed; full Ruff lint/format passed.
-- Focused mypy passed; protected main `fe325ff` CI passed all five jobs before the rebase.
-- Full macOS mypy retained four known platform-only unused-ignore findings.
+- PR #269 exact-head CI and independent review passed with all conversations resolved.
+- Exact-main CI run `31818216295` passed all five jobs at `fe325ff`.
+- Full Ruff, format, mypy, and pytest passed with expected skips before the version-only candidate preparation.
+- RC21 metadata, 4 focused tests, Ruff, wheel/sdist build and validation, clean installs/scaffolds, and generated Terraform validation passed.
+- Publication-mode metadata correctly rejects private RC21 against public RC20.
 
 ## Decisions
 
-- `CHOWN` changes the volume owner; `FOWNER` is separately required to change its mode.
-- Adding exactly `FOWNER` is smaller than weakening the accepted `0700` mode.
-- The incomplete live attempt is diagnostic evidence, not a passed D7 qualification.
+- RC21 is the one private Phase 8 qualification candidate; RC20 remains the current public beta.
+- Passed reports bind approved objectives to the exact benchmark, profile, workload, and candidate.
+- Kubernetes lifecycle-adapter implementation remains excluded because it overlaps Druff.
 
 ## Remaining
 
-- Merge this focused protected correction and verify exact-main CI.
-- Resume D7 HTTPS OIDC, persistence, no-drift, rollback, restore, and cleanup.
-- Continue the separately merged Phase 8 work without coupling it to D7.
+- Validate, review, and merge the RC21 preparation through protected CI.
+- Build and privately publish one source-free RC21 image, then deploy DANDER-201 diagnostics.
+- Run exact-candidate Kubernetes, scale, pairwise, and canonical gates within USD 10.
+- Record unavailable AWS/OCI credentials as provider blockers without weakening gates.
+- Complete final audits and the retained soak through 2026-09-01 before public support release.
 
 ## Review First
 
-- `infra/local/compose.yaml`
-- `src/dander/deployment/local_compose.py`
-- `tests/deployment/test_local_compose.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `tickets/DANDER-200-phase8-qualification-contract.md`
