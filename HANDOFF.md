@@ -2,37 +2,39 @@
 
 ## Finished
 
-- Prepared `dander-platform==0.9.0rc19` from the complete protected-main D2-D4 source.
-- Recorded the hosted Control API, graph stores, OIDC authorization, and additive contract roots.
-- Kept all install, status, upgrade, audit, and evidence references on public RC18.
-- Preserved the unpromoted status of S3, Azure Blob, and OCI graph stores.
+- Promoted current-public install, status, upgrade, audit, session, and Phase 1B references from
+  `0.9.0rc18` to the explicitly approved `0.9.0rc19` candidate.
+- Updated release-metadata tests so publication mode proves prepared and public RC19 match.
+- Preserved every historical RC18 contract-release claim and provider-support limitation.
+- Left the reviewed RC19 package contents, version, lockfile, changelog, and workflow unchanged.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py`; publication mode intentionally fails until
-an explicitly approved promotion changes current-public references to RC19.
+Run `uv run python scripts/check_release_metadata.py --publication`; it now passes for RC19.
 
 ## Checks
 
-- Release metadata, focused release tests, package build, and distribution validation passed.
-- Ruff lint/format and Git whitespace validation passed.
-- Publication-mode metadata validation failed closed on RC19 versus public RC18, as required.
-- No tag, PyPI artifact, issuer registration, provider resource, or paid action was created.
+- Normal and publication-mode release metadata validation passed for RC19.
+- Focused release tests and Ruff lint/format passed.
+- Control-contract drift and RC19 wheel/source-distribution validation passed.
+- Git whitespace and secret/artifact diff review passed.
+- No tag, PyPI artifact, provider resource, or paid action was created by this PR.
 
 ## Decisions
 
-- RC19 describes the complete exact-main source rather than presenting the release as D4-only.
-- Provider adapter availability does not promote support without each provider's live proof.
-- Public references remain on RC18 until a separately approved promotion, tag, and publication.
+- Promotion changes only current-public references; exact historical artifact claims remain fixed.
+- Tagging waits for protected PR and exact-main CI on the promotion commit.
+- Druff consumption waits for immutable PyPI verification and the post-public evidence PR.
 
 ## Remaining
 
-- Complete independent completion review and protected PR CI for the preparation commit.
-- Obtain explicit approval before promotion, immutable tag creation, or PyPI publication.
-- Generate the Druff client only from the approved immutable RC19 artifact.
+- Complete the independent promotion review and protected PR/exact-main CI.
+- Create immutable `v0.9.0rc19` and complete the approval-gated PyPI workflow.
+- Verify public RC19 outside the checkout and create the matching GitHub prerelease.
+- Record immutable release evidence before Druff consumes RC19.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
+- `scripts/check_release_metadata.py`
 - `tests/test_release_metadata.py`
+- `.github/workflows/publish.yml`
