@@ -50,6 +50,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   harness-only fixture escaping defect; the corrected retry and both cleanup outcomes are
   retained in `docs/evidence/phase8/2026-08-14/postgresql-transform-attempts.json`.
 
+- Exact RC22 passed the PostgreSQL-specific failure class in 173 ms: pool exhaustion failed in a
+  bounded 104 ms, a terminated connection was replaced, state operations recovered, and warehouse
+  cancellation rolled back its transaction. Cleanup was exact and local cost was USD 0. Connector
+  and launcher failure cases remain separate profile gates. See
+  `docs/evidence/phase8/2026-08-14/postgresql-failure.json`.
+
 - On 2026-08-14, exact private RC22 replaced RC21 on all five retained jobs through a saved
   `0 add / 5 change / 0 destroy` plan. Authenticated Salesforce manual/replay executions
   `dander-salesforce-accounts-rxvvd` and `dander-salesforce-accounts-xmm4r` produced equal counts;

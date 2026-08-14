@@ -38,8 +38,8 @@ limit documents the test environment; it does not itself impose a memory limit.
 
 ## Phase 8 exact-candidate evidence
 
-`scripts/benchmarks/postgresql_phase8.py` runs correctness, bulk, incremental, and transform
-classes. It requires
+`scripts/benchmarks/postgresql_phase8.py` runs correctness, bulk, incremental, transform, and
+PostgreSQL-specific failure classes. It requires
 pre-committed objective manifests bound to the immutable release, image digest, workload hash, and
 zero-dollar local cost ceiling. The harness refuses a non-COPY PostgreSQL writer, verifies exact
 table shape and cursor-monotonic incremental results, removes its disposable schemas, and emits
@@ -54,6 +54,8 @@ PostgreSQL 15.18 at 2 CPU/1 GiB:
 - a 3,000-row delta against 300,000 seed rows at 16,483.516 rows/second;
 - scan, join, ten-category aggregation, incremental update/insert, and 21 generic assertion
   executions over 100,000 facts and 100 dimensions in 1.508 seconds;
+- bounded pool exhaustion, terminated-connection replacement, recovered state operations, and
+  warehouse cancellation rollback in 173 ms;
 - an exact 301,500-row final target, zero cursor-regression changes, zero staging residue, and
   verified schema cleanup;
 - measured local service cost of USD 0.

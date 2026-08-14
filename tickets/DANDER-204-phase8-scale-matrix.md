@@ -38,6 +38,9 @@ scale report.
 - Exact RC22's transform class passed scan, join, aggregation, incremental merge, and 21 generic
   assertion executions over 100,000 facts and 100 dimensions. The initial harness-only seed
   failure remains in the attempts record; it did not execute candidate transform code.
-- Six PostgreSQL classes now pass. Failure, hosted cost, the other
+- The PostgreSQL-specific failure class passed bounded pool exhaustion, terminated-connection
+  replacement, recovered state operations, warehouse cancellation rollback, and cleanup. The
+  connector and launcher failure cases remain assigned to their own profile gates.
+- Seven PostgreSQL classes now pass. Hosted cost, the other
   warehouses, and every first-class launcher remain open. Crossover cannot pass on RC22 because
   its PostgreSQL factory exposes COPY only and has no bounded direct transport to compare.

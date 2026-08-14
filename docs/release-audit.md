@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Private RC22 is the immutable candidate; local Kubernetes lifecycle, local PostgreSQL correctness/bounded-memory/concurrency/bulk/incremental/transform, and the GCP canonical rerun pass. Remaining scale/cost, hosted/pairwise profiles, soak, audits, and support-matrix freeze stay open. |
+| Phase 8 support qualification | Open | Private RC22 is the immutable candidate; local Kubernetes lifecycle, local PostgreSQL correctness/bounded-memory/concurrency/bulk/incremental/transform/failure, and the GCP canonical rerun pass. Remaining scale/cost, hosted/pairwise profiles, soak, audits, and support-matrix freeze stay open. |
 
 ## Current release and deployment record
 
