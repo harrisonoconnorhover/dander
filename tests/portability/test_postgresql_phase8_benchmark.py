@@ -6,9 +6,14 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
-from scripts.benchmarks.postgresql_phase8 import Phase8PostgreSQLConfig, load_approval
+from scripts.benchmarks.postgresql_phase8 import (
+    Phase8PostgreSQLConfig,
+    _write_transform_models,
+    load_approval,
+)
 
 from dander.qualification import BenchmarkClass
+from dander.transform import SqlDialect, TransformProject
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -20,11 +25,13 @@ def test_phase8_postgresql_config_hashes_each_class_deterministically() -> None:
     correctness = config.configuration_sha256(BenchmarkClass.CORRECTNESS)
     bulk = config.configuration_sha256(BenchmarkClass.BULK_THROUGHPUT)
     incremental = config.configuration_sha256(BenchmarkClass.INCREMENTAL)
+    transform = config.configuration_sha256(BenchmarkClass.TRANSFORM)
 
     assert len(correctness) == 64
     assert len(bulk) == 64
     assert len(incremental) == 64
-    assert len({correctness, bulk, incremental}) == 3
+    assert len(transform) == 64
+    assert len({correctness, bulk, incremental, transform}) == 4
     assert (
         config.workload_payload(BenchmarkClass.CORRECTNESS)["expected_normalized_sha256"]
         == "82886fc4c0bc5cfb248df1196b9d29763cad4fac60cf248a91084a185d78c2ee"
@@ -71,6 +78,25 @@ def test_load_approval_rejects_workload_or_objective_drift(tmp_path: Path) -> No
             config=config,
             benchmark_class=BenchmarkClass.BULK_THROUGHPUT,
         )
+
+
+def test_transform_fixture_compiles_all_required_models(tmp_path: Path) -> None:
+    _write_transform_models(tmp_path, target_schema="phase8_models")
+
+    project = TransformProject.load(
+        tmp_path,
+        catalog="dander",
+        raw_namespace="phase8_raw",
+        target_dialect=SqlDialect.POSTGRES,
+    )
+
+    assert tuple(model.name for model in project.ordered()) == (
+        "scan_records",
+        "joined_records",
+        "aggregate_records",
+        "incremental_records",
+    )
+    assert all(project.compile(model) for model in project.ordered())
 
 
 def _manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]:

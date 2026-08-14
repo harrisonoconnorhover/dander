@@ -17,6 +17,7 @@ from datetime import date
 from decimal import Decimal
 from itertools import islice
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any, cast
 
 from psycopg import Connection, sql
@@ -26,6 +27,7 @@ from psycopg_pool import ConnectionPool
 from dander import __version__
 from dander.concurrency import FencingToken, TargetFence
 from dander.providers import ProviderKind, default_provider_registry
+from dander.providers.postgresql.transform import PostgreSQLTransformRunner
 from dander.providers.postgresql.writer import PostgreSQLCopyWriter
 from dander.qualification import (
     ApprovedCostCeiling,
@@ -75,6 +77,15 @@ _INCREMENTAL_OBJECTIVES = (
     "incremental_cursor_monotonic",
     "incremental_throughput_measurement",
 )
+_TRANSFORM_OBJECTIVES = (
+    "aggregation_exact",
+    "cleanup",
+    "cost_ceiling",
+    "generic_tests",
+    "incremental_merge",
+    "join_exact",
+    "scan_exact",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +99,8 @@ class Phase8PostgreSQLConfig:
     incremental_seed_rows: int = 300_000
     incremental_delta_rows: int = 3_000
     incremental_payload_bytes: int = 128
+    transform_fact_rows: int = 100_000
+    transform_dimension_rows: int = 100
     batch_rows: int = 1_000
 
     def __post_init__(self) -> None:
@@ -99,6 +112,8 @@ class Phase8PostgreSQLConfig:
             "incremental_seed_rows",
             "incremental_delta_rows",
             "incremental_payload_bytes",
+            "transform_fact_rows",
+            "transform_dimension_rows",
             "batch_rows",
         ):
             value = getattr(self, name)
@@ -108,6 +123,8 @@ class Phase8PostgreSQLConfig:
             raise ValueError("incremental_delta_rows must be even")
         if self.incremental_delta_rows > self.incremental_seed_rows:
             raise ValueError("incremental_delta_rows must not exceed incremental_seed_rows")
+        if self.transform_fact_rows < self.transform_dimension_rows:
+            raise ValueError("transform_fact_rows must not be smaller than transform dimensions")
         if self.batch_rows > min(self.narrow_rows, self.wide_rows, self.incremental_seed_rows):
             raise ValueError("batch_rows must not exceed the smallest seeded workload")
         if self.batch_rows * max(self.wide_payload_bytes, self.incremental_payload_bytes) > (
@@ -147,8 +164,19 @@ class Phase8PostgreSQLConfig:
                 "delta_rows": self.incremental_delta_rows,
                 "payload_bytes": self.incremental_payload_bytes,
             }
+        if benchmark_class is BenchmarkClass.TRANSFORM:
+            return {
+                **common,
+                "schema": "io.dander.phase8.postgresql-transform/v1",
+                "batch_rows": self.transform_fact_rows,
+                "fact_rows": self.transform_fact_rows,
+                "dimension_rows": self.transform_dimension_rows,
+                "delta_rows": 2,
+                "models": ["scan", "join", "aggregation", "incremental"],
+                "generic_tests": ["accepted_values", "not_null", "unique"],
+            }
         raise ValueError(
-            "Phase 8 PostgreSQL harness supports correctness, bulk, and incremental classes"
+            "Phase 8 PostgreSQL harness supports correctness, bulk, incremental, and transform"
         )
 
     def configuration_sha256(self, benchmark_class: BenchmarkClass) -> str:
@@ -222,6 +250,29 @@ class _IncrementalResult:
     cleanup_verified: bool
 
 
+@dataclass(slots=True)
+class _Ownership:
+    fence: FencingToken
+    verifications: int = 0
+
+    def verify(self) -> None:
+        self.verifications += 1
+
+
+@dataclass(frozen=True, slots=True)
+class _TransformResult:
+    duration_ms: int
+    peak_rss_bytes: int
+    input_rows: int
+    logical_input_bytes: int
+    output_rows: int
+    model_count: int
+    assertion_count: int
+    ownership_verifications: int
+    temporary_staging_relations: int
+    cleanup_verified: bool
+
+
 def load_approval(
     path: Path,
     *,
@@ -243,6 +294,7 @@ def load_approval(
         BenchmarkClass.CORRECTNESS: _CORRECTNESS_OBJECTIVES,
         BenchmarkClass.BULK_THROUGHPUT: _BULK_OBJECTIVES,
         BenchmarkClass.INCREMENTAL: _INCREMENTAL_OBJECTIVES,
+        BenchmarkClass.TRANSFORM: _TRANSFORM_OBJECTIVES,
     }.get(benchmark_class)
     if expected_names is None:
         raise ValueError("objective manifest selects an unsupported benchmark class")
@@ -281,8 +333,14 @@ def run_phase8_postgresql_qualification(
     correctness_approval: _Approval,
     bulk_approval: _Approval,
     incremental_approval: _Approval,
-) -> tuple[QualificationReport, QualificationReport, QualificationReport]:
-    """Execute correctness, bulk, and small-delta workloads in disposable schemas."""
+    transform_approval: _Approval,
+) -> tuple[
+    QualificationReport,
+    QualificationReport,
+    QualificationReport,
+    QualificationReport,
+]:
+    """Execute four PostgreSQL qualification classes in disposable schemas."""
     if not dsn:
         raise ValueError("PostgreSQL qualification requires a non-empty DSN")
     if __version__ != identity.release_version:
@@ -292,6 +350,7 @@ def run_phase8_postgresql_qualification(
     _require_identity_match(identity, correctness_approval)
     _require_identity_match(identity, bulk_approval)
     _require_identity_match(identity, incremental_approval)
+    _require_identity_match(identity, transform_approval)
     pool = cast(
         "PostgreSQLPool",
         ConnectionPool(
@@ -314,10 +373,12 @@ def run_phase8_postgresql_qualification(
         correctness = _run_correctness(pool, warehouse, database=database)
         bulk = _run_bulk(pool, warehouse, database=database, config=config)
         incremental = _run_incremental(pool, warehouse, database=database, config=config)
+        transform = _run_transform(pool, warehouse, database=database, config=config)
         return (
             _correctness_report(config, identity, correctness_approval, correctness),
             _bulk_report(config, identity, bulk_approval, bulk),
             _incremental_report(config, identity, incremental_approval, incremental),
+            _transform_report(config, identity, transform_approval, transform),
         )
     finally:
         pool.close()
@@ -597,6 +658,301 @@ def _run_incremental(
         temporary_staging_relations=staging,
         cleanup_verified=cleanup,
     )
+
+
+def _run_transform(
+    pool: PostgreSQLPool,
+    warehouse: WarehouseRuntime,
+    *,
+    database: str,
+    config: Phase8PostgreSQLConfig,
+) -> _TransformResult:
+    suffix = uuid.uuid4().hex[:12]
+    source_schema = f"dander_phase8_transform_source_{suffix}"
+    target_schema = f"dander_phase8_transform_target_{suffix}"
+    _seed_transform_sources(
+        pool,
+        source_schema=source_schema,
+        target_schema=target_schema,
+        config=config,
+    )
+    runner = warehouse.transforms.build_transform_runner(
+        graph_plan=None,
+        build_models=True,
+        raw_namespace=source_schema,
+    )
+    if not isinstance(runner, PostgreSQLTransformRunner):
+        raise RuntimeError("PostgreSQL transform qualification did not select its native runner")
+    first_ownership = _transform_ownership(database, run_id="transform-one", token=1)
+    second_ownership = _transform_ownership(database, run_id="transform-two", token=2)
+    started = time.perf_counter()
+    peak_before = _peak_rss_bytes()
+    try:
+        with TemporaryDirectory(prefix="dander-phase8-transform-") as temporary:
+            models = Path(temporary)
+            _write_transform_models(models, target_schema=target_schema)
+            initial = runner.build(
+                models,
+                selected=("aggregate_records", "incremental_records"),
+                ownership=first_ownership,
+            )
+            _require_transform_initial(
+                pool,
+                target_schema=target_schema,
+                config=config,
+            )
+            with pool.connection() as connection:
+                connection.execute(
+                    sql.SQL(
+                        "UPDATE {} SET amount = 999, updated_at = 2 WHERE id = 1"
+                    ).format(sql.Identifier(source_schema, "facts"))
+                )
+                connection.execute(
+                    sql.SQL(
+                        "INSERT INTO {} (id, dimension_id, amount, updated_at) "
+                        "VALUES (%s, 1, 5, 2)"
+                    ).format(sql.Identifier(source_schema, "facts")),
+                    (config.transform_fact_rows + 1,),
+                )
+            replay = runner.build(
+                models,
+                selected=("incremental_records",),
+                ownership=second_ownership,
+            )
+            _require_transform_incremental(
+                pool,
+                target_schema=target_schema,
+                expected_rows=config.transform_fact_rows + 1,
+            )
+            tested = runner.test(
+                models,
+                selected=("aggregate_records", "incremental_records"),
+            )
+            assertion_count = initial.assertions + replay.assertions + tested.assertions
+            model_count = len(initial.models)
+        staging = _temporary_staging_count(pool)
+        if staging:
+            raise RuntimeError(
+                "PostgreSQL transform qualification left temporary staging relations"
+            )
+    finally:
+        _drop_schema(pool, target_schema)
+        _drop_schema(pool, source_schema)
+    cleanup = not _schema_exists(pool, target_schema) and not _schema_exists(pool, source_schema)
+    if not cleanup:
+        raise RuntimeError(
+            "PostgreSQL transform qualification did not remove its disposable schemas"
+        )
+    input_rows = config.transform_fact_rows + config.transform_dimension_rows
+    return _TransformResult(
+        duration_ms=_elapsed_ms(started),
+        peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
+        input_rows=input_rows,
+        logical_input_bytes=(config.transform_fact_rows * 32)
+        + (config.transform_dimension_rows * 24),
+        output_rows=config.transform_fact_rows + 1,
+        model_count=model_count,
+        assertion_count=assertion_count,
+        ownership_verifications=first_ownership.verifications
+        + second_ownership.verifications,
+        temporary_staging_relations=staging,
+        cleanup_verified=cleanup,
+    )
+
+
+def _transform_ownership(database: str, *, run_id: str, token: int) -> _Ownership:
+    return _Ownership(
+        FencingToken(
+            lease_table=None,
+            pipeline_id="phase8_transform",
+            run_id=run_id,
+            token=token,
+            authority_id=f"postgresql:{database}-phase8-local",
+        )
+    )
+
+
+def _seed_transform_sources(
+    pool: PostgreSQLPool,
+    *,
+    source_schema: str,
+    target_schema: str,
+    config: Phase8PostgreSQLConfig,
+) -> None:
+    with pool.connection() as connection:
+        connection.execute(
+            sql.SQL("CREATE SCHEMA {}; CREATE SCHEMA {}").format(
+                sql.Identifier(source_schema),
+                sql.Identifier(target_schema),
+            )
+        )
+        connection.execute(
+            sql.SQL(
+                "CREATE TABLE {} (dimension_id BIGINT PRIMARY KEY, category TEXT NOT NULL)"
+            ).format(sql.Identifier(source_schema, "dimensions"))
+        )
+        connection.execute(
+            sql.SQL(
+                "INSERT INTO {} (dimension_id, category) "
+                "SELECT value, 'category_' || (value % 10)::text "
+                "FROM generate_series(0, %s) AS value"
+            ).format(sql.Identifier(source_schema, "dimensions")),
+            (config.transform_dimension_rows - 1,),
+        )
+        connection.execute(
+            sql.SQL(
+                "CREATE TABLE {} (id BIGINT PRIMARY KEY, dimension_id BIGINT NOT NULL, "
+                "amount BIGINT NOT NULL, updated_at BIGINT NOT NULL)"
+            ).format(sql.Identifier(source_schema, "facts"))
+        )
+        connection.execute(
+            sql.SQL(
+                "INSERT INTO {} (id, dimension_id, amount, updated_at) "
+                "SELECT value, value % %s, value % 17, 1 "
+                "FROM generate_series(1, %s) AS value"
+            ).format(sql.Identifier(source_schema, "facts")),
+            (config.transform_dimension_rows, config.transform_fact_rows),
+        )
+
+
+def _write_transform_models(root: Path, *, target_schema: str) -> None:
+    models = {
+        "scan_records": (
+            "SELECT id, dimension_id, amount, updated_at "
+            "FROM {{ ref('raw_facts') }}",
+            "table",
+            (
+                ("id", "INT64"),
+                ("dimension_id", "INT64"),
+                ("amount", "INT64"),
+                ("updated_at", "INT64"),
+            ),
+            "  - column: id\n    not_null: true\n    unique: true\n",
+            "",
+        ),
+        "joined_records": (
+            "SELECT facts.id, dimensions.category, facts.amount, facts.updated_at "
+            "FROM {{ ref('scan_records') }} AS facts "
+            "JOIN {{ ref('raw_dimensions') }} AS dimensions "
+            "ON facts.dimension_id = dimensions.dimension_id",
+            "table",
+            (
+                ("id", "INT64"),
+                ("category", "STRING"),
+                ("amount", "INT64"),
+                ("updated_at", "INT64"),
+            ),
+            "  - column: category\n"
+            "    accepted_values: [category_0, category_1, category_2, category_3, "
+            "category_4, category_5, category_6, category_7, category_8, category_9]\n",
+            "",
+        ),
+        "aggregate_records": (
+            "SELECT category, SUM(amount) AS total_amount, COUNT(*) AS row_count "
+            "FROM {{ ref('joined_records') }} GROUP BY category",
+            "table",
+            (("category", "STRING"), ("total_amount", "INT64"), ("row_count", "INT64")),
+            "  - column: category\n    not_null: true\n    unique: true\n"
+            "  - column: row_count\n    not_null: true\n",
+            "",
+        ),
+        "incremental_records": (
+            "SELECT id, category, amount, updated_at FROM {{ ref('joined_records') }}",
+            "incremental",
+            (
+                ("id", "INT64"),
+                ("category", "STRING"),
+                ("amount", "INT64"),
+                ("updated_at", "INT64"),
+            ),
+            "  - column: id\n    not_null: true\n    unique: true\n",
+            "unique_key: [id]\nincremental_cursor: updated_at\n",
+        ),
+    }
+    for name, (query, materialization, columns, tests, incremental) in models.items():
+        (root / f"{name}.sql").write_text(query, encoding="utf-8")
+        column_yaml = "".join(
+            f"  - name: {column}\n    type: {data_type}\n"
+            f"    description: Phase 8 {column}.\n"
+            for column, data_type in columns
+        )
+        (root / f"{name}.yml").write_text(
+            f"model: {name}\n"
+            "description: Phase 8 PostgreSQL transform qualification.\n"
+            "owner: data-eng\n"
+            "dialect: postgres\n"
+            f"materialization: {materialization}\n"
+            f"dataset: {target_schema}\n"
+            "source_system: phase8_fixture\n"
+            "sensitivity: public\n"
+            f"{incremental}"
+            f"columns:\n{column_yaml}"
+            f"tests:\n{tests}",
+            encoding="utf-8",
+        )
+
+
+def _require_transform_initial(
+    pool: PostgreSQLPool,
+    *,
+    target_schema: str,
+    config: Phase8PostgreSQLConfig,
+) -> None:
+    expected_amount = sum(value % 17 for value in range(1, config.transform_fact_rows + 1))
+    with pool.connection() as connection:
+        scan = connection.execute(
+            sql.SQL("SELECT COUNT(*) AS rows FROM {}").format(
+                sql.Identifier(target_schema, "scan_records")
+            )
+        ).fetchone()
+        joined = connection.execute(
+            sql.SQL(
+                "SELECT COUNT(*) AS rows, COUNT(DISTINCT category) AS categories FROM {}"
+            ).format(sql.Identifier(target_schema, "joined_records"))
+        ).fetchone()
+        aggregate = connection.execute(
+            sql.SQL(
+                "SELECT COUNT(*) AS categories, SUM(row_count) AS rows, "
+                "SUM(total_amount) AS total_amount FROM {}"
+            ).format(sql.Identifier(target_schema, "aggregate_records"))
+        ).fetchone()
+        incremental = connection.execute(
+            sql.SQL("SELECT COUNT(*) AS rows FROM {}").format(
+                sql.Identifier(target_schema, "incremental_records")
+            )
+        ).fetchone()
+    if scan != {"rows": config.transform_fact_rows}:
+        raise RuntimeError("PostgreSQL transform scan produced unexpected rows")
+    if joined != {"rows": config.transform_fact_rows, "categories": 10}:
+        raise RuntimeError("PostgreSQL transform join produced unexpected rows")
+    if aggregate != {
+        "categories": 10,
+        "rows": config.transform_fact_rows,
+        "total_amount": expected_amount,
+    }:
+        raise RuntimeError("PostgreSQL transform aggregation produced unexpected rows")
+    if incremental != {"rows": config.transform_fact_rows}:
+        raise RuntimeError("PostgreSQL transform incremental seed produced unexpected rows")
+
+
+def _require_transform_incremental(
+    pool: PostgreSQLPool,
+    *,
+    target_schema: str,
+    expected_rows: int,
+) -> None:
+    with pool.connection() as connection:
+        result = connection.execute(
+            sql.SQL(
+                "SELECT COUNT(*) AS rows, "
+                "COUNT(*) FILTER (WHERE id = 1 AND amount = 999 AND updated_at = 2) AS updated, "
+                "COUNT(*) FILTER (WHERE id = %s AND amount = 5 AND updated_at = 2) AS inserted "
+                "FROM {}"
+            ).format(sql.Identifier(target_schema, "incremental_records")),
+            (expected_rows,),
+        ).fetchone()
+    if result != {"rows": expected_rows, "updated": 1, "inserted": 1}:
+        raise RuntimeError("PostgreSQL transform incremental merge produced unexpected rows")
 
 
 def _write_table(
@@ -948,6 +1304,55 @@ def _incremental_report(
     )
 
 
+def _transform_report(
+    config: Phase8PostgreSQLConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    result: _TransformResult,
+) -> QualificationReport:
+    return QualificationReport(
+        context=_context(identity, approval),
+        workload=BenchmarkWorkload(
+            benchmark_class=BenchmarkClass.TRANSFORM,
+            input_rows=result.input_rows,
+            logical_input_bytes=result.logical_input_bytes,
+            row_width_bytes=32,
+            schema_depth=4,
+            source_rate_limit="unlimited_local_fixture",
+            transform_complexity="scan_join_aggregate_incremental_tests",
+            concurrency=1,
+            batch_rows=config.transform_fact_rows,
+            batch_bytes=config.transform_fact_rows * 32,
+            configuration_sha256=config.configuration_sha256(BenchmarkClass.TRANSFORM),
+        ),
+        performance=_performance(
+            rows=result.output_rows,
+            logical_bytes=result.logical_input_bytes,
+            duration_ms=result.duration_ms,
+            peak_rss_bytes=result.peak_rss_bytes,
+            load_duration_ms=0,
+            provider_metrics=(
+                _measured("assertion_count", "count", result.assertion_count),
+                _measured("model_count", "count", result.model_count),
+                _measured(
+                    "ownership_verifications",
+                    "count",
+                    result.ownership_verifications,
+                ),
+                _measured(
+                    "temporary_staging_relations",
+                    "count",
+                    result.temporary_staging_relations,
+                ),
+            ),
+            transform_duration_ms=result.duration_ms,
+        ),
+        objectives=_passed_objectives(approval.objectives.names, "transform"),
+        approved_objectives=approval.objectives,
+        status=QualificationStatus.PASSED,
+    )
+
+
 def _context(identity: CandidateIdentity, approval: _Approval) -> QualificationContext:
     return QualificationContext(
         release_version=identity.release_version,
@@ -976,6 +1381,7 @@ def _performance(
     load_duration_ms: int,
     provider_metrics: tuple[PerformanceMeasurement, ...],
     throughput_duration_ms: int | None = None,
+    transform_duration_ms: int = 0,
 ) -> RunPerformance:
     measured = PerformanceMeasurement.measured
     return RunPerformance(
@@ -991,7 +1397,9 @@ def _performance(
         retries=measured("retries", "count", 0),
         queue_duration_ms=measured("queue_duration_ms", "milliseconds", 0),
         load_duration_ms=measured("load_duration_ms", "milliseconds", load_duration_ms),
-        transform_duration_ms=measured("transform_duration_ms", "milliseconds", 0),
+        transform_duration_ms=measured(
+            "transform_duration_ms", "milliseconds", transform_duration_ms
+        ),
         catalog_duration_ms=measured("catalog_duration_ms", "milliseconds", 0),
         provider_metrics=provider_metrics,
         costs=(CostAttribution("local", "postgresql", Decimal(0), estimated=False),),
@@ -1057,6 +1465,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--correctness-objectives", type=Path, required=True)
     parser.add_argument("--bulk-objectives", type=Path, required=True)
     parser.add_argument("--incremental-objectives", type=Path, required=True)
+    parser.add_argument("--transform-objectives", type=Path, required=True)
     parser.add_argument("--candidate-version", required=True)
     parser.add_argument("--candidate-commit", required=True)
     parser.add_argument("--image-digest", required=True)
@@ -1072,6 +1481,8 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--incremental-seed-rows", type=int, default=300_000)
     parser.add_argument("--incremental-delta-rows", type=int, default=3_000)
     parser.add_argument("--incremental-payload-bytes", type=int, default=128)
+    parser.add_argument("--transform-fact-rows", type=int, default=100_000)
+    parser.add_argument("--transform-dimension-rows", type=int, default=100)
     parser.add_argument("--batch-rows", type=int, default=1_000)
     return parser.parse_args()
 
@@ -1089,6 +1500,8 @@ def main() -> None:
         incremental_seed_rows=arguments.incremental_seed_rows,
         incremental_delta_rows=arguments.incremental_delta_rows,
         incremental_payload_bytes=arguments.incremental_payload_bytes,
+        transform_fact_rows=arguments.transform_fact_rows,
+        transform_dimension_rows=arguments.transform_dimension_rows,
         batch_rows=arguments.batch_rows,
     )
     correctness_approval = load_approval(
@@ -1106,6 +1519,11 @@ def main() -> None:
         config=config,
         benchmark_class=BenchmarkClass.INCREMENTAL,
     )
+    transform_approval = load_approval(
+        arguments.transform_objectives,
+        config=config,
+        benchmark_class=BenchmarkClass.TRANSFORM,
+    )
     identity = CandidateIdentity(
         release_version=arguments.candidate_version,
         git_commit=arguments.candidate_commit,
@@ -1115,13 +1533,14 @@ def main() -> None:
         provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
         service_shapes=tuple(sorted(set(arguments.service_shape))),
     )
-    correctness, bulk, incremental = run_phase8_postgresql_qualification(
+    correctness, bulk, incremental, transform = run_phase8_postgresql_qualification(
         dsn,
         config=config,
         identity=identity,
         correctness_approval=correctness_approval,
         bulk_approval=bulk_approval,
         incremental_approval=incremental_approval,
+        transform_approval=transform_approval,
     )
     arguments.output_directory.mkdir(parents=True, exist_ok=True)
     (arguments.output_directory / "postgresql-correctness.json").write_text(
@@ -1136,6 +1555,10 @@ def main() -> None:
         incremental.to_json() + "\n",
         encoding="utf-8",
     )
+    (arguments.output_directory / "postgresql-transform.json").write_text(
+        transform.to_json() + "\n",
+        encoding="utf-8",
+    )
     print(
         json.dumps(
             {
@@ -1144,6 +1567,7 @@ def main() -> None:
                 "incremental_status": incremental.status.value,
                 "python_version": platform.python_version(),
                 "release_version": __version__,
+                "transform_status": transform.status.value,
             },
             separators=(",", ":"),
             sort_keys=True,
