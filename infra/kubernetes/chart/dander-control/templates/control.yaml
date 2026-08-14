@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-control" .Release.Name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "dander-control.labels" . | nindent 4 }}
+    dander.io/workload: control
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "dander-control.selector" . | nindent 6 }}
+      dander.io/workload: control
+  template:
+    metadata:
+      labels:
+        {{- include "dander-control.selector" . | nindent 8 }}
+        dander.io/workload: control
+      annotations:
+        dander.io/config-sha256: {{ .Values.control.rolloutDigest | quote }}
+        dander.io/identity-sha256: {{ .Values.serviceAccount.identityDigest | quote }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.control.terminationGracePeriodSeconds }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: graph-store-owner
+          image: {{ .Values.control.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args: ["chown 65532:65532 /var/lib/dander/control && chmod 0700 /var/lib/dander/control"]
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+              add: ["CHOWN", "FOWNER"]
+          volumeMounts:
+            - name: graph-store
+              mountPath: /var/lib/dander/control
+      containers:
+        - name: control
+          image: {{ .Values.control.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            {{- toYaml .Values.control.command | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.control.port }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.control.probes.livenessPath }}
+              port: http
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.control.probes.readinessPath }}
+              port: http
+          resources:
+            {{- toYaml .Values.control.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/dander/control-oidc.json
+              subPath: control-oidc.json
+              readOnly: true
+            - name: config
+              mountPath: /etc/dander/control-graph-store.json
+              subPath: control-graph-store.json
+              readOnly: true
+            - name: graph-store
+              mountPath: /var/lib/dander/control
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{ printf "%s-config" .Release.Name | trunc 63 | trimSuffix "-" }}
+        - name: graph-store
+          persistentVolumeClaim:
+            claimName: {{ printf "%s-graph-store" .Release.Name | trunc 63 | trimSuffix "-" }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-control" .Release.Name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "dander-control.labels" . | nindent 4 }}
+    dander.io/workload: control
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "dander-control.selector" . | nindent 4 }}
+    dander.io/workload: control
+  ports:
+    - name: http
+      port: {{ .Values.control.port }}
+      targetPort: http

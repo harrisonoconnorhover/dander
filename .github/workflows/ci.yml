@@ -109,6 +109,12 @@ jobs:
           helm template dander kubernetes/chart/dander \
             --namespace dander-test \
             --values ../tests/fixtures/kubernetes-values.yaml >/tmp/dander-kubernetes.yaml
+          helm lint kubernetes/chart/dander-control \
+            --values ../tests/fixtures/kubernetes-control-values.yaml
+          helm template dander-control kubernetes/chart/dander-control \
+            --namespace dander-control \
+            --values ../tests/fixtures/kubernetes-control-values.yaml \
+            >/tmp/dander-control-kubernetes.yaml
       - name: Validate cross-cloud feasibility roots
         run: |
           terraform fmt -check -recursive ../acceptance/cloud-portability/phase1b

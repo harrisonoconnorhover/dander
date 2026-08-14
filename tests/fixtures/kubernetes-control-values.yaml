@@ -1,0 +1,47 @@
+schema: io.dander.kubernetes-control-plane/v1
+profile: kubernetes_helm
+serviceAccount:
+  name: dander-control
+  annotations:
+    example.test/identity: dander-control
+  identityDigest: 29af60b8a380a0d61d66d047322bb564fa4e05bc090f42d01da10cc77268e28e
+control:
+  port: 8770
+  command:
+    - control
+    - serve
+    - --host
+    - 0.0.0.0
+    - --port
+    - "8770"
+    - --oidc-config
+    - /etc/dander/control-oidc.json
+    - --graph-store-config
+    - /etc/dander/control-graph-store.json
+  oidcConfig: '{"allowed_algorithms":["RS256"],"allowed_origins":["https://dander.127.0.0.1.sslip.io:8443"],"api_audience":"dander-kubernetes-control","api_url":"https://dander.127.0.0.1.sslip.io:8443","clock_skew_seconds":30,"email_allowlist":[],"email_claim":"email","group_allowlist":[],"group_claim":"groups","issuer":"https://issuer.127.0.0.1.sslip.io:8443/default","jwks_cache_seconds":300.0,"jwks_max_keys":32,"jwks_max_response_bytes":262144,"jwks_refresh_cooldown_seconds":30.0,"jwks_timeout_seconds":5.0,"jwks_uri":"https://issuer.127.0.0.1.sslip.io:8443/default/.well-known/jwks.json","logout_uri":"https://dander.127.0.0.1.sslip.io:8443/signed-out","public_client_id":"druff-kubernetes-spa","redirect_uri":"https://dander.127.0.0.1.sslip.io:8443/auth/callback","role_claim":"roles","subject_allowlist":[]}'
+  graphStoreConfig: '{"kind":"local","root":"/var/lib/dander/control"}'
+  rolloutDigest: 1fa434c78d6add1ed3f132b42d5398260e0ab61874221f5a75aa6be1e7166474
+  resources:
+    requests: {cpu: 500m, memory: 512Mi, ephemeral-storage: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi, ephemeral-storage: 128Mi}
+  probes:
+    livenessPath: /healthz
+    readinessPath: /readyz
+  terminationGracePeriodSeconds: 30
+  image: 127.0.0.1:5001/dander@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+druff:
+  port: 8080
+  bootstrap: '{"api_audience":"dander-kubernetes-control","api_url":"https://dander.127.0.0.1.sslip.io:8443","compatibility":{"maximum_druff_contract":"1.x","minimum_druff_contract":"1.0.0"},"contract":{"id":"io.dander.control.contracts/v1","sha256":"695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3"},"issuer":"https://issuer.127.0.0.1.sslip.io:8443/default","logout_uri":"https://dander.127.0.0.1.sslip.io:8443/signed-out","public_client_id":"druff-kubernetes-spa","redirect_uri":"https://dander.127.0.0.1.sslip.io:8443/auth/callback","schema_version":1}'
+  rolloutDigest: 5eaddbdb758aefa2fbaa1ff2e819e5d991d04c751f2cbbabd526b7f106760eac
+  resources:
+    requests: {cpu: 100m, memory: 128Mi, ephemeral-storage: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi, ephemeral-storage: 128Mi}
+  image: 127.0.0.1:5001/druff@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+graphStore:
+  accessMode: ReadWriteOnce
+  size: 1Gi
+ingress:
+  className: nginx
+  host: dander.127.0.0.1.sslip.io
+  tlsSecretName: dander-control-tls
+  accessLogEnabled: false
