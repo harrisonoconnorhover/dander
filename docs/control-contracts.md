@@ -225,6 +225,18 @@ separate unchanged boundary.
 and digest, and required security headers. It is not a job template or a Dander service template.
 Both service and static projections normalize unordered pairs before deterministic serialization.
 
+The service projection, typed GraphStore startup seam, and local renderer are published in
+immutable `dander-platform==0.9.0rc20` from protected-main commit
+`75c5654e95439eaf18e90fbacc849799f4fe42b6` at tag `v0.9.0rc20`. Trusted-publishing
+[run 31815063258](https://github.com/harrisonoconnorhover/dander/actions/runs/31815063258)
+produced wheel
+`sha256:754d255c4d9debf2e85cd8a008b79876758555eb51bacf090fdb7420b10d3992` and source
+distribution `sha256:aaa7c986c78fe8eff47fdc5a7804d2ea832c59a7cbad1965b8d44b40233edf04`;
+their hashes and sizes matched PyPI. A fresh no-cache PyPI-only install outside every checkout
+reported `dander 0.9.0rc20`, imported from `site-packages`, generated and validated a project, and
+passed Terraform initialization and validation. The matching beta prerelease is
+[Dander 0.9.0rc20](https://github.com/harrisonoconnorhover/dander/releases/tag/v0.9.0rc20).
+
 The first D7 renderer is the local Compose profile. It consumes one closed immutable non-secret
 input, reuses the D6 service/OIDC/GraphStore projections, and emits exact active/rollback image
 environments plus aligned Control and Druff JSON. Compose has no build path and publishes only a
@@ -234,9 +246,10 @@ capability-free. Local verification uses repeatable Compose rendering, stable se
 identities, restart persistence, digest rollback/restore, and exact disposable cleanup. Terraform
 state, saved plans, provider workload identity, and cloud cost ceilings do not apply locally.
 
-Live local qualification remains pending until exact immutable images containing D6 and DRUFF-29
-exist. Public Dander RC19 predates the typed GraphStore startup seam, and DRUFF-29 deliberately did
-not publish an image; the local profile does not silently build from either checkout.
+Live local qualification remains pending until reviewed immutable images containing the exact
+current Dander D6/RC20 and DRUFF-29 sources exist. RC20 makes the Dander Python package and local
+assets immutable but did not publish a current Dander container image; DRUFF-29 likewise did not
+publish a durable image. The local profile does not silently build from either checkout.
 
 ## Regenerate and verify
 

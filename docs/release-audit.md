@@ -27,6 +27,13 @@ cloud path remains outside the live proof.
 
 - Public Dander beta: `0.9.0rc20`; public Salesforce connector: `0.3.1`; public ServiceNow connector:
   `0.2.2`.
+- Public Dander `0.9.0rc20` was published from protected-main commit
+  `75c5654e95439eaf18e90fbacc849799f4fe42b6` and immutable tag `v0.9.0rc20` by trusted-publishing
+  run `31815063258`. Its public wheel and source-distribution hashes matched the workflow
+  artifacts, and a fresh no-cache PyPI-only install passed CLI version, scaffold, project, and
+  Terraform validation outside every checkout. RC20 packages the D6 service/startup contract and
+  D7 local Compose assets; it publishes no current Dander or Druff container image and does not
+  qualify the local profile or promote provider support.
 - Public Dander `0.9.0rc19` was published from protected-main commit
   `cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b` and immutable tag `v0.9.0rc19` by trusted-publishing
   run `31785512985`. Its wheel and source distribution contain the complete deterministic
