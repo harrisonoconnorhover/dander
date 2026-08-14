@@ -1,0 +1,49 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "1.25",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  },
+  "deployment_plan": {
+    "sha256": "36021dc2a78a0d58c8cf62fddb0fa6bb36dd9258fc47f0a7c745dda50276768c",
+    "add": 0,
+    "change": 5,
+    "destroy": 0,
+    "changed_resource_type": "google_cloud_run_v2_job",
+    "druff_changed": false
+  },
+  "workload": {
+    "schema": "io.dander.phase8.gcp-native-profile-config/v1",
+    "project_reference": "dander-proof-harrison-20260801",
+    "region": "us-central1",
+    "runtime_cpu": 1,
+    "runtime_memory_mib": 512,
+    "runtime_timeout_seconds": 600,
+    "runtime_max_retries": 1,
+    "runtime_batch_rows": 10000,
+    "manual_pipeline": "salesforce_accounts",
+    "scheduled_pipeline": "greenhouse_jobs",
+    "retained_schedules_changed": false
+  },
+  "approved_objectives": {
+    "names": [
+      "artifact_identity",
+      "bigquery_state_and_warehouse",
+      "budget_preflight",
+      "cost_ceiling",
+      "dataplex_publication",
+      "manual_execution",
+      "no_drift",
+      "replay_idempotency",
+      "scheduled_execution",
+      "secret_manager_resolution"
+    ],
+    "benchmark_class": "correctness",
+    "profile_id": "gcp_native",
+    "release_version": "0.9.0rc22",
+    "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "configuration_sha256": "c95fb9ffbc927e0962cf9edee0bed7756622380cc81f7cdb7844b35384ab4b7e",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  }
+}
