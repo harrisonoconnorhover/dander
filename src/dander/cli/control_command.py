@@ -44,12 +44,24 @@ def serve_control(
         "--config",
         help="Optional project manifest used only for presentation-safe plugin discovery.",
     ),
+    oidc_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--oidc-config",
+        help="Non-secret hosted OIDC deployment JSON required for external binds.",
+    ),
 ) -> None:
-    """Serve multi-graph Control locally; external binds require the later OIDC ticket."""
+    """Serve multi-graph Control locally or behind an approved hosted OIDC deployment."""
     try:
-        if not _is_loopback(host):
+        from dander.control.auth import HostedOIDCDeploymentInput
+
+        oidc = (
+            HostedOIDCDeploymentInput.model_validate_json(oidc_config.read_text(encoding="utf-8"))
+            if oidc_config is not None
+            else None
+        )
+        if not _is_loopback(host) and oidc is None:
             raise ClickException(
-                "Hosted Control may bind only to loopback until OIDC authorization is enabled."
+                "External Control binds require a valid --oidc-config deployment input."
             )
         plugins: tuple[InstalledConnectorPlugin, ...] = ()
         if project_config.is_file():
@@ -65,12 +77,17 @@ def serve_control(
 
         from dander.control.http import create_control_app
 
-        typer.echo(
-            f"Serving Dander Control on http://{host}:{port} "
-            f"({'ephemeral' if ephemeral else str(root.resolve())})"
-        )
+        public_url = oidc.api_url if oidc is not None else f"http://{host}:{port}"
+        storage = "ephemeral" if ephemeral else str(root.resolve())
+        typer.echo(f"Serving Dander Control on {public_url} ({storage})")
         Server(
-            Config(create_control_app(application), host=host, port=port, log_level="info")
+            Config(
+                create_control_app(application, oidc=oidc),
+                host=host,
+                port=port,
+                log_level="info",
+                access_log=False,
+            )
         ).run()
     except (ConnectorPluginError, ProjectConfigError, OSError, ValueError) as error:
         raise ClickException(str(error)) from error

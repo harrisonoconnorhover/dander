@@ -1576,6 +1576,20 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   Control command without importing legacy provider SDKs; all other commands retain the existing
   CLI tree.
 
+## 2026-08-13 — Hosted OIDC uses one stateless API trust boundary
+
+- **Topology:** Hosted Control uses a public SPA client with authorization code and PKCE S256;
+  Dander accepts only API-audience bearer access tokens and keeps no human cookie or session. The
+  client ID and API audience are deliberately different, and loopback mode remains physically
+  separate and unauthenticated.
+- **Authorization:** Viewer/editor/operator/admin roles map centrally to read, edit,
+  validate/preview, run/cancel/replay, and delete/admin capabilities. Every hosted `/v1` route
+  enforces its capability server-side; browser presentation is not an authority.
+- **Projection and trust:** One immutable non-secret deployment input generates exact CORS, server
+  trust, public-client, and bootstrap views. Fixed-URI bounded JWKS resolution, query-free access
+  logging, strict claim checks, deny-by-default browser headers, and optional verified allowlists
+  fail closed without mixing human claims with cloud workload identity.
+
 ## 2026-08-13 — GCS GraphStore uses native generations plus durable mutation ownership
 
 - **Concurrency:** Graph objects use generation zero for create and exact generation matches for
