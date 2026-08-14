@@ -36,6 +36,7 @@ dependencies = [
   "pyyaml>=6.0",
   "fastapi>=0.115",                # hosted Control API transport
   "uvicorn>=0.30",                 # hosted Control API server
+  "pyjwt[crypto]>=2.13,<3",        # hosted OIDC access-token verification
 ]
 
 [project.urls]

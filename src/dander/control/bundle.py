@@ -14,6 +14,7 @@ from dander.control.models import (
     ApiErrorEnvelope,
     CapabilitiesResponse,
     ConnectorCatalogResponse,
+    ControlBootstrapDescriptor,
     DeploymentPreviewResponse,
     GraphCreateRequest,
     GraphPageResponse,
@@ -41,6 +42,7 @@ CONTRACT_MODELS: Final[dict[str, type[BaseModel]]] = {
     "api-error": ApiErrorEnvelope,
     "capabilities": CapabilitiesResponse,
     "connector-catalog": ConnectorCatalogResponse,
+    "control-bootstrap": ControlBootstrapDescriptor,
     "deployment-preview": DeploymentPreviewResponse,
     "graph-create": GraphCreateRequest,
     "graph-page": GraphPageResponse,
@@ -442,6 +444,23 @@ def _fixtures() -> dict[str, tuple[str, dict[str, Any]]]:
                         ],
                     }
                 ]
+            },
+        ),
+        "control-bootstrap": (
+            "control-bootstrap",
+            {
+                "schema_version": 1,
+                "api_url": "https://control.example.invalid",
+                "issuer": "https://identity.example.invalid",
+                "public_client_id": "druff-public-client",
+                "api_audience": "https://control.example.invalid/api",
+                "redirect_uri": "https://druff.example.invalid/auth/callback",
+                "logout_uri": "https://druff.example.invalid/signed-out",
+                "contract": {"id": BUNDLE_ID, "sha256": digest},
+                "compatibility": {
+                    "minimum_druff_contract": "1.0.0",
+                    "maximum_druff_contract": "1.x",
+                },
             },
         ),
         "deployment-preview": (

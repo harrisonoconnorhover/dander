@@ -156,9 +156,11 @@ separately named hosted service while preserving `dander graph serve --file` unc
 
 `dander control serve` is distinct from the existing one-file bridge. It exposes configured
 logical projects and multi-graph CRUD, validation, capability/catalog discovery, and normalized
-preview/run routes over `GraphStore`. Until DANDER-126 adds OIDC authorization, the command rejects
-every non-loopback bind. Unwired preview and lifecycle operations remain absent from capabilities
-and fail closed instead of falling through to the GCP-specific local wrapper.
+preview/run routes over `GraphStore`. Loopback mode remains unauthenticated and needs no identity
+configuration. Every external bind requires a valid non-secret `--oidc-config` input; hosted `/v1`
+routes then reject missing or invalid access tokens before application dispatch. Unwired preview
+and lifecycle operations remain absent from capabilities and fail closed instead of falling
+through to the GCP-specific local wrapper.
 
 Opaque store revisions are base64url-wrapped in strong quoted HTTP ETags and decoded exactly for
 conditional operations. Run start uses `If-Match` plus `Idempotency-Key` headers so the published
@@ -167,6 +169,37 @@ idempotency source, graph bodies are streamed only to a fixed limit, header-only
 bodies, list and log pages are bounded, oversized responses fail closed, and mutation audit
 records contain only method, route template, status, and correlation ID. Response DTOs omit
 provider payloads, credentials, secret values, SQL, rows, and raw exception messages.
+
+## Hosted OIDC boundary
+
+`HostedOIDCDeploymentInput` is the single immutable source for the API trust settings, exact CORS
+origins, public SPA registration, and secret-free `control-bootstrap` contract. The public client
+and API audience must differ. The client projection permits only authorization code, response code,
+PKCE S256, and no client secret; it does not grant browser refresh tokens. Startup verifies that
+issuer, audience, client ID, redirect URI, logout URI, and origins agree across projections. The
+bootstrap includes the current Control contract identity and Druff compatibility range.
+
+Dander accepts bearer access tokens only in the `Authorization` header. It validates a fixed
+asymmetric algorithm allow-list, signature, exact issuer, API audience, expiry, subject, and roles.
+The bounded JWKS resolver uses a fixed HTTPS URI, timeout, response/key-count limits, one shared
+unknown-key refresh cooldown, and single-flight refresh while retaining the last good cache on a
+fetch failure. Optional exact subject/email/group allowlists remain deployment configuration;
+email allowlisting also requires `email_verified` to be the Boolean value `true`.
+
+Roles map centrally to five server-enforced capabilities: viewer can read; editor adds graph edit
+and validate/preview; operator adds run/cancel/replay; admin adds graph deletion/administration.
+The capability response is filtered to the authenticated role. Human claims never become provider
+workload credentials.
+
+Hosted CORS permits only exact configured HTTPS origins, no credentialed browser requests, and an
+explicit method/header set. It exposes only `ETag` and `X-Correlation-ID`. Hosted responses apply a
+deny-by-default CSP and standard no-store, framing, MIME-sniffing, referrer, permissions headers.
+Tokens in query parameters are rejected before routing. Uvicorn access logging is disabled because
+its default format includes query strings; any front proxy must likewise omit query strings from
+access logs. Dander keeps no human cookie or server session, so cookie CSRF controls and session
+cookies are intentionally inapplicable. Druff must keep access tokens in memory, use session
+storage only for the short PKCE/state/nonce transaction, and reauthenticate after expiry; it must
+not use URL tokens, browser cloud credentials, localStorage, or a client secret.
 
 ## Regenerate and verify
 

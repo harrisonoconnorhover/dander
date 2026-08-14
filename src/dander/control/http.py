@@ -10,10 +10,11 @@ import re
 import uuid
 from contextlib import asynccontextmanager
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
-from fastapi import FastAPI, Header, Query, Request, Response
+from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
@@ -26,6 +27,13 @@ from dander.control.application import (
     GraphRevisionConflictError,
     RunAddress,
     graph_resource_response,
+)
+from dander.control.auth import (
+    ControlAuthError,
+    ControlCapability,
+    HostedOIDCAuthorizer,
+    HostedOIDCDeploymentInput,
+    project_hosted_oidc,
 )
 from dander.control.graph_store import (
     MAX_GRAPH_DOCUMENT_BYTES,
@@ -47,13 +55,14 @@ from dander.control.models import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
     from starlette.middleware.base import RequestResponseEndpoint
 
 _CORRELATION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _MAX_CONTROL_RESPONSE_BYTES = 6 * 1024 * 1024
 _MUTATION_METHODS = frozenset({"POST", "PUT", "DELETE"})
+_URL_TOKEN_KEYS = frozenset({"access_token", "id_token", "token", "authorization"})
 _LOGGER = logging.getLogger("dander.control.audit")
 _IDEMPOTENCY_HEADER = Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)]
 _IF_MATCH_HEADER = Annotated[str, Header(alias="If-Match", min_length=3, max_length=1024)]
@@ -200,7 +209,12 @@ async def _require_empty_body(request: Request) -> None:
             )
 
 
-def create_control_app(application: ControlApplication) -> FastAPI:
+def create_control_app(
+    application: ControlApplication,
+    *,
+    oidc: HostedOIDCDeploymentInput | None = None,
+    oidc_jwks_fetcher: Callable[[], bytes] | None = None,
+) -> FastAPI:
     """Create the separately named hosted API over one fully composed application boundary."""
 
     @asynccontextmanager
@@ -210,32 +224,92 @@ def create_control_app(application: ControlApplication) -> FastAPI:
         finally:
             application.close()
 
-    app = FastAPI(title="Dander Control API", version="v1", lifespan=lifespan)
+    app = FastAPI(
+        title="Dander Control API",
+        version="v1",
+        lifespan=lifespan,
+        docs_url=None if oidc is not None else "/docs",
+        redoc_url=None if oidc is not None else "/redoc",
+        openapi_url=None if oidc is not None else "/openapi.json",
+    )
     app.state.control_application = application
+    projections = project_hosted_oidc(oidc) if oidc is not None else None
+    authorizer = HostedOIDCAuthorizer(oidc, fetcher=oidc_jwks_fetcher) if oidc is not None else None
+    app.state.control_oidc = oidc
+    app.state.control_oidc_projections = projections
+    if oidc is not None:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(oidc.allowed_origins),
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            allow_headers=[
+                "Authorization",
+                "Content-Type",
+                "Idempotency-Key",
+                "If-Match",
+                "X-Correlation-ID",
+            ],
+            expose_headers=["ETag", "X-Correlation-ID"],
+            max_age=600,
+        )
+
+    def auth_dependencies(capability: ControlCapability) -> list[Any]:
+        if authorizer is None:
+            return []
+        return [Depends(authorizer.require(capability))]
 
     @app.middleware("http")
     async def correlation(request: Request, call_next: RequestResponseEndpoint) -> Response:
         supplied = request.headers.get("X-Correlation-ID", "")
         correlation_id = supplied if _CORRELATION_ID.fullmatch(supplied) else uuid.uuid4().hex
         request.state.correlation_id = correlation_id
-        try:
-            response = await call_next(request)
-        except Exception:
+        query_keys = {key.casefold() for key, _value in request.query_params.multi_items()}
+        response: Response
+        if oidc is not None and query_keys.intersection(_URL_TOKEN_KEYS):
             response = _error_response(
                 request,
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                "internal_error",
-                "The request could not be completed.",
+                HTTPStatus.BAD_REQUEST,
+                "token_in_url",
+                "Authentication tokens are not accepted in URLs.",
             )
+        elif (
+            oidc is not None
+            and (origin := request.headers.get("origin")) is not None
+            and origin not in oidc.allowed_origins
+        ):
+            response = _error_response(
+                request,
+                HTTPStatus.FORBIDDEN,
+                "origin_not_allowed",
+                "The request origin is not allowed.",
+            )
+        else:
+            try:
+                response = await call_next(request)
+            except Exception:
+                response = _error_response(
+                    request,
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "The request could not be completed.",
+                )
         content_length = response.headers.get("content-length")
-        if content_length is not None and int(content_length) > _MAX_CONTROL_RESPONSE_BYTES:
-            response = _error_response(
-                request,
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                "response_too_large",
-                "The response exceeded the configured limit.",
-            )
+        if content_length is not None:
+            try:
+                response_too_large = int(content_length) > _MAX_CONTROL_RESPONSE_BYTES
+            except ValueError:
+                response_too_large = True
+            if response_too_large:
+                response = _error_response(
+                    request,
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    "response_too_large",
+                    "The response exceeded the configured limit.",
+                )
         response.headers["X-Correlation-ID"] = correlation_id
+        if oidc is not None:
+            _apply_hosted_security_headers(response)
         if request.method in _MUTATION_METHODS:
             route = request.scope.get("route")
             _LOGGER.info(
@@ -247,6 +321,13 @@ def create_control_app(application: ControlApplication) -> FastAPI:
                     "status_code": response.status_code,
                 },
             )
+        return response
+
+    @app.exception_handler(ControlAuthError)
+    async def control_auth_error(request: Request, error: ControlAuthError) -> JSONResponse:
+        response = _error_response(request, error.status, error.code, str(error))
+        if error.status == HTTPStatus.UNAUTHORIZED:
+            response.headers["WWW-Authenticate"] = 'Bearer realm="dander-control"'
         return response
 
     @app.exception_handler(GraphBodyError)
@@ -332,27 +413,42 @@ def create_control_app(application: ControlApplication) -> FastAPI:
             )
         return JSONResponse({"status": "ready"})
 
-    @app.get("/v1/capabilities")
-    async def capabilities() -> object:
-        return application.capabilities()
+    @app.get("/v1/capabilities", dependencies=auth_dependencies(ControlCapability.READ))
+    async def capabilities(request: Request) -> object:
+        result = application.capabilities()
+        if oidc is None:
+            return result
+        principal = request.state.control_principal
+        return result.model_copy(
+            update={
+                "operations": tuple(
+                    operation
+                    for operation in result.operations
+                    if _operation_capability(operation) in principal.capabilities
+                )
+            }
+        )
 
-    @app.get("/v1/connectors")
+    @app.get("/v1/connectors", dependencies=auth_dependencies(ControlCapability.READ))
     async def connectors() -> object:
         return application.connector_catalog
 
-    @app.get("/v1/plugin-catalog")
+    @app.get("/v1/plugin-catalog", dependencies=auth_dependencies(ControlCapability.READ))
     async def plugins() -> object:
         return application.plugin_catalog
 
-    @app.get("/v1/operations")
+    @app.get("/v1/operations", dependencies=auth_dependencies(ControlCapability.READ))
     async def operations() -> object:
         return application.operation_catalog
 
-    @app.get("/v1/projects")
+    @app.get("/v1/projects", dependencies=auth_dependencies(ControlCapability.READ))
     async def list_projects() -> object:
         return application.list_projects()
 
-    @app.get("/v1/projects/{project}/graphs")
+    @app.get(
+        "/v1/projects/{project}/graphs",
+        dependencies=auth_dependencies(ControlCapability.READ),
+    )
     async def list_graphs(
         project: str,
         cursor: str | None = None,
@@ -360,7 +456,11 @@ def create_control_app(application: ControlApplication) -> FastAPI:
     ) -> object:
         return application.list_graphs(project, cursor=cursor, limit=limit)
 
-    @app.post("/v1/projects/{project}/graphs", status_code=HTTPStatus.CREATED)
+    @app.post(
+        "/v1/projects/{project}/graphs",
+        status_code=HTTPStatus.CREATED,
+        dependencies=auth_dependencies(ControlCapability.EDIT),
+    )
     async def create_graph(
         project: str, request: Request, idempotency_key: _IDEMPOTENCY_HEADER
     ) -> Response:
@@ -380,11 +480,17 @@ def create_control_app(application: ControlApplication) -> FastAPI:
         )
         return _resource_response(record, HTTPStatus.CREATED)
 
-    @app.get("/v1/projects/{project}/graphs/{graph}")
+    @app.get(
+        "/v1/projects/{project}/graphs/{graph}",
+        dependencies=auth_dependencies(ControlCapability.READ),
+    )
     async def get_graph(project: str, graph: str) -> Response:
         return _resource_response(application.get_graph(project, graph))
 
-    @app.put("/v1/projects/{project}/graphs/{graph}")
+    @app.put(
+        "/v1/projects/{project}/graphs/{graph}",
+        dependencies=auth_dependencies(ControlCapability.EDIT),
+    )
     async def put_graph(
         project: str, graph: str, request: Request, if_match: _IF_MATCH_HEADER
     ) -> Response:
@@ -398,7 +504,11 @@ def create_control_app(application: ControlApplication) -> FastAPI:
         )
         return _resource_response(record)
 
-    @app.delete("/v1/projects/{project}/graphs/{graph}", status_code=HTTPStatus.NO_CONTENT)
+    @app.delete(
+        "/v1/projects/{project}/graphs/{graph}",
+        status_code=HTTPStatus.NO_CONTENT,
+        dependencies=auth_dependencies(ControlCapability.ADMIN),
+    )
     async def delete_graph(
         project: str,
         graph: str,
@@ -414,19 +524,29 @@ def create_control_app(application: ControlApplication) -> FastAPI:
         )
         return Response(status_code=HTTPStatus.NO_CONTENT)
 
-    @app.post("/v1/projects/{project}/graphs/{graph}/validate")
+    @app.post(
+        "/v1/projects/{project}/graphs/{graph}/validate",
+        dependencies=auth_dependencies(ControlCapability.VALIDATE_PREVIEW),
+    )
     async def validate_graph(project: str, graph: str, if_match: _IF_MATCH_HEADER) -> object:
         return application.validate_graph(
             project, graph, expected_revision=decode_revision_etag(if_match)
         )
 
-    @app.post("/v1/projects/{project}/graphs/{graph}/deployment-preview")
+    @app.post(
+        "/v1/projects/{project}/graphs/{graph}/deployment-preview",
+        dependencies=auth_dependencies(ControlCapability.VALIDATE_PREVIEW),
+    )
     async def preview_graph(project: str, graph: str, if_match: _IF_MATCH_HEADER) -> object:
         return application.preview_graph(
             project, graph, expected_revision=decode_revision_etag(if_match)
         )
 
-    @app.post("/v1/projects/{project}/graphs/{graph}/runs", status_code=HTTPStatus.ACCEPTED)
+    @app.post(
+        "/v1/projects/{project}/graphs/{graph}/runs",
+        status_code=HTTPStatus.ACCEPTED,
+        dependencies=auth_dependencies(ControlCapability.RUN),
+    )
     async def start_run(
         project: str,
         graph: str,
@@ -442,18 +562,21 @@ def create_control_app(application: ControlApplication) -> FastAPI:
             idempotency_key=idempotency_key,
         )
 
-    @app.get("/v1/runs")
+    @app.get("/v1/runs", dependencies=auth_dependencies(ControlCapability.READ))
     async def list_runs(
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
     ) -> object:
         return application.list_runs(cursor=cursor, limit=limit)
 
-    @app.get("/v1/runs/{run_id}")
+    @app.get("/v1/runs/{run_id}", dependencies=auth_dependencies(ControlCapability.READ))
     async def get_run(run_id: str) -> object:
         return application.get_run(RunAddress(run_id))
 
-    @app.get("/v1/runs/{run_id}/logs")
+    @app.get(
+        "/v1/runs/{run_id}/logs",
+        dependencies=auth_dependencies(ControlCapability.READ),
+    )
     async def get_logs(
         run_id: str,
         cursor: str | None = None,
@@ -461,11 +584,11 @@ def create_control_app(application: ControlApplication) -> FastAPI:
     ) -> object:
         return application.get_logs(RunAddress(run_id), cursor=cursor, limit=limit)
 
-    @app.post("/v1/runs/{run_id}/cancel")
+    @app.post("/v1/runs/{run_id}/cancel", dependencies=auth_dependencies(ControlCapability.RUN))
     async def cancel_run(run_id: str, idempotency_key: _IDEMPOTENCY_HEADER) -> object:
         return application.cancel_run(RunAddress(run_id), idempotency_key=idempotency_key)
 
-    @app.post("/v1/runs/{run_id}/replay")
+    @app.post("/v1/runs/{run_id}/replay", dependencies=auth_dependencies(ControlCapability.RUN))
     async def replay_run(run_id: str, idempotency_key: _IDEMPOTENCY_HEADER) -> object:
         return application.replay_run(RunAddress(run_id), idempotency_key=idempotency_key)
 
@@ -497,6 +620,31 @@ def _error_response(
         )
     )
     return JSONResponse(envelope.model_dump(mode="json"), status_code=status)
+
+
+def _operation_capability(operation: str) -> ControlCapability:
+    if operation in {"graph.edit"}:
+        return ControlCapability.EDIT
+    if operation in {"graph.validate", "deployment.preview"}:
+        return ControlCapability.VALIDATE_PREVIEW
+    if operation in {"run.start", "run.cancel", "run.replay"}:
+        return ControlCapability.RUN
+    if operation == "graph.delete":
+        return ControlCapability.ADMIN
+    return ControlCapability.READ
+
+
+def _apply_hosted_security_headers(response: Response) -> None:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+    )
+    response.headers["Permissions-Policy"] = (
+        "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
+    )
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
 
 
 __all__ = [

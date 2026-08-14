@@ -701,6 +701,20 @@ class CompatibilityRange(ControlModel):
     maximum_druff_contract: str
 
 
+class ControlBootstrapDescriptor(ControlModel):
+    """Secret-free discovery data for one hosted Druff deployment."""
+
+    schema_version: Literal[1] = 1
+    api_url: str
+    issuer: str
+    public_client_id: str
+    api_audience: str
+    redirect_uri: str
+    logout_uri: str
+    contract: ContractIdentity
+    compatibility: CompatibilityRange
+
+
 class ControlLimits(ControlModel):
     max_graph_bytes: int = Field(gt=0)
     max_page_size: int = Field(gt=0)
