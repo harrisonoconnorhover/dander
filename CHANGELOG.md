@@ -17,6 +17,11 @@ capabilities enter through the next minor release.
 - Add sanitized failure diagnostics across executor and pre-executor runtime boundaries without
   persisting exception text or duplicating authoritative events.
 
+### Fixed
+
+- Initialize local Control-service GraphStore volumes through a privileged one-shot helper so a
+  fresh named volume is writable by the non-root runtime.
+
 ### Known limitations
 
 - RC21 is a private qualification candidate until the exact artifact passes the Phase 8 live,
