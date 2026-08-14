@@ -6,6 +6,21 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc20 — 2026-08-14 (beta)
+
+### Added
+
+- Add an immutable provider-neutral projection and typed startup configuration for long-running
+  hosted Control services, including closed credential-free local and cloud GraphStore locators.
+- Add a deterministic digest-only local Docker Compose profile with aligned OIDC, bootstrap,
+  GraphStore, HTTPS edge, active/rollback, and bounded verification projections.
+
+### Known limitations
+
+- Cloud-provider hosted Control-service and matching Terraform projections are not yet
+  implemented. The local profile is not live-qualified until exact current Dander and Druff
+  images pass its OIDC, restart, no-drift, rollback, and cleanup checks.
+
 ## 0.9.0rc19 — 2026-08-14 (beta)
 
 ### Added
