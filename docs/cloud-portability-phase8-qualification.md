@@ -33,10 +33,10 @@ Phase 7 evidence merge.
 6. Repeat release audits and freeze the compatibility and limitation documents only after every
    required report passes.
 
-The operator approved cloud mutations and an aggregate Phase 8 ceiling of USD 10 on 2026-08-14;
-USD 0 has been incurred. This does not approve provider-specific SLOs, override the dependency
-order, or authorize a scale run before the immutable candidate exists. Provider-specific SLOs and
-per-run ceilings still require explicit human approval before paid scale mutation.
+The operator approved cloud mutations, conservative provider-specific SLO selection, and an
+aggregate Phase 8 ceiling of USD 10 on 2026-08-14; USD 0 has been incurred. Each paid run must
+still record its objective manifest and per-run allocation before mutation, preserve the dependency
+order, and use the immutable candidate.
 
 ## Pre-candidate release readiness
 
@@ -54,6 +54,10 @@ repeating every audit on the final source-free candidate.
 digest, date, named profile, launcher, warehouse, state, catalog, secret provider, regions, service
 shapes, provider job IDs, approved cost ceiling, deterministic workload shape, common performance
 measurements, provider metrics, costs, and objective results.
+
+Every passed report also embeds one independently approved, exact objective-name set and its stable
+approval reference. Omitting or adding an objective cannot silently turn a partial benchmark into
+qualification evidence.
 
 Common measurements use `measured` or `unavailable`; an unavailable metric is never serialized as
 zero. Report status is separately `not_evaluated`, `failed`, or `passed`. A passed report requires

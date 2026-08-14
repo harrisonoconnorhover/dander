@@ -11,6 +11,7 @@ import pytest
 
 from dander.qualification import (
     ApprovedCostCeiling,
+    ApprovedObjectiveSet,
     BenchmarkClass,
     BenchmarkWorkload,
     ObjectiveResult,
@@ -20,6 +21,11 @@ from dander.qualification import (
     QualificationStatus,
 )
 from dander.telemetry import CostAttribution, PerformanceMeasurement, RunPerformance
+
+_APPROVED_OBJECTIVES = ApprovedObjectiveSet(
+    names=("cost_ceiling", "memory_bound"),
+    approval_reference="phase8/objectives/approved",
+)
 
 
 def test_complete_bounded_memory_report_serializes_deterministically() -> None:
@@ -35,6 +41,10 @@ def test_complete_bounded_memory_report_serializes_deterministically() -> None:
     }
     assert payload["workload"]["benchmark_class"] == "bounded_memory"
     assert payload["performance"]["costs"][0]["amount"] == "0"
+    assert payload["approved_objectives"] == {
+        "approval_reference": "phase8/objectives/approved",
+        "names": ["cost_ceiling", "memory_bound"],
+    }
 
 
 def test_pass_rejects_unavailable_common_metric_or_unmeasured_cost() -> None:
@@ -64,6 +74,11 @@ def test_pass_rejects_missing_or_failed_objectives_and_cost_overrun() -> None:
         _report(
             objectives=(
                 ObjectiveResult(
+                    "cost_ceiling",
+                    ObjectiveStatus.PASSED,
+                    "phase8/objectives/cost",
+                ),
+                ObjectiveResult(
                     "memory_bound",
                     ObjectiveStatus.NOT_EVALUATED,
                     "phase8/objectives/memory",
@@ -82,6 +97,21 @@ def test_pass_rejects_missing_or_failed_objectives_and_cost_overrun() -> None:
     )
     with pytest.raises(ValueError, match="measured cost evidence"):
         _report(performance=estimated)
+
+
+def test_pass_requires_the_exact_approved_objective_set() -> None:
+    with pytest.raises(ValueError, match="complete approved objective set"):
+        _report(
+            objectives=(
+                ObjectiveResult(
+                    "cost_ceiling",
+                    ObjectiveStatus.PASSED,
+                    "phase8/objectives/cost",
+                ),
+            )
+        )
+    with pytest.raises(ValueError, match="complete approved objective set"):
+        _report(approved_objectives=None)
 
 
 def test_bounded_memory_pass_enforces_input_ratio_and_peak_limit() -> None:
@@ -143,6 +173,7 @@ def _report(
     workload: BenchmarkWorkload | None = None,
     performance: RunPerformance | None = None,
     objectives: tuple[ObjectiveResult, ...] | None = None,
+    approved_objectives: ApprovedObjectiveSet | None = _APPROVED_OBJECTIVES,
 ) -> QualificationReport:
     return QualificationReport(
         context=context or _context(),
@@ -161,6 +192,7 @@ def _report(
                 "phase8/objectives/memory",
             ),
         ),
+        approved_objectives=approved_objectives,
         status=status,
     )
 

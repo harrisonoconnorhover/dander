@@ -146,6 +146,8 @@ variable "aws_native_profile" {
       can(regex("^[a-z_][a-z0-9_]{0,126}$", var.aws_native_profile.redshift_database)) &&
       can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.aws_native_profile.staging_bucket)) &&
       length(trim(var.aws_native_profile.staging_prefix, "/")) > 0 &&
+      !strcontains(var.aws_native_profile.staging_prefix, "*") &&
+      !strcontains(var.aws_native_profile.staging_prefix, "?") &&
       var.aws_native_profile.glue_catalog_id == var.aws_account_id &&
       can(regex("^[a-z][a-z0-9_]{0,31}$", var.aws_native_profile.glue_database_prefix))
     )

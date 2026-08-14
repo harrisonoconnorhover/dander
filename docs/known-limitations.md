@@ -139,10 +139,10 @@ remain Phase 8 work.
 - A crashed sandbox staging table relies on configured expiration for cleanup. Handled failures
   remove their staging table immediately.
 - Run history stores non-sensitive stage and aggregate counts, not exception text or source rows.
-  Classified failures provide stable operator guidance. Unexpected exceptions currently retain
-  only `unexpected_error`; two ServiceNow soak failures on 2026-08-10 and 2026-08-11 had no safe
-  exception identity in Cloud Logging and could not be diagnosed. Phase 8 remains blocked until a
-  focused patch logs a bounded exception-class chain without exception text or sensitive values.
+  Classified failures provide stable operator guidance. A local Phase 8 patch now logs a bounded
+  exception-class chain and numeric provider status without exception text or sensitive values,
+  but retained deployment evidence remains open. ServiceNow failures on 2026-08-10 and 2026-08-11
+  remain undiagnosable and the final clean observation window has not started.
 - Druff is a public static interface, not a hosted control plane. Saving, validation, execution,
   status, and deployment preview require an operator-started Dander loopback service. Druff does
   not write `dander.yaml` or apply Terraform.

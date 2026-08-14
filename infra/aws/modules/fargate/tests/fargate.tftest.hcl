@@ -87,7 +87,12 @@ variables {
         HOME            = "/tmp"
         TMPDIR          = "/tmp"
       }
-      secret_bindings   = {}
+      secret_bindings = {
+        DANDER_POSTGRES_DSN = {
+          provider  = "aws_secret_manager"
+          reference = "aws-sm://arn:aws:secretsmanager:us-east-1:184463061564:secret:dander/postgres-dsn-AbCdEf"
+        }
+      }
       workload_identity = "arn:aws:iam::184463061564:role/dander-runtime"
       resources = {
         cpu_millis            = 1000
@@ -146,6 +151,16 @@ run "paused_bounded_controller" {
       jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].user == "65532:65532" &&
       contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment, { name = "HOME", value = "/tmp" }) &&
       contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment, { name = "TMPDIR", value = "/tmp" }) &&
+      contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment, {
+        name = "DANDER_SECRET_BINDINGS_JSON"
+        value = jsonencode({
+          DANDER_POSTGRES_DSN = {
+            provider  = "aws_secret_manager"
+            reference = "aws-sm://arn:aws:secretsmanager:us-east-1:184463061564:secret:dander/postgres-dsn-AbCdEf"
+          }
+        })
+      }) &&
+      !contains([for item in jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment : item.name], "DANDER_POSTGRES_DSN") &&
       contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].mountPoints, { sourceVolume = "dander-tmp", containerPath = "/tmp", readOnly = false }) &&
       jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].stopTimeout == 120
     )
@@ -241,4 +256,24 @@ run "aws_native_scoped_task_policy" {
     )
     error_message = "The AWS-native profile must resolve its declared Redshift target and attach one scoped task policy."
   }
+}
+
+run "aws_native_rejects_wildcard_staging_prefix" {
+  command = plan
+
+  variables {
+    aws_native_profile = {
+      redshift_deployment         = "provisioned"
+      redshift_cluster_identifier = "dander-phase8"
+      redshift_workgroup_name     = null
+      redshift_database           = "analytics"
+      redshift_db_user            = "dander_runtime"
+      staging_bucket              = "dander-phase8-staging"
+      staging_prefix              = "dander/*"
+      glue_catalog_id             = "184463061564"
+      glue_database_prefix        = "dander"
+    }
+  }
+
+  expect_failures = [var.aws_native_profile]
 }

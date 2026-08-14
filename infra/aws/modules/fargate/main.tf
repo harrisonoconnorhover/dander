@@ -38,11 +38,21 @@ locals {
       for reference in values(bindings) : trimprefix(reference, "aws-sm://")
     ])
   }
+  aws_secret_bindings_json = {
+    for id, bindings in local.aws_secret_environment : id => jsonencode({
+      for name, reference in bindings : name => {
+        provider  = "aws_secret_manager"
+        reference = reference
+      }
+    })
+  }
   container_environment = {
     for id, projection in var.execution_projections : id => merge(
       projection.environment,
       local.gcp_secret_environment[id],
-      local.aws_secret_environment[id],
+      length(local.aws_secret_environment[id]) > 0 ? {
+        DANDER_SECRET_BINDINGS_JSON = local.aws_secret_bindings_json[id]
+      } : {},
     )
   }
   all_schedule_arns = [

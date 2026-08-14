@@ -80,7 +80,11 @@ class RedshiftWarehouseConfig(BaseModel):
         if not _S3_BUCKET.fullmatch(self.staging_bucket):
             raise ValueError("staging_bucket must be a valid S3 bucket name")
         prefix = self.staging_prefix.strip("/")
-        if not prefix or ".." in prefix.split("/") or any(ord(char) < 32 for char in prefix):
+        if (
+            not prefix
+            or ".." in prefix.split("/")
+            or any(char in "*?" or ord(char) < 32 for char in prefix)
+        ):
             raise ValueError("staging_prefix must be a safe non-empty S3 key prefix")
         object.__setattr__(self, "staging_prefix", prefix)
         if self.deployment == "provisioned":

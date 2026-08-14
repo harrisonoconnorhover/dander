@@ -1,17 +1,26 @@
 # Engineering Decisions
 
+## 2026-08-14 — Phase 8 ticket identity stays disjoint from Druff
+
+- **Identity:** Phase 8 uses DANDER-200 through DANDER-207 after concurrent Druff work consumed
+  DANDER-128 before the Phase 8 branch merged. The dependency order and scope are unchanged.
+- **Boundary:** Phase 8 does not modify Druff deployment or lifecycle work; future concurrent work
+  must not reuse the reserved Phase 8 range.
+
 ## 2026-08-14 — Fargate admits two exact profiles, not arbitrary provider mixes
 
 - **Profiles:** Fargate accepts the lifecycle-proven BigQuery/BigQuery/Dataplex/GCP-Secrets
   composition or the AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets composition. Other mixes fail
   before Terraform or provider access.
 - **Secrets and identity:** AWS-native bindings are full account-and-region-scoped Secrets Manager
-  ARNs resolved with the ECS task role. The manifest, plan, image, and operator identity remain
-  keyless and contain no static AWS credential.
+  ARNs serialized into a non-secret binding document. The runtime resolves them with the ECS task
+  role only for one execution, then removes the values. The manifest, plan, image, and operator
+  identity remain keyless and contain no static AWS credential.
 - **Permissions:** Each task role can authenticate only to the declared Redshift target, write only
   the declared staging prefix, publish only under the declared Glue prefix, and read only its
-  declared secrets. Existing data-plane resources remain operator-owned and live qualification is
-  still required.
+  declared secrets. IAM wildcard characters are rejected from the staging prefix before policy
+  rendering. Existing data-plane resources remain operator-owned and live qualification is still
+  required.
 
 ## 2026-08-14 — Runtime diagnostics preserve bounded identity, never exception text
 
@@ -26,8 +35,8 @@
 
 - **Evidence contract:** Scale reports distinguish measured zero from unavailable data and cannot
   report `passed` without the exact candidate, provider coordinates, workload shape, approved cost
-  ceiling, provider job IDs, complete common measurements, explicit cost evidence, and passed SLO
-  assertions.
+  ceiling, provider job IDs, complete common measurements, explicit cost evidence, and the exact
+  independently approved objective-name set with every SLO assertion passed.
 - **Order:** AWS-native Fargate support is implementation work, not a live-proof rerun. Complete it
   before cutting the shared qualification candidate; then run Kubernetes, scale, pairwise, and
   soak evidence against that exact artifact.

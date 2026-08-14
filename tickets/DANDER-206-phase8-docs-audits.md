@@ -1,10 +1,10 @@
 ---
-id: DANDER-134
+id: DANDER-206
 title: Complete Phase 8 operations docs and audits
 status: open
 component: docs
 epic: cloud-portability-phase-8
-depends_on: [DANDER-130, DANDER-131, DANDER-133]
+depends_on: [DANDER-202, DANDER-203, DANDER-205]
 created: 2026-08-13
 ---
 

@@ -1,5 +1,5 @@
 ---
-id: DANDER-128
+id: DANDER-200
 title: Publish the Phase 8 qualification contract
 status: in-review
 component: python
@@ -19,6 +19,7 @@ as zero. Phase 8 needs one fail-closed report boundary before any new scale resu
 - [x] A report records the exact candidate, provider coordinates, workload shape, approval, raw
   provider job IDs, objectives, provider metrics, and cost evidence.
 - [x] `passed` rejects incomplete measurements, missing or failed objectives, and cost overrun.
+- [x] `passed` requires results to match one exact independently approved objective-name set.
 - [x] Bounded-memory `passed` enforces the ten-times-input and 80-percent-peak objectives.
 - [x] The current canonical and pairwise matrix records accepted lifecycle evidence separately from
   open Phase 8 qualification.
@@ -36,5 +37,7 @@ one versioned qualification envelope; do not infer qualification from historical
   telemetry and historical partial reports remain `not_evaluated`.
 - Passed reports require measured, non-estimated USD cost evidence and provider-specific metrics
   cannot duplicate common measurement names.
-- Phase 8 tickets moved from 118–125 to 128–135 because current `main` assigned the former range to
-  the Druff control-plane work before this checkpoint was integrated.
+- An approved objective manifest and stable approval reference prevent a producer from omitting an
+  applicable SLO while retaining `passed`.
+- Phase 8 tickets moved to 200–207 after concurrent Druff work assigned the checkpoint's earlier
+  numeric ranges before this branch could merge.

@@ -71,6 +71,29 @@ class ApprovedCostCeiling:
 
 
 @dataclass(frozen=True, slots=True)
+class ApprovedObjectiveSet:
+    """Human-approved objective names bound to one stable approval record."""
+
+    names: tuple[str, ...]
+    approval_reference: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.names, tuple) or not self.names:
+            raise ValueError("approved objective set requires at least one name")
+        if list(self.names) != sorted(self.names) or len(self.names) != len(set(self.names)):
+            raise ValueError("approved objective names must be unique and sorted")
+        for name in self.names:
+            _require_name(name, label="approved objective name")
+        _require_reference(self.approval_reference, label="objective approval reference")
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "names": list(self.names),
+            "approval_reference": self.approval_reference,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class QualificationContext:
     """Exact candidate and provider coordinates for one sanitized report."""
 
@@ -263,6 +286,7 @@ class QualificationReport:
     workload: BenchmarkWorkload
     performance: RunPerformance
     objectives: tuple[ObjectiveResult, ...]
+    approved_objectives: ApprovedObjectiveSet | None
     status: QualificationStatus
     schema: str = QUALIFICATION_REPORT_SCHEMA
 
@@ -282,6 +306,10 @@ class QualificationReport:
         names = [item.name for item in self.objectives]
         if names != sorted(names) or len(names) != len(set(names)):
             raise ValueError("qualification objectives must be unique and sorted by name")
+        if self.approved_objectives is not None and not isinstance(
+            self.approved_objectives, ApprovedObjectiveSet
+        ):
+            raise ValueError("qualification approved objectives are invalid")
         if not isinstance(self.status, QualificationStatus):
             raise ValueError("qualification status must be a QualificationStatus")
         if self.status is QualificationStatus.PASSED:
@@ -300,6 +328,11 @@ class QualificationReport:
             raise ValueError("passed qualification requires every workload dimension")
         if not self.performance.complete:
             raise ValueError("passed qualification requires every common metric to be measured")
+        if (
+            self.approved_objectives is None
+            or tuple(item.name for item in self.objectives) != self.approved_objectives.names
+        ):
+            raise ValueError("passed qualification requires the complete approved objective set")
         if any(item.status is not ObjectiveStatus.PASSED for item in self.objectives):
             raise ValueError("passed qualification requires every objective to pass")
         if not self.performance.costs:
@@ -335,6 +368,11 @@ class QualificationReport:
             "context": self.context.to_payload(),
             "workload": self.workload.to_payload(),
             "performance": self.performance.to_payload(),
+            "approved_objectives": (
+                self.approved_objectives.to_payload()
+                if self.approved_objectives is not None
+                else None
+            ),
             "objectives": [item.to_payload() for item in self.objectives],
         }
 
@@ -354,6 +392,7 @@ def _require_reference(value: str, *, label: str) -> None:
 
 __all__ = [
     "ApprovedCostCeiling",
+    "ApprovedObjectiveSet",
     "BenchmarkClass",
     "BenchmarkWorkload",
     "ObjectiveResult",
