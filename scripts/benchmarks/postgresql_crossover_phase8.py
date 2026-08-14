@@ -510,7 +510,7 @@ def _report(
         load_duration_ms=_measured("load_duration_ms", "milliseconds", result.duration_ms),
         transform_duration_ms=_measured("transform_duration_ms", "milliseconds", 0),
         catalog_duration_ms=_measured("catalog_duration_ms", "milliseconds", 0),
-        provider_metrics=tuple(metrics),
+        provider_metrics=tuple(sorted(metrics, key=lambda metric: metric.name)),
         costs=(CostAttribution("local", "postgresql", Decimal(0), estimated=False),),
     )
     return QualificationReport(

@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import TYPE_CHECKING, cast
 
 import pytest
 from scripts.benchmarks.postgresql_crossover_phase8 import (
+    CandidateIdentity,
     PostgreSQLCrossoverConfig,
+    _CrossoverResult,
     _median_durations,
+    _report,
     _Sample,
     load_approval,
 )
@@ -85,6 +89,48 @@ def test_crossover_medians_are_transport_and_size_specific() -> None:
         WriteTransport.COPY: {1: 4, 10: 7},
         WriteTransport.DIRECT: {1: 2, 10: 9},
     }
+
+
+def test_crossover_report_sorts_provider_metrics(tmp_path: Path) -> None:
+    config = PostgreSQLCrossoverConfig()
+    path = tmp_path / "objectives.json"
+    path.write_text(json.dumps(_manifest(config)), encoding="utf-8")
+    approval = load_approval(path, config=config)
+    identity = CandidateIdentity(
+        release_version="0.9.0rc23",
+        git_commit="a" * 40,
+        image_digest=f"sha256:{'b' * 64}",
+        approval_reference="codex-thread-phase8-crossover-2026-08-14",
+        benchmark_date=date(2026, 8, 14),
+        launcher="local",
+        regions=("local",),
+        secret_provider="environment",
+        provider_job_ids=("container:test",),
+        service_shapes=("dander_2cpu_512mib",),
+    )
+    medians = {
+        transport: {rows: 1 for rows in config.row_counts}
+        for transport in (WriteTransport.COPY, WriteTransport.DIRECT)
+    }
+
+    report = _report(
+        config,
+        identity,
+        approval,
+        _CrossoverResult(
+            duration_ms=1,
+            peak_rss_bytes=1,
+            samples=(),
+            medians=medians,
+            recommended_direct_max_rows=1,
+            recommended_direct_max_logical_bytes=config.row_width_bytes,
+            temporary_staging_relations=0,
+            cleanup_verified=True,
+        ),
+    )
+
+    names = [metric.name for metric in report.performance.provider_metrics]
+    assert names == sorted(names)
 
 
 def _manifest(config: PostgreSQLCrossoverConfig) -> dict[str, object]:
