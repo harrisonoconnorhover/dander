@@ -64,3 +64,10 @@ two-pass review limit.
 
 Protected PR CI run `31806362480` passed Python quality, Terraform quality, secret scan,
 distribution install, and container build/scan on implementation commit `395a18d0`.
+
+The first immutable package containing this boundary is `dander-platform==0.9.0rc20`, published
+from protected-main commit `75c5654e95439eaf18e90fbacc849799f4fe42b6` at tag `v0.9.0rc20` by
+trusted-publishing run `31815063258`. The public wheel/source hashes matched the workflow artifacts,
+and fresh no-cache PyPI-only CLI, scaffold, project, and Terraform validation passed outside every
+checkout. This package release does not publish a current service image, implement a provider
+service projection, or promote support.

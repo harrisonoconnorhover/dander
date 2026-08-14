@@ -46,9 +46,10 @@ example.
   bytes, and security headers without returning logs or credentials.
 - Generated non-secret files are mode `0444` inside a mode-`0700` operator directory, making their
   read-only bind mounts consumable by UID/GID 65532 without exposing them to other host users.
-- Live qualification is explicitly deferred: public Dander RC19 predates D6 and DRUFF-29 retained
-  no durable image. Exact artifacts must be supplied in a separately reviewed step; this PR does
-  not silently build or promote them.
+- Public Dander RC20 now packages the D6 startup seam and these D7 local assets, but it did not
+  publish an exact current Dander container image and DRUFF-29 retained no durable image. Exact
+  reviewed images must be supplied separately; the profile does not silently build or promote
+  either checkout.
 
 ## Review Log
 
@@ -62,3 +63,8 @@ no-drift is defined as equal Compose renders and stable container IDs, not Terra
 The completion review passed after confirming the final mode-`0444` correction makes every
 non-secret bind-mounted file readable by UID/GID 65532 inside the sealed mode-`0700` directory. It
 found no material defect, excess scope, secret/artifact leak, or unsupported live/cloud claim.
+
+On 2026-08-14, immutable `dander-platform==0.9.0rc20` published the D6/D7 Python and packaged-asset
+boundary from protected-main commit `75c5654e95439eaf18e90fbacc849799f4fe42b6`. Public package
+verification passed, but the unchecked live criterion remains pending exact current Dander and
+Druff container images; no local or provider support was promoted.

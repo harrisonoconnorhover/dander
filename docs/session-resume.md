@@ -33,6 +33,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-14, protected Dander `0.9.0rc20` published the D6 service/startup contract and D7
+  local Compose assets from commit `75c5654e95439eaf18e90fbacc849799f4fe42b6`. The immutable
+  `v0.9.0rc20` tag and trusted-publishing run `31815063258` produced public artifacts whose hashes
+  and sizes matched PyPI. Fresh no-cache PyPI-only CLI, scaffold, project, import-origin, and
+  Terraform validation passed outside every checkout. RC20 did not publish a current Dander
+  container image, DRUFF-29 did not retain a durable image, and the D7 local live gate remains
+  pending exact reviewed images; this release does not promote local or provider support.
+
 - On 2026-08-14, protected Dander `0.9.0rc19` published the complete deterministic
   `io.dander.control.contracts/v1` bundle from commit
   `cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b`. Trusted-publishing run `31785512985` produced the
