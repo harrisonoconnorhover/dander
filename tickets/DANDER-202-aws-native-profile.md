@@ -1,7 +1,7 @@
 ---
 id: DANDER-202
 title: Implement the AWS-native canonical profile
-status: in-review
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: [DANDER-200]
@@ -20,7 +20,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
 - [x] Terraform and operations remain manifest-bound, plan-first, least-privileged, and keyless.
 - [x] Contract tests cover projection, secret binding, provider assembly, and fail-closed invalid
   compositions.
-- [ ] Protected CI and independent completion review pass before a qualification candidate is cut.
+- [x] Protected CI and independent completion review pass before a qualification candidate is cut.
 
 ## Implementation Notes
 
@@ -34,5 +34,6 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   before live use; focused runtime and Terraform regression contracts cover the corrections.
 - Fargate retains the exact selected deployment separately from the shared platform profile, so
   runtime configuration remains unambiguous when staging and production reuse one profile.
-- Local Python, Terraform validation, and provider-mocked Terraform tests pass. Live AWS
-  qualification and support promotion remain open, and no qualification candidate has been cut.
+- Local Python, Terraform validation, provider-mocked Terraform tests, independent review, PR
+  checks, and exact-main CI pass at `fe325ff`. Live AWS qualification and support promotion remain
+  separate open gates; RC21 is the first candidate cut after this implementation merged.

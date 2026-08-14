@@ -1,7 +1,7 @@
 ---
 id: DANDER-200
 title: Publish the Phase 8 qualification contract
-status: in-review
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: [DANDER-117]
@@ -25,7 +25,7 @@ as zero. Phase 8 needs one fail-closed report boundary before any new scale resu
 - [x] The current canonical and pairwise matrix records accepted lifecycle evidence separately from
   open Phase 8 qualification.
 - [x] Focused tests pass locally.
-- [ ] Protected CI passes and the independently reviewed PR merges.
+- [x] Protected CI passes and the independently reviewed PR merges.
 
 ## Design
 
@@ -34,8 +34,8 @@ one versioned qualification envelope; do not infer qualification from historical
 
 ## Implementation Notes
 
-- Rebased onto protected-main descendant `6af0e64`; the contract remains additive to runtime
-  telemetry and historical partial reports remain `not_evaluated`.
+- Merged through PR #269 at protected-main commit `fe325ff`; the contract remains additive to
+  runtime telemetry and historical partial reports remain `not_evaluated`.
 - Passed reports require measured, non-estimated USD cost evidence and provider-specific metrics
   cannot duplicate common measurement names; boolean values cannot masquerade as numeric evidence.
 - An approved objective manifest binds its names and stable approval reference to the benchmark
