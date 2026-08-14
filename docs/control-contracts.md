@@ -200,6 +200,31 @@ cookies are intentionally inapplicable. Druff must keep access tokens in memory,
 storage only for the short PKCE/state/nonce transaction, and reauthenticate after expiry; it must
 not use URL tokens, browser cloud credentials, localStorage, or a client secret.
 
+## Service deployment boundary
+
+`ResolvedControlServiceRequest` is the immutable provider-neutral input for a long-running hosted
+Control service. It carries the exact Dander image digest, derived external `control serve`
+command, port and probes, resources and scaling, shutdown deadline, non-secret environment,
+typed secret references, workload identity, ingress visibility, GraphStore locator,
+observability, and accepted rollback digest. Its exact CORS origins and OIDC configuration are
+derived from the existing frozen `HostedOIDCDeploymentInput`; a second trust or origin source is
+not permitted.
+
+GraphStore configuration is a closed credential-free union: rooted local, GCS bucket/prefix, S3
+bucket/prefix/owner, Azure HTTPS account/container/prefix, or OCI namespace/bucket/prefix. It
+contains no clients, credentials, IAM policy, network IDs, or provider extension mapping. Service
+providers must render the selected binding's deterministic JSON at the request's exact
+`graph_store_config_path`; the derived command always passes that path to `control serve`.
+Startup parses the bounded closed schema before adapter access and instantiates only the named
+local/GCS/S3/Azure/OCI adapter, so a declared cloud binding cannot silently fall back to local
+disk. Provider networking, TLS, IAM, native resource IDs, and config delivery remain inside the
+D7 provider modules. Existing launcher requests, templates, and provider projections are a
+separate unchanged boundary.
+
+`StaticAssetBundle` separately identifies Druff's static/OCI digest, entrypoint, bootstrap path
+and digest, and required security headers. It is not a job template or a Dander service template.
+Both service and static projections normalize unordered pairs before deterministic serialization.
+
 ## Regenerate and verify
 
 After an intentional DTO change, regenerate the committed bundle:

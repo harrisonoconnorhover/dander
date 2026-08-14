@@ -24,6 +24,7 @@ class ProviderKind(StrEnum):
     CATALOG = "catalog"
     SECRETS = "secrets"
     LAUNCHER = "launcher"
+    SERVICE = "service"
 
 
 class ProviderFactoryError(ValueError):

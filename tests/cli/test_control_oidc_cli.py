@@ -8,12 +8,15 @@ from typing import TYPE_CHECKING
 from typer.testing import CliRunner
 
 from dander.cli.main import app
+from dander.control import InMemoryGraphStore
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     import pytest
     from uvicorn import Server
+
+    from dander.deployment.service import GCSGraphStoreBinding
 
 
 def _config() -> dict[str, object]:
@@ -86,3 +89,90 @@ def test_malformed_oidc_input_fails_before_server_construction(
 
     assert result.exit_code == 1
     assert called is False
+
+
+def test_hosted_graph_store_config_selects_binding_instead_of_local_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    oidc_path = tmp_path / "oidc.json"
+    oidc_path.write_text(json.dumps(_config()), encoding="utf-8")
+    graph_store_path = tmp_path / "graph-store.json"
+    graph_store_path.write_text(
+        json.dumps({"kind": "gcs", "bucket": "dander-control-test"}),
+        encoding="utf-8",
+    )
+    observed: list[GCSGraphStoreBinding] = []
+
+    def build(binding: GCSGraphStoreBinding) -> InMemoryGraphStore:
+        observed.append(binding)
+        return InMemoryGraphStore()
+
+    monkeypatch.setattr("dander.control.graph_store_factory.build_bound_graph_store", build)
+    monkeypatch.setattr("uvicorn.Server.run", lambda _server: None)
+    result = CliRunner().invoke(
+        app,
+        [
+            "control",
+            "serve",
+            "--host",
+            "0.0.0.0",
+            "--oidc-config",
+            str(oidc_path),
+            "--graph-store-config",
+            str(graph_store_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert len(observed) == 1
+    assert observed[0].bucket == "dander-control-test"
+    assert "(gcs)" in result.stdout
+
+
+def test_invalid_graph_store_config_fails_before_adapter_or_server_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    graph_store_path = tmp_path / "graph-store.json"
+    graph_store_path.write_text(
+        json.dumps(
+            {
+                "kind": "gcs",
+                "bucket": "dander-control-test",
+                "credential": "must-not-be-accepted",
+            }
+        ),
+        encoding="utf-8",
+    )
+    called = False
+
+    def unexpected(_value: object) -> InMemoryGraphStore:
+        nonlocal called
+        called = True
+        return InMemoryGraphStore()
+
+    monkeypatch.setattr("dander.control.graph_store_factory.build_bound_graph_store", unexpected)
+    monkeypatch.setattr("uvicorn.Server.run", lambda _server: unexpected(_server))
+    result = CliRunner().invoke(
+        app,
+        ["control", "serve", "--graph-store-config", str(graph_store_path)],
+    )
+
+    assert result.exit_code == 1
+    assert called is False
+
+
+def test_ephemeral_and_bound_graph_store_are_mutually_exclusive(tmp_path: Path) -> None:
+    graph_store_path = tmp_path / "graph-store.json"
+    graph_store_path.write_text(
+        json.dumps({"kind": "local", "root": "/var/lib/dander/control"}),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["control", "serve", "--ephemeral", "--graph-store-config", str(graph_store_path)],
+    )
+
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert "mutually exclusive" in str(result.exception)

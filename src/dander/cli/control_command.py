@@ -49,6 +49,11 @@ def serve_control(
         "--oidc-config",
         help="Non-secret hosted OIDC deployment JSON required for external binds.",
     ),
+    graph_store_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--graph-store-config",
+        help="Credential-free typed GraphStore locator JSON for hosted persistence.",
+    ),
 ) -> None:
     """Serve multi-graph Control locally or behind an approved hosted OIDC deployment."""
     try:
@@ -59,6 +64,15 @@ def serve_control(
             if oidc_config is not None
             else None
         )
+        from dander.deployment.service import graph_store_binding_from_json
+
+        graph_store_binding = (
+            graph_store_binding_from_json(graph_store_config.read_text(encoding="utf-8"))
+            if graph_store_config is not None
+            else None
+        )
+        if ephemeral and graph_store_binding is not None:
+            raise ClickException("--ephemeral and --graph-store-config are mutually exclusive.")
         if not _is_loopback(host) and oidc is None:
             raise ClickException(
                 "External Control binds require a valid --oidc-config deployment input."
@@ -67,7 +81,12 @@ def serve_control(
         if project_config.is_file():
             manifest = load_project_config(project_config)
             plugins = load_connector_plugins(manifest.plugins).plugins
-        store = InMemoryGraphStore() if ephemeral else RootedLocalGraphStore(root)
+        if graph_store_binding is not None:
+            from dander.control.graph_store_factory import build_bound_graph_store
+
+            store = build_bound_graph_store(graph_store_binding)
+        else:
+            store = InMemoryGraphStore() if ephemeral else RootedLocalGraphStore(root)
         application = ControlApplication(
             store,
             connector_plugins=plugins,
@@ -78,7 +97,13 @@ def serve_control(
         from dander.control.http import create_control_app
 
         public_url = oidc.api_url if oidc is not None else f"http://{host}:{port}"
-        storage = "ephemeral" if ephemeral else str(root.resolve())
+        storage = (
+            graph_store_binding.kind
+            if graph_store_binding is not None
+            else "ephemeral"
+            if ephemeral
+            else str(root.resolve())
+        )
         typer.echo(f"Serving Dander Control on {public_url} ({storage})")
         Server(
             Config(
