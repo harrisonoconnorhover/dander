@@ -221,6 +221,7 @@ def test_live_verifier_is_read_only_and_checks_exact_provider_boundaries(
         _source_value: GCPControlPlaneInput,
         *arguments: str,
         regional: bool = True,
+        impersonate: bool = True,
     ) -> object:
         calls.append(arguments)
         if arguments[:3] == ("run", "services", "describe"):
@@ -243,6 +244,7 @@ def test_live_verifier_is_read_only_and_checks_exact_provider_boundaries(
         if arguments[:3] == ("projects", "get-iam-policy", PROJECT):
             return {"bindings": [{"role": "roles/viewer", "members": ["user:test@example.test"]}]}
         if arguments[:4] == ("iam", "service-accounts", "keys", "list"):
+            assert impersonate is False
             return [{"keyType": "SYSTEM_MANAGED"}]
         raise AssertionError(arguments)
 
@@ -289,7 +291,7 @@ def test_live_verifier_is_read_only_and_checks_exact_provider_boundaries(
     monkeypatch.setattr(
         gcp_control_plane,
         "_http_error",
-        lambda _url: (b'{"error":{"code":"unauthorized"}}', {}, 401),
+        lambda _url: (b'{"error":{"code":"authentication_required"}}', {}, 401),
     )
 
     result = verify_live_gcp_control_plane(
@@ -526,7 +528,6 @@ def _service(
         "spec": {
             "template": {
                 "metadata": {
-                    "name": revision_name,
                     "annotations": {
                         "run.googleapis.com/secrets": ",".join(
                             f"{alias}:{resource}" for alias, resource in secret_aliases.items()
