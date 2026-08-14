@@ -2,39 +2,37 @@
 
 ## Finished
 
-- Added an OCI Object Storage GraphStore without changing the provider-neutral Control contract.
-- Used exact ETags for bounded reads, replacement, fencing, journal transitions, and deletion.
-- Preserved create/delete replay across concurrency, crashes, version markers, and later recreation.
-- Added bounded native pagination with HEAD-only healthy summaries and OCI-specific safe errors.
-- Kept OCI resource-principal identity, metadata, clients, and revisions lazy and provider-private.
+- Merged the OCI Object Storage GraphStore through protected PR #262 at `edf0ee3f`.
+- Verified all initial GraphStore implementations through one provider-neutral conformance suite.
+- Reassessed the literal Phase D3 exit gate and found every criterion satisfied.
+- Reused the accepted GCS live proof as the gate's required one live object-store demonstration.
+- Kept S3, Azure, and OCI live qualification explicitly open without blocking Phase D4.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_graph_store.py tests/control/test_oci_object_graph_store.py`.
+Run `uv run --extra dev pytest -q tests/control/test_graph_store.py tests/control/test_{gcs,s3,azure_blob,oci_object}_graph_store.py`.
 
 ## Checks
 
-- Ruff and format passed across 424 files; strict mypy passed across 393 source files.
-- Control-contract drift and the full pytest suite passed with expected provider skips.
-- OCI SDK 2.184.1 surface verification and focused/shared GraphStore pytest passed: 74 tests.
-- Runtime-all dependency audit found no vulnerabilities; wheel/sdist identity checks passed.
-- Diff, credential, key, Terraform state, Terraform plan, and generated-cache scans were clean.
+- PR #262 passed Python, Terraform, secret, distribution, and container checks.
+- Exact-main CI run `31760157381` passed at `edf0ee3f`.
+- Shared and provider-focused GraphStore suites passed on that exact tree.
+- The independent Phase D3 gate audit returned PASS with no material findings.
 
 ## Decisions
 
-- Default construction uses only OCI resource-principal identity; developer profiles need injection.
-- Delete only the ETag-matched current object; never enumerate or select historical versions.
-- Confine OCI's ambiguous `NotAuthorizedOrNotFound` response to documented object-HEAD absence.
+- The gate's existential one-live-provider clause is satisfied by the accepted GCS proof.
+- Unrun S3, Azure, and OCI live proofs still gate only those providers' support promotion.
+- No paid object-store rerun is needed before Phase D4.
 
 ## Remaining
 
-- Publish and merge this implementation through a focused protected PR.
-- Verify protected PR and exact-main CI after merge.
-- Obtain a named numeric OCI ceiling before any live Object Storage mutation.
-- Run the separate live policy/restart/conflict/versioning/cleanup/no-drift proof.
+- Begin Phase D4 hosted OIDC authentication and authorization in a focused protected PR.
+- Run S3, Azure, and OCI live proofs before promoting those providers beyond unqualified support.
+- Publish a later immutable distribution only when its exact scope receives separate approval.
 
 ## Review First
 
-- `src/dander/control/oci_object_graph_store.py`
-- `tests/control/test_oci_object_graph_store.py`
+- `docs/control-contracts.md`
 - `tickets/DANDER-125-oci-object-graph-store.md`
+- `docs/evidence/gcp/2026-08-13/druff-gcs-graph-store.json`
