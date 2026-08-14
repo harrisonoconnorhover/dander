@@ -1,0 +1,111 @@
+{
+  "schema": "io.dander.local-control-plane.evidence/v1",
+  "profile": "local_control_plane",
+  "observed_on": "2026-08-14",
+  "status": "passed",
+  "authorization": {
+    "local_cost_usd": "0.00",
+    "gcp_aggregate_ceiling_usd": "10.00",
+    "gcp_measured_cost_usd": null,
+    "gcp_cost_status": "provider_invoice_pending"
+  },
+  "host_contract": {
+    "protected_main_commit": "ee03b942c278ba63098bcea30a97f2a9ab05a553",
+    "protected_main_ci_run": 31819455797,
+    "protected_main_ci_status": "success",
+    "contract_bundle_sha256": "695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3",
+    "api_version": "v1"
+  },
+  "images": {
+    "active": {
+      "dander_digest": "sha256:a08b016ffd5eb6ad3c67d86239f86d8a8249ec717efc6fdcec7fc5b4fdc9b34a",
+      "dander_revision": "63ba867af4bd5ecd8771b911b743c3a704e91cb6",
+      "dander_version": "0.9.0rc20",
+      "druff_digest": "sha256:1f09a333874021869520138535c17938cf2b01a889db9add32b6e0c72e0718b2",
+      "druff_revision": "7d718fcde01d4c2140ede96bf72a66a224dac64c"
+    },
+    "rollback": {
+      "dander_digest": "sha256:f1c92b3c6cefff3813282e99bf18ef6eb5354b753e139e04350d15b953a2fa9a",
+      "dander_revision": "d959135a8681aceb803eba4013e3950296b0edb9",
+      "dander_version": "0.9.0rc19",
+      "druff_digest": "sha256:1dc40624ce92c7e476862d874de3a961c9b3550488aad86eb4168cb6a774270b",
+      "druff_revision": "c6b9abf6935e21b1c049443ddc0a29177615a591",
+      "druff_boundary": "digest_switch_with_equivalent_reviewed_tree"
+    },
+    "disposable_registry_removed": true,
+    "accepted_local_image_objects_retained": true
+  },
+  "render_and_runtime": {
+    "compose_render_sha256": "70cebec55241dcec9def1a1a032201793ec2d85d27e1ca054ba4230dcc5d4a78",
+    "repeated_render_equal": true,
+    "second_up_running_container_ids_unchanged": true,
+    "stable_running_services": 3,
+    "active_verifier_passed": true,
+    "rollback_verifier_passed": true,
+    "restored_active_verifier_passed": true
+  },
+  "synthetic_oidc": {
+    "real_provider_registration": false,
+    "upstream": "navikt/mock-oauth2-server@30afaa6d6c105f04933542f3a62f58c2415c3410",
+    "bounded_patch": {
+      "sha256": "f56810915c3bfe9492f419d6402176d5f70820767e30ed4b8958455baa241cee",
+      "modified_files": [
+        "build.gradle.kts",
+        "src/main/kotlin/no/nav/security/mock/oauth2/grant/AuthorizationCodeHandler.kt",
+        "src/main/kotlin/no/nav/security/mock/oauth2/token/OAuth2TokenProvider.kt"
+      ],
+      "base_image": "cgr.dev/chainguard/jre@sha256:7e3c6f52fc6a28afd4f095e1f38244026a104426cb81ca2259f7af5ed2ee8ed5",
+      "changes": [
+        "pin the Jib base image by immutable AMD64 digest",
+        "return a null refresh token for authorization-code exchange",
+        "exclude callback aud from ID-token additional claims while retaining it for the access token"
+      ],
+      "reproduced_after_cleanup": true
+    },
+    "deployed_image_digest": "sha256:2bd5c92c571c17f45ebf3cb057a728ea2abbaaa139118687a2072a70037e5a89",
+    "authorization_code_pkce": true,
+    "access_token_algorithm": "RS256",
+    "access_token_api_audience": true,
+    "id_token_spa_audience": true,
+    "admin_role": true,
+    "access_token_lifetime_seconds": 300,
+    "refresh_token_absent": true,
+    "browser_hosted_session_passed": true
+  },
+  "persistence": {
+    "api_created_graph_content_sha256": "de70cdd0b353b23c2e5157a9b390db9b59e4464fab5fa19ff99253a1dcb9d0cd",
+    "browser_created_graph_content_sha256": "0e0485be266a47995596b906ab5a325e1cb20027e4a779ba8958864ada724af6",
+    "control_restart_preserved_graphs": true,
+    "rollback_preserved_graphs": true,
+    "active_restore_preserved_graphs": true
+  },
+  "cleanup": {
+    "compose_containers_absent": true,
+    "compose_network_absent": true,
+    "graph_store_volume_absent": true,
+    "local_registry_absent": true,
+    "generated_projection_and_tls_files_absent": true,
+    "synthetic_oidc_cloud_run_service_absent": true,
+    "synthetic_oidc_registry_images_absent": true,
+    "synthetic_oidc_local_build_artifacts_absent": true
+  },
+  "retained_gcp_reconciliation": {
+    "checked_after_local_and_provider_cleanup": true,
+    "baseline_update_owned_by_phase8": true,
+    "d7_retained_project_apply": false,
+    "configuration_commit": "c10968afce94b1650a4f5bc2ac458f3f5648eae4",
+    "configuration_version": "0.9.0rc21",
+    "runtime_image_digest": "sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1",
+    "stage_zero_plan": "no_changes",
+    "platform_plan": "no_changes",
+    "saved_plan_retained": false,
+    "copied_state_retained": false
+  },
+  "sanitization": {
+    "tokens_or_cookies_recorded": false,
+    "credentials_or_private_keys_recorded": false,
+    "provider_account_identifiers_recorded": false,
+    "graph_documents_recorded": false,
+    "terraform_state_or_plan_recorded": false
+  }
+}

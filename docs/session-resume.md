@@ -15,8 +15,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 - Project `dander-proof-harrison-20260801`, region `us-central1`, remote states `dander/state` and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
-- The source-free runtime is pinned to Dander `0.7.1`, Salesforce `0.3.1`, and ServiceNow `0.2.2`
-  at immutable digest `sha256:68e112c43b365018b735be7934446e15dfe6169fc64062b62b8bb97ea4f93b96`.
+- The five retained jobs currently use private diagnostic Dander `0.9.0rc21` image
+  `sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1`.
+  This Phase 8 diagnostic image is not the final qualification candidate.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -33,13 +34,19 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-14, the D7 local hosted Control profile passed exact-digest HTTPS/OIDC, restart
+  persistence, byte-equal render, stable second-up, rollback/restore, and cleanup qualification.
+  The issuer was synthetic and disposable; no real-provider or cloud-hosted support is implied.
+  Fresh retained-GCP stage-zero and current-equivalent RC21 platform plans then reported exact
+  `No changes.` See `docs/evidence/local/2026-08-14/d7-control-plane.json`.
+
 - On 2026-08-14, protected Dander `0.9.0rc20` published the D6 service/startup contract and D7
   local Compose assets from commit `75c5654e95439eaf18e90fbacc849799f4fe42b6`. The immutable
   `v0.9.0rc20` tag and trusted-publishing run `31815063258` produced public artifacts whose hashes
   and sizes matched PyPI. Fresh no-cache PyPI-only CLI, scaffold, project, import-origin, and
   Terraform validation passed outside every checkout. RC20 did not publish a current Dander
-  container image, DRUFF-29 did not retain a durable image, and the D7 local live gate remains
-  pending exact reviewed images; this release does not promote local or provider support.
+  container image and DRUFF-29 did not retain a durable image. The later local proof built and
+  loaded exact reviewed images without changing this release's support status.
 
 - On 2026-08-14, protected Dander `0.9.0rc19` published the complete deterministic
   `io.dander.control.contracts/v1` bundle from commit

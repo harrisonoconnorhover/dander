@@ -19,10 +19,11 @@ cloud path remains outside the live proof.
 | Durable state and optional read capabilities | Live-proven | Run history, leases, watermarks, count, connection-check, and targeted-read paths were exercised for the relevant retained plugins without provider write-back. |
 | Single metadata spine | Live-proven | The run ledger and catalog store pipeline lifecycle, source/model schema, lineage, tests, and governed metrics in BigQuery; Dataplex publication remains optional. |
 | Canonical visual authoring | Live-proven for the bounded graph slice | Druff opens and saves canonical `PipelineGraph`, discovers presentation-safe connector and operation descriptors, starts an already-deployed run, and previews a non-applyable full-manifest plan through Dander's loopback service. |
+| Local hosted Control plane | Live-proven for the D7 local profile | Exact Dander/Druff digests passed loopback HTTPS, synthetic OIDC/PKCE, graph restart persistence, byte-equal rendering, stable second-up identities, rollback/restoration, and exact cleanup. This is not real-provider or cloud qualification. |
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
-| Infrastructure reconciliation safety | Live-proven | Fresh OCI stage-zero/foundation and retained-GCP stage-zero/platform plans after the OCI proof reported exact `No changes.` No retained-project apply occurred. |
-| Phase 8 support qualification | Open | The AWS-native profile and safe unexpected-failure diagnostics pass locally. Protected review, retained diagnostic evidence, one immutable candidate, exact-candidate scale/cost, Kubernetes and pairwise live proofs, soak, and support-matrix freeze remain open. |
+| Infrastructure reconciliation safety | Live-proven | Fresh retained-GCP stage-zero and current-equivalent RC21 platform plans after D7 local cleanup reported exact `No changes.` D7 performed no retained-project apply. |
+| Phase 8 support qualification | Open | The private RC21 diagnostic image and the multi-deployment inspection fix are on protected main. One final immutable candidate, exact-candidate scale/cost, Kubernetes and pairwise live proofs, soak, and support-matrix freeze remain open. |
 
 ## Current release and deployment record
 
@@ -33,8 +34,14 @@ cloud path remains outside the live proof.
   run `31815063258`. Its public wheel and source-distribution hashes matched the workflow
   artifacts, and a fresh no-cache PyPI-only install passed CLI version, scaffold, project, and
   Terraform validation outside every checkout. RC20 packages the D6 service/startup contract and
-  D7 local Compose assets; it publishes no current Dander or Druff container image and does not
-  qualify the local profile or promote provider support.
+  D7 local Compose assets; it published no current Dander or Druff container image. The later
+  local-only proof loaded exact reviewed images and did not promote provider support.
+
+- The D7 local hosted Control proof used exact active and rollback Dander/Druff digests and passed
+  a synthetic OIDC/PKCE browser journey, API and browser graph restart persistence, equal Compose
+  rendering, stable second-up identities, rollback/restoration, and verified cleanup. Accepted
+  local image objects remain available for later D7 profiles; the disposable registry and TLS
+  material were removed. See `docs/evidence/local/2026-08-14/d7-control-plane.json`.
 - Public Dander `0.9.0rc19` was published from protected-main commit
   `cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b` and immutable tag `v0.9.0rc19` by trusted-publishing
   run `31785512985`. Its wheel and source distribution contain the complete deterministic
@@ -76,8 +83,9 @@ cloud path remains outside the live proof.
   application-secret rotation, rollback/restoration, alarm-to-topic routing, cleanup, OCI no
   drift, and retained-GCP no drift. OCI remains experimental pending Phase 8; see
   `docs/cloud-portability-oci-lifecycle-acceptance.md`.
-- Retained source-free Dander image: `sha256:68e112c43b365018b735be7934446e15dfe6169fc64062b62b8bb97ea4f93b96`,
-  built with Dander `0.7.1`, Salesforce `0.3.1`, and ServiceNow `0.2.2`.
+- The five retained jobs currently use private Phase 8 diagnostic Dander `0.9.0rc21` image
+  `sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1`.
+  It is not the final qualification candidate.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions
@@ -108,5 +116,6 @@ cloud path remains outside the live proof.
 Dander demonstrates its intended beta vertical slice: one manifest and CLI reconcile an owned
 GCP platform, independently installed connectors ingest into BigQuery, Dander transforms and tests
 the data, one metadata spine records what happened, and Druff authors and operates a bounded graph
-without becoming a second runtime. Phase 8 support qualification is not complete; the exact open
-gates are recorded in `docs/cloud-portability-phase8-qualification.md`.
+without becoming a second runtime. The D7 local hosted Control profile is live-qualified without
+promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
+the exact open gates are recorded in `docs/cloud-portability-phase8-qualification.md`.
