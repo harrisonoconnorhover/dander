@@ -225,6 +225,19 @@ separate unchanged boundary.
 and digest, and required security headers. It is not a job template or a Dander service template.
 Both service and static projections normalize unordered pairs before deterministic serialization.
 
+The first D7 renderer is the local Compose profile. It consumes one closed immutable non-secret
+input, reuses the D6 service/OIDC/GraphStore projections, and emits exact active/rollback image
+environments plus aligned Control and Druff JSON. Compose has no build path and publishes only a
+localhost HTTPS edge. A networkless one-shot initializer receives only `CHOWN` so UID/GID 65532 can
+use the named local GraphStore volume; every long-running container is non-root, read-only, and
+capability-free. Local verification uses repeatable Compose rendering, stable second-up container
+identities, restart persistence, digest rollback/restore, and exact disposable cleanup. Terraform
+state, saved plans, provider workload identity, and cloud cost ceilings do not apply locally.
+
+Live local qualification remains pending until exact immutable images containing D6 and DRUFF-29
+exist. Public Dander RC19 predates the typed GraphStore startup seam, and DRUFF-29 deliberately did
+not publish an image; the local profile does not silently build from either checkout.
+
 ## Regenerate and verify
 
 After an intentional DTO change, regenerate the committed bundle:

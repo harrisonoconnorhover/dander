@@ -16,6 +16,7 @@ call sites (mirrors the `SecretStoreProvider` / `ComputeProvider` abstractions i
 | `kubernetes/chart/dander` | Versioned Helm chart for an existing conforming cluster. **Locally validated; not live-qualified.** |
 | `azure/bootstrap-admin` | Azure Storage state, ACR, and user-assigned runtime identity. **Live-proven for the named experimental Phase 6 profiles.** |
 | `azure/modules/container-apps-jobs` | Container Apps Jobs, Key Vault references, Log Analytics, alerts, and optional network placement. **Live-proven for the named experimental Phase 6 profiles.** |
+| `local` | Digest-only same-origin HTTPS Druff + Control Compose profile with a durable local GraphStore. **Implemented; live proof awaits current immutable images.** |
 | `oci/bootstrap-admin` | Native OCI Object Storage state and a private digest-addressed OCIR repository. **Implemented and locally validated; live proof pending.** |
 | `oci` | Private VCN/subnet, default Vault and rotating key, Container Instance resource-principal policy, Logging, and Notifications foundation. **Implemented and locally validated; live proof pending.** |
 

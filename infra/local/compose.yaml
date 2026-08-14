@@ -1,0 +1,135 @@
+name: dander-local-control-plane
+
+services:
+  volume-init:
+    image: ${DANDER_CONTROL_IMAGE:?render the local control-plane input first}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chown 65532:65532 /var/lib/dander/control && chmod 0700 /var/lib/dander/control"]
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - type: volume
+        source: graph-store
+        target: /var/lib/dander/control
+    restart: "no"
+
+  control:
+    image: ${DANDER_CONTROL_IMAGE:?render the local control-plane input first}
+    user: "65532:65532"
+    command:
+      - control
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8770"
+      - --oidc-config
+      - /etc/dander/control-oidc.json
+      - --graph-store-config
+      - /etc/dander/control-graph-store.json
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - type: bind
+        source: ${DANDER_LOCAL_CONFIG_DIR:?render the local control-plane input first}/control-oidc.json
+        target: /etc/dander/control-oidc.json
+        read_only: true
+      - type: bind
+        source: ${DANDER_LOCAL_CONFIG_DIR:?render the local control-plane input first}/control-graph-store.json
+        target: /etc/dander/control-graph-store.json
+        read_only: true
+      - type: volume
+        source: graph-store
+        target: /var/lib/dander/control
+    expose:
+      - "8770"
+    healthcheck:
+      test:
+        - CMD
+        - /app/.venv/bin/python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:8770/readyz', timeout=2).read()
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  druff:
+    image: ${DRUFF_IMAGE:?render the local control-plane input first}
+    user: "65532:65532"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - type: bind
+        source: ${DANDER_LOCAL_CONFIG_DIR:?render the local control-plane input first}/bootstrap.json
+        target: /app/bootstrap.json
+        read_only: true
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  edge:
+    image: ${DRUFF_IMAGE:?render the local control-plane input first}
+    user: "65532:65532"
+    command:
+      - /usr/bin/caddy
+      - run
+      - --config
+      - /etc/caddy/local.Caddyfile
+      - --adapter
+      - caddyfile
+    depends_on:
+      control:
+        condition: service_healthy
+      druff:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - type: bind
+        source: ./Caddyfile
+        target: /etc/caddy/local.Caddyfile
+        read_only: true
+      - type: bind
+        source: ${DANDER_LOCAL_CONFIG_DIR:?render the local control-plane input first}/tls/localhost.crt
+        target: /etc/caddy/tls/localhost.crt
+        read_only: true
+      - type: bind
+        source: ${DANDER_LOCAL_CONFIG_DIR:?render the local control-plane input first}/tls/localhost.key
+        target: /etc/caddy/tls/localhost.key
+        read_only: true
+    ports:
+      - "127.0.0.1:8443:8443"
+    restart: unless-stopped
+
+volumes:
+  graph-store:
+    name: dander-local-control-plane-graph-store
