@@ -33,8 +33,20 @@ Phase 7 evidence merge.
 6. Repeat release audits and freeze the compatibility and limitation documents only after every
    required report passes.
 
-No paid benchmark or provider mutation is authorized by this document. Provider-specific SLOs and
-ceilings still require explicit human approval before any paid scale run.
+The operator approved cloud mutations and an aggregate Phase 8 ceiling of USD 10 on 2026-08-14;
+USD 0 has been incurred. This does not approve provider-specific SLOs, override the dependency
+order, or authorize a scale run before the immutable candidate exists. Provider-specific SLOs and
+per-run ceilings still require explicit human approval before paid scale mutation.
+
+## Pre-candidate release readiness
+
+Commit `2d020d15fc52` passed a local release-readiness audit on 2026-08-14: wheel and source archive
+inspection, clean installation and generated-project validation for both artifacts, the full
+multi-provider runtime import, dependency audit, all Terraform format/validation and mocked module
+tests, Helm lint/render, the main container runtime contract, and the OCI controller container
+contract. Trivy configuration/image scans, the Git-history secret scan, protected CI, and the
+independent completion review were not available locally. This preflight does not substitute for
+repeating every audit on the final source-free candidate.
 
 ## Normalized report contract
 
