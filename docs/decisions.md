@@ -1603,3 +1603,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   the required ordered `StartAfter` behavior. AWS SDK imports remain lazy; the `aws` and
   `runtime-all` boto3 floors are `1.35.69`, and live policy/versioning/cleanup proof remains a
   separate approval gate.
+
+## 2026-08-13 — Azure Blob GraphStore deletes only the exact current base blob
+
+- **Concurrency and paging:** Creates use native absence semantics; reads, replacements, delete
+  fences, journal transitions, and deletes pin exact opaque ETags with `IfNotModified`. The
+  `azure-storage-blob` floor is 12.28 because that release introduced inclusive `start_from`;
+  continuation tokens are still followed when Azure returns a short page.
+- **Deletion boundary:** Conditional delete targets only the current base blob. The adapter never
+  requests snapshot inclusion or a version identifier, so a snapshots-present, lease, or
+  immutability-policy failure is explicit and fail-closed rather than silently widening deletion.
+- **Provider boundary:** `DefaultAzureCredential`, container-native metadata, ETags, and provider
+  errors remain inside the lazily loaded adapter. Live Azure policy, versioning, restart, cleanup,
+  and no-drift qualification remains a separate named-cost approval gate.
