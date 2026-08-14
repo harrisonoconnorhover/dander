@@ -6,7 +6,7 @@
 - Merged the runtime-inspection selector, DANDER-201 evidence, and private RC22 preparation; exact-main CI passed all five jobs.
 - Published source-free private RC22 index `sha256:ce395d…47c3` with amd64/arm64 manifests, SBOM, and provenance.
 - Passed read-only registry-image version and selected GCP/Kubernetes runtime inspections.
-- Recorded the exact candidate plus the pre-mutation Kubernetes lifecycle objective set within the unchanged USD 10 ceiling.
+- Recorded the exact candidate plus pre-mutation Kubernetes correctness and failure objective sets within the unchanged USD 10 ceiling.
 
 ## Try It
 
@@ -36,5 +36,5 @@ Inspect `docs/evidence/phase8/2026-08-14/rc22-candidate.json`; public RC20 remai
 ## Review First
 
 - `docs/evidence/phase8/2026-08-14/rc22-candidate.json`
-- `src/dander/deployment/kubernetes_control_plane.py`
+- `docs/evidence/phase8/2026-08-14/kubernetes-correctness-objectives.json`
 - `docs/cloud-portability-phase8-qualification.md`

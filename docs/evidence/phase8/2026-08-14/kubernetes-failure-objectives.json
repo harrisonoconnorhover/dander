@@ -6,18 +6,11 @@
   },
   "approved_objectives": {
     "names": [
-      "chart_verification",
-      "manual_execution",
-      "scheduled_execution",
-      "replay_idempotency",
-      "overlap_exclusion",
-      "interruption_and_deadline",
-      "versionless_secret_rotation",
       "alert_routing",
-      "immutable_upgrade_and_rollback",
-      "owned_cleanup"
+      "interruption_and_deadline",
+      "overlap_exclusion"
     ],
-    "benchmark_class": "lifecycle",
+    "benchmark_class": "failure",
     "profile_id": "kubernetes_portable",
     "release_version": "0.9.0rc22",
     "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
