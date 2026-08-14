@@ -2,37 +2,37 @@
 
 ## Finished
 
-- Accepted the D7 existing-cluster Kubernetes profile after complete live qualification.
-- Proved HTTPS synthetic OIDC, browser graph persistence, restart, rollback, and restore.
-- Removed the disposable Helm release, namespace/PVC, cluster, issuer, registry copy, and TLS files.
-- Recorded coordinate-free evidence and closed DANDER-129 without promoting provider support.
+- Added the provider-neutral D6 projection into a separate GCP Cloud Run Terraform profile.
+- Added deterministic active/rollback rendering, backend-free preflight, and read-only verification.
+- Kept Control and Druff on distinct keyless identities with Control-only GCS object access.
+- Disabled soft-delete retention only for the disposable versioned graph bucket.
+- Bound verification to the exact reconciled serving revision and mounted config versions.
 
 ## Try It
 
-Review the sanitized evidence and the completed ticket. The live infrastructure is intentionally
-gone; focused renderer/verifier behavior remains covered by the deployment test suite.
+Copy `infra/gcp-control/gcp-control-plane.example.json`, replace its example coordinates and
+digests, then run the module's `render` and `preflight` actions. Do not apply from the example.
 
 ## Checks
 
-- Exact merged-source active verifier passed at `682f0fa` before cleanup.
-- Protected-main CI run 31830986502 passed all five jobs at `682f0fa`.
-- Active, rollback, and restored verifiers passed; restart and browser persistence passed.
-- Helm release, namespace/PVC, kind cluster, issuer service/images, generated files, and TLS key are absent.
+- Full Ruff, mypy, contract drift, and pytest passed: 1,698 passed and 28 skipped.
+- Terraform 1.15.8 initialization, validation, and one native Terraform test passed.
+- The generated Caddy configuration validated against the exact Druff image.
+- The rc22 wheel and source distribution built; the wheel contains the module and complete root.
 
 ## Decisions
 
-- Accept only the single-replica, single-writer existing-cluster Helm profile.
-- Keep synthetic OIDC distinct from real-provider identity qualification.
-- Retain accepted application image objects locally to avoid rebuilding them for later D7 work.
+- Keep this profile in isolated attempt-specific remote state; do not alter retained GCP resources.
+- Use numeric startup-config versions mounted outside Druff's immutable application export.
+- Require one current ready revision with 100% traffic before accepting provider evidence.
 
 ## Remaining
 
-- Merge this focused evidence PR after protected CI.
-- Continue D7 cloud-provider deployment profiles in separate PRs.
-- Do not claim Kubernetes HA, horizontal scale, real-provider identity, or cloud support.
+- Commit, open the focused protected PR, merge it, and verify exact-main CI.
+- Promote exact images, run bounded live qualification, clean up, and prove retained-GCP no-drift.
 
 ## Review First
 
-- `docs/evidence/kubernetes/2026-08-14/d7-control-plane.json`
-- `tickets/DANDER-129-kubernetes-control-plane-deployment.md`
-- `docs/control-contracts.md`
+- `src/dander/deployment/gcp_control_plane.py`
+- `infra/gcp-control/main.tf`
+- `tickets/DANDER-130-gcp-control-plane-deployment.md`
