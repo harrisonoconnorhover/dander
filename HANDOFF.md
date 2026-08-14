@@ -2,39 +2,37 @@
 
 ## Finished
 
-- Qualified the protected GCP Cloud Run Control profile on active, rollback, and restored images.
-- Proved a browser-created graph survived Control restart and digest switches with one exact hash.
-- Removed every disposable service, identity, config secret, graph resource, and issuer artifact.
-- Reconciled retained GCP stage-zero and current-equivalent rc22 platform plans to no change.
-- Recorded coordinate-free evidence and refreshed the local sanitized reproducibility manifest.
+- Added the narrow AWS D7 authority prerequisite to the existing short-lived deployment role.
+- Allowed exact cleanup only below the fixed D7 state prefix and in disposable D7 buckets.
+- Kept provider actions enumerated and resource mutations constrained by D7 names, tags, or ARNs.
+- Opened DANDER-131 without adding or applying the AWS application Terraform root.
 
 ## Try It
 
-Review `docs/evidence/gcp/2026-08-14/d7-control-plane.json`; it contains no provider coordinates,
-credentials, tokens, graph documents, Terraform state, or saved plans.
+Review the new `deployment_d7` policy in `infra/aws/bootstrap-admin/main.tf`. This PR changes only
+future short-lived deployment authority; it does not contact AWS or create resources.
 
 ## Checks
 
-- Exact-main CI run 31843098117 passed all five jobs at `c414bd12`.
-- The bounded 12-check verifier passed active, rollback, and restored-active deployments.
-- Active, rollback, post-restart, and final-restored Terraform plans reported `No changes.`
-- Browser reloads reopened the same three-node graph with content hash `0e0485be266a4799…`.
-- Cleanup inventories were empty; retained stage-zero and rc22 platform plans were no-change.
+- Focused AWS bootstrap and Fargate tests passed: 22 tests.
+- Ruff lint/format, Terraform format/validate/test, and `git diff --check` passed.
+- No AWS provider operation or paid resource was attempted; the local AWS session is expired.
 
 ## Decisions
 
-- Preserve accepted application images for later profiles; remove only the disposable issuer image.
-- Leave the shared retained state bucket's recovery policy unchanged and remove all live versions.
-- Keep this qualification experimental: synthetic identity does not promote GCP support.
+- Keep administrator use confined to the reviewed stage-zero apply.
+- Use a separate inline D7 policy with state-version access fixed to `dander/d7/control-plane/`.
+- Require the later application root to consume, never create, its deployment authority.
 
 ## Remaining
 
-- Merge this focused evidence PR and verify exact-main CI.
-- Provider-measured GCP cost remains pending; the authorized aggregate ceiling is USD 10.
-- AWS, Azure, and OCI hosted Control profiles retain their separate live gates.
+- Complete independent review, protected PR, merge, and exact-main CI.
+- Reauthenticate with `aws login`, then apply the reviewed stage-zero permission change.
+- Implement the separate AWS D7 projection/Terraform/verifier PR.
+- Run bounded AWS/S3 live qualification and exact cleanup under the aggregate USD 10 cap.
 
 ## Review First
 
-- `docs/evidence/gcp/2026-08-14/d7-control-plane.json`
-- `tickets/DANDER-130-gcp-control-plane-deployment.md`
-- `docs/control-contracts.md`
+- `infra/aws/bootstrap-admin/main.tf`
+- `tests/bootstrap/test_aws_admin.py`
+- `tickets/DANDER-131-aws-control-plane-deployment.md`

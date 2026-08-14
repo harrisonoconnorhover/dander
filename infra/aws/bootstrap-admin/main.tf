@@ -1,5 +1,6 @@
 locals {
-  partition = startswith(var.region, "us-gov-") ? "aws-us-gov" : "aws"
+  partition       = startswith(var.region, "us-gov-") ? "aws-us-gov" : "aws"
+  d7_state_prefix = "dander/d7/control-plane/"
   tags = merge(var.tags, {
     component  = "aws-stage-zero"
     managed-by = "dander"
@@ -386,4 +387,259 @@ resource "aws_iam_role_policy" "deployment" {
   name   = "dander-platform-administration"
   role   = aws_iam_role.deployment.id
   policy = data.aws_iam_policy_document.deployment.json
+}
+
+data "aws_iam_policy_document" "deployment_d7" {
+  statement {
+    sid       = "ListD7TerraformStateVersions"
+    effect    = "Allow"
+    actions   = ["s3:ListBucketVersions"]
+    resources = [aws_s3_bucket.terraform_state.arn]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["${local.d7_state_prefix}*"]
+    }
+  }
+
+  statement {
+    sid    = "ManageD7TerraformStateVersions"
+    effect = "Allow"
+    actions = [
+      "s3:DeleteObjectVersion",
+      "s3:GetObjectVersion",
+    ]
+    resources = ["${aws_s3_bucket.terraform_state.arn}/${local.d7_state_prefix}*"]
+  }
+
+  statement {
+    sid    = "InspectD7ProviderResources"
+    effect = "Allow"
+    actions = [
+      "cloudfront:GetCachePolicy",
+      "cloudfront:GetDistribution",
+      "cloudfront:GetDistributionConfig",
+      "cloudfront:GetOriginRequestPolicy",
+      "cloudfront:ListCachePolicies",
+      "cloudfront:ListDistributions",
+      "cloudfront:ListOriginRequestPolicies",
+      "cloudfront:ListTagsForResource",
+      "ec2:DescribeAvailabilityZones",
+      "ec2:DescribeManagedPrefixLists",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeSecurityGroupRules",
+      "elasticloadbalancing:DescribeListeners",
+      "elasticloadbalancing:DescribeLoadBalancerAttributes",
+      "elasticloadbalancing:DescribeLoadBalancers",
+      "elasticloadbalancing:DescribeRules",
+      "elasticloadbalancing:DescribeTargetGroupAttributes",
+      "elasticloadbalancing:DescribeTargetGroups",
+      "elasticloadbalancing:DescribeTargetHealth",
+      "elasticloadbalancing:DescribeTags",
+      "ecs:DescribeServices",
+      "ecs:DescribeTasks",
+      "ecs:ListServices",
+      "ecs:ListTaskDefinitions",
+      "ecs:ListTasks",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "ManageD7Buckets"
+    effect = "Allow"
+    actions = [
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:GetAccelerateConfiguration",
+      "s3:GetBucketAcl",
+      "s3:GetBucketLocation",
+      "s3:GetBucketOwnershipControls",
+      "s3:GetBucketPublicAccessBlock",
+      "s3:GetBucketRequestPayment",
+      "s3:GetBucketTagging",
+      "s3:GetBucketVersioning",
+      "s3:GetEncryptionConfiguration",
+      "s3:ListBucket",
+      "s3:ListBucketMultipartUploads",
+      "s3:ListBucketVersions",
+      "s3:PutBucketOwnershipControls",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:PutBucketTagging",
+      "s3:PutBucketVersioning",
+      "s3:PutEncryptionConfiguration",
+    ]
+    resources = ["arn:${local.partition}:s3:::${var.name}-d7-*"]
+  }
+
+  statement {
+    sid    = "ManageD7BucketObjects"
+    effect = "Allow"
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
+      "s3:GetObject",
+      "s3:GetObjectAttributes",
+      "s3:GetObjectVersion",
+      "s3:ListMultipartUploadParts",
+      "s3:PutObject",
+    ]
+    resources = ["arn:${local.partition}:s3:::${var.name}-d7-*/*"]
+  }
+
+  statement {
+    sid    = "CreateD7CloudFrontResources"
+    effect = "Allow"
+    actions = [
+      "cloudfront:CreateCachePolicy",
+      "cloudfront:CreateDistribution",
+      "cloudfront:CreateOriginRequestPolicy",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "ManageD7CloudFrontResources"
+    effect = "Allow"
+    actions = [
+      "cloudfront:DeleteCachePolicy",
+      "cloudfront:DeleteDistribution",
+      "cloudfront:DeleteOriginRequestPolicy",
+      "cloudfront:TagResource",
+      "cloudfront:UntagResource",
+      "cloudfront:UpdateCachePolicy",
+      "cloudfront:UpdateDistribution",
+      "cloudfront:UpdateOriginRequestPolicy",
+    ]
+    resources = [
+      "arn:${local.partition}:cloudfront::${var.aws_account_id}:cache-policy/*",
+      "arn:${local.partition}:cloudfront::${var.aws_account_id}:distribution/*",
+      "arn:${local.partition}:cloudfront::${var.aws_account_id}:origin-request-policy/*",
+    ]
+  }
+
+  statement {
+    sid    = "CreateD7LoadBalancingResources"
+    effect = "Allow"
+    actions = [
+      "elasticloadbalancing:CreateListener",
+      "elasticloadbalancing:CreateLoadBalancer",
+      "elasticloadbalancing:CreateRule",
+      "elasticloadbalancing:CreateTargetGroup",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "ManageD7LoadBalancingResources"
+    effect = "Allow"
+    actions = [
+      "elasticloadbalancing:AddTags",
+      "elasticloadbalancing:DeleteListener",
+      "elasticloadbalancing:DeleteLoadBalancer",
+      "elasticloadbalancing:DeleteRule",
+      "elasticloadbalancing:DeleteTargetGroup",
+      "elasticloadbalancing:ModifyListener",
+      "elasticloadbalancing:ModifyLoadBalancerAttributes",
+      "elasticloadbalancing:ModifyRule",
+      "elasticloadbalancing:ModifyTargetGroup",
+      "elasticloadbalancing:ModifyTargetGroupAttributes",
+      "elasticloadbalancing:RemoveTags",
+      "elasticloadbalancing:SetSecurityGroups",
+      "elasticloadbalancing:SetSubnets",
+    ]
+    resources = [
+      "arn:${local.partition}:elasticloadbalancing:${var.region}:${var.aws_account_id}:listener/app/${var.name}-d7-*/*/*",
+      "arn:${local.partition}:elasticloadbalancing:${var.region}:${var.aws_account_id}:listener-rule/app/${var.name}-d7-*/*/*/*",
+      "arn:${local.partition}:elasticloadbalancing:${var.region}:${var.aws_account_id}:loadbalancer/app/${var.name}-d7-*/*",
+      "arn:${local.partition}:elasticloadbalancing:${var.region}:${var.aws_account_id}:targetgroup/${var.name}-d7-*/*",
+    ]
+  }
+
+  statement {
+    sid    = "CreateD7SecurityGroups"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateSecurityGroup",
+      "ec2:CreateTags",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/phase"
+      values   = ["d7"]
+    }
+  }
+
+  statement {
+    sid    = "ManageD7SecurityGroups"
+    effect = "Allow"
+    actions = [
+      "ec2:AuthorizeSecurityGroupEgress",
+      "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:DeleteSecurityGroup",
+      "ec2:DeleteTags",
+      "ec2:ModifySecurityGroupRules",
+      "ec2:RevokeSecurityGroupEgress",
+      "ec2:RevokeSecurityGroupIngress",
+    ]
+    resources = ["arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/phase"
+      values   = ["d7"]
+    }
+  }
+
+  statement {
+    sid    = "ManageD7EcsServices"
+    effect = "Allow"
+    actions = [
+      "ecs:CreateService",
+      "ecs:DeleteService",
+      "ecs:StopTask",
+      "ecs:UpdateService",
+    ]
+    resources = [
+      "arn:${local.partition}:ecs:${var.region}:${var.aws_account_id}:service/${var.name}-d7-*/*",
+      "arn:${local.partition}:ecs:${var.region}:${var.aws_account_id}:task/${var.name}-d7-*/*",
+    ]
+  }
+
+  statement {
+    sid     = "CreateElasticLoadBalancingServiceRole"
+    effect  = "Allow"
+    actions = ["iam:CreateServiceLinkedRole"]
+    resources = [
+      "arn:${local.partition}:iam::${var.aws_account_id}:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:AWSServiceName"
+      values   = ["elasticloadbalancing.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "deployment_d7" {
+  name   = "dander-d7-control-plane"
+  role   = aws_iam_role.deployment.id
+  policy = data.aws_iam_policy_document.deployment_d7.json
 }
