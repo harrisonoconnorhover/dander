@@ -240,10 +240,11 @@ passed Terraform initialization and validation. The matching beta prerelease is
 The first D7 renderer is the local Compose profile. It consumes one closed immutable non-secret
 input, reuses the D6 service/OIDC/GraphStore projections, and emits exact active/rollback image
 environments plus aligned Control and Druff JSON. Compose has no build path and publishes only a
-localhost HTTPS edge. A networkless one-shot initializer receives only `CHOWN` so UID/GID 65532 can
-use the named local GraphStore volume; every long-running container is non-root, read-only, and
-capability-free. Local verification uses repeatable Compose rendering, stable second-up container
-identities, restart persistence, digest rollback/restore, and exact disposable cleanup. Terraform
+localhost HTTPS edge. A networkless one-shot initializer receives only `CHOWN` and `FOWNER` so it
+can set the named local GraphStore volume's owner and mode for UID/GID 65532; every long-running
+container is non-root, read-only, and capability-free. Local verification uses repeatable Compose
+rendering, stable second-up container identities, restart persistence, digest rollback/restore,
+and exact disposable cleanup. Terraform
 state, saved plans, provider workload identity, and cloud cost ceilings do not apply locally.
 
 Live local qualification remains pending until reviewed immutable images containing the exact

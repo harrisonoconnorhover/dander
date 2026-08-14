@@ -12,6 +12,7 @@ services:
       - ALL
     cap_add:
       - CHOWN
+      - FOWNER
     security_opt:
       - no-new-privileges:true
     volumes:

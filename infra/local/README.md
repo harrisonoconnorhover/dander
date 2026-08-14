@@ -82,9 +82,9 @@ docker compose \
 ```
 
 Only `127.0.0.1:8443` is published. Control can reach the fixed HTTPS issuer/JWKS URI, but Control
-and Druff have no host-published ports. A one-shot root service has only `CHOWN`, no network, and
-only prepares the named GraphStore volume; all long-running services use UID/GID 65532, read-only
-root filesystems, dropped capabilities, and bounded tmpfs storage.
+and Druff have no host-published ports. A one-shot root service has only `CHOWN` and `FOWNER`, no
+network, and only changes the named GraphStore volume's owner and mode; all long-running services
+use UID/GID 65532, read-only root filesystems, dropped capabilities, and bounded tmpfs storage.
 
 Verify the active deployment:
 

@@ -21,7 +21,8 @@ inventing local Terraform or accepting mutable artifacts.
 - [x] Use exact digest-addressed images only; Compose contains no checkout build path.
 - [x] Publish only a loopback HTTPS edge; keep long-running containers non-root, read-only, and
       capability-free.
-- [x] Initialize the named GraphStore volume with one networkless root service holding only CHOWN.
+- [x] Initialize the named GraphStore volume with one networkless root service holding only CHOWN
+      and FOWNER.
 - [x] Add bounded preflight/live verification and exact active/rollback selection.
 - [ ] Qualify HTTPS OIDC, graph restart persistence, equal repeated Compose rendering, unchanged
       second-up container IDs, rollback/restore, and exact disposable cleanup with current images.
@@ -56,7 +57,8 @@ example.
 The pre-implementation adversarial review found two concrete prerequisites: no current immutable
 D6/DRUFF-29 images exist, and an empty named volume would be root-owned while Control runs as UID
 65532. The focused correction makes live qualification pending rather than fictional and adds one
-same-image initializer with root plus CHOWN only, no network, and no other capability. TLS files
+same-image initializer with root plus only CHOWN and FOWNER, no network, and no other capability.
+TLS files
 are host-generated under a sealed directory, mounted read-only, and verified readable. Local
 no-drift is defined as equal Compose renders and stable container IDs, not Terraform ceremony.
 
@@ -68,3 +70,13 @@ On 2026-08-14, immutable `dander-platform==0.9.0rc20` published the D6/D7 Python
 boundary from protected-main commit `75c5654e95439eaf18e90fbacc849799f4fe42b6`. Public package
 verification passed, but the unchecked live criterion remains pending exact current Dander and
 Druff container images; no local or provider support was promoted.
+
+The first Docker Desktop live start exposed that `chmod 0700` fails after dropping all capabilities
+and restoring only CHOWN. FOWNER is the narrowly required Linux capability for changing the named
+volume root's mode. The initializer now receives exactly CHOWN and FOWNER; its command, root user,
+network isolation, read-only root filesystem, and no-new-privileges boundary are unchanged.
+Docker inspection reports those accepted capabilities as `CAP_CHOWN` and `CAP_FOWNER`; the live
+verifier now checks that exact engine representation rather than the shorter Compose spelling.
+With the correction applied, the empty-volume initializer exited zero, Control became healthy, and
+the bounded active-environment verifier passed. The broader OIDC, persistence, no-drift, rollback,
+and cleanup criterion remains unchecked until the protected correction merges and the run resumes.
