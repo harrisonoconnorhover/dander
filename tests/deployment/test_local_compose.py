@@ -156,7 +156,7 @@ def test_write_and_preflight_require_exact_files_and_sealed_tls(tmp_path: Path) 
         "images-immutable",
         "tls-readable-read-only",
         "compose-no-build",
-        "volume-init-chown-only",
+        "volume-init-owner-mode-only",
         "loopback-edge-only",
     )
 
@@ -181,7 +181,7 @@ def test_compose_has_no_build_and_only_one_narrow_root_initializer() -> None:
     )
     assert services["volume-init"]["user"] == "0:0"
     assert services["volume-init"]["network_mode"] == "none"
-    assert services["volume-init"]["cap_add"] == ["CHOWN"]
+    assert services["volume-init"]["cap_add"] == ["CHOWN", "FOWNER"]
     assert services["volume-init"]["cap_drop"] == ["ALL"]
     assert services["volume-init"]["command"] == [
         "chown 65532:65532 /var/lib/dander/control && chmod 0700 /var/lib/dander/control"
@@ -288,7 +288,7 @@ def _inspection(
         },
         "HostConfig": {
             "NetworkMode": "none" if initializer else "dander-local-control-plane_default",
-            "CapAdd": ["CHOWN"] if initializer else None,
+            "CapAdd": ["CAP_CHOWN", "CAP_FOWNER"] if initializer else None,
             "CapDrop": ["ALL"],
             "ReadonlyRootfs": True,
             "SecurityOpt": ["no-new-privileges:true"],

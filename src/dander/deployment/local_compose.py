@@ -223,7 +223,7 @@ def preflight_local_control_plane(
         "DRUFF_IMAGE",
         "condition: service_completed_successfully",
         "127.0.0.1:8443:8443",
-        "cap_add:\n      - CHOWN",
+        "cap_add:\n      - CHOWN\n      - FOWNER",
     }
     if "build:" in compose or any(marker not in compose for marker in required_markers):
         raise LocalControlPlaneError("Local Compose asset is incomplete or permits a source build.")
@@ -232,7 +232,7 @@ def preflight_local_control_plane(
         "images-immutable",
         "tls-readable-read-only",
         "compose-no-build",
-        "volume-init-chown-only",
+        "volume-init-owner-mode-only",
         "loopback-edge-only",
     )
 
@@ -328,8 +328,10 @@ def _verify_container(
             raise LocalControlPlaneError("Local GraphStore volume initializer did not complete.")
         if config.get("User") != "0:0" or host.get("NetworkMode") != "none":
             raise LocalControlPlaneError("Local volume initializer has excess runtime access.")
-        if set(host.get("CapAdd") or ()) != {"CHOWN"}:
-            raise LocalControlPlaneError("Local volume initializer must receive only CHOWN.")
+        if set(host.get("CapAdd") or ()) != {"CAP_CHOWN", "CAP_FOWNER"}:
+            raise LocalControlPlaneError(
+                "Local volume initializer must receive only CHOWN and FOWNER."
+            )
         if config.get("Entrypoint") != ["/bin/sh", "-c"] or config.get("Cmd") != [
             "chown 65532:65532 /var/lib/dander/control && chmod 0700 /var/lib/dander/control"
         ]:

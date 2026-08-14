@@ -2,41 +2,37 @@
 
 ## Finished
 
-- Rebased Phase 8 over protected main `63ba867` while preserving Druff and RC20 release evidence.
-- Addressed review blockers for context-bound SLO sets, AWS secrets/partitions, deployment selection, diagnostic ownership, and strict numeric evidence.
-- Renumbered the Phase 8 chain to DANDER-200 through DANDER-207 after Druff consumed DANDER-128.
-- Kept AWS task permissions scoped to declared Redshift, S3, Glue, and Secrets Manager resources.
-- Recorded the user's USD 10 aggregate live-cloud authorization; spend remains USD 0.
+- Corrected the D7 named-volume initializer after its first live Docker start failed closed.
+- Granted only `FOWNER` in addition to `CHOWN` for the fixed owner/mode command.
+- Kept it networkless, read-only, no-new-privileges, and limited to the named volume.
+- Rebased over protected Phase 8 merge `fe325ff` without changing its implementation.
 
 ## Try It
 
-Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py tests/portability/test_redshift_qualification.py tests/providers/test_launcher_runtime.py tests/bootstrap/test_aws_terraform.py`.
+Render the D7 local profile and start Compose with an empty named volume; initialization must exit zero.
 
 ## Checks
 
-- Focused Ruff lint and format checks passed.
-- Latest focused Python contracts passed: 52 tests.
-- Full Ruff, format, mypy, and pytest suite passed with expected skips.
-- Protected CI passed all five jobs on `ff283a7`; a new exact-head run is required after the latest corrections.
-- Fargate Terraform formatting and validation passed.
-- Fargate mocked Terraform tests passed: 4 of 4.
+- The pre-change start failed exactly at `chmod 0700`; the empty stack was removed completely.
+- The corrected initializer exited zero and the active live verifier passed all ten checks.
+- Six focused and the full test suite passed; full Ruff lint/format passed.
+- Focused mypy passed; protected main `fe325ff` CI passed all five jobs before the rebase.
+- Full macOS mypy retained four known platform-only unused-ignore findings.
 
 ## Decisions
 
-- Passed reports must exactly match one independently approved objective-name manifest.
-- AWS secret values exist only in the run-scoped process environment, resolved with the task role.
-- Kubernetes lifecycle-adapter work stays excluded because it overlaps Druff.
+- `CHOWN` changes the volume owner; `FOWNER` is separately required to change its mode.
+- Adding exactly `FOWNER` is smaller than weakening the accepted `0700` mode.
+- The incomplete live attempt is diagnostic evidence, not a passed D7 qualification.
 
 ## Remaining
 
-- Push the final review corrections and obtain one clean exact-head CI/review cycle.
-- Merge DANDER-200/202, then cut and privately publish one source-free qualification candidate.
-- Deploy DANDER-201 diagnostics and start the final retained clean observation window.
-- Run authorized exact-candidate Kubernetes, scale, pairwise, and canonical gates within USD 10.
-- Complete final audits and the retained soak through 2026-09-01 before public support release.
+- Merge this focused protected correction and verify exact-main CI.
+- Resume D7 HTTPS OIDC, persistence, no-drift, rollback, restore, and cleanup.
+- Continue the separately merged Phase 8 work without coupling it to D7.
 
 ## Review First
 
-- `src/dander/providers/fargate/runtime.py`
-- `src/dander/cli/runtime_command.py`
-- `src/dander/state/failure.py`
+- `infra/local/compose.yaml`
+- `src/dander/deployment/local_compose.py`
+- `tests/deployment/test_local_compose.py`
