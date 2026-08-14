@@ -37,6 +37,7 @@ class ResolvedTemplateRequest:
     launcher_retry_count: int
     batch_rows: int
     alert_target: str | None
+    deployment_id: str | None = None
 
     def __post_init__(self) -> None:
         immutable = _freeze_resolved_value(self.pipelines)

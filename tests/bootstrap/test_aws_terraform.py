@@ -111,8 +111,12 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
         "greenhouse_jobs"
     ]
     assert projection["launcher"] == "fargate"
+    assert projection["profile_id"] == "aws_fargate"
+    assert projection["labels"]["profile"] == "gcp"
     assert projection["resources"]["memory_mib"] == 2_048
     assert projection["schedule"]["paused"] is True
+    command = projection["command"]
+    assert command[command.index("--platform") + 1] == "aws_fargate"
     assert projection["secret_bindings"]["API_TOKEN"] == {
         "provider": "gcp_secret_manager",
         "reference": "gcp-sm://projects/unit-project/secrets/greenhouse-token/versions/latest",
@@ -190,7 +194,10 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
     projection = json.loads(projection_argument.removeprefix("-var=execution_projections="))[
         "greenhouse_jobs"
     ]
-    assert projection["profile_id"] == "aws_native"
+    assert projection["profile_id"] == "aws_fargate"
+    assert projection["labels"]["profile"] == "aws_native"
+    command = projection["command"]
+    assert command[command.index("--platform") + 1] == "aws_fargate"
     assert projection["secret_bindings"]["DANDER_POSTGRES_DSN"] == {
         "provider": "aws_secret_manager",
         "reference": secret_prefix + "postgres-dsn-AbCdEf",

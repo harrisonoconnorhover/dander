@@ -93,6 +93,7 @@ class FargateTemplateFactory:
                     raise ExecutionProjectionError(
                         f"Fargate AWS-native pipeline must bind {required_dsn}"
                     )
+            deployment_id = request.deployment_id or request.profile_id
             command: tuple[str, ...] = (
                 "runtime",
                 "execute",
@@ -101,7 +102,7 @@ class FargateTemplateFactory:
                 "--pipeline",
                 pipeline_id,
                 "--platform",
-                request.profile_id,
+                deployment_id,
                 "--config",
                 "/app/dander.yaml",
                 "--models-dir",
@@ -121,7 +122,7 @@ class FargateTemplateFactory:
                 schema=EXECUTION_PROJECTION_SCHEMA,
                 contract=RUNTIME_CONTRACT,
                 pipeline_id=pipeline_id,
-                profile_id=request.profile_id,
+                profile_id=deployment_id,
                 launcher="fargate",
                 image=request.image,
                 command=command,

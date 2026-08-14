@@ -2,8 +2,8 @@
 
 ## Finished
 
-- Rebased Phase 8 over protected main `195cbbc` while preserving the merged Druff D7 implementation.
-- Addressed independent-review blockers: exact approved SLO sets, runtime-resolved AWS secrets, and wildcard-free S3 policy prefixes.
+- Rebased Phase 8 over protected main `15345d7` while preserving the merged Druff and RC20 preparation work.
+- Addressed review blockers for approved SLO sets, AWS secret resolution, S3 policy prefixes, and exact deployment selection.
 - Renumbered the Phase 8 chain to DANDER-200 through DANDER-207 after Druff consumed DANDER-128.
 - Kept AWS task permissions scoped to declared Redshift, S3, Glue, and Secrets Manager resources.
 - Recorded the user's USD 10 aggregate live-cloud authorization; spend remains USD 0.
@@ -28,7 +28,7 @@ Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py 
 
 ## Remaining
 
-- Push the rebased review fixes and obtain exact-head protected CI and independent re-review.
+- Push the rebased selector fix and obtain exact-head protected CI and independent review.
 - Merge DANDER-200/202, then cut and privately publish one source-free qualification candidate.
 - Deploy DANDER-201 diagnostics and start the final retained clean observation window.
 - Run authorized exact-candidate Kubernetes, scale, pairwise, and canonical gates within USD 10.

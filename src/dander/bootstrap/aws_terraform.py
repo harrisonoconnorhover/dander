@@ -155,6 +155,7 @@ class AwsTerraformBootstrap:
                         launcher_retry_count=runtime_max_retries,
                         batch_rows=runtime_batch_rows,
                         alert_target=None,
+                        deployment_id=deployment_name,
                     )
                 ).items()
             }

@@ -32,5 +32,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   resolves values with the task role and removes them after execution.
 - Independent review caught the unresolved-DSN and IAM-wildcard defects before live use; focused
   runtime and Terraform regression contracts now cover both corrections.
+- Fargate retains the exact selected deployment separately from the shared platform profile, so
+  runtime configuration remains unambiguous when staging and production reuse one profile.
 - Local Python, Terraform validation, and provider-mocked Terraform tests pass. Live AWS
   qualification and support promotion remain open, and no qualification candidate has been cut.

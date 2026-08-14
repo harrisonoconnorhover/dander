@@ -12,6 +12,8 @@
 - **Profiles:** Fargate accepts the lifecycle-proven BigQuery/BigQuery/Dataplex/GCP-Secrets
   composition or the AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets composition. Other mixes fail
   before Terraform or provider access.
+- **Selection:** Provider composition remains keyed by the platform profile, while the runtime
+  command retains the exact selected deployment so multiple deployments may share one profile.
 - **Secrets and identity:** AWS-native bindings are full account-and-region-scoped Secrets Manager
   ARNs serialized into a non-secret binding document. The runtime resolves them with the ECS task
   role only for one execution, then removes the values. The manifest, plan, image, and operator

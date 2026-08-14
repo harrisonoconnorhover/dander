@@ -41,6 +41,7 @@ def _request(
     launcher_retry_count: int = 1,
     batch_rows: int = 10_000,
     alert_target: str | None = None,
+    deployment_id: str | None = None,
 ) -> ResolvedTemplateRequest:
     return ResolvedTemplateRequest(
         pipelines=_PIPELINES if pipelines is None else pipelines,
@@ -52,6 +53,7 @@ def _request(
         launcher_retry_count=launcher_retry_count,
         batch_rows=batch_rows,
         alert_target=alert_target,
+        deployment_id=deployment_id,
     )
 
 
@@ -278,12 +280,13 @@ def test_fargate_projects_the_typed_aws_native_profile_keylessly() -> None:
             pipelines=pipelines,
             image=_FARGATE_IMAGE,
             profile_id="aws_native",
+            deployment_id="production_fargate",
             memory="2Gi",
         )
     )["greenhouse_jobs"]
 
-    assert template.profile_id == "aws_native"
-    assert template.command[template.command.index("--platform") + 1] == "aws_native"
+    assert template.profile_id == "production_fargate"
+    assert template.command[template.command.index("--platform") + 1] == "production_fargate"
     binding = dict(template.secret_bindings)["DANDER_POSTGRES_DSN"]
     assert binding.provider == "aws_secret_manager"
     assert binding.reference == secret
