@@ -116,10 +116,16 @@ def compatibility_runtime_command() -> None:
 @runtime_app.command("inspect")
 def inspect_runtime_command(
     project_config: Path = typer.Option(Path("dander.yaml"), "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
+    deployment: str | None = typer.Option(None, "--deployment"),
 ) -> None:
     """Report installed runtime, adapter, and plugin metadata without provider access."""
     try:
-        inspection = inspect_runtime(project_config)
+        inspection = inspect_runtime(
+            project_config,
+            platforms_path=platforms_config,
+            deployment=deployment,
+        )
     except (RuntimeContractError, ValueError) as error:
         raise typer.BadParameter(str(error)) from error
     typer.echo(inspection.to_json())

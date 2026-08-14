@@ -91,9 +91,18 @@ class RuntimeConformance:
         )
 
 
-def inspect_runtime(config: Path) -> RuntimeInspection:
+def inspect_runtime(
+    config: Path,
+    *,
+    platforms_path: Path | None = None,
+    deployment: str | None = None,
+) -> RuntimeInspection:
     """Inspect configured packages without constructing sources or contacting providers."""
-    manifest = load_project_config(config)
+    manifest = load_project_config(
+        config,
+        platforms_path=platforms_path,
+        deployment=deployment,
+    )
     registry = load_connector_plugins(manifest.plugins)
     capabilities = _load_capabilities()
     capability_adapters = capabilities["adapters"]

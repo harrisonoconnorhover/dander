@@ -46,6 +46,53 @@ pipelines:
     return config
 
 
+def _portable_manifest(path: Path) -> tuple[Path, Path]:
+    config = path / "dander.yaml"
+    platforms = path / "dander.platforms.yaml"
+    config.write_text(
+        """\
+version: 2
+pipelines:
+  runtime_conformance:
+    source: example
+    models: []
+    build_models: false
+""",
+        encoding="utf-8",
+    )
+    platforms.write_text(
+        """\
+version: 1
+platforms:
+  first:
+    warehouse: {provider: bigquery, location: US}
+    state: {provider: bigquery}
+    catalog: {provider: none}
+    secrets: {provider: gcp_secret_manager}
+  second:
+    warehouse: {provider: bigquery, location: US}
+    state: {provider: bigquery}
+    catalog: {provider: none}
+    secrets: {provider: gcp_secret_manager}
+deployments:
+  first_deployment:
+    platform: first
+    launcher: {provider: cloud_run, region: us-central1}
+    safety: {require_guarded_free_tier: false}
+    pipelines:
+      runtime_conformance: {paused: true}
+  second_deployment:
+    platform: second
+    launcher: {provider: cloud_run, region: us-central1}
+    safety: {require_guarded_free_tier: false}
+    pipelines:
+      runtime_conformance: {paused: true}
+""",
+        encoding="utf-8",
+    )
+    return config, platforms
+
+
 def test_runtime_inspect_reports_active_metadata_without_provider_access(tmp_path: Path) -> None:
     inspection = json.loads(inspect_runtime(_manifest(tmp_path)).to_json())
 
@@ -57,6 +104,18 @@ def test_runtime_inspect_reports_active_metadata_without_provider_access(tmp_pat
     assert "bigquery" in inspection["adapters"]["warehouses"]
     assert "dlt" in inspection["adapters"]["ingestion_engines"]
     assert inspection["plugins"] == []
+
+
+def test_runtime_inspect_selects_one_deployment_from_portable_bundle(tmp_path: Path) -> None:
+    config, platforms = _portable_manifest(tmp_path)
+
+    inspection = inspect_runtime(
+        config,
+        platforms_path=platforms,
+        deployment="second_deployment",
+    )
+
+    assert inspection.contract == RUNTIME_CONTRACT
 
 
 def test_runtime_inspect_reports_validated_build_metadata(
@@ -196,3 +255,24 @@ def test_runtime_inspect_and_conformance_cli_emit_one_json_document(tmp_path: Pa
     assert json.loads(conformed.output)["status"] == "succeeded"
     assert inspected.stderr == ""
     assert conformed.stderr == ""
+
+
+def test_runtime_inspect_cli_accepts_portable_deployment_selection(tmp_path: Path) -> None:
+    config, platforms = _portable_manifest(tmp_path)
+
+    inspected = CliRunner().invoke(
+        app,
+        [
+            "runtime",
+            "inspect",
+            "--config",
+            str(config),
+            "--platforms-config",
+            str(platforms),
+            "--deployment",
+            "first_deployment",
+        ],
+    )
+
+    assert inspected.exit_code == 0, inspected.output
+    assert json.loads(inspected.output)["contract"] == RUNTIME_CONTRACT

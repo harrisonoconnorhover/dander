@@ -1,0 +1,51 @@
+{
+  "schema": "io.dander.qualification.authorization/v1",
+  "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14",
+  "approved_on": "2026-08-14",
+  "release_version": "0.9.0rc21",
+  "git_commit": "c10968afce94b1650a4f5bc2ac458f3f5648eae4",
+  "aggregate_ceiling_usd": "10.00",
+  "spent_before_phase8_candidate_usd": "0.00",
+  "allocations": [
+    {
+      "activity": "source_free_candidate_publication",
+      "ceiling_usd": "0.50",
+      "status": "approved"
+    },
+    {
+      "activity": "gcp_native_diagnostics_scale_and_profile",
+      "ceiling_usd": "1.25",
+      "status": "approved"
+    },
+    {
+      "activity": "kubernetes_portable_local_qualification",
+      "ceiling_usd": "0.00",
+      "status": "approved"
+    },
+    {
+      "activity": "azure_scale_and_pairwise_profiles",
+      "ceiling_usd": "2.00",
+      "status": "approved"
+    },
+    {
+      "activity": "aws_native_and_pairwise_profiles",
+      "ceiling_usd": "3.00",
+      "status": "blocked_credentials"
+    },
+    {
+      "activity": "oci_native_and_pairwise_profiles",
+      "ceiling_usd": "1.50",
+      "status": "blocked_credentials"
+    },
+    {
+      "activity": "retained_gcp_soak_and_final_audits",
+      "ceiling_usd": "0.75",
+      "status": "approved"
+    },
+    {
+      "activity": "contingency",
+      "ceiling_usd": "1.00",
+      "status": "reserved"
+    }
+  ]
+}

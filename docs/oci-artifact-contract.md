@@ -9,6 +9,8 @@ operator artifact and is intentionally ignored by Git.
 Published images carry standard OCI source, documentation, license, version, revision, and creation
 annotations. The packaged `runtime-capabilities.json` describes the adapters present in that build;
 `dander runtime inspect` validates and reports it without accessing a cloud provider or secret.
+Bundles containing multiple deployments select the inspected configuration explicitly with
+`--platforms-config` and `--deployment`.
 
 `dander image-publish` builds one `linux/amd64,linux/arm64` index through BuildKit with SBOM and
 provenance enabled, pushes the image, resolves the registry digest, inspects both required runnable
