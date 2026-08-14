@@ -14,7 +14,7 @@ Phase 7 evidence merge.
 | Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle, including alert visibility and cleanup | Hosted-provider proof, normalized scale/cost, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 also passed local PostgreSQL bounded-memory and four-pipeline concurrency objectives | The remaining PostgreSQL classes and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 also passed local PostgreSQL bounded-memory, concurrency, bulk-throughput, and incremental objectives | PostgreSQL correctness, transform, failure, crossover, and hosted cost plus all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
 | Audits | Protected CI passes tests, lint, typing, dependency audit, distribution install, Terraform validation/security, secret scan, and image scans | Repeat against the final candidate after Phase 8 implementation |
 
 ## Open gates and dependency order
@@ -100,11 +100,25 @@ reauthentication, AWS blocked on an expired session, and OCI blocked on an incom
 No mutation or spend occurred. These cases remain open rather than inheriting a support claim;
 sanitized details are in `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json`.
 
+## Current PostgreSQL scale evidence
+
+Exact RC22 ran inside its immutable source-free image against disposable TLS PostgreSQL 15.18.
+The approved bulk workload passed 500,000 narrow rows at 38,681.727 rows/second and 200,000 wide
+rows at 9,032.608 rows/second. The approved incremental workload applied a 3,000-row delta to a
+300,000-row seed at 16,483.516 rows/second, finished with the exact 301,500-row target, and rejected
+cursor regression. Both schemas and all temporary staging relations were removed; local measured
+service cost was USD 0.
+
+RC22's PostgreSQL writer factory exposes only `PostgreSQLCopyWriter`; it has no bounded direct
+transport to compare with COPY. The PostgreSQL crossover class therefore remains open as an exact
+candidate capability gap rather than receiving synthetic passing evidence.
+
 ## Current exit recommendation
 
 Phase 8 remains open. The safe diagnostic retained-provider gate, corrected immutable candidate,
 exact-candidate local Kubernetes lifecycle, local PostgreSQL bounded-memory/concurrency reports,
-and exact-candidate GCP profile rerun are complete. The exact unmet gates are the other benchmark
-classes and providers, Kubernetes scale/soak, hosted-provider and pairwise live proofs, approved
-scale/cost reports for every first-class warehouse and launcher, remaining canonical-profile
-evidence, release-candidate soak, final audits, and the frozen support matrix.
+local PostgreSQL bulk/incremental reports, and exact-candidate GCP profile rerun are complete. The
+exact unmet gates are the other benchmark classes and providers, Kubernetes scale/soak,
+hosted-provider and pairwise live proofs, approved scale/cost reports for every first-class
+warehouse and launcher, remaining canonical-profile evidence, release-candidate soak, final
+audits, and the frozen support matrix.

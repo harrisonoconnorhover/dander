@@ -34,6 +34,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- On 2026-08-14, exact RC22 passed approved local PostgreSQL bulk and incremental classes inside
+  its source-free 2 CPU/512 MiB image against disposable TLS PostgreSQL 15.18. It processed
+  500,000 narrow and 200,000 wide COPY rows, then applied a 3,000-row delta against 300,000 seed
+  rows with an exact 301,500-row result and rejected cursor regression. Both schemas and all
+  staging relations were removed; measured local service cost was USD 0. PostgreSQL correctness,
+  transform, failure, hosted cost, and crossover remain open; RC22 has no direct transport for a
+  crossover comparison. See `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`.
+
 - On 2026-08-14, exact private RC22 replaced RC21 on all five retained jobs through a saved
   `0 add / 5 change / 0 destroy` plan. Authenticated Salesforce manual/replay executions
   `dander-salesforce-accounts-rxvvd` and `dander-salesforce-accounts-xmm4r` produced equal counts;

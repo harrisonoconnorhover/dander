@@ -30,5 +30,9 @@ scale report.
   2.7248 GB logical input with 176,734,208 bytes peak RSS and left no staging relations.
 - The initial 192 MiB bounded-memory attempt exceeded the approved 80% RSS threshold without an
   OOM. It remains in the attempts ledger; the proportional 256 MiB retry is the passing report.
-- This closes only two PostgreSQL benchmark classes. Bulk, incremental, transform, failure,
-  crossover, cost, the other warehouses, and every first-class launcher remain open.
+- Exact RC22 also passed the pre-approved local bulk class with 500,000 narrow and 200,000 wide
+  COPY rows, and the incremental class with a 3,000-row delta against a 300,000-row target. Both
+  left zero staging relations and removed their disposable TLS PostgreSQL schemas.
+- Four PostgreSQL classes now pass. Correctness, transform, failure, hosted cost, the other
+  warehouses, and every first-class launcher remain open. Crossover cannot pass on RC22 because
+  its PostgreSQL factory exposes COPY only and has no bounded direct transport to compare.

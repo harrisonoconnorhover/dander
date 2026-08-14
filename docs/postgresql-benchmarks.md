@@ -35,3 +35,23 @@ that same limit with `--qualification-memory-limit-mib`, use logical input at le
 limit, and require peak RSS at or below 80 percent. Record the image digest, provider/service
 shape, region, raw provider IDs, date, and approved cost ceiling beside the JSON report. A supplied
 limit documents the test environment; it does not itself impose a memory limit.
+
+## Phase 8 bulk and incremental evidence
+
+`scripts/benchmarks/postgresql_phase8.py` runs two additional exact-candidate classes. It requires
+pre-committed objective manifests bound to the immutable release, image digest, workload hash, and
+zero-dollar local cost ceiling. The harness refuses a non-COPY PostgreSQL writer, verifies exact
+table shape and cursor-monotonic incremental results, removes its disposable schemas, and emits
+normalized `io.dander.qualification.report/v1` reports.
+
+On 2026-08-14, RC22 passed inside its 2 CPU/512 MiB source-free container against disposable TLS
+PostgreSQL 15.18 at 2 CPU/1 GiB:
+
+- 500,000 narrow rows at 38,681.727 rows/second and 200,000 wide rows at 9,032.608 rows/second;
+- a 3,000-row delta against 300,000 seed rows at 16,483.516 rows/second;
+- an exact 301,500-row final target, zero cursor-regression changes, zero staging residue, and
+  verified schema cleanup;
+- measured local service cost of USD 0.
+
+This does not close PostgreSQL crossover or hosted cost. RC22 has only the COPY-backed writer and
+therefore no bounded direct path with which to measure a crossover threshold.
