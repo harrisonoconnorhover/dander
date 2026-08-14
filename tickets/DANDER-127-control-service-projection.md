@@ -1,7 +1,7 @@
 ---
 id: DANDER-127
 title: Add the Dander control-service projection
-status: in-review
+status: done
 component: python
 epic: druff-control-plane
 depends_on: [DANDER-121, DANDER-126]
@@ -61,3 +61,6 @@ it to `control serve`, allowing a cloud request to start on the default local st
 correction adds the typed config path, bounded closed parser, selected-adapter factory, and tests
 covering all five arms before provider access. No third adversarial pass was requested under the
 two-pass review limit.
+
+Protected PR CI run `31806362480` passed Python quality, Terraform quality, secret scan,
+distribution install, and container build/scan on implementation commit `395a18d0`.

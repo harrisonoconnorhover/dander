@@ -19,6 +19,7 @@ provider-neutral deployment input and startup selector.
 - Focused service, startup, CLI, registry, launcher, and projection tests pass: 63 tests.
 - Full suite passes: 1,637 tests, 28 skips; Ruff, format, and strict mypy pass.
 - Generated `io.dander.control.contracts/v1` validation passes without drift.
+- Protected PR CI run `31806362480` passed all five jobs on implementation commit `395a18d0`.
 - The second adversarial review's startup-selection blocker is corrected; no third pass was run.
 
 ## Decisions
@@ -29,7 +30,6 @@ provider-neutral deployment input and startup selector.
 
 ## Remaining
 
-- Complete the final diff/artifact review.
 - Merge the focused protected PR and verify exact-main CI.
 - Continue D7 without changing job launchers or publishing an artifact.
 
