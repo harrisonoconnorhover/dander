@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-druff" .Release.Name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "dander-control.labels" . | nindent 4 }}
+    dander.io/workload: druff
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dander-control.selector" . | nindent 6 }}
+      dander.io/workload: druff
+  template:
+    metadata:
+      labels:
+        {{- include "dander-control.selector" . | nindent 8 }}
+        dander.io/workload: druff
+      annotations:
+        dander.io/config-sha256: {{ .Values.druff.rolloutDigest | quote }}
+    spec:
+      serviceAccountName: {{ printf "%s-druff" .Release.Name | trunc 63 | trimSuffix "-" }}
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: druff
+          image: {{ .Values.druff.image | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: {{ .Values.druff.port }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            {{- toYaml .Values.druff.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /app/bootstrap.json
+              subPath: bootstrap.json
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{ printf "%s-config" .Release.Name | trunc 63 | trimSuffix "-" }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-druff" .Release.Name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "dander-control.labels" . | nindent 4 }}
+    dander.io/workload: druff
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "dander-control.selector" . | nindent 4 }}
+    dander.io/workload: druff
+  ports:
+    - name: http
+      port: {{ .Values.druff.port }}
+      targetPort: http

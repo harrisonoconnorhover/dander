@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile", "serviceAccount", "control", "druff", "graphStore", "ingress"],
+  "properties": {
+    "schema": {"const": "io.dander.kubernetes-control-plane/v1"},
+    "profile": {"const": "kubernetes_helm"},
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "annotations", "identityDigest"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"},
+        "annotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "identityDigest": {"$ref": "#/definitions/digest"}
+      }
+    },
+    "control": {"$ref": "#/definitions/workloadControl"},
+    "druff": {"$ref": "#/definitions/workloadDruff"},
+    "graphStore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accessMode", "size"],
+      "properties": {
+        "accessMode": {"const": "ReadWriteOnce"},
+        "size": {"const": "1Gi"}
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["className", "host", "tlsSecretName", "accessLogEnabled"],
+      "properties": {
+        "className": {"const": "nginx"},
+        "host": {"type": "string", "minLength": 1, "maxLength": 253},
+        "tlsSecretName": {"type": "string", "minLength": 1, "maxLength": 253},
+        "accessLogEnabled": {"const": false}
+      }
+    }
+  },
+  "definitions": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "image": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+(?::[0-9]{1,5})?/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$"
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "limits"],
+      "properties": {
+        "requests": {"type": "object", "additionalProperties": {"type": "string"}},
+        "limits": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "workloadControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "port", "command", "oidcConfig", "graphStoreConfig", "rolloutDigest", "resources", "probes", "terminationGracePeriodSeconds"],
+      "properties": {
+        "image": {"$ref": "#/definitions/image"},
+        "port": {"const": 8770},
+        "command": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "oidcConfig": {"type": "string", "minLength": 2},
+        "graphStoreConfig": {"type": "string", "minLength": 2},
+        "rolloutDigest": {"$ref": "#/definitions/digest"},
+        "terminationGracePeriodSeconds": {"type": "integer", "minimum": 1, "maximum": 600},
+        "probes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["livenessPath", "readinessPath"],
+          "properties": {
+            "livenessPath": {"const": "/healthz"},
+            "readinessPath": {"const": "/readyz"}
+          }
+        },
+        "resources": {"$ref": "#/definitions/resources"}
+      }
+    },
+    "workloadDruff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "port", "bootstrap", "rolloutDigest", "resources"],
+      "properties": {
+        "image": {"$ref": "#/definitions/image"},
+        "port": {"const": 8080},
+        "bootstrap": {"type": "string", "minLength": 2},
+        "rolloutDigest": {"$ref": "#/definitions/digest"},
+        "resources": {"$ref": "#/definitions/resources"}
+      }
+    }
+  }
+}

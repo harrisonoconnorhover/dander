@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "dander-control.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/enable-access-log: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: "6m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts: [{{ .Values.ingress.host | quote }}]
+      secretName: {{ .Values.ingress.tlsSecretName }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ printf "%s-control" .Release.Name | trunc 63 | trimSuffix "-" }}
+                port:
+                  name: http
+          - path: /healthz
+            pathType: Exact
+            backend:
+              service:
+                name: {{ printf "%s-control" .Release.Name | trunc 63 | trimSuffix "-" }}
+                port:
+                  name: http
+          - path: /readyz
+            pathType: Exact
+            backend:
+              service:
+                name: {{ printf "%s-control" .Release.Name | trunc 63 | trimSuffix "-" }}
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ printf "%s-druff" .Release.Name | trunc 63 | trimSuffix "-" }}
+                port:
+                  name: http

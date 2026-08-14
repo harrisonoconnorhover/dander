@@ -1,0 +1,37 @@
+schema: ""
+profile: ""
+
+serviceAccount:
+  name: ""
+  annotations: {}
+  identityDigest: ""
+
+control:
+  image: ""
+  port: 8770
+  command: []
+  oidcConfig: ""
+  graphStoreConfig: ""
+  rolloutDigest: ""
+  terminationGracePeriodSeconds: 30
+  probes:
+    livenessPath: /healthz
+    readinessPath: /readyz
+  resources: {}
+
+druff:
+  image: ""
+  port: 8080
+  bootstrap: ""
+  rolloutDigest: ""
+  resources: {}
+
+graphStore:
+  accessMode: ReadWriteOnce
+  size: 1Gi
+
+ingress:
+  className: nginx
+  host: ""
+  tlsSecretName: ""
+  accessLogEnabled: false

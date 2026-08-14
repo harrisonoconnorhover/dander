@@ -258,6 +258,18 @@ platform `No changes` plans. The sanitized record is
 `docs/evidence/local/2026-08-14/d7-control-plane.json`. This qualifies neither a real identity
 provider nor any Kubernetes or cloud-hosted Control profile.
 
+The next D7 renderer is a separate existing-cluster Kubernetes Helm profile; it does not alter the
+established runtime CronJob chart. It projects the same D6 service and OIDC source into one
+single-replica `Recreate` Control Deployment, one Druff Deployment, ClusterIP Services, an
+ingress-nginx Ingress referencing an existing TLS Secret, token-free ServiceAccounts, and one
+`ReadWriteOnce` PVC for the rooted local GraphStore. The profile makes no HA or horizontal-scale
+claim. Consumed config and Control identity are hashed into pod templates so upgrades cannot leave
+startup trust or storage configuration stale. The Ingress disables access logs because its
+default request-line logging could record OIDC callback codes or state. Terraform state, cloud
+federation, and cloud cost controls do not apply to this existing-cluster Helm profile. Live HTTPS,
+OIDC, persistence, rollback, and cleanup qualification remains pending and no Kubernetes support
+status is promoted.
+
 ## Regenerate and verify
 
 After an intentional DTO change, regenerate the committed bundle:
