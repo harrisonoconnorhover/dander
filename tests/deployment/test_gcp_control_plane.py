@@ -323,7 +323,7 @@ def test_live_verifier_rejects_recoverable_graph_data(
             return _service(source, workload, image)
         if arguments[:3] == ("storage", "buckets", "describe"):
             bucket = _bucket(source)
-            policy = bucket["softDeletePolicy"]
+            policy = bucket["soft_delete_policy"]
             assert isinstance(policy, dict)
             policy["retentionDurationSeconds"] = "604800"
             return bucket
@@ -571,10 +571,8 @@ def _bucket(source: GCPControlPlaneInput) -> dict[str, object]:
     return {
         "name": source.graph_bucket,
         "location": source.region.upper(),
-        "iamConfiguration": {
-            "uniformBucketLevelAccess": {"enabled": True},
-            "publicAccessPrevention": "enforced",
-        },
-        "versioning": {"enabled": True},
-        "softDeletePolicy": {"retentionDurationSeconds": "0"},
+        "uniform_bucket_level_access": True,
+        "public_access_prevention": "enforced",
+        "versioning_enabled": True,
+        "soft_delete_policy": {"retentionDurationSeconds": "0"},
     }
