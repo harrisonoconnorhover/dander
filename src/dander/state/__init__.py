@@ -1,6 +1,11 @@
 """State module: watermark / control tracking for idempotent restarts."""
 
-from dander.state.failure import FailureDetails, classify_failure
+from dander.state.failure import (
+    FailureDetails,
+    classify_failure,
+    failure_diagnostic_was_logged,
+    mark_failure_diagnostic_logged,
+)
 from dander.state.lease import (
     BigQueryLeaseStore,
     LeaseHandle,
@@ -47,4 +52,6 @@ __all__ = [
     "StateRuntime",
     "WatermarkStore",
     "classify_failure",
+    "failure_diagnostic_was_logged",
+    "mark_failure_diagnostic_logged",
 ]

@@ -16,6 +16,7 @@ from dander.executor import PipelineExecutionResult
 from dander.identity import FargateIdentityError
 from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.runtime_contract import RuntimeCancelledError, RuntimeExitCode
+from dander.state import mark_failure_diagnostic_logged
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -337,3 +338,30 @@ def test_runtime_execute_logs_diagnostic_for_pre_executor_sdk_failure(
     }
     assert "secret-value-must-not-escape" not in record.message
     assert "secret-value-must-not-escape" not in result.output
+
+
+def test_runtime_execute_does_not_duplicate_executor_diagnostic(
+    monkeypatch: MonkeyPatch,
+    caplog: LogCaptureFixture,
+) -> None:
+    def fail(*_args: object, **_kwargs: object) -> None:
+        error = RuntimeError("private-executor-detail")
+        logging.getLogger("dander.executor").warning(
+            '{"event":"pipeline_failed","stage":"transform"}',
+            extra={"dander_event": "pipeline_failed"},
+        )
+        mark_failure_diagnostic_logged(error)
+        raise error
+
+    with caplog.at_level(logging.WARNING):
+        result = _invoke(monkeypatch, fail)
+
+    assert result.exit_code == RuntimeExitCode.PERMANENT_FAILURE
+    diagnostics = [
+        record
+        for record in caplog.records
+        if getattr(record, "dander_event", None) == "pipeline_failed"
+    ]
+    assert len(diagnostics) == 1
+    assert json.loads(diagnostics[0].message)["stage"] == "transform"
+    assert "private-executor-detail" not in result.output

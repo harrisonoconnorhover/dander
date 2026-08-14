@@ -2,8 +2,8 @@
 
 ## Finished
 
-- Rebased Phase 8 over protected main `75c5654` while preserving the merged Druff and RC20 promotion metadata.
-- Addressed review blockers for SLO sets, AWS secrets/partitions, deployment selection, outer diagnostics, and numeric evidence.
+- Rebased Phase 8 over protected main `63ba867` while preserving Druff and RC20 release evidence.
+- Addressed review blockers for SLO sets, AWS secrets/partitions, deployment selection, diagnostic ownership, and numeric evidence.
 - Renumbered the Phase 8 chain to DANDER-200 through DANDER-207 after Druff consumed DANDER-128.
 - Kept AWS task permissions scoped to declared Redshift, S3, Glue, and Secrets Manager resources.
 - Recorded the user's USD 10 aggregate live-cloud authorization; spend remains USD 0.
@@ -15,9 +15,9 @@ Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py 
 ## Checks
 
 - Focused Ruff lint and format checks passed.
-- Latest focused Python contracts passed: 37 tests.
+- Latest focused Python contracts passed: 47 tests.
 - Full Ruff, format, mypy, and pytest suite passed with expected skips.
-- Exact-head protected CI passed all five jobs before the latest two focused review corrections.
+- Protected CI passed all five jobs on `8c65177`; a new exact-head run is required after the latest corrections.
 - Fargate Terraform formatting and validation passed.
 - Fargate mocked Terraform tests passed: 4 of 4.
 
@@ -29,7 +29,7 @@ Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py 
 
 ## Remaining
 
-- Push the rebased final review corrections and obtain one clean exact-head CI/review cycle.
+- Push the final review corrections and obtain one clean exact-head CI/review cycle.
 - Merge DANDER-200/202, then cut and privately publish one source-free qualification candidate.
 - Deploy DANDER-201 diagnostics and start the final retained clean observation window.
 - Run authorized exact-candidate Kubernetes, scale, pairwise, and canonical gates within USD 10.
@@ -37,6 +37,6 @@ Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py 
 
 ## Review First
 
-- `src/dander/qualification.py`
-- `src/dander/runtime_secrets.py`
-- `infra/aws/modules/fargate/main.tf`
+- `src/dander/providers/fargate/runtime.py`
+- `src/dander/cli/runtime_command.py`
+- `src/dander/state/failure.py`

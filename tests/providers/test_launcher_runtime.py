@@ -206,7 +206,11 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
     assert "AWS_SECRET_ACCESS_KEY" not in serialized
 
 
-def _aws_native_fargate_runtime(*, copy_role_partition: str = "aws") -> LauncherRuntime:
+def _aws_native_fargate_runtime(
+    *,
+    copy_role_partition: str = "aws",
+    region: str = "us-east-1",
+) -> LauncherRuntime:
     from dander.providers.aws_secrets_manager import AwsSecretsManagerConfig
     from dander.providers.fargate.runtime import (
         FargateProfileContext,
@@ -221,7 +225,7 @@ def _aws_native_fargate_runtime(*, copy_role_partition: str = "aws") -> Launcher
         ProviderKind.LAUNCHER,
         {
             "provider": "fargate",
-            "region": "us-east-1",
+            "region": region,
             "aws_account_id": "184463061564",
             "subnet_ids": ["subnet-0123456789abcdef0"],
             "security_group_ids": ["sg-0123456789abcdef0"],
@@ -232,11 +236,11 @@ def _aws_native_fargate_runtime(*, copy_role_partition: str = "aws") -> Launcher
         warehouse=RedshiftWarehouseConfig(
             provider="redshift",
             deployment="provisioned",
-            host="dander.abc123.us-east-1.redshift.amazonaws.com",
+            host=f"dander.abc123.{region}.redshift.amazonaws.com",
             database="analytics",
             schema_name="raw",
             db_user="dander_runtime",
-            region="us-east-1",
+            region=region,
             cluster_identifier="dander-phase8",
             copy_role_arn=(f"arn:{copy_role_partition}:iam::184463061564:role/DanderRedshiftCopy"),
             staging_bucket="dander-phase8-staging",
@@ -247,12 +251,12 @@ def _aws_native_fargate_runtime(*, copy_role_partition: str = "aws") -> Launcher
         ),
         catalog=GlueCatalogConfig(
             provider="glue",
-            region="us-east-1",
+            region=region,
             catalog_id="184463061564",
         ),
         secrets=AwsSecretsManagerConfig(
             provider="aws_secret_manager",
-            region="us-east-1",
+            region=region,
         ),
     )
     runtime = registry.build(
@@ -342,6 +346,36 @@ def test_fargate_aws_native_rejects_copy_role_from_another_partition() -> None:
                 memory="2Gi",
             )
         )
+
+
+def test_fargate_aws_native_uses_govcloud_partition_for_task_identity() -> None:
+    region = "us-gov-west-1"
+    secret = (
+        "aws-sm://arn:aws-us-gov:secretsmanager:us-gov-west-1:184463061564:"
+        "secret:dander/postgres-dsn-AbCdEf"
+    )
+    pipelines = {
+        "greenhouse_jobs": {
+            **_PIPELINES["greenhouse_jobs"],
+            "secret_env": {"DANDER_POSTGRES_DSN": secret},
+        }
+    }
+
+    template = _aws_native_fargate_runtime(
+        copy_role_partition="aws-us-gov",
+        region=region,
+    ).templates.build(
+        _request(
+            pipelines=pipelines,
+            image=_FARGATE_IMAGE,
+            profile_id="aws_native",
+            memory="2Gi",
+        )
+    )["greenhouse_jobs"]
+
+    expected_identity = "arn:aws-us-gov:iam::184463061564:role/dander-runtime"
+    assert template.workload_identity == expected_identity
+    assert dict(template.environment)["DANDER_PRINCIPAL"] == expected_identity
 
 
 @pytest.mark.parametrize(

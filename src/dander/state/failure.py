@@ -14,6 +14,7 @@ _MAX_SUMMARY_LENGTH = 512
 _MAX_EXCEPTION_CHAIN = 8
 _MAX_EXCEPTION_CLASS_LENGTH = 128
 _SAFE_EXCEPTION_CLASS = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_DIAGNOSTIC_LOGGED_ATTRIBUTE = "_dander_failure_diagnostic_logged"
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,19 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
     return details(
         "unexpected_error",
         f"The {stage.value} stage failed unexpectedly. Inspect launcher logs for run {run_id}.",
+    )
+
+
+def mark_failure_diagnostic_logged(error: BaseException) -> None:
+    """Mark an exception after its authoritative failure diagnostic is emitted."""
+    setattr(error, _DIAGNOSTIC_LOGGED_ATTRIBUTE, True)
+
+
+def failure_diagnostic_was_logged(error: BaseException) -> bool:
+    """Return whether any exception in the causal chain owns the diagnostic."""
+    return any(
+        _safe_attribute(item, _DIAGNOSTIC_LOGGED_ATTRIBUTE) is True
+        for item in _exception_chain(error)
     )
 
 

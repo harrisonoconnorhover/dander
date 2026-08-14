@@ -11,7 +11,13 @@ from uuid import uuid4
 
 from dander.catalog import MetadataSpine, SemanticRegistryPublisher
 from dander.runtime import PipelineRunResult
-from dander.state import LeaseHeartbeat, RunStage, RunStatus, classify_failure
+from dander.state import (
+    LeaseHeartbeat,
+    RunStage,
+    RunStatus,
+    classify_failure,
+    mark_failure_diagnostic_logged,
+)
 from dander.telemetry import RunTelemetry
 from dander.transform import SqlDialect, TransformProject, TransformRunResult
 from dander.warehouse import RelationRef
@@ -334,6 +340,7 @@ class PipelineExecutor:
                 json.dumps(diagnostic, separators=(",", ":"), sort_keys=True),
                 extra={"dander_event": "pipeline_failed", **diagnostic},
             )
+            mark_failure_diagnostic_logged(error)
             raise
         finally:
             if heartbeat is not None:

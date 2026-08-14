@@ -83,7 +83,10 @@ class FargateTemplateFactory:
             role_name = str(pipeline["runtime_service_account_id"])
             if _ROLE_NAME.fullmatch(role_name) is None:
                 raise ExecutionProjectionError("invalid Fargate task role name")
-            identity = f"arn:aws:iam::{self.config.aws_account_id}:role/{role_name}"
+            identity = (
+                f"arn:{_aws_partition(self.config.region)}:iam::"
+                f"{self.config.aws_account_id}:role/{role_name}"
+            )
             secret_env = pipeline["secret_env"]
             if not isinstance(secret_env, Mapping):
                 raise ExecutionProjectionError("pipeline secret bindings are invalid")
@@ -195,7 +198,7 @@ class FargateTemplateFactory:
             raise ExecutionProjectionError(
                 "Fargate AWS-native Glue catalog must match the launcher account"
             )
-        partition = "aws-us-gov" if self.config.region.startswith("us-gov-") else "aws"
+        partition = _aws_partition(self.config.region)
         copy_role = str(getattr(warehouse, "copy_role_arn", "")).split(":")
         if len(copy_role) < 6 or copy_role[1] != partition:
             raise ExecutionProjectionError(
@@ -246,7 +249,7 @@ class FargateTemplateFactory:
                 raise ExecutionProjectionError("pipeline secret bindings are invalid")
             if self.profile.is_aws_native:
                 match = _AWS_SECRET_REFERENCE.fullmatch(secret_id)
-                partition = "aws-us-gov" if self.config.region.startswith("us-gov-") else "aws"
+                partition = _aws_partition(self.config.region)
                 if (
                     match is None
                     or match.group("partition") != partition
@@ -300,6 +303,10 @@ def build_fargate_launcher(
         templates=FargateTemplateFactory(config, profile),
         capabilities=FARGATE_CAPABILITIES,
     )
+
+
+def _aws_partition(region: str) -> str:
+    return "aws-us-gov" if region.startswith("us-gov-") else "aws"
 
 
 def _memory_mib(value: str) -> int:

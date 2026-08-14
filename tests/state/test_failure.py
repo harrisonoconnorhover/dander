@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from dander.state import RunStage, classify_failure
+from dander.state import (
+    RunStage,
+    classify_failure,
+    failure_diagnostic_was_logged,
+    mark_failure_diagnostic_logged,
+)
 from dander.warehouse import WarehouseSchemaSupportError
 
 
@@ -44,6 +49,16 @@ def test_failure_classifier_uses_http_status_without_persisting_exception_text()
         "exception_class_chain": ["RuntimeError", "_HttpError"],
         "status_code": 401,
     }
+
+
+def test_failure_diagnostic_marker_survives_exception_wrapping() -> None:
+    executor_error = RuntimeError("private executor detail")
+    mark_failure_diagnostic_logged(executor_error)
+    wrapper = RuntimeError("private wrapper detail")
+    wrapper.__cause__ = executor_error
+
+    assert failure_diagnostic_was_logged(wrapper)
+    assert not failure_diagnostic_was_logged(RuntimeError("pre-executor"))
 
 
 def test_failure_classifier_normalizes_direct_provider_status() -> None:
