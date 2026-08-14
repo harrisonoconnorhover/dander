@@ -11,7 +11,7 @@ Phase 7 evidence merge.
 |---|---|---|
 | GCP native | Supported retained Cloud Run/BigQuery profile, current schedules, lifecycle history, and current-equivalent no drift | Exact qualification-candidate scale, cost, and soak evidence remains open |
 | Fargate to GCP | Public `0.8.0rc8` passed manual/scheduled lifecycle, replay, interruption, alerts, rollback, cleanup, and no drift | Scale qualification remains open; this is not the AWS-native profile |
-| Kubernetes portable | PostgreSQL native-profile conformance and the existing-cluster Helm lifecycle contract pass locally | Exact-candidate live-cluster execution, alerting, scale, and soak remain open |
+| Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle, including alert visibility and cleanup | Hosted-provider proof, normalized scale/cost, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; provider-specific bounded qualifications also exist | Existing PostgreSQL, Snowflake, and Redshift reports are not Phase 8 scale reports; BigQuery has no normalized scale report |
@@ -95,7 +95,8 @@ Cartesian product. A case cannot change to supported from adapter tests alone.
 
 ## Current exit recommendation
 
-Phase 8 remains open. The safe diagnostic retained-provider gate and corrected immutable candidate
-are complete. The exact unmet gates are exact-candidate Kubernetes and pairwise live proofs,
-approved scale/cost reports for every first-class warehouse and launcher, current canonical-profile
-evidence, release-candidate soak, final audits, and the frozen support matrix.
+Phase 8 remains open. The safe diagnostic retained-provider gate, corrected immutable candidate,
+and exact-candidate local Kubernetes lifecycle are complete. The exact unmet gates are Kubernetes
+scale/soak, hosted-provider and pairwise live proofs, approved scale/cost reports for every
+first-class warehouse and launcher, current canonical-profile evidence, release-candidate soak,
+final audits, and the frozen support matrix.

@@ -55,3 +55,18 @@ Before review, fresh read-only plans against the retained GCP deployment's autho
 source-free bundle reported exactly `No changes.` for both stage zero and the platform. An older,
 superseded retained-project copy was not changed or used to manufacture that result. No Terraform
 apply or cloud mutation occurred.
+
+## Phase 8 exact-candidate lifecycle rerun
+
+On 2026-08-14, private `0.9.0rc22` index `sha256:ce395d…47c3` passed the contract-valid
+correctness and failure objective sets on a disposable kind 1.32.2 cluster. The source-free image
+completed manual, replay, CronJob-scheduled, rotated-Secret, RC21 rollback, and RC22 restoration runs.
+One simultaneous run succeeded while its peer recorded a truthful skip; a controlled interruption
+exited 130, a ten-second hard deadline emitted `DeadlineExceeded`, and a live operator-owned event
+watch received the Warning. Row/key counts remained 16/16, no lease or staging relation remained,
+Helm preserved the operator-owned Secret and PostgreSQL deployment, and final namespace/cluster
+cleanup passed.
+
+This exact-candidate lifecycle evidence does not establish hosted Kubernetes, scale/cost, soak, or
+support qualification. The profile remains experimental; see
+`docs/evidence/phase8/2026-08-14/kubernetes-lifecycle.json`.
