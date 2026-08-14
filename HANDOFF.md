@@ -14,7 +14,7 @@ Inspect the qualification and audit records in `docs/evidence/phase8/2026-08-14/
 
 ## Checks
 
-- Ruff, formatting, mypy, control-contract validation, and pytest pass: 1,690 passed, 28 skipped.
+- Ruff, formatting, mypy, control-contract validation, and pytest pass: 1,702 passed, 28 skipped.
 - RC22 wheel/sdist installs, full runtime imports, generated-project Terraform, rootless image runtime, and OCI controller runtime pass.
 - Dependency, Git-history secret, Terraform/Helm, infrastructure Trivy, and both image Trivy gates pass.
 - Kubernetes and PostgreSQL qualification reports pass with cleanup; GCP passed execution and no drift.

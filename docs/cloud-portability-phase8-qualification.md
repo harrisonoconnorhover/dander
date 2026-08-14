@@ -15,7 +15,7 @@ Phase 7 evidence merge.
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 also passed local PostgreSQL correctness, bounded-memory, concurrency, bulk, incremental, transform, and failure objectives | PostgreSQL crossover and hosted cost plus all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Protected CI passes tests, lint, typing, dependency audit, distribution install, Terraform validation/security, secret scan, and image scans | Repeat against the final candidate after Phase 8 implementation |
+| Audits | Exact RC22 protected CI and the local final-candidate repeat pass tests, lint, typing, dependency/distribution, Terraform/Helm, secret, runtime, and image gates | Finish profile-specific operator docs and freeze statuses only after the remaining live gates |
 
 ## Open gates and dependency order
 
@@ -55,6 +55,18 @@ tests, Helm lint/render, the main container runtime contract, and the OCI contro
 contract. Trivy configuration/image scans, the Git-history secret scan, protected CI, and the
 independent completion review were not available locally. This preflight does not substitute for
 repeating every audit on the final source-free candidate.
+
+## Final-candidate release audit
+
+Exact private RC22 at `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` passed protected CI run
+`31825533602`: Python quality, secret scan, Terraform quality, distribution install, and container
+build/scan all succeeded. The local repeat verified the exact wheel and source archive from clean
+installs, the full runtime import, generated-project Terraform, all provider Terraform roots and
+mocked module tests, both Helm charts, rootless read-only execution, and the main and OCI-controller
+images. Pip-audit found no known dependency vulnerability; workflow-pinned Trivy found no
+HIGH/CRITICAL infrastructure or image finding; workflow-pinned Gitleaks found no leak across 453
+commits. The post-merge regression suite passed 1,702 tests with 28 skips. See
+`docs/evidence/phase8/2026-08-14/rc22-local-audit.json`.
 
 ## Normalized report contract
 
@@ -146,8 +158,8 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 Phase 8 remains open. The safe diagnostic retained-provider gate, corrected immutable candidate,
 exact-candidate local Kubernetes lifecycle, local PostgreSQL bounded-memory/concurrency reports,
 local PostgreSQL correctness/bulk/incremental/transform/failure reports, and exact-candidate GCP
-profile rerun are complete. The exact unmet gates are the other benchmark classes and providers,
-Kubernetes scale/soak,
-hosted-provider and pairwise live proofs, approved scale/cost reports for every first-class
-warehouse and launcher, remaining canonical-profile evidence, release-candidate soak, final
-audits, and the frozen support matrix.
+profile rerun plus final-candidate audits are complete. The exact unmet gates are PostgreSQL
+crossover and hosted cost, the remaining benchmark classes and providers, remaining Kubernetes
+hosted scale/soak, hosted-provider and pairwise live proofs, approved scale/cost reports for every
+first-class warehouse and launcher, remaining canonical-profile evidence, release-candidate soak,
+profile-specific operator documentation, and the frozen support matrix.

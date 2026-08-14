@@ -1,0 +1,109 @@
+{
+  "schema": "io.dander.phase8.release-audit/v1",
+  "status": "passed",
+  "checked_at_utc": "2026-08-14T20:35:21Z",
+  "candidate": {
+    "release_version": "0.9.0rc22",
+    "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "image_index_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "wheel_sha256": "0e4fd0113bda96dcb156cd61224fd4fc37e2e5b2aa934be45420f8c0fcea76c0",
+    "sdist_sha256": "7fdab092860225a72b8b2ee8ad787080321a34656e896420f84df41b3c1c8e01"
+  },
+  "protected_ci": {
+    "run_id": 31825533602,
+    "head_sha": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": {
+      "python_quality": "success",
+      "secret_scan": "success",
+      "terraform_quality": "success",
+      "distribution_install": "success",
+      "container_build_and_scan": "success"
+    }
+  },
+  "local_artifact_checks": {
+    "release_metadata": "passed",
+    "wheel_and_sdist_inspection": "passed",
+    "wheel_clean_install_and_generated_project": "passed",
+    "sdist_clean_install_and_generated_project": "passed",
+    "runtime_all_import": "passed",
+    "generated_project_terraform_validate": "passed",
+    "main_image_rootless_read_only_runtime": "passed",
+    "main_image_bundled_assets": "passed",
+    "oci_controller_amd64_rootless_read_only_runtime": "passed"
+  },
+  "local_security_checks": {
+    "dependency_audit": {
+      "tool": "pip-audit",
+      "result": "no_known_vulnerabilities"
+    },
+    "infrastructure_scan": {
+      "tool": "trivy 0.70.0",
+      "archive_checksum_verified": true,
+      "severity": [
+        "HIGH",
+        "CRITICAL"
+      ],
+      "findings": 0
+    },
+    "main_image_scan": {
+      "tool": "trivy 0.70.0",
+      "image_index_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+      "local_platform": "linux/arm64",
+      "ignore_unfixed": true,
+      "severity": [
+        "HIGH",
+        "CRITICAL"
+      ],
+      "findings": 0
+    },
+    "oci_controller_image_scan": {
+      "tool": "trivy 0.70.0",
+      "platform": "linux/amd64",
+      "exact_candidate_wheel": true,
+      "candidate_controller_sources_unchanged": true,
+      "ignore_unfixed": true,
+      "severity": [
+        "HIGH",
+        "CRITICAL"
+      ],
+      "findings": 0
+    },
+    "git_history_secret_scan": {
+      "tool": "gitleaks 8.24.3",
+      "archive_checksum_verified": true,
+      "commits_scanned": 453,
+      "findings": 0
+    }
+  },
+  "local_infrastructure_checks": {
+    "terraform_version": "1.15.8",
+    "format": "passed",
+    "root_and_module_init_validate": "passed",
+    "aws_tests": "5_passed",
+    "azure_tests": "5_passed",
+    "oci_tests": "3_passed",
+    "cross_cloud_federation_tests": "1_passed",
+    "gcp_control_tests_after_main_merge": "1_passed",
+    "helm_lint_and_render": "passed"
+  },
+  "post_merge_regression": {
+    "git_commit": "03755ce52e89eafbeb0f8dea5f55bbe1abae100a",
+    "ruff_check": "passed",
+    "ruff_format_files": 442,
+    "mypy_source_files": 410,
+    "control_contracts": "passed",
+    "pytest_passed": 1702,
+    "pytest_skipped": 28,
+    "pytest_warnings": 1
+  },
+  "warnings": [
+    "The regression suite emitted the existing Starlette TestClient deprecation warning.",
+    "Trivy could not render required-value Helm defaults; both charts separately linted and rendered with the repository qualification fixtures."
+  ],
+  "cloud_mutations_attempted": false,
+  "incremental_cost_usd": "0.00",
+  "temporary_artifacts_cleaned": true,
+  "public_release": false
+}

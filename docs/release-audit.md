@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Private RC22 is immutable; Kubernetes lifecycle plus five normalized scale classes, seven local PostgreSQL classes, and the GCP rerun pass. Remaining scale/cost, hosted/pairwise profiles, soak, audits, and support freeze stay open. |
+| Phase 8 support qualification | Open | Private RC22 is immutable; Kubernetes lifecycle plus five normalized scale classes, seven local PostgreSQL classes, the GCP rerun, protected CI, and the local final-candidate audit pass. Remaining scale/cost, hosted/pairwise profiles, soak, profile docs, and support freeze stay open. |
 
 ## Current release and deployment record
 
@@ -87,6 +87,10 @@ cloud path remains outside the live proof.
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
   Authenticated Salesforce manual/replay and Scheduler-created Greenhouse runs passed on its
   Linux/AMD64 manifest; provider-measured cost remains pending.
+- Exact RC22 passed protected CI run `31825533602` and the local final-candidate repeat: clean
+  artifact installs, full runtime imports, Terraform/Helm, dependency and Git-history secret
+  audits, rootless read-only runtime checks, and HIGH/CRITICAL Trivy infrastructure/main-image/
+  OCI-controller scans. See `docs/evidence/phase8/2026-08-14/rc22-local-audit.json`.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions
@@ -119,4 +123,6 @@ GCP platform, independently installed connectors ingest into BigQuery, Dander tr
 the data, one metadata spine records what happened, and Druff authors and operates a bounded graph
 without becoming a second runtime. The D7 local hosted Control profile is live-qualified without
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
-the exact open gates are recorded in `docs/cloud-portability-phase8-qualification.md`.
+the final-candidate audit is complete, while the exact remaining scale, cost, profile, soak,
+operator-documentation, and support-freeze gates are recorded in
+`docs/cloud-portability-phase8-qualification.md`.

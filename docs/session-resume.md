@@ -48,8 +48,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   rows with an exact 301,500-row result and rejected cursor regression. A separate exact-candidate
   correctness fixture matched its approved normalized SHA-256 before and after replay. All three
   schemas and staging relations were removed; measured local service cost was USD 0. PostgreSQL
-  transform, failure, hosted cost, and crossover remain open; RC22 has no direct transport for a
-  crossover comparison. See `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`.
+  hosted cost and crossover remain open; RC22 has no direct transport for a crossover comparison.
+  See `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`.
 
 - Exact RC22 also passed the PostgreSQL transform class: 100,000 facts joined 100 dimensions,
   produced exact ten-category aggregates, applied one update plus one insert through the
@@ -71,6 +71,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   and staging relations were clean, 23 deployment checks passed, and the final 113-resource plan
   reported no drift. Provider charges remain pending, so this is not a passed cost qualification.
   See `docs/evidence/phase8/2026-08-14/gcp-native-profile.json`.
+
+- Exact RC22 passed protected CI run `31825533602` and a local final-candidate repeat covering
+  clean wheel/source installs, full runtime import, dependency and Git-history secret audits,
+  Terraform/Helm, rootless read-only runtime checks, and HIGH/CRITICAL Trivy scans of
+  infrastructure, the main image, and the OCI controller image. The post-merge regression suite
+  passed 1,702 tests with 28 skips. See
+  `docs/evidence/phase8/2026-08-14/rc22-local-audit.json`.
 
 - On 2026-08-14, the D7 local hosted Control profile passed exact-digest HTTPS/OIDC, restart
   persistence, byte-equal render, stable second-up, rollback/restore, and cleanup qualification.

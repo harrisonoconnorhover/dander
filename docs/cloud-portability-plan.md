@@ -1236,6 +1236,10 @@ Tickets:
 6. perform release-candidate soak with schedules enabled in each approved profile;
 7. freeze the tested compatibility matrix and known limitations.
 
+Exact private RC22 has completed item 5 through protected CI and a local exact-artifact repeat.
+Items 1, 3, 4, 6, and 7 remain open where their provider/profile evidence is incomplete; the audit
+does not promote an experimental profile.
+
 Exit gate:
 
 - every first-class definition is evidenced, the complete suite passes, provider live proofs are
