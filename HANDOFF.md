@@ -6,6 +6,7 @@
 - Built and clean-installed the exact RC21 wheel/sdist, then published source-free multi-platform image `sha256:ab24a0b8a938...` with SBOM and provenance.
 - Recorded the USD 10 authorization, provider allocations, candidate hashes, and exact GCP diagnostic objectives before live execution.
 - Found that multi-deployment bundles could not select a deployment for `runtime inspect`; added the narrow selector locally with focused coverage.
+- Applied an image-only retained GCP plan and completed DANDER-201 with sanitized execution `dander-servicenow-incidents-7kxl4`; post-apply Terraform is no drift.
 
 ## Try It
 
@@ -18,6 +19,7 @@ Run `uv run pytest -q tests/test_runtime_inspection.py`.
 - Final RC21 wheel/sdist validation, clean full-runtime install, and source-free GCP/Kubernetes config validation passed.
 - GAR index verification found AMD64 and ARM64 manifests plus attestations; read-only image `--version` returned `0.9.0rc21`.
 - Runtime-inspection tests, focused Ruff/format, and focused strict mypy pass for the local selector fix.
+- The retained apply changed five jobs with zero add/destroy; the diagnostic retained two safe causal identities and post-apply plan returned `No changes.`
 
 ## Decisions
 
@@ -28,7 +30,6 @@ Run `uv run pytest -q tests/test_runtime_inspection.py`.
 ## Remaining
 
 - Review and merge the runtime-inspection selector, then cut and publish the corrected private candidate.
-- Plan/apply RC21 to the retained GCP jobs and run one bounded ServiceNow diagnostic observation.
 - Run exact-candidate Kubernetes, GCP, Azure, scale, pairwise, and final audit gates within the USD 10 ceiling.
 - Record unavailable AWS/OCI credentials as provider blockers without weakening gates.
 - Complete the retained soak through 2026-09-01 before public support release.

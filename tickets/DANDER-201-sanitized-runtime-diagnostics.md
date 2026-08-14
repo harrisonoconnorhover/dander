@@ -1,7 +1,7 @@
 ---
 id: DANDER-201
 title: Preserve sanitized runtime failure identity
-status: in-code
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: [DANDER-200]
@@ -21,7 +21,7 @@ operator-soak diagnosability gate cannot pass.
 - [x] Exception messages, request/response bodies, credentials, DSNs, source rows, and arbitrary
   object representations never enter the diagnostic.
 - [x] Focused tests prove secret-bearing exception text is absent.
-- [ ] A new retained run proves the resulting failure or success is visible and diagnosable.
+- [x] A new retained run proves the resulting failure or success is visible and diagnosable.
 
 ## Design
 
@@ -40,4 +40,7 @@ persist unrestricted exception text.
 - A task-local diagnostic checkpoint prevents the CLI from duplicating an authoritative executor
   event without mutating arbitrary provider exception objects.
 - Local failure, executor, runtime-CLI, telemetry, and qualification tests pass. Retained-provider
-  evidence remains approval-gated and is intentionally not claimed here.
+  evidence is recorded in `docs/evidence/phase8/2026-08-14/gcp-diagnostic.json`.
+- Exact RC21 execution `dander-servicenow-incidents-7kxl4` retained bounded class chains and one
+  numeric status without messages, bodies, credentials, DSNs, or rows. This establishes safe
+  causal identity and does not claim the external ServiceNow root cause.
