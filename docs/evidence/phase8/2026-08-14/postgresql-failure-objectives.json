@@ -1,0 +1,37 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-failure/v1",
+    "benchmark_class": "failure",
+    "batch_rows": 1,
+    "pool_timeout_ms": 100,
+    "cancellation_sleep_seconds": 30,
+    "probes": [
+      "bounded_pool_timeout",
+      "dropped_connection_recovery",
+      "state_operation_recovery",
+      "warehouse_cancellation_rollback"
+    ]
+  },
+  "approved_objectives": {
+    "names": [
+      "bounded_pool_timeout",
+      "cleanup",
+      "cost_ceiling",
+      "dropped_connection_recovery",
+      "state_operation_recovery",
+      "warehouse_cancellation_rollback"
+    ],
+    "benchmark_class": "failure",
+    "profile_id": "postgresql_local_scale",
+    "release_version": "0.9.0rc22",
+    "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "configuration_sha256": "d7d4a0036efd91076037dec1e02b14982591205e2caec3a63eee4a5d148b3f35",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  }
+}

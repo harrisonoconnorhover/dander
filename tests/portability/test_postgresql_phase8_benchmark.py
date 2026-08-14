@@ -26,12 +26,14 @@ def test_phase8_postgresql_config_hashes_each_class_deterministically() -> None:
     bulk = config.configuration_sha256(BenchmarkClass.BULK_THROUGHPUT)
     incremental = config.configuration_sha256(BenchmarkClass.INCREMENTAL)
     transform = config.configuration_sha256(BenchmarkClass.TRANSFORM)
+    failure = config.configuration_sha256(BenchmarkClass.FAILURE)
 
     assert len(correctness) == 64
     assert len(bulk) == 64
     assert len(incremental) == 64
     assert len(transform) == 64
-    assert len({correctness, bulk, incremental, transform}) == 4
+    assert len(failure) == 64
+    assert len({correctness, bulk, incremental, transform, failure}) == 5
     assert (
         config.workload_payload(BenchmarkClass.CORRECTNESS)["expected_normalized_sha256"]
         == "82886fc4c0bc5cfb248df1196b9d29763cad4fac60cf248a91084a185d78c2ee"

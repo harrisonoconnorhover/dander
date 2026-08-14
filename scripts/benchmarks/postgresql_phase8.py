@@ -12,17 +12,20 @@ import resource
 import sys
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from itertools import islice
 from pathlib import Path
+from queue import Queue
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any, cast
 
-from psycopg import Connection, sql
+from psycopg import Connection, OperationalError, connect, sql
+from psycopg.errors import QueryCanceled
 from psycopg.rows import dict_row
-from psycopg_pool import ConnectionPool
+from psycopg_pool import ConnectionPool, PoolTimeout
 
 from dander import __version__
 from dander.concurrency import FencingToken, TargetFence
@@ -40,6 +43,7 @@ from dander.qualification import (
     QualificationReport,
     QualificationStatus,
 )
+from dander.state import StateRuntime
 from dander.telemetry import CostAttribution, PerformanceMeasurement, RunPerformance
 from dander.warehouse import RelationRef, WarehouseRuntime
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WritePattern, WriteTarget
@@ -85,6 +89,14 @@ _TRANSFORM_OBJECTIVES = (
     "incremental_merge",
     "join_exact",
     "scan_exact",
+)
+_FAILURE_OBJECTIVES = (
+    "bounded_pool_timeout",
+    "cleanup",
+    "cost_ceiling",
+    "dropped_connection_recovery",
+    "state_operation_recovery",
+    "warehouse_cancellation_rollback",
 )
 
 
@@ -175,8 +187,23 @@ class Phase8PostgreSQLConfig:
                 "models": ["scan", "join", "aggregation", "incremental"],
                 "generic_tests": ["accepted_values", "not_null", "unique"],
             }
+        if benchmark_class is BenchmarkClass.FAILURE:
+            return {
+                **common,
+                "schema": "io.dander.phase8.postgresql-failure/v1",
+                "batch_rows": 1,
+                "probes": [
+                    "bounded_pool_timeout",
+                    "dropped_connection_recovery",
+                    "state_operation_recovery",
+                    "warehouse_cancellation_rollback",
+                ],
+                "pool_timeout_ms": 100,
+                "cancellation_sleep_seconds": 30,
+            }
         raise ValueError(
-            "Phase 8 PostgreSQL harness supports correctness, bulk, incremental, and transform"
+            "Phase 8 PostgreSQL harness supports correctness, bulk, incremental, transform, "
+            "and failure"
         )
 
     def configuration_sha256(self, benchmark_class: BenchmarkClass) -> str:
@@ -273,6 +300,18 @@ class _TransformResult:
     cleanup_verified: bool
 
 
+@dataclass(frozen=True, slots=True)
+class _FailureResult:
+    duration_ms: int
+    peak_rss_bytes: int
+    probe_count: int
+    pool_timeout_duration_ms: int
+    connection_recovery_duration_ms: int
+    cancellation_duration_ms: int
+    temporary_staging_relations: int
+    cleanup_verified: bool
+
+
 def load_approval(
     path: Path,
     *,
@@ -295,6 +334,7 @@ def load_approval(
         BenchmarkClass.BULK_THROUGHPUT: _BULK_OBJECTIVES,
         BenchmarkClass.INCREMENTAL: _INCREMENTAL_OBJECTIVES,
         BenchmarkClass.TRANSFORM: _TRANSFORM_OBJECTIVES,
+        BenchmarkClass.FAILURE: _FAILURE_OBJECTIVES,
     }.get(benchmark_class)
     if expected_names is None:
         raise ValueError("objective manifest selects an unsupported benchmark class")
@@ -334,13 +374,15 @@ def run_phase8_postgresql_qualification(
     bulk_approval: _Approval,
     incremental_approval: _Approval,
     transform_approval: _Approval,
+    failure_approval: _Approval,
 ) -> tuple[
     QualificationReport,
     QualificationReport,
     QualificationReport,
     QualificationReport,
+    QualificationReport,
 ]:
-    """Execute four PostgreSQL qualification classes in disposable schemas."""
+    """Execute five PostgreSQL qualification classes in disposable schemas."""
     if not dsn:
         raise ValueError("PostgreSQL qualification requires a non-empty DSN")
     if __version__ != identity.release_version:
@@ -351,6 +393,7 @@ def run_phase8_postgresql_qualification(
     _require_identity_match(identity, bulk_approval)
     _require_identity_match(identity, incremental_approval)
     _require_identity_match(identity, transform_approval)
+    _require_identity_match(identity, failure_approval)
     pool = cast(
         "PostgreSQLPool",
         ConnectionPool(
@@ -374,11 +417,13 @@ def run_phase8_postgresql_qualification(
         bulk = _run_bulk(pool, warehouse, database=database, config=config)
         incremental = _run_incremental(pool, warehouse, database=database, config=config)
         transform = _run_transform(pool, warehouse, database=database, config=config)
+        failure = _run_failure(dsn, pool, database=database)
         return (
             _correctness_report(config, identity, correctness_approval, correctness),
             _bulk_report(config, identity, bulk_approval, bulk),
             _incremental_report(config, identity, incremental_approval, incremental),
             _transform_report(config, identity, transform_approval, transform),
+            _failure_report(config, identity, failure_approval, failure),
         )
     finally:
         pool.close()
@@ -411,6 +456,30 @@ def _warehouse_runtime(pool: PostgreSQLPool, database: str) -> WarehouseRuntime:
     runtime = registry.build(ProviderKind.WAREHOUSE, config, context={"pool": pool})
     if not isinstance(runtime, WarehouseRuntime):
         raise TypeError("PostgreSQL qualification received an invalid warehouse runtime")
+    return runtime
+
+
+def _failure_state_runtime(pool: PostgreSQLPool, schema: str) -> StateRuntime:
+    registry = default_provider_registry()
+    config = registry.parse(
+        ProviderKind.STATE,
+        {
+            "provider": "postgresql",
+            "authority_id": f"postgresql:{schema}",
+            "dsn_env": "DANDER_PHASE8_POSTGRES_DSN",
+            "schema_name": schema,
+            "pool_min_size": 1,
+            "pool_max_size": 1,
+            "pool_timeout_seconds": 0.1,
+        },
+    )
+    runtime = registry.build(
+        ProviderKind.STATE,
+        config,
+        context={"pool": pool, "metadata_enabled": False},
+    )
+    if not isinstance(runtime, StateRuntime):
+        raise TypeError("PostgreSQL failure qualification received an invalid state runtime")
     return runtime
 
 
@@ -762,6 +831,139 @@ def _run_transform(
         assertion_count=assertion_count,
         ownership_verifications=first_ownership.verifications
         + second_ownership.verifications,
+        temporary_staging_relations=staging,
+        cleanup_verified=cleanup,
+    )
+
+
+def _run_failure(
+    dsn: str,
+    pool: PostgreSQLPool,
+    *,
+    database: str,
+) -> _FailureResult:
+    schema = f"dander_phase8_failure_{uuid.uuid4().hex[:12]}"
+    state_pool = cast(
+        "PostgreSQLPool",
+        ConnectionPool(
+            conninfo=dsn,
+            min_size=1,
+            max_size=1,
+            timeout=0.1,
+            kwargs={"row_factory": dict_row},
+            open=True,
+        ),
+    )
+    state_pool.wait(timeout=5)
+    runtime = _failure_state_runtime(state_pool, schema)
+    started = time.perf_counter()
+    peak_before = _peak_rss_bytes()
+    try:
+        runtime.migrator.migrate()
+        timeout_started = time.perf_counter()
+        timed_out = False
+        with state_pool.connection():
+            try:
+                runtime.watermarks.get("phase8", "pool-timeout")
+            except PoolTimeout:
+                timed_out = True
+        pool_timeout_duration_ms = _elapsed_ms(timeout_started)
+        if not timed_out or pool_timeout_duration_ms > 1_000:
+            raise RuntimeError("PostgreSQL pool exhaustion did not fail within its bound")
+
+        recovery_started = time.perf_counter()
+        with state_pool.connection() as connection:
+            row = connection.execute("SELECT pg_backend_pid() AS pid").fetchone()
+        if row is None or not isinstance(row["pid"], int):
+            raise RuntimeError("PostgreSQL failure qualification could not identify its backend")
+        with connect(dsn, autocommit=True) as killer:
+            terminated = killer.execute(
+                "SELECT pg_terminate_backend(%s)",
+                (row["pid"],),
+            ).fetchone()
+        if terminated != (True,):
+            raise RuntimeError("PostgreSQL failure qualification did not terminate its backend")
+        lost_connection_observed = False
+        try:
+            runtime.watermarks.get("phase8", "lost-connection")
+        except OperationalError:
+            lost_connection_observed = True
+        if not lost_connection_observed:
+            raise RuntimeError("PostgreSQL state operation did not observe the lost connection")
+        state_pool.wait(timeout=5)
+        runtime.watermarks.set("phase8", "lost-connection", "recovered")
+        if runtime.watermarks.get("phase8", "lost-connection") != "recovered":
+            raise RuntimeError("PostgreSQL state operation did not recover")
+        recovery_duration_ms = _elapsed_ms(recovery_started)
+
+        with pool.connection() as connection:
+            connection.execute(
+                sql.SQL("CREATE TABLE {} (id BIGINT PRIMARY KEY, value BIGINT NOT NULL)").format(
+                    sql.Identifier(schema, "cancellation_records")
+                )
+            )
+            connection.execute(
+                sql.SQL("INSERT INTO {} (id, value) VALUES (1, 1)").format(
+                    sql.Identifier(schema, "cancellation_records")
+                )
+            )
+        cancellation_started = time.perf_counter()
+        backend_ids: Queue[int] = Queue(maxsize=1)
+
+        def cancelled_transaction() -> bool:
+            try:
+                with pool.connection() as connection:
+                    connection.execute(
+                        sql.SQL("UPDATE {} SET value = 2 WHERE id = 1").format(
+                            sql.Identifier(schema, "cancellation_records")
+                        )
+                    )
+                    backend = connection.execute(
+                        "SELECT pg_backend_pid() AS pid"
+                    ).fetchone()
+                    if backend is None or not isinstance(backend["pid"], int):
+                        raise RuntimeError("PostgreSQL cancellation probe has no backend")
+                    backend_ids.put(backend["pid"], timeout=5)
+                    connection.execute("SELECT pg_sleep(30)")
+            except QueryCanceled:
+                return True
+            return False
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(cancelled_transaction)
+            backend_id = backend_ids.get(timeout=5)
+            with pool.connection() as connection:
+                cancelled = connection.execute(
+                    "SELECT pg_cancel_backend(%s) AS cancelled",
+                    (backend_id,),
+                ).fetchone()
+            if cancelled != {"cancelled": True} or not future.result(timeout=5):
+                raise RuntimeError("PostgreSQL warehouse cancellation was not observed")
+        cancellation_duration_ms = _elapsed_ms(cancellation_started)
+        with pool.connection() as connection:
+            rolled_back = connection.execute(
+                sql.SQL("SELECT value FROM {} WHERE id = 1").format(
+                    sql.Identifier(schema, "cancellation_records")
+                )
+            ).fetchone()
+        if rolled_back != {"value": 1}:
+            raise RuntimeError("PostgreSQL cancellation did not roll back its transaction")
+        staging = _temporary_staging_count(pool)
+        if staging:
+            raise RuntimeError("PostgreSQL failure qualification left staging relations")
+    finally:
+        state_pool.close()
+        _drop_schema(pool, schema)
+    cleanup = not _schema_exists(pool, schema)
+    if not cleanup:
+        raise RuntimeError("PostgreSQL failure qualification did not remove its schema")
+    return _FailureResult(
+        duration_ms=_elapsed_ms(started),
+        peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
+        probe_count=4,
+        pool_timeout_duration_ms=pool_timeout_duration_ms,
+        connection_recovery_duration_ms=recovery_duration_ms,
+        cancellation_duration_ms=cancellation_duration_ms,
         temporary_staging_relations=staging,
         cleanup_verified=cleanup,
     )
@@ -1360,6 +1562,63 @@ def _transform_report(
     )
 
 
+def _failure_report(
+    config: Phase8PostgreSQLConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    result: _FailureResult,
+) -> QualificationReport:
+    return QualificationReport(
+        context=_context(identity, approval),
+        workload=BenchmarkWorkload(
+            benchmark_class=BenchmarkClass.FAILURE,
+            input_rows=result.probe_count,
+            logical_input_bytes=result.probe_count,
+            row_width_bytes=1,
+            schema_depth=1,
+            source_rate_limit="controlled_local_failure_injection",
+            transform_complexity="state_pool_connection_and_cancellation",
+            concurrency=2,
+            batch_rows=1,
+            batch_bytes=1,
+            configuration_sha256=config.configuration_sha256(BenchmarkClass.FAILURE),
+        ),
+        performance=_performance(
+            rows=result.probe_count,
+            logical_bytes=result.probe_count,
+            duration_ms=result.duration_ms,
+            peak_rss_bytes=result.peak_rss_bytes,
+            load_duration_ms=0,
+            provider_metrics=(
+                _measured(
+                    "cancellation_duration_ms",
+                    "milliseconds",
+                    result.cancellation_duration_ms,
+                ),
+                _measured(
+                    "connection_recovery_duration_ms",
+                    "milliseconds",
+                    result.connection_recovery_duration_ms,
+                ),
+                _measured(
+                    "pool_timeout_duration_ms",
+                    "milliseconds",
+                    result.pool_timeout_duration_ms,
+                ),
+                _measured("probe_count", "count", result.probe_count),
+                _measured(
+                    "temporary_staging_relations",
+                    "count",
+                    result.temporary_staging_relations,
+                ),
+            ),
+        ),
+        objectives=_passed_objectives(approval.objectives.names, "failure"),
+        approved_objectives=approval.objectives,
+        status=QualificationStatus.PASSED,
+    )
+
+
 def _context(identity: CandidateIdentity, approval: _Approval) -> QualificationContext:
     return QualificationContext(
         release_version=identity.release_version,
@@ -1473,6 +1732,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--bulk-objectives", type=Path, required=True)
     parser.add_argument("--incremental-objectives", type=Path, required=True)
     parser.add_argument("--transform-objectives", type=Path, required=True)
+    parser.add_argument("--failure-objectives", type=Path, required=True)
     parser.add_argument("--candidate-version", required=True)
     parser.add_argument("--candidate-commit", required=True)
     parser.add_argument("--image-digest", required=True)
@@ -1531,6 +1791,11 @@ def main() -> None:
         config=config,
         benchmark_class=BenchmarkClass.TRANSFORM,
     )
+    failure_approval = load_approval(
+        arguments.failure_objectives,
+        config=config,
+        benchmark_class=BenchmarkClass.FAILURE,
+    )
     identity = CandidateIdentity(
         release_version=arguments.candidate_version,
         git_commit=arguments.candidate_commit,
@@ -1540,7 +1805,7 @@ def main() -> None:
         provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
         service_shapes=tuple(sorted(set(arguments.service_shape))),
     )
-    correctness, bulk, incremental, transform = run_phase8_postgresql_qualification(
+    correctness, bulk, incremental, transform, failure = run_phase8_postgresql_qualification(
         dsn,
         config=config,
         identity=identity,
@@ -1548,6 +1813,7 @@ def main() -> None:
         bulk_approval=bulk_approval,
         incremental_approval=incremental_approval,
         transform_approval=transform_approval,
+        failure_approval=failure_approval,
     )
     arguments.output_directory.mkdir(parents=True, exist_ok=True)
     (arguments.output_directory / "postgresql-correctness.json").write_text(
@@ -1566,11 +1832,16 @@ def main() -> None:
         transform.to_json() + "\n",
         encoding="utf-8",
     )
+    (arguments.output_directory / "postgresql-failure.json").write_text(
+        failure.to_json() + "\n",
+        encoding="utf-8",
+    )
     print(
         json.dumps(
             {
                 "bulk_status": bulk.status.value,
                 "correctness_status": correctness.status.value,
+                "failure_status": failure.status.value,
                 "incremental_status": incremental.status.value,
                 "python_version": platform.python_version(),
                 "release_version": __version__,
