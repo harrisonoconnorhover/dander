@@ -1616,3 +1616,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Provider boundary:** `DefaultAzureCredential`, container-native metadata, ETags, and provider
   errors remain inside the lazily loaded adapter. Live Azure policy, versioning, restart, cleanup,
   and no-drift qualification remains a separate named-cost approval gate.
+
+## 2026-08-13 — OCI Object Storage uses current-object ETags and resource principals
+
+- **Concurrency and paging:** Native absence matching owns creates; exact ETags pin replacement,
+  bounded reads, delete fences, journal transitions, and deletion. Public cursors use exclusive
+  `start_after`, while native short-page continuation passes OCI's returned `nextStartWith` back as
+  inclusive `start`. Healthy summaries require HEAD metadata but no body downloads.
+- **Identity and deletion:** Default construction uses only a resource-principal signer. Profile
+  authentication requires explicit client injection. Deletes never select a version or enumerate
+  history, so a versioned bucket receives a current-object delete marker and retains older data.
+- **Limitation:** OCI's exact `NotAuthorizedOrNotFound` response cannot distinguish hidden
+  authorization from object absence. Treat it as absence only for object-addressed HEAD, as a
+  conflict after an observed ETag, and as a provider error at list/bucket boundaries. Keep live
+  policy, versioning, cleanup, and no-drift qualification as a separate named-cost gate.

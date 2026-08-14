@@ -2,38 +2,39 @@
 
 ## Finished
 
-- Added an Azure Blob GraphStore without changing the provider-neutral Control contract.
-- Used exact Blob ETags for bounded reads, replacement, fencing, journal transitions, and delete.
-- Preserved create/delete replay across concurrency, crashes, and later recreation.
-- Added body-free native pagination with continuation handling and Azure-specific safe errors.
-- Kept snapshots/versions outside current-object deletion and provider identity lazy/private.
+- Added an OCI Object Storage GraphStore without changing the provider-neutral Control contract.
+- Used exact ETags for bounded reads, replacement, fencing, journal transitions, and deletion.
+- Preserved create/delete replay across concurrency, crashes, version markers, and later recreation.
+- Added bounded native pagination with HEAD-only healthy summaries and OCI-specific safe errors.
+- Kept OCI resource-principal identity, metadata, clients, and revisions lazy and provider-private.
 
 ## Try It
 
-Run `uv run --extra dev --extra azure pytest -q tests/control/test_graph_store.py tests/control/test_azure_blob_graph_store.py`.
+Run `uv run pytest -q tests/control/test_graph_store.py tests/control/test_oci_object_graph_store.py`.
 
 ## Checks
 
-- Ruff and format passed across 421 files; strict mypy passed across 390 source files.
-- Control-contract drift passed; full pytest passed with the expected provider skips.
-- Dependency, shared GraphStore, and Azure-focused pytest passed: 60 tests.
-- Runtime-all dependency audit found no vulnerabilities; release metadata and wheel/sdist passed.
-- Diff, credential, key, certificate, Terraform state, and Terraform plan scans were clean.
+- Ruff and format passed across 424 files; strict mypy passed across 393 source files.
+- Control-contract drift and the full pytest suite passed with expected provider skips.
+- OCI SDK 2.184.1 surface verification and focused/shared GraphStore pytest passed: 74 tests.
+- Runtime-all dependency audit found no vulnerabilities; wheel/sdist identity checks passed.
+- Diff, credential, key, Terraform state, Terraform plan, and generated-cache scans were clean.
 
 ## Decisions
 
-- Require `azure-storage-blob>=12.28,<13` for inclusive native cursor paging.
-- Delete only the exact current base blob; never silently remove snapshots or versions.
-- Keep exact ETags provider-private and canonical SHA-256 as the portable identity.
+- Default construction uses only OCI resource-principal identity; developer profiles need injection.
+- Delete only the ETag-matched current object; never enumerate or select historical versions.
+- Confine OCI's ambiguous `NotAuthorizedOrNotFound` response to documented object-HEAD absence.
 
 ## Remaining
 
 - Publish and merge this implementation through a focused protected PR.
 - Verify protected PR and exact-main CI after merge.
-- Obtain a named numeric Azure ceiling before any live Blob mutation.
+- Obtain a named numeric OCI ceiling before any live Object Storage mutation.
+- Run the separate live policy/restart/conflict/versioning/cleanup/no-drift proof.
 
 ## Review First
 
-- `src/dander/control/azure_blob_graph_store.py`
-- `tests/control/test_azure_blob_graph_store.py`
-- `tickets/DANDER-124-azure-blob-graph-store.md`
+- `src/dander/control/oci_object_graph_store.py`
+- `tests/control/test_oci_object_graph_store.py`
+- `tickets/DANDER-125-oci-object-graph-store.md`
