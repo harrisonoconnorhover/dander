@@ -10,6 +10,7 @@ import pytest
 
 from dander.control import (
     MAX_GRAPH_DOCUMENT_BYTES,
+    AzureBlobGraphStore,
     GCSGraphStore,
     GraphStore,
     GraphStoreAlreadyExistsError,
@@ -27,6 +28,7 @@ from dander.control import (
 from dander.control.bundle import PACKAGED_BUNDLE_DIRECTORY
 from dander.control.models import PipelineGraphDocument
 from dander.pipeline.graph import graph_to_payload
+from tests.control.azure_blob_fakes import FakeAzureContainerClient
 from tests.control.gcs_fakes import FakeGCSClient, FakeNotFoundError, FakePreconditionError
 from tests.control.s3_fakes import FakeS3Client
 
@@ -34,7 +36,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.fixture(params=("memory", "local", "gcs", "s3"))
+@pytest.fixture(params=("memory", "local", "gcs", "s3", "azure-blob"))
 def graph_store(request: pytest.FixtureRequest, tmp_path: Path) -> GraphStore:
     """Return each initial adapter behind exactly the same conformance tests."""
     if request.param == "memory":
@@ -47,6 +49,12 @@ def graph_store(request: pytest.FixtureRequest, tmp_path: Path) -> GraphStore:
             client=FakeGCSClient(),
             not_found_errors=(FakeNotFoundError,),
             precondition_errors=(FakePreconditionError,),
+        )
+    if request.param == "azure-blob":
+        return AzureBlobGraphStore(
+            "https://unitaccount.blob.core.windows.net",
+            "unit-container",
+            client=FakeAzureContainerClient(),
         )
     return S3GraphStore("unit-bucket", client=FakeS3Client())
 

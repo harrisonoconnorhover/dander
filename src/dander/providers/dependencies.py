@@ -48,7 +48,7 @@ PROVIDER_DEPENDENCY_SETS = (
     ProviderDependencySet(extra="aws", distributions=("boto3",)),
     ProviderDependencySet(
         extra="azure",
-        distributions=("azure-identity", "azure-keyvault-secrets"),
+        distributions=("azure-identity", "azure-keyvault-secrets", "azure-storage-blob"),
     ),
     ProviderDependencySet(extra="oci", distributions=("oci",)),
 )

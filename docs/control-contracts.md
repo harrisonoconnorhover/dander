@@ -110,6 +110,17 @@ ordered `StartAfter` contract. DANDER-123 remains in progress until a separately
 restart/conflict/versioning/cleanup proof passes; neither the current source nor public rc18 is
 live-qualified for S3.
 
+The Azure Blob adapter keeps the same public contract behind one HTTPS storage-account endpoint,
+container, and deterministic prefix. Creates rely on native absence semantics and every later
+read, replacement, fence transition, and deletion pins an exact opaque Blob ETag with
+`IfNotModified`. Inclusive `start_from` pages follow native continuation tokens and carry validated
+metadata, so healthy listing does not issue per-blob reads or download documents. The adapter
+deletes only the exact current base blob: snapshots and versions are never silently expanded into
+the deletion scope, and a snapshots-present or immutability/lease policy failure remains a safe
+provider error rather than a false revision conflict. SDK imports and `DefaultAzureCredential`
+remain lazy. DANDER-124 remains in progress until separately approved live Azure
+restart/conflict/versioning/cleanup proof passes; public rc18 is not qualified for this adapter.
+
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
 

@@ -1,5 +1,6 @@
 """Versioned browser-facing contracts and provider-neutral Control API ports."""
 
+from dander.control.azure_blob_graph_store import AzureBlobGraphStore
 from dander.control.gcs_graph_store import GCSGraphStore
 from dander.control.graph_store import (
     MAX_GRAPH_DOCUMENT_BYTES,
@@ -28,6 +29,7 @@ __all__ = [
     "MAX_GRAPH_DOCUMENT_BYTES",
     "MAX_GRAPH_PAGE_SIZE",
     "CanonicalGraphDocument",
+    "AzureBlobGraphStore",
     "GraphDeleteReceipt",
     "GraphPage",
     "GraphRecord",
