@@ -31,7 +31,8 @@ persist unrestricted exception text.
 ## Implementation Notes
 
 - The classifier retains at most eight bounded ASCII exception class names and the nearest numeric
-  HTTP/provider status; it never serializes an exception message or object representation.
+  HTTP/provider status, including botocore's nested response metadata; it never serializes an
+  exception message or object representation.
 - `PipelineExecutor` writes one deterministic diagnostic JSON record with run, pipeline, stage,
   code, duration, class chain, and status while leaving durable history unchanged.
 - Local failure, executor, runtime-CLI, telemetry, and qualification tests pass. Retained-provider

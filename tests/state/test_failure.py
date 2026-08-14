@@ -19,6 +19,12 @@ class _HttpError(RuntimeError):
         self.response = _Response(status_code)
 
 
+class _BotocoreStyleError(RuntimeError):
+    def __init__(self, status_code: int, message: str) -> None:
+        super().__init__(message)
+        self.response = {"ResponseMetadata": {"HTTPStatusCode": status_code}}
+
+
 def test_failure_classifier_uses_http_status_without_persisting_exception_text() -> None:
     error = RuntimeError("wrapper with token=top-secret")
     error.__cause__ = _HttpError(401, "private-key=also-secret")
@@ -53,6 +59,18 @@ def test_failure_classifier_normalizes_direct_provider_status() -> None:
     assert failure.code == "rate_limited"
     assert "OCI request detail" not in failure.summary
     assert failure.status_code == 429
+
+
+def test_failure_classifier_uses_botocore_mapping_status_without_exception_text() -> None:
+    failure = classify_failure(
+        _BotocoreStyleError(403, "secret-id=must-not-enter-diagnostics"),
+        stage=RunStage.INGEST,
+        run_id="safe-run",
+    )
+
+    assert failure.code == "permission_denied"
+    assert failure.status_code == 403
+    assert "must-not-enter-diagnostics" not in failure.summary
 
 
 def test_failure_diagnostic_bounds_and_sanitizes_exception_class_chain() -> None:

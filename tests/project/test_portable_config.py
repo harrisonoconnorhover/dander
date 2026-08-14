@@ -306,6 +306,14 @@ def test_version_two_resolves_aws_native_fargate_profile(tmp_path: Path) -> None
         "EXAMPLE_TOKEN": secret_prefix + "example-token-AbCdEf",
     }
 
+    profile["warehouse"]["copy_role_arn"] = (
+        "arn:aws-us-gov:iam::123456789012:role/DanderRedshiftCopy"
+    )
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    with pytest.raises(ProjectConfigError, match="COPY role partition"):
+        load_project_config(project_path, deployment="aws_native")
+
 
 def test_version_two_resolves_native_redshift_warehouse_coordinates(tmp_path: Path) -> None:
     project_path = tmp_path / "dander.yaml"

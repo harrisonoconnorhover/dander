@@ -206,7 +206,7 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
     assert "AWS_SECRET_ACCESS_KEY" not in serialized
 
 
-def _aws_native_fargate_runtime() -> LauncherRuntime:
+def _aws_native_fargate_runtime(*, copy_role_partition: str = "aws") -> LauncherRuntime:
     from dander.providers.aws_secrets_manager import AwsSecretsManagerConfig
     from dander.providers.fargate.runtime import (
         FargateProfileContext,
@@ -238,7 +238,7 @@ def _aws_native_fargate_runtime() -> LauncherRuntime:
             db_user="dander_runtime",
             region="us-east-1",
             cluster_identifier="dander-phase8",
-            copy_role_arn="arn:aws:iam::184463061564:role/DanderRedshiftCopy",
+            copy_role_arn=(f"arn:{copy_role_partition}:iam::184463061564:role/DanderRedshiftCopy"),
             staging_bucket="dander-phase8-staging",
         ),
         state=PostgreSQLStateConfig(
@@ -313,6 +313,28 @@ def test_fargate_aws_native_rejects_a_secret_from_another_account() -> None:
 
     with pytest.raises(ExecutionProjectionError, match="launcher account and region"):
         _aws_native_fargate_runtime().templates.build(
+            _request(
+                pipelines=pipelines,
+                image=_FARGATE_IMAGE,
+                profile_id="aws_native",
+                memory="2Gi",
+            )
+        )
+
+
+def test_fargate_aws_native_rejects_copy_role_from_another_partition() -> None:
+    secret = (
+        "aws-sm://arn:aws:secretsmanager:us-east-1:184463061564:secret:dander/postgres-dsn-AbCdEf"
+    )
+    pipelines = {
+        "greenhouse_jobs": {
+            **_PIPELINES["greenhouse_jobs"],
+            "secret_env": {"DANDER_POSTGRES_DSN": secret},
+        }
+    }
+
+    with pytest.raises(ExecutionProjectionError, match="COPY role partition"):
+        _aws_native_fargate_runtime(copy_role_partition="aws-us-gov").templates.build(
             _request(
                 pipelines=pipelines,
                 image=_FARGATE_IMAGE,

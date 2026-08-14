@@ -30,8 +30,8 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   secret reads, Redshift authentication, the configured wildcard-free staging prefix, and the
   configured Glue namespace. Terraform passes only a non-secret binding document; the runtime
   resolves values with the task role and removes them after execution.
-- Independent review caught the unresolved-DSN and IAM-wildcard defects before live use; focused
-  runtime and Terraform regression contracts now cover both corrections.
+- Independent review caught the unresolved-DSN, IAM-wildcard, and COPY-role partition defects
+  before live use; focused runtime and Terraform regression contracts cover the corrections.
 - Fargate retains the exact selected deployment separately from the shared platform profile, so
   runtime configuration remains unambiguous when staging and production reuse one profile.
 - Local Python, Terraform validation, and provider-mocked Terraform tests pass. Live AWS

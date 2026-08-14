@@ -195,8 +195,13 @@ class FargateTemplateFactory:
             raise ExecutionProjectionError(
                 "Fargate AWS-native Glue catalog must match the launcher account"
             )
+        partition = "aws-us-gov" if self.config.region.startswith("us-gov-") else "aws"
         copy_role = str(getattr(warehouse, "copy_role_arn", "")).split(":")
-        if len(copy_role) < 6 or copy_role[4] != self.config.aws_account_id:
+        if len(copy_role) < 6 or copy_role[1] != partition:
+            raise ExecutionProjectionError(
+                "Fargate AWS-native Redshift COPY role partition must match the launcher region"
+            )
+        if copy_role[4] != self.config.aws_account_id:
             raise ExecutionProjectionError(
                 "Fargate AWS-native Redshift COPY role must match the launcher account"
             )

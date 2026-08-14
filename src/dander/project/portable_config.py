@@ -655,13 +655,17 @@ def _validate_profile_composition(
         raise ProjectConfigError(
             "Fargate AWS-native Glue catalog must belong to the launcher AWS account"
         )
+    partition = "aws-us-gov" if expected_region.startswith("us-gov-") else "aws"
     copy_role = profile.warehouse.copy_role_arn.split(":")
-    if len(copy_role) < 6 or copy_role[4] != launcher.aws_account_id:
+    if len(copy_role) < 6 or copy_role[1] != partition:
+        raise ProjectConfigError(
+            "Fargate AWS-native Redshift COPY role partition must match the launcher region"
+        )
+    if copy_role[4] != launcher.aws_account_id:
         raise ProjectConfigError(
             "Fargate AWS-native Redshift COPY role must belong to the launcher AWS account"
         )
     required_dsn = profile.state.dsn_env
-    partition = "aws-us-gov" if expected_region.startswith("us-gov-") else "aws"
     prefix = (
         f"aws-sm://arn:{partition}:secretsmanager:{expected_region}:"
         f"{launcher.aws_account_id}:secret:"

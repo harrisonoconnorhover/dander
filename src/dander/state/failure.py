@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -160,13 +161,14 @@ def _exception_chain(error: BaseException) -> tuple[BaseException, ...]:
 
 def _status_code(error: BaseException) -> int | None:
     response = _safe_attribute(error, "response")
-    for owner, attribute in (
-        (response, "status_code"),
-        (error, "status_code"),
+    response_metadata = _safe_mapping_value(response, "ResponseMetadata")
+    for value in (
+        _safe_attribute(response, "status_code"),
+        _safe_mapping_value(response_metadata, "HTTPStatusCode"),
+        _safe_attribute(error, "status_code"),
         # OCI SDK ServiceError and several provider SDKs expose the status directly.
-        (error, "status"),
+        _safe_attribute(error, "status"),
     ):
-        value = _safe_attribute(owner, attribute)
         if isinstance(value, int) and not isinstance(value, bool) and 100 <= value <= 599:
             return int(value)
     return None
@@ -177,6 +179,15 @@ def _safe_attribute(value: object | None, name: str) -> object | None:
         return None
     try:
         return getattr(value, name, None)
+    except Exception:
+        return None
+
+
+def _safe_mapping_value(value: object | None, key: str) -> object | None:
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        return value.get(key)
     except Exception:
         return None
 

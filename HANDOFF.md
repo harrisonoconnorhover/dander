@@ -2,8 +2,8 @@
 
 ## Finished
 
-- Rebased Phase 8 over protected main `15345d7` while preserving the merged Druff and RC20 preparation work.
-- Addressed review blockers for approved SLO sets, AWS secret resolution, S3 policy prefixes, and exact deployment selection.
+- Rebased Phase 8 over protected main `75c5654` while preserving the merged Druff and RC20 promotion metadata.
+- Addressed review blockers for approved SLO sets, AWS secrets, S3 prefixes, deployment selection, botocore statuses, and AWS partitions.
 - Renumbered the Phase 8 chain to DANDER-200 through DANDER-207 after Druff consumed DANDER-128.
 - Kept AWS task permissions scoped to declared Redshift, S3, Glue, and Secrets Manager resources.
 - Recorded the user's USD 10 aggregate live-cloud authorization; spend remains USD 0.
@@ -15,8 +15,9 @@ Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py 
 ## Checks
 
 - Focused Ruff lint and format checks passed.
-- Focused Python contracts passed: 52 tests.
+- Latest focused Python contracts passed: 36 tests.
 - Full Ruff, format, mypy, and pytest suite passed with expected skips.
+- Exact-head protected CI passed all five jobs before the latest two focused review corrections.
 - Fargate Terraform formatting and validation passed.
 - Fargate mocked Terraform tests passed: 4 of 4.
 
@@ -28,7 +29,7 @@ Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py 
 
 ## Remaining
 
-- Push the rebased selector fix and obtain exact-head protected CI and independent review.
+- Push the rebased final review corrections and obtain one clean exact-head CI/review cycle.
 - Merge DANDER-200/202, then cut and privately publish one source-free qualification candidate.
 - Deploy DANDER-201 diagnostics and start the final retained clean observation window.
 - Run authorized exact-candidate Kubernetes, scale, pairwise, and canonical gates within USD 10.
