@@ -37,8 +37,10 @@ Hosted lifecycle and planning use provider-neutral application DTOs and capabili
 - Added the minimum project, graph, catalog, validation, preview, run-history, bounded log, cancel,
   and replay surface. Unwired operations are omitted from capabilities and fail closed.
 - Added additive project-list, graph-create/resource/page, and run-page transport contracts. The
-  source bundle digest is `e88f732308db41872d0438b9b79df345647c4552a1c750e0230515939d09a246`;
-  it is not public until a separately approved release.
+  intermediate source bundle digest at DANDER-121 completion was
+  `e88f732308db41872d0438b9b79df345647c4552a1c750e0230515939d09a246`; it was not public at that
+  point. DANDER-126 subsequently added `control-bootstrap`, producing final bundle digest
+  `695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3`.
 - Strong ETags reversibly encode opaque revisions. Graph requests stream to a fixed limit,
   responses and pages are bounded, errors are correlation-safe, and mutation logs exclude bodies,
   headers, identifiers, and secret values.
@@ -56,3 +58,7 @@ Hosted lifecycle and planning use provider-neutral application DTOs and capabili
   eager provider imports through the real console entrypoint. Run start now uses `If-Match` and
   `Idempotency-Key` headers with the published DTO restored exactly, and a focused dispatcher keeps
   `dander control serve` provider-free while preserving the existing CLI for other commands.
+- 2026-08-14: protected-main commit `cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b` published the final
+  bundle in immutable `dander-platform==0.9.0rc19` through trusted-publishing run `31785512985`.
+  Fresh PyPI-only verification matched all 37 manifest file hashes and passed CLI, scaffold, and
+  Terraform validation. Druff may consume only this immutable release artifact.

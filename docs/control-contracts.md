@@ -1,7 +1,7 @@
 # Dander Control contract bundle
 
-Status: the original bundle is published in Dander `0.9.0rc18`; the additive hosted-resource
-revision on protected source is not yet published
+Status: the complete hosted-resource bundle is published in Dander `0.9.0rc19` and is the
+immutable release artifact Druff may consume
 
 Dander is the authority for data crossing the future Control API boundary. The deterministic
 `io.dander.control.contracts/v1` bundle lives in `src/dander/control/contracts/v1` and is included
@@ -21,33 +21,32 @@ manifest itself, so the same source models always produce the same identity. The
 digest is:
 
 ```text
-344ef5ff2d685d5bedf7a1ddb119a42a6de08d90f285dc0a981e79c55452c1ed
+695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3
 ```
 
-That digest identifies the immutable public `0.9.0rc18` artifact. DANDER-121 adds the previously
-missing project list, graph create/resource/page, and run page envelopes without changing existing
-contract meanings. The resulting source digest is
-`e88f732308db41872d0438b9b79df345647c4552a1c750e0230515939d09a246`. It remains unpublished
-until a separately approved immutable release; Druff must continue consuming the public rc18
-digest until that release exists.
+The DANDER-121 hosted-resource revision first added project list, graph create/resource/page, and
+run page envelopes at intermediate source digest
+`e88f732308db41872d0438b9b79df345647c4552a1c750e0230515939d09a246`. DANDER-126 then added the
+secret-free Control bootstrap contract. The final digest above includes both revisions without
+changing previously published contract meanings.
 
-The same digest is present in the immutable public `dander-platform==0.9.0rc18` wheel and source
+The final digest is present in the immutable public `dander-platform==0.9.0rc19` wheel and source
 distribution published from protected-main commit
-`ae2f8f6bfda5fe54309c54eee623b83d0b2bd2a3` at tag `v0.9.0rc18`. The approved trusted-publishing
-workflow is [run 31719571923](https://github.com/harrisonoconnorhover/dander/actions/runs/31719571923),
+`cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b` at tag `v0.9.0rc19`. The approved trusted-publishing
+workflow is [run 31785512985](https://github.com/harrisonoconnorhover/dander/actions/runs/31785512985),
 and the matching beta prerelease is
-[Dander 0.9.0rc18](https://github.com/harrisonoconnorhover/dander/releases/tag/v0.9.0rc18).
+[Dander 0.9.0rc19](https://github.com/harrisonoconnorhover/dander/releases/tag/v0.9.0rc19).
 
 The public artifact identities are:
 
-- wheel `dander_platform-0.9.0rc18-py3-none-any.whl`:
-  `sha256:4500b32451c02b6331a337b6d38eb96cc49a29838b6e3ea5a2b87b9daf85406c`;
-- source distribution `dander_platform-0.9.0rc18.tar.gz`:
-  `sha256:bf5ead721ab2b61eff4b50be5c3ab9cb03edb59257c0b2a3f1c0019c7045c3ae`.
+- wheel `dander_platform-0.9.0rc19-py3-none-any.whl`:
+  `sha256:8f1336786e46471a2048d6250008ad176ff3b62d047020872659304c7d2db552`;
+- source distribution `dander_platform-0.9.0rc19.tar.gz`:
+  `sha256:d98063760209b2b310f4113fe44c0e65e1e788748f890e95fb91e944cb63b2db`.
 
-A fresh PyPI-only install outside any checkout reported `dander 0.9.0rc18`, generated and
+A fresh PyPI-only install outside any checkout reported `dander 0.9.0rc19`, generated and
 validated the source-free starter project, passed Terraform initialization and validation, and
-independently matched all 25 installed contract files to the manifest hashes. This publication
+independently matched all 37 installed contract files to the manifest hashes. This publication
 record authorizes Druff to generate from the release artifact; it does not make a source checkout
 an acceptable contract input.
 

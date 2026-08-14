@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Promoted current-public install, status, upgrade, audit, session, and Phase 1B references from
-  `0.9.0rc18` to the explicitly approved `0.9.0rc19` candidate.
-- Updated release-metadata tests so publication mode proves prepared and public RC19 match.
-- Preserved every historical RC18 contract-release claim and provider-support limitation.
-- Left the reviewed RC19 package contents, version, lockfile, changelog, and workflow unchanged.
+- Recorded immutable `dander-platform==0.9.0rc19` publication evidence at exact protected-main
+  commit `cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b` and tag `v0.9.0rc19`.
+- Recorded the trusted PyPI workflow, artifact hashes, and complete Control bundle digest.
+- Replaced the stale unpublished DANDER-121 consumer boundary with the verified RC19 boundary.
+- Preserved honest provider status: only GCS is live-qualified; S3, Azure, and OCI are unpromoted.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py --publication`; it now passes for RC19.
+Install `dander-platform==0.9.0rc19` from PyPI; Druff may generate only from that release artifact.
 
 ## Checks
 
-- Normal and publication-mode release metadata validation passed for RC19.
-- Focused release tests and Ruff lint/format passed.
-- Control-contract drift and RC19 wheel/source-distribution validation passed.
-- Git whitespace and secret/artifact diff review passed.
-- No tag, PyPI artifact, provider resource, or paid action was created by this PR.
+- Exact-main CI run `31784964851` passed all five jobs at the tagged commit.
+- Trusted-publishing run `31785512985` passed and PyPI hashes matched the public artifacts.
+- Fresh PyPI-only CLI, scaffold, project validation, and Terraform validation passed.
+- All 37 installed contract files matched the manifest and bundle digest `695791df...a12be3`.
+- Documentation diff, stale-reference scan, and secret/artifact review passed.
 
 ## Decisions
 
-- Promotion changes only current-public references; exact historical artifact claims remain fixed.
-- Tagging waits for protected PR and exact-main CI on the promotion commit.
-- Druff consumption waits for immutable PyPI verification and the post-public evidence PR.
+- Preserve DANDER-119 as the immutable RC18 record; DANDER-121 owns the superseded source claim.
+- RC19 is an immutable prerelease artifact, not a support-status promotion.
+- Druff must consume RC19 from PyPI and must not read a sibling Dander checkout.
 
 ## Remaining
 
-- Complete the independent promotion review and protected PR/exact-main CI.
-- Create immutable `v0.9.0rc19` and complete the approval-gated PyPI workflow.
-- Verify public RC19 outside the checkout and create the matching GitHub prerelease.
-- Record immutable release evidence before Druff consumes RC19.
+- Merge this focused evidence PR and verify exact-main CI.
+- Refresh Druff's generated contracts and pins from public RC19.
+- Complete DRUFF-25 through DRUFF-29 in focused protected PRs.
 
 ## Review First
 
-- `scripts/check_release_metadata.py`
-- `tests/test_release_metadata.py`
-- `.github/workflows/publish.yml`
+- `docs/control-contracts.md`
+- `tickets/DANDER-121-hosted-control-api.md`
+- `docs/release-audit.md`

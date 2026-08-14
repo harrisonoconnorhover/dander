@@ -1,4 +1,4 @@
-# Session Resume — 2026-08-13
+# Session Resume — 2026-08-14
 
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
@@ -33,12 +33,15 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
-- On 2026-08-13, protected Dander `0.9.0rc18` published the deterministic
+- On 2026-08-14, protected Dander `0.9.0rc19` published the complete deterministic
   `io.dander.control.contracts/v1` bundle from commit
-  `ae2f8f6bfda5fe54309c54eee623b83d0b2bd2a3`. A fresh PyPI-only installation outside any checkout
-  matched the bundle digest and all 25 manifest file hashes, generated and validated a source-free
-  project, and passed Terraform validation. Druff may now generate its D1 consumer from this exact
-  release artifact; it must not consume an unpublished checkout.
+  `cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b`. Trusted-publishing run `31785512985` produced the
+  immutable `v0.9.0rc19` artifacts at bundle digest
+  `695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3`. A fresh PyPI-only
+  installation outside any checkout matched all 37 manifest file hashes, generated and validated
+  a source-free project, and passed Terraform validation. Druff may generate its D5 consumer only
+  from this exact release artifact, never an unpublished checkout. RC19 packages all graph-store
+  adapters, but only GCS is live-qualified; S3, Azure, and OCI remain unpromoted.
 
 - On 2026-08-13, public Dander `0.9.0rc17` passed the complete Phase 7 lifecycle for the named
   OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault profile. One equal GAR/OCIR
