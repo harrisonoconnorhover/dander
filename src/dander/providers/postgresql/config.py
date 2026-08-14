@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -12,6 +12,7 @@ from dander.warehouse.contracts import RelationRef
 _ENVIRONMENT_NAME = re.compile(r"^[A-Z][A-Z0-9_]{0,126}$")
 _SCHEMA_NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 _AUTHORITY_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$")
+_MAX_DIRECT_LOGICAL_BYTES = 1_024 * 1_024
 
 
 class PostgreSQLStateConfig(BaseModel):
@@ -67,9 +68,19 @@ class PostgreSQLWarehouseConfig(BaseModel):
     statement_timeout_ms: int = Field(default=300_000, ge=1_000, le=3_600_000)
     lock_timeout_ms: int = Field(default=30_000, ge=100, le=300_000)
     idle_transaction_timeout_ms: int = Field(default=60_000, ge=1_000, le=600_000)
+    direct_max_rows: int = Field(default=0, ge=0, le=10_000)
+    direct_max_logical_bytes: int = Field(
+        default=0,
+        ge=0,
+        le=_MAX_DIRECT_LOGICAL_BYTES,
+    )
 
     @model_validator(mode="after")
-    def validate_settings(self) -> PostgreSQLWarehouseConfig:
+    def validate_settings(self) -> Self:
+        if (self.direct_max_rows == 0) != (self.direct_max_logical_bytes == 0):
+            raise ValueError(
+                "direct_max_rows and direct_max_logical_bytes must both be zero or positive"
+            )
         if not _SCHEMA_NAME.fullmatch(self.database):
             raise ValueError("database must be a safe lowercase PostgreSQL identifier")
         if not _SCHEMA_NAME.fullmatch(self.schema_name):

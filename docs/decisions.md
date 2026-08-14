@@ -1,5 +1,18 @@
 # Engineering Decisions
 
+## 2026-08-14 — PostgreSQL direct writes stay disabled until crossover qualification
+
+- **Selection:** PostgreSQL admits direct inserts only when both `direct_max_rows` and
+  `direct_max_logical_bytes` are positive and the complete endpoint fits both limits. Zero remains
+  the default for both settings, preserving the accepted COPY behavior until measured evidence
+  supplies a crossover threshold.
+- **Bound:** Selection retains at most the reviewed row limit plus one overflow row and at most one
+  byte-limit overflow row. An endpoint that crosses either bound replays the retained prefix into
+  the existing streaming COPY path without row loss or reordering.
+- **Publication:** Both transports populate the same transaction-local staging relation and use
+  the same destination fence and logical write-mode statements. Telemetry records the selected
+  transport; adapter availability alone does not qualify a threshold or promote support.
+
 ## 2026-08-14 — Phase 8 ticket identity stays disjoint from Druff
 
 - **Identity:** Phase 8 uses DANDER-200 through DANDER-207 after concurrent Druff work consumed

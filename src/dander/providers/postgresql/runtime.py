@@ -71,12 +71,14 @@ class PostgreSQLSchemaMapper:
 
 @dataclass(frozen=True, slots=True)
 class PostgreSQLWriterFactory:
-    """Construct a bounded COPY-backed PostgreSQL ingestion writer."""
+    """Construct a bounded direct-or-COPY PostgreSQL ingestion writer."""
 
     database: str
     pool: PostgreSQLPool
     target_fence: PostgreSQLTargetFence
     timeouts: PostgreSQLTimeouts
+    direct_max_rows: int = 0
+    direct_max_logical_bytes: int = 0
 
     def build_ingestion_writer(
         self,
@@ -100,6 +102,8 @@ class PostgreSQLWriterFactory:
             mode=mode,
             cursor_field=cursor_field,
             snapshot_field=snapshot_field,
+            direct_max_rows=self.direct_max_rows,
+            direct_max_logical_bytes=self.direct_max_logical_bytes,
         )
 
 
@@ -169,7 +173,7 @@ POSTGRESQL_CAPABILITIES = WarehouseCapabilities(
     provider_id="postgresql",
     schema_contract_version=1,
     write_modes=frozenset(WriteMode),
-    transports=frozenset({WriteTransport.COPY}),
+    transports=frozenset({WriteTransport.COPY, WriteTransport.DIRECT}),
     supports_transforms=True,
     supports_graphs=True,
     supports_target_fencing=True,
@@ -224,7 +228,14 @@ def build_postgresql_warehouse(
         provider_id="postgresql",
         relation_codec=PostgreSQLRelationCodec(config.database),
         schema_mapper=schema_mapper,
-        writers=PostgreSQLWriterFactory(config.database, pool, target_fence, timeouts),
+        writers=PostgreSQLWriterFactory(
+            config.database,
+            pool,
+            target_fence,
+            timeouts,
+            config.direct_max_rows,
+            config.direct_max_logical_bytes,
+        ),
         transforms=PostgreSQLTransformFactory(config.database, pool, target_fence, timeouts),
         target_fence=target_fence,
         telemetry=PostgreSQLTelemetry(),

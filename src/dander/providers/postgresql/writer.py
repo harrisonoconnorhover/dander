@@ -6,6 +6,8 @@ import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
+from itertools import chain
+from time import perf_counter_ns
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -13,14 +15,24 @@ from psycopg import Connection, sql
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.warehouse import (
     CanonicalField,
     CanonicalType,
     FieldCardinality,
     LogicalTypeKind,
     RelationSchema,
+    StagingArtifactError,
+    normalize_staging_record,
+    staging_logical_size,
 )
-from dander.writer import SchemaEvolution, WriteMode, WritePattern, WriteTarget
+from dander.writer import (
+    SchemaEvolution,
+    WriteMode,
+    WritePattern,
+    WriteTarget,
+    WriteTransport,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -50,8 +62,14 @@ class PostgreSQLTimeouts:
     idle_transaction_ms: int
 
 
+@dataclass(frozen=True, slots=True)
+class _DirectBatch:
+    records: tuple[dict[str, object], ...]
+    logical_bytes: int
+
+
 class PostgreSQLCopyWriter(WritePattern):
-    """Stream records through COPY and publish one logical mode transactionally."""
+    """Select bounded direct inserts or COPY and publish transactionally."""
 
     requires_publication_fence = True
 
@@ -66,6 +84,8 @@ class PostgreSQLCopyWriter(WritePattern):
         mode: WriteMode,
         cursor_field: str | None = None,
         snapshot_field: str | None = None,
+        direct_max_rows: int = 0,
+        direct_max_logical_bytes: int = 0,
     ) -> None:
         self._database = database
         self._pool = pool
@@ -75,15 +95,30 @@ class PostgreSQLCopyWriter(WritePattern):
         self.mode = mode
         self._cursor_field = cursor_field
         self._snapshot_field = snapshot_field
-        self.supports_batched_writes = mode in {
+        if (direct_max_rows == 0) != (direct_max_logical_bytes == 0):
+            raise ValueError("PostgreSQL direct row and byte limits must both be zero or positive")
+        if direct_max_rows < 0 or direct_max_logical_bytes < 0:
+            raise ValueError("PostgreSQL direct row and byte limits must be non-negative")
+        self._direct_max_rows = direct_max_rows
+        self._direct_max_logical_bytes = direct_max_logical_bytes
+        direct_enabled = direct_max_rows > 0
+        self.supports_batched_writes = not direct_enabled and mode in {
             WriteMode.SCD1,
             WriteMode.INCREMENTAL,
             WriteMode.SNAPSHOT,
         }
         self.accepts_streaming_input = not self.supports_batched_writes
+        self._telemetry: list[OperationTelemetry] = []
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return the selected physical load operation exactly once."""
+        operations = tuple(self._telemetry)
+        self._telemetry.clear()
+        return operations
 
     def write(self, records: Iterable[Mapping[str, object]], target: WriteTarget) -> int:
-        """COPY one batch or streamed endpoint and publish it behind the target fence."""
+        """Load one bounded endpoint and publish it behind the target fence."""
+        self._telemetry.clear()
         _validate_target(
             target,
             database=self._database,
@@ -107,15 +142,41 @@ class PostgreSQLCopyWriter(WritePattern):
             )
             staging = f"dander_stage_{uuid4().hex}"
             _create_staging(connection, staging, schema, target.business_key)
-            written = _copy_records(
-                connection,
-                staging,
-                records,
-                schema.fields,
-                target.business_key,
-                cursor_field=self._cursor_field,
-                snapshot_field=self._snapshot_field,
-            )
+            try:
+                direct, remaining = _select_direct_batch(
+                    records,
+                    schema,
+                    max_rows=self._direct_max_rows,
+                    max_logical_bytes=self._direct_max_logical_bytes,
+                )
+            except StagingArtifactError as error:
+                raise PostgreSQLWriteError(str(error)) from error
+            started = perf_counter_ns()
+            if direct is None:
+                transport = WriteTransport.COPY
+                logical_bytes = 0
+                written = _copy_records(
+                    connection,
+                    staging,
+                    remaining,
+                    schema.fields,
+                    target.business_key,
+                    cursor_field=self._cursor_field,
+                    snapshot_field=self._snapshot_field,
+                )
+            else:
+                transport = WriteTransport.DIRECT
+                logical_bytes = direct.logical_bytes
+                written = _insert_records(
+                    connection,
+                    staging,
+                    direct.records,
+                    schema.fields,
+                    target.business_key,
+                    cursor_field=self._cursor_field,
+                    snapshot_field=self._snapshot_field,
+                )
+            load_duration_ms = max((perf_counter_ns() - started) // 1_000_000, 0)
             statements = _publication_statements(
                 target,
                 staging,
@@ -129,7 +190,17 @@ class PostgreSQLCopyWriter(WritePattern):
                 statements,
                 publication_fence,
             )
-            return max(cursor.rowcount, 0)
+            affected = max(cursor.rowcount, 0)
+            operation = OperationTelemetry(
+                provider="postgresql",
+                operation=TelemetryOperation.LOAD,
+                duration_ms=load_duration_ms,
+                rows_written=written,
+                bytes_written=logical_bytes,
+                transport=transport,
+            )
+        self._telemetry.append(operation)
+        return affected
 
 
 class PostgreSQLScd1Writer(PostgreSQLCopyWriter):
@@ -352,6 +423,61 @@ def _create_staging(
     )
 
 
+def _select_direct_batch(
+    records: Iterable[Mapping[str, object]],
+    schema: RelationSchema,
+    *,
+    max_rows: int,
+    max_logical_bytes: int,
+) -> tuple[_DirectBatch | None, Iterable[Mapping[str, object]]]:
+    """Choose direct only after the complete endpoint fits both bounded limits."""
+    if max_rows == 0 or max_logical_bytes == 0:
+        return None, records
+    iterator = iter(records)
+    prefix: list[dict[str, object]] = []
+    logical_bytes = 0
+    for row_index, record in enumerate(iterator):
+        raw = dict(record)
+        normalized = normalize_staging_record(raw, schema, row_index=row_index)
+        prefix.append(raw)
+        logical_bytes += staging_logical_size(normalized)
+        if len(prefix) > max_rows or logical_bytes > max_logical_bytes:
+            return None, chain(prefix, iterator)
+    return _DirectBatch(records=tuple(prefix), logical_bytes=logical_bytes), ()
+
+
+def _insert_records(
+    connection: Connection[PostgreSQLRow],
+    staging: str,
+    records: Iterable[Mapping[str, object]],
+    fields: Sequence[CanonicalField],
+    business_key: Sequence[str],
+    *,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> int:
+    names = tuple(field.name for field in fields)
+    statement = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+        sql.Identifier(staging),
+        sql.SQL(", ").join(sql.Identifier(name) for name in names),
+        sql.SQL(", ").join(sql.Placeholder() for _ in names),
+    )
+    values = tuple(
+        _record_values(
+            records,
+            fields,
+            business_key,
+            cursor_field=cursor_field,
+            snapshot_field=snapshot_field,
+        )
+    )
+    if not values:
+        return 0
+    with connection.cursor() as cursor:
+        cursor.executemany(statement, values)
+    return len(values)
+
+
 def _copy_records(
     connection: Connection[PostgreSQLRow],
     staging: str,
@@ -363,29 +489,45 @@ def _copy_records(
     snapshot_field: str | None,
 ) -> int:
     names = tuple(field.name for field in fields)
-    expected = set(names)
     copied = 0
     statement = sql.SQL("COPY {} ({}) FROM STDIN").format(
         sql.Identifier(staging),
         sql.SQL(", ").join(sql.Identifier(name) for name in names),
     )
     with connection.cursor().copy(statement) as copy:
-        for index, record in enumerate(records):
-            if set(record) != expected:
-                raise PostgreSQLWriteError(
-                    f"Record {index} does not match the declared PostgreSQL schema"
-                )
-            if any(record[key] is None for key in business_key):
-                raise PostgreSQLWriteError(f"Record {index} has a null business-key value")
-            if cursor_field is not None and record[cursor_field] is None:
-                raise PostgreSQLWriteError(f"Record {index} has a null incremental cursor value")
-            if snapshot_field is not None and record[snapshot_field] is None:
-                raise PostgreSQLWriteError(f"Record {index} has a null snapshot value")
-            copy.write_row(
-                tuple(_postgresql_value(record[field.name], field.data_type) for field in fields)
-            )
+        for values in _record_values(
+            records,
+            fields,
+            business_key,
+            cursor_field=cursor_field,
+            snapshot_field=snapshot_field,
+        ):
+            copy.write_row(values)
             copied += 1
     return copied
+
+
+def _record_values(
+    records: Iterable[Mapping[str, object]],
+    fields: Sequence[CanonicalField],
+    business_key: Sequence[str],
+    *,
+    cursor_field: str | None,
+    snapshot_field: str | None,
+) -> Iterable[tuple[object, ...]]:
+    expected = {field.name for field in fields}
+    for index, record in enumerate(records):
+        if set(record) != expected:
+            raise PostgreSQLWriteError(
+                f"Record {index} does not match the declared PostgreSQL schema"
+            )
+        if any(record[key] is None for key in business_key):
+            raise PostgreSQLWriteError(f"Record {index} has a null business-key value")
+        if cursor_field is not None and record[cursor_field] is None:
+            raise PostgreSQLWriteError(f"Record {index} has a null incremental cursor value")
+        if snapshot_field is not None and record[snapshot_field] is None:
+            raise PostgreSQLWriteError(f"Record {index} has a null snapshot value")
+        yield tuple(_postgresql_value(record[field.name], field.data_type) for field in fields)
 
 
 def _publication_statements(

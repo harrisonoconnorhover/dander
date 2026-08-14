@@ -36,16 +36,18 @@ remain Phase 8 work.
   paths, transforms, graph execution, replay, stale fencing, concurrent claims, and cleanup.
   Redshift still has no views or provider-managed infrastructure. PostgreSQL state and warehouse
   execution are implemented and locally conformance-tested; all five ingestion modes use bounded
-  `COPY` and destination fencing. Replace-mode graph targets use the provider-neutral relational
-  AST and fenced table path; graph safe casts and cross-database relations fail preflight. The
-  ordinary hosted source runner still selects SCD1. A packaged Helm chart now renders the
+  direct-or-COPY staging and destination fencing. Direct thresholds default to disabled until a
+  Phase 8 crossover run measures them. Replace-mode graph targets use the provider-neutral
+  relational AST and fenced table path; graph safe casts and cross-database relations fail
+  preflight. The ordinary hosted source runner still selects SCD1. A packaged Helm chart renders the
   Kubernetes launcher against an existing cluster, but no Kubernetes live profile is qualified
   yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse
   execution remains fail-closed until every BigQuery write mode uses destination-side fencing. The
   package publishes this pair matrix and each warehouse's exact implemented modes, transports,
   schema limits, transforms, graphs, and fencing through `dander runtime compatibility`, while the
   packaged capability manifest remains the support boundary. Local PostgreSQL benchmark results
-  are regression evidence, not a paid or controlled-memory scale qualification.
+  include exact-candidate controlled-memory and local scale qualification, but hosted cost and the
+  new direct-write crossover remain open.
 - Azure Container Apps Jobs and Azure Key Vault have a typed projection plus locally validated,
   plan-first Terraform, digest-preserving ACR promotion tooling, provider-native lifecycle
   operations, bounded Log Analytics reads, deployment verification, and a locally validated
