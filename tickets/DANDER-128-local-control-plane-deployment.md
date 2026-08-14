@@ -1,7 +1,7 @@
 ---
 id: DANDER-128
 title: Add the local hosted Control-plane deployment
-status: in_progress
+status: done
 component: python
 epic: druff-control-plane
 depends_on: [DANDER-127]
@@ -24,7 +24,7 @@ inventing local Terraform or accepting mutable artifacts.
 - [x] Initialize the named GraphStore volume with one networkless root service holding only CHOWN
       and FOWNER.
 - [x] Add bounded preflight/live verification and exact active/rollback selection.
-- [ ] Qualify HTTPS OIDC, graph restart persistence, equal repeated Compose rendering, unchanged
+- [x] Qualify HTTPS OIDC, graph restart persistence, equal repeated Compose rendering, unchanged
       second-up container IDs, rollback/restore, and exact disposable cleanup with current images.
 
 ## Design
@@ -78,5 +78,21 @@ network isolation, read-only root filesystem, and no-new-privileges boundary are
 Docker inspection reports those accepted capabilities as `CAP_CHOWN` and `CAP_FOWNER`; the live
 verifier now checks that exact engine representation rather than the shorter Compose spelling.
 With the correction applied, the empty-volume initializer exited zero, Control became healthy, and
-the bounded active-environment verifier passed. The broader OIDC, persistence, no-drift, rollback,
-and cleanup criterion remains unchecked until the protected correction merges and the run resumes.
+the bounded active-environment verifier passed. PR #274 merged the correction at protected-main
+commit `ee03b942c278ba63098bcea30a97f2a9ab05a553`; CI run `31819455797` passed all five jobs.
+
+The resumed live qualification then passed the complete local criterion. Exact active and rollback
+Dander/Druff digests served one loopback HTTPS origin; a pinned synthetic OIDC issuer proved PKCE,
+separate API and SPA audiences, RS256, the admin role, a five-minute access token, and no refresh
+token. An API-created graph and a browser-created graph survived a Control restart, the accepted
+digest rollback pair, and active restoration with unchanged content hashes. Two Compose renders
+were byte-equal and a second active `up` preserved all three running service IDs. The synthetic
+issuer, registry copies, Compose containers, network, named GraphStore volume, generated files,
+and localhost TLS key were removed and independently absent. Accepted local image objects remain
+in Docker's content store for the next D7 provider profile, avoiding an unnecessary rebuild.
+
+After cleanup, fresh retained-GCP stage-zero and current-equivalent RC21 platform plans each
+reported exact `No changes.` D7 did not apply retained infrastructure and kept no saved plan or
+copied state. The coordinate-free record is
+`docs/evidence/local/2026-08-14/d7-control-plane.json`. This closes only the D7 local profile; it
+does not qualify a real identity provider, Kubernetes, or any cloud-hosted Control service.

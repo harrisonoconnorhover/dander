@@ -2,40 +2,39 @@
 
 ## Finished
 
-- Merged private RC21 preparation through PR #275 at protected main `c10968a`; exact-main CI run `31820352565` passed all five jobs.
-- Built and clean-installed the exact RC21 wheel/sdist, then published source-free multi-platform image `sha256:ab24a0b8a938...` with SBOM and provenance.
-- Recorded the USD 10 authorization, provider allocations, candidate hashes, and exact GCP diagnostic objectives before live execution.
-- Found that multi-deployment bundles could not select a deployment for `runtime inspect`; added the narrow selector locally with focused coverage.
-- Applied an image-only retained GCP plan and completed DANDER-201 with sanitized execution `dander-servicenow-incidents-7kxl4`; post-apply Terraform is no drift.
+- Completed the D7 local hosted Control proof on exact active/rollback Dander and Druff digests.
+- Proved synthetic OIDC/PKCE, separate audiences, browser access, and restart-safe graph persistence.
+- Proved equal Compose renders, stable second-up IDs, digest rollback/restoration, and verifier success.
+- Removed all disposable local/GCP resources, generated projections, and localhost TLS material.
+- Reconciled the changed RC21 retained baseline with fresh stage-zero and platform no-drift plans.
 
 ## Try It
 
-Run `uv run pytest -q tests/test_runtime_inspection.py`.
+Read `docs/evidence/local/2026-08-14/d7-control-plane.json`; rerender from the example in
+`infra/local/README.md` only when starting a new disposable local proof.
 
 ## Checks
 
-- PR #275 exact-head review passed and all conversations resolved; all five protected PR checks passed.
-- Exact-main CI run `31820352565` passed all five jobs at `c10968a`.
-- Final RC21 wheel/sdist validation, clean full-runtime install, and source-free GCP/Kubernetes config validation passed.
-- GAR index verification found AMD64 and ARM64 manifests plus attestations; read-only image `--version` returned `0.9.0rc21`.
-- Runtime-inspection tests, focused Ruff/format, and focused strict mypy pass for the local selector fix.
-- The retained apply changed five jobs with zero add/destroy; the diagnostic retained two safe causal identities and post-apply plan returned `No changes.`
+- Protected-main CI run `31819455797` passed all five jobs on the exact local-profile correction.
+- Active, rollback, and restored-active bounded verifiers passed all ten runtime checks.
+- Browser and API graphs retained exact content hashes across Control restart and image switching.
+- Independent cleanup queries found zero Compose containers, networks, volumes, or registry containers.
+- Fresh retained-GCP stage-zero and current-equivalent RC21 platform plans returned `No changes`.
 
 ## Decisions
 
-- RC21 is approved only for DANDER-201 retained diagnostic evidence; it is not the final qualification candidate because its multi-deployment inspection failed closed.
-- Cut a corrected private candidate after the selector fix merges; do not weaken the one-digest or source-free gates.
-- Kubernetes lifecycle-adapter implementation remains excluded because it overlaps Druff.
+- The pinned NAV issuer proves only synthetic protocol behavior; no real-provider claim was made.
+- Keep accepted local image objects to avoid rebuilding them for the next D7 profile.
+- Record only hashes and booleans; tokens, cookies, graph bodies, private keys, state, and plans stay local.
 
 ## Remaining
 
-- Review and merge the runtime-inspection selector, then cut and publish the corrected private candidate.
-- Run exact-candidate Kubernetes, GCP, Azure, scale, pairwise, and final audit gates within the USD 10 ceiling.
-- Record unavailable AWS/OCI credentials as provider blockers without weakening gates.
-- Complete the retained soak through 2026-09-01 before public support release.
+- Complete independent completion review, protected PR CI, merge, and exact-main verification.
+- Begin the D7 Kubernetes profile in its own focused protected PR.
+- Keep Phase 8's private RC21 diagnostic lane separate from D7 provider qualification.
 
 ## Review First
 
-- `src/dander/runtime_inspection.py`
-- `src/dander/cli/runtime_command.py`
-- `docs/evidence/phase8/2026-08-14/rc21-candidate.json`
+- `docs/evidence/local/2026-08-14/d7-control-plane.json`
+- `tickets/DANDER-128-local-control-plane-deployment.md`
+- `docs/control-contracts.md`

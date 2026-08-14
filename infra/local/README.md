@@ -8,10 +8,12 @@ client secret or cloud credential.
 ## Current qualification status
 
 The deterministic projection, preflight, Compose configuration, rollback path, and verifier are
-implemented. Live qualification remains pending until exact immutable Dander and Druff images that
-contain D6 and DRUFF-29 are supplied. Public Dander `0.9.0rc19` predates the required
-`--graph-store-config` startup seam, and DRUFF-29 did not publish a durable image. Do not substitute
-a mutable tag or silently build either repository in this profile.
+implemented and live-qualified. On 2026-08-14, exact locally loaded Dander RC20 and Druff DRUFF-29
+digests passed same-origin HTTPS, synthetic OIDC/PKCE, graph restart persistence, repeat rendering,
+stable second-up container identities, digest rollback/restoration, and exact cleanup. The
+coordinate-free record is
+`docs/evidence/local/2026-08-14/d7-control-plane.json`. This proves the local profile only; it does
+not qualify a real identity provider, Kubernetes, or a cloud deployment.
 
 Local Compose has no Terraform backend, saved plan, provider workload identity, or cloud cost
 ceiling. Its equivalent drift proof is two identical `docker compose config` renders followed by a
@@ -138,3 +140,8 @@ docker compose --project-name dander-local-control-plane \
   --env-file .dander/local-control-plane/active.env \
   --file infra/local/compose.yaml down --volumes --remove-orphans
 ```
+
+Delete the generated operator directory as well when the run is complete; it contains the
+disposable localhost private key. The accepted immutable image objects may remain in Docker's
+content store when the next D7 profile will reuse them, but the disposable registry container and
+volume must be removed.

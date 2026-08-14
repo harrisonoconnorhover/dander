@@ -247,10 +247,16 @@ rendering, stable second-up container identities, restart persistence, digest ro
 and exact disposable cleanup. Terraform
 state, saved plans, provider workload identity, and cloud cost ceilings do not apply locally.
 
-Live local qualification remains pending until reviewed immutable images containing the exact
-current Dander D6/RC20 and DRUFF-29 sources exist. RC20 makes the Dander Python package and local
-assets immutable but did not publish a current Dander container image; DRUFF-29 likewise did not
-publish a durable image. The local profile does not silently build from either checkout.
+The local profile passed live qualification on 2026-08-14 using exact locally loaded active and
+rollback Dander/Druff digests. One synthetic OIDC code/PKCE journey proved separate API and SPA
+audiences, RS256, bounded expiry, admin authorization, and no refresh token. API- and
+browser-created graphs survived a Control restart, digest rollback, and restoration; repeated
+Compose renders were byte-equal and the unchanged second `up` preserved all running service IDs.
+All disposable services, registry copies, network, GraphStore volume, generated projections, and
+TLS material were removed, followed by fresh retained-GCP stage-zero and current-equivalent
+platform `No changes` plans. The sanitized record is
+`docs/evidence/local/2026-08-14/d7-control-plane.json`. This qualifies neither a real identity
+provider nor any Kubernetes or cloud-hosted Control profile.
 
 ## Regenerate and verify
 
