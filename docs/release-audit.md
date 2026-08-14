@@ -25,7 +25,7 @@ cloud path remains outside the live proof.
 
 ## Current release and deployment record
 
-- Public Dander beta: `0.9.0rc19`; public Salesforce connector: `0.3.1`; public ServiceNow connector:
+- Public Dander beta: `0.9.0rc20`; public Salesforce connector: `0.3.1`; public ServiceNow connector:
   `0.2.2`.
 - Public Dander `0.9.0rc19` was published from protected-main commit
   `cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b` and immutable tag `v0.9.0rc19` by trusted-publishing
