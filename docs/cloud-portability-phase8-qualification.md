@@ -35,11 +35,16 @@ Phase 7 evidence merge.
    required report passes.
 
 The operator approved cloud mutations, conservative provider-specific SLO selection, and an
-aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Candidate publication and the retained GCP
-diagnostic ran within pre-recorded USD 0.50 and USD 1.25 allocations; provider-measured charges
+aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Private RC22 publication and the retained GCP
+diagnostic ran within pre-recorded USD 0.75 and USD 1.25 allocations; provider-measured charges
 have not posted, so no exact cost is claimed. Each paid run must still record its objective manifest
 and per-run allocation before mutation, preserve the dependency order, and use the immutable
 candidate.
+
+Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` is the exact
+qualification candidate. Its source-free multi-platform index is
+`sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; both deployment
+selectors passed read-only runtime inspection. Public RC20 remains unchanged.
 
 ## Pre-candidate release readiness
 
@@ -90,8 +95,7 @@ Cartesian product. A case cannot change to supported from adapter tests alone.
 
 ## Current exit recommendation
 
-Phase 8 remains open. The safe diagnostic retained-provider gate is complete. The exact unmet gates
-are protected review of the multi-deployment inspection correction, one corrected immutable
-qualification candidate, exact-candidate Kubernetes and pairwise live proofs, approved scale/cost
-reports for every first-class warehouse and launcher, current canonical-profile evidence,
-release-candidate soak, final audits, and the frozen support matrix.
+Phase 8 remains open. The safe diagnostic retained-provider gate and corrected immutable candidate
+are complete. The exact unmet gates are exact-candidate Kubernetes and pairwise live proofs,
+approved scale/cost reports for every first-class warehouse and launcher, current canonical-profile
+evidence, release-candidate soak, final audits, and the frozen support matrix.
