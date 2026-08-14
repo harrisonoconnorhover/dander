@@ -277,6 +277,17 @@ image, generated configuration, and TLS material. The sanitized record is
 single-writer profile: the issuer was synthetic, no real-provider identity was qualified, and no
 Kubernetes support, HA, horizontal-scale, or cloud-hosted status is promoted.
 
+The first cloud-hosted D7 renderer is a separate GCP Cloud Run profile. One closed immutable
+non-secret input derives exact Control and Druff Cloud Run origins, callback/logout routes, D6
+hosted OIDC trust, and a GCS GraphStore binding. Its isolated partial-backend Terraform root owns
+only the disposable profile: two public application-protected services, distinct keyless runtime
+identities, numeric startup-config versions, and one private versioned graph bucket. The graph
+bucket alone disables soft-delete retention so exact qualification cleanup leaves no recoverable
+graph data; the retained Terraform-state bucket is unchanged. Generated configuration, state,
+saved plans, credentials, tokens, and graph rows remain outside commits. Implementation does not
+qualify the live GCP profile, a real identity provider, HA, or horizontal scale; those claims wait
+for the separate accepted live proof.
+
 ## Regenerate and verify
 
 After an intentional DTO change, regenerate the committed bundle:

@@ -103,6 +103,11 @@ jobs:
           terraform -chdir=oci init -backend=false -input=false
           terraform -chdir=oci validate
           terraform -chdir=oci test
+      - name: Validate GCP Control Terraform stack
+        run: |
+          terraform -chdir=gcp-control init -backend=false -input=false
+          terraform -chdir=gcp-control validate
+          terraform -chdir=gcp-control test
       - name: Validate Kubernetes Helm chart
         run: |
           helm lint kubernetes/chart/dander --values ../tests/fixtures/kubernetes-values.yaml
