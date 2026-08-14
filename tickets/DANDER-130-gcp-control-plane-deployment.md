@@ -66,3 +66,13 @@ emits its bucket policy fields in snake case, unlike the camel-case Storage API 
 The focused follow-up consumes that exact CLI shape and keeps the same fail-closed checks for
 uniform access, public-access prevention, versioning, and zero soft-delete retention. No cloud
 resource was created or changed before this correction.
+
+The first bounded apply then exposed three final read-only verifier assumptions before any graph
+write. A real v1 service template may omit its revision name even when status proves the observed
+generation, latest-created/latest-ready revision, and exclusive traffic target; the operator, not
+the intentionally narrower bootstrap identity, must inspect user-managed service-account keys;
+and the public hosted boundary verifies `/readyz` because Cloud Run serves external `/healthz`
+with its own 404 while the configured internal liveness probe succeeds. The verifier also now
+checks the existing exact `authentication_required` Control error code. The corrected verifier
+passed against the active disposable deployment; browser persistence and the remaining live gate
+are still pending.

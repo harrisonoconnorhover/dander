@@ -2,34 +2,34 @@
 
 ## Finished
 
-- Merged the separate GCP Cloud Run profile after complete protected PR and exact-main CI.
-- Confirmed the retained GCP state root and target project without changing cloud resources.
-- Corrected the bucket verifier to consume the real snake-case `gcloud storage` JSON shape.
-- Kept fail-closed checks for uniform access, public-access prevention, versioning, and soft delete.
-- Preserved the exact serving-revision and numeric startup-config verification boundaries.
+- Applied the reviewed 18-resource disposable GCP Control-plane plan in isolated remote state.
+- Kept the graph bucket private, versioned, and configured with zero soft-delete retention.
+- Corrected the live verifier for the real optional v1 template name and operator key inventory.
+- Verified hosted readiness, current exclusive revisions, numeric config versions, and fail-closed API access.
+- Left graph data untouched while correcting provider-boundary assumptions.
 
 ## Try It
 
-Copy `infra/gcp-control/gcp-control-plane.example.json`, replace its example coordinates and
-digests, then run the module's `render` and `preflight` actions. Do not apply from the example.
+Run the `verify` action against the protected local input and rendered directory. Do not use or
+commit the example file, saved plans, Terraform state, tokens, or graph rows.
 
 ## Checks
 
-- Protected-main CI run 31837962005 passed all five jobs at `54c8581`.
-- Full Ruff lint/format, mypy, and Control contract drift checks passed.
-- The full pytest suite passed; the focused GCP verifier suite passed 12 tests.
-- Read-only `gcloud storage buckets describe` confirmed the provider CLI field shape.
+- Exact-main CI run 31839222261 passed all five jobs at `a501c676`.
+- Focused GCP tests passed 12 tests; Ruff and focused mypy passed.
+- The corrected read-only verifier passed against the active live deployment.
+- The saved apply plan created exactly 18 resources with no retained-stack changes.
 
 ## Decisions
 
-- Keep this profile in isolated attempt-specific remote state; do not alter retained GCP resources.
-- Use numeric startup-config versions mounted outside Druff's immutable application export.
-- Match the exact CLI schema used by live verification rather than the Storage REST representation.
+- Keep bootstrap permissions narrow; use the authenticated operator only for read-only key inventory.
+- Use hosted `/readyz`; Cloud Run owns the externally visible `/healthz` behavior for this profile.
+- Preserve status generation/revision/traffic correlation when the v1 desired template omits a name.
 
 ## Remaining
 
-- Merge the focused verifier correction and verify its exact-main CI.
-- Promote exact images, run bounded live qualification, clean up, and prove retained-GCP no-drift.
+- Merge this focused verifier correction and verify exact-main CI.
+- Run the browser graph, restart, no-change, rollback/restore, cleanup, and retained no-drift proofs.
 
 ## Review First
 
