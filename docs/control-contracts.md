@@ -267,8 +267,15 @@ claim. Consumed config and Control identity are hashed into pod templates so upg
 startup trust or storage configuration stale. The Ingress disables access logs because its
 default request-line logging could record OIDC callback codes or state. Terraform state, cloud
 federation, and cloud cost controls do not apply to this existing-cluster Helm profile. Live HTTPS,
-OIDC, persistence, rollback, and cleanup qualification remains pending and no Kubernetes support
-status is promoted.
+OIDC, persistence, rollback, and cleanup qualification passed on 2026-08-14 in a disposable pinned
+kind cluster. A synthetic OIDC code/PKCE session and canonical browser-created graph survived a
+Control pod replacement, immutable digest rollback, and active restoration. Repeated Helm renders
+were byte-equal, an identical second upgrade preserved both Deployment identities and generations,
+and exact cleanup removed the release, namespace/PVC, cluster, synthetic issuer, copied issuer
+image, generated configuration, and TLS material. The sanitized record is
+`docs/evidence/kubernetes/2026-08-14/d7-control-plane.json`. This accepts only the existing-cluster,
+single-writer profile: the issuer was synthetic, no real-provider identity was qualified, and no
+Kubernetes support, HA, horizontal-scale, or cloud-hosted status is promoted.
 
 ## Regenerate and verify
 

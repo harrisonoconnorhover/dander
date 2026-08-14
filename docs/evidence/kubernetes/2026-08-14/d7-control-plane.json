@@ -1,0 +1,135 @@
+{
+  "schema": "io.dander.kubernetes-control-plane.evidence/v1",
+  "profile": "kubernetes_helm",
+  "observed_on": "2026-08-14",
+  "status": "passed",
+  "authorization": {
+    "existing_cluster_cost_usd": "0.00",
+    "gcp_aggregate_ceiling_usd": "10.00",
+    "gcp_measured_cost_usd": null,
+    "gcp_cost_status": "provider_invoice_pending"
+  },
+  "host_contract": {
+    "implementation_commit": "95540e885bde463ab175cd7527a9208e31365303",
+    "implementation_ci_run": 31828316606,
+    "verifier_correction_commit": "682f0fa5270fcd1e0f6379770dfc91778a331c13",
+    "verifier_correction_ci_run": 31830986502,
+    "protected_main_ci_status": "success",
+    "merged_source_verifier_passed": true,
+    "contract_bundle_sha256": "695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3",
+    "api_version": "v1"
+  },
+  "images": {
+    "active": {
+      "dander_digest": "sha256:a08b016ffd5eb6ad3c67d86239f86d8a8249ec717efc6fdcec7fc5b4fdc9b34a",
+      "dander_revision": "63ba867af4bd5ecd8771b911b743c3a704e91cb6",
+      "dander_version": "0.9.0rc20",
+      "druff_digest": "sha256:1f09a333874021869520138535c17938cf2b01a889db9add32b6e0c72e0718b2",
+      "druff_revision": "7d718fcde01d4c2140ede96bf72a66a224dac64c"
+    },
+    "rollback": {
+      "dander_digest": "sha256:f1c92b3c6cefff3813282e99bf18ef6eb5354b753e139e04350d15b953a2fa9a",
+      "dander_revision": "d959135a8681aceb803eba4013e3950296b0edb9",
+      "dander_version": "0.9.0rc19",
+      "druff_digest": "sha256:1dc40624ce92c7e476862d874de3a961c9b3550488aad86eb4168cb6a774270b",
+      "druff_revision": "c6b9abf6935e21b1c049443ddc0a29177615a591",
+      "druff_boundary": "digest_switch_with_equivalent_reviewed_tree"
+    },
+    "accepted_local_image_objects_retained": true
+  },
+  "cluster": {
+    "disposable": true,
+    "kind_version": "v0.32.0",
+    "kubernetes_version": "v1.32.2",
+    "node_image": "kindest/node@sha256:142f543559cc55d64e1ab9341df08e5ced84bd2e893736da8f51320f26f5950b",
+    "ingress_controller_version": "v1.15.1",
+    "ingress_controller_image": "registry.k8s.io/ingress-nginx/controller:v1.15.1@sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1",
+    "ingress_manifest_sha256": "2a3ae008c8786431115502644e77ab398fdebfb721a5d1195ed3089cde3299df",
+    "existing_cluster_profile": true,
+    "cloud_federation": "not_applicable",
+    "high_availability_claimed": false,
+    "horizontal_scale_claimed": false
+  },
+  "render_and_runtime": {
+    "active_render_sha256": "9311e7de8c8147ebbc92dfff0ac46d293f1a6256f5f2f80e842cc52c0421eb6a",
+    "rollback_render_sha256": "1fa5b1fb007ff1a6fa8df016a64b9fff987e9e2c0a3620e7e33af14e79373805",
+    "repeated_render_equal": true,
+    "helm_revisions": {
+      "initial_active": 1,
+      "identical_second_upgrade": 2,
+      "rollback_pair": 3,
+      "restored_active": 4
+    },
+    "second_upgrade_control_deployment_uid_unchanged": true,
+    "second_upgrade_druff_deployment_uid_unchanged": true,
+    "second_upgrade_deployment_generations_unchanged": true,
+    "pvc_bound": true,
+    "active_verifier_passed": true,
+    "rollback_verifier_passed": true,
+    "restored_active_verifier_passed": true,
+    "ingress_access_log_disabled": true,
+    "ingress_request_body_limit": "6m",
+    "tls_and_routes_exact": true,
+    "bootstrap_bytes_exact": true,
+    "security_headers_current": true
+  },
+  "synthetic_oidc": {
+    "real_provider_registration": false,
+    "upstream": "navikt/mock-oauth2-server@30afaa6d6c105f04933542f3a62f58c2415c3410",
+    "bounded_patch": {
+      "sha256": "f56810915c3bfe9492f419d6402176d5f70820767e30ed4b8958455baa241cee",
+      "modified_files": [
+        "build.gradle.kts",
+        "src/main/kotlin/no/nav/security/mock/oauth2/grant/AuthorizationCodeHandler.kt",
+        "src/main/kotlin/no/nav/security/mock/oauth2/token/OAuth2TokenProvider.kt"
+      ],
+      "base_image": "cgr.dev/chainguard/jre@sha256:7e3c6f52fc6a28afd4f095e1f38244026a104426cb81ca2259f7af5ed2ee8ed5",
+      "changes": [
+        "pin the Jib base image by immutable AMD64 digest",
+        "return a null refresh token for authorization-code exchange",
+        "exclude callback aud from ID-token additional claims while retaining it for the access token"
+      ],
+      "focused_upstream_tests_passed": true,
+      "reproduced_image_digest": true
+    },
+    "deployed_image_digest": "sha256:2bd5c92c571c17f45ebf3cb057a728ea2abbaaa139118687a2072a70037e5a89",
+    "authorization_code_pkce": true,
+    "access_token_algorithm": "RS256",
+    "access_token_api_audience": true,
+    "id_token_spa_audience": true,
+    "admin_role": true,
+    "access_token_lifetime_seconds": 300,
+    "refresh_token_absent": true,
+    "browser_hosted_session_passed": true
+  },
+  "persistence": {
+    "browser_created_graph_content_sha256": "0e0485be266a47995596b906ab5a325e1cb20027e4a779ba8958864ada724af6",
+    "browser_created_graph_node_count": 3,
+    "control_restart_preserved_graph": true,
+    "rollback_preserved_graph": true,
+    "active_restore_preserved_graph": true
+  },
+  "cleanup": {
+    "helm_release_absent": true,
+    "namespace_and_pvc_absent": true,
+    "disposable_cluster_absent": true,
+    "synthetic_oidc_cloud_run_service_absent": true,
+    "synthetic_oidc_registry_image_absent": true,
+    "synthetic_oidc_local_image_absent": true,
+    "synthetic_oidc_local_build_artifacts_absent": true,
+    "generated_projection_and_tls_files_absent": true,
+    "accepted_application_images_retained": true
+  },
+  "terraform": {
+    "state": "not_applicable",
+    "saved_plan": "not_applicable",
+    "provider_apply": false
+  },
+  "sanitization": {
+    "service_urls_or_account_coordinates_recorded": false,
+    "tokens_or_cookies_recorded": false,
+    "credentials_or_private_keys_recorded": false,
+    "graph_documents_recorded": false,
+    "terraform_state_or_plan_recorded": false
+  }
+}

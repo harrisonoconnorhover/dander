@@ -1,7 +1,7 @@
 ---
 id: DANDER-129
 title: Add the Kubernetes hosted Control-plane deployment
-status: in_progress
+status: done
 component: python
 epic: druff-control-plane
 depends_on: [DANDER-128]
@@ -25,7 +25,7 @@ batch-runtime Helm chart or pretending that a single-writer PVC is horizontally 
 - [x] Hash consumed config and Control identity into pod templates; disable Ingress access logs.
 - [x] Add deterministic preflight, bounded read-only live verification, and focused tests without
       changing the existing Kubernetes CronJob chart or launcher.
-- [ ] Qualify HTTPS synthetic OIDC, canonical browser graph persistence, equal repeated Helm
+- [x] Qualify HTTPS synthetic OIDC, canonical browser graph persistence, equal repeated Helm
       rendering, stable second upgrade, digest rollback/restore, and exact disposable cleanup.
 
 ## Design
@@ -66,4 +66,23 @@ added. Live qualification remains pending.
 The first live verifier run then exposed one serialization-boundary mismatch: Kubernetes
 ConfigMap data serves the exact compact bootstrap document without the generator's file-ending
 newline. The verifier now compares against that exact served ConfigMap value; its semantic and
-field-level strictness is unchanged. Live qualification continues from the corrected verifier.
+field-level strictness is unchanged. PR #280 merged that correction at protected-main commit
+`682f0fa5270fcd1e0f6379770dfc91778a331c13`; CI run `31830986502` passed all five jobs.
+
+The resumed live qualification passed the complete Kubernetes criterion on a disposable kind
+v0.32.0/Kubernetes v1.32.2 cluster with the pinned ingress-nginx v1.15.1 controller. Repeated
+active and rollback Helm renders were byte-equal. A second identical upgrade preserved both
+Deployment identities and generations. Exact active, rollback, and restored image pairs each
+passed the bounded read-only verifier. A browser OIDC code/PKCE session created a canonical graph;
+the same graph and content hash survived a Control pod replacement, digest rollback, and active
+restoration.
+
+The identity provider was the same bounded synthetic issuer used for local qualification, not a
+real-provider registration. It proved separate API and SPA audiences, RS256, the admin role, a
+five-minute access token, and no refresh token. The Helm release, namespace/PVC, disposable
+cluster, synthetic Cloud Run issuer, registry and local issuer images, build cache/source,
+generated projections, and TLS key were removed and independently absent. Accepted Dander/Druff
+application images remain locally retained to avoid an unnecessary rebuild. The coordinate-free
+record is `docs/evidence/kubernetes/2026-08-14/d7-control-plane.json`. This closes only the D7
+existing-cluster single-writer Kubernetes profile; it promotes neither real-provider identity,
+HA, horizontal scale, nor cloud-hosted support.
