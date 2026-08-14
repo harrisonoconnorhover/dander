@@ -251,10 +251,113 @@ def test_aws_plan_resolves_selected_fargate_deployment_without_applying(
 
     assert result.exit_code == 0, result.output
     assert captured["apply"] is False
+    assert captured["project"] == "unit-project"
+    assert captured["profile_id"] == "gcp"
+    assert captured["secret_config"] == {"provider": "gcp_secret_manager"}
     assert captured["launcher_config"] == manifest.resolved_launcher_config()
     assert captured["runtime_memory"] == "2Gi"
     assert "AWS deployment planned" in result.output
     assert "init-aws-apply" in result.output
+
+
+def test_aws_native_plan_omits_gcp_project_and_passes_typed_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+    secret = (
+        "aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:secret:dander/postgres-dsn-AbCdEf"
+    )
+    manifest = DanderProject(
+        version=2,
+        platform=PlatformSpec(
+            region="us-east-1",
+            runtime=PlatformRuntimeSpec(memory="2Gi", timeout_seconds=900),
+            safety=PlatformSafetySpec(require_guarded_free_tier=False),
+        ),
+        pipelines={
+            "greenhouse_jobs": PipelineSpec(
+                source="greenhouse_job_board",
+                models=["stg_greenhouse__jobs"],
+                secrets={"DANDER_POSTGRES_DSN": secret},
+            )
+        },
+        platform_name="aws_native",
+        deployment_name="aws_native",
+        warehouse_provider="redshift",
+        warehouse_config={
+            "provider": "redshift",
+            "deployment": "provisioned",
+            "host": "dander.abc123.us-east-1.redshift.amazonaws.com",
+            "database": "analytics",
+            "schema": "raw",
+            "db_user": "dander_runtime",
+            "region": "us-east-1",
+            "cluster_identifier": "dander-phase8",
+            "copy_role_arn": "arn:aws:iam::123456789012:role/DanderRedshiftCopy",
+            "staging_bucket": "dander-phase8-staging",
+        },
+        state_provider="postgresql",
+        state_config={
+            "provider": "postgresql",
+            "authority_id": "postgresql:aws-native",
+            "dsn_env": "DANDER_POSTGRES_DSN",
+        },
+        catalog_provider="glue",
+        catalog_config={
+            "provider": "glue",
+            "region": "us-east-1",
+            "catalog_id": "123456789012",
+        },
+        secret_provider="aws_secret_manager",
+        secret_config={"provider": "aws_secret_manager", "region": "us-east-1"},
+        launcher_provider="fargate",
+        launcher_config={
+            "provider": "fargate",
+            "region": "us-east-1",
+            "aws_account_id": "123456789012",
+            "subnet_ids": ["subnet-0123456789abcdef0"],
+            "security_group_ids": ["sg-0123456789abcdef0"],
+        },
+    )
+
+    def fake_load(*args: object, **kwargs: object) -> DanderProject:
+        assert kwargs["deployment"] == "aws_native"
+        return manifest
+
+    def fake_validate(self: object, root: Path) -> None:
+        del self, root
+
+    def fake_execute(self: object, **kwargs: object) -> Path:
+        captured.update(kwargs)
+        return tmp_path / "dander-aws.tfplan"
+
+    monkeypatch.setattr("dander.cli.aws_command.load_project_config", fake_load)
+    monkeypatch.setattr(DanderProject, "validate_references", fake_validate)
+    monkeypatch.setattr("dander.cli.aws_command.AwsTerraformBootstrap.execute", fake_execute)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "init-aws-plan",
+            "--state-bucket",
+            "unit-dander-state",
+            "--container-image",
+            "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:" + "a" * 64,
+            "--deployment",
+            "aws_native",
+            "--lock-table",
+            "dander-terraform-locks",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["project"] is None
+    assert captured["profile_id"] == "aws_native"
+    assert captured["warehouse_config"] == manifest.warehouse_config
+    assert captured["state_config"] == manifest.state_config
+    assert captured["catalog_config"] == manifest.catalog_config
+    assert captured["secret_config"] == manifest.secret_config
 
 
 def test_azure_bigquery_plan_requires_explicit_gcp_project(

@@ -82,7 +82,7 @@ class RedshiftQualificationConfig:
         if (
             not normalized_prefix
             or ".." in normalized_prefix.split("/")
-            or any(ord(char) < 32 for char in normalized_prefix)
+            or any(char in "*?" or ord(char) < 32 for char in normalized_prefix)
         ):
             raise ValueError("staging_prefix must be a safe non-empty S3 key prefix")
         object.__setattr__(self, "staging_prefix", normalized_prefix)

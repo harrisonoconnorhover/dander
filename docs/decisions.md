@@ -1,5 +1,52 @@
 # Engineering Decisions
 
+## 2026-08-14 — Phase 8 ticket identity stays disjoint from Druff
+
+- **Identity:** Phase 8 uses DANDER-200 through DANDER-207 after concurrent Druff work consumed
+  DANDER-128 before the Phase 8 branch merged. The dependency order and scope are unchanged.
+- **Boundary:** Phase 8 does not modify Druff deployment or lifecycle work; future concurrent work
+  must not reuse the reserved Phase 8 range.
+
+## 2026-08-14 — Fargate admits two exact profiles, not arbitrary provider mixes
+
+- **Profiles:** Fargate accepts the lifecycle-proven BigQuery/BigQuery/Dataplex/GCP-Secrets
+  composition or the AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets composition. Other mixes fail
+  before Terraform or provider access.
+- **Selection:** Provider composition remains keyed by the platform profile, while the runtime
+  command retains the exact selected deployment so multiple deployments may share one profile.
+- **Secrets and identity:** AWS-native bindings are full account-and-region-scoped Secrets Manager
+  ARNs serialized into a non-secret binding document. The runtime resolves them with the ECS task
+  role only for one execution, then removes the values. The manifest, plan, image, and operator
+  identity remain keyless and contain no static AWS credential.
+- **Permissions:** Each task role can authenticate only to the declared Redshift target, write only
+  the declared staging prefix, publish only under the declared Glue prefix, and read only its
+  declared secrets. IAM wildcard characters are rejected from the staging prefix before policy
+  rendering. Existing data-plane resources remain operator-owned and live qualification is still
+  required.
+
+## 2026-08-14 — Runtime diagnostics preserve bounded identity, never exception text
+
+- **Diagnostic:** Pipeline failure logs record the run, pipeline stage, stable failure code, up to
+  eight sanitized exception class names, and the nearest numeric provider status code.
+- **Safety:** Exception messages, response objects, request or response bodies, source rows,
+  credentials, DSNs, and arbitrary object representations are never serialized into the record.
+- **Boundary:** Durable run history remains unchanged. The Phase 8 soak gate stays open until the
+  patch merges and a new retained execution proves the diagnostic is visible and useful.
+
+## 2026-08-13 — Phase 8 qualification fails closed on partial evidence
+
+- **Evidence contract:** Scale reports distinguish measured zero from unavailable data and cannot
+  report `passed` without the exact candidate, provider coordinates, workload shape, approved cost
+  ceiling, provider job IDs, complete common measurements, explicit cost evidence, and an exact
+  independently approved objective-name set bound to that benchmark, profile, candidate, and
+  workload configuration, with every SLO assertion passed.
+- **Order:** AWS-native Fargate support is implementation work, not a live-proof rerun. Complete it
+  before cutting the shared qualification candidate; then run Kubernetes, scale, pairwise, and
+  soak evidence against that exact artifact.
+- **Soak boundary:** Two retained ServiceNow failures on 2026-08-10 and 2026-08-11 are not
+  diagnosable from the sanitized ledger and Cloud Logging. A focused diagnostic patch and a new
+  clean observation window are required; a later successful run does not erase that gap.
+
 ## 2026-08-12 — Scoped OCIR credentials do not inherit named-builder state
 
 - **Isolation:** OCIR promotion keeps its repository token in a one-use Docker configuration and

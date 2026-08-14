@@ -77,6 +77,12 @@ def test_qualification_normalizes_its_owned_staging_prefix() -> None:
     assert config.staging_prefix == "dander/staging"
 
 
+@pytest.mark.parametrize("wildcard", ["*", "?"])
+def test_qualification_rejects_iam_wildcards_in_staging_prefix(wildcard: str) -> None:
+    with pytest.raises(ValueError, match="safe non-empty S3 key prefix"):
+        _config(staging_prefix=f"dander/{wildcard}/staging")
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [

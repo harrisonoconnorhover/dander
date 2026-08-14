@@ -20,9 +20,16 @@ dander init-aws-plan \
   --container-image 123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:DIGEST
 ```
 
+For the named AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets profile, omit `--project`. The
+validated manifest supplies the existing Redshift, PostgreSQL-state, Glue, and full Secrets
+Manager coordinates. The saved plan scopes each task role to those declared resources and never
+accepts a static AWS credential.
+
 Run AWS stage zero and promote the accepted source-free image before planning this root. The stack
 accepts existing VPC subnet and security-group IDs; it does not create a network. Use the dedicated
 stage-zero deployment role for planning and application rather than the account root identity.
+The stack also consumes, but does not create, the AWS-native Redshift, PostgreSQL, staging-bucket,
+Glue, and application-secret resources.
 
 The controller uses `ecs:runTask.sync`. One absolute Step Functions deadline bounds all attempts;
 AWS performs a best-effort `StopTask` when the integration is cancelled or times out. Exit code 75

@@ -27,7 +27,7 @@ _GCP_SECRET_REFERENCE = re.compile(
     r"^gcp-sm://projects/[a-z][a-z0-9-]{4,28}[a-z0-9]/secrets/"
     r"[A-Za-z][A-Za-z0-9_-]{0,254}/versions/(?:latest|[1-9][0-9]*)$"
 )
-_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,1023}$")
+_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+=-]{0,1023}$")
 _SECRET_SCHEMES = {
     "environment": "env://",
     "gcp_secret_manager": "gcp-sm://",

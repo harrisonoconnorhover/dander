@@ -50,11 +50,19 @@ def build_catalog_publisher(
     return runtime.publisher
 
 
-def build_secret_store(provider_id: str) -> SecretStoreProvider:
+def build_secret_store(
+    provider_id: str,
+    provider_config: dict[str, object] | None = None,
+) -> SecretStoreProvider:
     """Build the selected secret resolver through the shared provider registry."""
+    if provider_config is not None and provider_config.get("provider") != provider_id:
+        raise ClickException("Secret provider id and configuration must match")
     registry = default_provider_registry()
     try:
-        config = registry.parse(ProviderKind.SECRETS, {"provider": provider_id})
+        config = registry.parse(
+            ProviderKind.SECRETS,
+            provider_config or {"provider": provider_id},
+        )
         runtime = registry.build(ProviderKind.SECRETS, config)
     except ProviderFactoryError as error:
         raise ClickException(str(error)) from error

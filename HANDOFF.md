@@ -2,37 +2,41 @@
 
 ## Finished
 
-- Recorded immutable `dander-platform==0.9.0rc20` publication at exact protected-main commit
-  `75c5654e95439eaf18e90fbacc849799f4fe42b6` and tag `v0.9.0rc20`.
-- Recorded trusted-publishing run `31815063258`, exact public hashes, and PyPI-only verification.
-- Reconciled D6/D7 package availability without claiming a current container image or live proof.
-- Preserved RC19 contract-bundle history and all local/provider promotion boundaries.
+- Rebased Phase 8 over protected main `63ba867` while preserving Druff and RC20 release evidence.
+- Addressed review blockers for context-bound SLO sets, AWS secrets/partitions, deployment selection, diagnostic ownership, and strict numeric evidence.
+- Renumbered the Phase 8 chain to DANDER-200 through DANDER-207 after Druff consumed DANDER-128.
+- Kept AWS task permissions scoped to declared Redshift, S3, Glue, and Secrets Manager resources.
+- Recorded the user's USD 10 aggregate live-cloud authorization; spend remains USD 0.
 
 ## Try It
 
-Install `dander-platform==0.9.0rc20` from PyPI; container qualification remains a separate gate.
+Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py tests/portability/test_redshift_qualification.py tests/providers/test_launcher_runtime.py tests/bootstrap/test_aws_terraform.py`.
 
 ## Checks
 
-- Exact-main CI run `31814445508` passed all five jobs at the tagged commit.
-- Trusted-publishing run `31815063258` passed; PyPI hashes and artifact sizes matched exactly.
-- Fresh no-cache PyPI-only CLI, scaffold, project, import-origin, and Terraform checks passed.
-- Documentation links, stale boundaries, whitespace, and secret/artifact scope review pass.
+- Focused Ruff lint and format checks passed.
+- Latest focused Python contracts passed: 52 tests.
+- Full Ruff, format, mypy, and pytest suite passed with expected skips.
+- Protected CI passed all five jobs on `ff283a7`; a new exact-head run is required after the latest corrections.
+- Fargate Terraform formatting and validation passed.
+- Fargate mocked Terraform tests passed: 4 of 4.
 
 ## Decisions
 
-- RC20 is the first immutable package containing D6/D7, but is not a container-image publication.
-- RC19 remains the immutable historical Control-bundle consumer boundary.
-- Local live qualification still waits for exact reviewed Dander and Druff image digests.
+- Passed reports must exactly match one independently approved objective-name manifest.
+- AWS secret values exist only in the run-scoped process environment, resolved with the task role.
+- Kubernetes lifecycle-adapter work stays excluded because it overlaps Druff.
 
 ## Remaining
 
-- Complete independent completion review and protected PR/exact-main CI for this evidence.
-- Publish reviewed exact Dander and Druff candidate images without support promotion.
-- Run D7 local HTTPS/OIDC/restart/no-drift/rollback/cleanup qualification.
+- Push the final review corrections and obtain one clean exact-head CI/review cycle.
+- Merge DANDER-200/202, then cut and privately publish one source-free qualification candidate.
+- Deploy DANDER-201 diagnostics and start the final retained clean observation window.
+- Run authorized exact-candidate Kubernetes, scale, pairwise, and canonical gates within USD 10.
+- Complete final audits and the retained soak through 2026-09-01 before public support release.
 
 ## Review First
 
-- `docs/control-contracts.md`
-- `tickets/DANDER-128-local-control-plane-deployment.md`
-- `docs/release-audit.md`
+- `src/dander/providers/fargate/runtime.py`
+- `src/dander/cli/runtime_command.py`
+- `src/dander/state/failure.py`

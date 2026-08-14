@@ -184,8 +184,12 @@ def test_hosted_project_run_wires_runtime_without_network(
             ),
         )
 
-    def build_secrets(provider_id: str) -> _Built:
+    def build_secrets(
+        provider_id: str,
+        provider_config: dict[str, object] | None = None,
+    ) -> _Built:
         assert provider_id == "gcp_secret_manager"
+        assert provider_config == {"provider": "gcp_secret_manager"}
         return recording_factory("secrets")()
 
     monkeypatch.setattr(run_module, "build_secret_store", build_secrets)

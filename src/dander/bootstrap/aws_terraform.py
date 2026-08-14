@@ -15,8 +15,11 @@ from dander.bootstrap.terraform import (
     validate_terraform_pipelines,
 )
 from dander.deployment import ExecutionProjectionError, ResolvedTemplateRequest
-from dander.providers import ProviderFactoryError
+from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
+from dander.providers.fargate.context import FargateProfileContext
 from dander.providers.gcp_launcher import GcpLauncherContext
+from dander.providers.glue.config import GlueCatalogConfig
+from dander.providers.redshift.config import RedshiftWarehouseConfig
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -51,7 +54,12 @@ class AwsTerraformBootstrap:
     def execute(
         self,
         *,
-        project: str,
+        project: str | None,
+        profile_id: str = "gcp",
+        warehouse_config: Mapping[str, object] | None = None,
+        state_config: Mapping[str, object] | None = None,
+        catalog_config: Mapping[str, object] | None = None,
+        secret_config: Mapping[str, object] | None = None,
         deployment_name: str,
         state_bucket: str,
         state_key: str,
@@ -78,8 +86,6 @@ class AwsTerraformBootstrap:
             lock_table=lock_table,
             aws_profile=aws_profile,
         )
-        if not _GCP_PROJECT.fullmatch(project):
-            raise AwsTerraformBootstrapError(f"Invalid GCP data-plane project: {project!r}")
         if not _DEPLOYMENT_NAME.fullmatch(name):
             raise AwsTerraformBootstrapError(
                 "AWS deployment name must contain 2-24 lowercase letters, numbers, or hyphens"
@@ -123,12 +129,18 @@ class AwsTerraformBootstrap:
             )
 
         try:
+            profile = self._profile_context(
+                profile_id=profile_id,
+                project=project,
+                require_guarded_free_tier=require_guarded_free_tier,
+                warehouse_config=warehouse_config,
+                state_config=state_config,
+                catalog_config=catalog_config,
+                secret_config=secret_config,
+            )
             launcher = build_launcher_runtime(
                 launcher_config=raw_launcher,
-                gcp_context=GcpLauncherContext(
-                    project=project,
-                    require_guarded_free_tier=require_guarded_free_tier,
-                ),
+                fargate_profile=profile,
             )
             projections = {
                 pipeline_id: template.as_dict()
@@ -136,18 +148,41 @@ class AwsTerraformBootstrap:
                     ResolvedTemplateRequest(
                         pipelines=expanded_pipelines,
                         image=container_image,
-                        profile_id="gcp",
+                        profile_id=profile.profile_id,
                         cpu=runtime_cpu,
                         memory=runtime_memory,
                         deadline_seconds=runtime_timeout_seconds,
                         launcher_retry_count=runtime_max_retries,
                         batch_rows=runtime_batch_rows,
                         alert_target=None,
+                        deployment_id=deployment_name,
                     )
                 ).items()
             }
         except (ExecutionProjectionError, ProviderFactoryError) as error:
             raise AwsTerraformBootstrapError(str(error)) from error
+
+        plan_variables = [
+            f"-var=name={name}",
+            f"-var=aws_account_id={aws_account_id}",
+            f"-var=region={region}",
+            f"-var=ecr_repository_name={image_match.group('repository')}",
+            "-var=execution_projections="
+            + dumps(
+                projections,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        ]
+        if profile.is_aws_native:
+            plan_variables.append(
+                "-var=aws_native_profile="
+                + dumps(
+                    self._aws_native_terraform_profile(profile),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
 
         self._run(
             "terraform",
@@ -165,17 +200,12 @@ class AwsTerraformBootstrap:
             "terraform",
             "plan",
             "-input=false",
-            f"-var=name={name}",
-            f"-var=aws_account_id={aws_account_id}",
-            f"-var=region={region}",
-            f"-var=ecr_repository_name={image_match.group('repository')}",
-            "-var=execution_projections="
-            f"{dumps(projections, sort_keys=True, separators=(',', ':'))}",
+            *plan_variables,
             "-var=tags="
             + dumps(
                 {
                     "dander-deployment": deployment_name,
-                    "dander-profile": "gcp",
+                    "dander-profile": profile.profile_id,
                 },
                 sort_keys=True,
                 separators=(",", ":"),
@@ -192,6 +222,91 @@ class AwsTerraformBootstrap:
                 aws_profile=aws_profile,
             )
         return self._plan_path
+
+    @staticmethod
+    def _profile_context(
+        *,
+        profile_id: str,
+        project: str | None,
+        require_guarded_free_tier: bool,
+        warehouse_config: Mapping[str, object] | None,
+        state_config: Mapping[str, object] | None,
+        catalog_config: Mapping[str, object] | None,
+        secret_config: Mapping[str, object] | None,
+    ) -> FargateProfileContext:
+        registry = default_provider_registry()
+        warehouse = registry.parse(
+            ProviderKind.WAREHOUSE,
+            warehouse_config or {"provider": "bigquery", "location": "US"},
+        )
+        state = registry.parse(
+            ProviderKind.STATE,
+            state_config or {"provider": "bigquery"},
+        )
+        catalog = registry.parse(
+            ProviderKind.CATALOG,
+            catalog_config or {"provider": "dataplex"},
+        )
+        secrets = registry.parse(
+            ProviderKind.SECRETS,
+            secret_config or {"provider": "gcp_secret_manager"},
+        )
+        is_gcp = (
+            getattr(warehouse, "provider", None) == "bigquery"
+            and getattr(state, "provider", None) == "bigquery"
+            and getattr(catalog, "provider", None) == "dataplex"
+            and getattr(secrets, "provider", None) == "gcp_secret_manager"
+        )
+        if is_gcp:
+            if project is None or not _GCP_PROJECT.fullmatch(project):
+                raise AwsTerraformBootstrapError(f"Invalid GCP data-plane project: {project!r}")
+            gcp = GcpLauncherContext(
+                project=project,
+                require_guarded_free_tier=require_guarded_free_tier,
+            )
+        else:
+            if project is not None:
+                raise AwsTerraformBootstrapError(
+                    "AWS-native Fargate planning does not accept a GCP project"
+                )
+            if require_guarded_free_tier:
+                raise AwsTerraformBootstrapError(
+                    "AWS-native Fargate cannot use the GCP guarded-free-tier preflight"
+                )
+            gcp = None
+        try:
+            return FargateProfileContext(
+                profile_id=profile_id,
+                warehouse=warehouse,  # type: ignore[arg-type]
+                state=state,  # type: ignore[arg-type]
+                catalog=catalog,  # type: ignore[arg-type]
+                secrets=secrets,  # type: ignore[arg-type]
+                gcp=gcp,
+            )
+        except ValueError as error:
+            raise AwsTerraformBootstrapError(str(error)) from error
+
+    @staticmethod
+    def _aws_native_terraform_profile(
+        profile: FargateProfileContext,
+    ) -> dict[str, object]:
+        if not profile.is_aws_native:
+            raise AwsTerraformBootstrapError("AWS-native Terraform profile is not selected")
+        warehouse = profile.warehouse
+        catalog = profile.catalog
+        assert isinstance(warehouse, RedshiftWarehouseConfig)
+        assert isinstance(catalog, GlueCatalogConfig)
+        return {
+            "redshift_deployment": warehouse.deployment,
+            "redshift_cluster_identifier": warehouse.cluster_identifier,
+            "redshift_workgroup_name": warehouse.workgroup_name,
+            "redshift_database": warehouse.database,
+            "redshift_db_user": warehouse.db_user,
+            "staging_bucket": warehouse.staging_bucket,
+            "staging_prefix": warehouse.staging_prefix,
+            "glue_catalog_id": catalog.catalog_id,
+            "glue_database_prefix": catalog.database_prefix,
+        }
 
     def apply_saved_plan(
         self,

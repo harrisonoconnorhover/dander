@@ -1,6 +1,6 @@
 # Dander Platform Release Audit
 
-Audited on 2026-08-13 against the product promise in `steering/00-project-overview.md`.
+Audited on 2026-08-14 against the product promise in `steering/00-project-overview.md`.
 “Live-proven” means the behavior was observed in a disposable provider account or retained GCP
 project. “Implemented” means automated tests cover the contract while an optional provider or
 cloud path remains outside the live proof.
@@ -22,6 +22,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Fresh OCI stage-zero/foundation and retained-GCP stage-zero/platform plans after the OCI proof reported exact `No changes.` No retained-project apply occurred. |
+| Phase 8 support qualification | Open | The AWS-native profile and safe unexpected-failure diagnostics pass locally. Protected review, retained diagnostic evidence, one immutable candidate, exact-candidate scale/cost, Kubernetes and pairwise live proofs, soak, and support-matrix freeze remain open. |
 
 ## Current release and deployment record
 
@@ -81,7 +82,11 @@ cloud path remains outside the live proof.
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions
   preceded the final stable-image reconciliation; observation of subsequent scheduled runs remains
-  in the active operator soak.
+  in the active operator soak. A read-only review on 2026-08-14 found all four schedules enabled;
+  that day's public Greenhouse run succeeded, while the other three daily schedules had not yet
+  occurred. Their latest runs through 2026-08-13 were successful, but the 2026-08-10 and 2026-08-11
+  ServiceNow failures were not diagnosable from the sanitized ledger or Cloud Logging. The soak
+  gate therefore remains open.
 - Greenhouse graph execution `dander-greenhouse-graph-7gn9z` completed successfully on 2026-08-04;
   its 13:00 schedule remains intentionally paused.
 
@@ -103,5 +108,5 @@ cloud path remains outside the live proof.
 Dander demonstrates its intended beta vertical slice: one manifest and CLI reconcile an owned
 GCP platform, independently installed connectors ingest into BigQuery, Dander transforms and tests
 the data, one metadata spine records what happened, and Druff authors and operates a bounded graph
-without becoming a second runtime. Production hardening and broader connector coverage remain
-future work.
+without becoming a second runtime. Phase 8 support qualification is not complete; the exact open
+gates are recorded in `docs/cloud-portability-phase8-qualification.md`.

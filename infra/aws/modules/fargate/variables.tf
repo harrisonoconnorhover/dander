@@ -115,6 +115,46 @@ variable "execution_projections" {
   }
 }
 
+variable "aws_native_profile" {
+  description = "Existing AWS-native Redshift, staging, and Glue coordinates; null for the GCP data plane."
+  type = object({
+    redshift_deployment         = string
+    redshift_cluster_identifier = optional(string)
+    redshift_workgroup_name     = optional(string)
+    redshift_database           = string
+    redshift_db_user            = optional(string)
+    staging_bucket              = string
+    staging_prefix              = string
+    glue_catalog_id             = string
+    glue_database_prefix        = string
+  })
+  default  = null
+  nullable = true
+
+  validation {
+    condition = var.aws_native_profile == null || (
+      contains(["provisioned", "serverless"], var.aws_native_profile.redshift_deployment) &&
+      (
+        var.aws_native_profile.redshift_deployment == "provisioned" ?
+        var.aws_native_profile.redshift_cluster_identifier != null &&
+        var.aws_native_profile.redshift_workgroup_name == null &&
+        var.aws_native_profile.redshift_db_user != null :
+        var.aws_native_profile.redshift_cluster_identifier == null &&
+        var.aws_native_profile.redshift_workgroup_name != null &&
+        var.aws_native_profile.redshift_db_user == null
+      ) &&
+      can(regex("^[a-z_][a-z0-9_]{0,126}$", var.aws_native_profile.redshift_database)) &&
+      can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.aws_native_profile.staging_bucket)) &&
+      length(trim(var.aws_native_profile.staging_prefix, "/")) > 0 &&
+      !strcontains(var.aws_native_profile.staging_prefix, "*") &&
+      !strcontains(var.aws_native_profile.staging_prefix, "?") &&
+      var.aws_native_profile.glue_catalog_id == var.aws_account_id &&
+      can(regex("^[a-z][a-z0-9_]{0,31}$", var.aws_native_profile.glue_database_prefix))
+    )
+    error_message = "aws_native_profile must name one exact Redshift target, staging prefix, and account-local Glue catalog."
+  }
+}
+
 variable "scheduler_delivery_retry_count" {
   type        = number
   description = "Scheduler delivery retries, separate from launcher retries."

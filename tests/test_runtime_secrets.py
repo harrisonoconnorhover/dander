@@ -51,6 +51,28 @@ class _Registry:
         )
 
 
+class _AwsRegistry(_Registry):
+    def parse(self, kind: object, raw: object) -> object:
+        del kind
+        assert raw == {"provider": "aws_secret_manager", "region": "us-east-1"}
+        return object()
+
+    def build(self, kind: object, config: object) -> object:
+        del kind, config
+        from dander.security import SecretCapabilities, SecretRuntime
+
+        return SecretRuntime(
+            provider_id="aws_secret_manager",
+            store=self.store,
+            capabilities=SecretCapabilities(
+                provider_id="aws_secret_manager",
+                reference_forms=frozenset({"aws_secret_arn"}),
+                environment_indirection=True,
+                audited_access=True,
+            ),
+        )
+
+
 def test_projected_secret_environment_is_scoped_and_resolves_only_references(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -76,6 +98,34 @@ def test_projected_secret_environment_is_scoped_and_resolves_only_references(
     assert store.references == ["oci-vault://ocid1.vault.oc1.iad.unit/secrets/postgres-dsn"]
 
 
+def test_projected_secret_environment_resolves_aws_references_with_the_task_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _Store()
+    monkeypatch.setattr(
+        "dander.runtime_secrets.default_provider_registry", lambda: _AwsRegistry(store)
+    )
+    reference = (
+        "aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:secret:dander/postgres-dsn-AbCdEf"
+    )
+    environment = {
+        "DANDER_SECRET_BINDINGS_JSON": json.dumps(
+            {
+                "DANDER_POSTGRES_DSN": {
+                    "provider": "aws_secret_manager",
+                    "reference": reference,
+                }
+            }
+        )
+    }
+
+    with projected_secret_environment(environ=environment):
+        assert environment["DANDER_POSTGRES_DSN"] == "resolved-value"
+
+    assert "DANDER_POSTGRES_DSN" not in environment
+    assert store.references == [reference]
+
+
 @pytest.mark.parametrize(
     ("document", "message"),
     [
@@ -88,6 +138,15 @@ def test_projected_secret_environment_is_scoped_and_resolves_only_references(
         (
             {"TOKEN": {"provider": "oci_vault", "reference": "plain-text"}},
             "reference",
+        ),
+        (
+            {
+                "TOKEN": {
+                    "provider": "aws_secret_manager",
+                    "reference": "aws-sm://short-name",
+                }
+            },
+            "AWS secret binding reference",
         ),
     ],
 )

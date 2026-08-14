@@ -139,7 +139,10 @@ remain Phase 8 work.
 - A crashed sandbox staging table relies on configured expiration for cleanup. Handled failures
   remove their staging table immediately.
 - Run history stores non-sensitive stage and aggregate counts, not exception text or source rows.
-  Use the Cloud Run execution logs for diagnosis.
+  Classified failures provide stable operator guidance. A local Phase 8 patch now logs a bounded
+  exception-class chain and numeric provider status without exception text or sensitive values,
+  but retained deployment evidence remains open. ServiceNow failures on 2026-08-10 and 2026-08-11
+  remain undiagnosable and the final clean observation window has not started.
 - Druff is a public static interface, not a hosted control plane. Saving, validation, execution,
   status, and deployment preview require an operator-started Dander loopback service. Druff does
   not write `dander.yaml` or apply Terraform.
@@ -157,6 +160,12 @@ remain Phase 8 work.
 - AWS Glue publication is experimental and locally conformance-tested only. It does not provision
   IAM, Glue connections, Lake Formation permissions, crawlers, or tags, and it has not completed a
   live AWS catalog proof. Warehouse-backed entries intentionally have no inferred S3 location.
+  The Fargate factory and saved-plan Terraform path now implement only the accepted GCP data-plane
+  composition and the named AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets composition. The
+  AWS-native path binds full secret ARNs and scopes task access to the declared Redshift target,
+  staging prefix, Glue namespace, and secrets, but it has only local and provider-mocked evidence.
+  Protected review, a source-free candidate, and live AWS qualification remain open; this is not a
+  support claim or a provider-managed Redshift/PostgreSQL deployment.
 
 ## Support boundary
 
