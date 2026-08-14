@@ -93,6 +93,13 @@ These cases cover every first-class launcher, warehouse, state backend, catalog 
 secret path, and the roadmap's named cross-cloud boundaries without promising an unsupported
 Cartesian product. A case cannot change to supported from adapter tests alone.
 
+## Current provider blockers
+
+The 2026-08-14 read-only credential preflight found Azure blocked on required interactive Entra
+reauthentication, AWS blocked on an expired session, and OCI blocked on an incomplete CLI profile.
+No mutation or spend occurred. These cases remain open rather than inheriting a support claim;
+sanitized details are in `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json`.
+
 ## Current exit recommendation
 
 Phase 8 remains open. The safe diagnostic retained-provider gate, corrected immutable candidate,
