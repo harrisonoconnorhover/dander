@@ -59,3 +59,10 @@ exact revision-level alias mapping, reads each mounted numeric Secret Manager ve
 `latest`, requires observed generation equality and matching latest-created/latest-ready revision,
 and accepts only one 100% traffic target for that revision. Focused regressions use the real v1
 shape and reject wrong-version content, stale reconciliation, and split traffic.
+
+The protected implementation and exact-main CI passed before provider access. A subsequent
+read-only GCP preflight exposed one separate CLI boundary: `gcloud storage buckets describe`
+emits its bucket policy fields in snake case, unlike the camel-case Storage API representation.
+The focused follow-up consumes that exact CLI shape and keeps the same fail-closed checks for
+uniform access, public-access prevention, versioning, and zero soft-delete retention. No cloud
+resource was created or changed before this correction.
