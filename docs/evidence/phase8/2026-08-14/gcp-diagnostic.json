@@ -1,0 +1,66 @@
+{
+  "schema": "io.dander.phase8.diagnostic-evidence/v1",
+  "qualification_status": "not_evaluated",
+  "release_version": "0.9.0rc21",
+  "git_commit": "c10968afce94b1650a4f5bc2ac458f3f5648eae4",
+  "image_digest": "sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1",
+  "configuration_sha256": "c34a4202886e8e29e465aceae7d63c0d5c7f9bc23c19ccaacb8edc37215b123e",
+  "deployment_plan_sha256": "e00fcb6f56ed1ede4fce8fc2017349a2b514bd7432e62b5348403a6f03f35dd0",
+  "deployment_apply": {
+    "added": 0,
+    "changed": 5,
+    "destroyed": 0,
+    "post_apply_no_drift": true
+  },
+  "profile_id": "gcp_native",
+  "provider_execution_id": "dander-servicenow-incidents-7kxl4",
+  "started_at": "2026-08-14T17:00:50.151287Z",
+  "completed_at": "2026-08-14T17:03:57.261170Z",
+  "provider_status": "failed",
+  "provider_reason": "NonZeroExitCode",
+  "observations": [
+    {
+      "attempt": 1,
+      "stage": "ingest",
+      "failure_code": "unexpected_error",
+      "duration_ms": 19662,
+      "exception_class_chain": [
+        "ResourceExtractionError",
+        "OAuthTokenError",
+        "JSONDecodeError",
+        "StopIteration"
+      ],
+      "status_code": null
+    },
+    {
+      "attempt": 2,
+      "stage": "runtime",
+      "failure_code": "unexpected_error",
+      "duration_ms": 5426,
+      "exception_class_chain": [
+        "BadRequest"
+      ],
+      "status_code": 400
+    }
+  ],
+  "objectives": [
+    {
+      "name": "diagnostic_visibility",
+      "status": "passed"
+    },
+    {
+      "name": "retained_execution",
+      "status": "passed"
+    }
+  ],
+  "cost_ceiling_usd": "1.25",
+  "measured_cost_usd": null,
+  "cost_status": "provider_invoice_pending",
+  "sanitization": {
+    "exception_messages_recorded": false,
+    "request_or_response_bodies_recorded": false,
+    "credentials_or_dsns_recorded": false,
+    "source_rows_recorded": false
+  },
+  "root_cause_determined": false
+}

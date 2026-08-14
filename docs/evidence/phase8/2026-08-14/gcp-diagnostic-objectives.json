@@ -1,0 +1,20 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "1.25",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  },
+  "approved_objectives": {
+    "names": [
+      "diagnostic_visibility",
+      "retained_execution"
+    ],
+    "benchmark_class": "failure",
+    "profile_id": "gcp_native",
+    "release_version": "0.9.0rc21",
+    "git_commit": "c10968afce94b1650a4f5bc2ac458f3f5648eae4",
+    "image_digest": "sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1",
+    "configuration_sha256": "c34a4202886e8e29e465aceae7d63c0d5c7f9bc23c19ccaacb8edc37215b123e",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  }
+}

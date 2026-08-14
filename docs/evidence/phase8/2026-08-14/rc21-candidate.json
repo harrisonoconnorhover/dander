@@ -1,0 +1,21 @@
+{
+  "schema": "io.dander.phase8.candidate-evidence/v1",
+  "status": "diagnostic_only",
+  "release_version": "0.9.0rc21",
+  "git_commit": "c10968afce94b1650a4f5bc2ac458f3f5648eae4",
+  "pull_request": 275,
+  "protected_main_ci_run": 31820352565,
+  "wheel_sha256": "37aa3eef8dd87b2323b58b91bd052ebfb3bf6d137cc120174b6fa988b5234f7e",
+  "sdist_sha256": "4c56a43282ede39413525d2e794d6b9603d6bf3ad3ba52aecd3d9070b2bc031d",
+  "build_context_revision": "c34a4202886e8e29e465aceae7d63c0d5c7f9bc23c19ccaacb8edc37215b123e",
+  "image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1",
+  "platform_manifests": {
+    "linux/amd64": "sha256:466d41bb1d8e1797558da14071520adb2844b26763e2b37ceee4ec4cefead92a",
+    "linux/arm64": "sha256:58783688e498626b2b0387a7cbe215690b1d29167b2a98f620dafdfdd8a76202"
+  },
+  "sbom_attached": true,
+  "provenance_attached": true,
+  "qualification_status": "not_evaluated",
+  "final_candidate_blocker": "runtime_inspect_requires_deployment_selection",
+  "approved_use": "retained_sanitized_diagnostics_only"
+}

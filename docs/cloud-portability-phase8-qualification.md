@@ -20,9 +20,10 @@ Phase 7 evidence merge.
 ## Open gates and dependency order
 
 1. Publish the normalized report contract and keep historical partial reports `not_evaluated`.
-2. Add sanitized failure diagnostics. Retained ServiceNow runs on 2026-08-10 and 2026-08-11
-   ended as `unexpected_error`, and neither the run ledger nor Cloud Logging retained enough safe
-   exception identity to diagnose them.
+2. Completed on 2026-08-14: sanitized failure diagnostics merged and exact RC21 retained execution
+   `dander-servicenow-incidents-7kxl4` emitted bounded class chains and a numeric status without
+   messages, bodies, credentials, DSNs, or rows. This proves safe causal identity, not the external
+   ServiceNow root cause.
 3. Complete protected review of the locally implemented AWS-native
    Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets profile. The factory and saved-plan Terraform path
    now accept only that exact composition or the previously accepted GCP composition; no live AWS
@@ -34,9 +35,11 @@ Phase 7 evidence merge.
    required report passes.
 
 The operator approved cloud mutations, conservative provider-specific SLO selection, and an
-aggregate Phase 8 ceiling of USD 10 on 2026-08-14; USD 0 has been incurred. Each paid run must
-still record its objective manifest and per-run allocation before mutation, preserve the dependency
-order, and use the immutable candidate.
+aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Candidate publication and the retained GCP
+diagnostic ran within pre-recorded USD 0.50 and USD 1.25 allocations; provider-measured charges
+have not posted, so no exact cost is claimed. Each paid run must still record its objective manifest
+and per-run allocation before mutation, preserve the dependency order, and use the immutable
+candidate.
 
 ## Pre-candidate release readiness
 
@@ -87,8 +90,8 @@ Cartesian product. A case cannot change to supported from adapter tests alone.
 
 ## Current exit recommendation
 
-Phase 8 remains open. The exact unmet gates are protected review of the AWS-native implementation,
-retained evidence for the safe diagnostic patch, one immutable qualification candidate,
-exact-candidate Kubernetes and pairwise live proofs, approved scale/cost reports for every
-first-class warehouse and launcher, current canonical-profile evidence, release-candidate soak,
-final audits, and the frozen support matrix.
+Phase 8 remains open. The safe diagnostic retained-provider gate is complete. The exact unmet gates
+are protected review of the multi-deployment inspection correction, one corrected immutable
+qualification candidate, exact-candidate Kubernetes and pairwise live proofs, approved scale/cost
+reports for every first-class warehouse and launcher, current canonical-profile evidence,
+release-candidate soak, final audits, and the frozen support matrix.

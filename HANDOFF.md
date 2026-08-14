@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Merged the Phase 8 qualification contract, diagnostics, and AWS-native profile through PR #269 at protected main `fe325ff`.
-- Protected exact-main CI passed all five jobs; DANDER-200 and DANDER-202 are complete.
-- Prepared private `0.9.0rc21` candidate metadata without changing public RC20 references.
-- Rebased over protected main `ee03b94`, preserving its D7 correction; Kubernetes lifecycle-adapter work remains in the separate Druff stream.
-- Recorded the user's USD 10 aggregate live-cloud authorization; spend remains USD 0.
+- Merged private RC21 preparation through PR #275 at protected main `c10968a`; exact-main CI run `31820352565` passed all five jobs.
+- Built and clean-installed the exact RC21 wheel/sdist, then published source-free multi-platform image `sha256:ab24a0b8a938...` with SBOM and provenance.
+- Recorded the USD 10 authorization, provider allocations, candidate hashes, and exact GCP diagnostic objectives before live execution.
+- Found that multi-deployment bundles could not select a deployment for `runtime inspect`; added the narrow selector locally with focused coverage.
+- Applied an image-only retained GCP plan and completed DANDER-201 with sanitized execution `dander-servicenow-incidents-7kxl4`; post-apply Terraform is no drift.
 
 ## Try It
 
-Run `uv run python scripts/check_release_metadata.py`; publication mode must still reject private RC21 against public RC20.
+Run `uv run pytest -q tests/test_runtime_inspection.py`.
 
 ## Checks
 
-- PR #269 exact-head CI and independent review passed with all conversations resolved.
-- Exact-main CI run `31818216295` passed all five jobs at `fe325ff`.
-- Full Ruff, format, mypy, and pytest passed with expected skips before the version-only candidate preparation.
-- RC21 metadata, 4 focused tests, Ruff, wheel/sdist build and validation, clean installs/scaffolds, and generated Terraform validation passed.
-- Publication-mode metadata correctly rejects private RC21 against public RC20.
+- PR #275 exact-head review passed and all conversations resolved; all five protected PR checks passed.
+- Exact-main CI run `31820352565` passed all five jobs at `c10968a`.
+- Final RC21 wheel/sdist validation, clean full-runtime install, and source-free GCP/Kubernetes config validation passed.
+- GAR index verification found AMD64 and ARM64 manifests plus attestations; read-only image `--version` returned `0.9.0rc21`.
+- Runtime-inspection tests, focused Ruff/format, and focused strict mypy pass for the local selector fix.
+- The retained apply changed five jobs with zero add/destroy; the diagnostic retained two safe causal identities and post-apply plan returned `No changes.`
 
 ## Decisions
 
-- RC21 is the one private Phase 8 qualification candidate; RC20 remains the current public beta.
-- Passed reports bind approved objectives to the exact benchmark, profile, workload, and candidate.
+- RC21 is approved only for DANDER-201 retained diagnostic evidence; it is not the final qualification candidate because its multi-deployment inspection failed closed.
+- Cut a corrected private candidate after the selector fix merges; do not weaken the one-digest or source-free gates.
 - Kubernetes lifecycle-adapter implementation remains excluded because it overlaps Druff.
 
 ## Remaining
 
-- Validate, review, and merge the RC21 preparation through protected CI.
-- Build and privately publish one source-free RC21 image, then deploy DANDER-201 diagnostics.
-- Run exact-candidate Kubernetes, scale, pairwise, and canonical gates within USD 10.
+- Review and merge the runtime-inspection selector, then cut and publish the corrected private candidate.
+- Run exact-candidate Kubernetes, GCP, Azure, scale, pairwise, and final audit gates within the USD 10 ceiling.
 - Record unavailable AWS/OCI credentials as provider blockers without weakening gates.
-- Complete final audits and the retained soak through 2026-09-01 before public support release.
+- Complete the retained soak through 2026-09-01 before public support release.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
-- `tickets/DANDER-200-phase8-qualification-contract.md`
+- `src/dander/runtime_inspection.py`
+- `src/dander/cli/runtime_command.py`
+- `docs/evidence/phase8/2026-08-14/rc21-candidate.json`

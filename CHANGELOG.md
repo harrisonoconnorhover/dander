@@ -6,6 +6,11 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Allow source-free bundles with multiple deployments to select an exact deployment during
+  credential-free runtime inspection.
+
 ## 0.9.0rc21 — 2026-08-14 (beta)
 
 ### Added
