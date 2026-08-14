@@ -782,14 +782,13 @@ def _run_transform(
             )
             with pool.connection() as connection:
                 connection.execute(
-                    sql.SQL(
-                        "UPDATE {} SET amount = 999, updated_at = 2 WHERE id = 1"
-                    ).format(sql.Identifier(source_schema, "facts"))
+                    sql.SQL("UPDATE {} SET amount = 999, updated_at = 2 WHERE id = 1").format(
+                        sql.Identifier(source_schema, "facts")
+                    )
                 )
                 connection.execute(
                     sql.SQL(
-                        "INSERT INTO {} (id, dimension_id, amount, updated_at) "
-                        "VALUES (%s, 1, 5, 2)"
+                        "INSERT INTO {} (id, dimension_id, amount, updated_at) VALUES (%s, 1, 5, 2)"
                     ).format(sql.Identifier(source_schema, "facts")),
                     (config.transform_fact_rows + 1,),
                 )
@@ -832,8 +831,7 @@ def _run_transform(
         output_rows=config.transform_fact_rows + 1,
         model_count=model_count,
         assertion_count=assertion_count,
-        ownership_verifications=first_ownership.verifications
-        + second_ownership.verifications,
+        ownership_verifications=first_ownership.verifications + second_ownership.verifications,
         temporary_staging_relations=staging,
         cleanup_verified=cleanup,
     )
@@ -921,9 +919,7 @@ def _run_failure(
                             sql.Identifier(schema, "cancellation_records")
                         )
                     )
-                    backend = connection.execute(
-                        "SELECT pg_backend_pid() AS pid"
-                    ).fetchone()
+                    backend = connection.execute("SELECT pg_backend_pid() AS pid").fetchone()
                     if backend is None or not isinstance(backend["pid"], int):
                         raise RuntimeError("PostgreSQL cancellation probe has no backend")
                     backend_ids.put(backend["pid"], timeout=5)
@@ -1030,8 +1026,7 @@ def _seed_transform_sources(
 def _write_transform_models(root: Path, *, target_schema: str) -> None:
     models = {
         "scan_records": (
-            "SELECT id, dimension_id, amount, updated_at "
-            "FROM {{ ref('raw_facts') }}",
+            "SELECT id, dimension_id, amount, updated_at FROM {{ ref('raw_facts') }}",
             "table",
             (
                 ("id", "INT64"),
@@ -1084,8 +1079,7 @@ def _write_transform_models(root: Path, *, target_schema: str) -> None:
     for name, (query, materialization, columns, tests, incremental) in models.items():
         (root / f"{name}.sql").write_text(query, encoding="utf-8")
         column_yaml = "".join(
-            f"  - name: {column}\n    type: {data_type}\n"
-            f"    description: Phase 8 {column}.\n"
+            f"  - name: {column}\n    type: {data_type}\n    description: Phase 8 {column}.\n"
             for column, data_type in columns
         )
         (root / f"{name}.yml").write_text(
@@ -1450,9 +1444,7 @@ def _bulk_report(
             concurrency=1,
             batch_rows=config.batch_rows,
             batch_bytes=config.batch_rows * (config.wide_payload_bytes + 24),
-            configuration_sha256=config.configuration_sha256(
-                BenchmarkClass.BULK_THROUGHPUT
-            ),
+            configuration_sha256=config.configuration_sha256(BenchmarkClass.BULK_THROUGHPUT),
         ),
         performance=_performance(
             rows=rows,

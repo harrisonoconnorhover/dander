@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from scripts.benchmarks.postgresql_phase8 import (
@@ -63,7 +63,8 @@ def test_load_approval_rejects_workload_or_objective_drift(tmp_path: Path) -> No
     assert approval.objectives.configuration_sha256 == config.configuration_sha256(
         BenchmarkClass.BULK_THROUGHPUT
     )
-    payload["workload"]["wide_rows"] = 1
+    workload = cast("dict[str, object]", payload["workload"])
+    workload["wide_rows"] = 1
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="workload"):
         load_approval(
@@ -72,7 +73,9 @@ def test_load_approval_rejects_workload_or_objective_drift(tmp_path: Path) -> No
             benchmark_class=BenchmarkClass.BULK_THROUGHPUT,
         )
     payload = _manifest(config)
-    payload["approved_objectives"]["names"].pop()
+    approved = cast("dict[str, object]", payload["approved_objectives"])
+    names = cast("list[str]", approved["names"])
+    names.pop()
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="required objective set"):
         load_approval(
@@ -121,9 +124,7 @@ def _manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]:
             "release_version": "0.9.0rc22",
             "git_commit": "a" * 40,
             "image_digest": f"sha256:{'b' * 64}",
-            "configuration_sha256": config.configuration_sha256(
-                BenchmarkClass.BULK_THROUGHPUT
-            ),
+            "configuration_sha256": config.configuration_sha256(BenchmarkClass.BULK_THROUGHPUT),
             "approval_reference": approval,
         },
     }
