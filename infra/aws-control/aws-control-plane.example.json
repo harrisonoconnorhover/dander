@@ -1,0 +1,37 @@
+{
+  "aws_account_id": "123456789012",
+  "cloudfront_distribution_id": "E123456789ABC",
+  "cloudfront_domain": "d123456789abc.cloudfront.net",
+  "dander_image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "dander_rollback_image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "deployment_role_arn": "arn:aws:iam::123456789012:role/dander-bootstrap",
+  "druff_image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "druff_rollback_image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "ecr_repository_url": "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander",
+  "graph_bucket": "dander-d7-example-graphs",
+  "lock_table": "dander-terraform-locks",
+  "name": "dander",
+  "oidc": {
+    "allowed_origins": [
+      "https://d123456789abc.cloudfront.net"
+    ],
+    "api_audience": "dander-aws-control",
+    "api_url": "https://d123456789abc.cloudfront.net",
+    "clock_skew_seconds": 30,
+    "issuer": "https://issuer.example.test/default",
+    "jwks_cache_seconds": 300,
+    "jwks_uri": "https://issuer.example.test/default/.well-known/jwks.json",
+    "logout_uri": "https://d123456789abc.cloudfront.net/signed-out",
+    "public_client_id": "druff-aws-spa",
+    "redirect_uri": "https://d123456789abc.cloudfront.net/auth/callback",
+    "role_claim": "roles"
+  },
+  "region": "us-east-1",
+  "state_bucket": "dander-retained-state-example",
+  "state_prefix": "dander/d7/control-plane/aws-attempt-1/state",
+  "subnet_ids": [
+    "subnet-11111111",
+    "subnet-22222222"
+  ],
+  "vpc_id": "vpc-12345678"
+}

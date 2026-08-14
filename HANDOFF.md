@@ -2,37 +2,39 @@
 
 ## Finished
 
-- Added the narrow AWS D7 authority prerequisite to the existing short-lived deployment role.
-- Allowed exact cleanup only below the fixed D7 state prefix and in disposable D7 buckets.
-- Kept provider actions enumerated and resource mutations constrained by D7 names, tags, or ARNs.
-- Opened DANDER-131 without adding or applying the AWS application Terraform root.
+- Added a closed two-stage AWS D7 projection for foundation, active, and rollback values.
+- Added the packaged CloudFront/ALB/Fargate/S3 partial-backend Terraform root.
+- Added a read-only verifier for ingress policies, service/task identity, startup config, and storage.
+- Added focused Python/Terraform coverage and protected-CI validation for the new root.
+- Removed invalid container CPU over-reservation and locked valid task sizing in Terraform tests.
 
 ## Try It
 
-Review the new `deployment_d7` policy in `infra/aws/bootstrap-admin/main.tf`. This PR changes only
-future short-lived deployment authority; it does not contact AWS or create resources.
+Validate the packaged example locally with `python -m dander.deployment.aws_control_plane preflight
+--input infra/aws-control/aws-control-plane.example.json --output /tmp/dander-aws-render
+--terraform-root infra/aws-control`. This renders non-secret files and initializes no backend.
 
 ## Checks
 
-- Focused AWS bootstrap and Fargate tests passed: 22 tests.
-- Ruff lint/format, Terraform format/validate/test, and `git diff --check` passed.
-- No AWS provider operation or paid resource was attempted; the local AWS session is expired.
+- Full Python suite passed: 1,705 passed and 28 skipped; strict mypy and Ruff passed.
+- Terraform format/validate/test and Trivy 0.70 passed: 4 contract runs; contract drift passed.
+- Wheel/sdist inventory validation passed and includes the complete AWS root and verifier.
 
 ## Decisions
 
-- Keep administrator use confined to the reviewed stage-zero apply.
-- Use a separate inline D7 policy with state-version access fixed to `dander/d7/control-plane/`.
-- Require the later application root to consume, never create, its deployment authority.
+- Use one provider-issued CloudFront HTTPS origin and a CloudFront-only public ALB.
+- Bind non-secret startup files into task revisions; use no config bucket or config-read identity.
+- Keep this single-instance profile experimental; only Control receives S3 graph permissions.
 
 ## Remaining
 
-- Complete independent review, protected PR, merge, and exact-main CI.
-- Reauthenticate with `aws login`, then apply the reviewed stage-zero permission change.
-- Implement the separate AWS D7 projection/Terraform/verifier PR.
-- Run bounded AWS/S3 live qualification and exact cleanup under the aggregate USD 10 cap.
+- Run protected PR CI, merge, and exact-main CI.
+- Reauthenticate with `aws login`; apply the already-merged stage-zero authority prerequisite.
+- Run reviewed foundation/full saved plans, immutable image copy, OIDC/browser/S3 proof, and rollback.
+- Destroy every disposable resource/state generation and verify retained AWS/GCP no-drift.
 
 ## Review First
 
-- `infra/aws/bootstrap-admin/main.tf`
-- `tests/bootstrap/test_aws_admin.py`
-- `tickets/DANDER-131-aws-control-plane-deployment.md`
+- `src/dander/deployment/aws_control_plane.py`
+- `infra/aws-control/main.tf`
+- `tests/deployment/test_aws_control_plane.py`
