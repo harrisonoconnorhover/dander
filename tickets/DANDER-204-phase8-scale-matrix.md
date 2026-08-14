@@ -35,6 +35,9 @@ scale report.
   left zero staging relations and removed their disposable TLS PostgreSQL schemas.
 - The exact-candidate correctness fixture also matched its approved normalized SHA-256 before and
   after replay, then removed its disposable schema and staging relations.
-- Five PostgreSQL classes now pass. Transform, failure, hosted cost, the other
+- Exact RC22's transform class passed scan, join, aggregation, incremental merge, and 21 generic
+  assertion executions over 100,000 facts and 100 dimensions. The initial harness-only seed
+  failure remains in the attempts record; it did not execute candidate transform code.
+- Six PostgreSQL classes now pass. Failure, hosted cost, the other
   warehouses, and every first-class launcher remain open. Crossover cannot pass on RC22 because
   its PostgreSQL factory exposes COPY only and has no bounded direct transport to compare.

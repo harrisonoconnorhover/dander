@@ -43,6 +43,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   transform, failure, hosted cost, and crossover remain open; RC22 has no direct transport for a
   crossover comparison. See `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`.
 
+- Exact RC22 also passed the PostgreSQL transform class: 100,000 facts joined 100 dimensions,
+  produced exact ten-category aggregates, applied one update plus one insert through the
+  incremental model, and passed 21 generic assertion executions. The final target held 100,001
+  rows and cleanup was exact. The first attempt stopped before candidate transform code on a
+  harness-only fixture escaping defect; the corrected retry and both cleanup outcomes are
+  retained in `docs/evidence/phase8/2026-08-14/postgresql-transform-attempts.json`.
+
 - On 2026-08-14, exact private RC22 replaced RC21 on all five retained jobs through a saved
   `0 add / 5 change / 0 destroy` plan. Authenticated Salesforce manual/replay executions
   `dander-salesforce-accounts-rxvvd` and `dander-salesforce-accounts-xmm4r` produced equal counts;
