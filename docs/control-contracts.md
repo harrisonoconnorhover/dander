@@ -284,9 +284,19 @@ only the disposable profile: two public application-protected services, distinct
 identities, numeric startup-config versions, and one private versioned graph bucket. The graph
 bucket alone disables soft-delete retention so exact qualification cleanup leaves no recoverable
 graph data; the retained Terraform-state bucket is unchanged. Generated configuration, state,
-saved plans, credentials, tokens, and graph rows remain outside commits. Implementation does not
-qualify the live GCP profile, a real identity provider, HA, or horizontal scale; those claims wait
-for the separate accepted live proof.
+saved plans, credentials, tokens, and graph rows remain outside commits.
+
+The named experimental GCP profile passed live qualification on 2026-08-14. One synthetic
+authorization-code/PKCE session created a canonical browser graph that survived a Control restart,
+immutable digest rollback, and active restoration with the same content hash. Every active and
+rollback live verifier passed, all required Terraform reconciliations reported literal
+`No changes.`, and exact cleanup removed the services, identities, config secrets, graph bucket,
+graph data, and disposable issuer resources. The isolated state prefix has no live or noncurrent
+objects; provider-managed recovery copies expire under the retained state bucket's deliberately
+unchanged policy. Fresh retained-GCP stage-zero and current-equivalent platform plans were also
+no-change without apply. The sanitized record is
+`docs/evidence/gcp/2026-08-14/d7-control-plane.json`. This qualifies neither a real identity
+provider nor GCP support, HA, or horizontal scale.
 
 ## Regenerate and verify
 
