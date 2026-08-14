@@ -11,7 +11,8 @@ created: 2026-08-13
 ## Context
 
 The PostgreSQL native profile and Helm lifecycle contract pass locally. Exact private RC22 now
-passes the complete lifecycle on a disposable Kubernetes 1.32.2 cluster; scale and soak remain open.
+passes the complete lifecycle and a five-class normalized scale slice on disposable Kubernetes
+1.32.2 clusters; the remaining launcher classes and soak remain open.
 
 ## Acceptance Criteria
 
@@ -28,5 +29,10 @@ passes the complete lifecycle on a disposable Kubernetes 1.32.2 cluster; scale a
   objective sets on local kind; the cluster, namespace, database, and Secrets were deleted.
 - The Kubernetes Warning event reached a live operator-owned watch. Dander still does not provision
   a monitoring stack or alert target, and hosted-provider alerting is not implied.
-- This closes the lifecycle portion only. Normalized scale/cost and scheduled soak remain open, so
-  the ticket and experimental profile status do not change.
+- The lifecycle portion remains closed. The later normalized slice does not close the remaining
+  launcher classes, hosted cost, or scheduled soak, so the ticket and experimental status remain.
+- A later exact-RC22 Job passed normalized correctness, bulk-throughput, incremental, transform,
+  and PostgreSQL-specific failure reports under 2 CPU/512 MiB, a 600-second deadline, and zero
+  retries. Both Jobs, PostgreSQL, Secrets, namespace, TLS material, and cluster were deleted. The
+  first successful Job's ephemeral reports could not be copied after completion; the unchanged
+  reporter-sidecar rerun retained all five reports and the attempt ledger preserves both outcomes.

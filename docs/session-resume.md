@@ -34,6 +34,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- Exact RC22 passed five normalized Kubernetes launcher classes on kind 1.32.2 under a 2 CPU/512
+  MiB limit, 600-second deadline, and zero retries against TLS PostgreSQL 15.18. Correctness, bulk,
+  incremental, transform, and PostgreSQL-specific failure reports all pass with exact candidate
+  identity and USD 0 local cost. An unchanged reporter-sidecar rerun retained the reports after the
+  first successful Job's ephemeral-volume collection limitation. Both Jobs and all namespace,
+  Secret, TLS, database, cluster, and temporary-tag resources were removed with zero Warning
+  events. See `docs/evidence/phase8/2026-08-14/kubernetes-postgresql-scale-attempts.json`.
+
 - On 2026-08-14, exact RC22 passed approved local PostgreSQL bulk and incremental classes inside
   its source-free 2 CPU/512 MiB image against disposable TLS PostgreSQL 15.18. It processed
   500,000 narrow and 200,000 wide COPY rows, then applied a 3,000-row delta against 300,000 seed

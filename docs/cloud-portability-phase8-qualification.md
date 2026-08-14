@@ -11,7 +11,7 @@ Phase 7 evidence merge.
 |---|---|---|
 | GCP native | Exact private RC22 passed authenticated manual/replay and Scheduler execution on the retained Cloud Run/BigQuery/Dataplex/Secret Manager profile, followed by no drift | Provider-measured cost, scale reports, and the retained soak remain open |
 | Fargate to GCP | Public `0.8.0rc8` passed manual/scheduled lifecycle, replay, interruption, alerts, rollback, cleanup, and no drift | Scale qualification remains open; this is not the AWS-native profile |
-| Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle, including alert visibility and cleanup | Hosted-provider proof, normalized scale/cost, and soak remain open |
+| Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle plus normalized correctness/bulk/incremental/transform/failure Jobs, including alert visibility and cleanup | Hosted-provider proof, remaining launcher classes/cost, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 also passed local PostgreSQL correctness, bounded-memory, concurrency, bulk, incremental, transform, and failure objectives | PostgreSQL crossover and hosted cost plus all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
@@ -125,6 +125,21 @@ failures remain in their respective connector and launcher profile gates.
 RC22's PostgreSQL writer factory exposes only `PostgreSQLCopyWriter`; it has no bounded direct
 transport to compare with COPY. The PostgreSQL crossover class therefore remains open as an exact
 candidate capability gap rather than receiving synthetic passing evidence.
+
+## Current Kubernetes scale evidence
+
+One exact-RC22 kind 1.32.2 Job ran the same five normalized classes under a 2 CPU/512 MiB limit,
+600-second deadline, and zero launcher retries against TLS PostgreSQL 15.18. Correctness, bulk,
+incremental, transform, and PostgreSQL-specific failure all passed; bulk processed 700,000 rows in
+19.206 seconds, and all reports record `launcher=kubernetes`, profile `kubernetes_portable`, exact
+candidate identity, USD 0 local cost, and the reviewed objectives. PostgreSQL retained no Dander
+schema or staging relation. The namespace, Secrets, TLS material, cluster, and temporary tags were
+deleted with zero Warning events.
+
+The first successful Job wrote reports only to its completed Pod's ephemeral volume; a second
+unchanged workload added a reporter sidecar and retained all five reports. Both successes and the
+collection limitation are preserved in the attempts ledger. This is a local launcher-scale slice,
+not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
 ## Current exit recommendation
 

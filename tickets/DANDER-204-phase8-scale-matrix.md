@@ -44,3 +44,6 @@ scale report.
 - Seven PostgreSQL classes now pass. Hosted cost, the other
   warehouses, and every first-class launcher remain open. Crossover cannot pass on RC22 because
   its PostgreSQL factory exposes COPY only and has no bounded direct transport to compare.
+- The Kubernetes portable launcher passed normalized correctness, bulk, incremental, transform,
+  and PostgreSQL-specific failure Jobs on kind 1.32.2 under its reviewed deadline, retry, CPU, and
+  memory controls. Remaining launcher classes, hosted scale/cost, and soak stay open.
