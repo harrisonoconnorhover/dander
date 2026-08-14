@@ -19,7 +19,8 @@ from dander.state import (
     RunHistoryStore,
     RunStage,
     RunStatus,
-    failure_diagnostic_was_logged,
+    failure_diagnostic_checkpoint,
+    failure_diagnostic_was_logged_since,
 )
 from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import TransformRunResult
@@ -504,8 +505,9 @@ def test_executor_marks_transform_failure_without_claiming_ingestion_only_succes
     _models(tmp_path)
     history = _History()
     caplog.set_level(logging.WARNING, logger="dander.executor")
+    diagnostic_checkpoint = failure_diagnostic_checkpoint()
 
-    with pytest.raises(RuntimeError, match="transform failed") as exc_info:
+    with pytest.raises(RuntimeError, match="transform failed"):
         _executor(
             tmp_path,
             history=history,
@@ -513,7 +515,7 @@ def test_executor_marks_transform_failure_without_claiming_ingestion_only_succes
             fail_transform=True,
         ).execute()
 
-    assert failure_diagnostic_was_logged(exc_info.value)
+    assert failure_diagnostic_was_logged_since(diagnostic_checkpoint)
     assert history.checkpoints == [RunStage.TRANSFORM]
     assert history.finished == (RunStatus.FAILED, RunStage.TRANSFORM, 0, 0, 0)
     assert history.failure is not None

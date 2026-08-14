@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -14,7 +15,7 @@ _MAX_SUMMARY_LENGTH = 512
 _MAX_EXCEPTION_CHAIN = 8
 _MAX_EXCEPTION_CLASS_LENGTH = 128
 _SAFE_EXCEPTION_CLASS = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_DIAGNOSTIC_LOGGED_ATTRIBUTE = "_dander_failure_diagnostic_logged"
+_DIAGNOSTIC_COUNT: ContextVar[int] = ContextVar("dander_failure_diagnostic_count", default=0)
 
 
 @dataclass(frozen=True)
@@ -131,17 +132,19 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
     )
 
 
-def mark_failure_diagnostic_logged(error: BaseException) -> None:
-    """Mark an exception after its authoritative failure diagnostic is emitted."""
-    setattr(error, _DIAGNOSTIC_LOGGED_ATTRIBUTE, True)
+def failure_diagnostic_checkpoint() -> int:
+    """Capture the current task-local diagnostic count before execution starts."""
+    return _DIAGNOSTIC_COUNT.get()
 
 
-def failure_diagnostic_was_logged(error: BaseException) -> bool:
-    """Return whether any exception in the causal chain owns the diagnostic."""
-    return any(
-        _safe_attribute(item, _DIAGNOSTIC_LOGGED_ATTRIBUTE) is True
-        for item in _exception_chain(error)
-    )
+def mark_failure_diagnostic_logged() -> None:
+    """Record that the current task emitted an authoritative failure diagnostic."""
+    _DIAGNOSTIC_COUNT.set(_DIAGNOSTIC_COUNT.get() + 1)
+
+
+def failure_diagnostic_was_logged_since(checkpoint: int) -> bool:
+    """Return whether the current task emitted a diagnostic after ``checkpoint``."""
+    return _DIAGNOSTIC_COUNT.get() > checkpoint
 
 
 def _details(

@@ -37,8 +37,9 @@
 
 - **Evidence contract:** Scale reports distinguish measured zero from unavailable data and cannot
   report `passed` without the exact candidate, provider coordinates, workload shape, approved cost
-  ceiling, provider job IDs, complete common measurements, explicit cost evidence, and the exact
-  independently approved objective-name set with every SLO assertion passed.
+  ceiling, provider job IDs, complete common measurements, explicit cost evidence, and an exact
+  independently approved objective-name set bound to that benchmark, profile, candidate, and
+  workload configuration, with every SLO assertion passed.
 - **Order:** AWS-native Fargate support is implementation work, not a live-proof rerun. Complete it
   before cutting the shared qualification candidate; then run Kubernetes, scale, pairwise, and
   soak evidence against that exact artifact.

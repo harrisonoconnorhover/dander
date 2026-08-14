@@ -24,6 +24,12 @@ from dander.telemetry import CostAttribution, PerformanceMeasurement, RunPerform
 
 _APPROVED_OBJECTIVES = ApprovedObjectiveSet(
     names=("cost_ceiling", "memory_bound"),
+    benchmark_class=BenchmarkClass.BOUNDED_MEMORY,
+    profile_id="kubernetes_portable",
+    release_version="0.9.0rc17",
+    git_commit="a" * 40,
+    image_digest=f"sha256:{'b' * 64}",
+    configuration_sha256="c" * 64,
     approval_reference="phase8/objectives/approved",
 )
 
@@ -43,7 +49,13 @@ def test_complete_bounded_memory_report_serializes_deterministically() -> None:
     assert payload["performance"]["costs"][0]["amount"] == "0"
     assert payload["approved_objectives"] == {
         "approval_reference": "phase8/objectives/approved",
+        "benchmark_class": "bounded_memory",
+        "configuration_sha256": "c" * 64,
+        "git_commit": "a" * 40,
+        "image_digest": f"sha256:{'b' * 64}",
         "names": ["cost_ceiling", "memory_bound"],
+        "profile_id": "kubernetes_portable",
+        "release_version": "0.9.0rc17",
     }
 
 
@@ -112,6 +124,24 @@ def test_pass_requires_the_exact_approved_objective_set() -> None:
         )
     with pytest.raises(ValueError, match="complete approved objective set"):
         _report(approved_objectives=None)
+
+
+@pytest.mark.parametrize(
+    "approved_objectives",
+    [
+        replace(_APPROVED_OBJECTIVES, benchmark_class=BenchmarkClass.BULK_THROUGHPUT),
+        replace(_APPROVED_OBJECTIVES, profile_id="gcp_native"),
+        replace(_APPROVED_OBJECTIVES, release_version="0.9.0rc18"),
+        replace(_APPROVED_OBJECTIVES, git_commit="d" * 40),
+        replace(_APPROVED_OBJECTIVES, image_digest=f"sha256:{'e' * 64}"),
+        replace(_APPROVED_OBJECTIVES, configuration_sha256="f" * 64),
+    ],
+)
+def test_pass_binds_approved_objectives_to_exact_report_context(
+    approved_objectives: ApprovedObjectiveSet,
+) -> None:
+    with pytest.raises(ValueError, match="exact benchmark, profile, workload, and candidate"):
+        _report(approved_objectives=approved_objectives)
 
 
 def test_bounded_memory_pass_enforces_input_ratio_and_peak_limit() -> None:

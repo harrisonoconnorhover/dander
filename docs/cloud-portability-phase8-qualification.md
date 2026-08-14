@@ -56,8 +56,9 @@ shapes, provider job IDs, approved cost ceiling, deterministic workload shape, c
 measurements, provider metrics, costs, and objective results.
 
 Every passed report also embeds one independently approved, exact objective-name set and its stable
-approval reference. Omitting or adding an objective cannot silently turn a partial benchmark into
-qualification evidence.
+approval reference, bound to the benchmark class, profile, release, commit, image digest, and
+workload-configuration hash. Omitting or adding an objective—or reusing a set approved for another
+context—cannot silently turn a partial benchmark into qualification evidence.
 
 Common measurements use `measured` or `unavailable`; an unavailable metric is never serialized as
 zero, and a boolean cannot be accepted as numeric evidence. Report status is separately

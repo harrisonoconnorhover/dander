@@ -37,5 +37,7 @@ persist unrestricted exception text.
   code, duration, class chain, and status while leaving durable history unchanged.
 - The launcher-neutral runtime CLI emits the same sanitized identity when secret resolution,
   provider construction, or other setup fails before `PipelineExecutor` can run.
+- A task-local diagnostic checkpoint prevents the CLI from duplicating an authoritative executor
+  event without mutating arbitrary provider exception objects.
 - Local failure, executor, runtime-CLI, telemetry, and qualification tests pass. Retained-provider
   evidence remains approval-gated and is intentionally not claimed here.

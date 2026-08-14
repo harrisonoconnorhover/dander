@@ -340,7 +340,7 @@ class PipelineExecutor:
                 json.dumps(diagnostic, separators=(",", ":"), sort_keys=True),
                 extra={"dander_event": "pipeline_failed", **diagnostic},
             )
-            mark_failure_diagnostic_logged(error)
+            mark_failure_diagnostic_logged()
             raise
         finally:
             if heartbeat is not None:

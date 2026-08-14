@@ -43,7 +43,8 @@ from dander.state import (
     FailureDetails,
     RunStage,
     classify_failure,
-    failure_diagnostic_was_logged,
+    failure_diagnostic_checkpoint,
+    failure_diagnostic_was_logged_since,
 )
 
 runtime_app = typer.Typer(
@@ -209,6 +210,7 @@ def execute_runtime(
         publish_dataplex=False,
         dataplex_location="us",
     )
+    diagnostic_checkpoint = failure_diagnostic_checkpoint()
     try:
         with (
             graceful_signal_handlers(),
@@ -224,7 +226,7 @@ def execute_runtime(
             )
     except RuntimeCancelledError as error:
         failure = classify_failure(error, stage=RunStage.INGEST, run_id=context.run_id)
-        if not failure_diagnostic_was_logged(error):
+        if not failure_diagnostic_was_logged_since(diagnostic_checkpoint):
             _log_failure_diagnostic(
                 failure=failure,
                 run_id=context.run_id,
@@ -248,7 +250,7 @@ def execute_runtime(
         failure = classify_failure(error, stage=RunStage.INGEST, run_id=context.run_id)
         if failure.code != "unexpected_error":
             retryable = is_retryable_failure(failure.code)
-            if not failure_diagnostic_was_logged(error):
+            if not failure_diagnostic_was_logged_since(diagnostic_checkpoint):
                 _log_failure_diagnostic(
                     failure=failure,
                     run_id=context.run_id,
@@ -273,7 +275,7 @@ def execute_runtime(
                 else RuntimeExitCode.PERMANENT_FAILURE
             )
             raise typer.Exit(code=code) from None
-        if not failure_diagnostic_was_logged(error):
+        if not failure_diagnostic_was_logged_since(diagnostic_checkpoint):
             _log_failure_diagnostic(
                 failure=failure,
                 run_id=context.run_id,
@@ -296,7 +298,7 @@ def execute_runtime(
     except Exception as error:
         failure = classify_failure(error, stage=RunStage.INGEST, run_id=context.run_id)
         retryable = is_retryable_failure(failure.code)
-        if not failure_diagnostic_was_logged(error):
+        if not failure_diagnostic_was_logged_since(diagnostic_checkpoint):
             _log_failure_diagnostic(
                 failure=failure,
                 run_id=context.run_id,

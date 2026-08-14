@@ -344,13 +344,17 @@ def test_runtime_execute_does_not_duplicate_executor_diagnostic(
     monkeypatch: MonkeyPatch,
     caplog: LogCaptureFixture,
 ) -> None:
+    class LockedProviderError(RuntimeError):
+        def __setattr__(self, _name: str, _value: object) -> None:
+            raise AssertionError("provider exception must not be mutated")
+
     def fail(*_args: object, **_kwargs: object) -> None:
-        error = RuntimeError("private-executor-detail")
+        error = LockedProviderError("private-executor-detail")
         logging.getLogger("dander.executor").warning(
             '{"event":"pipeline_failed","stage":"transform"}',
             extra={"dander_event": "pipeline_failed"},
         )
-        mark_failure_diagnostic_logged(error)
+        mark_failure_diagnostic_logged()
         raise error
 
     with caplog.at_level(logging.WARNING):

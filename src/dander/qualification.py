@@ -72,9 +72,15 @@ class ApprovedCostCeiling:
 
 @dataclass(frozen=True, slots=True)
 class ApprovedObjectiveSet:
-    """Human-approved objective names bound to one stable approval record."""
+    """Human-approved objectives bound to one exact benchmark and candidate."""
 
     names: tuple[str, ...]
+    benchmark_class: BenchmarkClass
+    profile_id: str
+    release_version: str
+    git_commit: str
+    image_digest: str
+    configuration_sha256: str
     approval_reference: str
 
     def __post_init__(self) -> None:
@@ -84,11 +90,32 @@ class ApprovedObjectiveSet:
             raise ValueError("approved objective names must be unique and sorted")
         for name in self.names:
             _require_name(name, label="approved objective name")
+        if not isinstance(self.benchmark_class, BenchmarkClass):
+            raise ValueError("approved objective benchmark class must be a BenchmarkClass")
+        _require_name(self.profile_id, label="approved objective profile")
+        _require_reference(self.release_version, label="approved objective release version")
+        if not isinstance(self.git_commit, str) or _GIT_COMMIT.fullmatch(self.git_commit) is None:
+            raise ValueError("approved objective git commit must be a full lowercase SHA-1")
+        if not isinstance(self.image_digest, str) or _DIGEST.fullmatch(self.image_digest) is None:
+            raise ValueError("approved objective image digest must be an immutable sha256 digest")
+        if (
+            not isinstance(self.configuration_sha256, str)
+            or _DIGEST.fullmatch(f"sha256:{self.configuration_sha256}") is None
+        ):
+            raise ValueError(
+                "approved objective configuration_sha256 must contain 64 lowercase hex characters"
+            )
         _require_reference(self.approval_reference, label="objective approval reference")
 
     def to_payload(self) -> dict[str, object]:
         return {
             "names": list(self.names),
+            "benchmark_class": self.benchmark_class.value,
+            "profile_id": self.profile_id,
+            "release_version": self.release_version,
+            "git_commit": self.git_commit,
+            "image_digest": self.image_digest,
+            "configuration_sha256": self.configuration_sha256,
             "approval_reference": self.approval_reference,
         }
 
@@ -333,6 +360,22 @@ class QualificationReport:
             or tuple(item.name for item in self.objectives) != self.approved_objectives.names
         ):
             raise ValueError("passed qualification requires the complete approved objective set")
+        assert self.context.release_version is not None
+        assert self.context.git_commit is not None
+        assert self.context.image_digest is not None
+        assert self.workload.configuration_sha256 is not None
+        if (
+            self.approved_objectives.benchmark_class is not self.workload.benchmark_class
+            or self.approved_objectives.profile_id != self.context.profile_id
+            or self.approved_objectives.release_version != self.context.release_version
+            or self.approved_objectives.git_commit != self.context.git_commit
+            or self.approved_objectives.image_digest != self.context.image_digest
+            or self.approved_objectives.configuration_sha256 != self.workload.configuration_sha256
+        ):
+            raise ValueError(
+                "passed qualification approved objectives must match the exact benchmark, "
+                "profile, workload, and candidate"
+            )
         if any(item.status is not ObjectiveStatus.PASSED for item in self.objectives):
             raise ValueError("passed qualification requires every objective to pass")
         if not self.performance.costs:

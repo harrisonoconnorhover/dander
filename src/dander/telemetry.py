@@ -69,7 +69,9 @@ class PerformanceMeasurement:
         """Build an explicitly measured value, including an honestly measured zero."""
         if isinstance(value, bool):
             raise ValueError("measured qualification value must not be a boolean")
-        decimal_value = value if isinstance(value, Decimal) else Decimal(value)
+        if not isinstance(value, (int, Decimal)):
+            raise ValueError("measured qualification value must be an integer or Decimal")
+        decimal_value = Decimal(value)
         return cls(
             name=name,
             unit=unit,

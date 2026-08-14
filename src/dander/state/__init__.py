@@ -3,7 +3,8 @@
 from dander.state.failure import (
     FailureDetails,
     classify_failure,
-    failure_diagnostic_was_logged,
+    failure_diagnostic_checkpoint,
+    failure_diagnostic_was_logged_since,
     mark_failure_diagnostic_logged,
 )
 from dander.state.lease import (
@@ -52,6 +53,7 @@ __all__ = [
     "StateRuntime",
     "WatermarkStore",
     "classify_failure",
-    "failure_diagnostic_was_logged",
+    "failure_diagnostic_checkpoint",
+    "failure_diagnostic_was_logged_since",
     "mark_failure_diagnostic_logged",
 ]

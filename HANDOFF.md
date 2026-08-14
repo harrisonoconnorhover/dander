@@ -3,7 +3,7 @@
 ## Finished
 
 - Rebased Phase 8 over protected main `63ba867` while preserving Druff and RC20 release evidence.
-- Addressed review blockers for SLO sets, AWS secrets/partitions, deployment selection, diagnostic ownership, and numeric evidence.
+- Addressed review blockers for context-bound SLO sets, AWS secrets/partitions, deployment selection, diagnostic ownership, and strict numeric evidence.
 - Renumbered the Phase 8 chain to DANDER-200 through DANDER-207 after Druff consumed DANDER-128.
 - Kept AWS task permissions scoped to declared Redshift, S3, Glue, and Secrets Manager resources.
 - Recorded the user's USD 10 aggregate live-cloud authorization; spend remains USD 0.
@@ -15,9 +15,9 @@ Run `uv run pytest -q tests/test_qualification.py tests/test_runtime_secrets.py 
 ## Checks
 
 - Focused Ruff lint and format checks passed.
-- Latest focused Python contracts passed: 47 tests.
+- Latest focused Python contracts passed: 52 tests.
 - Full Ruff, format, mypy, and pytest suite passed with expected skips.
-- Protected CI passed all five jobs on `8c65177`; a new exact-head run is required after the latest corrections.
+- Protected CI passed all five jobs on `ff283a7`; a new exact-head run is required after the latest corrections.
 - Fargate Terraform formatting and validation passed.
 - Fargate mocked Terraform tests passed: 4 of 4.
 
