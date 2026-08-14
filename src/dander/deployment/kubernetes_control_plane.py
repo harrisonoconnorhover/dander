@@ -410,7 +410,7 @@ def verify_live_kubernetes_control_plane(
         raise KubernetesControlPlaneError("Kubernetes Control liveness response is invalid.")
     if json.loads(ready_body) != {"status": "ready"}:
         raise KubernetesControlPlaneError("Kubernetes Control readiness response is invalid.")
-    if bootstrap_body != rendered["bootstrap.json"].encode():
+    if bootstrap_body != rendered["bootstrap.json"].rstrip("\n").encode():
         raise KubernetesControlPlaneError("Served bootstrap differs from the projection.")
     if bootstrap_headers.get("cache-control") != "no-store" or any(
         not bootstrap_headers.get(name)
