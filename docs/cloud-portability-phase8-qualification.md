@@ -14,7 +14,7 @@ Phase 7 evidence merge.
 | Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle, including alert visibility and cleanup | Hosted-provider proof, normalized scale/cost, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; provider-specific bounded qualifications also exist | Existing PostgreSQL, Snowflake, and Redshift reports are not Phase 8 scale reports; BigQuery has no normalized scale report |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 also passed local PostgreSQL bounded-memory and four-pipeline concurrency objectives | The remaining PostgreSQL classes and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
 | Audits | Protected CI passes tests, lint, typing, dependency audit, distribution install, Terraform validation/security, secret scan, and image scans | Repeat against the final candidate after Phase 8 implementation |
 
 ## Open gates and dependency order
@@ -96,7 +96,8 @@ Cartesian product. A case cannot change to supported from adapter tests alone.
 ## Current exit recommendation
 
 Phase 8 remains open. The safe diagnostic retained-provider gate, corrected immutable candidate,
-and exact-candidate local Kubernetes lifecycle are complete. The exact unmet gates are Kubernetes
+exact-candidate local Kubernetes lifecycle, and local PostgreSQL bounded-memory/concurrency reports
+are complete. The exact unmet gates are the other benchmark classes and providers, Kubernetes
 scale/soak, hosted-provider and pairwise live proofs, approved scale/cost reports for every
 first-class warehouse and launcher, current canonical-profile evidence, release-candidate soak,
 final audits, and the frozen support matrix.

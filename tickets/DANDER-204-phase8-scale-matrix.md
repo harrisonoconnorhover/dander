@@ -22,3 +22,13 @@ scale report.
 - [ ] Every report records exact artifact, provider, workload, job, cost, cleanup, and objective
   evidence without credentials or row data.
 - [ ] Optimization occurs only for a measured failed SLO and retains canonical equality.
+
+## Implementation Notes
+
+- Exact private RC22 passed the local PostgreSQL bounded-memory and four-pipeline concurrency
+  objective sets on PostgreSQL 15.18 over TLS. The externally enforced 256 MiB run processed
+  2.7248 GB logical input with 176,734,208 bytes peak RSS and left no staging relations.
+- The initial 192 MiB bounded-memory attempt exceeded the approved 80% RSS threshold without an
+  OOM. It remains in the attempts ledger; the proportional 256 MiB retry is the passing report.
+- This closes only two PostgreSQL benchmark classes. Bulk, incremental, transform, failure,
+  crossover, cost, the other warehouses, and every first-class launcher remain open.
