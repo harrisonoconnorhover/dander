@@ -76,3 +76,8 @@ with its own 404 while the configured internal liveness probe succeeds. The veri
 checks the existing exact `authentication_required` Control error code. The corrected verifier
 passed against the active disposable deployment; browser persistence and the remaining live gate
 are still pending.
+
+The first post-apply plan also showed that Cloud Run returns explicit zero service-level scaling
+defaults even when Terraform omits that block, producing a perpetual two-service normalization
+diff. Recording those same zero defaults is behavior-neutral, keeps both services scale-to-zero,
+and makes the required no-change plans meaningful rather than waiving provider noise.

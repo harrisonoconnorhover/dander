@@ -133,6 +133,11 @@ resource "google_cloud_run_v2_service" "control" {
     component  = "control"
   }
 
+  scaling {
+    manual_instance_count = 0
+    min_instance_count    = 0
+  }
+
   template {
     service_account                  = google_service_account.control.email
     timeout                          = "300s"
@@ -237,6 +242,11 @@ resource "google_cloud_run_v2_service" "druff" {
     managed-by = "dander"
     phase      = "d7"
     component  = "druff"
+  }
+
+  scaling {
+    manual_instance_count = 0
+    min_instance_count    = 0
   }
 
   template {

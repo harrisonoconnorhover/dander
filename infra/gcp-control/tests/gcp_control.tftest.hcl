@@ -40,6 +40,10 @@ run "projects_private_keyless_cloud_run_profile" {
       google_storage_bucket_iam_member.control_objects.role == "roles/storage.objectUser" &&
       google_service_account.control.account_id == "dander-control-d7" &&
       google_service_account.druff.account_id == "druff-control-d7" &&
+      google_cloud_run_v2_service.control.scaling[0].manual_instance_count == 0 &&
+      google_cloud_run_v2_service.control.scaling[0].min_instance_count == 0 &&
+      google_cloud_run_v2_service.druff.scaling[0].manual_instance_count == 0 &&
+      google_cloud_run_v2_service.druff.scaling[0].min_instance_count == 0 &&
       google_cloud_run_v2_service.control.invoker_iam_disabled &&
       google_cloud_run_v2_service.druff.invoker_iam_disabled
     )
