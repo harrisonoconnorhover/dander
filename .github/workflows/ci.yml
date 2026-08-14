@@ -85,6 +85,9 @@ jobs:
           terraform -chdir=aws validate
           terraform -chdir=aws/modules/fargate init -backend=false -input=false
           terraform -chdir=aws/modules/fargate test
+          terraform -chdir=aws-control init -backend=false -input=false
+          terraform -chdir=aws-control validate
+          terraform -chdir=aws-control test
       - name: Validate Azure Terraform stacks
         run: |
           terraform -chdir=azure/bootstrap-admin init -backend=false -input=false
