@@ -1,0 +1,22 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {"amount_usd": "0.00", "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"},
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-bulk-incremental/v1",
+    "benchmark_class": "incremental",
+    "batch_rows": 1000,
+    "seed_rows": 300000,
+    "delta_rows": 3000,
+    "payload_bytes": 128
+  },
+  "approved_objectives": {
+    "names": ["cleanup", "cost_ceiling", "delta_target_ratio", "exact_result", "incremental_cursor_monotonic", "incremental_throughput_measurement"],
+    "benchmark_class": "incremental",
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc22",
+    "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "configuration_sha256": "a568e83683c548350f2982d3236c33755ff9cb878e3b7f06285645c1ca6606c1",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  }
+}

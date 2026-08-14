@@ -225,6 +225,9 @@ class CandidateIdentity:
     image_digest: str
     approval_reference: str
     benchmark_date: date
+    launcher: str
+    regions: tuple[str, ...]
+    secret_provider: str
     provider_job_ids: tuple[str, ...]
     service_shapes: tuple[str, ...]
 
@@ -1626,12 +1629,12 @@ def _context(identity: CandidateIdentity, approval: _Approval) -> QualificationC
         image_digest=identity.image_digest,
         benchmark_date=identity.benchmark_date,
         profile_id=approval.objectives.profile_id,
-        launcher="local",
+        launcher=identity.launcher,
         warehouse="postgresql",
         state_backend="postgresql",
         catalog="none",
-        secret_provider="environment",
-        regions=("local",),
+        secret_provider=identity.secret_provider,
+        regions=identity.regions,
         service_shapes=identity.service_shapes,
         provider_job_ids=identity.provider_job_ids,
         cost_ceiling=approval.cost_ceiling,
@@ -1740,6 +1743,9 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--benchmark-date", type=date.fromisoformat, required=True)
     parser.add_argument("--provider-job-id", action="append", required=True)
     parser.add_argument("--service-shape", action="append", required=True)
+    parser.add_argument("--launcher", default="local")
+    parser.add_argument("--region", action="append")
+    parser.add_argument("--secret-provider", default="environment")
     parser.add_argument("--output-directory", type=Path, required=True)
     parser.add_argument("--narrow-rows", type=int, default=500_000)
     parser.add_argument("--narrow-payload-bytes", type=int, default=32)
@@ -1802,6 +1808,9 @@ def main() -> None:
         image_digest=arguments.image_digest,
         approval_reference=arguments.approval_reference,
         benchmark_date=arguments.benchmark_date,
+        launcher=arguments.launcher,
+        regions=tuple(sorted(set(arguments.region or ("local",)))),
+        secret_provider=arguments.secret_provider,
         provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
         service_shapes=tuple(sorted(set(arguments.service_shape))),
     )
