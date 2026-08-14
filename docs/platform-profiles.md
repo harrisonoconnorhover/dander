@@ -129,8 +129,9 @@ The PostgreSQL warehouse adapter is selectable but not yet a supported hosted pr
 declared schemas, creates database-local schemas and relations, and defaults to streaming records
 through PostgreSQL `COPY`. An opt-in direct path may be configured with both `direct_max_rows` and
 `direct_max_logical_bytes`; it is selected only when the complete endpoint fits both bounds and
-otherwise preserves the prefix and falls back to COPY. Both settings default to zero until Phase 8
-crossover evidence supplies a measured threshold. Enabling direct selection makes every mode
+otherwise preserves the prefix and falls back to COPY. Both settings default to zero. Private local
+RC23 measured a conservative 10-row/1,400-byte crossover for its exact TLS PostgreSQL 15.18 shape,
+but that unprotected arm64 result does not set a global hosted default. Enabling direct selection makes every mode
 consume one bounded endpoint so executor batching cannot change the physical-path decision.
 Every mode publishes inside the same transactionally verified destination fence. Temporary staging
 uses `ON COMMIT DROP`; nullable top-level columns may be added when additive evolution is selected.

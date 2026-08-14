@@ -16,7 +16,7 @@ passes the complete lifecycle and a five-class normalized scale slice on disposa
 
 ## Acceptance Criteria
 
-- [x] One named Kubernetes 1.27+ cluster runs the final candidate with PostgreSQL state/warehouse,
+- [ ] One named Kubernetes 1.27+ cluster runs the final candidate with PostgreSQL state/warehouse,
   catalog `none`, and an existing Secret projection.
 - [x] Manual/scheduled execution, replay, overlap, interruption/deadline, rotation, alerting,
   upgrade, rollback, cleanup, and chart verification pass.
@@ -36,3 +36,6 @@ passes the complete lifecycle and a five-class normalized scale slice on disposa
   retries. Both Jobs, PostgreSQL, Secrets, namespace, TLS material, and cluster were deleted. The
   first successful Job's ephemeral reports could not be copied after completion; the unchanged
   reporter-sidecar rerun retained all five reports and the attempt ledger preserves both outcomes.
+- RC22 remains accepted baseline evidence, but the bounded direct-write change moved the prospective
+  final candidate to RC23 or a successor. The final-candidate Kubernetes rerun is therefore open;
+  no RC22 result is silently transferred.

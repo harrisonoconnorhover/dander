@@ -1,11 +1,12 @@
 # Engineering Decisions
 
-## 2026-08-14 — PostgreSQL direct writes stay disabled until crossover qualification
+## 2026-08-14 — PostgreSQL direct defaults stay disabled after local crossover
 
 - **Selection:** PostgreSQL admits direct inserts only when both `direct_max_rows` and
   `direct_max_logical_bytes` are positive and the complete endpoint fits both limits. Zero remains
-  the default for both settings, preserving the accepted COPY behavior until measured evidence
-  supplies a crossover threshold.
+  the default for both settings, preserving the accepted COPY behavior. Private local RC23 measured
+  a conservative same-shape threshold of 10 rows and 1,400 logical bytes; one unprotected arm64
+  result does not justify changing a global hosted default.
 - **Bound:** Selection retains at most the reviewed row limit plus one overflow row and at most one
   byte-limit overflow row. An endpoint that crosses either bound replays the retained prefix into
   the existing streaming COPY path without row loss or reordering.

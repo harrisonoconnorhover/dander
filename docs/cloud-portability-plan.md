@@ -1236,9 +1236,11 @@ Tickets:
 6. perform release-candidate soak with schedules enabled in each approved profile;
 7. freeze the tested compatibility matrix and known limitations.
 
-Exact private RC22 has completed item 5 through protected CI and a local exact-artifact repeat.
-Items 1, 3, 4, 6, and 7 remain open where their provider/profile evidence is incomplete; the audit
-does not promote an experimental profile.
+Exact private RC22 completed item 5 for its source through protected CI and a local exact-artifact
+repeat. The later direct-write capability required private arm64 RC23; RC23 has passed local
+artifact/security preflight and PostgreSQL crossover, but protected review, a multi-platform build,
+and final-candidate reruns remain. Items 1, 3, 4, 6, and 7 stay open where provider/profile evidence
+is incomplete; neither audit promotes an experimental profile.
 
 Exit gate:
 

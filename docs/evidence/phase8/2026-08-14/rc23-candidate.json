@@ -1,0 +1,36 @@
+{
+  "schema": "io.dander.phase8.candidate-evidence/v1",
+  "status": "private_local_candidate",
+  "release_version": "0.9.0rc23",
+  "git_commit": "2455fc34d4503863060b7bac873be36319c13e4f",
+  "protected_review": false,
+  "protected_main_ci_run": null,
+  "wheel_sha256": "aba6bf4c8c6f60eb321d201724b50e442114d092e1260537371a309f0df146cc",
+  "sdist_sha256": "1e22abb085741b6506414f74fc60d5415ede540801a45ae6b0ecf6355321c96c",
+  "image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064",
+  "private_registry_tag": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander:qualification-0.9.0rc23-arm64",
+  "platform_manifests": {
+    "linux/arm64": "sha256:84cc6d5fe9ca768a84efa4d362098ecb8948194ca22045c65dee7621afa5cddd"
+  },
+  "attestation_manifest": "sha256:c33bf2d684e3f27c6a01d4da8f2f2b09e98cf499151aae8fed7da917b640aa80",
+  "multi_platform": false,
+  "source_free": false,
+  "source_layout": "repository Dockerfile retains checkout sources; private local qualification only",
+  "runtime_inspection": {
+    "contract": "io.dander.runtime/v1",
+    "release_version": "0.9.0rc23",
+    "read_only_image_execution_passed": true,
+    "non_root_uid": 65532
+  },
+  "publication": {
+    "visibility": "private",
+    "attempts": 2,
+    "first_attempt_status": "transient_manifest_commit_502",
+    "second_attempt_status": "succeeded",
+    "completed_at": "2026-08-14T21:04:11Z"
+  },
+  "qualification_status": "local_postgresql_crossover_passed_only",
+  "public_release": false,
+  "provider_measured_cost_usd": null,
+  "cost_status": "provider_invoice_pending"
+}

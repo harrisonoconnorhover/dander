@@ -63,15 +63,25 @@ PostgreSQL 15.18 at 2 CPU/1 GiB:
 This does not close PostgreSQL crossover or hosted cost. RC22 has only the COPY-backed writer and
 therefore no bounded direct path with which to measure a crossover threshold.
 
-## Post-RC22 crossover implementation
+## RC23 local crossover evidence
 
-The next local Phase 8 slice adds an opt-in direct insert path behind paired row and logical-byte
+The post-RC22 Phase 8 slice adds an opt-in direct insert path behind paired row and logical-byte
 limits. Both limits default to zero, so existing manifests and the exact RC22 evidence continue to
 use COPY. When enabled, the writer sees the complete endpoint, selects direct only if both bounds
 hold, and otherwise chains the retained prefix back into COPY without loss or reordering. Direct
 and COPY use the same transaction-local staging relation, destination fence, and logical
 publication statements; emitted load telemetry records the selected transport.
 
-This implementation is not RC22 qualification evidence. A new immutable candidate must pass a
-pre-approved crossover workload before any nonzero threshold is recommended or recorded as
-qualified.
+Private arm64 RC23 at commit `2455fc34d4503863060b7bac873be36319c13e4f` and image index
+`sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064` passed the pre-approved
+local crossover workload against TLS PostgreSQL 15.18. The harness alternated COPY and DIRECT over
+five repetitions at 1, 10, 100, 1,000, and 5,000 rows, compared exact canonical row hashes, and
+verified selected-transport telemetry and cleanup. Median milliseconds were COPY/DIRECT 7/8, 7/7,
+8/10, 23/39, and 82/169 respectively. The conservative same-shape recommendation is 10 rows and
+1,400 logical bytes.
+
+The first attempt completed the workload but could not serialize the report because provider
+metrics were not sorted; the corrected harness reran the unchanged objective set and passed all
+seven objectives at USD 0 local service cost. Defaults remain zero: this single private arm64 local
+measurement is useful tuning evidence, but it is not protected review, hosted cost evidence, or a
+support promotion. See `docs/evidence/phase8/2026-08-14/postgresql-crossover.json`.

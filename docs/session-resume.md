@@ -34,6 +34,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
+  was published only to the private qualification registry at index `sha256:8bd35188…3064`. It
+  passed exact artifact/runtime/security preflight and the pre-approved local DIRECT-to-COPY
+  crossover against TLS PostgreSQL 15.18. DIRECT tied COPY only at 10 rows, producing a conservative
+  same-shape threshold of 10 rows/1,400 logical bytes; defaults remain disabled. RC23 is unprotected,
+  arm64-only, and not a support candidate. See `docs/evidence/phase8/2026-08-14/rc23-local-audit.json`.
+
 - Exact RC22 passed five normalized Kubernetes launcher classes on kind 1.32.2 under a 2 CPU/512
   MiB limit, 600-second deadline, and zero retries against TLS PostgreSQL 15.18. Correctness, bulk,
   incremental, transform, and PostgreSQL-specific failure reports all pass with exact candidate
@@ -47,8 +54,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   500,000 narrow and 200,000 wide COPY rows, then applied a 3,000-row delta against 300,000 seed
   rows with an exact 301,500-row result and rejected cursor regression. A separate exact-candidate
   correctness fixture matched its approved normalized SHA-256 before and after replay. All three
-  schemas and staging relations were removed; measured local service cost was USD 0. PostgreSQL
-  hosted cost and crossover remain open; RC22 has no direct transport for a crossover comparison.
+  schemas and staging relations were removed; measured local service cost was USD 0. RC22 has no
+  direct transport for a crossover comparison. RC23 supplies the separate local crossover above,
+  but the seven RC22 reports do not transfer and PostgreSQL hosted cost remains open.
   See `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`.
 
 - Exact RC22 also passed the PostgreSQL transform class: 100,000 facts joined 100 dimensions,

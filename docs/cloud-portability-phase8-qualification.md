@@ -14,37 +14,43 @@ Phase 7 evidence merge.
 | Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle plus normalized correctness/bulk/incremental/transform/failure Jobs, including alert visibility and cleanup | Hosted-provider proof, remaining launcher classes/cost, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 also passed local PostgreSQL correctness, bounded-memory, concurrency, bulk, incremental, transform, and failure objectives | PostgreSQL crossover and hosted cost plus all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 protected CI and the local final-candidate repeat pass tests, lint, typing, dependency/distribution, Terraform/Helm, secret, runtime, and image gates | Finish profile-specific operator docs and freeze statuses only after the remaining live gates |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, and private local RC23 passed the bounded DIRECT-to-COPY crossover | Hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
+| Audits | Exact RC22 passed protected CI and the final-candidate repeat; private arm64 RC23 passed the local artifact, runtime, dependency, secret, infrastructure, and image preflight | RC23 protected review/multi-platform build and every final-candidate rerun remain open, as do profile docs and the status freeze |
 
 ## Open gates and dependency order
 
-1. Publish the normalized report contract and keep historical partial reports `not_evaluated`.
+1. Completed: publish the normalized report contract and keep historical partial reports
+   `not_evaluated`.
 2. Completed on 2026-08-14: sanitized failure diagnostics merged and exact RC21 retained execution
    `dander-servicenow-incidents-7kxl4` emitted bounded class chains and a numeric status without
    messages, bodies, credentials, DSNs, or rows. This proves safe causal identity, not the external
    ServiceNow root cause.
-3. Complete protected review of the locally implemented AWS-native
-   Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets profile. The factory and saved-plan Terraform path
-   now accept only that exact composition or the previously accepted GCP composition; no live AWS
-   qualification or support claim exists yet.
-4. Cut one immutable release candidate after the AWS-native implementation and diagnostics merge.
-5. Use that exact candidate for the Kubernetes live profile, provider scale matrix, pairwise
-   matrix, canonical live-profile reruns, and release-candidate soak.
-6. Repeat release audits and freeze the compatibility and limitation documents only after every
-   required report passes.
+3. Completed: the AWS-native Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets profile passed protected
+   review; live AWS qualification and support promotion remain separate gates.
+4. Completed as a baseline: protected private RC22 was cut after those merges and used for the GCP,
+   local Kubernetes, and seven-class PostgreSQL records.
+5. In progress: the post-RC22 bounded direct-write change is packaged as private arm64 RC23. Its
+   local PostgreSQL crossover passes, but protected review and a source-free multi-platform build
+   must precede treating RC23 or a successor as the final qualification candidate.
+6. Use one protected exact candidate for every remaining scale, cost, pairwise, canonical-profile,
+   Kubernetes, and soak gate; then repeat the full audit and freeze the compatibility documents.
 
 The operator approved cloud mutations, conservative provider-specific SLO selection, and an
-aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Private RC22 publication and the retained GCP
-diagnostic ran within pre-recorded USD 0.75 and USD 1.25 allocations; provider-measured charges
-have not posted, so no exact cost is claimed. Each paid run must still record its objective manifest
-and per-run allocation before mutation, preserve the dependency order, and use the immutable
-candidate.
+aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Private RC22 publication, the retained GCP
+diagnostic, and private arm64 RC23 publication use pre-recorded USD 0.75, USD 1.25, and USD 0.25
+allocations; provider-measured charges have not posted, so no exact cloud cost is claimed. Each paid
+run must still record its objective manifest and per-run allocation before mutation, preserve the
+dependency order, and use the immutable candidate.
 
-Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` is the exact
-qualification candidate. Its source-free multi-platform index is
+Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
+protected exact candidate for its existing qualification records. Its source-free multi-platform index is
 `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; both deployment
-selectors passed read-only runtime inspection. Public RC20 remains unchanged.
+selectors passed read-only runtime inspection. Private local `0.9.0rc23` at
+`2455fc34d4503863060b7bac873be36319c13e4f` adds the bounded direct path and is published only as
+an arm64 qualification image at index
+`sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064`. It is not protected,
+multi-platform, or a support candidate, and RC22 reports do not transfer to it. Public RC20 remains
+unchanged.
 
 ## Pre-candidate release readiness
 
@@ -67,6 +73,12 @@ images. Pip-audit found no known dependency vulnerability; workflow-pinned Trivy
 HIGH/CRITICAL infrastructure or image finding; workflow-pinned Gitleaks found no leak across 453
 commits. The post-merge regression suite passed 1,702 tests with 28 skips. See
 `docs/evidence/phase8/2026-08-14/rc22-local-audit.json`.
+
+Private arm64 RC23 separately passed its local preflight: exact wheel/source inspection and clean
+runtime-all installs, rootless read-only runtime execution, release/control metadata checks,
+1,708 tests with 34 skips, dependency and exact-source secret audits, and zero HIGH/CRITICAL Trivy
+findings in the image or infrastructure. This does not substitute for protected CI or the final
+multi-platform candidate audit. See `docs/evidence/phase8/2026-08-14/rc23-local-audit.json`.
 
 ## Normalized report contract
 
@@ -134,9 +146,15 @@ the enclosing transaction rolled back. All six approved objectives passed in 173
 cleanup and USD 0 local cost. Connector throttling/credential expiry and catalog/process/launcher
 failures remain in their respective connector and launcher profile gates.
 
-RC22's PostgreSQL writer factory exposes only `PostgreSQLCopyWriter`; it has no bounded direct
-transport to compare with COPY. The PostgreSQL crossover class therefore remains open as an exact
-candidate capability gap rather than receiving synthetic passing evidence.
+RC22's PostgreSQL writer factory exposes only COPY, so its record cannot satisfy crossover. Private
+local RC23 adds paired row/byte bounds and ran the pre-approved crossover workload against TLS
+PostgreSQL 15.18. Across five repetitions at 1, 10, 100, 1,000, and 5,000 rows, COPY and DIRECT
+produced equal canonical rows and emitted their selected transports. DIRECT tied COPY only at 10
+rows; the recorded conservative local threshold is therefore 10 rows and 1,400 logical bytes.
+All seven objectives and cleanup passed at USD 0 local cost. The first attempt completed its
+workload but failed report construction on unsorted provider metrics; the corrected harness rerun
+retains the same objective manifest. Global defaults remain disabled because this is one local,
+arm64, unprotected result, not hosted or final-candidate evidence.
 
 ## Current Kubernetes scale evidence
 
@@ -155,11 +173,11 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
 ## Current exit recommendation
 
-Phase 8 remains open. The safe diagnostic retained-provider gate, corrected immutable candidate,
-exact-candidate local Kubernetes lifecycle, local PostgreSQL bounded-memory/concurrency reports,
-local PostgreSQL correctness/bulk/incremental/transform/failure reports, and exact-candidate GCP
-profile rerun plus final-candidate audits are complete. The exact unmet gates are PostgreSQL
-crossover and hosted cost, the remaining benchmark classes and providers, remaining Kubernetes
-hosted scale/soak, hosted-provider and pairwise live proofs, approved scale/cost reports for every
-first-class warehouse and launcher, remaining canonical-profile evidence, release-candidate soak,
-profile-specific operator documentation, and the frozen support matrix.
+Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
+PostgreSQL classes, RC22 protected audit, bounded direct implementation, and RC23 local crossover
+and preflight are complete. The exact unmet gates are protected review and multi-platform build of
+the final candidate; rerunning applicable RC22 reports on that one candidate; PostgreSQL hosted
+cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and
+pairwise live proofs; scale/cost reports for every first-class warehouse and launcher; remaining
+canonical-profile evidence; release-candidate soak; profile operator docs; and the frozen support
+matrix.

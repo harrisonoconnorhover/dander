@@ -2,38 +2,39 @@
 
 ## Finished
 
-- Inherited GCP hosted-Control verifier PR #283 at protected main `a501c67` without changing that lane.
-- Preserved private RC22 index `sha256:ce395d…47c3`; public RC20 remains unchanged.
-- Passed exact-RC22 Kubernetes lifecycle, five launcher-scale classes, and seven PostgreSQL classes.
-- Passed the retained GCP rerun and the exact-RC22 final-candidate audit matrix.
-- Added a post-RC22 bounded PostgreSQL direct path with lossless COPY fallback across all five modes.
+- Published private arm64 RC23 commit `2455fc3` at index `sha256:8bd351…3064`; public RC20 is unchanged.
+- Passed the pre-approved local PostgreSQL crossover on RC23 with exact COPY/DIRECT equality and cleanup.
+- Recorded the conservative same-shape result: DIRECT max 10 rows/1,400 logical bytes; global defaults remain zero.
+- Passed RC23 local artifact/runtime/security preflight and reconciled Phase 8 docs/tickets without transferring RC22 evidence.
+- Reconfirmed AWS, Azure, and OCI credential blockers read-only; no Druff work was changed.
 
 ## Try It
 
-Inspect Phase 8 records in `docs/evidence/phase8/2026-08-14/` and the crossover boundary in `docs/postgresql-benchmarks.md`.
+Run `jq . docs/evidence/phase8/2026-08-14/postgresql-crossover.json` and inspect `rc23-local-audit.json` beside it.
 
 ## Checks
 
-- Ruff, formatting, mypy, and pytest pass: 1,704 passed, 34 skipped.
-- Twenty-eight PostgreSQL live tests passed against disposable PostgreSQL 15.18; every mode used direct transport.
-- RC22 artifact/runtime, dependency, Git-history secret, Terraform/Helm, infrastructure, and image audit gates pass.
-- Kubernetes/PostgreSQL reports pass with cleanup; GCP passed execution and no drift.
+- Ruff, formatting (444 files), mypy (411 files), release/control metadata, and pytest pass: 1,708 passed, 34 skipped.
+- Exact RC23 wheel and sdist inspection plus clean `runtime-all` installs pass; rootless read-only image execution passes.
+- Pip-audit found no vulnerability; pinned Trivy found zero HIGH/CRITICAL image or infrastructure findings; pinned Gitleaks found no candidate-source leak.
+- Crossover passed all seven objectives against TLS PostgreSQL 15.18; schemas, staging, container, network, and credentials were cleaned.
 
 ## Decisions
 
-- GCP execution passes, but cost remains `not_evaluated` until provider charges post.
-- PostgreSQL direct thresholds default to disabled until a new immutable candidate passes crossover qualification.
-- Azure, AWS, and OCI live gates remain blocked on interactive credential restoration.
+- RC23 is private, arm64-only, and unprotected; it is not the final candidate or a support promotion.
+- RC22 remains valid only for its exact protected reports; those results do not transfer to RC23.
+- One local crossover measurement informs operator tuning but does not change safe default behavior.
 
 ## Remaining
 
-- Cut and audit a new private candidate, then run PostgreSQL crossover and hosted-cost qualification.
-- Run remaining warehouse/launcher scale, pairwise, and canonical live gates within the USD 10 ceiling.
-- Restore Azure/AWS/OCI credentials before their live gates.
-- Complete the retained soak through 2026-09-01 before public support release.
+- Obtain protected review, build one source-free multi-platform final candidate, and rerun applicable RC22 gates plus the audit.
+- Restore Azure/AWS/OCI credentials, then execute remaining provider scale, canonical, and pairwise profiles within the USD 10 ceiling.
+- Record posted provider costs; current private-publication and GCP charges remain invoice-pending.
+- Complete hosted Kubernetes/profile work and the retained soak through 2026-09-01.
+- Finish profile operator docs, freeze compatibility/limitations, and obtain separate approval for any public release.
 
 ## Review First
 
-- `src/dander/providers/postgresql/writer.py`
-- `docs/evidence/phase8/2026-08-14/rc22-local-audit.json`
-- `docs/evidence/phase8/2026-08-14/kubernetes-postgresql-scale-attempts.json`
+- `docs/evidence/phase8/2026-08-14/postgresql-crossover.json`
+- `docs/evidence/phase8/2026-08-14/rc23-local-audit.json`
+- `docs/cloud-portability-phase8-qualification.md`
