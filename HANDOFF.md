@@ -2,37 +2,37 @@
 
 ## Finished
 
-- Added strict hosted OIDC access-token verification with bounded, single-flight JWKS refresh.
-- Centralized viewer/editor/operator/admin authorization over five server-enforced capabilities.
-- Projected server trust, exact CORS, public PKCE client, and bootstrap from one typed input.
-- Preserved unauthenticated loopback mode while requiring OIDC configuration for external binds.
-- Added the generated `control-bootstrap` contract and completed DANDER-126 documentation.
+- Prepared `dander-platform==0.9.0rc19` from the complete protected-main D2-D4 source.
+- Recorded the hosted Control API, graph stores, OIDC authorization, and additive contract roots.
+- Kept all install, status, upgrade, audit, and evidence references on public RC18.
+- Preserved the unpromoted status of S3, Azure Blob, and OCI graph stores.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_oidc_auth.py tests/control/test_hosted_control.py tests/cli/test_control_oidc_cli.py`.
+Run `uv run python scripts/check_release_metadata.py`; publication mode intentionally fails until
+an explicitly approved promotion changes current-public references to RC19.
 
 ## Checks
 
-- Full pytest suite, Ruff lint/format, and mypy over 396 sources passed.
-- Generated Control contract drift and focused 66-test Control/CLI suite passed.
-- Dependency audit reported no known vulnerabilities; wheel and sdist validation passed.
-- No external issuer, provider resource, credential, paid action, or public artifact was changed.
+- Release metadata, focused release tests, package build, and distribution validation passed.
+- Ruff lint/format and Git whitespace validation passed.
+- Publication-mode metadata validation failed closed on RC19 versus public RC18, as required.
+- No tag, PyPI artifact, issuer registration, provider resource, or paid action was created.
 
 ## Decisions
 
-- Public SPA client ID and API audience are separate; only authorization code plus PKCE S256 is projected.
-- Hosted Control is stateless bearer-only, so cookie/session CSRF controls are intentionally inapplicable.
-- Human OIDC claims never become cloud workload identity or provider credentials.
+- RC19 describes the complete exact-main source rather than presenting the release as D4-only.
+- Provider adapter availability does not promote support without each provider's live proof.
+- Public references remain on RC18 until a separately approved promotion, tag, and publication.
 
 ## Remaining
 
-- Complete independent completion review and protected PR CI for DANDER-126.
-- Begin Phase D5 Druff remote-client integration only after exact-main CI is green.
-- Register a real OIDC client only with separate explicit approval in its later deployment step.
+- Complete independent completion review and protected PR CI for the preparation commit.
+- Obtain explicit approval before promotion, immutable tag creation, or PyPI publication.
+- Generate the Druff client only from the approved immutable RC19 artifact.
 
 ## Review First
 
-- `src/dander/control/auth.py`
-- `src/dander/control/http.py`
-- `tests/control/test_oidc_auth.py`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `tests/test_release_metadata.py`

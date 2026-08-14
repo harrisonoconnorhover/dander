@@ -6,6 +6,20 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc19 — 2026-08-14 (beta)
+
+### Added
+
+- Add the provider-neutral hosted Control API for durable multi-graph management, compatibility
+  and catalog discovery, validation, deployment preview, and normalized run controls.
+- Add memory, local-file, GCS, S3, Azure Blob, and OCI Object Storage graph-store adapters behind
+  one optimistic-concurrency contract. GCS is live-qualified; the other cloud adapters remain
+  unpromoted until their separate live proofs pass.
+- Add external OIDC access-token validation and centralized viewer/editor/operator/admin
+  authorization for hosted mode while preserving the explicit unauthenticated loopback mode.
+- Extend the deterministic Control contract bundle with bootstrap, project, graph-resource, graph
+  collection, and run-collection DTOs required by the generated Druff client.
+
 ## 0.9.0rc18 — 2026-08-13 (beta)
 
 ### Added
