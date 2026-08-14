@@ -29,6 +29,15 @@ def test_failure_classifier_uses_http_status_without_persisting_exception_text()
     assert "top-secret" not in failure.summary
     assert "also-secret" not in failure.summary
     assert len(failure.summary) <= 512
+    assert failure.exception_class_chain == ("RuntimeError", "_HttpError")
+    assert failure.status_code == 401
+    assert failure.diagnostic_payload(run_id="safe-run", stage="ingest") == {
+        "run_id": "safe-run",
+        "stage": "ingest",
+        "failure_code": "authentication_failed",
+        "exception_class_chain": ["RuntimeError", "_HttpError"],
+        "status_code": 401,
+    }
 
 
 def test_failure_classifier_normalizes_direct_provider_status() -> None:
@@ -43,6 +52,32 @@ def test_failure_classifier_normalizes_direct_provider_status() -> None:
 
     assert failure.code == "rate_limited"
     assert "OCI request detail" not in failure.summary
+    assert failure.status_code == 429
+
+
+def test_failure_diagnostic_bounds_and_sanitizes_exception_class_chain() -> None:
+    unsafe_error = type("Sensitive:value-must-not-escape", (RuntimeError,), {})
+    current: BaseException = unsafe_error("message-must-not-escape")
+    for index in range(10):
+        wrapper = RuntimeError(f"private-{index}")
+        wrapper.__cause__ = current
+        current = wrapper
+
+    assert isinstance(current, Exception)
+    failure = classify_failure(current, stage=RunStage.INGEST, run_id="safe-run")
+
+    assert len(failure.exception_class_chain) == 8
+    assert failure.exception_class_chain == ("RuntimeError",) * 8
+    assert "message-must-not-escape" not in str(
+        failure.diagnostic_payload(run_id="safe-run", stage="ingest")
+    )
+
+    direct = classify_failure(
+        unsafe_error("message-must-not-escape"),
+        stage=RunStage.INGEST,
+        run_id="safe-run",
+    )
+    assert direct.exception_class_chain == ("Exception",)
 
 
 def test_unknown_failure_is_stage_specific_and_points_to_run_logs() -> None:

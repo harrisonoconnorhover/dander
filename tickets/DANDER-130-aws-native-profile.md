@@ -1,10 +1,10 @@
 ---
-id: DANDER-120
+id: DANDER-130
 title: Implement the AWS-native canonical profile
 status: open
 component: python
 epic: cloud-portability-phase-8
-depends_on: [DANDER-118]
+depends_on: [DANDER-128]
 created: 2026-08-13
 ---
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import dataclass, field
@@ -323,16 +324,15 @@ class PipelineExecutor:
                         "run_id": run_id,
                     },
                 )
+            diagnostic = {
+                "event": "pipeline_failed",
+                "pipeline_id": self._pipeline_id,
+                **failure.diagnostic_payload(run_id=run_id, stage=stage.value),
+                "duration_ms": _elapsed_ms(started_ns),
+            }
             _LOGGER.warning(
-                "pipeline_failed",
-                extra={
-                    "dander_event": "pipeline_failed",
-                    "pipeline_id": self._pipeline_id,
-                    "run_id": run_id,
-                    "stage": stage.value,
-                    "failure_code": failure.code,
-                    "duration_ms": _elapsed_ms(started_ns),
-                },
+                json.dumps(diagnostic, separators=(",", ":"), sort_keys=True),
+                extra={"dander_event": "pipeline_failed", **diagnostic},
             )
             raise
         finally:

@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-14 — Runtime diagnostics preserve bounded identity, never exception text
+
+- **Diagnostic:** Pipeline failure logs record the run, pipeline stage, stable failure code, up to
+  eight sanitized exception class names, and the nearest numeric provider status code.
+- **Safety:** Exception messages, response objects, request or response bodies, source rows,
+  credentials, DSNs, and arbitrary object representations are never serialized into the record.
+- **Boundary:** Durable run history remains unchanged. The Phase 8 soak gate stays open until the
+  patch merges and a new retained execution proves the diagnostic is visible and useful.
+
 ## 2026-08-13 — Phase 8 qualification fails closed on partial evidence
 
 - **Evidence contract:** Scale reports distinguish measured zero from unavailable data and cannot

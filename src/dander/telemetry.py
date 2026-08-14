@@ -315,6 +315,9 @@ class RunPerformance:
         metric_names = [metric.name for metric in self.provider_metrics]
         if metric_names != sorted(metric_names) or len(metric_names) != len(set(metric_names)):
             raise ValueError("provider_metrics must be unique and sorted by name")
+        common_names = {measurement.name for measurement in self.common_measurements()}
+        if common_names.intersection(metric_names):
+            raise ValueError("provider_metrics must not duplicate common measurement names")
         if not isinstance(self.costs, tuple) or not all(
             isinstance(cost, CostAttribution) for cost in self.costs
         ):

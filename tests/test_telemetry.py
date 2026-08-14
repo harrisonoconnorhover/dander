@@ -169,15 +169,17 @@ def test_run_performance_distinguishes_measured_zero_from_unavailable() -> None:
     )
 
     payload = performance.to_payload()
+    measurements = payload["measurements"]
 
     assert performance.complete is False
-    assert payload["measurements"][5] == {
+    assert isinstance(measurements, list)
+    assert measurements[5] == {
         "name": "retries",
         "unit": "count",
         "status": "measured",
         "value": "0",
     }
-    assert payload["measurements"][9] == {
+    assert measurements[9] == {
         "name": "catalog_duration_ms",
         "unit": "milliseconds",
         "status": "unavailable",
@@ -195,6 +197,8 @@ def test_run_performance_requires_fixed_common_names_and_sorted_provider_metrics
                 PerformanceMeasurement.measured("a_metric", "count", 1),
             )
         )
+    with pytest.raises(ValueError, match="must not duplicate"):
+        _performance(provider_metrics=(PerformanceMeasurement.measured("rows", "rows", 1),))
     with pytest.raises(ValueError, match="unavailable reason"):
         PerformanceMeasurement(
             name="peak_rss_bytes",

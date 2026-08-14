@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -74,7 +75,7 @@ class _Transform:
         assert models_dir.is_dir()
         assert tuple(selected or ()) == ("stg_widgets",)
         if self._fail:
-            raise RuntimeError("transform failed")
+            raise _TransformFailureError("transform failed; token=value-must-not-appear")
         return TransformRunResult(
             models=("stg_widgets",),
             assertions=2,
@@ -86,6 +87,10 @@ class _Transform:
                 ),
             ),
         )
+
+
+class _TransformFailureError(RuntimeError):
+    status_code = 503
 
 
 class _History(RunHistoryStore):
@@ -512,10 +517,27 @@ def test_executor_marks_transform_failure_without_claiming_ingestion_only_succes
     assert history.failure is not None
     assert history.failure[0] == "transform_failed"
     assert "Inspect logs for run" in (history.failure[1] or "")
-    terminal = next(record for record in caplog.records if record.msg == "pipeline_failed")
+    terminal = next(
+        record
+        for record in caplog.records
+        if getattr(record, "dander_event", None) == "pipeline_failed"
+    )
+    diagnostic = json.loads(terminal.getMessage())
     assert terminal.__dict__["dander_event"] == "pipeline_failed"
     assert terminal.__dict__["pipeline_id"] == "example_pipeline"
     assert terminal.__dict__["failure_code"] == "transform_failed"
+    assert diagnostic == {
+        "duration_ms": diagnostic["duration_ms"],
+        "event": "pipeline_failed",
+        "exception_class_chain": ["_TransformFailureError"],
+        "failure_code": "transform_failed",
+        "pipeline_id": "example_pipeline",
+        "run_id": history.started[0] if history.started is not None else "",
+        "stage": "transform",
+        "status_code": 503,
+    }
+    assert isinstance(diagnostic["duration_ms"], int)
+    assert "value-must-not-appear" not in caplog.text
     assert not hasattr(terminal, "exception")
 
 

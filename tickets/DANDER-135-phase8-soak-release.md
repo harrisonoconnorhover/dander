@@ -1,10 +1,10 @@
 ---
-id: DANDER-125
+id: DANDER-135
 title: Soak and release the qualified support matrix
 status: open
 component: release
 epic: cloud-portability-phase-8
-depends_on: [DANDER-119, DANDER-122, DANDER-123, DANDER-124]
+depends_on: [DANDER-129, DANDER-132, DANDER-133, DANDER-134]
 created: 2026-08-13
 ---
 

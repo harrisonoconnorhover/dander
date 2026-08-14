@@ -306,6 +306,8 @@ class QualificationReport:
             raise ValueError("passed qualification requires explicit cost evidence, including zero")
         if any(cost.currency != "USD" for cost in self.performance.costs):
             raise ValueError("passed qualification cost evidence must use USD")
+        if any(cost.estimated for cost in self.performance.costs):
+            raise ValueError("passed qualification requires measured cost evidence")
         observed_cost = sum((cost.amount for cost in self.performance.costs), Decimal(0))
         assert self.context.cost_ceiling is not None
         if observed_cost > self.context.cost_ceiling.amount_usd:

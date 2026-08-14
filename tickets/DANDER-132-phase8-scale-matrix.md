@@ -1,10 +1,10 @@
 ---
-id: DANDER-122
+id: DANDER-132
 title: Execute the approved Phase 8 scale matrix
 status: open
 component: python
 epic: cloud-portability-phase-8
-depends_on: [DANDER-118, DANDER-120]
+depends_on: [DANDER-128, DANDER-130]
 created: 2026-08-13
 ---
 

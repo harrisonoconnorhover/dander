@@ -76,6 +76,12 @@ def test_pass_rejects_missing_or_failed_objectives_and_cost_overrun() -> None:
     )
     with pytest.raises(ValueError, match="exceeds"):
         _report(performance=costly)
+    estimated = replace(
+        _performance(),
+        costs=(CostAttribution("local", "postgresql", Decimal(0), estimated=True),),
+    )
+    with pytest.raises(ValueError, match="measured cost evidence"):
+        _report(performance=estimated)
 
 
 def test_bounded_memory_pass_enforces_input_ratio_and_peak_limit() -> None:

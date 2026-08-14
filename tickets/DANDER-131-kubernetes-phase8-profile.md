@@ -1,10 +1,10 @@
 ---
-id: DANDER-121
+id: DANDER-131
 title: Qualify the Kubernetes canonical profile
 status: open
 component: infrastructure
 epic: cloud-portability-phase-8
-depends_on: [DANDER-119, DANDER-120]
+depends_on: [DANDER-129, DANDER-130]
 created: 2026-08-13
 ---
 
