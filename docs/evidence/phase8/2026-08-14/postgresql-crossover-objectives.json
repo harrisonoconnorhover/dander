@@ -1,0 +1,45 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-crossover/v1",
+    "benchmark_class": "crossover",
+    "row_counts": [
+      1,
+      10,
+      100,
+      1000,
+      5000
+    ],
+    "payload_bytes": 128,
+    "repetitions": 5,
+    "direct_max_rows": 5000,
+    "direct_max_logical_bytes": 1048576,
+    "write_mode": "scd1",
+    "transports": [
+      "copy",
+      "direct"
+    ]
+  },
+  "approved_objectives": {
+    "names": [
+      "canonical_equality",
+      "cleanup",
+      "copy_transport_observed",
+      "cost_ceiling",
+      "crossover_measured",
+      "direct_transport_observed",
+      "threshold_recorded"
+    ],
+    "benchmark_class": "crossover",
+    "profile_id": "postgresql_local_scale",
+    "release_version": "0.9.0rc23",
+    "git_commit": "2455fc34d4503863060b7bac873be36319c13e4f",
+    "image_digest": "sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064",
+    "configuration_sha256": "86313cae9c60be3e920a9e2d6792d1f5984e106bc3b7a0b979b876a07e8ce10e",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  }
+}
