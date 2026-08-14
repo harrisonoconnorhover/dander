@@ -2,38 +2,39 @@
 
 ## Finished
 
-- Recorded immutable `dander-platform==0.9.0rc19` publication evidence at exact protected-main
-  commit `cad383b8ac74e8ba0ce0b3b92c66b0a5a93a306b` and tag `v0.9.0rc19`.
-- Recorded the trusted PyPI workflow, artifact hashes, and complete Control bundle digest.
-- Replaced the stale unpublished DANDER-121 consumer boundary with the verified RC19 boundary.
-- Preserved honest provider status: only GCS is live-qualified; S3, Azure, and OCI are unpromoted.
+- Added the immutable provider-neutral Control service request/template and lazy service kind.
+- Derived hosted command and origins from the existing frozen OIDC deployment input.
+- Added closed credential-free local/GCS/S3/Azure/OCI GraphStore locator contracts.
+- Wired the typed locator into `control serve`; cloud bindings cannot silently use local disk.
+- Kept Druff static artifact identity separate and left every job launcher unchanged.
 
 ## Try It
 
-Install `dander-platform==0.9.0rc19` from PyPI; Druff may generate only from that release artifact.
+Run `uv run pytest -q tests/deployment/test_control_service.py
+tests/control/test_graph_store_factory.py`; inspect a request's `as_dict()` to see the deterministic
+provider-neutral deployment input and startup selector.
 
 ## Checks
 
-- Exact-main CI run `31784964851` passed all five jobs at the tagged commit.
-- Trusted-publishing run `31785512985` passed and PyPI hashes matched the public artifacts.
-- Fresh PyPI-only CLI, scaffold, project validation, and Terraform validation passed.
-- All 37 installed contract files matched the manifest and bundle digest `695791df...a12be3`.
-- Documentation diff, stale-reference scan, and secret/artifact review passed.
+- Focused service, startup, CLI, registry, launcher, and projection tests pass: 63 tests.
+- Full suite passes: 1,637 tests, 28 skips; Ruff, format, and strict mypy pass.
+- Generated `io.dander.control.contracts/v1` validation passes without drift.
+- The second adversarial review's startup-selection blocker is corrected; no third pass was run.
 
 ## Decisions
 
-- Preserve DANDER-119 as the immutable RC18 record; DANDER-121 owns the superseded source claim.
-- RC19 is an immutable prerelease artifact, not a support-status promotion.
-- Druff must consume RC19 from PyPI and must not read a sibling Dander checkout.
+- D6 defines the portable contract/startup seam; D7 owns provider service/Terraform rendering.
+- Hosted origins have one authority: `HostedOIDCDeploymentInput`.
+- GraphStore bindings are a closed typed union, never a generic extension mapping.
 
 ## Remaining
 
-- Merge this focused evidence PR and verify exact-main CI.
-- Refresh Druff's generated contracts and pins from public RC19.
-- Complete DRUFF-25 through DRUFF-29 in focused protected PRs.
+- Complete the final diff/artifact review.
+- Merge the focused protected PR and verify exact-main CI.
+- Continue D7 without changing job launchers or publishing an artifact.
 
 ## Review First
 
-- `docs/control-contracts.md`
-- `tickets/DANDER-121-hosted-control-api.md`
-- `docs/release-audit.md`
+- `src/dander/deployment/service.py`
+- `tests/deployment/test_control_service.py`
+- `src/dander/providers/registry.py`

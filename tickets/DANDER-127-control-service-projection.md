@@ -1,7 +1,7 @@
 ---
 id: DANDER-127
 title: Add the Dander control-service projection
-status: open
+status: in-review
 component: python
 epic: druff-control-plane
 depends_on: [DANDER-121, DANDER-126]
@@ -15,14 +15,14 @@ and from Druff's static artifact.
 
 ## Acceptance Criteria
 
-- [ ] Add immutable resolved request/template contracts for image/command/port/probes/resources/
+- [x] Add immutable resolved request/template contracts for image/command/port/probes/resources/
       scaling/shutdown, environment, secret refs, identity, ingress/origins, GraphStore,
       observability, and rollback digest.
-- [ ] Add an internal service provider kind/factory with lazy selected-provider loading.
-- [ ] Keep job launcher contracts and projections byte/semantically unchanged.
-- [ ] Keep Druff `StaticAssetBundle` as a separate deployment input with digest, entrypoint,
+- [x] Add an internal service provider kind/factory with lazy selected-provider loading.
+- [x] Keep job launcher contracts and projections byte/semantically unchanged.
+- [x] Keep Druff `StaticAssetBundle` as a separate deployment input with digest, entrypoint,
       bootstrap digest, and security headers.
-- [ ] Deterministic projection and fail-before-provider-access tests pass.
+- [x] Deterministic projection and fail-before-provider-access tests pass.
 
 ## Design
 
@@ -31,8 +31,33 @@ this is not a universal service framework.
 
 ## Implementation Notes
 
-_Pending._
+- Added a frozen `ResolvedControlServiceRequest`, deterministic `ControlServiceTemplate`, template
+  factory protocol/runtime, and narrow validated component contracts adjacent to the unchanged job
+  launcher boundary.
+- Reused `HostedOIDCDeploymentInput` as the only trust/origin source and derived the canonical
+  external host, port, and OIDC-config command arguments from validated fields.
+- Added a closed credential-free GraphStore binding union for local, GCS, S3, Azure Blob, and OCI
+  Object Storage runtime locators. Provider networking, IAM, SDK clients, credentials, and native
+  resource IDs remain outside this contract.
+- Added one bounded typed JSON startup seam. The request derives `--graph-store-config` with an
+  exact absolute path; `control serve` rejects malformed or extra fields before adapter access and
+  instantiates only the selected binding arm. D7 owns provider-side delivery of that non-secret
+  file.
+- Added the internal `service` provider kind without a built-in provider implementation; D7 owns
+  those provider modules. A fake factory proves parse-before-load and selected-only loading.
+- Added a separate immutable `StaticAssetBundle` for Druff digest/entrypoint/bootstrap/header
+  identity without forcing static assets into service or launcher contracts.
 
 ## Review Log
 
-_Pending._
+The pre-implementation adversarial review found that an independent origin list and prefix-only
+command could validate a service that bound loopback, rejected startup without OIDC, or silently
+used the local GraphStore. The implementation instead reuses the existing frozen hosted OIDC
+input, derives canonical external command arguments and origins, and uses only the requested
+closed credential-free GraphStore locator arms. It adds no provider service implementation.
+
+The completion review found that the first implementation declared the locator but did not connect
+it to `control serve`, allowing a cloud request to start on the default local store. The focused
+correction adds the typed config path, bounded closed parser, selected-adapter factory, and tests
+covering all five arms before provider access. No third adversarial pass was requested under the
+two-pass review limit.
