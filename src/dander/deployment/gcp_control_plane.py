@@ -729,19 +729,16 @@ def _verify_service(
 
 
 def _verify_graph_bucket(payload: Mapping[str, Any], source: GCPControlPlaneInput) -> None:
-    iam = _mapping(payload.get("iamConfiguration"), "GCS IAM configuration")
-    uniform_access = _mapping(iam.get("uniformBucketLevelAccess"), "GCS uniform access")
-    versioning = _mapping(payload.get("versioning"), "GCS versioning")
-    soft_delete = _mapping(payload.get("softDeletePolicy"), "GCS soft-delete policy")
+    soft_delete = _mapping(payload.get("soft_delete_policy"), "GCS soft-delete policy")
     retention = soft_delete.get("retentionDurationSeconds")
     if retention not in {0, "0", "0s"}:
         raise GCPControlPlaneError("Disposable GCS GraphStore soft delete is not disabled.")
     if (
         payload.get("name") != source.graph_bucket
         or str(payload.get("location", "")).casefold() != source.region.casefold()
-        or uniform_access.get("enabled") is not True
-        or iam.get("publicAccessPrevention") != "enforced"
-        or versioning.get("enabled") is not True
+        or payload.get("uniform_bucket_level_access") is not True
+        or payload.get("public_access_prevention") != "enforced"
+        or payload.get("versioning_enabled") is not True
     ):
         raise GCPControlPlaneError("GCS GraphStore policy differs.")
 
