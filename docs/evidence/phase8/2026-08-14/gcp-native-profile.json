@@ -1,0 +1,134 @@
+{
+  "schema": "io.dander.phase8.gcp-native-profile-evidence/v1",
+  "profile_execution_status": "passed",
+  "qualification_status": "not_evaluated_cost_pending",
+  "release_version": "0.9.0rc22",
+  "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+  "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+  "resolved_linux_amd64_manifest": "sha256:685ba438e4552a57d1fdfa1708a919d37e0181a3c2b9b87b180f79317b93ee5d",
+  "configuration_sha256": "c95fb9ffbc927e0962cf9edee0bed7756622380cc81f7cdb7844b35384ab4b7e",
+  "profile": {
+    "profile_id": "gcp_native",
+    "project_reference": "dander-proof-harrison-20260801",
+    "region": "us-central1",
+    "launcher": "cloud_run",
+    "warehouse": "bigquery",
+    "state_backend": "bigquery",
+    "catalog": "dataplex",
+    "secret_provider": "gcp_secret_manager",
+    "runtime_shape": "1cpu_512mib_600s_1retry"
+  },
+  "deployment": {
+    "approved_plan_sha256": "36021dc2a78a0d58c8cf62fddb0fa6bb36dd9258fc47f0a7c745dda50276768c",
+    "apply_added": 0,
+    "apply_changed": 5,
+    "apply_destroyed": 0,
+    "changed_resource_type": "google_cloud_run_v2_job",
+    "all_five_jobs_use_candidate_index": true,
+    "druff_changed": false,
+    "post_apply_plan_sha256": "62dbdbd65ac7cc20466dbcbaaa1e0813528dae2995d9e459986d3f21a9425c4b",
+    "post_apply_no_drift_resources": 113,
+    "post_apply_no_drift": true
+  },
+  "deployment_verification": {
+    "checked_at_utc": "2026-08-14T19:04:35.606134Z",
+    "checks_passed": 23,
+    "checks_failed": 0,
+    "boundaries": [
+      "bigquery_datasets_and_iam",
+      "cost_guard_and_billing_link",
+      "dataplex_role",
+      "immutable_cloud_run_image",
+      "remote_terraform_state",
+      "salesforce_secret_containers_and_iam",
+      "scheduler"
+    ]
+  },
+  "executions": [
+    {
+      "purpose": "manual",
+      "pipeline_id": "salesforce_accounts",
+      "provider_execution_id": "dander-salesforce-accounts-rxvvd",
+      "provider_duration_ms": 456950,
+      "runtime_duration_ms": 334959,
+      "status": "succeeded",
+      "endpoints": 4,
+      "extracted": 3,
+      "affected": 3,
+      "models": 5,
+      "assertions": 35,
+      "assets": 5
+    },
+    {
+      "purpose": "replay",
+      "pipeline_id": "salesforce_accounts",
+      "provider_execution_id": "dander-salesforce-accounts-xmm4r",
+      "provider_duration_ms": 480394,
+      "runtime_duration_ms": 385567,
+      "status": "succeeded",
+      "endpoints": 4,
+      "extracted": 3,
+      "affected": 3,
+      "models": 5,
+      "assertions": 35,
+      "assets": 5
+    },
+    {
+      "purpose": "scheduler_invocation",
+      "pipeline_id": "greenhouse_jobs",
+      "provider_execution_id": "dander-greenhouse-public-v5ps9",
+      "provider_duration_ms": 252931,
+      "runtime_duration_ms": 102633,
+      "status": "succeeded",
+      "endpoints": 1,
+      "extracted": 16,
+      "affected": 16,
+      "models": 1,
+      "assertions": 3,
+      "assets": 1
+    }
+  ],
+  "provider_metrics": {
+    "salesforce_bigquery_jobs": 384,
+    "salesforce_bigquery_bytes_processed": 313361,
+    "salesforce_bigquery_bytes_billed": 3690987520,
+    "salesforce_bigquery_slot_ms": 5747815,
+    "greenhouse_bigquery_jobs": 39,
+    "greenhouse_bigquery_bytes_processed": 124394,
+    "greenhouse_bigquery_bytes_billed": 325058560,
+    "greenhouse_bigquery_slot_ms": 940790
+  },
+  "cleanup": {
+    "active_leases": 0,
+    "temporary_bigquery_staging_relations": 0,
+    "retained_schedules_changed": false,
+    "greenhouse_schedule_enabled": true
+  },
+  "cost": {
+    "approved_ceiling_usd": "1.25",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "project_budget_guard_usd": "5.00",
+    "project_budget_guard_simulated": true,
+    "project_budget_guard_verified": true
+  },
+  "objectives": [
+    {"name": "artifact_identity", "status": "passed"},
+    {"name": "bigquery_state_and_warehouse", "status": "passed"},
+    {"name": "budget_preflight", "status": "passed"},
+    {"name": "cost_ceiling", "status": "not_evaluated"},
+    {"name": "dataplex_publication", "status": "passed"},
+    {"name": "manual_execution", "status": "passed"},
+    {"name": "no_drift", "status": "passed"},
+    {"name": "replay_idempotency", "status": "passed"},
+    {"name": "scheduled_execution", "status": "passed"},
+    {"name": "secret_manager_resolution", "status": "passed"}
+  ],
+  "sanitization": {
+    "credentials_or_secret_values_recorded": false,
+    "failure_alert_recipient_recorded": false,
+    "provider_account_subjects_recorded": false,
+    "source_rows_recorded": false,
+    "terraform_state_or_plan_recorded": false
+  }
+}

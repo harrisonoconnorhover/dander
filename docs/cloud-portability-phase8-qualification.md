@@ -9,7 +9,7 @@ Phase 7 evidence merge.
 
 | Boundary | Current evidence | Phase 8 boundary |
 |---|---|---|
-| GCP native | Supported retained Cloud Run/BigQuery profile, current schedules, lifecycle history, and current-equivalent no drift | Exact qualification-candidate scale, cost, and soak evidence remains open |
+| GCP native | Exact private RC22 passed authenticated manual/replay and Scheduler execution on the retained Cloud Run/BigQuery/Dataplex/Secret Manager profile, followed by no drift | Provider-measured cost, scale reports, and the retained soak remain open |
 | Fargate to GCP | Public `0.8.0rc8` passed manual/scheduled lifecycle, replay, interruption, alerts, rollback, cleanup, and no drift | Scale qualification remains open; this is not the AWS-native profile |
 | Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle, including alert visibility and cleanup | Hosted-provider proof, normalized scale/cost, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
@@ -79,7 +79,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
-| `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | lifecycle accepted; Phase 8 open |
+| `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
 | `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | local implementation complete; protected review and Phase 8 qualification open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
@@ -96,8 +96,8 @@ Cartesian product. A case cannot change to supported from adapter tests alone.
 ## Current exit recommendation
 
 Phase 8 remains open. The safe diagnostic retained-provider gate, corrected immutable candidate,
-exact-candidate local Kubernetes lifecycle, and local PostgreSQL bounded-memory/concurrency reports
-are complete. The exact unmet gates are the other benchmark classes and providers, Kubernetes
-scale/soak, hosted-provider and pairwise live proofs, approved scale/cost reports for every
-first-class warehouse and launcher, current canonical-profile evidence, release-candidate soak,
-final audits, and the frozen support matrix.
+exact-candidate local Kubernetes lifecycle, local PostgreSQL bounded-memory/concurrency reports,
+and exact-candidate GCP profile rerun are complete. The exact unmet gates are the other benchmark
+classes and providers, Kubernetes scale/soak, hosted-provider and pairwise live proofs, approved
+scale/cost reports for every first-class warehouse and launcher, remaining canonical-profile
+evidence, release-candidate soak, final audits, and the frozen support matrix.

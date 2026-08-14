@@ -15,9 +15,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 - Project `dander-proof-harrison-20260801`, region `us-central1`, remote states `dander/state` and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
-- The five retained jobs currently use private diagnostic Dander `0.9.0rc21` image
-  `sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1`.
-  This Phase 8 diagnostic image is not the final qualification candidate.
+- The five retained jobs use private qualification candidate Dander `0.9.0rc22` index
+  `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
+  Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -33,6 +33,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- On 2026-08-14, exact private RC22 replaced RC21 on all five retained jobs through a saved
+  `0 add / 5 change / 0 destroy` plan. Authenticated Salesforce manual/replay executions
+  `dander-salesforce-accounts-rxvvd` and `dander-salesforce-accounts-xmm4r` produced equal counts;
+  Scheduler-created Greenhouse execution `dander-greenhouse-public-v5ps9` also passed. All leases
+  and staging relations were clean, 23 deployment checks passed, and the final 113-resource plan
+  reported no drift. Provider charges remain pending, so this is not a passed cost qualification.
+  See `docs/evidence/phase8/2026-08-14/gcp-native-profile.json`.
 
 - On 2026-08-14, the D7 local hosted Control profile passed exact-digest HTTPS/OIDC, restart
   persistence, byte-equal render, stable second-up, rollback/restore, and cleanup qualification.
@@ -114,9 +122,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander-servicenow-incidents-6g72x` all completed successfully.
 - The latest manual executable-graph run, `dander-greenhouse-graph-7gn9z`, completed successfully
   on 2026-08-04; its schedule remains intentionally paused.
-- The latest retained stage-zero and current-equivalent platform plans reported exactly
-  `No changes.` after the OCI proof. No
-  retained-project apply occurred.
+- The latest exact-RC22 retained platform plan reported exactly `No changes.` after the approved
+  five-job candidate rollout. Stage zero was not changed.
 - Continue the 30-day operating record in GitHub issue #26. Do not close it until the diagnostic
   defect is corrected and the required clean observation evidence is current.
 

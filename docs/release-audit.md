@@ -22,8 +22,8 @@ cloud path remains outside the live proof.
 | Local hosted Control plane | Live-proven for the D7 local profile | Exact Dander/Druff digests passed loopback HTTPS, synthetic OIDC/PKCE, graph restart persistence, byte-equal rendering, stable second-up identities, rollback/restoration, and exact cleanup. This is not real-provider or cloud qualification. |
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
-| Infrastructure reconciliation safety | Live-proven | Fresh retained-GCP stage-zero and current-equivalent RC21 platform plans after D7 local cleanup reported exact `No changes.` D7 performed no retained-project apply. |
-| Phase 8 support qualification | Open | The private RC21 diagnostic image and the multi-deployment inspection fix are on protected main. One final immutable candidate, exact-candidate scale/cost, Kubernetes and pairwise live proofs, soak, and support-matrix freeze remain open. |
+| Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
+| Phase 8 support qualification | Open | Private RC22 is the immutable candidate; local Kubernetes lifecycle, local PostgreSQL bounded-memory/concurrency, and the GCP canonical rerun pass. Remaining scale/cost, hosted/pairwise profiles, soak, audits, and support-matrix freeze stay open. |
 
 ## Current release and deployment record
 
@@ -83,9 +83,10 @@ cloud path remains outside the live proof.
   application-secret rotation, rollback/restoration, alarm-to-topic routing, cleanup, OCI no
   drift, and retained-GCP no drift. OCI remains experimental pending Phase 8; see
   `docs/cloud-portability-oci-lifecycle-acceptance.md`.
-- The five retained jobs currently use private Phase 8 diagnostic Dander `0.9.0rc21` image
-  `sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1`.
-  It is not the final qualification candidate.
+- The five retained jobs use private Phase 8 candidate Dander `0.9.0rc22` index
+  `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
+  Authenticated Salesforce manual/replay and Scheduler-created Greenhouse runs passed on its
+  Linux/AMD64 manifest; provider-measured cost remains pending.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions
