@@ -54,4 +54,6 @@ false cross-provider parity.
 - Shared fake-provider conformance and focused OCI condition, pagination, concurrency, crash,
   bounded-read, version-marker, identity-boundary, malformed-response, and sanitization tests pass
   locally. The enabled independent completion review returned PASS with no material findings;
-  protected CI remains pending.
+  PR #262 and exact protected-main CI run `31760157381` passed. The ticket remains in progress only
+  for its separately approved provider live proof; Phase D3's one-live-provider exit requirement
+  is already satisfied by DANDER-122.

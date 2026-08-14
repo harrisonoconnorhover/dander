@@ -140,6 +140,15 @@ provider limitation is explicit. DANDER-125 remains in progress until a separate
 OCI policy/restart/conflict/versioning/cleanup/no-drift proof passes; public rc18 is not qualified
 for this adapter.
 
+Phase D3's exit gate is satisfied on protected main commit
+`edf0ee3f473839a10f5eb53710636c95c2f5bd64`. The same provider-neutral conformance suite passes
+for the in-memory, rooted-local, GCS, S3, Azure Blob, and OCI Object Storage implementations, and
+the accepted [GCS live proof](evidence/gcp/2026-08-13/druff-gcs-graph-store.json) supplies the
+gate's required one live create/read/update-conflict/restart/delete demonstration. DANDER-123,
+DANDER-124, and DANDER-125 remain in progress: their AWS, Azure, and OCI live proofs still gate
+promotion of those providers, but the D3 gate does not require false all-provider live parity
+before hosted authentication work begins.
+
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
 
