@@ -1,0 +1,24 @@
+{
+  "schema": "io.dander.phase8.postgresql-scale-attempts/v1",
+  "release_version": "0.9.0rc22",
+  "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+  "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+  "attempts": [
+    {
+      "attempt": 1,
+      "configuration_sha256": "847394a1a5d96ec00a51a7080da6ce073bce0296cd1f597ce05feb786e0637b1",
+      "benchmark_class": "bounded_memory",
+      "status": "failed",
+      "qualification_reason": "peak_rss_exceeded_eighty_percent",
+      "rows": 2000000,
+      "logical_input_bytes": 2096000000,
+      "memory_limit_bytes": 201326592,
+      "peak_rss_bytes": 174120960,
+      "duration_ms": 127660,
+      "throughput_rows_per_second": "15666.633",
+      "temporary_staging_relations": 0,
+      "stale_publication_rejected": true,
+      "container_oom_killed": false
+    }
+  ]
+}

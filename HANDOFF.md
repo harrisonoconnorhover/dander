@@ -23,8 +23,8 @@ Inspect `docs/evidence/phase8/2026-08-14/kubernetes-lifecycle.json` and its two 
 ## Decisions
 
 - Kubernetes lifecycle passes; hosted-provider, normalized scale/cost, soak, and support promotion remain open.
+- PostgreSQL's 192 MiB bounded-memory attempt failed the 80% RSS gate; a 256 MiB proportional retry is approved.
 - Provider invoice data is pending, so no exact cloud spend is claimed.
-- RC21 remains diagnostic/rollback-only; RC22 remains the private qualification candidate.
 
 ## Remaining
 
