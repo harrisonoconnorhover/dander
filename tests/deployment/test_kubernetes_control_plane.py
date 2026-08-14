@@ -269,7 +269,7 @@ def test_live_verifier_is_read_only_and_checks_exact_resources(
             return b'{"status":"ok"}', {}
         if url.endswith("/readyz"):
             return b'{"status":"ready"}', {}
-        return (output / "bootstrap.json").read_bytes(), {
+        return (output / "bootstrap.json").read_bytes().rstrip(b"\n"), {
             "cache-control": "no-store",
             "content-security-policy": "default-src 'self'",
             "strict-transport-security": "max-age=31536000",

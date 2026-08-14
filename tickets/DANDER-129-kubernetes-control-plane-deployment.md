@@ -62,3 +62,8 @@ then found ingress-nginx's default 1 MiB request limit below Control's accepted 
 bound. The focused correction fixes the Ingress limit at 6 MiB and makes the read-only verifier
 and chart tests require that exact value; no oversized live graph or broader proxy abstraction was
 added. Live qualification remains pending.
+
+The first live verifier run then exposed one serialization-boundary mismatch: Kubernetes
+ConfigMap data serves the exact compact bootstrap document without the generator's file-ending
+newline. The verifier now compares against that exact served ConfigMap value; its semantic and
+field-level strictness is unchanged. Live qualification continues from the corrected verifier.
