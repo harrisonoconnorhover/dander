@@ -1,0 +1,25 @@
+{
+  "bootstrap_service_account": "dander-bootstrap@dander-example.iam.gserviceaccount.com",
+  "dander_image": "us-central1-docker.pkg.dev/dander-example/dander/control@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "dander_rollback_image": "us-central1-docker.pkg.dev/dander-example/dander/control@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "druff_image": "us-central1-docker.pkg.dev/dander-example/dander/druff@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "druff_rollback_image": "us-central1-docker.pkg.dev/dander-example/dander/druff@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "graph_bucket": "dander-example-control-graphs",
+  "oidc": {
+    "allowed_origins": [
+      "https://druff-control-d7-123456789012.us-central1.run.app"
+    ],
+    "api_audience": "replace-with-api-audience",
+    "api_url": "https://dander-control-d7-123456789012.us-central1.run.app",
+    "issuer": "https://replace-with-issuer.example",
+    "jwks_uri": "https://replace-with-issuer.example/.well-known/jwks.json",
+    "logout_uri": "https://druff-control-d7-123456789012.us-central1.run.app/signed-out",
+    "public_client_id": "replace-with-public-spa-client-id",
+    "redirect_uri": "https://druff-control-d7-123456789012.us-central1.run.app/auth/callback"
+  },
+  "project_id": "dander-example",
+  "project_number": "123456789012",
+  "region": "us-central1",
+  "state_bucket": "dander-example-state",
+  "state_prefix": "dander/control-plane/gcp-d7/attempt-1/state"
+}
