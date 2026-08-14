@@ -121,6 +121,25 @@ provider error rather than a false revision conflict. SDK imports and `DefaultAz
 remain lazy. DANDER-124 remains in progress until separately approved live Azure
 restart/conflict/versioning/cleanup proof passes; public rc18 is not qualified for this adapter.
 
+The OCI Object Storage adapter keeps the same public contract behind one immutable namespace,
+bucket, and deterministic prefix. Default construction uses only resource-principal identity;
+profile or security-token authentication requires an explicitly injected client. Creates use
+native absence matching, while reads, replacements, delete fences, journal transitions, and
+deletes pin exact opaque ETags. Public cursor resumes use exclusive `start_after`; internal
+provider pages use OCI's returned `nextStartWith` as an inclusive `start`. Because list summaries
+do not contain object metadata, each candidate receives a bounded HEAD request, but healthy list
+traversal never downloads graph bodies. Reads reject an oversized HEAD before GET, request at most
+one bounded byte range, and always close the OCI stream.
+
+Deletes target only the exact current object and never pass a version ID or enumerate history. In
+a versioned bucket, OCI therefore retains older versions and creates a delete marker. OCI reports
+the same `NotAuthorizedOrNotFound` code for object absence and some authorization failures; the
+adapter treats that exact response as absence only at an object-addressed HEAD boundary, maps a
+post-observation disappearance to a conflict, and keeps list/bucket errors fail-closed. This
+provider limitation is explicit. DANDER-125 remains in progress until a separately approved live
+OCI policy/restart/conflict/versioning/cleanup/no-drift proof passes; public rc18 is not qualified
+for this adapter.
+
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
 

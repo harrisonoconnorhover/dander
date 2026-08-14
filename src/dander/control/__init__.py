@@ -23,6 +23,7 @@ from dander.control.graph_store import (
     canonicalize_graph_document,
 )
 from dander.control.local_graph_store import RootedLocalGraphStore
+from dander.control.oci_object_graph_store import OCIObjectGraphStore
 from dander.control.s3_graph_store import S3GraphStore
 
 __all__ = [
@@ -45,6 +46,7 @@ __all__ = [
     "GraphSummary",
     "GCSGraphStore",
     "InMemoryGraphStore",
+    "OCIObjectGraphStore",
     "RootedLocalGraphStore",
     "S3GraphStore",
     "canonicalize_graph_document",

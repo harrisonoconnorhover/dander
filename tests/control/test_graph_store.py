@@ -21,6 +21,7 @@ from dander.control import (
     GraphStoreIdentifierError,
     GraphStoreNotFoundError,
     InMemoryGraphStore,
+    OCIObjectGraphStore,
     RootedLocalGraphStore,
     S3GraphStore,
     canonicalize_graph_document,
@@ -30,13 +31,14 @@ from dander.control.models import PipelineGraphDocument
 from dander.pipeline.graph import graph_to_payload
 from tests.control.azure_blob_fakes import FakeAzureContainerClient
 from tests.control.gcs_fakes import FakeGCSClient, FakeNotFoundError, FakePreconditionError
+from tests.control.oci_object_storage_fakes import FakeOCIObjectStorageClient
 from tests.control.s3_fakes import FakeS3Client
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.fixture(params=("memory", "local", "gcs", "s3", "azure-blob"))
+@pytest.fixture(params=("memory", "local", "gcs", "s3", "azure-blob", "oci-object"))
 def graph_store(request: pytest.FixtureRequest, tmp_path: Path) -> GraphStore:
     """Return each initial adapter behind exactly the same conformance tests."""
     if request.param == "memory":
@@ -55,6 +57,12 @@ def graph_store(request: pytest.FixtureRequest, tmp_path: Path) -> GraphStore:
             "https://unitaccount.blob.core.windows.net",
             "unit-container",
             client=FakeAzureContainerClient(),
+        )
+    if request.param == "oci-object":
+        return OCIObjectGraphStore(
+            "unit-namespace",
+            "unit-bucket",
+            client=FakeOCIObjectStorageClient(),
         )
     return S3GraphStore("unit-bucket", client=FakeS3Client())
 
