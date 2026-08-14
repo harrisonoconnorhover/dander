@@ -670,19 +670,26 @@ def _run_transform(
     suffix = uuid.uuid4().hex[:12]
     source_schema = f"dander_phase8_transform_source_{suffix}"
     target_schema = f"dander_phase8_transform_target_{suffix}"
-    _seed_transform_sources(
-        pool,
-        source_schema=source_schema,
-        target_schema=target_schema,
-        config=config,
-    )
-    runner = warehouse.transforms.build_transform_runner(
-        graph_plan=None,
-        build_models=True,
-        raw_namespace=source_schema,
-    )
-    if not isinstance(runner, PostgreSQLTransformRunner):
-        raise RuntimeError("PostgreSQL transform qualification did not select its native runner")
+    try:
+        _seed_transform_sources(
+            pool,
+            source_schema=source_schema,
+            target_schema=target_schema,
+            config=config,
+        )
+        runner = warehouse.transforms.build_transform_runner(
+            graph_plan=None,
+            build_models=True,
+            raw_namespace=source_schema,
+        )
+        if not isinstance(runner, PostgreSQLTransformRunner):
+            raise RuntimeError(
+                "PostgreSQL transform qualification did not select its native runner"
+            )
+    except Exception:
+        _drop_schema(pool, target_schema)
+        _drop_schema(pool, source_schema)
+        raise
     first_ownership = _transform_ownership(database, run_id="transform-one", token=1)
     second_ownership = _transform_ownership(database, run_id="transform-two", token=2)
     started = time.perf_counter()
@@ -794,7 +801,7 @@ def _seed_transform_sources(
         connection.execute(
             sql.SQL(
                 "INSERT INTO {} (dimension_id, category) "
-                "SELECT value, 'category_' || (value % 10)::text "
+                "SELECT value, 'category_' || (value %% 10)::text "
                 "FROM generate_series(0, %s) AS value"
             ).format(sql.Identifier(source_schema, "dimensions")),
             (config.transform_dimension_rows - 1,),
@@ -808,7 +815,7 @@ def _seed_transform_sources(
         connection.execute(
             sql.SQL(
                 "INSERT INTO {} (id, dimension_id, amount, updated_at) "
-                "SELECT value, value % %s, value % 17, 1 "
+                "SELECT value, value %% %s, value %% 17, 1 "
                 "FROM generate_series(1, %s) AS value"
             ).format(sql.Identifier(source_schema, "facts")),
             (config.transform_dimension_rows, config.transform_fact_rows),
