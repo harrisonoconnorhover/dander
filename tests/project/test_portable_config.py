@@ -191,7 +191,7 @@ def test_version_two_preserves_postgresql_state_connection_reference(tmp_path: P
     }
 
 
-def test_version_two_resolves_native_postgresql_profile(tmp_path: Path) -> None:
+def test_fargate_rejects_an_unqualified_postgresql_profile(tmp_path: Path) -> None:
     project_path = tmp_path / "dander.yaml"
     platforms_path = tmp_path / "dander.platforms.yaml"
     project_path.write_text(_V1_PROJECT, encoding="utf-8")
@@ -229,24 +229,82 @@ def test_version_two_resolves_native_postgresql_profile(tmp_path: Path) -> None:
     platforms["deployments"]["postgres_fargate"] = deployment
     platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
 
-    resolved = load_project_config(project_path, deployment="postgres_fargate")
+    with pytest.raises(ProjectConfigError, match="Fargate supports only the named"):
+        load_project_config(project_path, deployment="postgres_fargate")
 
-    assert resolved.warehouse_provider == "postgresql"
-    assert resolved.warehouse_config == {
-        "provider": "postgresql",
-        "database": "dander_portable",
+
+def test_version_two_resolves_aws_native_fargate_profile(tmp_path: Path) -> None:
+    project_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    project_path.write_text(_V1_PROJECT, encoding="utf-8")
+    migration = prepare_version_one_migration(project_path)
+    project_path.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    profile = platforms["platforms"].pop("gcp")
+    profile["warehouse"] = {
+        "provider": "redshift",
+        "deployment": "provisioned",
+        "host": "dander.abc123.us-east-1.redshift.amazonaws.com",
+        "database": "analytics",
         "schema": "raw",
-        "dsn_env": "DANDER_POSTGRES_DSN",
-        "pool_min_size": 1,
-        "pool_max_size": 5,
-        "pool_timeout_seconds": 10.0,
-        "statement_timeout_ms": 300_000,
-        "lock_timeout_ms": 30_000,
-        "idle_transaction_timeout_ms": 60_000,
+        "db_user": "dander_runtime",
+        "region": "us-east-1",
+        "cluster_identifier": "dander-phase8",
+        "copy_role_arn": "arn:aws:iam::123456789012:role/DanderRedshiftCopy",
+        "staging_bucket": "dander-phase8-staging",
     }
+    profile["state"] = {
+        "provider": "postgresql",
+        "authority_id": "postgresql:aws-native",
+        "dsn_env": "DANDER_POSTGRES_DSN",
+    }
+    profile["catalog"] = {
+        "provider": "glue",
+        "region": "us-east-1",
+        "catalog_id": "123456789012",
+        "database_prefix": "dander",
+    }
+    profile["secrets"] = {
+        "provider": "aws_secret_manager",
+        "region": "us-east-1",
+    }
+    platforms["platforms"]["aws_native"] = profile
+    deployment = platforms["deployments"].pop("gcp_cloud_run")
+    deployment["platform"] = "aws_native"
+    deployment["launcher"] = {
+        "provider": "fargate",
+        "region": "us-east-1",
+        "aws_account_id": "123456789012",
+        "subnet_ids": ["subnet-0123456789abcdef0"],
+        "security_group_ids": ["sg-0123456789abcdef0"],
+    }
+    deployment["runtime"]["memory"] = "2Gi"
+    deployment["safety"]["require_guarded_free_tier"] = False
+    secret_prefix = "aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:secret:dander/"
+    deployment["pipelines"]["example_records"]["secret_bindings"] = {
+        "DANDER_POSTGRES_DSN": secret_prefix + "postgres-dsn-AbCdEf",
+        "EXAMPLE_TOKEN": secret_prefix + "example-token-AbCdEf",
+    }
+    platforms["deployments"]["aws_native"] = deployment
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+
+    resolved = load_project_config(project_path, deployment="aws_native")
+
+    assert resolved.platform_name == "aws_native"
+    assert resolved.warehouse_provider == "redshift"
     assert resolved.state_provider == "postgresql"
-    assert resolved.catalog_provider == "none"
-    assert resolved.secret_provider == "environment"
+    assert resolved.catalog_provider == "glue"
+    assert resolved.secret_provider == "aws_secret_manager"
+    assert resolved.secret_config == {
+        "provider": "aws_secret_manager",
+        "region": "us-east-1",
+    }
+    assert resolved.launcher_provider == "fargate"
+    assert resolved.resolved_launcher_config()["google_workload_identity_audience"] is None
+    assert resolved.terraform_pipelines()["example_records"]["secret_env"] == {
+        "DANDER_POSTGRES_DSN": secret_prefix + "postgres-dsn-AbCdEf",
+        "EXAMPLE_TOKEN": secret_prefix + "example-token-AbCdEf",
+    }
 
 
 def test_version_two_resolves_native_redshift_warehouse_coordinates(tmp_path: Path) -> None:

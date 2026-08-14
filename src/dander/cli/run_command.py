@@ -127,6 +127,7 @@ class _ResolvedRun:
     catalog_provider: str
     catalog_config: dict[str, object]
     secret_provider: str
+    secret_config: dict[str, object]
 
     @property
     def raw_relation(self) -> RelationRef:
@@ -209,6 +210,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
     catalog_provider = "dataplex"
     catalog_config: dict[str, object] = {"provider": "dataplex"}
     secret_provider = "gcp_secret_manager"
+    secret_config: dict[str, object] = {"provider": "gcp_secret_manager"}
     plugin_registry: ConnectorPluginRegistry | None = None
 
     if options.project_config.is_file():
@@ -248,6 +250,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
                     else manifest.catalog_config
                 )
                 secret_provider = manifest.secret_provider
+                secret_config = manifest.secret_config
         except (ConnectorPluginError, ProjectConfigError) as error:
             raise ClickException(str(error)) from error
 
@@ -329,6 +332,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         catalog_provider=catalog_provider,
         catalog_config=catalog_config,
         secret_provider=secret_provider,
+        secret_config=secret_config,
     )
 
 
@@ -413,7 +417,10 @@ def _require_provider_compatible_options(options: RunOptions, resolved: _Resolve
 
 
 def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExecutor:
-    secrets = build_secret_store("environment" if options.sandbox else resolved.secret_provider)
+    secrets = build_secret_store(
+        "environment" if options.sandbox else resolved.secret_provider,
+        None if options.sandbox else resolved.secret_config,
+    )
     auth = build_auth(resolved.source_config, secrets)
     try:
         source_adapter = build_source_adapter(

@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
+    from dander.providers.fargate.context import FargateProfileContext
+
 _PROJECT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _BUCKET_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$")
 _STATE_PREFIX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
@@ -27,6 +29,10 @@ _BIGQUERY_LOCATION = re.compile(r"^[A-Za-z][A-Za-z0-9-]{0,62}$")
 _BILLING_ACCOUNT = re.compile(r"^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$")
 _IMMUTABLE_IMAGE = re.compile(r"^[a-z0-9.-]+/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$")
 _SECRET_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,254}$")
+_AWS_SECRET_REFERENCE = re.compile(
+    r"^aws-sm://arn:(?:aws|aws-us-gov):secretsmanager:[a-z0-9-]+:[0-9]{12}:"
+    r"secret:[A-Za-z0-9/_+=.@-]{1,512}$"
+)
 _GITHUB_REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 _GITHUB_REF = re.compile(r"^refs/(?:heads|tags)/[A-Za-z0-9._/-]+$")
 _BUDGET_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,59}$")
@@ -344,6 +350,7 @@ def build_launcher_runtime(
     region: str | None = None,
     launcher_config: Mapping[str, object] | None = None,
     gcp_context: GcpLauncherContext | None = None,
+    fargate_profile: FargateProfileContext | None = None,
 ) -> LauncherRuntime:
     """Build one launcher through the shared lazy provider registry."""
     raw_config = dict(launcher_config or {})
@@ -356,10 +363,13 @@ def build_launcher_runtime(
         ProviderKind.LAUNCHER,
         raw_config,
     )
+    context = gcp_launcher_factory_context(gcp_context) if gcp_context is not None else {}
+    if fargate_profile is not None:
+        context["fargate_profile"] = fargate_profile
     runtime = registry.build(
         ProviderKind.LAUNCHER,
         config,
-        context=gcp_launcher_factory_context(gcp_context) if gcp_context is not None else None,
+        context=context,
     )
     if not isinstance(runtime, LauncherRuntime):
         raise ProviderFactoryError("Selected launcher provider returned an invalid runtime")
@@ -405,7 +415,10 @@ def validate_terraform_pipelines(pipelines: Mapping[str, Mapping[str, object]]) 
             not isinstance(env_name, str)
             or not _ENV_NAME.fullmatch(env_name)
             or not isinstance(secret_id, str)
-            or not _SECRET_ID.fullmatch(secret_id)
+            or (
+                not _SECRET_ID.fullmatch(secret_id)
+                and not _AWS_SECRET_REFERENCE.fullmatch(secret_id)
+            )
             for env_name, secret_id in secret_env.items()
         ):
             raise TerraformBootstrapError(f"Pipeline {pipeline_id!r} has invalid secret bindings")

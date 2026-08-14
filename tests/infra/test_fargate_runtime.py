@@ -48,6 +48,28 @@ def test_fargate_task_is_immutable_nonroot_and_uses_separate_roles() -> None:
     assert "resources = each.value" in module
 
 
+def test_aws_native_task_policy_is_scoped_to_declared_data_plane_resources() -> None:
+    module = _source(MODULE)
+    native_policy = module.split('data "aws_iam_policy_document" "task_aws_native"', 1)[1].split(
+        'resource "aws_iam_role_policy" "task_aws_native"', 1
+    )[0]
+
+    assert 'data "aws_redshift_cluster" "native"' in module
+    assert 'data "aws_redshiftserverless_workgroup" "native"' in module
+    assert 'sid    = "AuthenticateToRedshift"' in module
+    assert '"redshift:GetClusterCredentials"' in module
+    assert '"redshift-serverless:GetCredentials"' in module
+    assert 'sid       = "InspectStagingBucket"' in module
+    assert '"s3:GetBucketLocation"' in module
+    assert '"s3:DeleteObject"' in module
+    assert '"s3:PutObject"' in module
+    assert 'sid    = "PublishDeclaredGlueCatalog"' in module
+    assert '"glue:CreateDatabase"' in module
+    assert '"glue:UpdateTable"' in module
+    assert 'resource "aws_iam_role_policy" "task_aws_native"' in module
+    assert 'resources = ["*"]' not in native_policy
+
+
 def test_controller_owns_deadline_and_only_runtime_exit_75_retries() -> None:
     module = _source(MODULE)
     variables = _source(AWS_ROOT / "modules/fargate/variables.tf")

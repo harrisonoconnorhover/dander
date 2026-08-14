@@ -23,8 +23,10 @@ Phase 7 evidence merge.
 2. Add sanitized failure diagnostics. Retained ServiceNow runs on 2026-08-10 and 2026-08-11
    ended as `unexpected_error`, and neither the run ledger nor Cloud Logging retained enough safe
    exception identity to diagnose them.
-3. Implement the AWS-native Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets profile. The current
-   Fargate factory and AWS Terraform path intentionally accept only the GCP data-plane profile.
+3. Complete protected review of the locally implemented AWS-native
+   Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets profile. The factory and saved-plan Terraform path
+   now accept only that exact composition or the previously accepted GCP composition; no live AWS
+   qualification or support claim exists yet.
 4. Cut one immutable release candidate after the AWS-native implementation and diagnostics merge.
 5. Use that exact candidate for the Kubernetes live profile, provider scale matrix, pairwise
    matrix, canonical live-profile reruns, and release-candidate soak.
@@ -52,7 +54,7 @@ limit, logical input at least ten times that limit, and peak RSS no greater than
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | lifecycle accepted; Phase 8 open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | implementation and Phase 8 open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | local implementation complete; protected review and Phase 8 qualification open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -67,7 +69,8 @@ Cartesian product. A case cannot change to supported from adapter tests alone.
 
 ## Current exit recommendation
 
-Phase 8 remains blocked. The exact unmet gates are the AWS-native implementation, safe diagnostic
-coverage, exact-candidate Kubernetes and pairwise live proofs, approved scale/cost reports for
-every first-class warehouse and launcher, current canonical-profile evidence, release-candidate
-soak, final audits, and the frozen support matrix.
+Phase 8 remains open. The exact unmet gates are protected review of the AWS-native implementation,
+retained evidence for the safe diagnostic patch, one immutable qualification candidate,
+exact-candidate Kubernetes and pairwise live proofs, approved scale/cost reports for every
+first-class warehouse and launcher, current canonical-profile evidence, release-candidate soak,
+final audits, and the frozen support matrix.

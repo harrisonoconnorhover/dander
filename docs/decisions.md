@@ -1,5 +1,18 @@
 # Engineering Decisions
 
+## 2026-08-14 — Fargate admits two exact profiles, not arbitrary provider mixes
+
+- **Profiles:** Fargate accepts the lifecycle-proven BigQuery/BigQuery/Dataplex/GCP-Secrets
+  composition or the AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets composition. Other mixes fail
+  before Terraform or provider access.
+- **Secrets and identity:** AWS-native bindings are full account-and-region-scoped Secrets Manager
+  ARNs resolved with the ECS task role. The manifest, plan, image, and operator identity remain
+  keyless and contain no static AWS credential.
+- **Permissions:** Each task role can authenticate only to the declared Redshift target, write only
+  the declared staging prefix, publish only under the declared Glue prefix, and read only its
+  declared secrets. Existing data-plane resources remain operator-owned and live qualification is
+  still required.
+
 ## 2026-08-14 — Runtime diagnostics preserve bounded identity, never exception text
 
 - **Diagnostic:** Pipeline failure logs record the run, pipeline stage, stable failure code, up to

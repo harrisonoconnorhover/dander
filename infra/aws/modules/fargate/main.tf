@@ -83,6 +83,18 @@ data "aws_ecr_repository" "runtime" {
   name = var.ecr_repository_name
 }
 
+data "aws_redshift_cluster" "native" {
+  count = var.aws_native_profile != null && var.aws_native_profile.redshift_deployment == "provisioned" ? 1 : 0
+
+  cluster_identifier = var.aws_native_profile.redshift_cluster_identifier
+}
+
+data "aws_redshiftserverless_workgroup" "native" {
+  count = var.aws_native_profile != null && var.aws_native_profile.redshift_deployment == "serverless" ? 1 : 0
+
+  workgroup_name = var.aws_native_profile.redshift_workgroup_name
+}
+
 resource "aws_ecs_cluster" "runtime" {
   name = var.name
 
@@ -201,6 +213,72 @@ resource "aws_iam_role_policy" "task_secrets" {
   for_each = data.aws_iam_policy_document.task_secrets
 
   name   = "dander-declared-secrets"
+  role   = aws_iam_role.task[each.key].id
+  policy = each.value.json
+}
+
+data "aws_iam_policy_document" "task_aws_native" {
+  for_each = var.aws_native_profile == null ? {} : aws_iam_role.task
+
+  statement {
+    sid    = "AuthenticateToRedshift"
+    effect = "Allow"
+    actions = var.aws_native_profile.redshift_deployment == "provisioned" ? [
+      "redshift:GetClusterCredentials",
+      ] : [
+      "redshift-serverless:GetCredentials",
+    ]
+    resources = var.aws_native_profile.redshift_deployment == "provisioned" ? [
+      data.aws_redshift_cluster.native[0].arn,
+      "arn:${local.partition}:redshift:${var.region}:${var.aws_account_id}:dbname:${var.aws_native_profile.redshift_cluster_identifier}/${var.aws_native_profile.redshift_database}",
+      "arn:${local.partition}:redshift:${var.region}:${var.aws_account_id}:dbuser:${var.aws_native_profile.redshift_cluster_identifier}/${var.aws_native_profile.redshift_db_user}",
+      ] : [
+      data.aws_redshiftserverless_workgroup.native[0].arn,
+    ]
+  }
+
+  statement {
+    sid       = "InspectStagingBucket"
+    effect    = "Allow"
+    actions   = ["s3:GetBucketLocation"]
+    resources = ["arn:${local.partition}:s3:::${var.aws_native_profile.staging_bucket}"]
+  }
+
+  statement {
+    sid    = "WriteDeclaredStagingPrefix"
+    effect = "Allow"
+    actions = [
+      "s3:DeleteObject",
+      "s3:PutObject",
+    ]
+    resources = [
+      "arn:${local.partition}:s3:::${var.aws_native_profile.staging_bucket}/${trim(var.aws_native_profile.staging_prefix, "/")}/*",
+    ]
+  }
+
+  statement {
+    sid    = "PublishDeclaredGlueCatalog"
+    effect = "Allow"
+    actions = [
+      "glue:CreateDatabase",
+      "glue:CreateTable",
+      "glue:GetDatabase",
+      "glue:GetTable",
+      "glue:UpdateDatabase",
+      "glue:UpdateTable",
+    ]
+    resources = [
+      "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:catalog",
+      "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:database/${var.aws_native_profile.glue_database_prefix}_*",
+      "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:table/${var.aws_native_profile.glue_database_prefix}_*/*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "task_aws_native" {
+  for_each = data.aws_iam_policy_document.task_aws_native
+
+  name   = "dander-declared-aws-data-plane"
   role   = aws_iam_role.task[each.key].id
   policy = each.value.json
 }

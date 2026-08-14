@@ -41,6 +41,23 @@ variable "execution_projections" {
   type        = any
 }
 
+variable "aws_native_profile" {
+  description = "Existing AWS-native Redshift, staging, and Glue coordinates; null for the GCP data plane."
+  type = object({
+    redshift_deployment         = string
+    redshift_cluster_identifier = optional(string)
+    redshift_workgroup_name     = optional(string)
+    redshift_database           = string
+    redshift_db_user            = optional(string)
+    staging_bucket              = string
+    staging_prefix              = string
+    glue_catalog_id             = string
+    glue_database_prefix        = string
+  })
+  default  = null
+  nullable = true
+}
+
 variable "scheduler_delivery_retry_count" {
   type        = number
   description = "EventBridge delivery retries; distinct from whole-runtime launcher attempts."

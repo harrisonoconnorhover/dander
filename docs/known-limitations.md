@@ -160,9 +160,12 @@ remain Phase 8 work.
 - AWS Glue publication is experimental and locally conformance-tested only. It does not provision
   IAM, Glue connections, Lake Formation permissions, crawlers, or tags, and it has not completed a
   live AWS catalog proof. Warehouse-backed entries intentionally have no inferred S3 location.
-  The current Fargate factory and AWS Terraform bootstrap support only the accepted GCP data-plane
-  projection; the AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets profile is Phase 8 implementation
-  work, not merely a pending live rerun.
+  The Fargate factory and saved-plan Terraform path now implement only the accepted GCP data-plane
+  composition and the named AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets composition. The
+  AWS-native path binds full secret ARNs and scopes task access to the declared Redshift target,
+  staging prefix, Glue namespace, and secrets, but it has only local and provider-mocked evidence.
+  Protected review, a source-free candidate, and live AWS qualification remain open; this is not a
+  support claim or a provider-managed Redshift/PostgreSQL deployment.
 
 ## Support boundary
 

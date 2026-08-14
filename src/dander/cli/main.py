@@ -1828,11 +1828,13 @@ def _load_connector_capabilities(
     """Resolve one configured source and inspect its optional operations without provider I/O."""
     source = source_or_pipeline
     secret_provider = "gcp_secret_manager"
+    secret_config: dict[str, object] | None = None
     try:
         registry = load_connector_plugins({})
         if project_config.is_file():
             manifest = load_project_config(project_config)
             secret_provider = manifest.secret_provider
+            secret_config = manifest.secret_config
             registry = load_connector_plugins(manifest.plugins)
             pipeline = manifest.pipelines.get(source_or_pipeline)
             if pipeline is not None:
@@ -1846,7 +1848,7 @@ def _load_connector_capabilities(
             raise ConnectorConfigError(
                 f"Connector file declares source {config.name!r}, expected {source!r}"
             )
-        auth = _build_auth(config, build_secret_store(secret_provider))
+        auth = _build_auth(config, build_secret_store(secret_provider, secret_config))
         return config, registry.build_capabilities(config, auth)
     except (ConnectorConfigError, ConnectorPluginError, ProjectConfigError) as error:
         raise ClickException(str(error)) from error

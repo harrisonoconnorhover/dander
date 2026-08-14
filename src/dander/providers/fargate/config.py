@@ -17,11 +17,12 @@ class FargateLauncherConfig(BaseModel):
     provider: Literal["fargate"]
     region: str = Field(pattern=r"^[a-z]{2}(?:-gov)?-[a-z]+-[0-9]+$")
     aws_account_id: str = Field(pattern=r"^[0-9]{12}$")
-    google_workload_identity_audience: str = Field(
+    google_workload_identity_audience: str | None = Field(
+        default=None,
         pattern=(
             r"^//iam\.googleapis\.com/projects/[0-9]{6,20}/locations/global/"
             r"workloadIdentityPools/[a-z][a-z0-9-]{3,31}/providers/[a-z][a-z0-9-]{3,31}$"
-        )
+        ),
     )
     subnet_ids: tuple[str, ...] = Field(min_length=1)
     security_group_ids: tuple[str, ...] = Field(min_length=1)

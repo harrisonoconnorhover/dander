@@ -16,6 +16,10 @@ _PIPELINE_ID = re.compile(r"^[a-z][a-z0-9_]{1,62}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _SECRET_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,254}$")
+_AWS_SECRET_REFERENCE = re.compile(
+    r"^aws-sm://arn:(?:aws|aws-us-gov):secretsmanager:[a-z0-9-]+:[0-9]{12}:"
+    r"secret:[A-Za-z0-9/_+=.@-]{1,512}$"
+)
 _GCP_RESOURCE_ID = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
 _SERVICE_ACCOUNT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _RUNTIME_MEMORY = re.compile(r"^[1-9][0-9]*(?:Mi|Gi)$")
@@ -32,6 +36,10 @@ def _default_warehouse_config() -> dict[str, object]:
 
 def _default_catalog_config() -> dict[str, object]:
     return {"provider": "dataplex"}
+
+
+def _default_secret_config() -> dict[str, object]:
+    return {"provider": "gcp_secret_manager"}
 
 
 _DISTRIBUTION = re.compile(r"^[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*$")
@@ -161,10 +169,17 @@ class PipelineSpec(BaseModel):
     @classmethod
     def validate_secrets(cls, values: dict[str, str]) -> dict[str, str]:
         if any(
-            not _ENV_NAME.fullmatch(env_name) or not _SECRET_ID.fullmatch(secret_id)
+            not _ENV_NAME.fullmatch(env_name)
+            or (
+                not _SECRET_ID.fullmatch(secret_id)
+                and not _AWS_SECRET_REFERENCE.fullmatch(secret_id)
+            )
             for env_name, secret_id in values.items()
         ):
-            raise ValueError("secrets must map uppercase environment names to safe secret ids")
+            raise ValueError(
+                "secrets must map uppercase environment names to safe secret ids or full AWS "
+                "Secrets Manager references"
+            )
         return values
 
 
@@ -245,7 +260,12 @@ class DanderProject(BaseModel):
         "environment",
         "azure_key_vault",
         "oci_vault",
+        "aws_secret_manager",
     ] = Field(default="gcp_secret_manager", exclude=True)
+    secret_config: dict[str, object] = Field(
+        default_factory=_default_secret_config,
+        exclude=True,
+    )
     launcher_provider: Literal[
         "cloud_run",
         "fargate",
@@ -275,6 +295,12 @@ class DanderProject(BaseModel):
 
     @model_validator(mode="after")
     def validate_deployed_pipeline_ids(self) -> DanderProject:
+        if self.version == 1 and any(
+            reference.startswith("aws-sm://")
+            for pipeline in self.pipelines.values()
+            for reference in pipeline.secrets.values()
+        ):
+            raise ValueError("AWS secret references require a version 2 AWS-native profile")
         if self.version == 1 and self.warehouse_provider == "bigquery":
             self.warehouse_config = {
                 "provider": "bigquery",
@@ -286,6 +312,8 @@ class DanderProject(BaseModel):
             raise ValueError("state config provider must match state_provider")
         if self.catalog_config.get("provider") != self.catalog_provider:
             raise ValueError("catalog config provider must match catalog_provider")
+        if self.secret_config.get("provider") != self.secret_provider:
+            raise ValueError("secret config provider must match secret_provider")
         if self.launcher_config:
             configured_provider = self.launcher_config.get("provider")
             if configured_provider != self.launcher_provider:

@@ -55,8 +55,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   their latest executions successful. ServiceNow executions on 2026-08-10 and 2026-08-11 failed
   as `unexpected_error`; neither the durable ledger nor Cloud Logging retained a safe exception
   identity. That diagnosability defect blocks the current soak gate and is tracked separately from
-  the normalized Phase 8 report contract. The AWS-native Fargate profile is also implementation
-  work because the accepted Fargate projection remains GCP-only. See
+  the normalized Phase 8 report contract. A later local Phase 8 slice implemented the exact
+  AWS-native Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets projection and scoped task policy, but
+  protected review, candidate creation, and live qualification remain open. See
   `docs/cloud-portability-phase8-qualification.md`.
 
 - On 2026-08-13, public Dander `0.9.0rc17` passed the complete Phase 7 lifecycle for the named

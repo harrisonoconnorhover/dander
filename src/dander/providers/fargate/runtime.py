@@ -21,8 +21,17 @@ from dander.deployment.projection import (
     validate_launcher_projection,
 )
 from dander.deployment.runtime import LauncherRuntime, ResolvedTemplateRequest
+from dander.providers.bigquery.config import BigQueryStateConfig, BigQueryWarehouseConfig
+from dander.providers.dataplex.config import DataplexCatalogConfig
 from dander.providers.fargate.config import FargateLauncherConfig
-from dander.providers.gcp_launcher import GcpLauncherContext, require_gcp_launcher_context
+from dander.providers.fargate.context import (
+    FargateProfileContext,
+    fargate_profile_factory_context,
+    optional_fargate_profile_context,
+    require_fargate_profile_context,
+)
+from dander.providers.gcp_launcher import optional_gcp_launcher_context
+from dander.providers.gcp_secret_manager.config import GcpSecretManagerConfig
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
 from dander.runtime_contract import RUNTIME_CONTRACT
 
@@ -31,23 +40,41 @@ if TYPE_CHECKING:
 
 _ROLE_NAME = re.compile(r"^[A-Za-z0-9+=,.@_-]{1,64}$")
 _GCP_PROJECT = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
+_AWS_SECRET_REFERENCE = re.compile(
+    r"^aws-sm://arn:(?P<partition>aws|aws-us-gov):secretsmanager:"
+    r"(?P<region>[a-z0-9-]+):(?P<account>[0-9]{12}):"
+    r"secret:[A-Za-z0-9/_+=.@-]{1,512}$"
+)
 
 
 @dataclass(frozen=True, slots=True)
 class FargateTemplateFactory:
-    """Build the GCP data-plane profile for an AWS Fargate launcher."""
+    """Build one explicitly qualified data-plane profile for AWS Fargate."""
 
     config: FargateLauncherConfig
-    gcp: GcpLauncherContext
+    profile: FargateProfileContext
 
     def build(self, request: ResolvedTemplateRequest) -> dict[str, ExecutionTemplate]:
-        """Build fail-closed Fargate templates for the portable BigQuery proof."""
-        if request.profile_id != "gcp":
-            raise ExecutionProjectionError("Fargate compatibility projection requires gcp")
-        if self.gcp.require_guarded_free_tier:
-            raise ExecutionProjectionError("Fargate cannot run the GCP guarded-free-tier preflight")
-        if _GCP_PROJECT.fullmatch(self.gcp.project) is None:
-            raise ExecutionProjectionError("invalid GCP project identifier")
+        """Build fail-closed templates for the selected GCP or AWS-native profile."""
+        if request.profile_id != self.profile.profile_id:
+            raise ExecutionProjectionError("Fargate request does not match its typed profile")
+        if self.profile.is_gcp:
+            assert self.profile.gcp is not None
+            if self.profile.gcp.require_guarded_free_tier:
+                raise ExecutionProjectionError(
+                    "Fargate cannot run the GCP guarded-free-tier preflight"
+                )
+            if _GCP_PROJECT.fullmatch(self.profile.gcp.project) is None:
+                raise ExecutionProjectionError("invalid GCP project identifier")
+            if self.config.google_workload_identity_audience is None:
+                raise ExecutionProjectionError(
+                    "Fargate GCP profile requires Google workload identity"
+                )
+        elif self.config.google_workload_identity_audience is not None:
+            raise ExecutionProjectionError(
+                "Fargate AWS-native profile cannot use Google workload identity"
+            )
+        self._validate_profile_coordinates()
         memory_mib = _memory_mib(request.memory)
         cpu_millis = request.cpu * 1_000
         _validate_fargate_size(cpu_millis=cpu_millis, memory_mib=memory_mib)
@@ -60,6 +87,12 @@ class FargateTemplateFactory:
             secret_env = pipeline["secret_env"]
             if not isinstance(secret_env, Mapping):
                 raise ExecutionProjectionError("pipeline secret bindings are invalid")
+            if self.profile.is_aws_native:
+                required_dsn = str(getattr(self.profile.state, "dsn_env", ""))
+                if required_dsn not in secret_env:
+                    raise ExecutionProjectionError(
+                        f"Fargate AWS-native pipeline must bind {required_dsn}"
+                    )
             command: tuple[str, ...] = (
                 "runtime",
                 "execute",
@@ -68,7 +101,7 @@ class FargateTemplateFactory:
                 "--pipeline",
                 pipeline_id,
                 "--platform",
-                "gcp",
+                request.profile_id,
                 "--config",
                 "/app/dander.yaml",
                 "--models-dir",
@@ -78,50 +111,23 @@ class FargateTemplateFactory:
             )
             if bool(pipeline["build_models"]):
                 command = (*command, "--catalog-output", "/tmp/dander-catalog.json")
+            environment = self._environment(
+                request=request,
+                role_name=role_name,
+                identity=identity,
+            )
+            secret_bindings = self._secret_bindings(secret_env)
             template = ExecutionTemplate(
                 schema=EXECUTION_PROJECTION_SCHEMA,
                 contract=RUNTIME_CONTRACT,
                 pipeline_id=pipeline_id,
-                profile_id="gcp",
+                profile_id=request.profile_id,
                 launcher="fargate",
                 image=request.image,
                 command=command,
                 configuration_reference="/app/dander.yaml",
-                environment=tuple(
-                    sorted(
-                        {
-                            "AWS_DEFAULT_REGION": self.config.region,
-                            "AWS_REGION": self.config.region,
-                            "BQ_DATASET_METADATA": "dander_meta",
-                            "BQ_DATASET_RAW": "raw",
-                            "DANDER_IMAGE_DIGEST": request.image.rsplit("@", maxsplit=1)[-1],
-                            "DANDER_GCP_SERVICE_ACCOUNT": (
-                                f"{role_name}@{self.gcp.project}.iam.gserviceaccount.com"
-                            ),
-                            "DANDER_GCP_WIF_AUDIENCE": (
-                                self.config.google_workload_identity_audience
-                            ),
-                            "DANDER_LAUNCHER": "fargate",
-                            "DANDER_PRINCIPAL": identity,
-                            "GCP_PROJECT_ID": self.gcp.project,
-                            "HOME": "/tmp",
-                            "TMPDIR": "/tmp",
-                        }.items()
-                    )
-                ),
-                secret_bindings=tuple(
-                    (
-                        str(environment_name),
-                        SecretReference(
-                            provider="gcp_secret_manager",
-                            reference=(
-                                f"gcp-sm://projects/{self.gcp.project}/secrets/"
-                                f"{secret_id}/versions/latest"
-                            ),
-                        ),
-                    )
-                    for environment_name, secret_id in sorted(secret_env.items())
-                ),
+                environment=tuple(sorted(environment.items())),
+                secret_bindings=secret_bindings,
                 workload_identity=identity,
                 resources=ResourceProjection(
                     cpu_millis=cpu_millis,
@@ -149,7 +155,7 @@ class FargateTemplateFactory:
                     ("dander_version", __version__),
                     ("image_digest", request.image.rsplit("@", maxsplit=1)[-1]),
                     ("pipeline", pipeline_id),
-                    ("profile", "gcp"),
+                    ("profile", request.profile_id),
                 ),
                 observability=ObservabilityProjection(
                     log_destination="cloudwatch_logs",
@@ -170,6 +176,96 @@ class FargateTemplateFactory:
             templates[pipeline_id] = template
         return templates
 
+    def _validate_profile_coordinates(self) -> None:
+        if not self.profile.is_aws_native:
+            return
+        warehouse = self.profile.warehouse
+        catalog = self.profile.catalog
+        secrets = self.profile.secrets
+        if {
+            str(getattr(warehouse, "region", "")),
+            str(getattr(catalog, "region", "")),
+            str(getattr(secrets, "region", "")),
+        } != {self.config.region}:
+            raise ExecutionProjectionError(
+                "Fargate AWS-native provider regions must match the launcher"
+            )
+        if getattr(catalog, "catalog_id", None) != self.config.aws_account_id:
+            raise ExecutionProjectionError(
+                "Fargate AWS-native Glue catalog must match the launcher account"
+            )
+        copy_role = str(getattr(warehouse, "copy_role_arn", "")).split(":")
+        if len(copy_role) < 6 or copy_role[4] != self.config.aws_account_id:
+            raise ExecutionProjectionError(
+                "Fargate AWS-native Redshift COPY role must match the launcher account"
+            )
+
+    def _environment(
+        self,
+        *,
+        request: ResolvedTemplateRequest,
+        role_name: str,
+        identity: str,
+    ) -> dict[str, str]:
+        environment = {
+            "AWS_DEFAULT_REGION": self.config.region,
+            "AWS_REGION": self.config.region,
+            "DANDER_IMAGE_DIGEST": request.image.rsplit("@", maxsplit=1)[-1],
+            "DANDER_LAUNCHER": "fargate",
+            "DANDER_PRINCIPAL": identity,
+            "HOME": "/tmp",
+            "TMPDIR": "/tmp",
+        }
+        if self.profile.is_aws_native:
+            return environment
+        assert self.profile.gcp is not None
+        assert self.config.google_workload_identity_audience is not None
+        return environment | {
+            "BQ_DATASET_METADATA": "dander_meta",
+            "BQ_DATASET_RAW": "raw",
+            "DANDER_GCP_SERVICE_ACCOUNT": (
+                f"{role_name}@{self.profile.gcp.project}.iam.gserviceaccount.com"
+            ),
+            "DANDER_GCP_WIF_AUDIENCE": self.config.google_workload_identity_audience,
+            "GCP_PROJECT_ID": self.profile.gcp.project,
+        }
+
+    def _secret_bindings(
+        self,
+        secret_env: Mapping[object, object],
+    ) -> tuple[tuple[str, SecretReference], ...]:
+        bindings: list[tuple[str, SecretReference]] = []
+        for environment_name, secret_id in sorted(secret_env.items()):
+            if not isinstance(environment_name, str) or not isinstance(secret_id, str):
+                raise ExecutionProjectionError("pipeline secret bindings are invalid")
+            if self.profile.is_aws_native:
+                match = _AWS_SECRET_REFERENCE.fullmatch(secret_id)
+                partition = "aws-us-gov" if self.config.region.startswith("us-gov-") else "aws"
+                if (
+                    match is None
+                    or match.group("partition") != partition
+                    or match.group("region") != self.config.region
+                    or match.group("account") != self.config.aws_account_id
+                ):
+                    raise ExecutionProjectionError(
+                        "AWS-native secrets must be full ARNs from the launcher account and region"
+                    )
+                reference = SecretReference(
+                    provider="aws_secret_manager",
+                    reference=secret_id,
+                )
+            else:
+                assert self.profile.gcp is not None
+                reference = SecretReference(
+                    provider="gcp_secret_manager",
+                    reference=(
+                        f"gcp-sm://projects/{self.profile.gcp.project}/secrets/"
+                        f"{secret_id}/versions/latest"
+                    ),
+                )
+            bindings.append((environment_name, reference))
+        return tuple(bindings)
+
 
 def build_fargate_launcher(
     config: BaseModel,
@@ -178,11 +274,24 @@ def build_fargate_launcher(
     """Build Fargate projection behavior only after launcher selection."""
     if not isinstance(config, FargateLauncherConfig):
         raise TypeError("Fargate launcher factory received the wrong configuration")
-    gcp = require_gcp_launcher_context(context)
+    profile = optional_fargate_profile_context(context)
+    if profile is None:
+        gcp = optional_gcp_launcher_context(context)
+        if gcp is None:
+            raise TypeError("Fargate launcher requires a typed profile context")
+        profile = FargateProfileContext(
+            profile_id="gcp",
+            warehouse=BigQueryWarehouseConfig(provider="bigquery"),
+            state=BigQueryStateConfig(provider="bigquery"),
+            catalog=DataplexCatalogConfig(provider="dataplex"),
+            secrets=GcpSecretManagerConfig(provider="gcp_secret_manager"),
+            gcp=gcp,
+        )
+    assert isinstance(profile, FargateProfileContext)
     return LauncherRuntime(
         provider_id="fargate",
         region=config.region,
-        templates=FargateTemplateFactory(config, gcp),
+        templates=FargateTemplateFactory(config, profile),
         capabilities=FARGATE_CAPABILITIES,
     )
 
@@ -231,4 +340,9 @@ FARGATE_LAUNCHER_FACTORY: ProviderFactory[LauncherRuntime] = ProviderFactory(
     build=build_fargate_launcher,
 )
 
-__all__ = ["FARGATE_LAUNCHER_FACTORY"]
+__all__ = [
+    "FARGATE_LAUNCHER_FACTORY",
+    "FargateProfileContext",
+    "fargate_profile_factory_context",
+    "require_fargate_profile_context",
+]

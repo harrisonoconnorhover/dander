@@ -204,6 +204,121 @@ def test_fargate_factory_is_lazy_and_projects_bigquery_without_credentials() -> 
     assert "AWS_SECRET_ACCESS_KEY" not in serialized
 
 
+def _aws_native_fargate_runtime() -> LauncherRuntime:
+    from dander.providers.aws_secrets_manager import AwsSecretsManagerConfig
+    from dander.providers.fargate.runtime import (
+        FargateProfileContext,
+        fargate_profile_factory_context,
+    )
+    from dander.providers.glue import GlueCatalogConfig
+    from dander.providers.postgresql import PostgreSQLStateConfig
+    from dander.providers.redshift import RedshiftWarehouseConfig
+
+    registry = default_provider_registry()
+    launcher = registry.parse(
+        ProviderKind.LAUNCHER,
+        {
+            "provider": "fargate",
+            "region": "us-east-1",
+            "aws_account_id": "184463061564",
+            "subnet_ids": ["subnet-0123456789abcdef0"],
+            "security_group_ids": ["sg-0123456789abcdef0"],
+        },
+    )
+    context = FargateProfileContext(
+        profile_id="aws_native",
+        warehouse=RedshiftWarehouseConfig(
+            provider="redshift",
+            deployment="provisioned",
+            host="dander.abc123.us-east-1.redshift.amazonaws.com",
+            database="analytics",
+            schema_name="raw",
+            db_user="dander_runtime",
+            region="us-east-1",
+            cluster_identifier="dander-phase8",
+            copy_role_arn="arn:aws:iam::184463061564:role/DanderRedshiftCopy",
+            staging_bucket="dander-phase8-staging",
+        ),
+        state=PostgreSQLStateConfig(
+            provider="postgresql",
+            authority_id="postgresql:aws-native",
+        ),
+        catalog=GlueCatalogConfig(
+            provider="glue",
+            region="us-east-1",
+            catalog_id="184463061564",
+        ),
+        secrets=AwsSecretsManagerConfig(
+            provider="aws_secret_manager",
+            region="us-east-1",
+        ),
+    )
+    runtime = registry.build(
+        ProviderKind.LAUNCHER,
+        launcher,
+        context=fargate_profile_factory_context(context),
+    )
+    assert isinstance(runtime, LauncherRuntime)
+    return runtime
+
+
+def test_fargate_projects_the_typed_aws_native_profile_keylessly() -> None:
+    secret = (
+        "aws-sm://arn:aws:secretsmanager:us-east-1:184463061564:secret:dander/postgres-dsn-AbCdEf"
+    )
+    pipelines = {
+        "greenhouse_jobs": {
+            **_PIPELINES["greenhouse_jobs"],
+            "secret_env": {"DANDER_POSTGRES_DSN": secret},
+        }
+    }
+
+    template = _aws_native_fargate_runtime().templates.build(
+        _request(
+            pipelines=pipelines,
+            image=_FARGATE_IMAGE,
+            profile_id="aws_native",
+            memory="2Gi",
+        )
+    )["greenhouse_jobs"]
+
+    assert template.profile_id == "aws_native"
+    assert template.command[template.command.index("--platform") + 1] == "aws_native"
+    binding = dict(template.secret_bindings)["DANDER_POSTGRES_DSN"]
+    assert binding.provider == "aws_secret_manager"
+    assert binding.reference == secret
+    environment = dict(template.environment)
+    assert environment["AWS_REGION"] == "us-east-1"
+    assert "GCP_PROJECT_ID" not in environment
+    assert "DANDER_GCP_WIF_AUDIENCE" not in environment
+    assert "AWS_ACCESS_KEY_ID" not in environment
+    assert "AWS_SECRET_ACCESS_KEY" not in environment
+
+
+def test_fargate_aws_native_rejects_a_secret_from_another_account() -> None:
+    pipelines = {
+        "greenhouse_jobs": {
+            **_PIPELINES["greenhouse_jobs"],
+            "secret_env": {
+                "DANDER_POSTGRES_DSN": (
+                    "aws-sm://arn:aws:secretsmanager:us-east-1:999999999999:"
+                    "secret:dander/postgres-dsn-AbCdEf"
+                )
+            },
+        }
+    }
+
+    with pytest.raises(ExecutionProjectionError, match="launcher account and region"):
+        _aws_native_fargate_runtime().templates.build(
+            _request(
+                pipelines=pipelines,
+                image=_FARGATE_IMAGE,
+                profile_id="aws_native",
+                memory="2Gi",
+            )
+        )
+
+
 @pytest.mark.parametrize(
     ("memory", "guarded", "message"),
     [

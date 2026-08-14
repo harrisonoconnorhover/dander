@@ -347,7 +347,11 @@ def image_promote_aws(
 
 
 def init_aws_plan(
-    project: str = typer.Option(..., "--project", help="GCP BigQuery data-plane project id."),
+    project: str | None = typer.Option(
+        None,
+        "--project",
+        help="GCP BigQuery data-plane project id; omit for the AWS-native profile.",
+    ),
     state_bucket: str = typer.Option(..., "--state-bucket", help="Existing S3 state bucket."),
     container_image: str = typer.Option(
         ..., "--container-image", help="Immutable ECR image ending in @sha256 digest."
@@ -377,6 +381,11 @@ def init_aws_plan(
         runtime = manifest.platform.runtime
         plan_path = AwsTerraformBootstrap(infra_dir).execute(
             project=project,
+            profile_id=manifest.platform_name,
+            warehouse_config=manifest.warehouse_config,
+            state_config=manifest.state_config,
+            catalog_config=manifest.catalog_config,
+            secret_config=manifest.secret_config,
             deployment_name=manifest.deployment_name,
             state_bucket=state_bucket,
             state_key=state_key,

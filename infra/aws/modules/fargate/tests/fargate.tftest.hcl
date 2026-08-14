@@ -22,6 +22,20 @@ mock_provider "aws" {
     }
   }
 
+  mock_data "aws_redshift_cluster" {
+    defaults = {
+      arn                = "arn:aws:redshift:us-east-1:184463061564:cluster:dander-phase8"
+      cluster_identifier = "dander-phase8"
+    }
+  }
+
+  mock_data "aws_redshiftserverless_workgroup" {
+    defaults = {
+      arn            = "arn:aws:redshift-serverless:us-east-1:184463061564:workgroup/unit"
+      workgroup_name = "dander-phase8"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::184463061564:role/dander-test-role"
@@ -200,5 +214,31 @@ run "controller_result_selector" {
       jsondecode(aws_sfn_state_machine.pipeline["greenhouse_jobs"].definition).States["Normalize runtime failure"].Next == "Classify task"
     )
     error_message = "Only genuine ECS runtime failures may be decoded and normalized into the existing exit-code classifier."
+  }
+}
+
+run "aws_native_scoped_task_policy" {
+  command = plan
+
+  variables {
+    aws_native_profile = {
+      redshift_deployment         = "provisioned"
+      redshift_cluster_identifier = "dander-phase8"
+      redshift_workgroup_name     = null
+      redshift_database           = "analytics"
+      redshift_db_user            = "dander_runtime"
+      staging_bucket              = "dander-phase8-staging"
+      staging_prefix              = "dander/staging"
+      glue_catalog_id             = "184463061564"
+      glue_database_prefix        = "dander"
+    }
+  }
+
+  assert {
+    condition = (
+      data.aws_redshift_cluster.native[0].cluster_identifier == "dander-phase8" &&
+      aws_iam_role_policy.task_aws_native["greenhouse_jobs"].name == "dander-declared-aws-data-plane"
+    )
+    error_message = "The AWS-native profile must resolve its declared Redshift target and attach one scoped task policy."
   }
 }

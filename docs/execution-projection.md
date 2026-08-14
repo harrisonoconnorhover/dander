@@ -25,9 +25,10 @@ boundary.
 Launcher factories receive one immutable `ResolvedTemplateRequest` containing only resolved,
 provider-neutral projection intent. Provider/data-plane construction values are captured when the
 selected factory is built: for example, the Cloud Run and Fargate BigQuery profiles receive their
-typed GCP project and guarded-free-tier context there. Kubernetes callers therefore do not invent
-empty project identifiers or false GCP guard values. The request contains no generic extension bag,
-and its pipeline containers are copied into read-only equivalents before projection.
+typed GCP project and guarded-free-tier context there, while the AWS-native Fargate profile receives
+typed Redshift, PostgreSQL-state, Glue, and AWS-Secrets configuration. Kubernetes callers therefore
+do not invent empty project identifiers or false GCP guard values. The request contains no generic
+extension bag, and its pipeline containers are copied into read-only equivalents before projection.
 
 The selected Cloud Run provider supplies these templates to Terraform. Cloud Run consumes their
 image, command,
@@ -48,6 +49,11 @@ manual and scheduled execution, replay, interruption, alerts, image rollback, cl
 no-drift reconciliation. Fargate remains experimental until the profile also satisfies the
 published scale/qualification objectives; see the
 [bounded acceptance record](cloud-portability-fargate-lifecycle-acceptance.md).
+
+The separately named AWS-native composition projects Redshift, PostgreSQL state, Glue, and full
+AWS Secrets Manager ARNs through the same manifest-bound saved-plan lifecycle. Its task role is
+scoped to the declared data-plane resources, and the GCP projection remains unchanged. This path
+has local and provider-mocked contract evidence only; it is not live-qualified or supported.
 
 The Kubernetes provider projects a selected named profile into a packaged Helm chart for an
 existing Kubernetes 1.27+ cluster. Its immutable template uses stdout, operator-owned Secret key

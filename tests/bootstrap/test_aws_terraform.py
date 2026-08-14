@@ -119,6 +119,102 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
     }
 
 
+def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_run(
+        args: tuple[str, ...],
+        *,
+        cwd: Path,
+        check: bool,
+        env: dict[str, str],
+    ) -> subprocess.CompletedProcess[str]:
+        del env
+        assert cwd == tmp_path.resolve()
+        assert check
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    secret_prefix = "aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:secret:dander/"
+    pipelines = _pipelines()
+    pipelines["greenhouse_jobs"]["secret_env"] = {
+        "API_TOKEN": secret_prefix + "api-token-AbCdEf",
+        "DANDER_POSTGRES_DSN": secret_prefix + "postgres-dsn-AbCdEf",
+    }
+
+    _execute(
+        AwsTerraformBootstrap(tmp_path),
+        project=None,
+        profile_id="aws_native",
+        launcher_config={
+            key: value
+            for key, value in _launcher().items()
+            if key != "google_workload_identity_audience"
+        },
+        warehouse_config={
+            "provider": "redshift",
+            "deployment": "provisioned",
+            "host": "dander.abc123.us-east-1.redshift.amazonaws.com",
+            "database": "analytics",
+            "schema": "raw",
+            "db_user": "dander_runtime",
+            "region": "us-east-1",
+            "cluster_identifier": "dander-phase8",
+            "copy_role_arn": "arn:aws:iam::123456789012:role/DanderRedshiftCopy",
+            "staging_bucket": "dander-phase8-staging",
+            "staging_prefix": "dander/staging",
+        },
+        state_config={
+            "provider": "postgresql",
+            "authority_id": "postgresql:aws-native",
+            "dsn_env": "DANDER_POSTGRES_DSN",
+        },
+        catalog_config={
+            "provider": "glue",
+            "region": "us-east-1",
+            "catalog_id": "123456789012",
+            "database_prefix": "dander",
+        },
+        secret_config={"provider": "aws_secret_manager", "region": "us-east-1"},
+        pipelines=pipelines,
+    )
+
+    terraform_plan = calls[1]
+    projection_argument = next(
+        item for item in terraform_plan if item.startswith("-var=execution_projections=")
+    )
+    projection = json.loads(projection_argument.removeprefix("-var=execution_projections="))[
+        "greenhouse_jobs"
+    ]
+    assert projection["profile_id"] == "aws_native"
+    assert projection["secret_bindings"]["DANDER_POSTGRES_DSN"] == {
+        "provider": "aws_secret_manager",
+        "reference": secret_prefix + "postgres-dsn-AbCdEf",
+    }
+    assert "GCP_PROJECT_ID" not in projection["environment"]
+    native_argument = next(
+        item for item in terraform_plan if item.startswith("-var=aws_native_profile=")
+    )
+    native = json.loads(native_argument.removeprefix("-var=aws_native_profile="))
+    assert native == {
+        "glue_catalog_id": "123456789012",
+        "glue_database_prefix": "dander",
+        "redshift_cluster_identifier": "dander-phase8",
+        "redshift_database": "analytics",
+        "redshift_db_user": "dander_runtime",
+        "redshift_deployment": "provisioned",
+        "redshift_workgroup_name": None,
+        "staging_bucket": "dander-phase8-staging",
+        "staging_prefix": "dander/staging",
+    }
+    tags_argument = next(item for item in terraform_plan if item.startswith("-var=tags="))
+    assert json.loads(tags_argument.removeprefix("-var=tags="))["dander-profile"] == "aws_native"
+
+
 def test_aws_apply_uses_only_the_saved_plan(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

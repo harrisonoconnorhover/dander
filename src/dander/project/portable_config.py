@@ -23,6 +23,7 @@ from dander.project.config import (
     ProjectConfigError,
     _load_yaml_mapping,
 )
+from dander.providers.aws_secrets_manager import AwsSecretsManagerConfig  # noqa: TC001
 from dander.providers.azure_container_apps import (  # noqa: TC001
     AzureContainerAppsLauncherConfig,
 )
@@ -56,6 +57,11 @@ _PIPELINE_NAME = re.compile(r"^[a-z][a-z0-9_]{1,62}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _SECRET_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,254}$")
+_AWS_SECRET_REFERENCE = re.compile(
+    r"^aws-sm://arn:(?P<partition>aws|aws-us-gov):secretsmanager:"
+    r"(?P<region>[a-z0-9-]+):(?P<account>[0-9]{12}):"
+    r"secret:[A-Za-z0-9/_+=.@-]{1,512}$"
+)
 
 
 class LogicalPipelineSpec(BaseModel):
@@ -142,7 +148,11 @@ CatalogSpec = Annotated[
 
 
 SecretProviderSpec = Annotated[
-    GcpSecretManagerConfig | EnvironmentSecretConfig | AzureKeyVaultConfig | OciVaultConfig,
+    GcpSecretManagerConfig
+    | EnvironmentSecretConfig
+    | AzureKeyVaultConfig
+    | OciVaultConfig
+    | AwsSecretsManagerConfig,
     Field(discriminator="provider"),
 ]
 
@@ -205,11 +215,16 @@ class DeploymentPipelineSpec(BaseModel):
     @classmethod
     def validate_secrets(cls, values: dict[str, str]) -> dict[str, str]:
         if any(
-            not _ENV_NAME.fullmatch(env_name) or not _SECRET_ID.fullmatch(secret_id)
+            not _ENV_NAME.fullmatch(env_name)
+            or (
+                not _SECRET_ID.fullmatch(secret_id)
+                and not _AWS_SECRET_REFERENCE.fullmatch(secret_id)
+            )
             for env_name, secret_id in values.items()
         ):
             raise ValueError(
-                "secret_bindings must map uppercase environment names to safe secret ids"
+                "secret_bindings must map uppercase environment names to safe secret ids or "
+                "full AWS Secrets Manager references"
             )
         return values
 
@@ -348,6 +363,7 @@ def _resolve(
     selected_name = _select_deployment(platforms, deployment)
     selected = platforms.deployments[selected_name]
     profile = platforms.platforms[selected.platform]
+    _validate_profile_composition(profile=profile, deployment=selected)
     if (
         profile.secrets.provider == "azure_key_vault"
         and selected.launcher.provider != "azure_container_apps"
@@ -448,6 +464,7 @@ def _resolve(
         catalog_provider=profile.catalog.provider,
         catalog_config=profile.catalog.model_dump(mode="json", exclude_none=True),
         secret_provider=profile.secrets.provider,
+        secret_config=profile.secrets.model_dump(mode="json"),
         launcher_provider=selected.launcher.provider,
         launcher_config=selected.launcher.model_dump(mode="json"),
         deployed_pipeline_ids=tuple(sorted(selected.pipelines)),
@@ -556,6 +573,7 @@ def _equivalent(legacy: DanderProject, migrated: DanderProject) -> bool:
         and legacy.catalog_provider == migrated.catalog_provider
         and legacy.catalog_config == migrated.catalog_config
         and legacy.secret_provider == migrated.secret_provider
+        and legacy.secret_config == migrated.secret_config
         and legacy.launcher_provider == migrated.launcher_provider
         and legacy.resolved_launcher_config() == migrated.resolved_launcher_config()
         and legacy.plugins == migrated.plugins
@@ -579,3 +597,94 @@ def _validation_location(issue: Mapping[str, Any]) -> str:
     if issue.get("type") == "union_tag_invalid":
         return f"{location}.provider"
     return location
+
+
+def _validate_profile_composition(
+    *,
+    profile: PlatformProfileSpec,
+    deployment: DeploymentSpec,
+) -> None:
+    """Reject unqualified launcher/provider combinations before any provider I/O."""
+    launcher = deployment.launcher
+    if launcher.provider != "fargate":
+        if profile.secrets.provider == "aws_secret_manager":
+            raise ProjectConfigError(
+                "AWS Secrets Manager projection currently requires launcher.provider='fargate'"
+            )
+        return
+
+    providers = (
+        profile.warehouse.provider,
+        profile.state.provider,
+        profile.catalog.provider,
+        profile.secrets.provider,
+    )
+    gcp_profile = ("bigquery", "bigquery", "dataplex", "gcp_secret_manager")
+    aws_profile = ("redshift", "postgresql", "glue", "aws_secret_manager")
+    if providers == gcp_profile:
+        if launcher.google_workload_identity_audience is None:
+            raise ProjectConfigError(
+                "Fargate GCP profile requires google_workload_identity_audience"
+            )
+        _reject_aws_secret_references(deployment)
+        return
+    if providers != aws_profile:
+        raise ProjectConfigError(
+            "Fargate supports only the named BigQuery/BigQuery/Dataplex/GCP-Secrets or "
+            "Redshift/PostgreSQL/Glue/AWS-Secrets profiles"
+        )
+    if launcher.google_workload_identity_audience is not None:
+        raise ProjectConfigError(
+            "Fargate AWS-native profile must not configure Google workload identity"
+        )
+    assert isinstance(profile.warehouse, RedshiftWarehouseConfig)
+    assert isinstance(profile.state, PostgreSQLStateConfig)
+    assert isinstance(profile.catalog, GlueCatalogConfig)
+    assert isinstance(profile.secrets, AwsSecretsManagerConfig)
+    expected_region = launcher.region
+    if {
+        profile.warehouse.region,
+        profile.catalog.region,
+        profile.secrets.region,
+    } != {expected_region}:
+        raise ProjectConfigError(
+            "Fargate AWS-native launcher, Redshift, Glue, and AWS Secrets Manager regions "
+            "must match"
+        )
+    if profile.catalog.catalog_id != launcher.aws_account_id:
+        raise ProjectConfigError(
+            "Fargate AWS-native Glue catalog must belong to the launcher AWS account"
+        )
+    copy_role = profile.warehouse.copy_role_arn.split(":")
+    if len(copy_role) < 6 or copy_role[4] != launcher.aws_account_id:
+        raise ProjectConfigError(
+            "Fargate AWS-native Redshift COPY role must belong to the launcher AWS account"
+        )
+    required_dsn = profile.state.dsn_env
+    partition = "aws-us-gov" if expected_region.startswith("us-gov-") else "aws"
+    prefix = (
+        f"aws-sm://arn:{partition}:secretsmanager:{expected_region}:"
+        f"{launcher.aws_account_id}:secret:"
+    )
+    for pipeline_id, pipeline in deployment.pipelines.items():
+        reference = pipeline.secret_bindings.get(required_dsn)
+        if reference is None:
+            raise ProjectConfigError(
+                f"Fargate AWS-native pipeline {pipeline_id!r} must bind {required_dsn}"
+            )
+        if any(not value.startswith(prefix) for value in pipeline.secret_bindings.values()):
+            raise ProjectConfigError(
+                "Fargate AWS-native secret bindings must use full AWS Secrets Manager ARNs "
+                "from the launcher account and region"
+            )
+
+
+def _reject_aws_secret_references(deployment: DeploymentSpec) -> None:
+    if any(
+        value.startswith("aws-sm://")
+        for pipeline in deployment.pipelines.values()
+        for value in pipeline.secret_bindings.values()
+    ):
+        raise ProjectConfigError(
+            "AWS Secrets Manager references require the named AWS-native Fargate profile"
+        )
