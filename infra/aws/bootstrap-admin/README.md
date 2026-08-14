@@ -4,6 +4,16 @@ This Terraform root creates only the AWS prerequisites that the Fargate platform
 an encrypted/versioned S3 state bucket, DynamoDB lock table, immutable ECR repository, and a
 dedicated deployment role trusted by one exact operator principal.
 
+The short-lived deployment role also carries an action-bounded D7 policy for disposable hosted
+Control resources. S3 bucket/object access is limited to `${name}-d7-*`; ECS, load-balancer, and
+security-group mutations are limited by D7 names or tags; CloudFront creation and lifecycle use
+only the exact distribution and policy actions required by that profile. The role can remove
+noncurrent retained-state versions only below the fixed `dander/d7/control-plane/` prefix and can
+remove versions from disposable D7 buckets, so cleanup does not leave hidden generations or gain
+destructive access to unrelated state history. The D7 application root must use that exact backend
+prefix and must not manage this role, create a custom domain, or depend on wildcard
+provider-administration actions.
+
 The public Dander lifecycle copies this root into a private operator-artifact directory and uses a
 local backend for the first reviewed plan. After that exact plan is applied, Dander migrates the
 state into the newly created S3 backend. The local state remains available as recovery evidence if

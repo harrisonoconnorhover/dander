@@ -68,6 +68,50 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
     assert '"logs:*"' not in terraform
 
 
+def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
+    terraform = (_REPO_ROOT / "infra/aws/bootstrap-admin/main.tf").read_text(encoding="utf-8")
+    policy = terraform.split('data "aws_iam_policy_document" "deployment_d7"', 1)[1]
+
+    for action in (
+        "cloudfront:CreateDistribution",
+        "cloudfront:CreateOriginRequestPolicy",
+        "ec2:CreateSecurityGroup",
+        "ecs:CreateService",
+        "ecs:UpdateService",
+        "elasticloadbalancing:CreateLoadBalancer",
+        "s3:ListBucketVersions",
+        "s3:DeleteObjectVersion",
+    ):
+        assert f'"{action}"' in policy
+    assert "arn:${local.partition}:s3:::${var.name}-d7-*" in policy
+    assert "service/${var.name}-d7-*/*" in policy
+    assert 'variable = "aws:RequestTag/phase"' in policy
+    assert 'variable = "aws:ResourceTag/phase"' in policy
+    assert 'values   = ["elasticloadbalancing.amazonaws.com"]' in policy
+    assert 'd7_state_prefix = "dander/d7/control-plane/"' in terraform
+    assert 'variable = "s3:prefix"' in policy
+    assert 'values   = ["${local.d7_state_prefix}*"]' in policy
+    assert (
+        'resources = ["${aws_s3_bucket.terraform_state.arn}/${local.d7_state_prefix}*"]' in policy
+    )
+    for wildcard in (
+        '"cloudfront:*"',
+        '"ec2:*"',
+        '"ecs:*"',
+        '"elasticloadbalancing:*"',
+        '"iam:*"',
+        '"s3:*"',
+    ):
+        assert wildcard not in policy
+
+    state_policy = terraform.split('data "aws_iam_policy_document" "deployment"', 1)[1].split(
+        'resource "aws_iam_role_policy" "deployment"', 1
+    )[0]
+    assert '"s3:ListBucketVersions"' not in state_policy
+    assert '"s3:GetObjectVersion"' not in state_policy
+    assert '"s3:DeleteObjectVersion"' not in state_policy
+
+
 def test_aws_admin_plan_uses_secured_local_state_without_applying(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
