@@ -2,37 +2,39 @@
 
 ## Finished
 
-- Applied the reviewed 18-resource disposable GCP Control-plane plan in isolated remote state.
-- Kept the graph bucket private, versioned, and configured with zero soft-delete retention.
-- Corrected the live verifier for the real optional v1 template name and operator key inventory.
-- Verified hosted readiness, current exclusive revisions, numeric config versions, and fail-closed API access.
-- Recorded Cloud Run's zero service-scaling defaults without changing scale-to-zero behavior.
+- Qualified the protected GCP Cloud Run Control profile on active, rollback, and restored images.
+- Proved a browser-created graph survived Control restart and digest switches with one exact hash.
+- Removed every disposable service, identity, config secret, graph resource, and issuer artifact.
+- Reconciled retained GCP stage-zero and current-equivalent rc22 platform plans to no change.
+- Recorded coordinate-free evidence and refreshed the local sanitized reproducibility manifest.
 
 ## Try It
 
-Run the `verify` action against the protected local input and rendered directory. Do not use or
-commit the example file, saved plans, Terraform state, tokens, or graph rows.
+Review `docs/evidence/gcp/2026-08-14/d7-control-plane.json`; it contains no provider coordinates,
+credentials, tokens, graph documents, Terraform state, or saved plans.
 
 ## Checks
 
-- Exact-main CI run 31839222261 passed all five jobs at `a501c676`.
-- Verifier PR CI run 31842009396 passed all five jobs.
-- The corrected read-only verifier passed against the active live deployment.
-- A read-only probe plan reduced the normalization diff to the earlier manual CLI metadata only.
+- Exact-main CI run 31843098117 passed all five jobs at `c414bd12`.
+- The bounded 12-check verifier passed active, rollback, and restored-active deployments.
+- Active, rollback, post-restart, and final-restored Terraform plans reported `No changes.`
+- Browser reloads reopened the same three-node graph with content hash `0e0485be266a4799…`.
+- Cleanup inventories were empty; retained stage-zero and rc22 platform plans were no-change.
 
 ## Decisions
 
-- Keep bootstrap permissions narrow; use the authenticated operator only for read-only key inventory.
-- Use hosted `/readyz`; Cloud Run owns the externally visible `/healthz` behavior for this profile.
-- Preserve revision correlation and record provider-returned zero scaling defaults so checks stay literal.
+- Preserve accepted application images for later profiles; remove only the disposable issuer image.
+- Leave the shared retained state bucket's recovery policy unchanged and remove all live versions.
+- Keep this qualification experimental: synthetic identity does not promote GCP support.
 
 ## Remaining
 
-- Merge the focused scaling-default correction and verify exact-main CI.
-- Run the browser graph, restart, no-change, rollback/restore, cleanup, and retained no-drift proofs.
+- Merge this focused evidence PR and verify exact-main CI.
+- Provider-measured GCP cost remains pending; the authorized aggregate ceiling is USD 10.
+- AWS, Azure, and OCI hosted Control profiles retain their separate live gates.
 
 ## Review First
 
-- `infra/gcp-control/main.tf`
-- `infra/gcp-control/tests/gcp_control.tftest.hcl`
+- `docs/evidence/gcp/2026-08-14/d7-control-plane.json`
 - `tickets/DANDER-130-gcp-control-plane-deployment.md`
+- `docs/control-contracts.md`

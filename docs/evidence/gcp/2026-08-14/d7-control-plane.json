@@ -1,0 +1,134 @@
+{
+  "schema": "io.dander.gcp-control-plane.evidence/v1",
+  "profile": "gcp_cloud_run",
+  "observed_on": "2026-08-14",
+  "status": "passed",
+  "authorization": {
+    "aggregate_ceiling_usd": "10.00",
+    "provider_measured_cost_usd": null,
+    "cost_status": "provider_invoice_pending"
+  },
+  "host_contract": {
+    "protected_main_commit": "c414bd12f4544b89ca453898fc36c159c22394bc",
+    "protected_main_ci_run": 31843098117,
+    "protected_main_ci_status": "success",
+    "implementation_pull_request": 282,
+    "storage_verifier_pull_request": 283,
+    "live_verifier_pull_request": 284,
+    "scaling_defaults_pull_request": 285,
+    "contract_bundle_sha256": "695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3",
+    "api_version": "v1"
+  },
+  "images": {
+    "active": {
+      "dander_index_digest": "sha256:b18da7f9a607b3ceb53b6639fde9d425df006dd86d7821105f8b6adb07be905e",
+      "dander_revision": "63ba867af4bd5ecd8771b911b743c3a704e91cb6",
+      "dander_version": "0.9.0rc20",
+      "druff_index_digest": "sha256:5aada0c74fca2a62fc89e9dfccb10e3f7190205f4ae819f92df5bec5bc59fe82",
+      "druff_revision": "7d718fcde01d4c2140ede96bf72a66a224dac64c"
+    },
+    "rollback": {
+      "dander_index_digest": "sha256:2b468b4c3becd0dcff581881ff1aca0fc596dca981cc7ef6780322b76768ed18",
+      "dander_revision": "d959135a8681aceb803eba4013e3950296b0edb9",
+      "dander_version": "0.9.0rc19",
+      "druff_index_digest": "sha256:308297b2a26ac1bcf311a6c5f8a2fea635b52c29b1c1fbdb70d1784bc6f8b135",
+      "druff_revision": "c6b9abf6935e21b1c049443ddc0a29177615a591",
+      "druff_boundary": "digest_switch_with_equivalent_reviewed_tree"
+    },
+    "accepted_application_images_retained": true
+  },
+  "render_and_terraform": {
+    "active_values_sha256": "92a4cdf0f4d05c00de5a67cef0858ff7a32530e9e9f600f3de1a357ccf28e8a9",
+    "rollback_values_sha256": "f3b0cd171f848a963a03222eecbff49c080f0cf1ab466bad5b44340e8f27ca91",
+    "initial_saved_plan": {
+      "add": 18,
+      "change": 0,
+      "destroy": 0
+    },
+    "active_before_graph_no_change": true,
+    "active_after_restart_no_change": true,
+    "rollback_no_change": true,
+    "restored_active_no_change": true,
+    "saved_plan_retained": false,
+    "copied_state_retained": false,
+    "apply_from_unprotected_source": false
+  },
+  "runtime": {
+    "public_application_protected_services": 2,
+    "distinct_keyless_runtime_identities": true,
+    "numeric_startup_config_versions": true,
+    "current_exclusive_serving_revisions": true,
+    "active_verifier_checks": 12,
+    "active_verifier_passed": true,
+    "rollback_verifier_passed": true,
+    "restored_active_verifier_passed": true,
+    "unauthenticated_control_api_rejected": true,
+    "scale_to_zero_preserved": true,
+    "high_availability_claimed": false,
+    "horizontal_scale_claimed": false
+  },
+  "graph_store": {
+    "provider": "gcs",
+    "uniform_bucket_access": true,
+    "public_access_prevention": true,
+    "versioning_enabled": true,
+    "soft_delete_retention_seconds": 0,
+    "control_identity_object_access_only": true,
+    "druff_identity_object_access": false,
+    "runtime_project_roles": false
+  },
+  "synthetic_oidc": {
+    "real_provider_registration": false,
+    "upstream": "navikt/mock-oauth2-server@30afaa6d6c105f04933542f3a62f58c2415c3410",
+    "bounded_patch_sha256": "f56810915c3bfe9492f419d6402176d5f70820767e30ed4b8958455baa241cee",
+    "deployed_image_digest": "sha256:2bd5c92c571c17f45ebf3cb057a728ea2abbaaa139118687a2072a70037e5a89",
+    "authorization_code_pkce": true,
+    "access_token_algorithm": "RS256",
+    "access_token_api_audience": true,
+    "id_token_spa_audience": true,
+    "admin_role": true,
+    "access_token_lifetime_seconds": 300,
+    "refresh_token_absent": true,
+    "browser_hosted_session_passed": true
+  },
+  "persistence": {
+    "browser_created_graph_content_sha256": "0e0485be266a47995596b906ab5a325e1cb20027e4a779ba8958864ada724af6",
+    "browser_created_graph_node_count": 3,
+    "control_restart_preserved_graph": true,
+    "rollback_preserved_graph": true,
+    "active_restore_preserved_graph": true
+  },
+  "cleanup": {
+    "control_and_druff_services_absent": true,
+    "runtime_identities_absent": true,
+    "numeric_config_secrets_absent": true,
+    "graph_bucket_absent": true,
+    "graph_bucket_soft_deleted_copy_absent": true,
+    "graph_live_or_noncurrent_versions_absent": true,
+    "attempt_state_live_or_noncurrent_objects_absent": true,
+    "retained_state_bucket_recovery_policy_unchanged": true,
+    "provider_managed_state_recovery_copies_expire_at_hard_delete": true,
+    "synthetic_oidc_service_identity_and_registry_image_absent": true,
+    "synthetic_oidc_local_image_and_source_absent": true,
+    "accepted_application_images_retained": true
+  },
+  "retained_gcp_reconciliation": {
+    "checked_after_provider_cleanup": true,
+    "configuration_commit": "c414bd12f4544b89ca453898fc36c159c22394bc",
+    "configuration_version": "0.9.0rc22",
+    "runtime_image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "runtime_timeout_seconds": 600,
+    "stage_zero_plan": "no_changes",
+    "platform_plan": "no_changes",
+    "provider_apply": false,
+    "saved_plan_retained": false,
+    "copied_state_retained": false
+  },
+  "sanitization": {
+    "service_urls_or_account_coordinates_recorded": false,
+    "tokens_or_cookies_recorded": false,
+    "credentials_or_private_keys_recorded": false,
+    "graph_documents_or_rows_recorded": false,
+    "terraform_state_or_plan_recorded": false
+  }
+}
