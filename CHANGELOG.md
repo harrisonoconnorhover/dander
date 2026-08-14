@@ -6,10 +6,18 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc22 — 2026-08-14 (beta)
+
 ### Fixed
 
 - Allow source-free bundles with multiple deployments to select an exact deployment during
   credential-free runtime inspection.
+
+### Known limitations
+
+- RC22 is a private qualification candidate until the exact artifact passes the Phase 8 live,
+  scale, pairwise, audit, and soak gates. AWS-native support is not promoted without live AWS
+  qualification, and the Kubernetes lifecycle adapter remains in the separate Druff workstream.
 
 ## 0.9.0rc21 — 2026-08-14 (beta)
 
@@ -29,9 +37,9 @@ capabilities enter through the next minor release.
 
 ### Known limitations
 
-- RC21 is a private qualification candidate until the exact artifact passes the Phase 8 live,
-  scale, pairwise, audit, and soak gates. AWS-native support is not promoted without live AWS
-  qualification, and the Kubernetes lifecycle adapter remains in the separate Druff workstream.
+- RC21 was retained only for bounded diagnostic evidence after its source-free combined bundle
+  exposed a missing multi-deployment runtime-inspection selector. It is not the final Phase 8
+  qualification candidate.
 
 ## 0.9.0rc20 — 2026-08-14 (beta)
 
