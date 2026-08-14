@@ -50,6 +50,15 @@ PostgreSQLPool = ConnectionPool[Connection[PostgreSQLRow]]
 
 _APPROVAL_SCHEMA = "io.dander.qualification.objective-approval/v1"
 _CONFIG_SCHEMA = "io.dander.phase8.postgresql-bulk-incremental/v1"
+_CORRECTNESS_CONFIG_SCHEMA = "io.dander.phase8.postgresql-correctness/v1"
+_CORRECTNESS_FIXTURE = "postgresql-scd1-normalized-v1"
+_CORRECTNESS_OBJECTIVES = (
+    "cleanup",
+    "cost_ceiling",
+    "exact_normalized_output",
+    "replay_equal",
+    "scd1_copy_completion",
+)
 _BULK_OBJECTIVES = (
     "cleanup",
     "cost_ceiling",
@@ -113,6 +122,16 @@ class Phase8PostgreSQLConfig:
             "benchmark_class": benchmark_class.value,
             "batch_rows": self.batch_rows,
         }
+        if benchmark_class is BenchmarkClass.CORRECTNESS:
+            return {
+                **common,
+                "schema": _CORRECTNESS_CONFIG_SCHEMA,
+                "batch_rows": 3,
+                "fixture": _CORRECTNESS_FIXTURE,
+                "expected_normalized_sha256": _correctness_expected_sha256(),
+                "input_rows": 7,
+                "output_rows": 3,
+            }
         if benchmark_class is BenchmarkClass.BULK_THROUGHPUT:
             return {
                 **common,
@@ -128,7 +147,9 @@ class Phase8PostgreSQLConfig:
                 "delta_rows": self.incremental_delta_rows,
                 "payload_bytes": self.incremental_payload_bytes,
             }
-        raise ValueError("Phase 8 PostgreSQL harness supports only bulk and incremental classes")
+        raise ValueError(
+            "Phase 8 PostgreSQL harness supports correctness, bulk, and incremental classes"
+        )
 
     def configuration_sha256(self, benchmark_class: BenchmarkClass) -> str:
         """Hash the canonical class configuration used by objective approval."""
@@ -174,6 +195,18 @@ class _BulkResult:
 
 
 @dataclass(frozen=True, slots=True)
+class _CorrectnessResult:
+    duration_ms: int
+    peak_rss_bytes: int
+    input_rows: int
+    output_rows: int
+    logical_input_bytes: int
+    normalized_sha256: str
+    temporary_staging_relations: int
+    cleanup_verified: bool
+
+
+@dataclass(frozen=True, slots=True)
 class _IncrementalResult:
     duration_ms: int
     peak_rss_bytes: int
@@ -206,11 +239,13 @@ def load_approval(
     raw_objectives = payload.get("approved_objectives")
     if not isinstance(raw_cost, dict) or not isinstance(raw_objectives, dict):
         raise ValueError("objective manifest is incomplete")
-    expected_names = (
-        _BULK_OBJECTIVES
-        if benchmark_class is BenchmarkClass.BULK_THROUGHPUT
-        else _INCREMENTAL_OBJECTIVES
-    )
+    expected_names = {
+        BenchmarkClass.CORRECTNESS: _CORRECTNESS_OBJECTIVES,
+        BenchmarkClass.BULK_THROUGHPUT: _BULK_OBJECTIVES,
+        BenchmarkClass.INCREMENTAL: _INCREMENTAL_OBJECTIVES,
+    }.get(benchmark_class)
+    if expected_names is None:
+        raise ValueError("objective manifest selects an unsupported benchmark class")
     if tuple(raw_objectives.get("names", ())) != expected_names:
         raise ValueError("objective manifest does not contain the required objective set")
     objectives = ApprovedObjectiveSet(
@@ -243,16 +278,18 @@ def run_phase8_postgresql_qualification(
     *,
     config: Phase8PostgreSQLConfig,
     identity: CandidateIdentity,
+    correctness_approval: _Approval,
     bulk_approval: _Approval,
     incremental_approval: _Approval,
-) -> tuple[QualificationReport, QualificationReport]:
-    """Execute bulk and small-delta workloads against disposable PostgreSQL schemas."""
+) -> tuple[QualificationReport, QualificationReport, QualificationReport]:
+    """Execute correctness, bulk, and small-delta workloads in disposable schemas."""
     if not dsn:
         raise ValueError("PostgreSQL qualification requires a non-empty DSN")
     if __version__ != identity.release_version:
         raise ValueError(
             f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
         )
+    _require_identity_match(identity, correctness_approval)
     _require_identity_match(identity, bulk_approval)
     _require_identity_match(identity, incremental_approval)
     pool = cast(
@@ -274,9 +311,11 @@ def run_phase8_postgresql_qualification(
             raise RuntimeError("PostgreSQL qualification could not read the database name")
         database = row["database"]
         warehouse = _warehouse_runtime(pool, database)
+        correctness = _run_correctness(pool, warehouse, database=database)
         bulk = _run_bulk(pool, warehouse, database=database, config=config)
         incremental = _run_incremental(pool, warehouse, database=database, config=config)
         return (
+            _correctness_report(config, identity, correctness_approval, correctness),
             _bulk_report(config, identity, bulk_approval, bulk),
             _incremental_report(config, identity, incremental_approval, incremental),
         )
@@ -312,6 +351,84 @@ def _warehouse_runtime(pool: PostgreSQLPool, database: str) -> WarehouseRuntime:
     if not isinstance(runtime, WarehouseRuntime):
         raise TypeError("PostgreSQL qualification received an invalid warehouse runtime")
     return runtime
+
+
+def _run_correctness(
+    pool: PostgreSQLPool,
+    warehouse: WarehouseRuntime,
+    *,
+    database: str,
+) -> _CorrectnessResult:
+    schema = f"dander_phase8_correctness_{uuid.uuid4().hex[:12]}"
+    relation = RelationRef(catalog=database, namespace=schema, name="scd1_records")
+    publication = warehouse.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id="phase8_correctness",
+            run_id="correctness-one",
+            token=1,
+            authority_id="postgresql:phase8-local",
+        ),
+    )
+    writer = warehouse.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=3,
+        schema_evolution=SchemaEvolution.STRICT,
+    )
+    if not isinstance(writer, PostgreSQLCopyWriter):
+        raise RuntimeError("PostgreSQL correctness qualification did not select COPY")
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+            WriteField(name="label", data_type="STRING"),
+            WriteField(name="sequence", data_type="INT64", mode="REQUIRED"),
+        ),
+        publication_fence=publication,
+    )
+    initial, update, expected = _correctness_fixture()
+    encoded_input = json.dumps(
+        [*initial, *update, *update], separators=(",", ":"), sort_keys=True
+    ).encode()
+    started = time.perf_counter()
+    peak_before = _peak_rss_bytes()
+    try:
+        writer.write(initial, target)
+        writer.write(update, target)
+        before_replay = _read_correctness_rows(pool, schema)
+        writer.write(update, target)
+        after_replay = _read_correctness_rows(pool, schema)
+        if before_replay != expected or after_replay != expected:
+            raise RuntimeError("PostgreSQL correctness normalized rows differ from the fixture")
+        normalized_sha256 = hashlib.sha256(
+            json.dumps(expected, separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest()
+        if normalized_sha256 != _correctness_expected_sha256():
+            raise RuntimeError("PostgreSQL correctness normalized hash differs from approval")
+        staging = _temporary_staging_count(pool)
+        if staging:
+            raise RuntimeError(
+                "PostgreSQL correctness qualification left temporary staging relations"
+            )
+    finally:
+        _drop_schema(pool, schema)
+    cleanup = not _schema_exists(pool, schema)
+    if not cleanup:
+        raise RuntimeError(
+            "PostgreSQL correctness qualification did not remove its disposable schema"
+        )
+    return _CorrectnessResult(
+        duration_ms=_elapsed_ms(started),
+        peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
+        input_rows=len(initial) + len(update) * 2,
+        output_rows=len(expected),
+        logical_input_bytes=len(encoded_input),
+        normalized_sha256=normalized_sha256,
+        temporary_staging_relations=staging,
+        cleanup_verified=cleanup,
+    )
 
 
 def _run_bulk(
@@ -578,6 +695,48 @@ def _incremental_delta_records(config: Phase8PostgreSQLConfig) -> Iterator[dict[
         yield {"id": f"{index:012d}", "payload": payload, "cursor_value": 2}
 
 
+def _correctness_fixture() -> tuple[
+    tuple[dict[str, object], ...],
+    tuple[dict[str, object], ...],
+    tuple[dict[str, object], ...],
+]:
+    initial = (
+        {"id": "alpha", "label": "older", "sequence": 1},
+        {"id": "beta", "label": "second", "sequence": 1},
+        {"id": "alpha", "label": "newer", "sequence": 2},
+    )
+    update = (
+        {"id": "alpha", "label": "café", "sequence": 3},
+        {"id": "gamma", "label": "third", "sequence": 1},
+    )
+    expected = (
+        {"id": "alpha", "label": "café", "sequence": 3},
+        {"id": "beta", "label": "second", "sequence": 1},
+        {"id": "gamma", "label": "third", "sequence": 1},
+    )
+    return initial, update, expected
+
+
+def _correctness_expected_sha256() -> str:
+    expected = _correctness_fixture()[2]
+    return hashlib.sha256(
+        json.dumps(expected, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+
+
+def _read_correctness_rows(
+    pool: PostgreSQLPool,
+    schema: str,
+) -> tuple[dict[str, object], ...]:
+    with pool.connection() as connection:
+        rows = connection.execute(
+            sql.SQL("SELECT id, label, sequence FROM {} ORDER BY id").format(
+                sql.Identifier(schema, "scd1_records")
+            )
+        ).fetchall()
+    return tuple(dict(row) for row in rows)
+
+
 def _require_table_shape(
     pool: PostgreSQLPool,
     *,
@@ -626,6 +785,61 @@ def _require_incremental_result(
     }
     if result != expected:
         raise RuntimeError("PostgreSQL incremental qualification produced unexpected rows")
+
+
+def _correctness_report(
+    config: Phase8PostgreSQLConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    result: _CorrectnessResult,
+) -> QualificationReport:
+    row_width = max(result.logical_input_bytes // result.input_rows, 1)
+    objectives = tuple(
+        ObjectiveResult(
+            name,
+            ObjectiveStatus.PASSED,
+            (
+                f"phase8/postgresql/correctness/sha256:{result.normalized_sha256}"
+                if name == "exact_normalized_output"
+                else f"phase8/postgresql/correctness/{name}"
+            ),
+        )
+        for name in approval.objectives.names
+    )
+    return QualificationReport(
+        context=_context(identity, approval),
+        workload=BenchmarkWorkload(
+            benchmark_class=BenchmarkClass.CORRECTNESS,
+            input_rows=result.input_rows,
+            logical_input_bytes=result.logical_input_bytes,
+            row_width_bytes=row_width,
+            schema_depth=1,
+            source_rate_limit="unlimited_local_fixture",
+            transform_complexity="scd1_replay_normalization",
+            concurrency=1,
+            batch_rows=3,
+            batch_bytes=row_width * 3,
+            configuration_sha256=config.configuration_sha256(BenchmarkClass.CORRECTNESS),
+        ),
+        performance=_performance(
+            rows=result.output_rows,
+            logical_bytes=result.logical_input_bytes,
+            duration_ms=result.duration_ms,
+            peak_rss_bytes=result.peak_rss_bytes,
+            load_duration_ms=result.duration_ms,
+            provider_metrics=(
+                _measured("normalized_output_rows", "rows", result.output_rows),
+                _measured(
+                    "temporary_staging_relations",
+                    "count",
+                    result.temporary_staging_relations,
+                ),
+            ),
+        ),
+        objectives=objectives,
+        approved_objectives=approval.objectives,
+        status=QualificationStatus.PASSED,
+    )
 
 
 def _bulk_report(
@@ -840,6 +1054,7 @@ def _peak_rss_bytes() -> int:
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsn-env", default="DANDER_PHASE8_POSTGRES_DSN")
+    parser.add_argument("--correctness-objectives", type=Path, required=True)
     parser.add_argument("--bulk-objectives", type=Path, required=True)
     parser.add_argument("--incremental-objectives", type=Path, required=True)
     parser.add_argument("--candidate-version", required=True)
@@ -876,6 +1091,11 @@ def main() -> None:
         incremental_payload_bytes=arguments.incremental_payload_bytes,
         batch_rows=arguments.batch_rows,
     )
+    correctness_approval = load_approval(
+        arguments.correctness_objectives,
+        config=config,
+        benchmark_class=BenchmarkClass.CORRECTNESS,
+    )
     bulk_approval = load_approval(
         arguments.bulk_objectives,
         config=config,
@@ -895,14 +1115,19 @@ def main() -> None:
         provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
         service_shapes=tuple(sorted(set(arguments.service_shape))),
     )
-    bulk, incremental = run_phase8_postgresql_qualification(
+    correctness, bulk, incremental = run_phase8_postgresql_qualification(
         dsn,
         config=config,
         identity=identity,
+        correctness_approval=correctness_approval,
         bulk_approval=bulk_approval,
         incremental_approval=incremental_approval,
     )
     arguments.output_directory.mkdir(parents=True, exist_ok=True)
+    (arguments.output_directory / "postgresql-correctness.json").write_text(
+        correctness.to_json() + "\n",
+        encoding="utf-8",
+    )
     (arguments.output_directory / "postgresql-bulk-throughput.json").write_text(
         bulk.to_json() + "\n",
         encoding="utf-8",
@@ -915,6 +1140,7 @@ def main() -> None:
         json.dumps(
             {
                 "bulk_status": bulk.status.value,
+                "correctness_status": correctness.status.value,
                 "incremental_status": incremental.status.value,
                 "python_version": platform.python_version(),
                 "release_version": __version__,

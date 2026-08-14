@@ -17,12 +17,18 @@ if TYPE_CHECKING:
 def test_phase8_postgresql_config_hashes_each_class_deterministically() -> None:
     config = Phase8PostgreSQLConfig()
 
+    correctness = config.configuration_sha256(BenchmarkClass.CORRECTNESS)
     bulk = config.configuration_sha256(BenchmarkClass.BULK_THROUGHPUT)
     incremental = config.configuration_sha256(BenchmarkClass.INCREMENTAL)
 
+    assert len(correctness) == 64
     assert len(bulk) == 64
     assert len(incremental) == 64
-    assert bulk != incremental
+    assert len({correctness, bulk, incremental}) == 3
+    assert (
+        config.workload_payload(BenchmarkClass.CORRECTNESS)["expected_normalized_sha256"]
+        == "82886fc4c0bc5cfb248df1196b9d29763cad4fac60cf248a91084a185d78c2ee"
+    )
     assert config.workload_payload(BenchmarkClass.INCREMENTAL)["delta_rows"] == 3_000
 
 
