@@ -37,8 +37,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 - On 2026-08-14, exact RC22 passed approved local PostgreSQL bulk and incremental classes inside
   its source-free 2 CPU/512 MiB image against disposable TLS PostgreSQL 15.18. It processed
   500,000 narrow and 200,000 wide COPY rows, then applied a 3,000-row delta against 300,000 seed
-  rows with an exact 301,500-row result and rejected cursor regression. Both schemas and all
-  staging relations were removed; measured local service cost was USD 0. PostgreSQL correctness,
+  rows with an exact 301,500-row result and rejected cursor regression. A separate exact-candidate
+  correctness fixture matched its approved normalized SHA-256 before and after replay. All three
+  schemas and staging relations were removed; measured local service cost was USD 0. PostgreSQL
   transform, failure, hosted cost, and crossover remain open; RC22 has no direct transport for a
   crossover comparison. See `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`.
 

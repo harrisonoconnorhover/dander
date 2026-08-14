@@ -5,7 +5,7 @@
 - Inherited DRUFF's hosted-Control qualification through PR #281 at protected main `1bbddb8` without changing it.
 - Published source-free private RC22 index `sha256:ce395d…47c3`; public RC20 remains unchanged.
 - Passed exact-RC22 Kubernetes lifecycle objectives on kind 1.32.2 with TLS PostgreSQL 15.18.
-- Passed exact-RC22 PostgreSQL bounded-memory, concurrency, bulk-throughput, and incremental objectives.
+- Passed exact-RC22 PostgreSQL correctness, bounded-memory, concurrency, bulk, and incremental objectives.
 - Passed the exact-RC22 retained GCP profile rerun: authenticated manual/replay, Scheduler execution, cleanup, and no drift.
 
 ## Try It
@@ -28,13 +28,13 @@ Inspect the GCP, Kubernetes, and PostgreSQL reports in `docs/evidence/phase8/202
 
 ## Remaining
 
-- Run PostgreSQL correctness/transform/failure; resolve its crossover gap; run Kubernetes scale/soak.
+- Run PostgreSQL transform/failure; resolve its crossover gap; run Kubernetes scale/soak.
 - Run exact-RC22 Azure, other warehouse/launcher scale, pairwise, and final audit gates within the USD 10 ceiling.
 - Restore interactive Azure/AWS/OCI credentials before their live profile and pairwise gates.
 - Complete the retained soak through 2026-09-01 before public support release.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`
+- `docs/evidence/phase8/2026-08-14/postgresql-correctness.json`
 - `docs/evidence/phase8/2026-08-14/postgresql-incremental.json`
 - `docs/evidence/phase8/2026-08-14/gcp-native-profile.json`

@@ -33,6 +33,8 @@ scale report.
 - Exact RC22 also passed the pre-approved local bulk class with 500,000 narrow and 200,000 wide
   COPY rows, and the incremental class with a 3,000-row delta against a 300,000-row target. Both
   left zero staging relations and removed their disposable TLS PostgreSQL schemas.
-- Four PostgreSQL classes now pass. Correctness, transform, failure, hosted cost, the other
+- The exact-candidate correctness fixture also matched its approved normalized SHA-256 before and
+  after replay, then removed its disposable schema and staging relations.
+- Five PostgreSQL classes now pass. Transform, failure, hosted cost, the other
   warehouses, and every first-class launcher remain open. Crossover cannot pass on RC22 because
   its PostgreSQL factory exposes COPY only and has no bounded direct transport to compare.
