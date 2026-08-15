@@ -141,6 +141,32 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_infrastructure" 
   }
 
   statement {
+    sid    = "UseTaggedPhase8QualificationNetworkDependencies"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateRouteTable",
+      "ec2:CreateSubnet",
+      "ec2:CreateVpcEndpoint",
+    ]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:route-table/*",
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*",
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/purpose"
+      values   = ["phase8-qualification"]
+    }
+  }
+
+  statement {
     sid     = "UseVpcForPhase8QualificationSecurityGroupCreation"
     effect  = "Allow"
     actions = ["ec2:CreateSecurityGroup"]

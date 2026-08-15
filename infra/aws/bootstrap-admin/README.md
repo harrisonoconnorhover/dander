@@ -36,7 +36,9 @@ Phase 8 creation-time network tagging is limited to the exact EC2 resource types
 only while their corresponding create or rule-authorization action is running. Security-group
 creation authorizes the tagged new group and its account-local VPC separately. Rule creation
 authorizes the tagged new rule separately from the already qualification-tagged parent group, so
-the deployment role cannot relabel an unrelated EC2 resource and take ownership of it.
+the deployment role cannot relabel an unrelated EC2 resource and take ownership of it. Route-table,
+subnet, and VPC-endpoint creation likewise authorize their new request-tagged resources separately
+from only the already qualification-tagged VPC and route-table dependencies they consume.
 
 Security-group creation follows AWS's separate authorization dimensions: the new group must carry
 the D7 management tags, creation-time tagging is limited to `CreateSecurityGroup`, and the role may

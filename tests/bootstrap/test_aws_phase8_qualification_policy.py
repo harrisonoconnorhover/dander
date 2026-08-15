@@ -66,7 +66,7 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
     assert "redshift.amazonaws.com/AWSServiceRoleForRedshift" in policy
     assert 'values   = ["redshift.amazonaws.com"]' in policy
     assert policy.count('variable = "aws:RequestTag/purpose"') == 4
-    assert policy.count('variable = "aws:ResourceTag/purpose"') == 2
+    assert policy.count('variable = "aws:ResourceTag/purpose"') == 3
     assert 'values   = ["phase8-qualification"]' in policy
 
     general_network_create = policy.split('sid    = "CreateTaggedPhase8QualificationNetwork"', 1)[
@@ -90,7 +90,7 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
     assert "security-group-rule/*" in security_create
 
     create_tags = policy.split('sid     = "TagPhase8QualificationNetworkOnCreate"', 1)[1].split(
-        'sid     = "UseVpcForPhase8QualificationSecurityGroupCreation"', 1
+        'sid    = "UseTaggedPhase8QualificationNetworkDependencies"', 1
     )[0]
     assert policy.count('"ec2:CreateTags"') == 1
     assert 'resources = ["*"]' not in create_tags
@@ -117,12 +117,27 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
     ):
         assert f'"{create_action}"' in create_tags
 
-    vpc_dependency = policy.split(
+    tagged_network_dependencies = policy.split(
+        'sid    = "UseTaggedPhase8QualificationNetworkDependencies"', 1
+    )[1].split('sid     = "UseVpcForPhase8QualificationSecurityGroupCreation"', 1)[0]
+    for action in (
+        "ec2:CreateRouteTable",
+        "ec2:CreateSubnet",
+        "ec2:CreateVpcEndpoint",
+    ):
+        assert f'"{action}"' in tagged_network_dependencies
+    assert ":vpc/*" in tagged_network_dependencies
+    assert ":route-table/*" in tagged_network_dependencies
+    assert "RequestTag" not in tagged_network_dependencies
+    assert 'variable = "aws:ResourceTag/managed-by"' in tagged_network_dependencies
+    assert 'variable = "aws:ResourceTag/purpose"' in tagged_network_dependencies
+
+    security_group_vpc_dependency = policy.split(
         'sid     = "UseVpcForPhase8QualificationSecurityGroupCreation"', 1
     )[1].split('sid    = "ManageTaggedPhase8QualificationNetwork"', 1)[0]
-    assert '"ec2:CreateSecurityGroup"' in vpc_dependency
-    assert ":vpc/*" in vpc_dependency
-    assert "RequestTag" not in vpc_dependency
+    assert '"ec2:CreateSecurityGroup"' in security_group_vpc_dependency
+    assert ":vpc/*" in security_group_vpc_dependency
+    assert "RequestTag" not in security_group_vpc_dependency
 
     assert 'resource "aws_iam_policy" "deployment_phase8_qualification_infrastructure"' in policy
     assert 'resource "aws_iam_policy" "deployment_phase8_qualification_data"' in policy
