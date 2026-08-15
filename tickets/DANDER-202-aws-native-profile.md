@@ -56,5 +56,9 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   traffic. Protected run `31865699608` passed all five jobs.
 - The following review caught that a root-level Terraform check only warned on a wrong authenticated
   account. Commit `cfe8e634a43c26868eb1f622c8d59ea3688ad7a7` constrains the AWS provider to the
-  authorized account and adds a blocking lifecycle precondition with a negative plan test. Its
-  protected CI and independent rereview remain open before a replacement candidate.
+  authorized account and adds a blocking lifecycle precondition with a negative plan test.
+  Protected run `31866450352` passed all five jobs.
+- The next exact-head review caught that the new Serverless namespace did not grant its IAM-derived
+  task user database DDL/COPY rights and an oversized overlay could escape the CLI error boundary.
+  Commit `553a15a8f678ba9860ce6284c0d6089acbbeb9e2` provisions and maps one explicit
+  database role and translates the overlay rejection. Protected CI and rereview remain open.

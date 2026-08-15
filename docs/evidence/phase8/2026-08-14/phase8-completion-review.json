@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "fourth_correction_pending_protected_ci_and_review",
+  "status": "fifth_correction_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -30,6 +30,11 @@
   "fourth_reviewed_on": "2026-08-15",
   "fourth_reviewed_head": "c90d8e08216f3d073efc38796b6993be6552a857",
   "fourth_correction_commit": "cfe8e634a43c26868eb1f622c8d59ea3688ad7a7",
+  "protected_fourth_correction_head": "5ae0417649379e55256b6cd76eadef02a468a384",
+  "protected_fourth_correction_ci_run": 31866450352,
+  "fifth_reviewed_on": "2026-08-15",
+  "fifth_reviewed_head": "5ae0417649379e55256b6cd76eadef02a468a384",
+  "fifth_correction_commit": "553a15a8f678ba9860ce6284c0d6089acbbeb9e2",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -70,15 +75,27 @@
     {
       "id": "aws_qualification_authenticated_account_gate",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the AWS provider allows only the authorized account and a lifecycle precondition is covered by an expected-failure Terraform plan test"
+    },
+    {
+      "id": "aws_qualification_redshift_database_privileges",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the namespace creator provisions one DDL/COPY database role and each Serverless task maps it through RedshiftDbRoles with the required tag reads"
+    },
+    {
+      "id": "aws_projection_overlay_error_translation",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "a 32-KiB overlay rejection is translated to AwsTerraformBootstrapError before Terraform starts"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_fourth_correction_ci_and_review"
+    "replacement_candidate_gate": "blocked_pending_fifth_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false
