@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc24 — 2026-08-15 (beta)
+
 ### Fixed
 
 - Keep bounded PostgreSQL direct-write lookahead outside the database transaction and derive its
@@ -14,6 +16,12 @@ capabilities enter through the next minor release.
   Redshift endpoints while retaining HTTPS-only public egress.
 - Make the AWS qualification model Redshift-materializable, bind disposable resources to an exact
   candidate input, and reject Serverless-only database roles on provisioned Redshift profiles.
+
+### Known limitations
+
+- RC24 is a private Phase 8 qualification candidate until its source-free multi-platform image and
+  exact-artifact crossover, provider, pairwise, audit, and soak gates pass. Direct thresholds remain
+  disabled by default, prior RC22/RC23 reports do not transfer, and public RC20 is unchanged.
 
 ## 0.9.0rc23 — 2026-08-14 (beta)
 
