@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-15 — EventBridge rule-tag refresh is name-bounded
+
+- **Finding:** The fourth RC24 platform apply created the disabled schedule, then Terraform's
+  post-create refresh stopped on `events:ListTagsForResource` for the controller-failure rule.
+- **Authority:** Add only `ListTagsForResource` for the account- and region-local
+  `rule/${name}-*-controller-failures` ARN pattern. AWS documents the action against rules on the
+  default event bus, so no wildcard resource is required.
+- **Boundary:** No ECS task or state-machine execution ran. The 21-resource partial platform and 32
+  persistent data-plane resources were removed exactly; four disabled AWS-native KMS keys remain
+  only in their mandatory pending-deletion windows.
+
 ## 2026-08-15 — State-machine version refresh is name-bounded
 
 - **Finding:** The third RC24 platform apply created the state machine, then Terraform's post-create
