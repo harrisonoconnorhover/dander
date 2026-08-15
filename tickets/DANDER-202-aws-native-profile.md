@@ -79,4 +79,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   attaches two action-bounded qualification policies to the short-lived deployment role without
   changing D7, and rejects RDS-invalid names plus unusable VPC parent ranges. Full local tests,
   Access Analyzer validation, package validation, Terraform validation/mock tests, lint, and typing
-  pass; protected CI and exact-head rereview remain open.
+  passed; protected head `4c82438` then passed all five jobs in run `31873024315`. Tenth exact-head
+  review accepted those four fixes and found missing Redshift create dependencies, Glue tag
+  lifecycle permissions, and whole-number usage-limit validation. Commit `7a1f429` corrects those
+  three locally; protected CI and exact-head rereview remain open.

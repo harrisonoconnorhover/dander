@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "ninth_correction_pending_protected_ci_and_review",
+  "status": "tenth_correction_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -55,23 +55,34 @@
   "ninth_reviewed_on": "2026-08-15",
   "ninth_reviewed_head": "0b1a8fa97458180507c16ea2699741cf1b8c7610",
   "ninth_correction_commit": "b0314031297977192935a54f98921922b6e2ad26",
+  "ninth_correction_ci_attempt": {
+    "run": 31872949192,
+    "head": "3b2af5d33b2643927ba5568da34cebab52081646",
+    "status": "cancelled_after_failed_python_format",
+    "cloud_mutation_performed": false
+  },
+  "protected_ninth_correction_head": "4c82438eb47f8fdd1fe7ad87bcb5fdb5acdd4be4",
+  "protected_ninth_correction_ci_run": 31873024315,
+  "tenth_reviewed_on": "2026-08-15",
+  "tenth_reviewed_head": "4c82438eb47f8fdd1fe7ad87bcb5fdb5acdd4be4",
+  "tenth_correction_commit": "7a1f4299dc75c94d019e5ec2731192f8295dd8cc",
   "findings": [
     {
       "id": "aws_database_egress",
       "priority": "P1",
-      "disposition": "corrected_locally",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "self-scoped PostgreSQL and Redshift egress asserted by the mocked Terraform test"
     },
     {
       "id": "postgresql_direct_transaction_lookahead",
       "priority": "P2",
-      "disposition": "corrected_locally",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "bounded source exhaustion is asserted before connection acquisition"
     },
     {
       "id": "postgresql_crossover_logical_bytes",
       "priority": "P2",
-      "disposition": "corrected_locally",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the 10-row threshold is derived from and accepted by the writer as 1490 logical bytes"
     },
     {
@@ -155,33 +166,51 @@
     {
       "id": "aws_qualification_redshift_serverless_copy_trust",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the COPY role trust names both Redshift and Redshift Serverless service principals"
     },
     {
       "id": "aws_qualification_deployment_role_authority",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "two action-bounded managed policies attach the disposable qualification boundary to the existing short-lived deployment role without modifying D7"
     },
     {
       "id": "aws_qualification_rds_name_validation",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "mocked plans reject trailing and consecutive hyphens before provider access"
     },
     {
       "id": "aws_qualification_vpc_parent_range",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "mocked plans reject parent prefixes outside AWS's usable /16 through /24 range"
+    },
+    {
+      "id": "aws_qualification_redshift_create_dependencies",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the request-tag-scoped create boundary permits dependent Redshift tagging and the exact Redshift service-linked role"
+    },
+    {
+      "id": "aws_qualification_glue_tag_lifecycle",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the exact Glue projection permits provider default-tag creation and tag refresh without widening its resource ARNs"
+    },
+    {
+      "id": "aws_qualification_fractional_usage_limit",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "a mocked plan rejects fractional Redshift usage-limit amounts before provider access"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_ninth_correction_ci_and_review"
+    "replacement_candidate_gate": "blocked_pending_tenth_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false

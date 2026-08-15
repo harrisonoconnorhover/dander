@@ -2,11 +2,11 @@
 
 ## Finished
 
-- Exact head `0b1a8fa` passed all five protected jobs in run `31871007170`.
-- Ninth review accepted the eighth corrections, then found four AWS qualification-root blockers.
-- Commit `b031403` adds Redshift Serverless COPY trust and rejects invalid RDS names/CIDR ranges.
-- Two size-bounded managed policies give the short-lived deployment role qualification authority.
-- Protected Terraform CI now validates and runs all seven qualification-root plans.
+- Exact head `4c82438` passed all five protected jobs in run `31873024315`.
+- Tenth review accepted the ninth corrections, then found three AWS apply-contract blockers.
+- Commit `7a1f429` grants only the missing Redshift/Glue lifecycle actions and exact service role.
+- The Redshift daily usage limit now rejects fractional values before provider planning.
+- Qualification-root mocked plans pass 8/8; stage-zero mocked plans pass 1/1.
 
 ## Try It
 
@@ -14,21 +14,21 @@ Run `uv run pytest -q tests/bootstrap/test_aws_phase8_qualification_policy.py &&
 
 ## Checks
 
-- Full pytest passed with only the existing Starlette deprecation warning.
-- Repository Ruff and strict mypy passed for 414 source/test files.
-- Both affected Terraform roots validate; mocked plans pass 1/1 and 7/7.
-- AWS Access Analyzer found zero issues; tag-policy simulations passed and fail closed without tags.
-- Wheel/sdist inspection, recursive formatting, Actionlint, and diff checks passed.
+- Protected run `31873024315` passed Python, Terraform, secrets, distribution, and image jobs.
+- Exact-head review reran full pytest, Ruff, strict mypy, Terraform format, and focused plans.
+- Current focused Ruff/pytest and both affected Terraform roots pass locally.
+- AWS Access Analyzer reports zero findings for both managed policies.
+- IAM simulation allows the exact Redshift create, service-role, and Glue tag operations.
 
 ## Decisions
 
 - Qualification authority is isolated from D7 in two customer-managed policies.
-- Existing AWS stage zero needs one reviewed upgrade; later qualification uses `dander-deploy`.
-- RC24 remains blocked until protected CI and exact-head review pass `b031403`.
+- Existing AWS stage zero still needs one reviewed upgrade; later qualification uses `dander-deploy`.
+- No cloud mutation occurred; RC24 remains blocked until protected CI/review pass `7a1f429`.
 
 ## Remaining
 
-- Push the ninth correction, pass protected CI, and rerun exact-head independent review.
+- Push the tenth correction, pass protected CI, and rerun exact-head independent review.
 - Cut one private source-free multi-platform RC24 only after that gate.
 - Bind a new exact AWS objective/authorization before using its retained USD 3 allocation.
 - Complete final-candidate scale, cost, canonical, pairwise, and hosted Kubernetes reruns.

@@ -1241,10 +1241,11 @@ repeat. The later direct-write capability required private arm64 RC23; RC23 pass
 artifact/security preflight and observed equal DIRECT/COPY rows, but completion review invalidated
 its byte-threshold objective. An exact-RC22 AWS preflight separately found
 that account-local deployment coordinates were absent from the immutable image before Fargate
-planning; its disposable data plane was removed exactly. Runtime-overlay, database-egress,
-pre-transaction lookahead, and exact-byte corrections pass focused contracts and protected CI run
-`31863498217`; independent review rerun, one replacement multi-platform build, and final-candidate
-reruns remain. Items 1, 3, 4, 6, and 7 stay open where provider/profile evidence is incomplete;
+planning; its disposable data plane was removed exactly. The later AWS root corrections passed all
+five protected jobs at head `4c82438` in run `31873024315`; tenth review accepted them and found
+three create/tag/input blockers now corrected locally in `7a1f429`. Protected CI and exact-head
+review, one replacement multi-platform build, and final-candidate reruns remain. Items 1, 3, 4, 6,
+and 7 stay open where provider/profile evidence is incomplete;
 neither audit promotes an experimental profile.
 
 Exit gate:
