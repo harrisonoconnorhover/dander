@@ -5,8 +5,9 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import tempfile
 from collections.abc import Mapping
-from json import dumps
+from json import dump, dumps
 from typing import TYPE_CHECKING
 
 from dander.bootstrap.terraform import (
@@ -143,23 +144,24 @@ class AwsTerraformBootstrap:
                 launcher_config=raw_launcher,
                 fargate_profile=profile,
             )
-            platforms_config_json = self._runtime_platforms_config(
-                profile=profile,
-                deployment_name=deployment_name,
-                launcher_config=raw_launcher,
-                runtime_cpu=runtime_cpu,
-                runtime_memory=runtime_memory,
-                runtime_timeout_seconds=runtime_timeout_seconds,
-                runtime_max_retries=runtime_max_retries,
-                runtime_batch_rows=runtime_batch_rows,
-                require_guarded_free_tier=require_guarded_free_tier,
-                pipelines=expanded_pipelines,
-            )
-            projections = {
-                pipeline_id: template.as_dict()
-                for pipeline_id, template in launcher.templates.build(
+            projections: dict[str, dict[str, object]] = {}
+            for pipeline_id, pipeline in sorted(expanded_pipelines.items()):
+                scoped_pipelines = {pipeline_id: pipeline}
+                platforms_config_json = self._runtime_platforms_config(
+                    profile=profile,
+                    deployment_name=deployment_name,
+                    launcher_config=raw_launcher,
+                    runtime_cpu=runtime_cpu,
+                    runtime_memory=runtime_memory,
+                    runtime_timeout_seconds=runtime_timeout_seconds,
+                    runtime_max_retries=runtime_max_retries,
+                    runtime_batch_rows=runtime_batch_rows,
+                    require_guarded_free_tier=require_guarded_free_tier,
+                    pipelines=scoped_pipelines,
+                )
+                templates = launcher.templates.build(
                     ResolvedTemplateRequest(
-                        pipelines=expanded_pipelines,
+                        pipelines=scoped_pipelines,
                         image=container_image,
                         profile_id=profile.profile_id,
                         cpu=runtime_cpu,
@@ -171,8 +173,8 @@ class AwsTerraformBootstrap:
                         deployment_id=deployment_name,
                         platforms_config_json=platforms_config_json,
                     )
-                ).items()
-            }
+                )
+                projections[pipeline_id] = templates[pipeline_id].as_dict()
         except (ExecutionProjectionError, ProviderFactoryError) as error:
             raise AwsTerraformBootstrapError(str(error)) from error
 
@@ -181,12 +183,6 @@ class AwsTerraformBootstrap:
             f"-var=aws_account_id={aws_account_id}",
             f"-var=region={region}",
             f"-var=ecr_repository_name={image_match.group('repository')}",
-            "-var=execution_projections="
-            + dumps(
-                projections,
-                sort_keys=True,
-                separators=(",", ":"),
-            ),
         ]
         if profile.is_aws_native:
             plan_variables.append(
@@ -210,23 +206,37 @@ class AwsTerraformBootstrap:
             f"-backend-config=dynamodb_table={lock_table}",
             aws_profile=aws_profile,
         )
-        self._run(
-            "terraform",
-            "plan",
-            "-input=false",
-            *plan_variables,
-            "-var=tags="
-            + dumps(
-                {
-                    "dander-deployment": deployment_name,
-                    "dander-profile": profile.profile_id,
-                },
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix="dander-aws-plan-",
+            suffix=".tfvars.json",
+        ) as variables_file:
+            dump(
+                {"execution_projections": projections},
+                variables_file,
                 sort_keys=True,
                 separators=(",", ":"),
-            ),
-            f"-out={self._plan_path.name}",
-            aws_profile=aws_profile,
-        )
+            )
+            variables_file.flush()
+            self._run(
+                "terraform",
+                "plan",
+                "-input=false",
+                *plan_variables,
+                f"-var-file={variables_file.name}",
+                "-var=tags="
+                + dumps(
+                    {
+                        "dander-deployment": deployment_name,
+                        "dander-profile": profile.profile_id,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                f"-out={self._plan_path.name}",
+                aws_profile=aws_profile,
+            )
         if apply:
             self._run(
                 "terraform",

@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
 from dander.bootstrap import AwsTerraformBootstrap, AwsTerraformBootstrapError
 from dander.project import load_project_config
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def _launcher() -> dict[str, object]:
@@ -76,11 +73,18 @@ def _execute(bootstrap: AwsTerraformBootstrap, **overrides: object) -> Path:
     return bootstrap.execute(**arguments)  # type: ignore[arg-type]
 
 
+def _plan_variables(args: tuple[str, ...]) -> dict[str, object]:
+    variable_argument = next(item for item in args if item.startswith("-var-file="))
+    variable_path = Path(variable_argument.removeprefix("-var-file="))
+    return json.loads(variable_path.read_text(encoding="utf-8"))
+
+
 def test_aws_bootstrap_builds_manifest_projection_without_apply(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     calls: list[tuple[tuple[str, ...], dict[str, str]]] = []
+    plan_variables: list[dict[str, object]] = []
 
     def fake_run(
         args: tuple[str, ...],
@@ -92,6 +96,8 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
         assert cwd == tmp_path.resolve()
         assert check
         calls.append((args, env))
+        if args[:2] == ("terraform", "plan"):
+            plan_variables.append(_plan_variables(args))
         return subprocess.CompletedProcess(args, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -105,12 +111,9 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
     assert terraform_plan[:2] == ("terraform", "plan")
     assert all(call[0][:2] != ("terraform", "apply") for call in calls)
     assert all(call[1]["AWS_PROFILE"] == "dander-test" for call in calls)
-    projection_argument = next(
-        item for item in terraform_plan if item.startswith("-var=execution_projections=")
-    )
-    projection = json.loads(projection_argument.removeprefix("-var=execution_projections="))[
-        "greenhouse_jobs"
-    ]
+    projections = plan_variables[0]["execution_projections"]
+    assert isinstance(projections, dict)
+    projection = projections["greenhouse_jobs"]
     assert projection["launcher"] == "fargate"
     assert projection["profile_id"] == "aws_fargate"
     assert projection["labels"]["profile"] == "gcp"
@@ -127,11 +130,53 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
     assert projected_platforms["deployments"]["aws_fargate"]["platform"] == "gcp"
 
 
+def test_aws_bootstrap_scopes_large_multi_pipeline_overlays_out_of_cli_arguments(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    plan_variables: list[dict[str, object]] = []
+    plan_arguments: list[tuple[str, ...]] = []
+
+    def fake_run(
+        args: tuple[str, ...],
+        *,
+        cwd: Path,
+        check: bool,
+        env: dict[str, str],
+    ) -> subprocess.CompletedProcess[str]:
+        del env
+        assert cwd == tmp_path.resolve()
+        assert check
+        if args[:2] == ("terraform", "plan"):
+            plan_arguments.append(args)
+            plan_variables.append(_plan_variables(args))
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    pipeline = _pipelines()["greenhouse_jobs"]
+    pipelines = {f"pipeline_{index:03d}": dict(pipeline) for index in range(100)}
+
+    _execute(AwsTerraformBootstrap(tmp_path), pipelines=pipelines)
+
+    assert max(len(argument.encode()) for argument in plan_arguments[0]) < 128 * 1_024
+    projections = plan_variables[0]["execution_projections"]
+    assert isinstance(projections, dict)
+    assert len(projections) == len(pipelines)
+    for pipeline_id, raw_projection in projections.items():
+        assert isinstance(raw_projection, dict)
+        environment = raw_projection["environment"]
+        assert isinstance(environment, dict)
+        projected_platforms = json.loads(environment["DANDER_PLATFORMS_CONFIG_JSON"])
+        projected_pipelines = projected_platforms["deployments"]["aws_fargate"]["pipelines"]
+        assert list(projected_pipelines) == [pipeline_id]
+
+
 def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     calls: list[tuple[str, ...]] = []
+    plan_variables: list[dict[str, object]] = []
 
     def fake_run(
         args: tuple[str, ...],
@@ -144,6 +189,8 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
         assert cwd == tmp_path.resolve()
         assert check
         calls.append(args)
+        if args[:2] == ("terraform", "plan"):
+            plan_variables.append(_plan_variables(args))
         return subprocess.CompletedProcess(args, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -192,12 +239,9 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
     )
 
     terraform_plan = calls[1]
-    projection_argument = next(
-        item for item in terraform_plan if item.startswith("-var=execution_projections=")
-    )
-    projection = json.loads(projection_argument.removeprefix("-var=execution_projections="))[
-        "greenhouse_jobs"
-    ]
+    projections = plan_variables[0]["execution_projections"]
+    assert isinstance(projections, dict)
+    projection = projections["greenhouse_jobs"]
     assert projection["profile_id"] == "aws_fargate"
     assert projection["labels"]["profile"] == "aws_native"
     command = projection["command"]

@@ -13,6 +13,7 @@ from scripts.benchmarks.postgresql_crossover_phase8 import (
     PostgreSQLCrossoverConfig,
     _CrossoverResult,
     _median_durations,
+    _recommended_direct_max_rows,
     _records,
     _report,
     _Sample,
@@ -104,6 +105,27 @@ def test_crossover_medians_are_transport_and_size_specific() -> None:
         WriteTransport.COPY: {1: 4, 10: 7},
         WriteTransport.DIRECT: {1: 2, 10: 9},
     }
+
+
+@pytest.mark.parametrize(
+    ("direct", "expected"),
+    [
+        ((6, 4, 6, 4), 0),
+        ((4, 5, 6, 4), 10),
+        ((4, 5, 5, 5), 1_000),
+    ],
+)
+def test_crossover_recommendation_requires_a_contiguous_winning_prefix(
+    direct: tuple[int, ...],
+    expected: int,
+) -> None:
+    row_counts = (1, 10, 100, 1_000)
+    medians = {
+        WriteTransport.COPY: dict.fromkeys(row_counts, 5),
+        WriteTransport.DIRECT: dict(zip(row_counts, direct, strict=True)),
+    }
+
+    assert _recommended_direct_max_rows(medians, row_counts) == expected
 
 
 def test_crossover_report_sorts_provider_metrics(tmp_path: Path) -> None:

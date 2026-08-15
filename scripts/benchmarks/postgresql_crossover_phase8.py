@@ -330,12 +330,7 @@ def _run_crossover(
     if not cleanup:
         raise RuntimeError("PostgreSQL crossover did not remove its disposable schema")
     medians = _median_durations(samples, config.row_counts)
-    winning = tuple(
-        rows
-        for rows in config.row_counts
-        if medians[WriteTransport.DIRECT][rows] <= medians[WriteTransport.COPY][rows]
-    )
-    recommended_rows = max(winning, default=0)
+    recommended_rows = _recommended_direct_max_rows(medians, config.row_counts)
     recommended_bytes = (
         _workload_logical_bytes(recommended_rows, config.payload_bytes) if recommended_rows else 0
     )
@@ -349,6 +344,19 @@ def _run_crossover(
         temporary_staging_relations=staging,
         cleanup_verified=cleanup,
     )
+
+
+def _recommended_direct_max_rows(
+    medians: Mapping[WriteTransport, Mapping[int, int]],
+    row_counts: Sequence[int],
+) -> int:
+    """Return the largest tested row count in the contiguous DIRECT-winning prefix."""
+    recommended_rows = 0
+    for rows in row_counts:
+        if medians[WriteTransport.DIRECT][rows] > medians[WriteTransport.COPY][rows]:
+            break
+        recommended_rows = rows
+    return recommended_rows
 
 
 def _warehouse_runtime(
