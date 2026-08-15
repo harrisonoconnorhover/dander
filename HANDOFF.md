@@ -2,32 +2,34 @@
 
 ## Finished
 
-- Split the unchanged D7 role permissions across quota-safe inline and managed documents.
-- Kept state cleanup and disposable S3 access in the existing scoped inline policy.
-- Attached provider, compute, and network access as one tagged customer-managed policy.
-- Added blocking resource preconditions for AWS's inline and managed-policy size limits.
+- Audited every AWS D7 Terraform resource and data source against provider 6.60.0 call paths.
+- Added only the missing ECS deployment-status and IAM role-tag reads.
+- Scoped all three reads to disposable D7 service, deployment, and role ARNs.
+- Added focused structural assertions that keep the reads out of the storage policy.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_aws_admin.py` and the bootstrap-admin Terraform test to
-verify the focused permission split and blocking quota preconditions.
+Run `uv run pytest -q tests/bootstrap/test_aws_admin.py` to verify the reviewed permission map and
+its existing blocking policy-size limits.
 
 ## Checks
 
 - Focused AWS bootstrap tests passed: 15 tests.
 - Terraform format, validation, and mock-provider apply test passed.
-- Focused Ruff format/lint, mypy, and diff checks passed.
+- Focused Ruff format/lint and mypy passed.
+- Pending exact rendered-policy size and Access Analyzer validation before AWS apply.
 
 ## Decisions
 
-- Preserve the exact effective D7 permissions; change only their IAM packaging.
-- Keep storage and retained-state cleanup inline for direct lifecycle ownership.
-- Use one managed policy for the independently bounded provider permission set.
+- Add only calls deterministically exercised by the locked provider and exact configuration.
+- Keep provider reads resource-scoped when AWS supports that boundary.
+- Retain one disposable canary apply for behavior documentation cannot prove.
 
 ## Remaining
 
-- Merge and verify the protected correction PR.
-- Apply the reviewed role-policy split and verify stage-zero no-drift.
+- Finish checks, protected review, merge, and exact-main CI.
+- Render and validate exact policies with AWS Access Analyzer.
+- Apply the reviewed role-policy correction and verify stage-zero no-drift.
 - Replan and finish the tracked AWS foundation through the temporary deployment role.
 - Continue the disposable D7 live proof, rollback, and exact cleanup.
 
