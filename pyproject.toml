@@ -171,6 +171,7 @@ packages = ["src/dander"]
 "infra/aws/bootstrap-admin/README.md" = "dander/templates/project/infra/aws/bootstrap-admin/README.md"
 "infra/aws/bootstrap-admin/main.tf" = "dander/templates/project/infra/aws/bootstrap-admin/main.tf"
 "infra/aws/bootstrap-admin/outputs.tf" = "dander/templates/project/infra/aws/bootstrap-admin/outputs.tf"
+"infra/aws/bootstrap-admin/phase8-qualification.tf" = "dander/templates/project/infra/aws/bootstrap-admin/phase8-qualification.tf"
 "infra/aws/bootstrap-admin/tests/bootstrap.tftest.hcl" = "dander/templates/project/infra/aws/bootstrap-admin/tests/bootstrap.tftest.hcl"
 "infra/aws/bootstrap-admin/variables.tf" = "dander/templates/project/infra/aws/bootstrap-admin/variables.tf"
 "infra/aws/bootstrap-admin/versions.tf" = "dander/templates/project/infra/aws/bootstrap-admin/versions.tf"

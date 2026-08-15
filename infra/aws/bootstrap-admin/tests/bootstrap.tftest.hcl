@@ -65,4 +65,14 @@ run "hardened_stage_zero" {
     )
     error_message = "The runtime repository must reject mutable tags and scan pushes."
   }
+
+  assert {
+    condition = (
+      aws_iam_role_policy_attachment.deployment_phase8_qualification_infrastructure.role == aws_iam_role.deployment.name &&
+      aws_iam_role_policy_attachment.deployment_phase8_qualification_data.role == aws_iam_role.deployment.name &&
+      aws_iam_policy.deployment_phase8_qualification_infrastructure.name == "dander-phase8-qualification-infrastructure" &&
+      aws_iam_policy.deployment_phase8_qualification_data.name == "dander-phase8-qualification-data"
+    )
+    error_message = "The short-lived deployment role must carry the isolated Phase 8 qualification policies."
+  }
 }

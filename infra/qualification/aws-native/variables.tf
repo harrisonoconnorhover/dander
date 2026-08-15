@@ -34,8 +34,11 @@ variable "name" {
   description = "Unique prefix for resources owned by this qualification run."
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{2,31}$", var.name))
-    error_message = "name must be a short lowercase AWS resource prefix."
+    condition = (
+      can(regex("^[a-z][a-z0-9-]{1,30}[a-z0-9]$", var.name)) &&
+      !strcontains(var.name, "--")
+    )
+    error_message = "name must contain 3-32 lowercase letters, numbers, or single hyphens and must not end in a hyphen."
   }
 }
 
@@ -45,8 +48,12 @@ variable "vpc_cidr" {
   default     = "10.82.0.0/24"
 
   validation {
-    condition     = can(cidrnetmask(var.vpc_cidr))
-    error_message = "vpc_cidr must be a valid IPv4 CIDR."
+    condition = (
+      can(cidrnetmask(var.vpc_cidr)) &&
+      try(tonumber(split("/", var.vpc_cidr)[1]), 0) >= 16 &&
+      try(tonumber(split("/", var.vpc_cidr)[1]), 0) <= 24
+    )
+    error_message = "vpc_cidr must be a valid IPv4 CIDR with a /16 through /24 prefix."
   }
 }
 

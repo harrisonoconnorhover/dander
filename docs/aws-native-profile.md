@@ -13,7 +13,9 @@ Use one AWS account and region throughout. Dander consumes existing data-plane r
 ordinary platform stack does not create Redshift, PostgreSQL, the staging bucket, or the VPC.
 
 - AWS stage zero owns the encrypted/versioned Terraform state bucket, DynamoDB lock table, immutable
-  private ECR repository, and a deployment role trusted by one exact operator principal.
+  private ECR repository, and a deployment role trusted by one exact operator principal. Two
+  separate managed policies give that short-lived role only the action-, name-, and tag-bounded
+  authority required by the disposable Phase 8 qualification root; the D7 policy remains separate.
 - Later image promotion, plans, applies, and operations use a short-lived profile for that deployment
   role. Do not use static access keys. AWS account root cannot assume the deployment role; choose a
   non-root IAM user or role as the stage-zero `admin-principal-arn`.
@@ -140,7 +142,9 @@ dander init-aws-admin-plan \
 Inspect the printed saved plan. Apply only that file with the exact printed
 `dander init-aws-admin-apply` command. Stage zero is the only step that may use an AWS administrator.
 Configure a short-lived local profile such as `dander-deploy` to assume the returned deployment role
-before continuing.
+before continuing. An account created from an older stage-zero root must repeat this saved-plan
+upgrade once and accept only the two Phase 8 managed policies plus their deployment-role attachments
+before the qualification data-plane plan; do not run that later plan as the administrator.
 
 ## Promote, plan, and apply one candidate
 

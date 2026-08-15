@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-15 — AWS qualification extends the short-lived deployment identity in isolation
+
+- **Authority:** The stage-zero deployment role receives two customer-managed Phase 8 policies:
+  infrastructure and data services. Splitting them keeps each below AWS's managed-policy size limit
+  and avoids consuming the role's aggregate inline-policy quota.
+- **Scope:** Named S3, IAM, RDS, Secrets Manager, and Glue resources are ARN-bounded; network and
+  Redshift creation/lifecycle require the qualification purpose tags; non-taggable API gaps retain
+  only the exact account/region-bound actions needed by the reviewed Terraform root.
+- **Boundary:** The D7 policy and resources are unchanged. Existing stage zero needs one reviewed
+  administrator upgrade, after which qualification planning and cleanup use the short-lived role.
+
 ## 2026-08-15 — AWS qualification binds executable shape to candidate identity
 
 - **Materialization:** The portable AWS qualification model uses table materialization because the

@@ -19,6 +19,13 @@ selected VPC and CloudFront prefix list and to refresh the profile's listener, g
 tagged log groups. Bucket and log-tag reads remain scoped to disposable D7 resource names; the
 provider does not receive wildcard service-read authority.
 
+The separate Phase 8 qualification policies let the same short-lived deployment role create and
+remove only the action-bounded disposable VPC, staging bucket, Redshift Serverless, PostgreSQL,
+Glue, Secrets Manager, and COPY-role resources used by `infra/qualification/aws-native`. Named
+resources stay under the `${name}-p8q-*` boundary; taggable network and Redshift resources must
+carry Dander's `phase8-qualification` purpose tag. The account administrator remains stage-zero
+only and is not required for a qualification plan or apply.
+
 Security-group creation follows AWS's separate authorization dimensions: the new group must carry
 the D7 management tags, creation-time tagging is limited to `CreateSecurityGroup`, and the role may
 use account-local VPCs only as the dependent resource for that tagged create. Rule creation likewise

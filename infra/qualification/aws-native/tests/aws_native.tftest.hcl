@@ -146,6 +146,46 @@ run "rejects_invalid_candidate_identity" {
   expect_failures = [var.candidate_version]
 }
 
+run "rejects_rds_invalid_trailing_hyphen" {
+  command = plan
+
+  variables {
+    name = "phase8-"
+  }
+
+  expect_failures = [var.name]
+}
+
+run "rejects_rds_invalid_consecutive_hyphens" {
+  command = plan
+
+  variables {
+    name = "phase8--run"
+  }
+
+  expect_failures = [var.name]
+}
+
+run "rejects_vpc_parent_too_large_for_aws" {
+  command = plan
+
+  variables {
+    vpc_cidr = "10.0.0.0/15"
+  }
+
+  expect_failures = [var.vpc_cidr]
+}
+
+run "rejects_vpc_parent_too_small_for_three_subnets" {
+  command = plan
+
+  variables {
+    vpc_cidr = "10.0.0.0/25"
+  }
+
+  expect_failures = [var.vpc_cidr]
+}
+
 run "rejects_unauthorized_authenticated_account" {
   command = plan
 

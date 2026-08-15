@@ -239,8 +239,11 @@ data "aws_iam_policy_document" "redshift_assume" {
     actions = ["sts:AssumeRole"]
 
     principals {
-      type        = "Service"
-      identifiers = ["redshift.amazonaws.com"]
+      type = "Service"
+      identifiers = [
+        "redshift-serverless.amazonaws.com",
+        "redshift.amazonaws.com",
+      ]
     }
   }
 }
