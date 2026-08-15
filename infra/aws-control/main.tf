@@ -473,7 +473,7 @@ resource "aws_cloudfront_distribution" "profile" {
 
   viewer_certificate {
     cloudfront_default_certificate = true
-    minimum_protocol_version       = "TLSv1.2_2021"
+    minimum_protocol_version       = "TLSv1"
   }
 
   tags = local.tags
@@ -638,11 +638,13 @@ resource "aws_ecs_task_definition" "control" {
   }
 
   volume {
-    name = "dander-tmp"
+    name                = "dander-tmp"
+    configure_at_launch = false
   }
 
   volume {
-    name = "dander-config"
+    name                = "dander-config"
+    configure_at_launch = false
   }
 
   container_definitions = jsonencode([
@@ -661,7 +663,7 @@ resource "aws_ecs_task_definition" "control" {
       ]
       linuxParameters = {
         initProcessEnabled = true
-        capabilities       = { drop = ["ALL"] }
+        capabilities       = { add = [], drop = ["ALL"] }
       }
       mountPoints = [
         { sourceVolume = "dander-config", containerPath = "/config", readOnly = false },
@@ -689,7 +691,7 @@ resource "aws_ecs_task_definition" "control" {
       portMappings           = [{ containerPort = 8770, hostPort = 8770, protocol = "tcp" }]
       linuxParameters = {
         initProcessEnabled = true
-        capabilities       = { drop = ["ALL"] }
+        capabilities       = { add = [], drop = ["ALL"] }
       }
       mountPoints = [
         { sourceVolume = "dander-config", containerPath = "/etc/dander", readOnly = true },
@@ -725,11 +727,13 @@ resource "aws_ecs_task_definition" "druff" {
   }
 
   volume {
-    name = "dander-tmp"
+    name                = "dander-tmp"
+    configure_at_launch = false
   }
 
   volume {
-    name = "dander-config"
+    name                = "dander-config"
+    configure_at_launch = false
   }
 
   container_definitions = jsonencode([
@@ -748,7 +752,7 @@ resource "aws_ecs_task_definition" "druff" {
       ]
       linuxParameters = {
         initProcessEnabled = true
-        capabilities       = { drop = ["ALL"] }
+        capabilities       = { add = [], drop = ["ALL"] }
       }
       mountPoints = [
         { sourceVolume = "dander-config", containerPath = "/config", readOnly = false },
@@ -777,7 +781,7 @@ resource "aws_ecs_task_definition" "druff" {
       portMappings           = [{ containerPort = 8080, hostPort = 8080, protocol = "tcp" }]
       linuxParameters = {
         initProcessEnabled = true
-        capabilities       = { drop = ["ALL"] }
+        capabilities       = { add = [], drop = ["ALL"] }
       }
       mountPoints = [
         { sourceVolume = "dander-config", containerPath = "/etc/dander", readOnly = true },

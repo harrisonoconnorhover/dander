@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Audited every AWS D7 Terraform resource and data source against provider 6.60.0 call paths.
-- Added only the missing ECS deployment-status and IAM role-tag reads.
-- Scoped all three reads to disposable D7 service, deployment, and role ARNs.
-- Added focused structural assertions that keep the reads out of the storage policy.
+- Completed the documentation/provider-source-first AWS IAM audit and merged its narrow correction.
+- Applied the disposable full AWS D7 profile: 12 resources added, one updated, none destroyed.
+- Corrected two AWS-provider normalization mismatches that made an unchanged task definition churn.
+- Recorded the real default-certificate TLS boundary instead of retaining an ignored setting.
+- Proved the corrected configuration produces a literal no-change live Terraform plan.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_aws_admin.py` to verify the reviewed permission map and
-its existing blocking policy-size limits.
+Run `terraform -chdir=infra/aws-control test -filter=tests/aws_control.tftest.hcl` to verify the
+CloudFront and Fargate invariants without provider access.
 
 ## Checks
 
-- Focused AWS bootstrap tests passed: 15 tests.
-- Terraform format, validation, and mock-provider apply test passed.
-- Focused Ruff format/lint and mypy passed.
-- Pending exact rendered-policy size and Access Analyzer validation before AWS apply.
+- Terraform format and validation passed.
+- AWS Control mock-provider suite passed: 4 tests.
+- Live read-only plan passed with `No changes` against the disposable active profile.
+- `git diff --check` passed.
 
 ## Decisions
 
-- Add only calls deterministically exercised by the locked provider and exact configuration.
-- Keep provider reads resource-scoped when AWS supports that boundary.
-- Retain one disposable canary apply for behavior documentation cannot prove.
+- Pin only provider-returned defaults that caused observed repeat-plan churn.
+- Keep the provider-issued CloudFront domain; custom-domain/ACM TLS policy remains out of scope.
+- Record that limitation honestly because AWS ignores a newer minimum with its default certificate.
 
 ## Remaining
 
-- Finish checks, protected review, merge, and exact-main CI.
-- Render and validate exact policies with AWS Access Analyzer.
-- Apply the reviewed role-policy correction and verify stage-zero no-drift.
-- Replan and finish the tracked AWS foundation through the temporary deployment role.
-- Continue the disposable D7 live proof, rollback, and exact cleanup.
+- Merge this focused stability correction and verify protected exact-main CI.
+- Reconfirm exact-main live no-drift, then run the read-only deployment verifier.
+- Complete browser persistence, restart, S3 conformance, and digest rollback/restore.
+- Destroy disposable AWS and issuer resources and verify retained AWS/GCP no-drift.
+- Commit sanitized qualification evidence and close the AWS D7 ticket if every gate passes.
 
 ## Review First
 
-- `infra/aws/bootstrap-admin/main.tf`
-- `tests/bootstrap/test_aws_admin.py`
-- `tickets/DANDER-131-aws-control-plane-deployment.md`
+- `infra/aws-control/main.tf`
+- `infra/aws-control/tests/aws_control.tftest.hcl`
+- `infra/aws-control/README.md`
