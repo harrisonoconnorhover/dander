@@ -49,11 +49,11 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   no Fargate plan, task, or pipeline ran. The exact 28-resource destroy completed, qualification
   state and inventories are empty, and AWS D7 was unchanged. Provider cost remains pending. A local
   correction projects the selected non-secret platform overlay at launch. Successive corrections
-  reached head `4c82438`, which passed all five protected jobs in run `31873024315`; tenth
-  exact-head review accepted its trust, deployment-role, name, and CIDR fixes. That review found
-  missing Redshift create dependencies, Glue tag lifecycle permissions, and whole-number
-  usage-limit validation. Commit `7a1f429` corrects those locally; protected CI, exact-head review,
-  and a replacement candidate are required before live qualification resumes. See
+  reached head `d644b2a`, which passed all five protected jobs in run `31874238906`; eleventh
+  exact-head review accepted the Redshift create, Glue tag-lifecycle, and whole-number usage-limit
+  fixes. That review found missing Data API credential and residual S3 cleanup permissions. Commit
+  `ef18330` corrects those locally; protected CI, exact-head review, and a replacement candidate are
+  required before live qualification resumes. See
   `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`

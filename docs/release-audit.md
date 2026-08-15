@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. AWS root corrections passed protected run `31873024315`; tenth-review create/tag/input fixes are local in `7a1f429`, with protected review and one replacement candidate open. No single protected final candidate owns the combined matrix. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. Tenth AWS corrections passed protected run `31874238906`; eleventh-review credential/cleanup fixes are local in `ef18330`, with protected review and one replacement candidate open. No single protected final candidate owns the combined matrix. |
 
 ## Current release and deployment record
 
@@ -100,9 +100,10 @@ cloud path remains outside the live proof.
   image lacked the selected AWS deployment, so no Fargate plan, task, or pipeline ran. The exact
   28-resource disposable data-plane destroy completed with empty qualification state/inventories
   and no AWS D7 change. Provider cost remains pending; this is cleanup evidence, not a profile pass.
-- AWS qualification-root head `4c82438` passed all five protected jobs in run `31873024315`.
-  Tenth review accepted its trust, deployment-role, name, and CIDR fixes, then found three remaining
-  Redshift/Glue/input blockers. Commit `7a1f429` corrects those locally; no cloud mutation occurred.
+- AWS qualification-root head `d644b2a` passed all five protected jobs in run `31874238906`.
+  Eleventh review accepted its Redshift/Glue/input fixes, then found missing Data API credentials
+  and residual S3 cleanup authority. Commit `ef18330` corrects those locally; no cloud mutation
+  occurred.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions

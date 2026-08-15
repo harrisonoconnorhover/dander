@@ -1242,9 +1242,10 @@ artifact/security preflight and observed equal DIRECT/COPY rows, but completion 
 its byte-threshold objective. An exact-RC22 AWS preflight separately found
 that account-local deployment coordinates were absent from the immutable image before Fargate
 planning; its disposable data plane was removed exactly. The later AWS root corrections passed all
-five protected jobs at head `4c82438` in run `31873024315`; tenth review accepted them and found
-three create/tag/input blockers now corrected locally in `7a1f429`. Protected CI and exact-head
-review, one replacement multi-platform build, and final-candidate reruns remain. Items 1, 3, 4, 6,
+five protected jobs at head `d644b2a` in run `31874238906`; eleventh review accepted the tenth
+create/tag/input corrections and found two credential/cleanup blockers now corrected locally in
+`ef18330`. Protected CI and exact-head review, one replacement multi-platform build, and
+final-candidate reruns remain. Items 1, 3, 4, 6,
 and 7 stay open where provider/profile evidence is incomplete;
 neither audit promotes an experimental profile.
 

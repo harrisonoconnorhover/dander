@@ -82,4 +82,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   passed; protected head `4c82438` then passed all five jobs in run `31873024315`. Tenth exact-head
   review accepted those four fixes and found missing Redshift create dependencies, Glue tag
   lifecycle permissions, and whole-number usage-limit validation. Commit `7a1f429` corrects those
-  three locally; protected CI and exact-head rereview remain open.
+  three; head `d644b2a` passed all five protected jobs in run `31874238906`. Eleventh exact-head
+  review accepted those corrections and found missing Serverless Data API credentials plus residual
+  staging-object version cleanup authority. Commit `ef18330` corrects both locally; protected CI
+  and exact-head rereview remain open.

@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "tenth_correction_pending_protected_ci_and_review",
+  "status": "eleventh_correction_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -66,6 +66,11 @@
   "tenth_reviewed_on": "2026-08-15",
   "tenth_reviewed_head": "4c82438eb47f8fdd1fe7ad87bcb5fdb5acdd4be4",
   "tenth_correction_commit": "7a1f4299dc75c94d019e5ec2731192f8295dd8cc",
+  "protected_tenth_correction_head": "d644b2a1a9f5bf758ce744851d3c5f833ed853ce",
+  "protected_tenth_correction_ci_run": 31874238906,
+  "eleventh_reviewed_on": "2026-08-15",
+  "eleventh_reviewed_head": "d644b2a1a9f5bf758ce744851d3c5f833ed853ce",
+  "eleventh_correction_commit": "ef1833095e97b3d7a30711194eaca4124da27ae9",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -190,27 +195,39 @@
     {
       "id": "aws_qualification_redshift_create_dependencies",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the request-tag-scoped create boundary permits dependent Redshift tagging and the exact Redshift service-linked role"
     },
     {
       "id": "aws_qualification_glue_tag_lifecycle",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the exact Glue projection permits provider default-tag creation and tag refresh without widening its resource ARNs"
     },
     {
       "id": "aws_qualification_fractional_usage_limit",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "a mocked plan rejects fractional Redshift usage-limit amounts before provider access"
+    },
+    {
+      "id": "aws_qualification_redshift_data_api_credentials",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the deployment role permits Serverless temporary credentials for Terraform-owned Data API DDL"
+    },
+    {
+      "id": "aws_qualification_staging_bucket_version_cleanup",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the deployment role can list object versions before force-destroy removes residual staging objects"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_tenth_correction_ci_and_review"
+    "replacement_candidate_gate": "blocked_pending_eleventh_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false
