@@ -1,5 +1,17 @@
 # Engineering Decisions
 
+## 2026-08-15 — AWS qualification owns a flat fixture and its Glue projection
+
+- **Workload:** The AWS-native correctness pipeline uses three flat synthetic rows from one pinned
+  upstream Git commit and one portable model. The nested Greenhouse schema remains a portability
+  fixture but cannot be reused as Redshift qualification evidence.
+- **Cleanup:** The disposable qualification Terraform root predeclares the exact Glue database and
+  table. Runtime publication may update their Dander metadata, while Terraform retains existence
+  ownership and destroys both after success, failure, or interruption.
+- **Artifact:** The credential-free fixture, model, and both Phase 8 PostgreSQL harnesses are explicit
+  wheel/source-distribution contents so a generated source-free candidate retains the reviewed
+  workload without application source.
+
 ## 2026-08-14 — Fargate projects the selected platform independently of the image
 
 - **Selection:** A saved Fargate plan now serializes its already validated, selected platform and

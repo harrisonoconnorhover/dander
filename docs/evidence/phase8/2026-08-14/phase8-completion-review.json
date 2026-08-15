@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "sixth_correction_pending_protected_ci_and_review",
+  "status": "seventh_correction_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -40,6 +40,11 @@
   "sixth_reviewed_on": "2026-08-15",
   "sixth_reviewed_head": "4f633515eccf55113fe33897ea7b162dc661a5b8",
   "sixth_correction_commit": "055e3a21e8cd440f134a6697d83d747e38ddc777",
+  "protected_sixth_correction_head": "34d6d559758dcdf1213e85012e94f8477ed33b2f",
+  "protected_sixth_correction_ci_run": 31868849725,
+  "seventh_reviewed_on": "2026-08-15",
+  "seventh_reviewed_head": "34d6d559758dcdf1213e85012e94f8477ed33b2f",
+  "seventh_correction_commit": "533125a92af722ed391760923fff4d926ead80f6",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -98,15 +103,33 @@
     {
       "id": "runtime_version_one_projected_platform_resolution",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "runtime execute resolves the repository's baked version-one dander.yaml through the launcher-projected AWS deployment and observes Redshift, PostgreSQL, Glue, and AWS Secrets Manager"
+    },
+    {
+      "id": "aws_qualification_redshift_compatible_source",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the immutable synthetic fixture exposes only declared INT64 and STRING fields, fetches three rows, and its portable model compiles for Redshift"
+    },
+    {
+      "id": "aws_qualification_glue_cleanup_owner",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the qualification Terraform root predeclares and owns the exact Glue database and table updated by runtime publication"
+    },
+    {
+      "id": "phase8_benchmark_sdist_contents",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the explicit sdist allowlist and distribution checker require both Phase 8 PostgreSQL harnesses"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_sixth_correction_ci_and_review"
+    "replacement_candidate_gate": "blocked_pending_seventh_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false

@@ -64,4 +64,10 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   database role and translates the overlay rejection. Protected run `31867794981` passed all five
   jobs. The next review caught that the baked version-one project ignored the projected deployment;
   commit `055e3a2` resolves its logical intent through an explicit external overlay. Protected CI and
-  rereview remain open for that correction.
+  rereview passed at head `34d6d55` in run `31868849725`, but that review found the historical
+  Greenhouse fixture could not pass Redshift schema preflight and runtime-created Glue assets had no
+  cleanup owner. Commit `533125a92af722ed391760923fff4d926ead80f6` replaces the qualification
+  workload with an immutable flat scalar fixture, makes the disposable Terraform root own the exact
+  Glue database/table, and restores both Phase 8 PostgreSQL harnesses to the source distribution.
+  Full local tests, package validation, Terraform validation/mock tests, lint, and typing pass;
+  protected CI and exact-head rereview remain open.

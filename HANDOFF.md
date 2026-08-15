@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Closed five review corrections without touching separate DRUFF work.
-- Protected head `4f63351` passed all five jobs in run `31867794981`.
-- The sixth exact-head review found the baked version-one manifest ignored launcher projections.
-- Commit `055e3a2` resolves legacy logical intent through an explicitly supplied deployment overlay.
-- A real runtime-path regression now proves the baked manifest selects the AWS-native data plane.
+- Exact head `34d6d55` passed all five protected jobs in run `31868849725`.
+- Seventh review confirmed the overlay fix and found two AWS blockers plus one packaging defect.
+- Commit `533125a` adds an immutable flat Redshift-compatible fixture and portable model.
+- The qualification Terraform root now owns the exact Glue database/table updated at runtime.
+- Generated projects and both archives retain the fixture; the sdist also retains both Phase 8 PostgreSQL harnesses.
 
 ## Try It
 
-Run `uv run pytest -q tests/project/test_portable_config.py tests/cli/test_runtime_cli.py tests/cli/test_run_command.py tests/bootstrap/test_aws_terraform.py`.
+Run `uv run pytest -q tests/portability/test_redshift_qualification.py tests/project/test_scaffold.py && terraform -chdir=infra/qualification/aws-native test`.
 
 ## Checks
 
-- Exact fifth-correction head `4f63351` passed all five protected jobs in run `31867794981`.
-- Focused pytest passed: 51 project/runtime/run/bootstrap tests.
-- Ruff passed repository-wide; strict mypy passed for the three changed Python/test files.
-- `git diff --check` passed.
-- Protected CI and rereview remain required on `055e3a2`.
+- Full pytest passed with only the existing Starlette deprecation warning.
+- AWS Terraform validation passed; its two mocked qualification plans passed.
+- Repository Ruff and recursive Terraform formatting passed.
+- Strict mypy passed for all changed Python/test files.
+- A real fixture fetch returned three declared rows; wheel/sdist build and content validation passed.
 
 ## Decisions
 
-- RC23's local rows/transport observation remains historical, but its threshold objective is invalid and cannot transfer.
-- RC24 is blocked until protected CI and independent review pass commit `055e3a2`.
-- Merge, public release, and support promotion still require separate approval.
+- Historical RC22 AWS objectives are invalid and cannot transfer to a successor.
+- Terraform owns qualification Glue existence while runtime owns only published metadata fields.
+- RC24 remains blocked until protected CI and exact-head review pass `533125a`.
 
 ## Remaining
 
-- Push the legacy-manifest runtime correction to PR #291, pass protected CI, and rerun review.
-- Cut one source-free multi-platform RC24 candidate within the reserved USD 0.50 only after that gate.
-- Resume AWS-native correctness within its existing USD 3 allocation, then Azure/OCI and pairwise work.
-- Rerun applicable RC22 classes on the final candidate and complete hosted scale/cost and pairwise profiles.
-- Finish profile docs/status freeze and the retained soak through 2026-09-01.
+- Push the seventh correction, pass protected CI, and rerun exact-head independent review.
+- Cut one source-free multi-platform RC24 only after that gate.
+- Bind a new exact AWS objective/authorization before using its retained USD 3 allocation.
+- Complete final-candidate scale, cost, canonical, pairwise, and hosted Kubernetes reruns.
+- Finish profile status/docs freeze and the retained soak through 2026-09-01.
 
 ## Review First
 
-- `src/dander/project/config.py`
-- `src/dander/project/portable_config.py`
-- `tests/cli/test_runtime_cli.py`
+- `connectors/phase8_aws_fixture.yaml`
+- `infra/qualification/aws-native/main.tf`
+- `pyproject.toml`
