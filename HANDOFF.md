@@ -2,33 +2,33 @@
 
 ## Finished
 
-- Closed the initial review and four exact-head rereview rounds without touching separate DRUFF work.
-- Protected head `5ae0417` passed all five jobs in run `31866450352`.
-- The next review confirmed the account gate and found missing Serverless DB grants plus one raw CLI error.
-- Commit `553a15a` provisions/maps one explicit DDL/COPY database role for every selected task.
-- Oversized platform overlays now fail through `AwsTerraformBootstrapError` before Terraform starts.
+- Closed five review corrections without touching separate DRUFF work.
+- Protected head `4f63351` passed all five jobs in run `31867794981`.
+- The sixth exact-head review found the baked version-one manifest ignored launcher projections.
+- Commit `055e3a2` resolves legacy logical intent through an explicitly supplied deployment overlay.
+- A real runtime-path regression now proves the baked manifest selects the AWS-native data plane.
 
 ## Try It
 
-Run `terraform -chdir=infra/qualification/aws-native test -no-color`, then `uv run pytest -q tests/bootstrap/test_aws_terraform.py tests/providers/test_redshift_warehouse_runtime.py tests/infra/test_fargate_runtime.py`.
+Run `uv run pytest -q tests/project/test_portable_config.py tests/cli/test_runtime_cli.py tests/cli/test_run_command.py tests/bootstrap/test_aws_terraform.py`.
 
 ## Checks
 
-- Exact fourth-correction head `5ae0417` passed all five protected jobs in run `31866450352`.
-- Focused pytest passed: 76 correction tests plus 46 manifest/CLI/projection tests.
-- Ruff passed across 440 files; strict mypy passed for the five changed Python/test files.
-- Both Terraform roots validate; qualification passed 2/2 and Fargate passed 5/5 mocked tests.
-- `git diff --check` passed; protected CI and rereview remain required on `553a15a`.
+- Exact fifth-correction head `4f63351` passed all five protected jobs in run `31867794981`.
+- Focused pytest passed: 51 project/runtime/run/bootstrap tests.
+- Ruff passed repository-wide; strict mypy passed for the three changed Python/test files.
+- `git diff --check` passed.
+- Protected CI and rereview remain required on `055e3a2`.
 
 ## Decisions
 
 - RC23's local rows/transport observation remains historical, but its threshold objective is invalid and cannot transfer.
-- RC24 is blocked until protected CI and independent review pass commit `553a15a`.
+- RC24 is blocked until protected CI and independent review pass commit `055e3a2`.
 - Merge, public release, and support promotion still require separate approval.
 
 ## Remaining
 
-- Push the database-access/error correction to PR #291, pass protected CI, and rerun independent review.
+- Push the legacy-manifest runtime correction to PR #291, pass protected CI, and rerun review.
 - Cut one source-free multi-platform RC24 candidate within the reserved USD 0.50 only after that gate.
 - Resume AWS-native correctness within its existing USD 3 allocation, then Azure/OCI and pairwise work.
 - Rerun applicable RC22 classes on the final candidate and complete hosted scale/cost and pairwise profiles.
@@ -36,6 +36,6 @@ Run `terraform -chdir=infra/qualification/aws-native test -no-color`, then `uv r
 
 ## Review First
 
-- `infra/qualification/aws-native/main.tf`
-- `infra/aws/modules/fargate/main.tf`
-- `src/dander/bootstrap/aws_terraform.py`
+- `src/dander/project/config.py`
+- `src/dander/project/portable_config.py`
+- `tests/cli/test_runtime_cli.py`

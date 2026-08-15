@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "fifth_correction_pending_protected_ci_and_review",
+  "status": "sixth_correction_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -35,6 +35,11 @@
   "fifth_reviewed_on": "2026-08-15",
   "fifth_reviewed_head": "5ae0417649379e55256b6cd76eadef02a468a384",
   "fifth_correction_commit": "553a15a8f678ba9860ce6284c0d6089acbbeb9e2",
+  "protected_fifth_correction_head": "4f633515eccf55113fe33897ea7b162dc661a5b8",
+  "protected_fifth_correction_ci_run": 31867794981,
+  "sixth_reviewed_on": "2026-08-15",
+  "sixth_reviewed_head": "4f633515eccf55113fe33897ea7b162dc661a5b8",
+  "sixth_correction_commit": "055e3a21e8cd440f134a6697d83d747e38ddc777",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -81,21 +86,27 @@
     {
       "id": "aws_qualification_redshift_database_privileges",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the namespace creator provisions one DDL/COPY database role and each Serverless task maps it through RedshiftDbRoles with the required tag reads"
     },
     {
       "id": "aws_projection_overlay_error_translation",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "a 32-KiB overlay rejection is translated to AwsTerraformBootstrapError before Terraform starts"
+    },
+    {
+      "id": "runtime_version_one_projected_platform_resolution",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "runtime execute resolves the repository's baked version-one dander.yaml through the launcher-projected AWS deployment and observes Redshift, PostgreSQL, Glue, and AWS Secrets Manager"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_fifth_correction_ci_and_review"
+    "replacement_candidate_gate": "blocked_pending_sixth_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false

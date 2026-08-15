@@ -61,4 +61,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
 - The next exact-head review caught that the new Serverless namespace did not grant its IAM-derived
   task user database DDL/COPY rights and an oversized overlay could escape the CLI error boundary.
   Commit `553a15a8f678ba9860ce6284c0d6089acbbeb9e2` provisions and maps one explicit
-  database role and translates the overlay rejection. Protected CI and rereview remain open.
+  database role and translates the overlay rejection. Protected run `31867794981` passed all five
+  jobs. The next review caught that the baked version-one project ignored the projected deployment;
+  commit `055e3a2` resolves its logical intent through an explicit external overlay. Protected CI and
+  rereview remain open for that correction.
