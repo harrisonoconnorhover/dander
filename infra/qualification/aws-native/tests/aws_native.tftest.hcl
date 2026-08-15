@@ -186,6 +186,16 @@ run "rejects_vpc_parent_too_small_for_three_subnets" {
   expect_failures = [var.vpc_cidr]
 }
 
+run "rejects_fractional_redshift_usage_limit" {
+  command = plan
+
+  variables {
+    redshift_daily_usage_limit_rpu_hours = 0.5
+  }
+
+  expect_failures = [var.redshift_daily_usage_limit_rpu_hours]
+}
+
 run "rejects_unauthorized_authenticated_account" {
   command = plan
 

@@ -25,15 +25,19 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
         "s3:CreateBucket",
         "s3:DeleteBucket",
         "iam:CreateRole",
+        "iam:CreateServiceLinkedRole",
         "iam:PassRole",
         "rds:CreateDBInstance",
         "rds:DeleteDBInstance",
         "redshift-serverless:CreateNamespace",
         "redshift-serverless:CreateUsageLimit",
         "redshift-serverless:DeleteWorkgroup",
+        "redshift-serverless:TagResource",
         "redshift-data:ExecuteStatement",
         "glue:CreateDatabase",
         "glue:DeleteTable",
+        "glue:GetTags",
+        "glue:TagResource",
         "secretsmanager:CreateSecret",
         "secretsmanager:DeleteSecret",
     ):
@@ -55,6 +59,9 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
     assert "role/${local.phase8_qualification_prefix}*-redshift-copy" in policy
     assert "db:${local.phase8_qualification_prefix}*" in policy
     assert "secret:${local.phase8_qualification_prefix}*/postgres-dsn-*" in policy
+    assert 'sid     = "CreateRedshiftServiceLinkedRole"' in policy
+    assert "redshift.amazonaws.com/AWSServiceRoleForRedshift" in policy
+    assert 'values   = ["redshift.amazonaws.com"]' in policy
     assert policy.count('variable = "aws:RequestTag/purpose"') == 2
     assert policy.count('variable = "aws:ResourceTag/purpose"') == 2
     assert 'values   = ["phase8-qualification"]' in policy

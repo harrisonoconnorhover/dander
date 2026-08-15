@@ -74,8 +74,12 @@ variable "redshift_daily_usage_limit_rpu_hours" {
   default     = 5
 
   validation {
-    condition     = var.redshift_daily_usage_limit_rpu_hours > 0 && var.redshift_daily_usage_limit_rpu_hours <= 5
-    error_message = "The Redshift usage limit must be positive and no more than 5 RPU-hours."
+    condition = (
+      var.redshift_daily_usage_limit_rpu_hours >= 1 &&
+      var.redshift_daily_usage_limit_rpu_hours <= 5 &&
+      floor(var.redshift_daily_usage_limit_rpu_hours) == var.redshift_daily_usage_limit_rpu_hours
+    )
+    error_message = "The Redshift usage limit must be a whole number from 1 through 5 RPU-hours."
   }
 }
 

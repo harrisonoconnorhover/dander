@@ -218,6 +218,21 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_data" {
   }
 
   statement {
+    sid     = "CreateRedshiftServiceLinkedRole"
+    effect  = "Allow"
+    actions = ["iam:CreateServiceLinkedRole"]
+    resources = [
+      "arn:${local.partition}:iam::${var.aws_account_id}:role/aws-service-role/redshift.amazonaws.com/AWSServiceRoleForRedshift"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:AWSServiceName"
+      values   = ["redshift.amazonaws.com"]
+    }
+  }
+
+  statement {
     sid    = "ManagePhase8QualificationDatabase"
     effect = "Allow"
     actions = [
@@ -243,6 +258,7 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_data" {
     actions = [
       "redshift-serverless:CreateNamespace",
       "redshift-serverless:CreateWorkgroup",
+      "redshift-serverless:TagResource",
     ]
     resources = ["*"]
 
@@ -322,6 +338,8 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_data" {
       "glue:DeleteTable",
       "glue:GetDatabase",
       "glue:GetTable",
+      "glue:GetTags",
+      "glue:TagResource",
       "glue:UpdateDatabase",
       "glue:UpdateTable",
     ]
