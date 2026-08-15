@@ -63,7 +63,12 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
         assert f'"{action}"' in terraform
     assert "stateMachine:${var.name}-*" in terraform
     assert "execution:${var.name}-*:*" in terraform
-    assert "log-group:/dander/${var.name}/*:*" in terraform
+    task_log_reads = terraform.split('sid    = "ReadDanderTaskLogs"', 1)[1].split(
+        'sid    = "UseStageZeroEncryptionKey"', 1
+    )[0]
+    assert "log-group:/dander/${var.name}/*:*" in task_log_reads
+    assert "log-group:/dander/${var.name}-*/*:*" in task_log_reads
+    assert "log-group:/dander/*" not in task_log_reads
     assert '"states:*"' not in terraform
     assert '"logs:*"' not in terraform
 

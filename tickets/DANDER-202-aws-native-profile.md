@@ -103,3 +103,6 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   because the shared launcher identity hook required Google federation for every Fargate task.
   AWS-native Fargate now keeps its ECS task role ambient when no Google federation is declared;
   Fargate-to-GCP behavior is unchanged and partial federation configuration still fails closed.
+- That execution also exposed a separate operator-read boundary: stage zero's exact-name log ARN did
+  not cover the hyphen-suffixed RC24 deployment name. The scoped correction retains the exact-name
+  ARN and adds only `${name}-*` task-log groups in the same account, region, and `/dander/` namespace.
