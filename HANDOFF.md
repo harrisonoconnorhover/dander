@@ -2,35 +2,35 @@
 
 ## Finished
 
-- Reproduced the live Azure Blob list-revision mismatch from protected-main source.
-- Canonicalized quoted and unquoted Azure SDK ETag shapes to one opaque quoted revision.
-- Added a focused regression using the provider's real create/get-versus-list representation split.
-- Kept DANDER-124 open until the corrected protected-main source passes the live proof.
+- Qualified corrected protected-main Azure Blob GraphStore behavior with the canonical fixture.
+- Proved exact replay, list revision equality, update persistence, stale conflicts, and deletion.
+- Removed the disposable account, all blob versions, resource group, and scoped data role.
+- Closed DANDER-124 without promoting Azure Blob, Azure, or any public distribution.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_azure_blob_graph_store.py`.
+Read `docs/evidence/azure/2026-08-15/druff-azure-blob-graph-store.json` with `jq -e .`.
 
 ## Checks
 
-- The pre-change live diagnostic proved quote stripping was the only revision difference.
-- Sixty-seven focused Azure/shared GraphStore tests and the full pytest suite passed.
-- Ruff, full strict typing across 414 source files, contract drift, and `git diff --check` passed.
-- Independent adversarial completion review passed with no material finding.
+- Exact-main CI run 31887695078 passed all five jobs at `aa15d6b`.
+- Sixty-seven focused tests and the full local pytest suite passed before protected merge.
+- Live create/read/list/update/replay/conflict/delete/absence checks all passed after the fix.
+- Provider inventories confirm the resource group, account, versions, and role are absent.
 
 ## Decisions
 
-- Normalize only Azure's two equivalent SDK ETag shapes; preserve the provider-neutral revision API.
-- Make no generic revision refactor and no Azure deployment or support-status change.
+- Qualify protected-main source only; retain provider support and public distribution gates.
+- Treat Terraform no drift as not applicable because the proof created no state or plan.
+- Keep provider-native revisions and all private Azure coordinates out of committed evidence.
 
 ## Remaining
 
-- Complete protected CI and merge the focused correction.
-- Rerun the live proof from exact protected main and clean Azure exactly.
-- Record coordinate-free evidence only after the corrected live attempt passes.
+- Merge this coordinate-free evidence through protected CI and verify exact main.
+- Run the separate OCI Object Storage live proof for DANDER-125.
 
 ## Review First
 
-- `src/dander/control/azure_blob_graph_store.py`
-- `tests/control/test_azure_blob_graph_store.py`
-- `tests/control/azure_blob_fakes.py`
+- `docs/evidence/azure/2026-08-15/druff-azure-blob-graph-store.json`
+- `tickets/DANDER-124-azure-blob-graph-store.md`
+- `docs/control-contracts.md`
