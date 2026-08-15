@@ -95,6 +95,7 @@ class RedshiftWarehouseConfig(BaseModel):
                 not self.cluster_identifier
                 or self.workgroup_name is not None
                 or self.db_user is None
+                or self.database_role is not None
             ):
                 raise ValueError(
                     "provisioned Redshift requires cluster_identifier and db_user only"

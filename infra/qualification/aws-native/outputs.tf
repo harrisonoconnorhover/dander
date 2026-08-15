@@ -29,6 +29,7 @@ output "redshift" {
 output "qualification_boundary" {
   description = "Non-secret cost and ownership controls to retain with the reviewed plan."
   value = {
+    candidate_version                   = var.candidate_version
     name_prefix                         = var.name
     redshift_base_capacity_rpu          = var.redshift_base_capacity_rpu
     redshift_daily_usage_limit_rpu_hour = var.redshift_daily_usage_limit_rpu_hours

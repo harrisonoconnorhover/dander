@@ -156,6 +156,7 @@ def test_aws_profile_fixture_is_flat_and_compiles_for_redshift() -> None:
     model = project.models["stg_phase8_aws__posts"]
     compiled = project.compile(model)
 
+    assert model.metadata.materialization.value == "table"
     assert 'FROM "analytics"."raw"."phase8_aws_fixture_posts"' in compiled
     assert "id AS post_id" in compiled
 

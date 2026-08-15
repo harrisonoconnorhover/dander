@@ -18,8 +18,10 @@ disposable fixture. The Fargate task has no inbound rule and may use only TLS pu
 self-scoped PostgreSQL and Redshift rules. Do not set the fixture task to `assign_public_ip = false`:
 there is no NAT gateway or private ECR, CloudWatch Logs, and Secrets Manager endpoint set.
 
-Initialize with a dedicated qualification state key, create and inspect a saved plan, and apply
-only that plan. Export the non-secret outputs into a temporary version-2 project manifest before
+Initialize with a dedicated qualification state key and required exact `candidate_version` and
+unique `name` inputs, create and inspect a saved plan, and apply only that plan. The candidate input
+owns both the resource tag and staging prefix; an invalid or final-release version is rejected.
+Export the non-secret outputs into a temporary version-2 project manifest before
 planning `infra/aws`. The runtime updates the Terraform-predeclared Glue table; it does not create
 an unowned qualification asset. After the approved manual/replay executions and evidence
 collection, destroy the Fargate root first and this data-plane root second. Confirm Redshift, RDS,

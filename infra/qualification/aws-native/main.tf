@@ -9,10 +9,10 @@ locals {
   subnets = {
     for index, zone in local.availability_zones : zone => index
   }
-  staging_prefix        = "phase8/rc22/staging"
+  staging_prefix        = "phase8/${var.candidate_version}/staging"
   runtime_database_role = "dander_runtime"
   tags = merge(var.tags, {
-    candidate = "0.9.0rc22"
+    candidate = var.candidate_version
     phase     = "8"
   })
 }

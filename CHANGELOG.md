@@ -12,6 +12,8 @@ capabilities enter through the next minor release.
   crossover byte recommendation from the writer's exact logical-size calculation.
 - Permit the disposable AWS qualification task group to reach its self-scoped PostgreSQL and
   Redshift endpoints while retaining HTTPS-only public egress.
+- Make the AWS qualification model Redshift-materializable, bind disposable resources to an exact
+  candidate input, and reject Serverless-only database roles on provisioned Redshift profiles.
 
 ## 0.9.0rc23 — 2026-08-14 (beta)
 

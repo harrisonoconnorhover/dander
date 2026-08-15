@@ -443,6 +443,15 @@ def test_redshift_serverless_uses_an_aws_derived_database_user() -> None:
         registry.parse(ProviderKind.WAREHOUSE, {**raw, "db_user": "dander_user"})
 
 
+def test_redshift_provisioned_rejects_serverless_database_role() -> None:
+    registry = default_provider_registry()
+    raw = _config()
+    raw["database_role"] = "dander_runtime"
+
+    with pytest.raises(ProviderFactoryError, match="Invalid warehouse provider"):
+        registry.parse(ProviderKind.WAREHOUSE, raw)
+
+
 def test_redshift_runtime_validates_connection_and_exposes_fenced_transforms(
     redshift_runtime: tuple[WarehouseRuntime, _FakeRedshift, _FakeS3, Path],
 ) -> None:

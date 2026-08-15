@@ -2,7 +2,7 @@ model: stg_phase8_aws__posts
 description: Immutable synthetic posts used only for AWS-native qualification.
 owner: data-eng
 dialect: portable
-materialization: view
+materialization: table
 dataset: staging
 source_system: phase8_aws_fixture
 sensitivity: public

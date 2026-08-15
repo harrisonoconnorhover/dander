@@ -8,6 +8,16 @@ variable "aws_account_id" {
   }
 }
 
+variable "candidate_version" {
+  type        = string
+  description = "Exact immutable Dander release candidate bound to this qualification run."
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+rc[0-9]+$", var.candidate_version))
+    error_message = "candidate_version must be an exact Dander release candidate such as 0.9.0rc24."
+  }
+}
+
 variable "region" {
   type        = string
   description = "AWS region for the disposable qualification data plane."
@@ -22,7 +32,6 @@ variable "region" {
 variable "name" {
   type        = string
   description = "Unique prefix for resources owned by this qualification run."
-  default     = "dander-p8q-rc22"
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{2,31}$", var.name))

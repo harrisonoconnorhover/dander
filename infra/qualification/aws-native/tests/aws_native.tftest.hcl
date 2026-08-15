@@ -19,7 +19,7 @@ mock_provider "aws" {
 
   mock_resource "aws_iam_role" {
     defaults = {
-      arn = "arn:aws:iam::123456789012:role/dander-p8q-rc22-redshift-copy"
+      arn = "arn:aws:iam::123456789012:role/dander-p8q-rc24-redshift-copy"
     }
   }
 
@@ -27,7 +27,7 @@ mock_provider "aws" {
     defaults = {
       arn = "arn:aws:redshift-serverless:us-east-1:123456789012:workgroup/00000000-0000-0000-0000-000000000000"
       endpoint = [{
-        address      = "dander-p8q-rc22.123456789012.us-east-1.redshift-serverless.amazonaws.com"
+        address      = "dander-p8q-rc24.123456789012.us-east-1.redshift-serverless.amazonaws.com"
         port         = 5439
         vpc_endpoint = []
       }]
@@ -38,9 +38,10 @@ mock_provider "aws" {
 mock_provider "random" {}
 
 variables {
-  aws_account_id = "123456789012"
-  region         = "us-east-1"
-  name           = "dander-p8q-rc22"
+  aws_account_id    = "123456789012"
+  candidate_version = "0.9.0rc24"
+  region            = "us-east-1"
+  name              = "dander-p8q-rc24"
 }
 
 run "bounded_disposable_data_plane" {
@@ -80,7 +81,10 @@ run "bounded_disposable_data_plane" {
       contains(aws_vpc_endpoint.s3.route_table_ids, aws_route_table.profile.id) &&
       aws_s3_bucket.staging.force_destroy &&
       aws_s3_bucket_public_access_block.staging.restrict_public_buckets &&
+      aws_s3_bucket.staging.tags["candidate"] == "0.9.0rc24" &&
       aws_secretsmanager_secret.postgresql_dsn.recovery_window_in_days == 0 &&
+      output.redshift.staging_prefix == "phase8/0.9.0rc24/staging" &&
+      output.qualification_boundary.candidate_version == "0.9.0rc24" &&
       output.qualification_boundary.glue_database == "dander_analytics_staging" &&
       output.qualification_boundary.glue_table == "stg_phase8_aws__posts" &&
       aws_glue_catalog_table.qualification.database_name == aws_glue_catalog_database.qualification.name
@@ -130,6 +134,16 @@ run "bounded_disposable_data_plane" {
     )
     error_message = "The disposable namespace must provision the exact database role required by the Fargate runtime."
   }
+}
+
+run "rejects_invalid_candidate_identity" {
+  command = plan
+
+  variables {
+    candidate_version = "0.9.0"
+  }
+
+  expect_failures = [var.candidate_version]
 }
 
 run "rejects_unauthorized_authenticated_account" {
