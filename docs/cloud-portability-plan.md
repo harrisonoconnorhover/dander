@@ -1253,7 +1253,11 @@ dependency grants; correction/docs head `0da600b` passed run `31879898267`, and 
 review accepted the correction. PR #291 merged the baseline as protected-main commit `3d7783c`,
 and exact-main CI run `31882061192` passed all five jobs. PR #298 merged private RC24 as protected
 main `c19de39`; exact-main run `31882919709` passed, and source-free multi-platform index
-`sha256:b7eadc7e…9488` is published. Its exact-objective and final-candidate reruns remain. Each objective continues
+`sha256:b7eadc7e…9488` is published. PR #299 merged its sanitized evidence as `a66ce65`, and
+exact-main run `31884123337` passed. RC24 then passed the corrected local PostgreSQL crossover
+objective with exact equality/cleanup and a measured disabled DIRECT threshold because no
+contiguous DIRECT-winning prefix existed. Protected review of that result, other exact-objective
+classes, and final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,
 and 7 stay open where provider/profile evidence is incomplete;

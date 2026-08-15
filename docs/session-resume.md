@@ -40,9 +40,20 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `31882919709`. The exact wheel produced source-free GAR index `sha256:b7eadc7e…9488` with
   amd64/arm64 manifests, SBOM, and provenance. Both architectures reported RC24; GCP,
   Kubernetes, and externally projected AWS selectors plus read-only local conformance passed.
-  No provider profile or retained workload changed, provider cost remains pending, and this is not
-  a scale, cost, live-profile, or support pass. See
+  PR #299 merged the sanitized candidate evidence as protected-main commit `a66ce65`; exact-main
+  CI run `31884123337` passed all five jobs. No provider profile or retained workload changed,
+  provider cost remains pending, and publication is not a scale, cost, live-profile, or support
+  pass. See
   `docs/evidence/phase8/2026-08-15/rc24-candidate.json`.
+
+- Exact private RC24 passed the committed corrected local PostgreSQL crossover objective against
+  disposable TLS PostgreSQL 15.18. COPY and DIRECT produced equal canonical rows at every sampled
+  size and emitted both selected transports. DIRECT lost at the first sampled size, so no
+  contiguous DIRECT-winning prefix exists and the measured recommendation remains disabled at
+  zero rows/bytes. All seven objectives passed in 2,650 ms with 177,127,424 bytes peak RSS, zero
+  staging relations, exact resource cleanup, and USD 0 measured local cost. This closes only the
+  corrected crossover class and still requires protected review. See
+  `docs/evidence/phase8/2026-08-15/postgresql-crossover-attempts.json`.
 
 - Azure and OCI interactive authentication were restored and verified through provider APIs on
   2026-08-14. Azure contains no Dander-named resource or resource group. OCI retains its accepted
@@ -82,7 +93,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   crossover against TLS PostgreSQL 15.18. DIRECT tied COPY only at 10 rows, but completion review
   found its 1,400-byte threshold omitted field-name bytes counted by the writer and would select
   COPY. The corrected harness derives 1,490 bytes and buffers bounded lookahead before opening a
-  transaction. RC23's threshold objective is invalid; the replacement candidate must rerun it.
+  transaction. RC23's threshold objective remains invalid and is superseded by RC24's corrected
+  zero-threshold result above.
   See `docs/evidence/phase8/2026-08-14/phase8-completion-review.json`.
 
 - Exact RC22 passed five normalized Kubernetes launcher classes on kind 1.32.2 under a 2 CPU/512
@@ -99,7 +111,7 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   rows with an exact 301,500-row result and rejected cursor regression. A separate exact-candidate
   correctness fixture matched its approved normalized SHA-256 before and after replay. All three
   schemas and staging relations were removed; measured local service cost was USD 0. RC22 has no
-  direct transport for a crossover comparison. RC23 supplies the separate local crossover above,
+  direct transport for a crossover comparison. RC24 supplies the corrected local crossover above,
   but the seven RC22 reports do not transfer and PostgreSQL hosted cost remains open.
   See `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`.
 

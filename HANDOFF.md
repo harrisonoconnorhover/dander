@@ -2,37 +2,40 @@
 
 ## Finished
 
-- Added the one provider-required IAM read that blocked deletion of three empty D7 roles.
-- Kept the permission limited to existing `dander-d7-*` role ARNs with no instance-profile mutation.
-- Updated focused policy coverage and the AWS stage-zero/live-attempt documentation.
-- Preserved the partially destroyed application state so cleanup can resume after the policy merges.
+- Merged RC24 candidate-evidence PR #299 as protected-main commit `a66ce65`; exact-main CI run `31884123337` passed all five jobs.
+- Committed the corrected crossover objectives before execution and ran exact RC24 against disposable TLS PostgreSQL 15.18.
+- Passed canonical equality, both-transport observation, cost, threshold, and cleanup objectives in one attempt.
+- Removed the disposable schema, staging relations, database container, isolated network, and both volumes.
+- Rebased on protected main `0ea4d43` without touching the separate D7 cleanup state or DRUFF work.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_aws_admin.py` and
-`terraform -chdir=infra/aws/bootstrap-admin test -no-color`.
+Run `jq . docs/evidence/phase8/2026-08-15/postgresql-crossover.json` to inspect the normalized report.
 
 ## Checks
 
-- Fifteen focused AWS administrative-bootstrap tests passed.
-- Terraform format, initialization, validation, and the stage-zero Terraform test passed.
-- Ruff, Terraform formatting, and `git diff --check` passed.
+- Focused crossover tests passed: 7 tests.
+- Exact RC24 reported all seven approved objectives passed.
+- Report identity, objective/config hashes, sorted metrics, USD 0 measured cost, and SHA-256 passed validation.
+- Disposable Docker resource inventory was empty after cleanup.
+- JSON parsing, secret/path scan, and `git diff --check` passed.
 
 ## Decisions
 
-- Treat `iam:ListInstanceProfilesForRole` as required cleanup behavior observed from provider 6.60.0.
-- Add no instance-profile write action and make no application-root change.
-- Resume the tracked destroy only after protected merge and a reviewed stage-zero plan/apply.
+- DIRECT lost at the first sampled size, so no contiguous DIRECT-winning prefix exists; keep the global threshold disabled at zero.
+- The corrected ten-row fixture is 1,490 logical bytes, but equality at that size does not justify enabling DIRECT.
+- This closes only corrected local crossover; it does not transfer RC22 results or promote support.
 
 ## Remaining
 
-- Complete independent review, protected CI, and merge this focused correction.
-- Validate the rendered policy with IAM Access Analyzer and apply only the reviewed stage-zero plan.
-- Replan and finish the application destroy, then verify exact AWS absence and no drift.
-- Remove the disposable synthetic GCP issuer and finish the D7 evidence closure PR.
+- Merge this focused crossover evidence after protected CI and review.
+- Leave the separate D7 cleanup owner to resume its partially destroyed AWS state from protected main.
+- Run AWS-native qualification from a fresh protected-main exact-objective lane after D7 cleanup cannot collide.
+- Complete remaining exact-candidate scale, pairwise, hosted-cost, and canonical-profile gates.
+- Finish final-candidate audit, operator docs, compatibility freeze, and soak through 2026-09-01.
 
 ## Review First
 
-- `infra/aws/bootstrap-admin/main.tf`
-- `tests/bootstrap/test_aws_admin.py`
-- `tickets/DANDER-131-aws-control-plane-deployment.md`
+- `docs/evidence/phase8/2026-08-15/postgresql-crossover.json`
+- `docs/evidence/phase8/2026-08-15/postgresql-crossover-attempts.json`
+- `docs/cloud-portability-phase8-qualification.md`
