@@ -698,7 +698,7 @@ wheels = [
 
 [[package]]
 name = "dander-platform"
-version = "0.9.0rc23"
+version = "0.9.0rc24"
 source = { editable = "." }
 dependencies = [
     { name = "dlt", extra = ["bigquery"] },
