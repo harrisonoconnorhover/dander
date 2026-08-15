@@ -1,0 +1,166 @@
+{
+  "schema": "io.dander.phase8.aws-native-profile-attempt/v1",
+  "attempt_date": "2026-08-15",
+  "authorization_reference": "docs/evidence/phase8/2026-08-15/rc25-authorization.json",
+  "objective_reference": "docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json",
+  "execution_base": {
+    "protected_main_commit": "c14c6fa434251da628e9cdfa87373c07a3b8240e",
+    "protected_main_ci_run": "31912057557",
+    "protected_main_ci_jobs_passed": 5
+  },
+  "candidate": {
+    "release_version": "0.9.0rc25",
+    "git_commit": "f5935a6d263cf6734ee9944f2f0e02d025edc63e",
+    "wheel_sha256": "ec419fa057ecad1ae0dc9fda85b329c9025a7c0289a1c5c42d108dbcdfae0c6c",
+    "source_index_digest": "sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238",
+    "ecr_index_digest": "sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238",
+    "source_free": true,
+    "multi_platform": true
+  },
+  "preflight": {
+    "deployment_identity": "arn:aws:iam::184463061564:role/dander-bootstrap",
+    "operator_identity_available": true,
+    "platform_state_entries": 0,
+    "data_plane_state_entries": 0,
+    "exact_owned_resource_names_absent": true,
+    "exact_ecr_digest_present": true,
+    "approved_redshift_connect_timeout_seconds": 120,
+    "approved_runtime_timeout_seconds": 600
+  },
+  "data_plane": {
+    "saved_plan_sha256": "c052bd88bdee6dbb3565ea81181f0ee1ab7c5156dfea9a90ce3df9b24d217cb3",
+    "saved_plan": {
+      "add": 36,
+      "change": 0,
+      "destroy": 0,
+      "read": 1
+    },
+    "apply": {
+      "add": 36,
+      "change": 0,
+      "destroy": 0
+    },
+    "post_apply_plan_sha256": "ea77f4f72a78e2145f8db03e8bda671d284b7106890f2e7b90ad76554b4c70ce",
+    "post_apply_drift": false,
+    "redshift_serverless_base_capacity_rpu": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 5,
+    "postgresql_instance_class": "db.t4g.micro",
+    "postgresql_storage_gib": 20
+  },
+  "platform": {
+    "saved_plan_sha256": "9269821206cb8d64cf0ae55dcfa67dae9917da519cef28f1d5f1d8133ae9d18e",
+    "saved_plan": {
+      "add": 25,
+      "change": 0,
+      "destroy": 0,
+      "read": 7
+    },
+    "apply": {
+      "add": 25,
+      "change": 0,
+      "destroy": 0
+    },
+    "verification": {
+      "exact_image_digest": true,
+      "schedule_disabled": true,
+      "state_machine_expected": true,
+      "task_definition_expected": true,
+      "log_group_expected": true,
+      "aws_native_identity": true,
+      "redshift_connect_timeout_seconds": 120,
+      "post_apply_drift": false
+    }
+  },
+  "execution": {
+    "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-phase8-aws-qualifica-35e4e06f:manual-20260815T224536-a7d48fcd",
+    "task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander/d120db48d6c24428a9dff4f8aa840f2f",
+    "run_id": "phase8_aws_qualification:2026-08-15T22:45:36Z",
+    "started_at_utc": "2026-08-15T22:45:37Z",
+    "task_started_at_utc": "2026-08-15T22:46:11Z",
+    "task_stopped_at_utc": "2026-08-15T22:46:41Z",
+    "controller_status": "runtime_permanent_failure",
+    "task_exit_code": 1,
+    "failure_code": "unexpected_error",
+    "failure_stage": "ingest",
+    "exception_class_chain": [
+      "RedshiftWriteError",
+      "ProgrammingError"
+    ],
+    "runtime_duration_ms": 2955,
+    "provider_operations": 0,
+    "rows_written": 0,
+    "replay_attempted": false,
+    "replay_skip_reason": "approved replay is conditional on manual success"
+  },
+  "finding": {
+    "classification": "redshift_copy_assumerole_permission_mismatch",
+    "redshift_connected": true,
+    "temporary_table_created": true,
+    "copy_query_id": 3345,
+    "copy_failed": true,
+    "copy_failure_summary": "The runtime IAM database user lacked ASSUMEROLE permission on the configured S3 staging role.",
+    "runtime_database_user_id": 102,
+    "runtime_database_user_type": "IAMR",
+    "task_role_database_role_tag": "dander_runtime",
+    "configured_database_role": "dander_runtime",
+    "configured_assumerole_grant_target": "default",
+    "explicit_copy_role_configured": true,
+    "svv_user_grants_rows": 0,
+    "postgresql_state_runtime_path_completed": true,
+    "postgresql_state_operator_query_attempted": true,
+    "postgresql_state_operator_query_result": "unreachable_from_operator_network",
+    "summary": "The 120-second qualification timeout allowed Redshift Serverless to connect and create its temporary table. COPY then failed because the mapped runtime database role did not have effective ASSUMEROLE permission on the explicit staging role used by the writer."
+  },
+  "cleanup": {
+    "platform_destroy_plan_sha256": "f6d2f57159761e15f30f3e927489e0dce988b9077b8a233b804b1b18141ca7a0",
+    "platform_destroy": {
+      "add": 0,
+      "change": 0,
+      "destroy": 25
+    },
+    "data_plane_destroy_plan_sha256": "087ef40b09cd6903ca6924ee0a9010ab3b439a514154ed86010a0aaf67ea5946",
+    "data_plane_destroy": {
+      "add": 0,
+      "change": 0,
+      "destroy": 36
+    },
+    "platform_state_entries": 0,
+    "data_plane_state_entries": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "aws_d7_resources_changed": false,
+    "attempt_kms_key_id": "ee3092a0-863e-4da4-aeef-e37a160e523a",
+    "attempt_kms_key_status": "PendingDeletion",
+    "attempt_kms_key_deletion_at": "2026-09-14T18:49:52-04:00",
+    "exact_ecr_digest_retained": true
+  },
+  "cost": {
+    "aggregate_phase8_ceiling_usd": "10.00",
+    "aws_allocation_usd": "3.00",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "cost_explorer_checked_at_utc": "2026-08-15T22:57:39Z",
+    "estimated_unblended_service_amounts_usd": {
+      "ecr": "-0.0000000017",
+      "ecs": "0.0000000001",
+      "rds": "-0.0000000005",
+      "kms": "-0.0000000240",
+      "secrets_manager": "0.0000000008"
+    }
+  },
+  "objectives": {
+    "artifact_identity": "passed",
+    "aws_secret_manager_resolution": "passed",
+    "cost_ceiling": "not_evaluated",
+    "exact_cleanup": "passed",
+    "glue_publication": "not_evaluated",
+    "manual_execution": "failed",
+    "no_drift": "passed",
+    "postgresql_state": "passed",
+    "redshift_write": "failed",
+    "replay_idempotency": "not_evaluated"
+  },
+  "qualification_status": "failed",
+  "evidence_transfer_allowed": false,
+  "replacement_candidate_required": true,
+  "support_promoted": false
+}

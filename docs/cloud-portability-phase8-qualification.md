@@ -114,9 +114,15 @@ that failed-attempt evidence as protected main `b784318`. The replacement gate i
 `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json`: it retains the exact
 candidate, objective set, USD 3 ceiling, one manual execution, one replay, paused scheduling, and
 exact cleanup while binding a 120-second Redshift connection timeout under the unchanged 600-second
-runtime deadline. Provider mutation may resume only after the replacement objective commit passes
-protected review and exact-main CI; no result, cost, public-release, or support claim follows from
-the manifest itself.
+runtime deadline. PR #322 merged that gate as protected main `ea625e3`; exact-main CI run
+`31911384116` passed all five jobs. PR #323 then merged the runbook correction as protected main
+`c14c6fa`; exact-main run `31912057557` passed all five jobs. The replacement run connected to
+Redshift and created its temporary table, then COPY failed because the runtime database role lacked
+effective ASSUMEROLE permission on the explicit S3 staging role. Replay did not start. Exact cleanup
+removed all 25 platform and 36 data-plane resources, both Terraform states and direct owned-resource
+inventories are empty, and the attempt's KMS key is pending deletion on 2026-09-14. This is a
+live-discovered candidate defect: it requires a focused implementation PR, replacement candidate,
+and complete fresh objective. No result, cost, public-release, or support claim transfers.
 
 ## Pre-candidate release readiness
 
@@ -170,7 +176,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | RC25 reached live provider construction; the 120-second cold-start gate is bound and its full objective rerun remains open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | RC25 connected after the 120-second cold-start allowance, then COPY exposed an ASSUMEROLE permission defect; replay and remaining objectives are open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -248,9 +254,19 @@ removed all 25 platform and 36 data-plane resources, both states and direct inve
 and the platform KMS key is pending deletion on 2026-09-14. RC25 remains valid because the defect is
 in the qualification timeout, not candidate code. PR #322 merged the 120-second replacement
 objective as protected main `ea625e3`; exact-main run `31911384116` passed all five jobs. The next
-run must project that exact timeout and rerun the complete objective; no partial result transfers.
-See
-`docs/evidence/phase8/2026-08-15/aws-native-rc25-redshift-cold-start-attempt.json`.
+run projected that exact timeout from runbook commit `c14c6fa`, whose exact-main run `31912057557`
+passed all five jobs. Its reviewed 36-resource data-plane and 25-resource platform plans applied
+cleanly and had no drift. One authorized manual task connected to Redshift and created its temporary
+table, then COPY failed because the runtime IAM database user lacked ASSUMEROLE permission on the
+configured S3 staging role. The task role carried the expected `dander_runtime` database-role tag,
+but the fixture's `GRANT ASSUMEROLE ON default TO ROLE dander_runtime FOR COPY` did not confer the
+effective permission required by the explicit COPY role. Replay did not start. Saved-plan cleanup
+removed all 25 platform and 36 data-plane resources; both states and direct owned-resource
+inventories are empty, and the attempt KMS key is pending deletion on 2026-09-14. Provider invoice
+data is still pending. This candidate defect requires its own focused implementation PR and a new
+private candidate before the complete objective reruns. See
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-redshift-cold-start-attempt.json` and
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`.
 Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
@@ -322,9 +338,11 @@ exact-main run `31902553474` passed all five jobs, and source-free multi-platfor
 `sha256:5a0d5520…2238` passed local artifact and selector checks. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
 affected evidence plus the eventual final-candidate closure matrix. RC25 AWS execution is paused at
-the live-discovered Redshift Serverless cold-start timeout described above; the manual task failed
-before provider operations, replay did not start, and cleanup is exact. Remaining work includes
-rerunning applicable evidence on RC25; PostgreSQL hosted cost; remaining
+the live-discovered Redshift COPY ASSUMEROLE permission defect described above; the 120-second
+timeout allowed connection and temporary-table creation, but the manual task failed before COPY
+could record an operation, replay did not start, and cleanup is exact. A focused implementation PR
+and replacement private candidate must precede the complete AWS objective rerun. Remaining work
+includes rerunning applicable evidence on the replacement candidate; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile
 evidence; release-candidate soak; profile operator docs; and the frozen support matrix.

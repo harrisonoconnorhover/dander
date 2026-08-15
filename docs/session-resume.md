@@ -106,12 +106,19 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   sanitized failure record as protected main `b784318`. RC25 remains valid. The replacement gate at
   `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json` preserves the exact
   candidate, objectives, and USD 3 ceiling while binding a 120-second Redshift connection timeout
-  under the unchanged 600-second runtime deadline. Resume mutation only after this replacement
-  objective passes protected review and exact-main CI. Every
+  under the unchanged 600-second runtime deadline. PR #322 merged that gate as protected main
+  `ea625e3`; exact-main run `31911384116` passed all five jobs. PR #323 merged the corrected runbook
+  as protected main `c14c6fa`; exact-main run `31912057557` passed all five jobs. The replacement
+  manual task connected to Redshift and created its temporary table, then COPY failed because the
+  runtime database role lacked effective ASSUMEROLE permission on its explicit staging role. Replay
+  did not start. Exact saved-plan cleanup again removed all 25 platform and 36 data-plane resources;
+  both states and direct inventories are empty, and the attempt KMS key is pending deletion on
+  2026-09-14. Provider invoice data is pending. This live-discovered candidate defect now requires a
+  focused implementation PR, replacement candidate, and complete objective rerun. Every
   remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See
-  `docs/evidence/phase8/2026-08-15/aws-native-rc25-redshift-cold-start-attempt.json`.
+  `docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It

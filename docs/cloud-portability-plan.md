@@ -1272,8 +1272,16 @@ resources. RC25 remains valid because the required correction is to the qualific
 timeout, not candidate code. PR #321 merged the sanitized failure record as protected main
 `b784318`. The replacement objective preserves exact RC25, its objective set, and the USD 3 ceiling
 while binding a 120-second qualification connection timeout under the unchanged 600-second runtime
-deadline. The original 30-second objective remains preserved and transfers no result; provider
-mutation waits for protected merge and exact-main CI of the replacement. No RC24 report transfers.
+deadline. The original 30-second objective remains preserved and transfers no result. PR #322
+merged the replacement gate as protected main `ea625e3`, and exact-main run `31911384116` passed all
+five jobs. PR #323 merged its runbook correction as protected main `c14c6fa`; exact-main run
+`31912057557` passed all five jobs. The replacement manual task then connected to Redshift and
+created its temporary table, but COPY failed because the runtime database role lacked effective
+ASSUMEROLE permission on the explicit S3 staging role. Replay did not start. Saved-plan cleanup
+removed all 25 platform and 36 data-plane resources, both states and direct inventories are empty,
+and the attempt KMS key is pending deletion on 2026-09-14. This is a candidate defect, so the AWS
+lane requires a focused implementation PR, replacement private candidate, and complete objective
+rerun. No RC24 or RC25 result transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

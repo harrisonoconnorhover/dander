@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Merged PR #321, preserving the sanitized RC25 Redshift cold-start failure and exact cleanup.
-- Added a replacement objective that keeps exact RC25, its objective set, and the USD 3 allocation.
-- Bound only the AWS qualification fixture to a 120-second Redshift connection timeout.
-- Preserved the original 30-second objective and left the global provider default unchanged.
+- Ran the exact RC25 AWS correctness objective from protected main `c14c6fa` with its approved 120-second Redshift connection timeout.
+- Applied reviewed 36-resource data-plane and 25-resource platform plans; both immediate follow-up plans had no drift.
+- Confirmed the timeout correction: Redshift connected and created the temporary table before COPY exposed an ASSUMEROLE permission defect.
+- Skipped replay after the manual failure and removed every platform/data-plane resource from reviewed saved destroy plans.
+- Preserved sanitized attempt evidence without promoting qualification, cost, public release, or support.
 
 ## Try It
 
-Run `jq -cS '.workload' docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json | shasum -a 256` and compare it with `approved_objectives.configuration_sha256`.
+Run `jq '.' docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`.
 
 ## Checks
 
-- PR #321 passed all five protected CI jobs before merge.
-- The replacement workload hash is `f86db635bb29f68c94e87980a19bf7b8cc26d20bba189ab6001830dabdfba247`.
-- Both objective manifests parse as JSON and retain exact RC25 candidate identity.
-- The replacement retains the original objective names, cost ceiling, execution count, and cleanup.
-- The exact Redshift configuration model accepted and serialized the 120-second value.
-- Documentation links, handoff structure, and `git diff --check` passed.
+- Exact wheel SHA-256 and source-free ECR index matched the approved RC25 identity.
+- Data-plane plan/apply was `36/0/0`; platform plan/apply was `25/0/0`; both follow-up plans reported no changes.
+- Manual execution reached Redshift, created its temporary table, then failed at COPY with zero recorded operations/rows; no replay started.
+- Cleanup applied `0/0/25` and `0/0/36`; both Terraform states and direct owned-resource inventories are empty.
+- JSON parsing, documentation consistency, handoff structure, and diff checks pass locally.
 
 ## Decisions
 
-- Treat the timeout as qualification-fixture policy, not a candidate-code defect.
-- Keep the connection limit below the unchanged 600-second whole-runtime deadline.
-- Rerun the complete AWS objective; transfer no partial result from the failed attempt.
+- Treat the COPY ASSUMEROLE mismatch as a candidate defect requiring its own focused implementation PR.
+- Build a replacement private candidate and rerun the complete objective; transfer no RC25 result.
+- Keep provider cost `not_evaluated` until the AWS invoice posts.
 
 ## Remaining
 
-- Merge this replacement objective through protected CI and verify exact-main CI.
-- From fresh protected main, rerun the complete RC25 AWS objective and exact cleanup.
-- Record provider cost when AWS billing data posts.
-- Continue remaining Phase 8 lanes in separate focused PRs.
+- Merge this failed-attempt evidence through protected CI.
+- Correct the explicit Redshift COPY-role permission on a fresh protected-main branch.
+- Publish and inspect a replacement private candidate.
+- Rerun the complete AWS correctness objective and conditional replay.
+- Continue other Phase 8 lanes in separate focused PRs without colliding with DRUFF.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json`
+- `docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`
 - `docs/cloud-portability-phase8-qualification.md`
 - `docs/session-resume.md`
