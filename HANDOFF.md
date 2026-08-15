@@ -2,35 +2,36 @@
 
 ## Finished
 
-- Qualified corrected protected-main Azure Blob GraphStore behavior with the canonical fixture.
-- Proved exact replay, list revision equality, update persistence, stale conflicts, and deletion.
-- Removed the disposable account, all blob versions, resource group, and scoped data role.
-- Closed DANDER-124 without promoting Azure Blob, Azure, or any public distribution.
+- Reproduced two provider-evaluated AWS permission gaps without creating a Fargate resource or task.
+- Added the exact ECR repository tag read required by Terraform's existing-repository refresh.
+- Added the exact Glue database-local user-defined-function wildcard required by database deletion.
+- Removed Redshift, RDS, S3, network, secrets, IAM, and Glue-table resources from the discovery run.
 
 ## Try It
 
-Read `docs/evidence/azure/2026-08-15/druff-azure-blob-graph-store.json` with `jq -e .`.
+Run `uv run pytest -q tests/bootstrap/test_aws_admin.py tests/bootstrap/test_aws_phase8_qualification_policy.py`.
 
 ## Checks
 
-- Exact-main CI run 31887695078 passed all five jobs at `aa15d6b`.
-- Sixty-seven focused tests and the full local pytest suite passed before protected merge.
-- Live create/read/list/update/replay/conflict/delete/absence checks all passed after the fix.
-- Provider inventories confirm the resource group, account, versions, and role are absent.
+- Focused bootstrap-policy suite passed: 18 tests.
+- AWS stage-zero Terraform validate and mocked test passed: 1 test.
+- Ruff lint/format, Terraform format, and `git diff --check` passed.
+- Live launcher plan stopped before mutation on the missing ECR tag read; exact cleanup then exposed the Glue deletion dimension.
 
 ## Decisions
 
-- Qualify protected-main source only; retain provider support and public distribution gates.
-- Treat Terraform no drift as not applicable because the proof created no state or plan.
-- Keep provider-native revisions and all private Azure coordinates out of committed evidence.
+- Keep both additions action-bounded and limited to the existing ECR repository or owned Glue database.
+- Resume AWS qualification only after protected merge and a reviewed stage-zero policy update.
 
 ## Remaining
 
-- Merge this coordinate-free evidence through protected CI and verify exact main.
-- Run the separate OCI Object Storage live proof for DANDER-125.
+- Refresh the expired administrator session and apply the exact one-resource Glue cleanup plan.
+- Complete protected review/CI and merge this focused correction.
+- Apply only the reviewed stage-zero policy delta, then resume the exact RC24 AWS-native lane.
+- Record provider cost only after billing data posts; do not infer it from elapsed time.
 
 ## Review First
 
-- `docs/evidence/azure/2026-08-15/druff-azure-blob-graph-store.json`
-- `tickets/DANDER-124-azure-blob-graph-store.md`
-- `docs/control-contracts.md`
+- `infra/aws/bootstrap-admin/main.tf`
+- `infra/aws/bootstrap-admin/phase8-qualification.tf`
+- `tests/bootstrap/test_aws_admin.py`

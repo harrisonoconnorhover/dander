@@ -215,6 +215,7 @@ data "aws_iam_policy_document" "deployment" {
       "ecr:GetDownloadUrlForLayer",
       "ecr:InitiateLayerUpload",
       "ecr:ListImages",
+      "ecr:ListTagsForResource",
       "ecr:PutImage",
       "ecr:UploadLayerPart",
     ]

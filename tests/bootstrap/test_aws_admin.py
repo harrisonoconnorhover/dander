@@ -67,6 +67,13 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
     assert '"states:*"' not in terraform
     assert '"logs:*"' not in terraform
 
+    runtime_image = terraform.split('sid    = "PublishRuntimeImage"', 1)[1].split(
+        'sid       = "EcrAuthorization"', 1
+    )[0]
+    assert '"ecr:ListTagsForResource"' in runtime_image
+    assert "resources = [aws_ecr_repository.runtime.arn]" in runtime_image
+    assert '"ecr:*"' not in runtime_image
+
 
 def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
     terraform = (_REPO_ROOT / "infra/aws/bootstrap-admin/main.tf").read_text(encoding="utf-8")
