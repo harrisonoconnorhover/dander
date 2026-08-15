@@ -425,6 +425,7 @@ data "aws_iam_policy_document" "deployment_d7" {
       "cloudfront:ListDistributions",
       "cloudfront:ListOriginRequestPolicies",
       "cloudfront:ListTagsForResource",
+      "ec2:DescribeAccountAttributes",
       "ec2:DescribeAvailabilityZones",
       "ec2:DescribeInternetGateways",
       "ec2:DescribeManagedPrefixLists",
@@ -633,6 +634,60 @@ data "aws_iam_policy_document" "deployment_d7" {
     resources = [
       "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*"
     ]
+  }
+
+  statement {
+    sid    = "CreateD7SecurityGroupRules"
+    effect = "Allow"
+    actions = [
+      "ec2:AuthorizeSecurityGroupEgress",
+      "ec2:AuthorizeSecurityGroupIngress",
+    ]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group-rule/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/phase"
+      values   = ["d7"]
+    }
+  }
+
+  statement {
+    sid     = "TagD7SecurityGroupRulesOnCreate"
+    effect  = "Allow"
+    actions = ["ec2:CreateTags"]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group-rule/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:CreateAction"
+      values = [
+        "AuthorizeSecurityGroupEgress",
+        "AuthorizeSecurityGroupIngress",
+      ]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/phase"
+      values   = ["d7"]
+    }
   }
 
   statement {

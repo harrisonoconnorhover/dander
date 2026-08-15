@@ -21,8 +21,10 @@ provider does not receive wildcard service-read authority.
 
 Security-group creation follows AWS's separate authorization dimensions: the new group must carry
 the D7 management tags, creation-time tagging is limited to `CreateSecurityGroup`, and the role may
-use account-local VPCs only as the dependent resource for that tagged create. Later mutation and
-deletion remain limited to security groups that carry the D7 management tags.
+use account-local VPCs only as the dependent resource for that tagged create. Rule creation likewise
+requires the same D7 tags on the new rule, with creation-time tagging limited to ingress or egress
+authorization. Later mutation and deletion remain limited to security groups that carry the D7
+management tags; rule deletion uses AWS's parent-security-group authorization boundary.
 
 The public Dander lifecycle copies this root into a private operator-artifact directory and uses a
 local backend for the first reviewed plan. After that exact plan is applied, Dander migrates the

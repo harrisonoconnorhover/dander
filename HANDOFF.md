@@ -2,7 +2,7 @@
 
 ## Finished
 
-- Integrated protected main's D7 security-group policy correction without changing its separate live-proof scope.
+- Integrated protected main's D7 security-group and rule-policy corrections without changing that separate live-proof scope.
 - Ran independent completion review on green PR #291; it found three material pre-candidate defects.
 - Added self-scoped PostgreSQL/Redshift egress while retaining HTTPS-only public AWS egress.
 - Moved bounded PostgreSQL lookahead before connection/transaction acquisition for slow sources.

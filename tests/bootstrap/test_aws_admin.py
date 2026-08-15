@@ -76,6 +76,7 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "cloudfront:CreateDistribution",
         "cloudfront:CreateOriginRequestPolicy",
         "ec2:CreateSecurityGroup",
+        "ec2:DescribeAccountAttributes",
         "ec2:DescribeInternetGateways",
         "ec2:DescribeVpcAttribute",
         "ec2:GetManagedPrefixListEntries",
@@ -102,13 +103,35 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
     ) in policy
     assert "service/${var.name}-d7-*/*" in policy
     assert policy.count('"ec2:CreateSecurityGroup"') == 2
-    assert '"ec2:CreateTags"' in policy
+    assert policy.count('"ec2:AuthorizeSecurityGroupEgress"') == 2
+    assert policy.count('"ec2:AuthorizeSecurityGroupIngress"') == 2
+    assert policy.count('"ec2:CreateTags"') == 2
     assert (
         "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*" in policy
+    )
+    assert (
+        policy.count(
+            "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group-rule/*"
+        )
+        == 2
     )
     assert "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*" in policy
     assert 'variable = "ec2:CreateAction"' in policy
     assert 'values   = ["CreateSecurityGroup"]' in policy
+    create_rules = policy.split('sid    = "CreateD7SecurityGroupRules"', 1)[1].split(
+        'sid     = "TagD7SecurityGroupRulesOnCreate"', 1
+    )[0]
+    tag_rules = policy.split('sid     = "TagD7SecurityGroupRulesOnCreate"', 1)[1].split(
+        'sid    = "ManageD7SecurityGroups"', 1
+    )[0]
+    for statement in (create_rules, tag_rules):
+        assert 'variable = "aws:RequestTag/managed-by"' in statement
+        assert 'values   = ["dander"]' in statement
+        assert 'variable = "aws:RequestTag/phase"' in statement
+        assert 'values   = ["d7"]' in statement
+    assert 'variable = "ec2:CreateAction"' in tag_rules
+    assert '"AuthorizeSecurityGroupEgress"' in tag_rules
+    assert '"AuthorizeSecurityGroupIngress"' in tag_rules
     assert 'variable = "aws:RequestTag/phase"' in policy
     assert 'variable = "aws:ResourceTag/phase"' in policy
     assert 'values   = ["elasticloadbalancing.amazonaws.com"]' in policy
