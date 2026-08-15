@@ -113,3 +113,9 @@ provider, compute, and network statements move to one attached customer-managed 
 6,144-character document quota. Blocking resource preconditions now enforce both limits before
 either policy change can be applied. No application resource or partial provider state changes as
 part of this packaging correction.
+
+Before another provider attempt, a resource-by-resource audit against locked AWS provider 6.60.0
+identified three deterministic refresh calls still absent from the role. Its ECS steady-state
+waiter lists and describes service deployments, and tagged IAM roles are refreshed through
+`ListRoleTags`. The correction adds only those reads, scoped to D7 service, service-deployment, and
+role ARNs; policy-size checks and Access Analyzer validation precede the next disposable apply.

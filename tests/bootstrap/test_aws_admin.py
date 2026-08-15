@@ -86,9 +86,12 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "ec2:DescribeVpcAttribute",
         "ec2:GetManagedPrefixListEntries",
         "ecs:CreateService",
+        "ecs:DescribeServiceDeployments",
+        "ecs:ListServiceDeployments",
         "ecs:UpdateService",
         "elasticloadbalancing:CreateLoadBalancer",
         "elasticloadbalancing:DescribeListenerAttributes",
+        "iam:ListRoleTags",
         "logs:ListTagsForResource",
     ):
         assert f'"{action}"' in provider_policy
@@ -110,6 +113,8 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "/dander/${var.name}/d7/*"
     ) in provider_policy
     assert "service/${var.name}-d7-*/*" in provider_policy
+    assert "service-deployment/${var.name}-d7-*/*/*" in provider_policy
+    assert "role/${var.name}-d7-*" in provider_policy
     assert provider_policy.count('"ec2:CreateSecurityGroup"') == 2
     assert provider_policy.count('"ec2:AuthorizeSecurityGroupEgress"') == 2
     assert provider_policy.count('"ec2:AuthorizeSecurityGroupIngress"') == 2
@@ -167,7 +172,10 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         '"cloudfront:CreateDistribution"',
         '"ec2:CreateSecurityGroup"',
         '"ecs:CreateService"',
+        '"ecs:DescribeServiceDeployments"',
+        '"ecs:ListServiceDeployments"',
         '"elasticloadbalancing:CreateLoadBalancer"',
+        '"iam:ListRoleTags"',
         '"logs:ListTagsForResource"',
     ):
         assert provider_action not in storage_policy
