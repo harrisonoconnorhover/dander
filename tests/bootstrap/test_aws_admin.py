@@ -270,9 +270,55 @@ def test_aws_admin_subsequent_plan_uses_migrated_s3_backend(
             "dynamodb_table": "dander-terraform-locks",
             "encrypt": True,
             "key": "dander/aws/bootstrap-admin/terraform.tfstate",
+            "kms_key_id": ("arn:aws:kms:us-east-1:184463061564:alias/dander-stage-zero"),
             "region": "us-east-1",
         }
     }
+
+
+def test_aws_admin_uses_govcloud_kms_alias_for_remote_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    infra_dir, operator_dir = _layout(tmp_path)
+    operator_dir.mkdir()
+    arguments = {
+        **_arguments(tmp_path),
+        "region": "us-gov-west-1",
+        "state_bucket": "dander-gov-state",
+        "admin_principal_arn": "arn:aws-us-gov:iam::184463061564:root",
+    }
+    (operator_dir / "backend.json").write_text(
+        json.dumps(
+            {
+                "schema": "io.dander.aws-bootstrap-backend/v1",
+                "bucket": arguments["state_bucket"],
+                "key": arguments["state_key"],
+                "region": arguments["region"],
+                "dynamodb_table": arguments["lock_table"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    backends: list[dict[str, object]] = []
+
+    def fake_run(
+        args: tuple[str, ...], *, cwd: Path, **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        del kwargs
+        backends.append(json.loads((cwd / "backend.tf.json").read_text(encoding="utf-8")))
+        for argument in args:
+            if argument.startswith("-out="):
+                Path(argument.removeprefix("-out=")).touch()
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    AwsAdministrativeBootstrap(infra_dir, operator_dir).execute(**arguments)  # type: ignore[arg-type]
+
+    backend = backends[0]["terraform"]["backend"]["s3"]  # type: ignore[index]
+    assert backend["kms_key_id"] == (
+        "arn:aws-us-gov:kms:us-gov-west-1:184463061564:alias/dander-stage-zero"
+    )
 
 
 def test_aws_admin_failed_state_migration_preserves_local_recovery_backend(

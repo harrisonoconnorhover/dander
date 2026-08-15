@@ -90,10 +90,12 @@ class AwsAdministrativeBootstrap:
                 lock_table=lock_table,
             )
             self._write_s3_backend(
+                aws_account_id=aws_account_id,
                 state_bucket=state_bucket,
                 state_key=state_key,
                 region=region,
                 lock_table=lock_table,
+                name=name,
             )
         self._run("terraform", "init", "-reconfigure", "-input=false", aws_profile=aws_profile)
         self._run(
@@ -155,10 +157,12 @@ class AwsAdministrativeBootstrap:
                 lock_table=lock_table,
             )
             self._write_s3_backend(
+                aws_account_id=aws_account_id,
                 state_bucket=state_bucket,
                 state_key=state_key,
                 region=region,
                 lock_table=lock_table,
+                name=name,
             )
         self._run("terraform", "init", "-reconfigure", "-input=false", aws_profile=aws_profile)
         self._run(
@@ -166,11 +170,13 @@ class AwsAdministrativeBootstrap:
         )
         if backend is None:
             self._migrate_state(
+                aws_account_id=aws_account_id,
                 state_bucket=state_bucket,
                 state_key=state_key,
                 region=region,
                 lock_table=lock_table,
                 aws_profile=aws_profile,
+                name=name,
             )
         return self._plan_path
 
@@ -183,17 +189,21 @@ class AwsAdministrativeBootstrap:
     def _migrate_state(
         self,
         *,
+        aws_account_id: str,
         state_bucket: str,
         state_key: str,
         region: str,
         lock_table: str,
         aws_profile: str,
+        name: str,
     ) -> None:
         self._write_s3_backend(
+            aws_account_id=aws_account_id,
             state_bucket=state_bucket,
             state_key=state_key,
             region=region,
             lock_table=lock_table,
+            name=name,
         )
         try:
             self._run(
@@ -320,11 +330,14 @@ class AwsAdministrativeBootstrap:
     def _write_s3_backend(
         self,
         *,
+        aws_account_id: str,
         state_bucket: str,
         state_key: str,
         region: str,
         lock_table: str,
+        name: str,
     ) -> None:
+        partition = "aws-us-gov" if region.startswith("us-gov-") else "aws"
         self._write_backend(
             "s3",
             {
@@ -332,6 +345,9 @@ class AwsAdministrativeBootstrap:
                 "key": state_key,
                 "region": region,
                 "encrypt": True,
+                "kms_key_id": (
+                    f"arn:{partition}:kms:{region}:{aws_account_id}:alias/{name}-stage-zero"
+                ),
                 "dynamodb_table": lock_table,
             },
         )

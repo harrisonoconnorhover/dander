@@ -2,39 +2,35 @@
 
 ## Finished
 
-- Added a closed two-stage AWS D7 projection for foundation, active, and rollback values.
-- Added the packaged CloudFront/ALB/Fargate/S3 partial-backend Terraform root.
-- Added a read-only verifier for ingress policies, service/task identity, startup config, and storage.
-- Added focused Python/Terraform coverage and protected-CI validation for the new root.
-- Removed invalid container CPU over-reservation and locked valid task sizing in Terraform tests.
+- Bound the AWS stage-zero S3 backend to its customer-managed KMS alias.
+- Preserved the local-first saved-plan and post-apply state-migration lifecycle.
+- Added commercial-AWS and GovCloud backend projection coverage.
 
 ## Try It
 
-Validate the packaged example locally with `python -m dander.deployment.aws_control_plane preflight
---input infra/aws-control/aws-control-plane.example.json --output /tmp/dander-aws-render
---terraform-root infra/aws-control`. This renders non-secret files and initializes no backend.
+Run `uv run pytest tests/bootstrap/test_aws_admin.py` to verify local-first planning, saved-plan
+application, remote-state migration, and exact KMS backend projection.
 
 ## Checks
 
-- Full Python suite passed: 1,705 passed and 28 skipped; strict mypy and Ruff passed.
-- Terraform format/validate/test and Trivy 0.70 passed: 4 contract runs; contract drift passed.
-- Wheel/sdist inventory validation passed and includes the complete AWS root and verifier.
+- Focused AWS bootstrap/CLI tests and the complete Python suite passed.
+- Ruff format/lint and strict mypy over 411 source files passed.
+- Control-contract drift, wheel/sdist build and inventory validation, and diff check passed.
 
 ## Decisions
 
-- Use one provider-issued CloudFront HTTPS origin and a CloudFront-only public ALB.
-- Bind non-secret startup files into task revisions; use no config bucket or config-read identity.
-- Keep this single-instance profile experimental; only Control receives S3 graph permissions.
+- Use the deterministic `alias/<name>-stage-zero` ARN already owned by the root.
+- Keep the backend record non-secret; it still stores only bucket, key, region, and lock table.
 
 ## Remaining
 
-- Run protected PR CI, merge, and exact-main CI.
-- Reauthenticate with `aws login`; apply the already-merged stage-zero authority prerequisite.
-- Run reviewed foundation/full saved plans, immutable image copy, OIDC/browser/S3 proof, and rollback.
-- Destroy every disposable resource/state generation and verify retained AWS/GCP no-drift.
+- Merge the protected correction PR and verify exact-main CI.
+- Reconfigure the live backend and rewrite only the current state object with KMS encryption.
+- Verify retained stage-zero no-drift through the deployment role.
+- Resume the bounded disposable AWS D7 live proof and exact cleanup.
 
 ## Review First
 
-- `src/dander/deployment/aws_control_plane.py`
-- `infra/aws-control/main.tf`
-- `tests/deployment/test_aws_control_plane.py`
+- `src/dander/bootstrap/aws_admin.py`
+- `tests/bootstrap/test_aws_admin.py`
+- `infra/aws/bootstrap-admin/README.md`
