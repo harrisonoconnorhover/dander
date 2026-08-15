@@ -8,9 +8,7 @@ _ROOT = Path(__file__).parents[2]
 
 
 def test_redshift_copy_role_trusts_provisioned_and_serverless_services() -> None:
-    qualification = (_ROOT / "infra/qualification/aws-native/main.tf").read_text(
-        encoding="utf-8"
-    )
+    qualification = (_ROOT / "infra/qualification/aws-native/main.tf").read_text(encoding="utf-8")
 
     assert '"redshift-serverless.amazonaws.com"' in qualification
     assert '"redshift.amazonaws.com"' in qualification
