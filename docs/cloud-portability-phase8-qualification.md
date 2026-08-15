@@ -15,7 +15,7 @@ Phase 7 evidence merge.
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, while private local RC23 observed equal DIRECT/COPY rows | Review invalidated RC23's byte-threshold objective; hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 passed protected CI and the final-candidate repeat; qualification-baseline correction/current-main head `d8a18ec` passed all five jobs in run `31878215886`, and focused fifteenth review accepted the EC2 correction | Merge this baseline before cutting one source-free multi-platform replacement candidate from fresh protected `main` |
+| Audits | Exact RC22 passed protected CI and the final-candidate repeat; docs-closure head `6ede9da` passed all five jobs in run `31879161660` | Sixteenth review found missing EC2 network-dependency grants; correction `e12ee59` awaits protected CI/review before baseline merge and one fresh-main replacement candidate |
 
 ## Open gates and dependency order
 
@@ -44,7 +44,10 @@ Phase 7 evidence merge.
    accepted the complete delta. Exact reconciliation head `0c65e42` passed run `31877158743`, but
    fourteenth review found security-group creation and unrestricted EC2 tag-ownership blockers.
    Commit `b9735c9` corrects both; correction/current-main head `d8a18ec` passed protected run
-   `31878215886`, and focused fifteenth review accepted the correction.
+   `31878215886`, and focused fifteenth review accepted the correction. Docs-closure head `6ede9da`
+   passed run `31879161660`, but sixteenth review found that route-table, subnet, and VPC-endpoint
+   creation still lacked their existing-resource dimensions. Commit `e12ee59` adds the tagged VPC
+   and route-table dependency grants locally; protected CI and focused rereview remain open.
 4. Completed as a baseline: protected private RC22 was cut after those merges and used for the GCP,
    local Kubernetes, and seven-class PostgreSQL records.
 5. In progress: the post-RC22 bounded direct-write change is packaged as private arm64 RC23. Its
@@ -126,7 +129,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | Reviewed EC2 authorization correction awaits baseline merge; replacement candidate and live qualification remain open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | EC2 network-dependency correction `e12ee59` awaits protected CI/review; baseline merge, replacement candidate, and live qualification remain open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -166,7 +169,10 @@ Current-main integration head `3ea34e2` passed all five jobs in run `31876449299
 thirteenth review accepted the delta. Reconciliation head `0c65e42` passed all five jobs in run
 `31877158743`; fourteenth review then found two EC2 authorization blockers corrected in `b9735c9`.
 Correction/current-main head `d8a18ec` passed run `31878215886`, and focused fifteenth review
-accepted the correction. Interactive
+accepted the correction. Docs-closure head `6ede9da` passed run `31879161660`, but sixteenth review
+found missing create dimensions for existing VPC and route-table dependencies. Commit `e12ee59`
+adds the qualification-tag-scoped grants locally; protected CI and focused rereview remain open.
+Interactive
 Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
@@ -232,7 +238,9 @@ cleanup evidence are complete. Qualification-baseline head `3ea34e2` passed prot
 current-main integration. Reconciliation head `0c65e42` also passed protected CI; fourteenth
 review found two EC2 authorization blockers corrected in `b9735c9`. Correction/current-main head
 `d8a18ec` passed all five jobs in run `31878215886`, and focused fifteenth review accepted the
-correction. After PR #291 merges, each replacement-candidate, benchmark, provider,
+correction. Docs-closure head `6ede9da` passed run `31879161660`; sixteenth review then found the
+remaining EC2 network-dependency blocker, corrected locally in `e12ee59` pending protected CI and
+focused rereview. After PR #291 merges, each replacement-candidate, benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially affected
 evidence plus the eventual final-candidate closure matrix. Remaining work includes rerunning
 applicable RC22 reports on that one candidate; PostgreSQL hosted cost; remaining

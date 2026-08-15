@@ -91,5 +91,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   complete delta. Reconciliation head `0c65e42` passed run `31877158743`; fourteenth review found
   security-group creation and EC2 tag-ownership blockers. Commit `b9735c9` corrects both;
   correction/current-main head `d8a18ec` passed run `31878215886`, and focused fifteenth review
-  accepted the correction. Baseline merge, replacement-candidate, and live-profile acceptance
-  criteria remain open.
+  accepted the correction. Docs-closure head `6ede9da` passed run `31879161660`; sixteenth review
+  found that route-table, subnet, and VPC-endpoint creation still lacked their tagged VPC/route-table
+  dependency dimensions. Commit `e12ee59` corrects that locally; protected CI, focused rereview,
+  baseline merge, replacement-candidate, and live-profile acceptance criteria remain open.

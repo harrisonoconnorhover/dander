@@ -53,9 +53,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `31876449299`; focused thirteenth review accepted the final version-cleanup permission and
   current-main integration. Reconciliation head `0c65e42` passed run `31877158743`; fourteenth
   review found two EC2 authorization blockers corrected in `b9735c9`. Correction/current-main head
-  `d8a18ec` passed run `31878215886`, and focused fifteenth review accepted the correction. A
-  protected replacement candidate is still required after baseline merge and before live
-  qualification resumes. After PR #291 merges, every remaining benchmark/provider objective and
+  `d8a18ec` passed run `31878215886`, and focused fifteenth review accepted the correction.
+  Docs-closure head `6ede9da` then passed run `31879161660`, but sixteenth review found missing
+  existing-resource dimensions for route-table, subnet, and VPC-endpoint creation. Commit `e12ee59`
+  adds only qualification-tagged VPC/route-table dependency grants locally; protected CI and
+  focused rereview remain. A protected replacement candidate is still required after baseline
+  merge and before live qualification resumes. After PR #291 merges, every remaining
+  benchmark/provider objective and
   any live-discovered defect uses a fresh protected-main branch; rerun only materially affected
   evidence plus the eventual final closure matrix. See
   `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.

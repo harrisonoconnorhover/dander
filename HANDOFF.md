@@ -2,9 +2,9 @@
 
 ## Finished
 
-- Correction/current-main head `d8a18ec` passed all five protected jobs in run `31878215886`.
-- Focused fifteenth review accepted the security-group and EC2 tag-ownership corrections.
-- The Phase 8 qualification baseline is frozen for separate merge approval on PR #291.
+- Exact docs-closure head `6ede9da` passed all five protected jobs in run `31879161660`.
+- Sixteenth review found missing VPC/route-table authorization dimensions for three EC2 creates.
+- Commit `e12ee59` adds only qualification-tagged dependency grants and focused assertions.
 - No new qualification objective or live cloud mutation was added to this tranche.
 
 ## Try It
@@ -13,20 +13,19 @@ Run `uv run pytest -q tests/bootstrap/test_aws_phase8_qualification_policy.py te
 
 ## Checks
 
-- Protected Python, secret, Terraform, distribution, and container jobs pass on `d8a18ec`.
 - Seventeen focused pytest cases, Ruff, mypy, Terraform format/validation/mocked apply, and diff checks pass.
-- AWS Access Analyzer reports no finding; the compact infrastructure policy is 4,957 characters.
-- AWS simulation allows both security-group dimensions and denies unrelated EC2 tagging.
+- AWS Access Analyzer reports no finding; the compact infrastructure policy is 5,334 characters.
+- AWS simulation allows every new/dependent resource dimension and denies an unrelated VPC.
 
 ## Decisions
 
 - Qualification authority remains isolated from D7 in two customer-managed policies.
-- The replacement-candidate gate opens only after this reviewed baseline merges.
+- The replacement-candidate gate remains blocked pending correction protected CI and focused rereview.
 - Post-merge Phase 8 work uses fresh protected-main branches and materially scoped evidence reruns.
 
 ## Remaining
 
-- Merge PR #291 only with separate explicit approval.
+- Pass protected CI and focused rereview for `e12ee59` before separate merge approval.
 - Cut one private source-free multi-platform replacement candidate from fresh protected `main`.
 - Bind each exact provider objective before using the retained authorized cloud allocations.
 - Complete final-candidate scale, cost, canonical, pairwise, and hosted Kubernetes reruns.
