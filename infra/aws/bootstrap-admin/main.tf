@@ -427,8 +427,11 @@ data "aws_iam_policy_document" "deployment_d7" {
       "cloudfront:ListTagsForResource",
       "ec2:DescribeAvailabilityZones",
       "ec2:DescribeManagedPrefixLists",
+      "ec2:DescribeVpcAttribute",
       "ec2:DescribeNetworkInterfaces",
       "ec2:DescribeSecurityGroupRules",
+      "ec2:GetManagedPrefixListEntries",
+      "elasticloadbalancing:DescribeListenerAttributes",
       "elasticloadbalancing:DescribeListeners",
       "elasticloadbalancing:DescribeLoadBalancerAttributes",
       "elasticloadbalancing:DescribeLoadBalancers",
@@ -454,13 +457,20 @@ data "aws_iam_policy_document" "deployment_d7" {
       "s3:DeleteBucket",
       "s3:GetAccelerateConfiguration",
       "s3:GetBucketAcl",
+      "s3:GetBucketCORS",
       "s3:GetBucketLocation",
+      "s3:GetBucketLogging",
+      "s3:GetBucketObjectLockConfiguration",
       "s3:GetBucketOwnershipControls",
+      "s3:GetBucketPolicy",
       "s3:GetBucketPublicAccessBlock",
       "s3:GetBucketRequestPayment",
       "s3:GetBucketTagging",
       "s3:GetBucketVersioning",
+      "s3:GetBucketWebsite",
       "s3:GetEncryptionConfiguration",
+      "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
       "s3:ListBucket",
       "s3:ListBucketMultipartUploads",
       "s3:ListBucketVersions",
@@ -471,6 +481,15 @@ data "aws_iam_policy_document" "deployment_d7" {
       "s3:PutEncryptionConfiguration",
     ]
     resources = ["arn:${local.partition}:s3:::${var.name}-d7-*"]
+  }
+
+  statement {
+    sid     = "InspectD7LogGroupTags"
+    effect  = "Allow"
+    actions = ["logs:ListTagsForResource"]
+    resources = [
+      "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:/dander/${var.name}/d7/*"
+    ]
   }
 
   statement {

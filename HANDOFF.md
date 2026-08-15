@@ -2,35 +2,37 @@
 
 ## Finished
 
-- Bound the AWS stage-zero S3 backend to its customer-managed KMS alias.
-- Preserved the local-first saved-plan and post-apply state-migration lifecycle.
-- Added commercial-AWS and GovCloud backend projection coverage.
+- Added the exact EC2 and ELB reads used by the locked AWS provider during D7 planning and refresh.
+- Scoped deterministic S3 refresh reads to disposable D7 buckets.
+- Scoped CloudWatch log-tag reads to `/dander/<name>/d7/*` log groups.
+- Recorded the stopped live plan and confirmed that it created no resources or state.
 
 ## Try It
 
-Run `uv run pytest tests/bootstrap/test_aws_admin.py` to verify local-first planning, saved-plan
-application, remote-state migration, and exact KMS backend projection.
+Run `uv run pytest -q tests/bootstrap/test_aws_admin.py` and `terraform -chdir=infra/aws/bootstrap-admin
+test -no-color` to verify the focused IAM boundary.
 
 ## Checks
 
-- Focused AWS bootstrap/CLI tests and the complete Python suite passed.
-- Ruff format/lint and strict mypy over 411 source files passed.
-- Control-contract drift, wheel/sdist build and inventory validation, and diff check passed.
+- Focused AWS bootstrap tests passed: 15 tests.
+- Terraform initialization, validation, and the bootstrap-admin test passed.
+- Focused Ruff lint and format checks passed.
 
 ## Decisions
 
-- Use the deterministic `alias/<name>-stage-zero` ARN already owned by the root.
-- Keep the backend record non-secret; it still stores only bucket, key, region, and lock table.
+- Grant only provider calls proven by the stopped plan or deterministic provider refresh paths.
+- Keep bucket and log reads resource-scoped; add no wildcard service-read authority.
+- Leave the application Terraform root and provider resources unchanged.
 
 ## Remaining
 
 - Merge the protected correction PR and verify exact-main CI.
-- Reconfigure the live backend and rewrite only the current state object with KMS encryption.
-- Verify retained stage-zero no-drift through the deployment role.
-- Resume the bounded disposable AWS D7 live proof and exact cleanup.
+- Apply the reviewed retained-role policy update and verify stage-zero no-drift.
+- Rerun the AWS foundation plan through the temporary deployment role.
+- Continue the disposable D7 live proof, rollback, and exact cleanup.
 
 ## Review First
 
-- `src/dander/bootstrap/aws_admin.py`
+- `infra/aws/bootstrap-admin/main.tf`
 - `tests/bootstrap/test_aws_admin.py`
-- `infra/aws/bootstrap-admin/README.md`
+- `tickets/DANDER-131-aws-control-plane-deployment.md`
