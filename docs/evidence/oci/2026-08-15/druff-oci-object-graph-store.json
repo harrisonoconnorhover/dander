@@ -1,0 +1,95 @@
+{
+  "schema": "io.dander.oci-object-graph-store.evidence/v1",
+  "provider": "oci",
+  "profile": "oci_object_graph_store",
+  "observed_on": "2026-08-15",
+  "status": "passed",
+  "authorization": {
+    "aggregate_ceiling_usd": "10.00",
+    "provider_measured_cost_usd": null,
+    "cost_status": "provider_invoice_pending"
+  },
+  "host_contract": {
+    "protected_main_commit": "f43188f7b1be6b829d439980ef432c0ce1a6bb9a",
+    "protected_main_ci_run": 31889668577,
+    "protected_main_ci_status": "success",
+    "codeless_404_correction_pull_request": 307,
+    "shared_conformance_passed": true,
+    "focused_test_count": 75,
+    "public_distribution_qualified": false
+  },
+  "bucket_policy": {
+    "storage_tier": "Standard",
+    "public_access": false,
+    "provider_default_encryption": true,
+    "versioning_enabled": true,
+    "auto_tiering_enabled": false,
+    "object_events_enabled": false,
+    "replication_enabled": false,
+    "retention_rules_present": false
+  },
+  "graph_store": {
+    "create_read_equal": true,
+    "create_replay_exact_after_restart": true,
+    "list_summary_equal": true,
+    "list_revision_usable_for_conditional_update": true,
+    "restart_persistence_after_update": true,
+    "stale_update_rejected": true,
+    "stale_delete_rejected": true,
+    "create_replay_exact_after_update": true,
+    "delete_replay_exact_after_restart": true,
+    "absent_after_delete": true,
+    "empty_list_after_delete": true,
+    "fixture_content_sha256": "8d4b78b016880a28a55d2f7f8949616e617bc141abc4637afd2bb4015f634f2a",
+    "fixture_canonical_bytes": 8468
+  },
+  "version_inventory_before_cleanup": {
+    "object_versions": 8,
+    "delete_markers": 1,
+    "total_entries": 9,
+    "all_entries_under_expected_prefix": true
+  },
+  "diagnostic_attempt": {
+    "graph_objects_written": false,
+    "codeless_missing_object_response_observed": true,
+    "empty_bucket_removed": true,
+    "correction_merged_before_accepted_rerun": true
+  },
+  "cleanup": {
+    "all_object_versions_removed": true,
+    "delete_markers_removed": true,
+    "multipart_uploads_absent": true,
+    "preauthenticated_requests_absent": true,
+    "replication_policies_absent": true,
+    "retention_rules_absent": true,
+    "disposable_bucket_absent": true,
+    "retained_stage_zero_buckets": 1,
+    "retained_foundation_buckets": 1,
+    "unexpected_or_disposable_buckets": 0,
+    "disposable_terraform_state_or_plan_created": false
+  },
+  "retained_reconciliation": {
+    "stage_zero_full_plan": "no_changes",
+    "foundation_source_unchanged_since_accepted_phase7": true,
+    "foundation_refresh_only_managed_resource_actions": 0,
+    "foundation_refresh_observed_computed_usage_metrics": true,
+    "foundation_refresh_observed_empty_metadata_normalization": true,
+    "foundation_state_refresh_applied": false,
+    "provider_apply": false,
+    "saved_plan_retained": false,
+    "copied_state_retained": false
+  },
+  "qualification_boundary": {
+    "oci_object_storage_support_promoted": false,
+    "oci_support_promoted": false,
+    "hosted_control_profile_qualified": false,
+    "public_distribution_qualified": false
+  },
+  "sanitization": {
+    "tenancy_compartment_namespace_or_bucket_coordinates_recorded": false,
+    "tokens_credentials_or_private_keys_recorded": false,
+    "provider_native_revisions_or_request_ids_recorded": false,
+    "graph_documents_or_rows_recorded": false,
+    "terraform_state_or_plan_recorded": false
+  }
+}

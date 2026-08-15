@@ -2,36 +2,35 @@
 
 ## Finished
 
-- Reproduced OCI SDK 2.184.1's code-less 404 for an absent Object Storage object.
-- Added a bounded bucket-access probe before classifying only that response as object absence.
-- Preserved fail-closed behavior for a missing bucket or denied list access.
-- Deleted the empty disposable attempt bucket and verified provider absence.
+- Qualified corrected protected-main OCI Object Storage GraphStore behavior with the canonical fixture.
+- Proved fresh-client replay, list-revision update, restart persistence, stale conflicts, and deletion.
+- Removed every object version/delete marker and both disposable attempt buckets.
+- Closed DANDER-125 without promoting OCI, OCI Object Storage, or any public distribution.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_oci_object_graph_store.py tests/control/test_graph_store.py`.
+Read `docs/evidence/oci/2026-08-15/druff-oci-object-graph-store.json` with `jq -e .`.
 
 ## Checks
 
-- Seventy-five focused OCI/shared GraphStore tests passed.
-- Ruff lint and format checks passed for all changed Python files.
-- The failed live attempt wrote no graph objects; exact bucket deletion and absence passed.
-- `git diff --check` passed.
+- Exact-main CI run 31889668577 passed all five jobs at `f43188f7`.
+- Seventy-five focused tests and the full local pytest suite passed before protected merge.
+- Live create/read/list/update/replay/conflict/delete/version-cleanup checks all passed.
+- Stage-zero planned no changes; foundation refresh had no managed-resource action or state write.
 
 ## Decisions
 
-- Reuse the adapter's required list permission rather than add bucket-management authority.
-- Probe only code-less 404s; retain the existing named OCI absence behavior.
-- Keep OCI account coordinates and native request details out of committed evidence.
+- Qualify protected-main source only; retain provider support and public distribution gates.
+- Record provider-computed foundation metrics honestly rather than claim literal zero refresh drift.
+- Keep OCI coordinates, revisions, request IDs, credentials, graph bodies, state, and plans private.
 
 ## Remaining
 
-- Complete independent review, merge through protected CI, and verify exact main.
-- Rerun the disposable OCI proof from the corrected protected commit.
-- Close DANDER-125 only after restart/conflict/version cleanup and retained reconciliation pass.
+- Merge this coordinate-free evidence through protected CI and verify exact main.
+- Remove the now-redundant private local OCI operator folder after evidence is durable.
 
 ## Review First
 
-- `src/dander/control/oci_object_graph_store.py`
-- `tests/control/test_oci_object_graph_store.py`
+- `docs/evidence/oci/2026-08-15/druff-oci-object-graph-store.json`
 - `tickets/DANDER-125-oci-object-graph-store.md`
+- `docs/control-contracts.md`
