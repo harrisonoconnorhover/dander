@@ -46,10 +46,13 @@ scale report.
 - Private arm64 RC23 observed exact COPY/DIRECT equality, selected-transport telemetry, cleanup,
   and USD 0 local cost across five sizes and five repetitions. Completion review invalidated its
   10-row/1,400-byte recommendation because it omitted writer-counted field-name bytes. The corrected
-  harness derives 1,490 bytes; the replacement candidate must rerun crossover before it can pass.
-- Private multi-platform RC24 is the protected replacement candidate, but it owns none of the
-  historical benchmark results by publication alone. Corrected crossover and other applicable
-  reruns, hosted cost, other warehouses, and every first-class launcher remain open.
+  harness derives 1,490 bytes; RC23's threshold objective remains invalid.
+- Private multi-platform RC24 passed the committed corrected crossover objective against disposable
+  TLS PostgreSQL 15.18. Both transports produced equal rows, but DIRECT lost at the first sampled
+  size, so no contiguous DIRECT-winning prefix exists and the measured threshold remains disabled
+  at zero. All seven objectives passed with exact cleanup and USD 0 local cost. RC24 owns no other
+  historical benchmark results by publication; protected review, applicable reruns, hosted cost,
+  other warehouses, and every first-class launcher remain open.
 - The Kubernetes portable launcher passed normalized correctness, bulk, incremental, transform,
   and PostgreSQL-specific failure Jobs on kind 1.32.2 under its reviewed deadline, retry, CPU, and
   memory controls. Remaining launcher classes, hosted scale/cost, and soak stay open.

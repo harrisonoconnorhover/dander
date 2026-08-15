@@ -1,0 +1,45 @@
+{
+  "schema": "io.dander.phase8.postgresql-crossover-attempts/v1",
+  "release_version": "0.9.0rc24",
+  "git_commit": "c19de3980411f20514326db9f722f07e57a3d1ef",
+  "image_digest": "sha256:b7eadc7e42eb5b6783685d22ce31711a1bc1a7ee40323bf41683e574f5839488",
+  "objective_manifest": "postgresql-crossover-objectives.json",
+  "configuration_sha256": "86313cae9c60be3e920a9e2d6792d1f5984e106bc3b7a0b979b876a07e8ce10e",
+  "normalized_report": "postgresql-crossover.json",
+  "normalized_report_sha256": "95a6292d5256555b35a5d17831ad561a2f3d5cea98209a88fe1bc35d5e9db552",
+  "service_shapes": [
+    "dander_2cpu_512mib_read_only",
+    "postgresql_15.18_2cpu_1gib_tls"
+  ],
+  "attempts": [
+    {
+      "attempt": 1,
+      "status": "passed",
+      "qualification_reason": "all_approved_objectives_passed",
+      "input_rows": 61110,
+      "logical_input_bytes": 9105390,
+      "duration_ms": 2650,
+      "peak_rss_bytes": 177127424,
+      "recommended_direct_max_rows": 0,
+      "recommended_direct_max_logical_bytes": 0,
+      "recommendation_reason": "no_contiguous_direct_winning_prefix",
+      "temporary_staging_relations": 0,
+      "cleanup_verified": true
+    }
+  ],
+  "lifecycle_cleanup": {
+    "disposable_schemas_remaining": 0,
+    "temporary_staging_relations_remaining": 0,
+    "database_container_removed": true,
+    "network_removed": true,
+    "volumes_removed": true
+  },
+  "cost": {
+    "local_benchmark_usd": "0.00",
+    "private_publication_allocation_usd": "0.25",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending"
+  },
+  "protected_review_status": "pending",
+  "support_claim_promoted": false
+}

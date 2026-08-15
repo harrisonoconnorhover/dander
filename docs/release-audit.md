@@ -1,6 +1,6 @@
 # Dander Platform Release Audit
 
-Audited on 2026-08-14 against the product promise in `steering/00-project-overview.md`.
+Audited on 2026-08-15 against the product promise in `steering/00-project-overview.md`.
 “Live-proven” means the behavior was observed in a disposable provider account or retained GCP
 project. “Implemented” means automated tests cover the contract while an optional provider or
 cloud path remains outside the live proof.
@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23's byte threshold remains invalid. Private multi-platform RC24 was built from exact protected main `c19de39`, whose CI run `31882919709` passed, and is ready for separate exact-objective reruns; it does not inherit the historical matrix. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23's byte threshold remains invalid. Private multi-platform RC24 publication evidence passed protected review and its corrected local PostgreSQL crossover recommends no DIRECT range; it does not inherit the historical matrix. |
 
 ## Current release and deployment record
 
@@ -100,7 +100,14 @@ cloud path remains outside the live proof.
   wheel and source distribution passed package inspection; the GAR index has runnable amd64/arm64
   manifests, SBOM, and provenance. Both architectures reported RC24, the image contains the flat
   AWS qualification assets without repository source, and GCP/Kubernetes/external-AWS selectors
-  plus read-only conformance passed without provider access. No historical report transfers.
+  plus read-only conformance passed without provider access. PR #299 merged the sanitized evidence
+  as `a66ce65`, and exact-main run `31884123337` passed all five jobs. No historical report
+  transfers.
+- Exact RC24 passed the corrected local PostgreSQL crossover objective. COPY and DIRECT produced
+  equal canonical rows, both transports were observed, and cleanup was exact. DIRECT lost at the
+  first sampled size, so the measured recommendation stays disabled at zero rows/bytes. All seven
+  objectives passed with USD 0 local cost; protected review, hosted cost, and remaining RC24
+  benchmark classes stay open.
 - Exact RC22 was copied byte-identically to private ECR for AWS-native preflight. Its immutable
   image lacked the selected AWS deployment, so no Fargate plan, task, or pipeline ran. The exact
   28-resource disposable data-plane destroy completed with empty qualification state/inventories
@@ -147,8 +154,10 @@ without becoming a second runtime. The D7 local hosted Control profile is live-q
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
 RC22's protected audit and RC23's local preflight are preserved. Qualification-baseline corrections
 through `e12ee59` merged in PR #291 and passed exact-main CI at `3d7783c`. PR #298 merged private
-RC24 at protected main `c19de39`; exact-main CI run `31882919709` passed, and source-free
-multi-platform index `sha256:b7eadc7e…9488` is published. The combined final-candidate audit and
+RC24 at protected main `c19de39`; exact-main CI run `31882919709` passed, source-free
+multi-platform index `sha256:b7eadc7e…9488` is published, and PR #299's evidence merge passed
+exact-main run `31884123337`. RC24's corrected local PostgreSQL crossover also passed with the
+DIRECT recommendation disabled. The combined final-candidate audit and
 remaining scale, cost, profile, soak,
 operator-documentation, and support-freeze gates are recorded in
 `docs/cloud-portability-phase8-qualification.md`.

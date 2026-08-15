@@ -14,8 +14,8 @@ Phase 7 evidence merge.
 | Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle plus normalized correctness/bulk/incremental/transform/failure Jobs, including alert visibility and cleanup | Hosted-provider proof, remaining launcher classes/cost, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, while private local RC23 observed equal DIRECT/COPY rows | Review invalidated RC23's byte-threshold objective; hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 passed protected CI and its historical final-candidate repeat; private RC24 was built from protected-main commit `c19de39` after exact CI run `31882919709` passed all five jobs | RC24's protected evidence review and final-candidate repeat remain open |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, and private RC24 passed corrected local PostgreSQL crossover | Hosted PostgreSQL cost, applicable final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
+| Audits | Exact RC22 passed protected CI and its historical final-candidate repeat; private RC24 publication evidence merged in PR #299 and exact-main CI run `31884123337` passed all five jobs | RC24's final-candidate repeat remains open |
 
 ## Open gates and dependency order
 
@@ -60,8 +60,13 @@ Phase 7 evidence merge.
    restored them and passed protected review. Fresh-main PR #298 merged private RC24 as protected
    main `c19de3980411f20514326db9f722f07e57a3d1ef`; exact-main run `31882919709` passed all five
    jobs. The exact wheel then produced source-free amd64/arm64 index `sha256:b7eadc7e…9488` with
-   SBOM and provenance. Its sanitized publication evidence still requires protected review.
-6. Use one protected exact candidate for every remaining scale, cost, pairwise, canonical-profile,
+   SBOM and provenance. PR #299 merged its sanitized publication evidence as protected-main commit
+   `a66ce65`; exact-main CI run `31884123337` passed all five jobs.
+6. Completed locally; protected review remains: RC24 passed the corrected PostgreSQL crossover
+   objective set. COPY and DIRECT produced equal canonical rows and emitted selected transports,
+   but DIRECT lost at the first sampled size, so no contiguous DIRECT-winning prefix exists and
+   the measured recommendation remains disabled at zero.
+7. Use one protected exact candidate for every remaining scale, cost, pairwise, canonical-profile,
    Kubernetes, and soak gate; then repeat the full audit and freeze the compatibility documents.
 
 The operator approved cloud mutations, conservative provider-specific SLO selection, and an
@@ -86,8 +91,9 @@ candidate at index
 `sha256:b7eadc7e42eb5b6783685d22ce31711a1bc1a7ee40323bf41683e574f5839488`.
 Both runnable manifests report RC24; the source-free image passed GCP, Kubernetes, and externally
 projected AWS deployment selection plus credential-free read-only conformance. This is candidate
-publication evidence, not a transferred benchmark, live-provider result, cost pass, or support
-claim. Public RC20 and the five retained RC22 jobs remain unchanged.
+publication evidence plus one corrected local crossover result, not a transferred benchmark,
+live-provider result, hosted-cost pass, or support claim. Public RC20 and the five retained RC22
+jobs remain unchanged.
 
 ## Pre-candidate release readiness
 
@@ -217,14 +223,19 @@ cleanup and USD 0 local cost. Connector throttling/credential expiry and catalog
 failures remain in their respective connector and launcher profile gates.
 
 RC22's PostgreSQL writer factory exposes only COPY, so its record cannot satisfy crossover. Private
-local RC23 ran the pre-approved paired row/byte workload against TLS PostgreSQL 15.18. Across five
-repetitions at 1, 10, 100, 1,000, and 5,000 rows, COPY and DIRECT produced equal canonical rows and
-emitted their selected transports; DIRECT tied COPY only at 10 rows. Completion review found that
-the recorded 1,400-byte recommendation omitted field-name bytes counted by the writer, so that
-threshold would select COPY and its `threshold_recorded` objective is invalid. The corrected
-harness derives 1,490 bytes from the writer's exact normalized logical-size function, and bounded
-lookahead now completes before a transaction opens. The RC23 report is not rewritten or promoted;
-the replacement candidate must rerun crossover. Global defaults remain disabled.
+local RC23 observed equal rows and both transports, but its recorded 1,400-byte recommendation
+omitted field-name bytes counted by the writer. The corrected harness verifies that its ten-row
+fixture is 1,490 logical bytes and completes bounded lookahead before opening a transaction.
+
+Private RC24 reran the committed corrected objective against disposable TLS PostgreSQL 15.18 in
+its exact source-free 2 CPU/512 MiB image. Across five repetitions at 1, 10, 100, 1,000, and 5,000
+rows, COPY and DIRECT produced equal canonical rows and emitted their selected transports. COPY
+medians were 8, 8, 10, 22, and 80 ms; DIRECT medians were 9, 8, 12, 42, and 185 ms. Because DIRECT
+lost at the first sampled size, there is no contiguous DIRECT-winning prefix; the measured
+recommendation is zero rows and zero bytes, so global defaults remain disabled. All seven approved
+objectives passed in 2,650 ms with 177,127,424 bytes peak RSS, zero staging relations, exact
+schema/container/network/volume cleanup, and USD 0 measured local cost. This closes corrected local
+crossover only; protected review, hosted cost, and other applicable RC24 reruns remain open.
 
 ## Current Kubernetes scale evidence
 
@@ -244,11 +255,12 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 ## Current exit recommendation
 
 Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
-PostgreSQL classes, RC22 protected audit, RC23 local preflight/transport observation, and exact AWS
-cleanup evidence are complete. PR #291 merged the reviewed AWS baseline as protected main
+PostgreSQL classes, RC22 protected audit, RC23 local preflight, RC24 corrected local crossover, and
+exact AWS cleanup evidence are complete. PR #291 merged the reviewed AWS baseline as protected main
 `3d7783c`, and exact-main run `31882061192` passed. PR #298 then merged private RC24 as protected
 main `c19de39`; exact-main run `31882919709` passed, and source-free multi-platform candidate
-`sha256:b7eadc7e…9488` passed local artifact and selector checks. Each benchmark, provider,
+`sha256:b7eadc7e…9488` passed local artifact and selector checks. PR #299 merged that evidence as
+`a66ce65`, and exact-main run `31884123337` passed. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
 affected evidence plus the eventual final-candidate closure matrix. Remaining work includes
 rerunning applicable RC22 reports on RC24; PostgreSQL hosted cost; remaining
