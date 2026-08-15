@@ -39,7 +39,7 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Phase 7 foundation and private image history but has zero active Container Instances. The OCI CLI
   omitted the session profile's user field; it was restored from the signed token subject without
   recording an identifier or credential. No cloud mutation occurred. Credentials no longer block
-  these providers, but protected review and one replacement candidate still precede any Phase 8
+  these providers, but independent review rerun and one replacement candidate still precede any Phase 8
   live run. See the Azure and OCI credential-restoration records under
   `docs/evidence/phase8/2026-08-14/`.
 
@@ -50,8 +50,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   state and inventories are empty, and AWS D7 was unchanged. Provider cost remains pending. A local
   correction projects the selected non-secret platform overlay at launch. Completion review then
   found missing self-scoped database egress in the disposable fixture; its correction passes the
-  focused Terraform contract, but protected CI/review and a replacement candidate are required
-  before live qualification resumes. See
+  focused Terraform contract and protected CI run `31863498217`; independent review rerun and a
+  replacement candidate are required before live qualification resumes. See
   `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`

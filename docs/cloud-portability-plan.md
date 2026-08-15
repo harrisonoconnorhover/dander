@@ -1237,13 +1237,15 @@ Tickets:
 7. freeze the tested compatibility matrix and known limitations.
 
 Exact private RC22 completed item 5 for its source through protected CI and a local exact-artifact
-repeat. The later direct-write capability required private arm64 RC23; RC23 has passed local
-artifact/security preflight and PostgreSQL crossover. An exact-RC22 AWS preflight separately found
+repeat. The later direct-write capability required private arm64 RC23; RC23 passed local
+artifact/security preflight and observed equal DIRECT/COPY rows, but completion review invalidated
+its byte-threshold objective. An exact-RC22 AWS preflight separately found
 that account-local deployment coordinates were absent from the immutable image before Fargate
-planning; its disposable data plane was removed exactly, and a local runtime-overlay correction
-passes focused contracts. Both corrections require protected review, one replacement multi-platform
-build, and final-candidate reruns. Items 1, 3, 4, 6, and 7 stay open where provider/profile evidence
-is incomplete; neither audit promotes an experimental profile.
+planning; its disposable data plane was removed exactly. Runtime-overlay, database-egress,
+pre-transaction lookahead, and exact-byte corrections pass focused contracts and protected CI run
+`31863498217`; independent review rerun, one replacement multi-platform build, and final-candidate
+reruns remain. Items 1, 3, 4, 6, and 7 stay open where provider/profile evidence is incomplete;
+neither audit promotes an experimental profile.
 
 Exit gate:
 

@@ -18,12 +18,14 @@
 
 - **Selection:** PostgreSQL admits direct inserts only when both `direct_max_rows` and
   `direct_max_logical_bytes` are positive and the complete endpoint fits both limits. Zero remains
-  the default for both settings, preserving the accepted COPY behavior. Private local RC23 measured
-  a conservative same-shape threshold of 10 rows and 1,400 logical bytes; one unprotected arm64
-  result does not justify changing a global hosted default.
+  the default for both settings, preserving the accepted COPY behavior. Private local RC23 observed
+  a 10-row crossover, but completion review invalidated its 1,400-byte recommendation because it
+  omitted field-name bytes counted by the writer. The corrected harness derives 1,490 bytes from
+  the exact normalized logical-size function; the replacement candidate must rerun the measurement.
 - **Bound:** Selection retains at most the reviewed row limit plus one overflow row and at most one
-  byte-limit overflow row. An endpoint that crosses either bound replays the retained prefix into
-  the existing streaming COPY path without row loss or reordering.
+  byte-limit overflow row before opening a database transaction. An endpoint that crosses either
+  bound replays the retained prefix into the existing streaming COPY path without row loss or
+  reordering.
 - **Publication:** Both transports populate the same transaction-local staging relation and use
   the same destination fence and logical write-mode statements. Telemetry records the selected
   transport; adapter availability alone does not qualify a threshold or promote support.

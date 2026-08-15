@@ -45,5 +45,5 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   task definition and materializes it only in runtime scratch space. The first completion review
   then caught missing self-scoped database egress, direct lookahead inside an open transaction, and
   an understated crossover threshold. Commit `8240bcfc3585b8217a607cb08d2d97290ca13afa`
-  corrects all three with focused Python and Terraform checks; protected CI, review rerun, and a
-  replacement source-free candidate remain open.
+  corrects all three with focused Python and Terraform checks and protected CI run `31863498217`;
+  review rerun and a replacement source-free candidate remain open.

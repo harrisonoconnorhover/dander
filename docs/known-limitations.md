@@ -37,8 +37,9 @@ remain Phase 8 work.
   Redshift still has no views or provider-managed infrastructure. PostgreSQL state and warehouse
   execution are implemented and locally conformance-tested; all five ingestion modes use bounded
   direct-or-COPY staging and destination fencing. Direct thresholds default to disabled. Private
-  local RC23 measured a 10-row/1,400-byte crossover for one TLS PostgreSQL 15.18 shape, but it is
-  not protected, hosted, or a global default. Replace-mode graph targets use the provider-neutral
+  local RC23 observed a 10-row crossover for one TLS PostgreSQL 15.18 shape, but review invalidated
+  its 1,400-byte threshold. The corrected 1,490-byte calculation is not yet replacement-candidate,
+  hosted, or a global default. Replace-mode graph targets use the provider-neutral
   relational AST and fenced table path; graph safe casts and cross-database relations fail
   preflight. The ordinary hosted source runner still selects SCD1. A packaged Helm chart renders the
   Kubernetes launcher against an existing cluster, but no Kubernetes live profile is qualified
@@ -47,7 +48,7 @@ remain Phase 8 work.
   package publishes this pair matrix and each warehouse's exact implemented modes, transports,
   schema limits, transforms, graphs, and fencing through `dander runtime compatibility`, while the
   packaged capability manifest remains the support boundary. Local PostgreSQL benchmark results
-  include RC22 controlled-memory/local scale and RC23 local crossover qualification, but no single
+  include RC22 controlled-memory/local scale and RC23 local rows/transport evidence, but no single
   protected final candidate has rerun the complete PostgreSQL matrix and hosted cost remains open.
 - Azure Container Apps Jobs and Azure Key Vault have a typed projection plus locally validated,
   plan-first Terraform, digest-preserving ACR promotion tooling, provider-native lifecycle

@@ -15,7 +15,7 @@ Phase 7 evidence merge.
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, while private local RC23 observed equal DIRECT/COPY rows | Review invalidated RC23's byte-threshold objective; hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 passed protected CI and the final-candidate repeat; private arm64 RC23 passed the local artifact, runtime, dependency, secret, infrastructure, and image preflight | Completion review found three pre-candidate defects; their local corrections require new protected CI and review before one replacement multi-platform candidate and every final-candidate rerun |
+| Audits | Exact RC22 passed protected CI and the final-candidate repeat; the three completion-review corrections passed protected CI run `31863498217` | Independent review rerun remains required before one replacement multi-platform candidate and every final-candidate rerun |
 
 ## Open gates and dependency order
 
@@ -28,13 +28,14 @@ Phase 7 evidence merge.
 3. Reopened after live preflight: the original AWS-native Fargate/Redshift/PostgreSQL/Glue/
    AWS-Secrets profile passed protected review, but exact RC22 did not package its selected AWS
    deployment. The first completion review found missing database egress in the disposable fixture;
-   its local correction requires protected CI and review rerun before qualification.
+   its local correction passed protected CI run `31863498217`; review rerun remains open.
 4. Completed as a baseline: protected private RC22 was cut after those merges and used for the GCP,
    local Kubernetes, and seven-class PostgreSQL records.
 5. In progress: the post-RC22 bounded direct-write change is packaged as private arm64 RC23. Its
    local PostgreSQL run observed equal rows and both transports, but completion review invalidated
    the 1,400-byte recommendation and found lookahead inside the transaction. Both are corrected
-   locally; protected CI, review rerun, and a source-free multi-platform successor remain required.
+   locally and pass protected CI run `31863498217`; review rerun and a source-free multi-platform
+   successor remain required.
 6. Use one protected exact candidate for every remaining scale, cost, pairwise, canonical-profile,
    Kubernetes, and soak gate; then repeat the full audit and freeze the compatibility documents.
 
@@ -108,7 +109,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | runtime overlay and database-egress corrections pass locally; protected CI/review rerun, replacement candidate, and Phase 8 qualification open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | runtime overlay and database-egress corrections pass protected CI; review rerun, replacement candidate, and Phase 8 qualification open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -132,8 +133,8 @@ Fargate plan, task, or pipeline execution was attempted. The exact 28-resource d
 the qualification state and inventories contain zero managed data-plane resources, and the existing
 AWS D7 lane was unchanged. Provider charges have not posted, so the profile cost and correctness
 remain `not_evaluated`. Completion review later found the disposable task group also lacked
-self-scoped database egress. The local correction passes its mocked Terraform contract but still
-requires protected CI and review. Interactive Azure and OCI authentication was subsequently restored and
+self-scoped database egress. The local correction passes protected CI run `31863498217`; independent
+review rerun remains open. Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
 no-drift baseline must be preserved. Credentials no longer block either provider, but the protected
@@ -194,7 +195,7 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
 PostgreSQL classes, RC22 protected audit, RC23 local preflight/transport observation, and exact AWS
 cleanup evidence are complete. Completion review found three defects and their corrections pass
-focused local checks; new protected CI and review remain required before a replacement candidate;
+protected CI run `31863498217`; independent review remains required before a replacement candidate;
 rerunning applicable RC22 reports on that one candidate; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile

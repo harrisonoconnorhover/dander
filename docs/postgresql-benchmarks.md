@@ -73,15 +73,15 @@ and COPY use the same transaction-local staging relation, destination fence, and
 publication statements; emitted load telemetry records the selected transport.
 
 Private arm64 RC23 at commit `2455fc34d4503863060b7bac873be36319c13e4f` and image index
-`sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064` passed the pre-approved
+`sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064` ran the pre-approved
 local crossover workload against TLS PostgreSQL 15.18. The harness alternated COPY and DIRECT over
 five repetitions at 1, 10, 100, 1,000, and 5,000 rows, compared exact canonical row hashes, and
 verified selected-transport telemetry and cleanup. Median milliseconds were COPY/DIRECT 7/8, 7/7,
-8/10, 23/39, and 82/169 respectively. The conservative same-shape recommendation is 10 rows and
-1,400 logical bytes.
+8/10, 23/39, and 82/169 respectively. DIRECT tied COPY at 10 rows.
 
-The first attempt completed the workload but could not serialize the report because provider
-metrics were not sorted; the corrected harness reran the unchanged objective set and passed all
-seven objectives at USD 0 local service cost. Defaults remain zero: this single private arm64 local
-measurement is useful tuning evidence, but it is not protected review, hosted cost evidence, or a
-support promotion. See `docs/evidence/phase8/2026-08-14/postgresql-crossover.json`.
+Completion review found the emitted 1,400-byte recommendation omitted field-name bytes counted by
+the writer and would therefore select COPY for the measured 10 rows. The corrected harness derives
+1,490 bytes from the writer's exact normalized logical-size function, but RC23 is retained only as
+historical rows/transport evidence and its `threshold_recorded` objective is invalid. Defaults
+remain zero; the replacement candidate must rerun crossover. See
+`docs/evidence/phase8/2026-08-14/phase8-completion-review.json`.

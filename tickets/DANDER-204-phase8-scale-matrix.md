@@ -43,12 +43,13 @@ scale report.
   connector and launcher failure cases remain assigned to their own profile gates.
 - Seven PostgreSQL classes pass on exact protected RC22. RC22 cannot satisfy crossover because its
   PostgreSQL factory exposes COPY only; those reports remain accepted baseline evidence.
-- Private arm64 RC23 passed the pre-approved local crossover on five sizes and five repetitions,
-  with exact COPY/DIRECT equality, selected-transport telemetry, cleanup, and USD 0 local cost. The
-  conservative same-shape threshold is 10 rows/1,400 logical bytes. The first attempt exposed and
-  retained a harness-only metric-ordering failure; the unchanged-objective rerun passed.
-- No single protected final candidate yet owns all eight PostgreSQL classes. Protected RC23 review,
-  final-candidate reruns, hosted cost, other warehouses, and every first-class launcher remain open.
+- Private arm64 RC23 observed exact COPY/DIRECT equality, selected-transport telemetry, cleanup,
+  and USD 0 local cost across five sizes and five repetitions. Completion review invalidated its
+  10-row/1,400-byte recommendation because it omitted writer-counted field-name bytes. The corrected
+  harness derives 1,490 bytes; the replacement candidate must rerun crossover before it can pass.
+- No single protected final candidate yet owns all eight PostgreSQL classes. Correction review,
+  replacement-candidate reruns, hosted cost, other warehouses, and every first-class launcher remain
+  open.
 - The Kubernetes portable launcher passed normalized correctness, bulk, incremental, transform,
   and PostgreSQL-specific failure Jobs on kind 1.32.2 under its reviewed deadline, retry, CPU, and
   memory controls. Remaining launcher classes, hosted scale/cost, and soak stay open.
