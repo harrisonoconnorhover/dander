@@ -1279,8 +1279,10 @@ five jobs. PR #323 merged its runbook correction as protected main `c14c6fa`; ex
 created its temporary table, but COPY failed because the runtime database role lacked effective
 ASSUMEROLE permission on the explicit S3 staging role. Replay did not start. Saved-plan cleanup
 removed all 25 platform and 36 data-plane resources, both states and direct inventories are empty,
-and the attempt KMS key is pending deletion on 2026-09-14. This is a candidate defect, so the AWS
-lane requires a focused implementation PR, replacement private candidate, and complete objective
+and the attempt KMS key is pending deletion on 2026-09-14. PR #324 preserved that failure as
+protected main `804496e`; PR #325 merged the exact staging-role grant as protected main `7cea5a8`.
+Its exact-main CI run `31914830354` passed all five jobs. Private RC26 preparation is isolated on
+draft PR #326. Its protected publication and a fresh exact objective must precede the complete AWS
 rerun. No RC24 or RC25 result transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues

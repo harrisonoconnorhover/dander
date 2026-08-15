@@ -6,6 +6,19 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc26 — 2026-08-15 (beta)
+
+### Fixed
+
+- Bind the qualification Redshift database role's ASSUMEROLE permission to the exact staging-role
+  ARN used by COPY while retaining the public lockdown and runtime database-role mapping.
+
+### Known limitations
+
+- RC26 is a private Phase 8 qualification candidate. RC25 AWS results do not transfer, direct
+  thresholds remain disabled by default, provider/cost/pairwise/audit/soak gates remain open, and
+  public RC20 is unchanged.
+
 ## 0.9.0rc25 — 2026-08-15 (beta)
 
 ### Fixed

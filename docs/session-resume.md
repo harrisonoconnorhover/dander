@@ -113,8 +113,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   runtime database role lacked effective ASSUMEROLE permission on its explicit staging role. Replay
   did not start. Exact saved-plan cleanup again removed all 25 platform and 36 data-plane resources;
   both states and direct inventories are empty, and the attempt KMS key is pending deletion on
-  2026-09-14. Provider invoice data is pending. This live-discovered candidate defect now requires a
-  focused implementation PR, replacement candidate, and complete objective rerun. Every
+  2026-09-14. Provider invoice data is pending. This live-discovered candidate defect required a
+  focused implementation PR, replacement candidate, and complete objective rerun. PR #324 merged
+  the failure record as protected main `804496e`, and PR #325 merged the exact staging-role grant
+  as protected main `7cea5a8`; exact-main CI run `31914830354` passed all five jobs. Private RC26
+  preparation is isolated on draft PR #326; protected publication and a fresh exact objective
+  still precede the AWS rerun. Every
   remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See

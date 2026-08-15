@@ -71,10 +71,10 @@ Phase 7 evidence merge.
 
 The operator approved cloud mutations, conservative provider-specific SLO selection, and an
 aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Private RC22 publication, the retained GCP
-diagnostic, private arm64 RC23 publication, private RC24 publication, and private RC25 publication
-use pre-recorded USD 0.75, USD 1.25, USD 0.25, USD 0.25, and USD 0.25 allocations. RC25 uses the
-final contingency, leaving USD 0 unallocated; provider-measured charges have not fully posted, so
-no exact cloud cost is claimed.
+diagnostic, private arm64 RC23 publication, private RC24 publication, and the combined RC25/RC26
+replacement publications use pre-recorded USD 0.75, USD 1.25, USD 0.25, USD 0.25, and USD 0.25
+allocations. RC25 and RC26 share the final publication allocation, leaving USD 0 unallocated;
+provider-measured charges have not fully posted, so no exact cloud cost is claimed.
 Each paid run must still record its objective manifest and per-run allocation before mutation,
 preserve the dependency order, and use the immutable candidate.
 
@@ -121,8 +121,16 @@ Redshift and created its temporary table, then COPY failed because the runtime d
 effective ASSUMEROLE permission on the explicit S3 staging role. Replay did not start. Exact cleanup
 removed all 25 platform and 36 data-plane resources, both Terraform states and direct owned-resource
 inventories are empty, and the attempt's KMS key is pending deletion on 2026-09-14. This is a
-live-discovered candidate defect: it requires a focused implementation PR, replacement candidate,
-and complete fresh objective. No result, cost, public-release, or support claim transfers.
+live-discovered candidate defect: at that point it required a focused implementation PR,
+replacement candidate, and complete fresh objective. No result, cost, public-release, or support
+claim transfers.
+
+PR #324 merged the sanitized failure record as protected main `804496e`; exact-main CI run
+`31914082961` passed all five jobs. PR #325 then merged the exact staging-role grant as protected
+main `7cea5a8`; exact-main CI run `31914830354` passed all five jobs. Private `0.9.0rc26` is
+preparation-only on draft PR #326 until protected CI and review pass, the PR merges, exact-main CI
+passes, and its source-free multi-platform image is privately published and inspected. RC25 AWS
+results do not transfer.
 
 ## Pre-candidate release readiness
 
@@ -337,11 +345,11 @@ exact AWS cleanup evidence are complete. PR #317 merged private RC25 as protecte
 exact-main run `31902553474` passed all five jobs, and source-free multi-platform candidate
 `sha256:5a0d5520…2238` passed local artifact and selector checks. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
-affected evidence plus the eventual final-candidate closure matrix. RC25 AWS execution is paused at
-the live-discovered Redshift COPY ASSUMEROLE permission defect described above; the 120-second
-timeout allowed connection and temporary-table creation, but the manual task failed before COPY
-could record an operation, replay did not start, and cleanup is exact. A focused implementation PR
-and replacement private candidate must precede the complete AWS objective rerun. Remaining work
+affected evidence plus the eventual final-candidate closure matrix. PR #325 merged the focused
+Redshift COPY ASSUMEROLE correction as protected main `7cea5a8`; RC26 preparation is isolated on
+draft PR #326. The 120-second RC25 attempt allowed connection and temporary-table creation, but the
+manual task failed before COPY could record an operation, replay did not start, and cleanup is
+exact. Protected RC26 publication and a fresh exact objective must precede the complete AWS rerun. Remaining work
 includes rerunning applicable evidence on the replacement candidate; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile
