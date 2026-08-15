@@ -106,3 +106,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
 - That execution also exposed a separate operator-read boundary: stage zero's exact-name log ARN did
   not cover the hyphen-suffixed RC24 deployment name. The scoped correction retains the exact-name
   ARN and adds only `${name}-*` task-log groups in the same account, region, and `/dander/` namespace.
+- PR #317 merged private RC25 at protected main `f5935a6`; exact-main run `31902553474` passed all
+  five jobs. Source-free multi-platform index `sha256:5a0d5520…2238` passed both-architecture,
+  external AWS-overlay, and read-only checks. The replacement-candidate gate is complete; a fresh
+  exact-objective live qualification lane and support acceptance remain open.

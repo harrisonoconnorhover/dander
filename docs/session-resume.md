@@ -17,7 +17,7 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
 - The five retained jobs use private qualification candidate Dander `0.9.0rc22` index
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
-  Private RC24 at `sha256:b7eadc7e…9488` is the replacement candidate for remaining Phase 8
+  Private RC25 at `sha256:5a0d5520…2238` is the replacement candidate for remaining Phase 8
   gates but has not replaced those retained jobs. Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
@@ -34,6 +34,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- Private Dander `0.9.0rc25` was built from protected-main commit
+  `f5935a6d263cf6734ee9944f2f0e02d025edc63e` after all five jobs passed exact-main CI run
+  `31902553474`. Its exact wheel produced source-free GAR index `sha256:5a0d5520…2238` with
+  amd64/arm64 manifests, SPDX SBOM, and SLSA provenance. Both architectures reported RC25;
+  GCP, Kubernetes, and externally projected AWS selectors plus rootless read-only conformance
+  passed. No RC24 report transfers, and publication is not a live-profile, cost, public-release, or
+  support pass. See `docs/evidence/phase8/2026-08-15/rc25-candidate.json`.
 
 - Private Dander `0.9.0rc24` was built from protected-main commit
   `c19de3980411f20514326db9f722f07e57a3d1ef` after all five jobs passed exact-main CI run
@@ -59,8 +67,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   2026-08-14. Azure contains no Dander-named resource or resource group. OCI retains its accepted
   Phase 7 foundation and private image history but has zero active Container Instances. The OCI CLI
   omitted the session profile's user field; it was restored from the signed token subject without
-  recording an identifier or credential. No cloud mutation occurred. Credentials no longer block
-  these providers, but one protected replacement candidate still precedes any Phase 8 live run.
+  recording an identifier or credential. No cloud mutation occurred. Credentials and replacement
+  candidate publication no longer block these providers; each live lane still requires its exact
+  committed objective manifest.
   See the Azure and OCI credential-restoration records under
   `docs/evidence/phase8/2026-08-14/`.
 
@@ -80,9 +89,10 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   adds only qualification-tagged VPC/route-table dependency grants. Correction/docs head `0da600b`
   passed run `31879898267`, and focused seventeenth review accepted the correction. PR #291 merged
   the baseline as protected-main commit `3d7783c`, whose exact CI run `31882061192` passed all five
-  jobs. PR #298 merged private RC24 at protected main `c19de39`; its source-free replacement index
-  is published and locally inspected. AWS live qualification now waits on its fresh exact-objective
-  lane, not candidate publication. Every remaining benchmark/provider objective and any
+  jobs. PR #317 merged private RC25 at protected main `f5935a6`; exact-main run `31902553474`
+  passed and its source-free replacement index is privately published and locally inspected. AWS
+  live qualification now waits on its fresh exact-objective lane, not candidate publication. Every
+  remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See
   `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.

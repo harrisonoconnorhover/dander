@@ -1256,8 +1256,11 @@ main `c19de39`; exact-main run `31882919709` passed, and source-free multi-platf
 `sha256:b7eadc7e…9488` is published. PR #299 merged its sanitized evidence as `a66ce65`, and
 exact-main run `31884123337` passed. RC24 then passed the corrected local PostgreSQL crossover
 objective with exact equality/cleanup and a measured disabled DIRECT threshold because no
-contiguous DIRECT-winning prefix existed. Protected review of that result, other exact-objective
-classes, and final-candidate reruns remain. Each objective continues
+contiguous DIRECT-winning prefix existed. The later AWS-native execution exposed a Fargate identity
+defect, so PR #317 merged private RC25 as protected main `f5935a6`; exact-main run `31902553474`
+passed all five jobs, and source-free multi-platform index `sha256:5a0d5520…2238` passed artifact,
+selector, and read-only checks. No RC24 report transfers. Other exact-objective classes and
+final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,
 and 7 stay open where provider/profile evidence is incomplete;

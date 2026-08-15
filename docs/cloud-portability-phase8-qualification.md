@@ -96,9 +96,15 @@ publication evidence plus one corrected local crossover result, not a transferre
 live-provider result, hosted-cost pass, or support claim. Public RC20 and the five retained RC22
 jobs remain unchanged.
 
-Private `0.9.0rc25` is preparation-only on draft PR #317 until that PR merges, its exact protected-
-main CI passes, and the source-free multi-platform image is privately published and inspected. It
-packages the AWS-native Fargate identity correction; no RC24 report transfers to it.
+Private `0.9.0rc25` at protected main `f5935a6d263cf6734ee9944f2f0e02d025edc63e` is the
+replacement candidate at index
+`sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238`.
+Exact-main run `31902553474` passed all five jobs. Both runnable manifests report RC25; the exact
+wheel-built source-free image passed GCP, Kubernetes, and externally projected AWS deployment
+selection plus credential-free read-only conformance, and both platform attestations contain SPDX
+SBOM and SLSA provenance predicates. It packages the AWS-native Fargate identity correction, but
+no RC24 report transfers to it. This is private candidate publication evidence, not a live-provider,
+cost, benchmark, public-release, or support pass.
 
 ## Pre-candidate release readiness
 
@@ -152,7 +158,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | The reviewed baseline and RC24 replacement candidate are available; exact-objective live qualification remains open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | The reviewed baseline and RC25 replacement candidate are available; exact-objective live qualification remains open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -208,11 +214,11 @@ corrected the separately discovered task-log read boundary as protected main `9c
 run `31900852546` passed all five jobs. Its reviewed stage-zero plan applied `0/1/0`, the next plan
 had no changes, and IAM simulation allowed the three qualified task-log reads while implicitly
 denying an unrelated log group. This is preserved failed-attempt and cleanup evidence, not a
-qualification pass; runtime source changed, so a replacement candidate is required.
+qualification pass; runtime source changed, so RC25 was built as the replacement candidate.
 Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
-no-drift baseline must be preserved. Private RC24 now satisfies the replacement-candidate
+no-drift baseline must be preserved. Private RC25 now satisfies the replacement-candidate
 publication gate, but each provider still requires its committed exact objective manifest and
 separate lane before mutation; none of these cases inherits a support claim. Sanitized details are in
 `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
@@ -274,14 +280,12 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
 Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
 PostgreSQL classes, RC22 protected audit, RC23 local preflight, RC24 corrected local crossover, and
-exact AWS cleanup evidence are complete. PR #291 merged the reviewed AWS baseline as protected main
-`3d7783c`, and exact-main run `31882061192` passed. PR #298 then merged private RC24 as protected
-main `c19de39`; exact-main run `31882919709` passed, and source-free multi-platform candidate
-`sha256:b7eadc7e…9488` passed local artifact and selector checks. PR #299 merged that evidence as
-`a66ce65`, and exact-main run `31884123337` passed. Each benchmark, provider,
+exact AWS cleanup evidence are complete. PR #317 merged private RC25 as protected main `f5935a6`,
+exact-main run `31902553474` passed all five jobs, and source-free multi-platform candidate
+`sha256:5a0d5520…2238` passed local artifact and selector checks. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
 affected evidence plus the eventual final-candidate closure matrix. Remaining work includes
-rerunning applicable RC22 reports on RC24; PostgreSQL hosted cost; remaining
+rerunning applicable evidence on RC25; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile
 evidence; release-candidate soak; profile operator docs; and the frozen support matrix.
