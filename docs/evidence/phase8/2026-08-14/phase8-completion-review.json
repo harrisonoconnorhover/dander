@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "eighth_correction_pending_protected_ci_and_review",
+  "status": "ninth_correction_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -50,6 +50,11 @@
   "eighth_reviewed_on": "2026-08-15",
   "eighth_reviewed_head": "3eed46e1c1c03f1858ade45a5af4fe88f9e78867",
   "eighth_correction_commit": "9c6e27b04a9477c3039e7d6e085111f045021fc0",
+  "protected_eighth_correction_head": "0b1a8fa97458180507c16ea2699741cf1b8c7610",
+  "protected_eighth_correction_ci_run": 31871007170,
+  "ninth_reviewed_on": "2026-08-15",
+  "ninth_reviewed_head": "0b1a8fa97458180507c16ea2699741cf1b8c7610",
+  "ninth_correction_commit": "b0314031297977192935a54f98921922b6e2ad26",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -132,27 +137,51 @@
     {
       "id": "aws_qualification_redshift_materialization",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the packaged portable qualification model selects Redshift-supported table materialization"
     },
     {
       "id": "aws_qualification_candidate_identity",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the qualification root requires an exact release-candidate input and derives its tag and staging prefix from it"
     },
     {
       "id": "redshift_deployment_database_role_exclusivity",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "provisioned Redshift rejects the Serverless-only database_role field before provider access"
+    },
+    {
+      "id": "aws_qualification_redshift_serverless_copy_trust",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the COPY role trust names both Redshift and Redshift Serverless service principals"
+    },
+    {
+      "id": "aws_qualification_deployment_role_authority",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "two action-bounded managed policies attach the disposable qualification boundary to the existing short-lived deployment role without modifying D7"
+    },
+    {
+      "id": "aws_qualification_rds_name_validation",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "mocked plans reject trailing and consecutive hyphens before provider access"
+    },
+    {
+      "id": "aws_qualification_vpc_parent_range",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "mocked plans reject parent prefixes outside AWS's usable /16 through /24 range"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_eighth_correction_ci_and_review"
+    "replacement_candidate_gate": "blocked_pending_ninth_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false

@@ -73,5 +73,10 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   then caught unsupported view materialization, stale RC22 Terraform identity, and a provisioned
   Redshift role-validation gap. Commit `9c6e27b04a9477c3039e7d6e085111f045021fc0` uses table
   materialization, requires exact candidate input for tags and staging, and rejects the
-  Serverless-only field on provisioned clusters. Full local tests, package validation, Terraform
-  validation/mock tests, lint, and typing pass; protected CI and exact-head rereview remain open.
+  Serverless-only field on provisioned clusters. Protected head `0b1a8fa` passed all five jobs in
+  run `31871007170`; ninth exact-head review accepted those fixes and found four qualification-root
+  blockers. Commit `b0314031297977192935a54f98921922b6e2ad26` adds Redshift Serverless COPY trust,
+  attaches two action-bounded qualification policies to the short-lived deployment role without
+  changing D7, and rejects RDS-invalid names plus unusable VPC parent ranges. Full local tests,
+  Access Analyzer validation, package validation, Terraform validation/mock tests, lint, and typing
+  pass; protected CI and exact-head rereview remain open.

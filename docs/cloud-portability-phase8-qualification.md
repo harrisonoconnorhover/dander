@@ -15,7 +15,7 @@ Phase 7 evidence merge.
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, while private local RC23 observed equal DIRECT/COPY rows | Review invalidated RC23's byte-threshold objective; hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 passed protected CI and the final-candidate repeat; seventh-correction head `3eed46e` passed all five jobs in run `31870117994` and exact-head review | Eighth-review AWS materialization, candidate-identity, and Redshift-validation corrections remain pending protected CI and exact-head review before one replacement candidate |
+| Audits | Exact RC22 passed protected CI and the final-candidate repeat; eighth-correction head `0b1a8fa` passed all five jobs in run `31871007170` and exact-head review | Ninth-review AWS trust, deployment-role, name, and CIDR corrections remain pending protected CI and exact-head review before one replacement candidate |
 
 ## Open gates and dependency order
 
@@ -31,8 +31,10 @@ Phase 7 evidence merge.
    and legacy-manifest gaps. Head `34d6d55` passed protected run `31868849725`; the next review found
    the AWS source schema and Glue cleanup ownership still invalid. Commit `533125a` corrected both;
    protected CI and exact-head review then found unsupported model materialization, stale RC22
-   Terraform identity, and a provisioned Redshift validation gap. Commit `9c6e27b` corrects all
-   three locally, but protected CI and exact-head review remain open.
+   Terraform identity, and a provisioned Redshift validation gap. Commit `9c6e27b` corrected all
+   three and passed protected run `31871007170`; ninth review then found COPY-role trust,
+   deployment-role authority, RDS-name, and VPC-range gaps. Commit `b031403` corrects those four
+   locally, but protected CI and exact-head review remain open.
 4. Completed as a baseline: protected private RC22 was cut after those merges and used for the GCP,
    local Kubernetes, and seven-class PostgreSQL records.
 5. In progress: the post-RC22 bounded direct-write change is packaged as private arm64 RC23. Its
@@ -114,7 +116,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | seventh-review flat-fixture and Terraform-owned Glue corrections pass locally; protected review, replacement candidate, and qualification open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | eighth corrections passed protected review; ninth-review root corrections pass locally, with protected review, replacement candidate, and qualification open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -142,7 +144,9 @@ self-scoped database egress. Later corrections reached protected head `34d6d55` 
 `31868849725`; exact-head review then found an incompatible nested Redshift source and unowned Glue
 cleanup. Commit `533125a` passed protected CI and review at head `3eed46e`; that review found the
 remaining materialization, candidate-identity, and provisioned-role validation gaps. Commit
-`9c6e27b` corrects those locally, with protected CI and review still open. Interactive
+`9c6e27b` passed protected CI and review at `0b1a8fa`; ninth review found the remaining COPY trust,
+deployment authority, name-validation, and CIDR-validation gaps. Commit `b031403` corrects those
+locally, with protected CI and review still open. Interactive
 Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
@@ -203,9 +207,9 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
 Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
 PostgreSQL classes, RC22 protected audit, RC23 local preflight/transport observation, and exact AWS
-cleanup evidence are complete. The sixth correction passed protected run `31868849725`; seventh
-review then found the AWS fixture/Glue lifecycle and sdist defects now corrected locally in
-`533125a`. Protected CI and independent review remain required before a replacement candidate;
+cleanup evidence are complete. Eighth correction head `0b1a8fa` passed protected CI; ninth review
+found four AWS qualification-root blockers now corrected locally in `b031403`. Protected CI and
+independent review remain required before a replacement candidate;
 rerunning applicable RC22 reports on that one candidate; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile
