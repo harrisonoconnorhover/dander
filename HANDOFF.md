@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Ran the exact RC25 AWS correctness objective from protected main `c14c6fa` with its approved 120-second Redshift connection timeout.
-- Applied reviewed 36-resource data-plane and 25-resource platform plans; both immediate follow-up plans had no drift.
-- Confirmed the timeout correction: Redshift connected and created the temporary table before COPY exposed an ASSUMEROLE permission defect.
-- Skipped replay after the manual failure and removed every platform/data-plane resource from reviewed saved destroy plans.
-- Preserved sanitized attempt evidence without promoting qualification, cost, public release, or support.
+- Merged PR #324 as protected main `804496e`; exact-main CI run `31914082961` passed all five jobs.
+- Started the live-discovered defect from a fresh protected-main branch/worktree.
+- Replaced the Redshift `default` ASSUMEROLE grant with the exact staging-role ARN used by COPY.
+- Updated the provider-mocked Terraform contract, qualification-root documentation, ticket, and decision record.
 
 ## Try It
 
-Run `jq '.' docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`.
+Run `terraform -chdir=infra/qualification/aws-native test`.
 
 ## Checks
 
-- Exact wheel SHA-256 and source-free ECR index matched the approved RC25 identity.
-- Data-plane plan/apply was `36/0/0`; platform plan/apply was `25/0/0`; both follow-up plans reported no changes.
-- Manual execution reached Redshift, created its temporary table, then failed at COPY with zero recorded operations/rows; no replay started.
-- Cleanup applied `0/0/25` and `0/0/36`; both Terraform states and direct owned-resource inventories are empty.
-- JSON parsing, documentation consistency, handoff structure, and diff checks pass locally.
+- `terraform fmt -check -recursive infra/qualification/aws-native` passes.
+- `terraform -chdir=infra/qualification/aws-native init -backend=false` and `validate` pass.
+- The provider-mocked qualification-root test passes all eight runs.
+- Three focused AWS qualification policy tests pass.
+- A locally built wheel contains the exact explicit-role grant.
+- Documentation and ticket assertions name the explicit COPY role; `git diff --check` passes.
 
 ## Decisions
 
-- Treat the COPY ASSUMEROLE mismatch as a candidate defect requiring its own focused implementation PR.
-- Build a replacement private candidate and rerun the complete objective; transfer no RC25 result.
-- Keep provider cost `not_evaluated` until the AWS invoice posts.
+- Grant ASSUMEROLE only on the exact role ARN supplied by the writer, matching AWS's documented contract.
+- Preserve the runtime database-role mapping and public lockdown; neither caused the live failure.
+- Require a replacement private candidate and complete AWS objective before qualification can pass.
 
 ## Remaining
 
-- Merge this failed-attempt evidence through protected CI.
-- Correct the explicit Redshift COPY-role permission on a fresh protected-main branch.
-- Publish and inspect a replacement private candidate.
-- Rerun the complete AWS correctness objective and conditional replay.
-- Continue other Phase 8 lanes in separate focused PRs without colliding with DRUFF.
+- Merge this focused correction through protected CI and verify exact-main CI.
+- Cut and inspect a replacement private candidate from protected main.
+- Commit a fresh candidate-bound AWS objective before provider mutation.
+- Rerun manual execution, conditional replay, cost collection, and exact cleanup.
+- Continue other Phase 8 lanes separately without colliding with DRUFF.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`
-- `docs/cloud-portability-phase8-qualification.md`
-- `docs/session-resume.md`
+- `infra/qualification/aws-native/main.tf`
+- `infra/qualification/aws-native/tests/aws_native.tftest.hcl`
+- `tickets/DANDER-202-aws-native-profile.md`
