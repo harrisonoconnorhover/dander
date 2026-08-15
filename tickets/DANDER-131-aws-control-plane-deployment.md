@@ -105,3 +105,11 @@ parent security group and the new `security-group-rule` resource, including crea
 authorization; load-balancer creation also performed an observed `DescribeAccountAttributes`
 read. The focused stage-zero correction adds those exact boundaries and leaves every partial
 resource tracked in the same disposable state.
+
+AWS rejected the resulting retained-role update before changing the role because the two inline
+documents exceeded the 10,240-character aggregate role quota. The correction preserves the exact
+actions and resource boundaries: storage and fixed-prefix state cleanup remain inline, while the
+provider, compute, and network statements move to one attached customer-managed policy below its
+6,144-character document quota. Blocking resource preconditions now enforce both limits before
+either policy change can be applied. No application resource or partial provider state changes as
+part of this packaging correction.
