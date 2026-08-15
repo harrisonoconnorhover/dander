@@ -139,22 +139,23 @@ one bounded byte range, and always close the OCI stream.
 
 Deletes target only the exact current object and never pass a version ID or enumerate history. In
 a versioned bucket, OCI therefore retains older versions and creates a delete marker. OCI reports
-the same `NotAuthorizedOrNotFound` code for object absence and some authorization failures; the
-adapter treats that exact response as absence only at an object-addressed HEAD boundary, maps a
-post-observation disappearance to a conflict, and keeps list/bucket errors fail-closed. This
-provider limitation is explicit. DANDER-125 remains in progress until a separately approved live
-OCI policy/restart/conflict/versioning/cleanup/no-drift proof passes; public rc18 is not qualified
-for this adapter.
+either `NotAuthorizedOrNotFound` or a code-less 404 for object absence. The named response remains
+object-local; a code-less 404 is accepted only after a bounded list probe proves the bucket remains
+accessible. Post-observation disappearance maps to a conflict, and list/bucket failures stay
+fail-closed. Corrected protected-main source passed the separate live policy, restart, replay,
+conflict, versioning, and exact cleanup proof. Its
+[coordinate-free evidence](evidence/oci/2026-08-15/druff-oci-object-graph-store.json) contains no
+provider coordinates, credentials, graph body, state, plan, request ID, or native revision. This
+qualification promotes neither OCI Object Storage support nor a public distribution.
 
 Phase D3's exit gate is satisfied on protected main commit
 `edf0ee3f473839a10f5eb53710636c95c2f5bd64`. The same provider-neutral conformance suite passes
 for the in-memory, rooted-local, GCS, S3, Azure Blob, and OCI Object Storage implementations, and
 the accepted [GCS live proof](evidence/gcp/2026-08-13/druff-gcs-graph-store.json) supplies the
-gate's required one live create/read/update-conflict/restart/delete demonstration. DANDER-123's
-AWS proof and DANDER-124's Azure proof have now passed, while DANDER-125 remains in progress: its
-OCI live proof still gates promotion of that provider. The S3 and Azure Blob proofs do not promote
-provider support, and the D3 gate does not require false all-provider live parity before hosted
-authentication work begins.
+gate's required one live create/read/update-conflict/restart/delete demonstration. DANDER-123,
+DANDER-124, and DANDER-125 have now also passed their provider-specific live proofs. Those S3,
+Azure Blob, and OCI Object Storage proofs do not promote provider support, and the D3 gate did not
+require false all-provider live parity before hosted authentication work began.
 
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
