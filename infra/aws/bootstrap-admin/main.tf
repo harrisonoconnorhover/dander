@@ -749,9 +749,12 @@ data "aws_iam_policy_document" "deployment_d7_provider" {
   }
 
   statement {
-    sid       = "InspectD7IamRoleTags"
-    effect    = "Allow"
-    actions   = ["iam:ListRoleTags"]
+    sid    = "InspectD7IamRoleTags"
+    effect = "Allow"
+    actions = [
+      "iam:ListInstanceProfilesForRole",
+      "iam:ListRoleTags",
+    ]
     resources = ["arn:${local.partition}:iam::${var.aws_account_id}:role/${var.name}-d7-*"]
   }
 

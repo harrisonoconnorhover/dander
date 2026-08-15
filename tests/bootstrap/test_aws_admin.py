@@ -91,6 +91,7 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "ecs:UpdateService",
         "elasticloadbalancing:CreateLoadBalancer",
         "elasticloadbalancing:DescribeListenerAttributes",
+        "iam:ListInstanceProfilesForRole",
         "iam:ListRoleTags",
         "logs:ListTagsForResource",
     ):
@@ -175,6 +176,7 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         '"ecs:DescribeServiceDeployments"',
         '"ecs:ListServiceDeployments"',
         '"elasticloadbalancing:CreateLoadBalancer"',
+        '"iam:ListInstanceProfilesForRole"',
         '"iam:ListRoleTags"',
         '"logs:ListTagsForResource"',
     ):

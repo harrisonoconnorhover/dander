@@ -2,40 +2,37 @@
 
 ## Finished
 
-- Merged RC24 preparation PR #298 as protected-main commit `c19de39`; exact-main CI run `31882919709` passed all five jobs.
-- Built and validated exact `0.9.0rc24` wheel and source distribution from that commit.
-- Published one private source-free GAR index `sha256:b7eadc7e…9488` with amd64/arm64 manifests, SBOM, and provenance.
-- Passed both-architecture version checks, GCP/Kubernetes/AWS-overlay inspection, and rootless read-only conformance.
-- Preserved public RC20, retained RC22 workloads, DRUFF work, and every provider profile without mutation.
+- Added the one provider-required IAM read that blocked deletion of three empty D7 roles.
+- Kept the permission limited to existing `dander-d7-*` role ARNs with no instance-profile mutation.
+- Updated focused policy coverage and the AWS stage-zero/live-attempt documentation.
+- Preserved the partially destroyed application state so cleanup can resume after the policy merges.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-15/rc24-candidate.json` to inspect the sanitized candidate record.
+Run `uv run pytest -q tests/bootstrap/test_aws_admin.py` and
+`terraform -chdir=infra/aws/bootstrap-admin test -no-color`.
 
 ## Checks
 
-- Exact-main Python, secret, Terraform, distribution, and container jobs passed.
-- Wheel/sdist inspection and source-free scaffold validation passed.
-- GAR returned the recorded immutable index and both runnable platform digests.
-- SBOM/provenance inspection and exact-wheel/source-free filesystem checks passed.
-- Read-only runtime inspection and local conformance passed without provider access.
+- Fifteen focused AWS administrative-bootstrap tests passed.
+- Terraform format, initialization, validation, and the stage-zero Terraform test passed.
+- Ruff, Terraform formatting, and `git diff --check` passed.
 
 ## Decisions
 
-- RC24 is the replacement candidate for remaining gates only after this evidence passes protected review; it has no support claim yet.
-- Preserve valid RC22/RC23 evidence and rerun only materially affected work plus the final closure matrix.
-- Keep measured cloud cost pending; the aggregate ceiling remains USD 10.00 with USD 0.25 reserved.
+- Treat `iam:ListInstanceProfilesForRole` as required cleanup behavior observed from provider 6.60.0.
+- Add no instance-profile write action and make no application-root change.
+- Resume the tracked destroy only after protected merge and a reviewed stage-zero plan/apply.
 
 ## Remaining
 
-- Merge this focused candidate-evidence PR after protected CI and review.
-- Rerun corrected local PostgreSQL crossover in a fresh objective lane.
-- Run AWS-native qualification from its committed exact objective manifest, then use separate provider lanes.
-- Complete remaining scale, pairwise, hosted-cost, and canonical-profile gates.
-- Finish the final-candidate audit, operator docs, compatibility freeze, and soak through 2026-09-01.
+- Complete independent review, protected CI, and merge this focused correction.
+- Validate the rendered policy with IAM Access Analyzer and apply only the reviewed stage-zero plan.
+- Replan and finish the application destroy, then verify exact AWS absence and no drift.
+- Remove the disposable synthetic GCP issuer and finish the D7 evidence closure PR.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/rc24-candidate.json`
-- `docs/cloud-portability-phase8-qualification.md`
-- `tickets/DANDER-202-aws-native-profile.md`
+- `infra/aws/bootstrap-admin/main.tf`
+- `tests/bootstrap/test_aws_admin.py`
+- `tickets/DANDER-131-aws-control-plane-deployment.md`
