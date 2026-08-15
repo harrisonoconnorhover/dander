@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-15 — AWS qualification follows provider refresh and cleanup dimensions
+
+- **ECR:** Terraform's repository refresh evaluates `ListTagsForResource`; the retained deployment
+  role may perform only that added read against the already exact stage-zero repository ARN.
+- **Glue:** `DeleteDatabase` evaluates the owned database's table and user-defined-function
+  wildcards even when neither child kind remains. Cleanup authority adds only the latter exact
+  database-local resource dimension.
+- **Boundary:** The failed launcher plan created no Fargate resource or task. The paid qualification
+  data plane was removed before this focused correction; qualification resumes only after protected
+  merge and a reviewed stage-zero policy update.
+
 ## 2026-08-15 — AWS qualification follows provider-evaluated dependency resources
 
 - **EC2 and Glue:** A tagged security-group rule needs separate authority for its already

@@ -486,6 +486,7 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_data" {
       "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:database/dander_analytics_staging",
       "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:table/dander_analytics_staging/stg_phase8_aws__posts",
       "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:table/dander_analytics_staging/*",
+      "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:userDefinedFunction/dander_analytics_staging/*",
     ]
   }
 

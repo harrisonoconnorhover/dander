@@ -151,6 +151,7 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
     assert 'variable = "aws:ResourceTag/purpose"' in tagged_security_group_dependency
 
     assert "table/dander_analytics_staging/*" in policy
+    assert "userDefinedFunction/dander_analytics_staging/*" in policy
 
     assert 'resource "aws_iam_policy" "deployment_phase8_qualification_infrastructure"' in policy
     assert 'resource "aws_iam_policy" "deployment_phase8_qualification_data"' in policy
