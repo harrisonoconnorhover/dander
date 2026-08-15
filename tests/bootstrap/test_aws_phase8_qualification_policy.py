@@ -166,9 +166,9 @@ def test_qualification_serializes_redshift_assumerole_lockdown_before_copy_grant
     lockdown = qualification.split(
         'resource "aws_redshiftdata_statement" "runtime_assumerole_lockdown"', 1
     )[1].split('resource "aws_redshiftdata_statement" "runtime_copy"', 1)[0]
-    copy_grant = qualification.split(
-        'resource "aws_redshiftdata_statement" "runtime_copy"', 1
-    )[1].split('resource "aws_redshiftserverless_usage_limit" "compute"', 1)[0]
+    copy_grant = qualification.split('resource "aws_redshiftdata_statement" "runtime_copy"', 1)[
+        1
+    ].split('resource "aws_redshiftserverless_usage_limit" "compute"', 1)[0]
 
     assert 'sql            = "REVOKE ASSUMEROLE ON ALL FROM PUBLIC FOR ALL"' in lockdown
     assert "depends_on = [aws_redshiftdata_statement.runtime_ddl]" in lockdown
