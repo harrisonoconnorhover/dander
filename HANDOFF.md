@@ -2,36 +2,36 @@
 
 ## Finished
 
-- Reproduced two provider-evaluated AWS permission gaps without creating a Fargate resource or task.
-- Added the exact ECR repository tag read required by Terraform's existing-repository refresh.
-- Added the exact Glue database-local user-defined-function wildcard required by database deletion.
-- Removed Redshift, RDS, S3, network, secrets, IAM, and Glue-table resources from the discovery run.
+- Reproduced OCI SDK 2.184.1's code-less 404 for an absent Object Storage object.
+- Added a bounded bucket-access probe before classifying only that response as object absence.
+- Preserved fail-closed behavior for a missing bucket or denied list access.
+- Deleted the empty disposable attempt bucket and verified provider absence.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_aws_admin.py tests/bootstrap/test_aws_phase8_qualification_policy.py`.
+Run `uv run pytest -q tests/control/test_oci_object_graph_store.py tests/control/test_graph_store.py`.
 
 ## Checks
 
-- Focused bootstrap-policy suite passed: 18 tests.
-- AWS stage-zero Terraform validate and mocked test passed: 1 test.
-- Ruff lint/format, Terraform format, and `git diff --check` passed.
-- Live launcher plan stopped before mutation on the missing ECR tag read; exact cleanup then exposed the Glue deletion dimension.
+- Seventy-five focused OCI/shared GraphStore tests passed.
+- Ruff lint and format checks passed for all changed Python files.
+- The failed live attempt wrote no graph objects; exact bucket deletion and absence passed.
+- `git diff --check` passed.
 
 ## Decisions
 
-- Keep both additions action-bounded and limited to the existing ECR repository or owned Glue database.
-- Resume AWS qualification only after protected merge and a reviewed stage-zero policy update.
+- Reuse the adapter's required list permission rather than add bucket-management authority.
+- Probe only code-less 404s; retain the existing named OCI absence behavior.
+- Keep OCI account coordinates and native request details out of committed evidence.
 
 ## Remaining
 
-- Refresh the expired administrator session and apply the exact one-resource Glue cleanup plan.
-- Complete protected review/CI and merge this focused correction.
-- Apply only the reviewed stage-zero policy delta, then resume the exact RC24 AWS-native lane.
-- Record provider cost only after billing data posts; do not infer it from elapsed time.
+- Complete independent review, merge through protected CI, and verify exact main.
+- Rerun the disposable OCI proof from the corrected protected commit.
+- Close DANDER-125 only after restart/conflict/version cleanup and retained reconciliation pass.
 
 ## Review First
 
-- `infra/aws/bootstrap-admin/main.tf`
-- `infra/aws/bootstrap-admin/phase8-qualification.tf`
-- `tests/bootstrap/test_aws_admin.py`
+- `src/dander/control/oci_object_graph_store.py`
+- `tests/control/test_oci_object_graph_store.py`
+- `tickets/DANDER-125-oci-object-graph-store.md`

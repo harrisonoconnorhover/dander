@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class FakeOCIServiceError(RuntimeError):
     """OCI-shaped service error whose private details must not escape the adapter."""
 
-    def __init__(self, status: int, code: str) -> None:
+    def __init__(self, status: int, code: str | None) -> None:
         super().__init__("fake detail must not escape")
         self.status = status
         self.code = code
