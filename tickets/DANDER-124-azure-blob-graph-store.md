@@ -45,3 +45,7 @@ The API exposes opaque revisions and canonical hashes, never Azure request paylo
   three constraints are implemented.
 - Shared fake-provider conformance and focused Azure condition, pagination, concurrency, crash,
   bounded-read, policy-failure, and sanitization tests pass locally.
+- The first live attempt exposed one SDK representation difference: create/get responses preserve
+  quoted Blob ETags while list responses omit the quotes for the same value. The adapter now
+  canonicalizes both shapes to one quoted opaque revision, and a focused regression proves a
+  list-returned revision equals the create summary and remains usable for a conditional update.
