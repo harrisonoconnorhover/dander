@@ -343,6 +343,13 @@ data "aws_iam_policy_document" "deployment" {
   }
 
   statement {
+    sid       = "InspectDanderStateMachineVersions"
+    effect    = "Allow"
+    actions   = ["states:ListStateMachineVersions"]
+    resources = ["arn:${local.partition}:states:${var.region}:${var.aws_account_id}:stateMachine:${var.name}-*"]
+  }
+
+  statement {
     sid       = "InspectDanderKmsRotation"
     effect    = "Allow"
     actions   = ["kms:GetKeyRotationStatus"]
