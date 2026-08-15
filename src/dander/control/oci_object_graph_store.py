@@ -983,7 +983,7 @@ class OCIObjectGraphStore(GraphStore):
                     range=f"bytes=0-{max_bytes}",
                 )
             except Exception as error:
-                if _is_conditional_read_conflict(error):
+                if self._is_conditional_read_conflict(error, name):
                     continue
                 raise GraphStoreError("The OCI Object Storage graph-store read failed.") from error
             stream_response = _stream_response(_response_data(response))
@@ -1030,7 +1030,7 @@ class OCIObjectGraphStore(GraphStore):
         try:
             response = self._client.head_object(self._namespace, self._bucket_name, name)
         except Exception as error:
-            if _is_object_not_found(error):
+            if self._is_object_not_found(error, name):
                 return None
             raise GraphStoreError(
                 "The OCI Object Storage graph-store metadata read failed."
@@ -1075,7 +1075,7 @@ class OCIObjectGraphStore(GraphStore):
             return _checked_etag(_header(_response_headers(response), "etag"))
         except Exception as error:
             if _is_no_etag_match(error) or (
-                expected_etag is not None and _is_object_not_found(error)
+                expected_etag is not None and self._is_object_not_found(error, name)
             ):
                 raise GraphStoreConflictError(
                     "The OCI Object Storage graph-store precondition failed."
@@ -1093,11 +1093,30 @@ class OCIObjectGraphStore(GraphStore):
                 if_match=_checked_etag(etag),
             )
         except Exception as error:
-            if _is_no_etag_match(error) or _is_object_not_found(error):
+            if _is_no_etag_match(error) or self._is_object_not_found(error, name):
                 raise GraphStoreConflictError(
                     "The OCI Object Storage graph-store delete precondition failed."
                 ) from error
             raise GraphStoreError("The OCI Object Storage graph-store delete failed.") from error
+
+    def _is_object_not_found(self, error: BaseException, name: str) -> bool:
+        if _is_named_object_not_found(error):
+            return True
+        if not _is_codeless_not_found(error):
+            return False
+        try:
+            self._client.list_objects(
+                self._namespace,
+                self._bucket_name,
+                prefix=name,
+                limit=1,
+            )
+        except Exception:
+            return False
+        return True
+
+    def _is_conditional_read_conflict(self, error: BaseException, name: str) -> bool:
+        return self._is_object_not_found(error, name) or _is_no_etag_match(error)
 
     def _list_entries(
         self,
@@ -1206,12 +1225,12 @@ def _error_status(error: BaseException) -> int | None:
     return status if isinstance(status, int) and not isinstance(status, bool) else None
 
 
-def _is_object_not_found(error: BaseException) -> bool:
+def _is_named_object_not_found(error: BaseException) -> bool:
     return _error_status(error) == 404 and _error_code(error) == "NotAuthorizedOrNotFound"
 
 
-def _is_conditional_read_conflict(error: BaseException) -> bool:
-    return _is_object_not_found(error) or _is_no_etag_match(error)
+def _is_codeless_not_found(error: BaseException) -> bool:
+    return _error_status(error) == 404 and _error_code(error) is None
 
 
 def _is_no_etag_match(error: BaseException) -> bool:

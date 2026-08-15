@@ -36,10 +36,12 @@ false cross-provider parity.
 - Hashed journals and an ETag-matched delete fence preserve exact replay across concurrency,
   crashes, and later recreation. Deletes never pass a version ID; a versioned bucket therefore
   retains older versions and installs a delete marker for the exact current object.
-- OCI's object API returns `NotAuthorizedOrNotFound` for both hidden authorization failures and
-  absence. Object-addressed HEAD treats that exact response as absence; list/bucket failures and
-  all other codes remain sanitized provider errors, while disappearance after observation is a
-  conflict. This unavoidable ambiguity is explicit rather than presented as false parity.
+- OCI's object API can return either `NotAuthorizedOrNotFound` or a code-less 404 for absence.
+  Object-addressed HEAD treats the named response as absence; a code-less 404 requires one bounded
+  list probe to prove the bucket remains accessible before it is treated as absence. List/bucket
+  failures and all other codes remain sanitized provider errors, while disappearance after
+  observation is a conflict. This unavoidable ambiguity is explicit rather than presented as
+  false parity.
 - The existing `oci>=2.184.1,<3` optional extra already provides the required operations and
   pagination contract, so no dependency or lock change is needed. A separately approved live
   bucket policy, restart/conflict/versioning/cleanup/no-drift proof remains open; public rc18
@@ -57,3 +59,7 @@ false cross-provider parity.
   PR #262 and exact protected-main CI run `31760157381` passed. The ticket remains in progress only
   for its separately approved provider live proof; Phase D3's one-live-provider exit requirement
   is already satisfied by DANDER-122.
+- The first disposable live attempt reached the exact protected-main adapter but stopped before
+  writing graph data because OCI SDK 2.184.1 returned a code-less 404 for a missing object. The
+  empty bucket was deleted and absence verified. The narrow correction probes bucket accessibility
+  only for that live response shape and keeps missing-bucket/permission failures closed.

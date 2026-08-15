@@ -519,6 +519,24 @@ def test_oci_missing_bucket_is_not_misclassified_as_missing_graph() -> None:
     assert "fake detail" not in str(captured.value)
 
 
+def test_oci_codeless_missing_object_is_probed_without_hiding_bucket_failure() -> None:
+    backend = FakeOCIBackend()
+    backend.next_head_error = FakeOCIServiceError(404, None)
+
+    with pytest.raises(GraphStoreNotFoundError):
+        _store(backend).get("default", "missing_graph")
+
+    assert len(backend.list_calls) == 1
+
+    backend.next_head_error = FakeOCIServiceError(404, None)
+    backend.next_list_error = FakeOCIServiceError(404, "BucketNotFound")
+    with pytest.raises(GraphStoreError) as captured:
+        _store(backend).get("default", "missing_graph")
+
+    assert type(captured.value) is GraphStoreError
+    assert "fake detail" not in str(captured.value)
+
+
 class _FailingDeleteClient(FakeOCIObjectStorageClient):
     def __init__(self, backend: FakeOCIBackend, code: str, status: int) -> None:
         super().__init__(backend)
