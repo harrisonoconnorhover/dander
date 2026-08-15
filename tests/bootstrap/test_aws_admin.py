@@ -82,10 +82,22 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
     assert "log-group:/dander/${var.name}*/*" in log_tag_reads
 
     queue_tag_reads = terraform.split('sid       = "InspectDanderFailureQueueTags"', 1)[1].split(
-        'sid       = "InspectDanderKmsRotation"', 1
+        'sid       = "InspectDanderFailureTopicTags"', 1
     )[0]
     assert 'actions   = ["sqs:ListQueueTags"]' in queue_tag_reads
     assert ":${var.name}*-failures" in queue_tag_reads
+
+    topic_tag_reads = terraform.split('sid       = "InspectDanderFailureTopicTags"', 1)[1].split(
+        'sid       = "ValidateStateMachineDefinition"', 1
+    )[0]
+    assert 'actions   = ["sns:ListTagsForResource"]' in topic_tag_reads
+    assert ":${var.name}*-failures" in topic_tag_reads
+
+    definition_validation = terraform.split('sid       = "ValidateStateMachineDefinition"', 1)[
+        1
+    ].split('sid       = "InspectDanderKmsRotation"', 1)[0]
+    assert 'actions   = ["states:ValidateStateMachineDefinition"]' in definition_validation
+    assert 'resources = ["*"]' in definition_validation
 
     kms_rotation = terraform.split('sid       = "InspectDanderKmsRotation"', 1)[1].split(
         'sid    = "ManageDanderRoles"', 1
@@ -101,6 +113,8 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
     for action in (
         '"logs:ListTagsForResource"',
         '"sqs:ListQueueTags"',
+        '"sns:ListTagsForResource"',
+        '"states:ValidateStateMachineDefinition"',
         '"kms:GetKeyRotationStatus"',
     ):
         assert action not in generic_reads

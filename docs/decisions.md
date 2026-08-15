@@ -1,5 +1,17 @@
 # Engineering Decisions
 
+## 2026-08-15 — Remaining Fargate refresh reads stay action- or resource-bounded
+
+- **Finding:** The second RC24 platform apply reached task-definition creation, then stopped before
+  controller creation because Terraform reads SNS topic tags and validates the state-machine
+  definition during provider evaluation.
+- **Authority:** Add `ListTagsForResource` only for Dander failure-topic names. Add the read-only
+  `ValidateStateMachineDefinition` action in its own statement; AWS defines no resource type for
+  that API, so its required wildcard cannot authorize state-machine or execution mutation.
+- **Boundary:** No state machine, schedule, or task was created. The 17-resource partial platform
+  and all 36 paid data-plane resources were removed exactly; two disabled KMS keys are pending
+  their mandatory deletion windows.
+
 ## 2026-08-15 — Fargate refresh reads remain resource-bounded
 
 - **Finding:** The first RC24 platform apply stopped before task-definition or controller creation
