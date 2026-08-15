@@ -76,14 +76,29 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "cloudfront:CreateDistribution",
         "cloudfront:CreateOriginRequestPolicy",
         "ec2:CreateSecurityGroup",
+        "ec2:DescribeVpcAttribute",
+        "ec2:GetManagedPrefixListEntries",
         "ecs:CreateService",
         "ecs:UpdateService",
         "elasticloadbalancing:CreateLoadBalancer",
+        "elasticloadbalancing:DescribeListenerAttributes",
+        "logs:ListTagsForResource",
+        "s3:GetBucketCORS",
+        "s3:GetBucketLogging",
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketWebsite",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetReplicationConfiguration",
         "s3:ListBucketVersions",
         "s3:DeleteObjectVersion",
     ):
         assert f'"{action}"' in policy
     assert "arn:${local.partition}:s3:::${var.name}-d7-*" in policy
+    assert (
+        "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:"
+        "/dander/${var.name}/d7/*"
+    ) in policy
     assert "service/${var.name}-d7-*/*" in policy
     assert 'variable = "aws:RequestTag/phase"' in policy
     assert 'variable = "aws:ResourceTag/phase"' in policy
@@ -100,6 +115,7 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         '"ecs:*"',
         '"elasticloadbalancing:*"',
         '"iam:*"',
+        '"logs:*"',
         '"s3:*"',
     ):
         assert wildcard not in policy

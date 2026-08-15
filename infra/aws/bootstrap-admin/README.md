@@ -14,6 +14,11 @@ destructive access to unrelated state history. The D7 application root must use 
 prefix and must not manage this role, create a custom domain, or depend on wildcard
 provider-administration actions.
 
+The D7 policy also grants only the read calls that the locked AWS provider uses to resolve the
+selected VPC and CloudFront prefix list and to refresh the profile's listener, graph bucket, and
+tagged log groups. Bucket and log-tag reads remain scoped to disposable D7 resource names; the
+provider does not receive wildcard service-read authority.
+
 The public Dander lifecycle copies this root into a private operator-artifact directory and uses a
 local backend for the first reviewed plan. After that exact plan is applied, Dander migrates the
 state into the newly created S3 backend and pins the backend client to the root's customer-managed
