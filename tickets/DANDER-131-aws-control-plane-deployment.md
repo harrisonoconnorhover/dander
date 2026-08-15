@@ -90,3 +90,11 @@ managed-prefix-list data sources. Provider-source review identified the related 
 post-create refresh reads for the profile listener, D7 graph bucket, and tagged log groups. The
 stage-zero correction adds only those exact reads, keeps bucket/log access name-scoped, and adds no
 wildcard service permission or application-root change.
+
+After that correction merged and retained stage zero returned no drift, the reviewed foundation
+apply created only its private graph-bucket controls and three CloudFront policy resources before
+AWS stopped it. Security-group creation authorizes both the new group and its VPC independently,
+so applying request-tag conditions to the combined wildcard statement denied the VPC dimension;
+ELB target-group creation also performed an observed `DescribeInternetGateways` read. The next
+stage-zero correction follows AWS's documented split security-group policy, adds that one read,
+and leaves the partial provider resources tracked in the same disposable state for the retry.
