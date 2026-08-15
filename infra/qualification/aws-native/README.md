@@ -9,6 +9,11 @@ The root owns one three-AZ VPC, encrypted staging bucket, Redshift Serverless na
 PostgreSQL 15 state instance, its generated DSN in Secrets Manager, and a prefix-scoped Redshift
 COPY role. Sensitive values remain only in Secrets Manager and the existing encrypted remote state.
 
+The root deliberately exposes public subnets and exports `network.assign_public_ip = true` for this
+disposable fixture. The Fargate task has no inbound rule and may use only TLS public egress plus the
+self-scoped PostgreSQL and Redshift rules. Do not set the fixture task to `assign_public_ip = false`:
+there is no NAT gateway or private ECR, CloudWatch Logs, and Secrets Manager endpoint set.
+
 Initialize with a dedicated qualification state key, create and inspect a saved plan, and apply
 only that plan. Export the non-secret outputs into a temporary version-2 project manifest before
 planning `infra/aws`. After the approved manual/replay executions and evidence collection, destroy

@@ -70,13 +70,19 @@ run "bounded_disposable_data_plane" {
   assert {
     condition = (
       length(aws_subnet.profile) == 3 &&
+      alltrue([for subnet in aws_subnet.profile : subnet.map_public_ip_on_launch]) &&
+      contains(
+        [for route in aws_route_table.profile.route : route.gateway_id],
+        aws_internet_gateway.profile.id
+      ) &&
+      output.network.assign_public_ip &&
       aws_vpc_endpoint.s3.vpc_endpoint_type == "Gateway" &&
       contains(aws_vpc_endpoint.s3.route_table_ids, aws_route_table.profile.id) &&
       aws_s3_bucket.staging.force_destroy &&
       aws_s3_bucket_public_access_block.staging.restrict_public_buckets &&
       aws_secretsmanager_secret.postgresql_dsn.recovery_window_in_days == 0
     )
-    error_message = "The qualification network, staging bucket, and DSN secret must be exactly owned and destroyable."
+    error_message = "The qualification network must expose the bounded task egress path while its data plane remains exactly owned and destroyable."
   }
 
   assert {

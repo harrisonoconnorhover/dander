@@ -24,7 +24,10 @@ ordinary platform stack does not create Redshift, PostgreSQL, the staging bucket
   manifest contains only full Secrets Manager ARN references, never secret values.
 
 The Phase 8 qualification fixture under `infra/qualification/aws-native` is disposable test
-infrastructure, not a production topology or an automatic spending cap.
+infrastructure, not a production topology or an automatic spending cap. It exports
+`network.assign_public_ip: true`; retain that value for this fixture because its public subnets have
+an Internet Gateway but no NAT or private AWS service endpoints. The task has no inbound rule, and
+its public egress is limited to TLS plus self-scoped database traffic.
 
 ## Configure the exact profile
 
@@ -79,7 +82,7 @@ deployments:
       subnet_ids: [subnet-0123456789abcdef0, subnet-1123456789abcdef0]
       security_group_ids: [sg-0123456789abcdef0]
       architecture: X86_64
-      assign_public_ip: false
+      assign_public_ip: true
     runtime:
       cpu: 1
       memory: 2Gi
@@ -152,9 +155,10 @@ dander init-aws-plan \
 ```
 
 Review the printed `terraform -chdir=infra/aws show -no-color ...` command. Reject an unexpected
-destroy, account/region, public IP, wildcard secret, staging prefix, task role, schedule, or image.
-Then run only the printed `dander init-aws-apply` command. A later identical plan must report no
-changes.
+destroy, account/region, wildcard secret, staging prefix, task role, schedule, or image. This
+disposable fixture specifically requires `assign_public_ip: true`; reject a disabled task public IP
+unless private egress has been separately provisioned and reviewed. Then run only the printed
+`dander init-aws-apply` command. A later identical plan must report no changes.
 
 The saved plan carries the validated selected platform as bounded non-secret JSON. At execution,
 Dander writes it mode `0600` under task scratch space and removes it on every terminal path. Secret

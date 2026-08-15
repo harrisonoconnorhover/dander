@@ -3,6 +3,7 @@ output "network" {
   value = {
     security_group_id = aws_security_group.profile.id
     subnet_ids        = sort([for subnet in aws_subnet.profile : subnet.id])
+    assign_public_ip  = true
   }
 }
 
