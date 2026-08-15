@@ -110,3 +110,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   five jobs. Source-free multi-platform index `sha256:5a0d5520…2238` passed both-architecture,
   external AWS-overlay, and read-only checks. The replacement-candidate gate is complete; a fresh
   exact-objective live qualification lane and support acceptance remain open.
+- PR #318 merged the sanitized RC25 publication record as protected-main `ae3be54`; exact-main run
+  `31903775539` passed all five jobs. The fresh AWS correctness gate binds one manual execution and
+  one replay to exact RC25, `us-east-1`, paused scheduling, exact cleanup, and the recorded USD 3
+  allocation. Live mutation waits for this objective commit's protected review and exact-main CI.
