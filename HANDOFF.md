@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Exact correction/docs head `0da600b` passed all five protected jobs in run `31879898267`.
-- Focused seventeenth review accepted `e12ee59`'s qualification-tagged network dependency grants.
-- The qualification baseline is frozen for separate approval to merge PR #291.
-- Current protected `main` at `16f0954` is integrated; its AWS D7 fixes remain intact.
-- No new qualification objective or live cloud mutation was added to this tranche.
+- Merged qualification-baseline PR #291 as protected-main commit `3d7783c`.
+- Verified all five exact-main CI jobs passed in run `31882061192`.
+- Created fresh protected-main lane `codex/phase8-rc24-candidate` and draft PR #298.
+- Prepared private `0.9.0rc24` metadata and bound its publication authorization to commit `ee8df52`.
+- Reconciled Phase 8 status without changing DRUFF or mutating any cloud provider.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_aws_phase8_qualification_policy.py tests/bootstrap/test_aws_admin.py && terraform -chdir=infra/aws/bootstrap-admin test`.
+Run `uv run pytest -q tests/test_release_metadata.py && uv run python scripts/check_release_metadata.py`.
 
 ## Checks
 
-- Protected secret, Python, Terraform, distribution, and container jobs pass on `0da600b`.
-- Seventeen focused pytest cases, Ruff, mypy, Terraform format/validation/mocked apply, and diff checks pass.
-- AWS Access Analyzer reports no finding; the compact infrastructure policy is 5,334 characters.
-- AWS simulation allows every new/dependent resource dimension and denies an unrelated VPC.
+- Exact protected-main secret, Python, Terraform, distribution, and container jobs passed.
+- Four release-metadata tests, lock validation, metadata validation, Ruff lint/format, and diff checks passed.
+- Wheel and source distribution built as `0.9.0rc24` and passed `scripts/check_distribution.py`.
+- Publication guard correctly rejected private RC24 against current public RC20.
+- Authorization JSON parses and preserves the aggregate USD 10.00 allocation.
 
 ## Decisions
 
-- Qualification authority remains isolated from D7 in two customer-managed policies.
-- The replacement-candidate gate opens only after the qualification baseline merges.
-- Post-merge Phase 8 work uses fresh protected-main branches and materially scoped evidence reruns.
+- Publish RC24 only after PR #298 merges and its exact protected-main CI passes.
+- Allocate USD 0.25 of contingency to private RC24 publication, leaving USD 0.25 reserved.
+- Continue every candidate, benchmark, provider, optimization, or live-defect objective in a fresh lane.
 
 ## Remaining
 
-- Merge PR #291 only with separate explicit approval.
-- Cut one private source-free multi-platform replacement candidate from fresh protected `main`.
-- Bind each exact provider objective before using the retained authorized cloud allocations.
-- Complete final-candidate scale, cost, canonical, pairwise, and hosted Kubernetes reruns.
-- Finish profile status/docs freeze and the retained soak through 2026-09-01.
+- Complete protected CI/review and merge PR #298.
+- Build and privately publish one source-free RC24 index for `linux/amd64` and `linux/arm64`.
+- Rerun corrected PostgreSQL crossover in its own fresh objective lane.
+- Execute separately authorized provider and pairwise lanes without exceeding USD 10 total.
+- Complete final-candidate closure matrix, operator docs, and soak through 2026-09-01.
 
 ## Review First
 
-- `infra/aws/bootstrap-admin/phase8-qualification.tf`
-- `infra/aws/bootstrap-admin/main.tf`
-- `docs/evidence/phase8/2026-08-14/phase8-completion-review.json`
+- `docs/evidence/phase8/2026-08-15/rc24-authorization.json`
+- `CHANGELOG.md`
+- `docs/cloud-portability-phase8-qualification.md`

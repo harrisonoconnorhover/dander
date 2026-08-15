@@ -58,9 +58,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   existing-resource dimensions for route-table, subnet, and VPC-endpoint creation. Commit `e12ee59`
   adds only qualification-tagged VPC/route-table dependency grants. Correction/docs head `0da600b`
   passed run `31879898267`, and focused seventeenth review accepted the correction. A protected
-  replacement candidate is still required after baseline
-  merge and before live qualification resumes. After PR #291 merges, every remaining
-  benchmark/provider objective and
+  replacement candidate is still required before live qualification resumes. PR #291 merged the
+  baseline as protected-main commit `3d7783c`, whose exact CI run `31882061192` passed all five
+  jobs. Fresh-main PR #298 prepares private RC24. Every remaining benchmark/provider objective and
   any live-discovered defect uses a fresh protected-main branch; rerun only materially affected
   evidence plus the eventual final closure matrix. See
   `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.

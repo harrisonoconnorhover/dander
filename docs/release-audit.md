@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. Correction/docs head `0da600b` passed protected run `31879898267`, and focused seventeenth review accepted `e12ee59`. Baseline merge and one replacement candidate remain open; no single protected final candidate owns the combined matrix. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. PR #291 merged the reviewed baseline as protected-main commit `3d7783c`, and exact-main CI run `31882061192` passed. Fresh-main PR #298 prepares private RC24; no single protected final candidate owns the combined matrix. |
 
 ## Current release and deployment record
 
@@ -141,8 +141,8 @@ the data, one metadata spine records what happened, and Druff authors and operat
 without becoming a second runtime. The D7 local hosted Control profile is live-qualified without
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
 RC22's protected audit and RC23's local preflight are preserved. Qualification-baseline corrections
-through `e12ee59` pass protected CI and focused review. Baseline merge and a replacement candidate
-remain.
+through `e12ee59` merged in PR #291 and passed exact-main CI at `3d7783c`. Fresh-main PR #298
+prepares private RC24; its protected merge and source-free multi-platform publication remain.
 The combined final-candidate audit and remaining scale, cost, profile, soak,
 operator-documentation, and support-freeze gates are recorded in
 `docs/cloud-portability-phase8-qualification.md`.
