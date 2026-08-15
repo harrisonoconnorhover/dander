@@ -157,6 +157,7 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_infrastructure" 
     actions = [
       "s3:AbortMultipartUpload",
       "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
       "s3:GetObject",
       "s3:ListMultipartUploadParts",
       "s3:PutObject",

@@ -24,6 +24,7 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
         "ec2:DeleteVpc",
         "s3:CreateBucket",
         "s3:DeleteBucket",
+        "s3:DeleteObjectVersion",
         "s3:ListBucketVersions",
         "iam:CreateRole",
         "iam:CreateServiceLinkedRole",
