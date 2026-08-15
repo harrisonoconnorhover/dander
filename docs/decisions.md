@@ -1705,3 +1705,18 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   authorization from object absence. Treat it as absence only for object-addressed HEAD, as a
   conflict after an observed ETag, and as a provider error at list/bucket boundaries. Keep live
   policy, versioning, cleanup, and no-drift qualification as a separate named-cost gate.
+
+## 2026-08-14 — AWS hosted Control uses one provider HTTPS origin and ephemeral startup files
+
+- **Ingress:** One CloudFront domain is the browser and API origin. Explicit zero-cache behaviors
+  route `/v1/*`, `/healthz`, and `/readyz` through a CloudFront-only public ALB to Control; the
+  default behavior serves Druff and preserves Caddy's cache controls. Front-proxy access logging is
+  disabled so callback query values are not retained.
+- **Startup configuration:** Hosted OIDC, the credential-free S3 locator, Druff bootstrap, and
+  Caddy configuration remain non-secret inputs. A fixed root init process from the same immutable
+  Dander image writes them to an ephemeral volume before the nonroot app mounts it read-only. This
+  avoids a second config store, identity, and provider credential path while task-definition
+  revisions remain the deterministic rollout trigger.
+- **Boundary:** The first AWS profile is single-instance and experimental. Only Control receives
+  versioned GraphStore access; Druff has a distinct empty task role. HA, autoscaling, WAF, custom
+  domains, support promotion, and release qualification remain outside D7.

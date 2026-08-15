@@ -1,7 +1,7 @@
 ---
 id: DANDER-130
 title: Add the GCP hosted Control-plane deployment
-status: in_progress
+status: done
 component: python
 epic: druff-control-plane
 depends_on: [DANDER-129]
@@ -25,7 +25,7 @@ retained GCP stack, and keep every disposable resource inside a separate state r
       policy before graph writes; do not alter the retained state bucket.
 - [x] Add deterministic backend-free preflight, bounded read-only live verification, focused
       Python/Terraform tests, and protected-CI coverage.
-- [ ] Qualify synthetic OIDC, canonical browser graph persistence, equal no-change plans,
+- [x] Qualify synthetic OIDC, canonical browser graph persistence, equal no-change plans,
       immutable digest rollback/restore, exact state-prefix/resource cleanup, and retained-GCP
       no-drift.
 
@@ -66,3 +66,35 @@ emits its bucket policy fields in snake case, unlike the camel-case Storage API 
 The focused follow-up consumes that exact CLI shape and keeps the same fail-closed checks for
 uniform access, public-access prevention, versioning, and zero soft-delete retention. No cloud
 resource was created or changed before this correction.
+
+The first bounded apply then exposed three final read-only verifier assumptions before any graph
+write. A real v1 service template may omit its revision name even when status proves the observed
+generation, latest-created/latest-ready revision, and exclusive traffic target; the operator, not
+the intentionally narrower bootstrap identity, must inspect user-managed service-account keys;
+and the public hosted boundary verifies `/readyz` because Cloud Run serves external `/healthz`
+with its own 404 while the configured internal liveness probe succeeds. The verifier also now
+checks the existing exact `authentication_required` Control error code. The corrected verifier
+passed against the active disposable deployment; browser persistence and the remaining live gate
+are still pending.
+
+The first post-apply plan also showed that Cloud Run returns explicit zero service-level scaling
+defaults even when Terraform omits that block, producing a perpetual two-service normalization
+diff. Recording those same zero defaults is behavior-neutral, keeps both services scale-to-zero,
+and makes the required no-change plans meaningful rather than waiving provider noise.
+
+The protected profile then passed the complete live gate on 2026-08-14. One synthetic
+authorization-code/PKCE browser session created and reopened the canonical three-node graph across
+a Control restart, immutable rc19 rollback, and restored rc20 images with the same content hash.
+All three environments passed the bounded 12-check live verifier, and the active, rollback, and
+restored configurations each produced a literal Terraform `No changes.` plan.
+
+The reviewed destroy removed both services, both keyless identities, all four numeric config
+secrets, their grants, and the private graph bucket. No live, noncurrent, or soft-deleted graph
+data remains. The isolated backend prefix has no live or noncurrent objects; its provider-managed
+recovery copies will expire under the retained state bucket's unchanged seven-day policy, which
+the profile deliberately does not own. The disposable synthetic issuer service, identity,
+registry image, local image, and source were also removed. Fresh exact-main retained GCP
+stage-zero and current-equivalent rc22 platform plans both reported `No changes.` with no apply.
+The coordinate-free record is `docs/evidence/gcp/2026-08-14/d7-control-plane.json`. This proof
+qualifies only the named experimental GCP profile with synthetic identity; it does not promote
+support, real-provider identity, HA, or horizontal scale.

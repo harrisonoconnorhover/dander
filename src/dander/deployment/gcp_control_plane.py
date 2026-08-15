@@ -489,6 +489,7 @@ def verify_live_gcp_control_plane(
             "list",
             f"--iam-account={service_account}",
             regional=False,
+            impersonate=False,
         )
         if not isinstance(keys, list) or any(
             isinstance(key, Mapping) and key.get("keyType") == "USER_MANAGED" for key in keys
@@ -496,9 +497,7 @@ def verify_live_gcp_control_plane(
             raise GCPControlPlaneError("GCP service identity has a user-managed key.")
     mounted_versions = {**control_versions, **druff_versions}
     _verify_secret_hashes(source, rendered, mounted_versions)
-    health, _ = _http(source.control_url + "/healthz")
     ready, _ = _http(source.control_url + "/readyz")
-    druff_health, _ = _http(source.druff_url + "/healthz")
     druff_ready, _ = _http(source.druff_url + "/readyz")
     bootstrap, bootstrap_headers = _http(source.druff_url + "/bootstrap.json")
     callback, callback_headers = _http(source.druff_url + "/auth/callback")
@@ -506,15 +505,16 @@ def verify_live_gcp_control_plane(
     unauthorized, _unauthorized_headers, status = _http_error(
         source.control_url + "/v1/capabilities"
     )
-    if json.loads(health) != {"status": "ok"} or json.loads(ready) != {"status": "ready"}:
-        raise GCPControlPlaneError("GCP Control probes are invalid.")
-    if json.loads(druff_health) != {"status": "ok"} or json.loads(druff_ready) != {
-        "status": "ready"
-    }:
-        raise GCPControlPlaneError("GCP Druff probes are invalid.")
+    if json.loads(ready) != {"status": "ready"}:
+        raise GCPControlPlaneError("GCP Control readiness is invalid.")
+    if json.loads(druff_ready) != {"status": "ready"}:
+        raise GCPControlPlaneError("GCP Druff readiness is invalid.")
     if bootstrap != rendered["bootstrap.json"].encode():
         raise GCPControlPlaneError("GCP served bootstrap differs from the projection.")
-    if status != 401 or json.loads(unauthorized).get("error", {}).get("code") != "unauthorized":
+    if (
+        status != 401
+        or json.loads(unauthorized).get("error", {}).get("code") != "authentication_required"
+    ):
         raise GCPControlPlaneError("GCP unauthenticated Control API does not fail closed.")
     if (
         not callback
@@ -542,7 +542,7 @@ def verify_live_gcp_control_plane(
             "project-iam-no-runtime-roles",
             "service-accounts-keyless",
             "startup-config-hashes-exact",
-            "control-and-druff-probes-ready",
+            "control-and-druff-readiness-current",
             "unauthenticated-api-rejected",
             "bootstrap-and-callback-routes-current",
         ],
@@ -605,7 +605,8 @@ def _verify_service(
         raise GCPControlPlaneError(f"GCP {workload} serving revision is not current and exclusive.")
     template = _mapping(_nested(payload, "spec", "template"), "Cloud Run revision template")
     template_metadata = _mapping(template.get("metadata"), "Cloud Run revision metadata")
-    if template_metadata.get("name") != ready_revision:
+    template_revision = template_metadata.get("name")
+    if template_revision is not None and template_revision != ready_revision:
         raise GCPControlPlaneError(f"GCP {workload} serving revision template differs.")
     raw_template_annotations = template_metadata.get("annotations")
     template_annotations = (
@@ -861,16 +862,14 @@ def _gcloud_json(
     source: GCPControlPlaneInput,
     *arguments: str,
     regional: bool = True,
+    impersonate: bool = True,
 ) -> object:
     command = ["gcloud", *arguments, f"--project={source.project_id}"]
     if regional:
         command.append(f"--region={source.region}")
-    command.extend(
-        [
-            f"--impersonate-service-account={source.bootstrap_service_account}",
-            "--format=json",
-        ]
-    )
+    if impersonate:
+        command.append(f"--impersonate-service-account={source.bootstrap_service_account}")
+    command.append("--format=json")
     try:
         return json.loads(_run(tuple(command)).stdout)
     except ValueError as error:
