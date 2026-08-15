@@ -1154,9 +1154,19 @@ def _key_sha256(value: str) -> str:
 
 
 def _checked_etag(value: object) -> str:
-    if not isinstance(value, str) or not value or len(value) > 512:
+    if not isinstance(value, str) or not value:
         raise GraphStoreCorruptionError("An Azure Blob object has an invalid ETag.")
-    return value
+    if value.startswith('"') or value.endswith('"'):
+        if not (value.startswith('"') and value.endswith('"')) or len(value) <= 2:
+            raise GraphStoreCorruptionError("An Azure Blob object has an invalid ETag.")
+        normalized = value
+    else:
+        if '"' in value:
+            raise GraphStoreCorruptionError("An Azure Blob object has an invalid ETag.")
+        normalized = f'"{value}"'
+    if len(normalized) > 512:
+        raise GraphStoreCorruptionError("An Azure Blob object has an invalid ETag.")
+    return normalized
 
 
 def _head_from_properties(properties: _PropertiesPort) -> _ObjectHead:

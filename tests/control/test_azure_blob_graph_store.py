@@ -154,6 +154,29 @@ def test_azure_blob_pagination_is_exclusive_body_free_and_follows_short_pages() 
     assert backend.properties_calls == []
 
 
+def test_azure_blob_normalizes_unquoted_list_etags_to_the_public_revision() -> None:
+    backend = FakeAzureBackend()
+    store = _store(backend)
+    created = store.create(
+        "default",
+        "list_revision",
+        _document(),
+        idempotency_key="create-list-revision-0001",
+    )
+    backend.unquote_list_etags = True
+
+    summary = store.list("default").items[0]
+
+    assert summary == created.summary()
+    updated = store.put(
+        "default",
+        "list_revision",
+        _document("updated"),
+        expected_revision=summary.revision,
+    )
+    assert updated.content_sha256 != created.content_sha256
+
+
 def test_azure_blob_concurrent_identical_creates_converge() -> None:
     backend = FakeAzureBackend()
     start = threading.Barrier(2)

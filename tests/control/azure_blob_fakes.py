@@ -71,6 +71,7 @@ class FakeAzureBackend:
         self.next_delete_error: FakeAzureError | None = None
         self.next_list_error: FakeAzureError | None = None
         self.page_size_override: int | None = None
+        self.unquote_list_etags = False
         self._lock = threading.RLock()
 
     def new_etag(self) -> str:
@@ -258,15 +259,22 @@ class FakeAzureContainerClient:
                 for name in self.backend.objects
                 if name.startswith(prefix) and (start_from is None or name >= start_from)
             )
-            entries = [_properties(name, self.backend.objects[name]) for name in names]
+            entries = [
+                _properties(
+                    name,
+                    self.backend.objects[name],
+                    unquote_etag=self.backend.unquote_list_etags,
+                )
+                for name in names
+            ]
         page_size = self.backend.page_size_override or results_per_page
         return cast("_PagedPort", FakePaged(entries, min(page_size, results_per_page)))
 
 
-def _properties(name: str, item: _Object) -> FakeProperties:
+def _properties(name: str, item: _Object, *, unquote_etag: bool = False) -> FakeProperties:
     return FakeProperties(
         name=name,
-        etag=item.etag,
+        etag=item.etag.strip('"') if unquote_etag else item.etag,
         size=len(item.data),
         metadata=dict(item.metadata),
         content_settings=FakeContentSettings(item.content_type),
