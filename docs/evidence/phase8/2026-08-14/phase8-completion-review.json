@@ -5,10 +5,15 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "protected_ci_passed_pending_review_rerun",
+  "status": "second_corrections_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
+  "protected_status_reconciliation_head": "d35ad7f47e939370d022e38535cd7cfdbac356db",
+  "protected_status_reconciliation_ci_run": 31864001249,
+  "second_reviewed_on": "2026-08-15",
+  "second_reviewed_head": "d35ad7f47e939370d022e38535cd7cfdbac356db",
+  "second_correction_commit": "b7a3181325a92091ea7cc50046e1912fc637ca92",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -27,13 +32,25 @@
       "priority": "P2",
       "disposition": "corrected_locally",
       "verification": "the 10-row threshold is derived from and accepted by the writer as 1490 logical bytes"
+    },
+    {
+      "id": "aws_projection_argument_growth",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci",
+      "verification": "100 manifest pipelines retain per-pipeline overlays while the projection map is passed through a temporary Terraform variable file"
+    },
+    {
+      "id": "postgresql_crossover_non_monotonic_recommendation",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci",
+      "verification": "the recommended DIRECT threshold stops at the first sampled size where DIRECT loses"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_review_rerun"
+    "replacement_candidate_gate": "blocked_pending_second_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false

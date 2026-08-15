@@ -45,5 +45,9 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   task definition and materializes it only in runtime scratch space. The first completion review
   then caught missing self-scoped database egress, direct lookahead inside an open transaction, and
   an understated crossover threshold. Commit `8240bcfc3585b8217a607cb08d2d97290ca13afa`
-  corrects all three with focused Python and Terraform checks and protected CI run `31863498217`;
-  review rerun and a replacement source-free candidate remain open.
+  corrects all three with focused Python and Terraform checks and protected CI run `31863498217`.
+- The exact-head rereview then caught quadratic Fargate overlay projection and a non-monotonic
+  crossover recommendation. Commit `b7a3181325a92091ea7cc50046e1912fc637ca92` scopes each runtime
+  overlay to its task, moves the aggregate projection out of the process argument, and permits only
+  a contiguous DIRECT-winning prefix. Its protected CI and independent rereview remain open before
+  a replacement source-free candidate.
