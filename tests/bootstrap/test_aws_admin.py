@@ -70,7 +70,12 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
 
 def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
     terraform = (_REPO_ROOT / "infra/aws/bootstrap-admin/main.tf").read_text(encoding="utf-8")
-    policy = terraform.split('data "aws_iam_policy_document" "deployment_d7"', 1)[1]
+    storage_policy = terraform.split('data "aws_iam_policy_document" "deployment_d7_storage"', 1)[
+        1
+    ].split('data "aws_iam_policy_document" "deployment_d7_provider"', 1)[0]
+    provider_policy = terraform.split('data "aws_iam_policy_document" "deployment_d7_provider"', 1)[
+        1
+    ].split('resource "aws_iam_role_policy" "deployment_d7"', 1)[0]
 
     for action in (
         "cloudfront:CreateDistribution",
@@ -85,6 +90,9 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "elasticloadbalancing:CreateLoadBalancer",
         "elasticloadbalancing:DescribeListenerAttributes",
         "logs:ListTagsForResource",
+    ):
+        assert f'"{action}"' in provider_policy
+    for action in (
         "s3:GetBucketCORS",
         "s3:GetBucketLogging",
         "s3:GetBucketObjectLockConfiguration",
@@ -95,33 +103,34 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "s3:ListBucketVersions",
         "s3:DeleteObjectVersion",
     ):
-        assert f'"{action}"' in policy
-    assert "arn:${local.partition}:s3:::${var.name}-d7-*" in policy
+        assert f'"{action}"' in storage_policy
+    assert "arn:${local.partition}:s3:::${var.name}-d7-*" in storage_policy
     assert (
         "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:"
         "/dander/${var.name}/d7/*"
-    ) in policy
-    assert "service/${var.name}-d7-*/*" in policy
-    assert policy.count('"ec2:CreateSecurityGroup"') == 2
-    assert policy.count('"ec2:AuthorizeSecurityGroupEgress"') == 2
-    assert policy.count('"ec2:AuthorizeSecurityGroupIngress"') == 2
-    assert policy.count('"ec2:CreateTags"') == 2
+    ) in provider_policy
+    assert "service/${var.name}-d7-*/*" in provider_policy
+    assert provider_policy.count('"ec2:CreateSecurityGroup"') == 2
+    assert provider_policy.count('"ec2:AuthorizeSecurityGroupEgress"') == 2
+    assert provider_policy.count('"ec2:AuthorizeSecurityGroupIngress"') == 2
+    assert provider_policy.count('"ec2:CreateTags"') == 2
     assert (
-        "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*" in policy
+        "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*"
+        in provider_policy
     )
     assert (
-        policy.count(
+        provider_policy.count(
             "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group-rule/*"
         )
         == 2
     )
-    assert "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*" in policy
-    assert 'variable = "ec2:CreateAction"' in policy
-    assert 'values   = ["CreateSecurityGroup"]' in policy
-    create_rules = policy.split('sid    = "CreateD7SecurityGroupRules"', 1)[1].split(
+    assert "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*" in provider_policy
+    assert 'variable = "ec2:CreateAction"' in provider_policy
+    assert 'values   = ["CreateSecurityGroup"]' in provider_policy
+    create_rules = provider_policy.split('sid    = "CreateD7SecurityGroupRules"', 1)[1].split(
         'sid     = "TagD7SecurityGroupRulesOnCreate"', 1
     )[0]
-    tag_rules = policy.split('sid     = "TagD7SecurityGroupRulesOnCreate"', 1)[1].split(
+    tag_rules = provider_policy.split('sid     = "TagD7SecurityGroupRulesOnCreate"', 1)[1].split(
         'sid    = "ManageD7SecurityGroups"', 1
     )[0]
     for statement in (create_rules, tag_rules):
@@ -132,14 +141,15 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
     assert 'variable = "ec2:CreateAction"' in tag_rules
     assert '"AuthorizeSecurityGroupEgress"' in tag_rules
     assert '"AuthorizeSecurityGroupIngress"' in tag_rules
-    assert 'variable = "aws:RequestTag/phase"' in policy
-    assert 'variable = "aws:ResourceTag/phase"' in policy
-    assert 'values   = ["elasticloadbalancing.amazonaws.com"]' in policy
+    assert 'variable = "aws:RequestTag/phase"' in provider_policy
+    assert 'variable = "aws:ResourceTag/phase"' in provider_policy
+    assert 'values   = ["elasticloadbalancing.amazonaws.com"]' in provider_policy
     assert 'd7_state_prefix = "dander/d7/control-plane/"' in terraform
-    assert 'variable = "s3:prefix"' in policy
-    assert 'values   = ["${local.d7_state_prefix}*"]' in policy
+    assert 'variable = "s3:prefix"' in storage_policy
+    assert 'values   = ["${local.d7_state_prefix}*"]' in storage_policy
     assert (
-        'resources = ["${aws_s3_bucket.terraform_state.arn}/${local.d7_state_prefix}*"]' in policy
+        'resources = ["${aws_s3_bucket.terraform_state.arn}/${local.d7_state_prefix}*"]'
+        in storage_policy
     )
     for wildcard in (
         '"cloudfront:*"',
@@ -150,7 +160,23 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         '"logs:*"',
         '"s3:*"',
     ):
-        assert wildcard not in policy
+        assert wildcard not in storage_policy
+        assert wildcard not in provider_policy
+
+    for provider_action in (
+        '"cloudfront:CreateDistribution"',
+        '"ec2:CreateSecurityGroup"',
+        '"ecs:CreateService"',
+        '"elasticloadbalancing:CreateLoadBalancer"',
+        '"logs:ListTagsForResource"',
+    ):
+        assert provider_action not in storage_policy
+    for storage_action in (
+        '"s3:ListBucketVersions"',
+        '"s3:GetObjectVersion"',
+        '"s3:DeleteObjectVersion"',
+    ):
+        assert storage_action not in provider_policy
 
     state_policy = terraform.split('data "aws_iam_policy_document" "deployment"', 1)[1].split(
         'resource "aws_iam_role_policy" "deployment"', 1
@@ -158,6 +184,18 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
     assert '"s3:ListBucketVersions"' not in state_policy
     assert '"s3:GetObjectVersion"' not in state_policy
     assert '"s3:DeleteObjectVersion"' not in state_policy
+
+    assert 'resource "aws_iam_policy" "deployment_d7_provider"' in terraform
+    assert 'resource "aws_iam_role_policy_attachment" "deployment_d7_provider"' in terraform
+    assert 'name   = "${var.name}-d7-control-plane-provider"' in terraform
+    assert "policy = data.aws_iam_policy_document.deployment_d7_storage.json" in terraform
+    assert "policy = data.aws_iam_policy_document.deployment_d7_provider.json" in terraform
+    assert "policy_arn = aws_iam_policy.deployment_d7_provider.arn" in terraform
+    assert terraform.count("precondition {") == 2
+    assert "configured inline policies exceed AWS's 10,240-character quota" in terraform
+    assert "D7 provider policy exceeds AWS's 6,144-character managed-policy quota" in terraform
+    assert ") <= 10240" in terraform
+    assert ") <= 6144" in terraform
 
 
 def test_aws_admin_plan_uses_secured_local_state_without_applying(

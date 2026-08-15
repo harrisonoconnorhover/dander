@@ -389,7 +389,7 @@ resource "aws_iam_role_policy" "deployment" {
   policy = data.aws_iam_policy_document.deployment.json
 }
 
-data "aws_iam_policy_document" "deployment_d7" {
+data "aws_iam_policy_document" "deployment_d7_storage" {
   statement {
     sid       = "ListD7TerraformStateVersions"
     effect    = "Allow"
@@ -412,6 +412,59 @@ data "aws_iam_policy_document" "deployment_d7" {
     ]
     resources = ["${aws_s3_bucket.terraform_state.arn}/${local.d7_state_prefix}*"]
   }
+
+  statement {
+    sid    = "ManageD7Buckets"
+    effect = "Allow"
+    actions = [
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:GetAccelerateConfiguration",
+      "s3:GetBucketAcl",
+      "s3:GetBucketCORS",
+      "s3:GetBucketLocation",
+      "s3:GetBucketLogging",
+      "s3:GetBucketObjectLockConfiguration",
+      "s3:GetBucketOwnershipControls",
+      "s3:GetBucketPolicy",
+      "s3:GetBucketPublicAccessBlock",
+      "s3:GetBucketRequestPayment",
+      "s3:GetBucketTagging",
+      "s3:GetBucketVersioning",
+      "s3:GetBucketWebsite",
+      "s3:GetEncryptionConfiguration",
+      "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
+      "s3:ListBucket",
+      "s3:ListBucketMultipartUploads",
+      "s3:ListBucketVersions",
+      "s3:PutBucketOwnershipControls",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:PutBucketTagging",
+      "s3:PutBucketVersioning",
+      "s3:PutEncryptionConfiguration",
+    ]
+    resources = ["arn:${local.partition}:s3:::${var.name}-d7-*"]
+  }
+
+  statement {
+    sid    = "ManageD7BucketObjects"
+    effect = "Allow"
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
+      "s3:GetObject",
+      "s3:GetObjectAttributes",
+      "s3:GetObjectVersion",
+      "s3:ListMultipartUploadParts",
+      "s3:PutObject",
+    ]
+    resources = ["arn:${local.partition}:s3:::${var.name}-d7-*/*"]
+  }
+}
+
+data "aws_iam_policy_document" "deployment_d7_provider" {
 
   statement {
     sid    = "InspectD7ProviderResources"
@@ -452,62 +505,12 @@ data "aws_iam_policy_document" "deployment_d7" {
   }
 
   statement {
-    sid    = "ManageD7Buckets"
-    effect = "Allow"
-    actions = [
-      "s3:CreateBucket",
-      "s3:DeleteBucket",
-      "s3:GetAccelerateConfiguration",
-      "s3:GetBucketAcl",
-      "s3:GetBucketCORS",
-      "s3:GetBucketLocation",
-      "s3:GetBucketLogging",
-      "s3:GetBucketObjectLockConfiguration",
-      "s3:GetBucketOwnershipControls",
-      "s3:GetBucketPolicy",
-      "s3:GetBucketPublicAccessBlock",
-      "s3:GetBucketRequestPayment",
-      "s3:GetBucketTagging",
-      "s3:GetBucketVersioning",
-      "s3:GetBucketWebsite",
-      "s3:GetEncryptionConfiguration",
-      "s3:GetLifecycleConfiguration",
-      "s3:GetReplicationConfiguration",
-      "s3:ListBucket",
-      "s3:ListBucketMultipartUploads",
-      "s3:ListBucketVersions",
-      "s3:PutBucketOwnershipControls",
-      "s3:PutBucketPublicAccessBlock",
-      "s3:PutBucketTagging",
-      "s3:PutBucketVersioning",
-      "s3:PutEncryptionConfiguration",
-    ]
-    resources = ["arn:${local.partition}:s3:::${var.name}-d7-*"]
-  }
-
-  statement {
     sid     = "InspectD7LogGroupTags"
     effect  = "Allow"
     actions = ["logs:ListTagsForResource"]
     resources = [
       "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:/dander/${var.name}/d7/*"
     ]
-  }
-
-  statement {
-    sid    = "ManageD7BucketObjects"
-    effect = "Allow"
-    actions = [
-      "s3:AbortMultipartUpload",
-      "s3:DeleteObject",
-      "s3:DeleteObjectVersion",
-      "s3:GetObject",
-      "s3:GetObjectAttributes",
-      "s3:GetObjectVersion",
-      "s3:ListMultipartUploadParts",
-      "s3:PutObject",
-    ]
-    resources = ["arn:${local.partition}:s3:::${var.name}-d7-*/*"]
   }
 
   statement {
@@ -751,5 +754,35 @@ data "aws_iam_policy_document" "deployment_d7" {
 resource "aws_iam_role_policy" "deployment_d7" {
   name   = "dander-d7-control-plane"
   role   = aws_iam_role.deployment.id
-  policy = data.aws_iam_policy_document.deployment_d7.json
+  policy = data.aws_iam_policy_document.deployment_d7_storage.json
+
+  lifecycle {
+    precondition {
+      condition = (
+        length(jsonencode(jsondecode(data.aws_iam_policy_document.deployment.json))) +
+        length(jsonencode(jsondecode(data.aws_iam_policy_document.deployment_d7_storage.json)))
+      ) <= 10240
+      error_message = "The deployment role's configured inline policies exceed AWS's 10,240-character quota."
+    }
+  }
+}
+
+resource "aws_iam_policy" "deployment_d7_provider" {
+  name   = "${var.name}-d7-control-plane-provider"
+  policy = data.aws_iam_policy_document.deployment_d7_provider.json
+  tags   = merge(local.tags, { phase = "d7" })
+
+  lifecycle {
+    precondition {
+      condition = length(
+        jsonencode(jsondecode(data.aws_iam_policy_document.deployment_d7_provider.json))
+      ) <= 6144
+      error_message = "The D7 provider policy exceeds AWS's 6,144-character managed-policy quota."
+    }
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "deployment_d7_provider" {
+  role       = aws_iam_role.deployment.name
+  policy_arn = aws_iam_policy.deployment_d7_provider.arn
 }

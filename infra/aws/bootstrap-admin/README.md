@@ -4,15 +4,19 @@ This Terraform root creates only the AWS prerequisites that the Fargate platform
 an encrypted/versioned S3 state bucket, DynamoDB lock table, immutable ECR repository, and a
 dedicated deployment role trusted by one exact operator principal.
 
-The short-lived deployment role also carries an action-bounded D7 policy for disposable hosted
-Control resources. S3 bucket/object access is limited to `${name}-d7-*`; ECS, load-balancer, and
-security-group mutations are limited by D7 names or tags; CloudFront creation and lifecycle use
-only the exact distribution and policy actions required by that profile. The role can remove
-noncurrent retained-state versions only below the fixed `dander/d7/control-plane/` prefix and can
-remove versions from disposable D7 buckets, so cleanup does not leave hidden generations or gain
-destructive access to unrelated state history. The D7 application root must use that exact backend
-prefix and must not manage this role, create a custom domain, or depend on wildcard
-provider-administration actions.
+The short-lived deployment role also carries action-bounded D7 authority for disposable hosted
+Control resources. State and disposable-bucket permissions remain in one inline policy, while the
+provider, compute, and network permissions use one attached customer-managed policy. Blocking
+resource preconditions keep the configured inline documents below AWS's 10,240-character role
+quota and the managed document below its 6,144-character policy quota. This packaging changes no
+effective permission.
+S3 bucket/object access is limited to `${name}-d7-*`; ECS, load-balancer, and security-group
+mutations are limited by D7 names or tags; CloudFront creation and lifecycle use only the exact
+distribution and policy actions required by that profile. The role can remove noncurrent retained-
+state versions only below the fixed `dander/d7/control-plane/` prefix and can remove versions from
+disposable D7 buckets, so cleanup does not leave hidden generations or gain destructive access to
+unrelated state history. The D7 application root must use that exact backend prefix and must not
+manage this role, create a custom domain, or depend on wildcard provider-administration actions.
 
 The D7 policy also grants only the read calls that the locked AWS provider uses to resolve the
 selected VPC and CloudFront prefix list and to refresh the profile's listener, graph bucket, and
