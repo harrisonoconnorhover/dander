@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, cast
 from click import ClickException
 from typer.testing import CliRunner
 
+import dander.cli.run_command as run_module
 import dander.cli.runtime_command as runtime_module
 from dander.cli.main import app
 from dander.executor import PipelineExecutionResult
@@ -244,6 +245,141 @@ def test_runtime_execute_uses_and_removes_launcher_projected_platform_config(
     assert captured["document"] == projected
     assert captured["mode"] == 0o600
     assert not Path(cast("Path", captured["path"])).exists()
+
+
+def test_runtime_execute_applies_aws_projection_to_baked_version_one_manifest(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    projected = {
+        "version": 1,
+        "platforms": {
+            "aws_native": {
+                "warehouse": {
+                    "provider": "redshift",
+                    "deployment": "serverless",
+                    "host": ("dander.123456789012.us-east-1.redshift-serverless.amazonaws.com"),
+                    "database": "analytics",
+                    "schema": "raw",
+                    "database_role": "dander_runtime",
+                    "region": "us-east-1",
+                    "workgroup_name": "dander-phase8",
+                    "copy_role_arn": ("arn:aws:iam::123456789012:role/DanderRedshiftCopy"),
+                    "staging_bucket": "dander-phase8-staging",
+                    "staging_prefix": "phase8/rc24/staging",
+                },
+                "state": {
+                    "provider": "postgresql",
+                    "authority_id": "postgresql:aws-native",
+                    "dsn_env": "DANDER_POSTGRES_DSN",
+                },
+                "catalog": {
+                    "provider": "glue",
+                    "region": "us-east-1",
+                    "catalog_id": "123456789012",
+                    "database_prefix": "dander",
+                },
+                "secrets": {
+                    "provider": "aws_secret_manager",
+                    "region": "us-east-1",
+                },
+            }
+        },
+        "deployments": {
+            "aws_native": {
+                "platform": "aws_native",
+                "launcher": {
+                    "provider": "fargate",
+                    "region": "us-east-1",
+                    "aws_account_id": "123456789012",
+                    "subnet_ids": ["subnet-0123456789abcdef0"],
+                    "security_group_ids": ["sg-0123456789abcdef0"],
+                    "assign_public_ip": True,
+                },
+                "runtime": {
+                    "cpu": 1,
+                    "memory": "2Gi",
+                    "timeout_seconds": 600,
+                    "max_retries": 0,
+                    "batch_rows": 1000,
+                },
+                "safety": {"require_guarded_free_tier": False},
+                "pipelines": {
+                    "greenhouse_jobs": {
+                        "paused": True,
+                        "secret_bindings": {
+                            "DANDER_POSTGRES_DSN": (
+                                "aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:"
+                                "secret:dander/postgres-dsn-AbCdEf"
+                            )
+                        },
+                    }
+                },
+            }
+        },
+    }
+    captured: dict[str, object] = {}
+
+    def execute(options: RunOptions, **_: object) -> PipelineExecutionResult:
+        resolved = run_module._resolve_run(options)
+        captured.update(
+            warehouse_provider=resolved.warehouse_provider,
+            state_provider=resolved.state_provider,
+            catalog_provider=resolved.catalog_provider,
+            secret_provider=resolved.secret_provider,
+            warehouse_config=resolved.warehouse_config,
+            source=resolved.source_config.name,
+        )
+        return PipelineExecutionResult(
+            run_id="aws-projected-config-run",
+            pipeline_id=options.pipeline_or_source,
+            ingestion=PipelineRunResult(
+                run_id="aws-projected-config-run",
+                source=resolved.source_config.name,
+                endpoints=(),
+            ),
+            models=(),
+            assertions=0,
+            assets=0,
+        )
+
+    @contextmanager
+    def identity(_context: object) -> Iterator[None]:
+        yield
+
+    monkeypatch.setattr(runtime_module, "execute_run", execute)
+    monkeypatch.setattr(runtime_module, "launcher_identity", identity)
+    result = CliRunner().invoke(
+        app,
+        [
+            "runtime",
+            "execute",
+            "--contract",
+            "io.dander.runtime/v1",
+            "--pipeline",
+            "greenhouse_jobs",
+            "--platform",
+            "aws_native",
+        ],
+        env={
+            "DANDER_RUN_ID": "fargate:task-42",
+            "DANDER_LAUNCHER": "fargate",
+            "DANDER_ATTEMPT": "1",
+            "DANDER_PLATFORMS_CONFIG_JSON": json.dumps(projected),
+        },
+    )
+
+    assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
+    warehouse_config = cast("dict[str, object]", captured.pop("warehouse_config"))
+    assert captured == {
+        "warehouse_provider": "redshift",
+        "state_provider": "postgresql",
+        "catalog_provider": "glue",
+        "secret_provider": "aws_secret_manager",
+        "source": "greenhouse_job_board",
+    }
+    assert warehouse_config["deployment"] == "serverless"
+    assert warehouse_config["database_role"] == "dander_runtime"
+    assert warehouse_config["workgroup_name"] == "dander-phase8"
 
 
 def test_runtime_execute_rejects_invalid_projected_platform_config(

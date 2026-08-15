@@ -433,14 +433,25 @@ def load_project_config(
     """Load one v1 project or resolve one v2 project deployment.
 
     A v2 project finds ``dander.platforms.yaml`` beside the logical manifest by
-    default. Multiple deployments require an explicit selection so a command can
-    never operate against an arbitrary environment.
+    default. A v1 project keeps legacy behavior unless an external platform file is
+    supplied, in which case its logical intent is resolved through that deployment.
+    Multiple deployments require explicit selection so a command can never operate
+    against an arbitrary environment.
     """
     raw = _load_yaml_mapping(path, label="Dander project configuration")
     if raw.get("version") == 2:
         from dander.project.portable_config import resolve_version_two_project
 
         return resolve_version_two_project(
+            path,
+            raw,
+            platforms_path=platforms_path,
+            deployment=deployment,
+        )
+    if raw.get("version") == 1 and platforms_path is not None:
+        from dander.project.portable_config import resolve_version_one_project
+
+        return resolve_version_one_project(
             path,
             raw,
             platforms_path=platforms_path,
