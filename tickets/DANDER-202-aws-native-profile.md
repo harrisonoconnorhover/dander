@@ -95,5 +95,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   found that route-table, subnet, and VPC-endpoint creation still lacked their tagged VPC/route-table
   dependency dimensions. Commit `e12ee59` corrects them; correction/docs head `0da600b` passed run
   `31879898267`, and focused seventeenth review accepted the correction. PR #291 merged the baseline
-  as protected-main commit `3d7783c`; exact-main run `31882061192` passed. Fresh-main PR #298
-  prepares private RC24; replacement-candidate publication and live-profile acceptance remain open.
+  as protected-main commit `3d7783c`; exact-main run `31882061192` passed. PR #298 merged private
+  RC24 at protected main `c19de39`, exact-main run `31882919709` passed, and source-free
+  multi-platform candidate `sha256:b7eadc7e…9488` passed external AWS-overlay selection without
+  provider access. The separate exact-objective live-profile lane and support acceptance remain open.

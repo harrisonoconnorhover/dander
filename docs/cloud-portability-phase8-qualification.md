@@ -15,7 +15,7 @@ Phase 7 evidence merge.
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, while private local RC23 observed equal DIRECT/COPY rows | Review invalidated RC23's byte-threshold objective; hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 passed protected CI and the final-candidate repeat; PR #291 merged the reviewed baseline as protected-main commit `3d7783c`, whose exact CI run `31882061192` passed all five jobs | One fresh-main replacement candidate and its final-candidate repeat remain open |
+| Audits | Exact RC22 passed protected CI and its historical final-candidate repeat; private RC24 was built from protected-main commit `c19de39` after exact CI run `31882919709` passed all five jobs | RC24's protected evidence review and final-candidate repeat remain open |
 
 ## Open gates and dependency order
 
@@ -52,13 +52,15 @@ Phase 7 evidence merge.
    as protected-main commit `3d7783c`; exact-main CI run `31882061192` passed all five jobs.
 4. Completed as a baseline: protected private RC22 was cut after those merges and used for the GCP,
    local Kubernetes, and seven-class PostgreSQL records.
-5. In progress: the post-RC22 bounded direct-write change is packaged as private arm64 RC23. Its
+5. Completed candidate publication: the post-RC22 bounded direct-write change was first packaged
+   as private arm64 RC23. Its
    local PostgreSQL run observed equal rows and both transports, but completion review invalidated
    the 1,400-byte recommendation and found lookahead inside the transaction. Both corrections passed
    protected review; the source distribution then omitted both Phase 8 harnesses. Commit `533125a`
-   restored them and passed protected review. Fresh-main PR #298 prepares private RC24 as the
-   source-free multi-platform successor; publication must wait for that preparation to merge and
-   pass exact-main CI.
+   restored them and passed protected review. Fresh-main PR #298 merged private RC24 as protected
+   main `c19de3980411f20514326db9f722f07e57a3d1ef`; exact-main run `31882919709` passed all five
+   jobs. The exact wheel then produced source-free amd64/arm64 index `sha256:b7eadc7e…9488` with
+   SBOM and provenance. Its sanitized publication evidence still requires protected review.
 6. Use one protected exact candidate for every remaining scale, cost, pairwise, canonical-profile,
    Kubernetes, and soak gate; then repeat the full audit and freeze the compatibility documents.
 
@@ -66,9 +68,9 @@ The operator approved cloud mutations, conservative provider-specific SLO select
 aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Private RC22 publication, the retained GCP
 diagnostic, private arm64 RC23 publication, and private RC24 publication use pre-recorded USD 0.75,
 USD 1.25, USD 0.25, and USD 0.25 allocations. The RC24 allocation comes from contingency, leaving
-USD 0.25 reserved; provider-measured charges have not posted, so no exact cloud cost is claimed. Each paid
-run must still record its objective manifest and per-run allocation before mutation, preserve the
-dependency order, and use the immutable candidate.
+USD 0.25 reserved; provider-measured charges have not posted, so no exact cloud cost is claimed.
+Each paid run must still record its objective manifest and per-run allocation before mutation,
+preserve the dependency order, and use the immutable candidate.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
@@ -78,8 +80,14 @@ Private local `0.9.0rc23` at
 `2455fc34d4503863060b7bac873be36319c13e4f` adds the bounded direct path and is published only as
 an arm64 qualification image at index
 `sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064`. It is not protected,
-multi-platform, or a support candidate, and RC22 reports do not transfer to it. Public RC20 remains
-unchanged.
+multi-platform, or a support candidate, and RC22 reports do not transfer to it. Private
+`0.9.0rc24` at protected main `c19de3980411f20514326db9f722f07e57a3d1ef` is the replacement
+candidate at index
+`sha256:b7eadc7e42eb5b6783685d22ce31711a1bc1a7ee40323bf41683e574f5839488`.
+Both runnable manifests report RC24; the source-free image passed GCP, Kubernetes, and externally
+projected AWS deployment selection plus credential-free read-only conformance. This is candidate
+publication evidence, not a transferred benchmark, live-provider result, cost pass, or support
+claim. Public RC20 and the five retained RC22 jobs remain unchanged.
 
 ## Pre-candidate release readiness
 
@@ -133,7 +141,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | The reviewed baseline merged through PR #291 and passed exact-main CI; replacement candidate and live qualification remain open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | The reviewed baseline and RC24 replacement candidate are available; exact-objective live qualification remains open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -177,13 +185,12 @@ accepted the correction. Docs-closure head `6ede9da` passed run `31879161660`, b
 found missing create dimensions for existing VPC and route-table dependencies. Commit `e12ee59`
 adds the qualification-tag-scoped grants; correction/docs head `0da600b` passed run `31879898267`,
 and focused seventeenth review accepted the correction.
-Interactive
-Azure and OCI authentication was subsequently restored and
+Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
-no-drift baseline must be preserved. Credentials no longer block either provider, but the protected
-replacement-candidate gate still blocks new qualification runs and none of these cases inherits a
-support claim. Sanitized details are in
+no-drift baseline must be preserved. Private RC24 now satisfies the replacement-candidate
+publication gate, but each provider still requires its committed exact objective manifest and
+separate lane before mutation; none of these cases inherits a support claim. Sanitized details are in
 `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
 the three provider credential-restoration records beside it.
 
@@ -238,19 +245,13 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
 Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
 PostgreSQL classes, RC22 protected audit, RC23 local preflight/transport observation, and exact AWS
-cleanup evidence are complete. Qualification-baseline head `3ea34e2` passed protected run
-`31876449299`, and focused thirteenth review accepted the final version-cleanup correction plus
-current-main integration. Reconciliation head `0c65e42` also passed protected CI; fourteenth
-review found two EC2 authorization blockers corrected in `b9735c9`. Correction/current-main head
-`d8a18ec` passed all five jobs in run `31878215886`, and focused fifteenth review accepted the
-correction. Docs-closure head `6ede9da` passed run `31879161660`; sixteenth review then found the
-remaining EC2 network-dependency blocker. Correction `e12ee59` passed protected CI on head
-`0da600b` in run `31879898267`, and focused seventeenth review accepted it. PR #291 merged the
-baseline as protected-main commit `3d7783c`, and exact-main run `31882061192` passed. Each
-replacement-candidate, benchmark, provider,
-optimization, or live-defect lane starts from fresh protected `main`; rerun only materially affected
-evidence plus the eventual final-candidate closure matrix. Remaining work includes rerunning
-applicable RC22 reports on that one candidate; PostgreSQL hosted cost; remaining
+cleanup evidence are complete. PR #291 merged the reviewed AWS baseline as protected main
+`3d7783c`, and exact-main run `31882061192` passed. PR #298 then merged private RC24 as protected
+main `c19de39`; exact-main run `31882919709` passed, and source-free multi-platform candidate
+`sha256:b7eadc7e…9488` passed local artifact and selector checks. Each benchmark, provider,
+optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
+affected evidence plus the eventual final-candidate closure matrix. Remaining work includes
+rerunning applicable RC22 reports on RC24; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile
 evidence; release-candidate soak; profile operator docs; and the frozen support matrix.
