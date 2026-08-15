@@ -6,6 +6,21 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc25 — 2026-08-15 (beta)
+
+### Fixed
+
+- Keep the renewable ECS task role ambient for AWS-native Fargate when no Google federation is
+  declared, while continuing to reject partial federation configuration.
+- Let the stage-zero operator read task logs for hyphen-suffixed Dander deployments without
+  granting generic log-group reads or any log writes.
+
+### Known limitations
+
+- RC25 is a private Phase 8 qualification candidate. The failed RC24 AWS-native execution does not
+  transfer, direct thresholds remain disabled by default, provider/cost/pairwise/audit/soak gates
+  remain open, and public RC20 is unchanged.
+
 ## 0.9.0rc24 — 2026-08-15 (beta)
 
 ### Fixed
