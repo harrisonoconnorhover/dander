@@ -1796,5 +1796,6 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   qualification-tagged parent group.
 - **Tagging:** `ec2:CreateTags` is limited to fixture resource ARNs and the corresponding
   `ec2:CreateAction`, preventing the deployment role from adopting an unrelated EC2 resource.
-- **Gate:** The replacement-candidate gate remains blocked until this correction passes protected
-  CI and focused rereview.
+- **Gate:** Correction/current-main head `d8a18ec` passed protected run `31878215886`, and focused
+  fifteenth review accepted the correction. The replacement-candidate gate opens after PR #291
+  merges, on a fresh branch from protected `main`.
