@@ -1,5 +1,17 @@
 # Engineering Decisions
 
+## 2026-08-15 — AWS task-log reads include named qualification deployments
+
+- **Finding:** The first complete RC24 AWS-native execution reached the task, but the deployment
+  role could not filter its logs. Stage zero was named `dander-p8q`, while the qualified deployment
+  and log-group prefix were named `dander-p8q-rc24`; the existing exact-name log ARN did not match.
+- **Correction:** Retain the exact-name task-log ARN and add only its hyphen-suffixed deployment
+  form for the existing describe, filter, and get actions. Account, region, `/dander/` namespace,
+  stable stage-zero prefix, and log-stream suffix remain bounded.
+- **Boundary:** This grants no log writes or generic log-group reads. The failed execution performed
+  zero provider operations, and live qualification resumes only after protected merge and an exact
+  reviewed stage-zero policy update.
+
 ## 2026-08-15 — Fargate identity follows the declared data-plane boundary
 
 - **Finding:** The first complete RC24 AWS-native platform and manual task launch reached the

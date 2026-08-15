@@ -2,38 +2,36 @@
 
 ## Finished
 
-- Applied and verified the exact RC24 AWS-native platform with no drift and a disabled schedule.
-- Ran one manual task; the controller worked, but runtime identity failed before any provider operation.
-- Scoped Google federation startup to Fargate deployments that declare Google identity settings.
-- Preserved fail-closed partial federation behavior and added identity plus runtime regressions.
-- Removed the exact 25-resource platform and 32-resource data plane after preserving sanitized evidence.
+- Merged the AWS-native Fargate identity correction as protected-main commit `7b47451`.
+- Confirmed all five exact-main CI jobs passed in run `31900109949`.
+- Traced the live operator log denial to an exact-name ARN that excluded RC-suffixed deployments.
+- Added only the hyphen-suffixed Dander task-log ARN beside the retained exact-name ARN.
+- Added a regression that rejects a generic `/dander/*` log-read boundary.
 
 ## Try It
 
-Run `uv run pytest -q tests/identity/test_aws_google.py tests/cli/test_runtime_cli.py`.
+Run `uv run pytest -q tests/bootstrap/test_aws_admin.py`.
 
 ## Checks
 
-- Thirty-nine identity and runtime CLI tests passed; Ruff lint/format and strict mypy passed.
-- Live verification confirmed the RC24 digest, disabled schedule, and drift-free platform.
-- The failed task reported zero provider operations and no rows written.
-- Both Terraform states and all direct owned-resource inventories are empty.
-- KMS key `46a9d38c-a77c-4145-bc4a-6c53aebfc877` is disabled and pending deletion on September 14.
+- Exact protected-main run `31900109949` passed all five jobs at `7b47451`.
+- All 15 AWS bootstrap tests passed.
+- Terraform formatting and validation passed; `git diff --check` passed.
 
 ## Decisions
 
-- Leave the ECS task role ambient for AWS-native Fargate; build Google credentials only when declared.
-- Treat any partial Google federation declaration as invalid rather than silently falling back.
+- Keep exact-name log reads for stable deployments and add only the `${name}-*` qualification form.
+- Preserve account, region, Dander namespace, action, and log-stream bounds.
 
 ## Remaining
 
-- Merge this focused runtime correction through protected CI and review.
-- Correct the separately discovered operator log-read permission in its own PR.
+- Merge this independent permission correction through protected CI and review.
+- Apply the reviewed stage-zero policy through an exact saved plan and prove no drift.
 - Cut a replacement private candidate, then resume the AWS-native correctness and replay lane.
 - Record AWS cost only after billing data posts.
 
 ## Review First
 
-- `src/dander/identity/aws_google.py`
-- `tests/identity/test_aws_google.py`
-- `tests/cli/test_runtime_cli.py`
+- `infra/aws/bootstrap-admin/main.tf`
+- `tests/bootstrap/test_aws_admin.py`
+- `docs/decisions.md`

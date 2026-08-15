@@ -263,7 +263,8 @@ data "aws_iam_policy_document" "deployment" {
       "logs:GetLogEvents",
     ]
     resources = [
-      "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:/dander/${var.name}/*:*"
+      "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:/dander/${var.name}/*:*",
+      "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:/dander/${var.name}-*/*:*",
     ]
   }
 
