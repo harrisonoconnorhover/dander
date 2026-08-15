@@ -319,7 +319,10 @@ data "aws_iam_policy_document" "deployment" {
       "events:ListTagsForResource",
       "events:ListTargetsByRule",
     ]
-    resources = ["arn:${local.partition}:events:${var.region}:${var.aws_account_id}:rule/${var.name}-*-controller-failures"]
+    resources = [
+      "arn:${local.partition}:events:${var.region}:${var.aws_account_id}:rule/${var.name}-controller-failures",
+      "arn:${local.partition}:events:${var.region}:${var.aws_account_id}:rule/${var.name}-*-controller-failures",
+    ]
   }
 
   statement {

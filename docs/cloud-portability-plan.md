@@ -1261,8 +1261,12 @@ defect, so PR #317 merged private RC25 as protected main `f5935a6`; exact-main r
 passed all five jobs, and source-free multi-platform index `sha256:5a0d5520…2238` passed artifact,
 selector, and read-only checks. PR #318 merged its sanitized publication evidence as `ae3be54`, and
 exact-main run `31903775539` passed all five jobs. The AWS correctness lane is now bound by the
-committed RC25/USD 3 objective manifest; provider mutation still requires that gate's protected
-review and exact-main CI. No RC24 report transfers. Other exact-objective classes and
+committed RC25/USD 3 objective manifest. PR #319 merged that gate as `c79b3d8`, and exact-main run
+`31904727106` passed all five jobs. The first RC25 platform reconciliation then exposed a
+stable-name EventBridge tag-read gap before any task ran. Its 21-resource partial platform and
+36-resource data plane were removed exactly; qualification resumes after the bounded permission
+correction reaches protected main and the reviewed stage-zero update is drift-free. No RC24 report
+transfers. Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,

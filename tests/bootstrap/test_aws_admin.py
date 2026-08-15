@@ -85,9 +85,14 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
     assert '"events:ListTagsForResource"' in event_rule_reads
     assert '"events:ListTargetsByRule"' in event_rule_reads
     assert (
-        'resources = ["arn:${local.partition}:events:${var.region}:'
-        '${var.aws_account_id}:rule/${var.name}-*-controller-failures"]' in event_rule_reads
+        '"arn:${local.partition}:events:${var.region}:'
+        '${var.aws_account_id}:rule/${var.name}-controller-failures"' in event_rule_reads
     )
+    assert (
+        '"arn:${local.partition}:events:${var.region}:'
+        '${var.aws_account_id}:rule/${var.name}-*-controller-failures"' in event_rule_reads
+    )
+    assert ":rule/*" not in event_rule_reads
 
     log_tag_reads = terraform.split('sid     = "InspectDanderLogGroupTags"', 1)[1].split(
         'sid       = "InspectDanderFailureQueueTags"', 1

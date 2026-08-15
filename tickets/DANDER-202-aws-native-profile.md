@@ -114,3 +114,10 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   `31903775539` passed all five jobs. The fresh AWS correctness gate binds one manual execution and
   one replay to exact RC25, `us-east-1`, paused scheduling, exact cleanup, and the recorded USD 3
   allocation. Live mutation waits for this objective commit's protected review and exact-main CI.
+- The first RC25 platform apply was interrupted by a transient CloudWatch Logs DNS failure. Its
+  reviewed 13-create reconciliation then exposed that the stage-zero EventBridge tag-read scope
+  omitted the exact stable `dander-controller-failures` rule while retaining only the named
+  deployment pattern. No task ran. The 21-resource partial platform and 36-resource data plane were
+  removed, both states and direct inventories are empty, and the platform KMS key is pending
+  deletion. Qualification resumes only after the exact-rule read correction reaches protected main
+  and a reviewed stage-zero policy update is drift-free.
