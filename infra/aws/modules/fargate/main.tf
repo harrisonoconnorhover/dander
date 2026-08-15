@@ -194,7 +194,13 @@ resource "aws_iam_role" "task" {
   name                 = local.task_role_names[each.key]
   max_session_duration = 3600
   assume_role_policy   = data.aws_iam_policy_document.ecs_assume.json
-  tags                 = merge(local.tags, { pipeline = each.key })
+  tags = merge(
+    local.tags,
+    { pipeline = each.key },
+    var.aws_native_profile != null && var.aws_native_profile.redshift_deployment == "serverless" ? {
+      RedshiftDbRoles = var.aws_native_profile.redshift_database_role
+    } : {},
+  )
 
   lifecycle {
     precondition {
@@ -289,6 +295,27 @@ resource "aws_iam_role_policy" "task_aws_native" {
   for_each = data.aws_iam_policy_document.task_aws_native
 
   name   = "dander-declared-aws-data-plane"
+  role   = aws_iam_role.task[each.key].id
+  policy = each.value.json
+}
+
+# Redshift Serverless reads the declared RedshiftDbRoles IAM tag during GetCredentials. These two
+# Resource Groups Tagging API reads do not support resource-level IAM constraints.
+data "aws_iam_policy_document" "task_redshift_database_role" {
+  for_each = var.aws_native_profile != null && var.aws_native_profile.redshift_deployment == "serverless" ? aws_iam_role.task : {}
+
+  statement {
+    sid       = "ResolveDeclaredRedshiftDatabaseRole"
+    effect    = "Allow"
+    actions   = ["tag:GetResources", "tag:GetTagKeys"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "task_redshift_database_role" {
+  for_each = data.aws_iam_policy_document.task_redshift_database_role
+
+  name   = "dander-redshift-database-role"
   role   = aws_iam_role.task[each.key].id
   policy = each.value.json
 }

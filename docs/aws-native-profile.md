@@ -19,7 +19,9 @@ ordinary platform stack does not create Redshift, PostgreSQL, the staging bucket
   CloudWatch Logs, Secrets Manager, S3, and the other AWS APIs used by the task. The task security
   group must reach Redshift on port 5439 and PostgreSQL on port 5432.
 - Redshift must be reachable from those subnets and have an IAM COPY role restricted to the declared
-  same-region staging bucket prefix. PostgreSQL must require TLS and contain no application rows.
+  same-region staging bucket prefix. For Serverless, precreate the declared database role with the
+  required DDL and COPY permissions; the Fargate task role maps it through `RedshiftDbRoles`.
+  PostgreSQL must require TLS and contain no application rows.
 - Store the PostgreSQL DSN and every application secret in the selected account and region. The
   manifest contains only full Secrets Manager ARN references, never secret values.
 
@@ -57,6 +59,7 @@ platforms:
       schema: raw
       region: us-east-1
       workgroup_name: dander-analytics
+      database_role: dander_runtime
       copy_role_arn: arn:aws:iam::123456789012:role/DanderRedshiftCopy
       staging_bucket: dander-aws-native-staging
       staging_prefix: dander/staging

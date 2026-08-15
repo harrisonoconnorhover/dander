@@ -9,7 +9,8 @@ locals {
   subnets = {
     for index, zone in local.availability_zones : zone => index
   }
-  staging_prefix = "phase8/rc22/staging"
+  staging_prefix        = "phase8/rc22/staging"
+  runtime_database_role = "dander_runtime"
   tags = merge(var.tags, {
     candidate = "0.9.0rc22"
     phase     = "8"
@@ -254,6 +255,30 @@ resource "aws_redshiftserverless_workgroup" "profile" {
   subnet_ids           = [for subnet in aws_subnet.profile : subnet.id]
 
   tags = local.tags
+}
+
+# The namespace creator is its initial IAM database superuser. Use that identity once through the
+# Data API to create the least-privilege role later mapped from each Fargate task role.
+resource "aws_redshiftdata_statement" "runtime_role" {
+  workgroup_name = aws_redshiftserverless_workgroup.profile.workgroup_name
+  database       = aws_redshiftserverless_namespace.profile.db_name
+  sql            = "CREATE ROLE ${local.runtime_database_role}"
+}
+
+resource "aws_redshiftdata_statement" "runtime_ddl" {
+  workgroup_name = aws_redshiftserverless_workgroup.profile.workgroup_name
+  database       = aws_redshiftserverless_namespace.profile.db_name
+  sql            = "GRANT CREATE SCHEMA, CREATE TABLE, ALTER TABLE, DROP TABLE TO ROLE ${local.runtime_database_role}"
+
+  depends_on = [aws_redshiftdata_statement.runtime_role]
+}
+
+resource "aws_redshiftdata_statement" "runtime_copy" {
+  workgroup_name = aws_redshiftserverless_workgroup.profile.workgroup_name
+  database       = aws_redshiftserverless_namespace.profile.db_name
+  sql            = "GRANT ASSUMEROLE ON default TO ROLE ${local.runtime_database_role} FOR COPY"
+
+  depends_on = [aws_redshiftdata_statement.runtime_ddl]
 }
 
 resource "aws_redshiftserverless_usage_limit" "compute" {

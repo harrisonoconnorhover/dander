@@ -258,6 +258,33 @@ run "aws_native_scoped_task_policy" {
   }
 }
 
+run "aws_native_serverless_database_role_mapping" {
+  command = plan
+
+  variables {
+    aws_native_profile = {
+      redshift_deployment         = "serverless"
+      redshift_cluster_identifier = null
+      redshift_workgroup_name     = "dander-phase8"
+      redshift_database           = "analytics"
+      redshift_db_user            = null
+      redshift_database_role      = "dander_runtime"
+      staging_bucket              = "dander-phase8-staging"
+      staging_prefix              = "dander/staging"
+      glue_catalog_id             = "184463061564"
+      glue_database_prefix        = "dander"
+    }
+  }
+
+  assert {
+    condition = (
+      aws_iam_role.task["greenhouse_jobs"].tags["RedshiftDbRoles"] == "dander_runtime" &&
+      aws_iam_role_policy.task_redshift_database_role["greenhouse_jobs"].name == "dander-redshift-database-role"
+    )
+    error_message = "A Serverless task role must pass its declared database role through the supported RedshiftDbRoles mapping."
+  }
+}
+
 run "aws_native_rejects_wildcard_staging_prefix" {
   command = plan
 

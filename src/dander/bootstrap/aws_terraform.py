@@ -175,7 +175,7 @@ class AwsTerraformBootstrap:
                     )
                 )
                 projections[pipeline_id] = templates[pipeline_id].as_dict()
-        except (ExecutionProjectionError, ProviderFactoryError) as error:
+        except (ExecutionProjectionError, ProviderFactoryError, ValueError) as error:
             raise AwsTerraformBootstrapError(str(error)) from error
 
         plan_variables = [
@@ -320,12 +320,17 @@ class AwsTerraformBootstrap:
         catalog = profile.catalog
         assert isinstance(warehouse, RedshiftWarehouseConfig)
         assert isinstance(catalog, GlueCatalogConfig)
+        if warehouse.deployment == "serverless" and warehouse.database_role is None:
+            raise AwsTerraformBootstrapError(
+                "AWS-native Redshift Serverless requires one mapped database_role"
+            )
         return {
             "redshift_deployment": warehouse.deployment,
             "redshift_cluster_identifier": warehouse.cluster_identifier,
             "redshift_workgroup_name": warehouse.workgroup_name,
             "redshift_database": warehouse.database,
             "redshift_db_user": warehouse.db_user,
+            "redshift_database_role": warehouse.database_role,
             "staging_bucket": warehouse.staging_bucket,
             "staging_prefix": warehouse.staging_prefix,
             "glue_catalog_id": catalog.catalog_id,

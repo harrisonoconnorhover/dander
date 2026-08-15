@@ -175,6 +175,25 @@ def test_aws_bootstrap_scopes_large_multi_pipeline_overlays_out_of_cli_arguments
         assert list(projected_pipelines) == [pipeline_id]
 
 
+def test_aws_bootstrap_translates_oversized_platform_overlay_to_bootstrap_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        AwsTerraformBootstrap,
+        "_runtime_platforms_config",
+        staticmethod(lambda **_kwargs: "x" * 32_769),
+    )
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("Terraform must not run"),
+    )
+
+    with pytest.raises(AwsTerraformBootstrapError, match="exceeds 32 KiB"):
+        _execute(AwsTerraformBootstrap(tmp_path))
+
+
 def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -302,6 +321,7 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
         "glue_database_prefix": "dander",
         "redshift_cluster_identifier": "dander-phase8",
         "redshift_database": "analytics",
+        "redshift_database_role": None,
         "redshift_db_user": "dander_runtime",
         "redshift_deployment": "provisioned",
         "redshift_workgroup_name": None,
@@ -310,6 +330,60 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
     }
     tags_argument = next(item for item in terraform_plan if item.startswith("-var=tags="))
     assert json.loads(tags_argument.removeprefix("-var=tags="))["dander-profile"] == "aws_native"
+
+
+def test_aws_bootstrap_requires_a_serverless_database_role_before_terraform(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("Terraform must not run"),
+    )
+    pipelines = _pipelines()
+    pipelines["greenhouse_jobs"]["secret_env"] = {
+        "DANDER_POSTGRES_DSN": (
+            "aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:"
+            "secret:dander/postgres-dsn-AbCdEf"
+        )
+    }
+
+    with pytest.raises(AwsTerraformBootstrapError, match="mapped database_role"):
+        _execute(
+            AwsTerraformBootstrap(tmp_path),
+            project=None,
+            profile_id="aws_native",
+            launcher_config={
+                key: value
+                for key, value in _launcher().items()
+                if key != "google_workload_identity_audience"
+            },
+            warehouse_config={
+                "provider": "redshift",
+                "deployment": "serverless",
+                "host": "dander.123456789012.us-east-1.redshift-serverless.amazonaws.com",
+                "database": "analytics",
+                "schema": "raw",
+                "region": "us-east-1",
+                "workgroup_name": "dander-phase8",
+                "copy_role_arn": "arn:aws:iam::123456789012:role/DanderRedshiftCopy",
+                "staging_bucket": "dander-phase8-staging",
+            },
+            state_config={
+                "provider": "postgresql",
+                "authority_id": "postgresql:aws-native",
+                "dsn_env": "DANDER_POSTGRES_DSN",
+            },
+            catalog_config={
+                "provider": "glue",
+                "region": "us-east-1",
+                "catalog_id": "123456789012",
+                "database_prefix": "dander",
+            },
+            secret_config={"provider": "aws_secret_manager", "region": "us-east-1"},
+            pipelines=pipelines,
+        )
 
 
 def test_aws_apply_uses_only_the_saved_plan(

@@ -7,7 +7,10 @@ manages `infra/aws-control` or another retained Dander stack.
 The root owns one three-AZ VPC, encrypted staging bucket, Redshift Serverless namespace/workgroup,
 8-RPU base capacity with a 5 RPU-hour daily deactivation limit, one encrypted `db.t4g.micro`
 PostgreSQL 15 state instance, its generated DSN in Secrets Manager, and a prefix-scoped Redshift
-COPY role. Sensitive values remain only in Secrets Manager and the existing encrypted remote state.
+COPY role. The namespace creator also provisions a `dander_runtime` database role with only the
+DDL and default COPY-role permissions needed by the qualification writer; the Fargate task maps
+that role through its `RedshiftDbRoles` IAM tag. Sensitive values remain only in Secrets Manager
+and the existing encrypted remote state.
 
 The root deliberately exposes public subnets and exports `network.assign_public_ip = true` for this
 disposable fixture. The Fargate task has no inbound rule and may use only TLS public egress plus the

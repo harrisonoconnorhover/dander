@@ -16,6 +16,7 @@ output "redshift" {
   description = "Non-secret Serverless coordinates consumed by the AWS-native profile."
   value = {
     database       = aws_redshiftserverless_namespace.profile.db_name
+    database_role  = local.runtime_database_role
     host           = aws_redshiftserverless_workgroup.profile.endpoint[0].address
     port           = aws_redshiftserverless_workgroup.profile.endpoint[0].port
     workgroup_name = aws_redshiftserverless_workgroup.profile.workgroup_name

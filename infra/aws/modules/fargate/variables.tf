@@ -123,6 +123,7 @@ variable "aws_native_profile" {
     redshift_workgroup_name     = optional(string)
     redshift_database           = string
     redshift_db_user            = optional(string)
+    redshift_database_role      = optional(string)
     staging_bucket              = string
     staging_prefix              = string
     glue_catalog_id             = string
@@ -138,10 +139,13 @@ variable "aws_native_profile" {
         var.aws_native_profile.redshift_deployment == "provisioned" ?
         var.aws_native_profile.redshift_cluster_identifier != null &&
         var.aws_native_profile.redshift_workgroup_name == null &&
-        var.aws_native_profile.redshift_db_user != null :
+        var.aws_native_profile.redshift_db_user != null &&
+        var.aws_native_profile.redshift_database_role == null :
         var.aws_native_profile.redshift_cluster_identifier == null &&
         var.aws_native_profile.redshift_workgroup_name != null &&
-        var.aws_native_profile.redshift_db_user == null
+        var.aws_native_profile.redshift_db_user == null &&
+        var.aws_native_profile.redshift_database_role != null &&
+        can(regex("^[a-z_][a-z0-9_]{0,126}$", var.aws_native_profile.redshift_database_role))
       ) &&
       can(regex("^[a-z_][a-z0-9_]{0,126}$", var.aws_native_profile.redshift_database)) &&
       can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.aws_native_profile.staging_bucket)) &&

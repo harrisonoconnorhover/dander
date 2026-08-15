@@ -49,6 +49,7 @@ variable "aws_native_profile" {
     redshift_workgroup_name     = optional(string)
     redshift_database           = string
     redshift_db_user            = optional(string)
+    redshift_database_role      = optional(string)
     staging_bucket              = string
     staging_prefix              = string
     glue_catalog_id             = string

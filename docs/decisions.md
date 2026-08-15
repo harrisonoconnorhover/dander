@@ -1736,3 +1736,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** The first AWS profile is single-instance and experimental. Only Control receives
   versioned GraphStore access; Druff has a distinct empty task role. HA, autoscaling, WAF, custom
   domains, support promotion, and release qualification remain outside D7.
+
+## 2026-08-15 — AWS-native Serverless maps one explicit database role
+
+- **Bootstrap:** The disposable namespace creator provisions one `dander_runtime` database role
+  with the DDL permissions used by fenced publication and permission to use the namespace's default
+  IAM role for `COPY`.
+- **Runtime identity:** Every selected Fargate task role carries the manifest-declared
+  `RedshiftDbRoles` tag and the two global Resource Groups Tagging API reads that Redshift requires
+  to map that role during `GetCredentials`; other AWS-native permissions stay resource-scoped.
+- **Boundary:** Existing Serverless data planes must precreate and declare the mapped role. Dander
+  neither grants a broad database superuser nor transfers the mapping to provisioned clusters.
