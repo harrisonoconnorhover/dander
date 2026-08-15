@@ -42,6 +42,7 @@ def _request(
     batch_rows: int = 10_000,
     alert_target: str | None = None,
     deployment_id: str | None = None,
+    platforms_config_json: str | None = None,
 ) -> ResolvedTemplateRequest:
     return ResolvedTemplateRequest(
         pipelines=_PIPELINES if pipelines is None else pipelines,
@@ -54,6 +55,7 @@ def _request(
         batch_rows=batch_rows,
         alert_target=alert_target,
         deployment_id=deployment_id,
+        platforms_config_json=platforms_config_json,
     )
 
 
@@ -286,6 +288,7 @@ def test_fargate_projects_the_typed_aws_native_profile_keylessly() -> None:
             profile_id="aws_native",
             deployment_id="production_fargate",
             memory="2Gi",
+            platforms_config_json='{"version":1}',
         )
     )["greenhouse_jobs"]
 
@@ -300,6 +303,29 @@ def test_fargate_projects_the_typed_aws_native_profile_keylessly() -> None:
     assert "DANDER_GCP_WIF_AUDIENCE" not in environment
     assert "AWS_ACCESS_KEY_ID" not in environment
     assert "AWS_SECRET_ACCESS_KEY" not in environment
+    assert environment["DANDER_PLATFORMS_CONFIG_JSON"] == '{"version":1}'
+
+
+def test_fargate_aws_native_rejects_missing_projected_platform_config() -> None:
+    secret = (
+        "aws-sm://arn:aws:secretsmanager:us-east-1:184463061564:secret:dander/postgres-dsn-AbCdEf"
+    )
+    pipelines = {
+        "greenhouse_jobs": {
+            **_PIPELINES["greenhouse_jobs"],
+            "secret_env": {"DANDER_POSTGRES_DSN": secret},
+        }
+    }
+
+    with pytest.raises(ExecutionProjectionError, match="resolved platform overlay"):
+        _aws_native_fargate_runtime().templates.build(
+            _request(
+                pipelines=pipelines,
+                image=_FARGATE_IMAGE,
+                profile_id="aws_native",
+                memory="2Gi",
+            )
+        )
 
 
 def test_fargate_aws_native_rejects_a_secret_from_another_account() -> None:
@@ -370,6 +396,7 @@ def test_fargate_aws_native_uses_govcloud_partition_for_task_identity() -> None:
             image=_FARGATE_IMAGE,
             profile_id="aws_native",
             memory="2Gi",
+            platforms_config_json='{"version":1}',
         )
     )["greenhouse_jobs"]
 

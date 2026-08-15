@@ -35,6 +35,7 @@ class RedshiftWarehouseConfig(BaseModel):
     database: str
     schema_name: str = Field(default="raw", alias="schema")
     db_user: str | None = None
+    database_role: str | None = None
     region: str
     cluster_identifier: str | None = None
     workgroup_name: str | None = None
@@ -71,6 +72,8 @@ class RedshiftWarehouseConfig(BaseModel):
                 raise ValueError(f"{field_name} must use portable lowercase identifier syntax")
         if self.db_user is not None and not _IDENTIFIER.fullmatch(self.db_user):
             raise ValueError("db_user must use portable lowercase identifier syntax")
+        if self.database_role is not None and not _IDENTIFIER.fullmatch(self.database_role):
+            raise ValueError("database_role must use portable lowercase identifier syntax")
         if not _HOST.fullmatch(self.host):
             raise ValueError("host must be a DNS name")
         if not _AWS_REGION.fullmatch(self.region):
@@ -92,6 +95,7 @@ class RedshiftWarehouseConfig(BaseModel):
                 not self.cluster_identifier
                 or self.workgroup_name is not None
                 or self.db_user is None
+                or self.database_role is not None
             ):
                 raise ValueError(
                     "provisioned Redshift requires cluster_identifier and db_user only"

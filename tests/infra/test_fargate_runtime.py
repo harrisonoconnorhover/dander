@@ -68,6 +68,9 @@ def test_aws_native_task_policy_is_scoped_to_declared_data_plane_resources() -> 
     assert '"glue:UpdateTable"' in module
     assert 'resource "aws_iam_role_policy" "task_aws_native"' in module
     assert 'resources = ["*"]' not in native_policy
+    assert "RedshiftDbRoles = var.aws_native_profile.redshift_database_role" in module
+    assert 'actions   = ["tag:GetResources", "tag:GetTagKeys"]' in module
+    assert 'resource "aws_iam_role_policy" "task_redshift_database_role"' in module
 
 
 def test_controller_owns_deadline_and_only_runtime_exit_75_retries() -> None:

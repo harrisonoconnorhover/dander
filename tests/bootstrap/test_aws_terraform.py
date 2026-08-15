@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import cast
 
 import pytest
 
 from dander.bootstrap import AwsTerraformBootstrap, AwsTerraformBootstrapError
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from dander.project import load_project_config
 
 
 def _launcher() -> dict[str, object]:
@@ -75,11 +74,21 @@ def _execute(bootstrap: AwsTerraformBootstrap, **overrides: object) -> Path:
     return bootstrap.execute(**arguments)  # type: ignore[arg-type]
 
 
+def _plan_variables(args: tuple[str, ...]) -> dict[str, object]:
+    variable_argument = next(item for item in args if item.startswith("-var-file="))
+    variable_path = Path(variable_argument.removeprefix("-var-file="))
+    return cast(
+        "dict[str, object]",
+        json.loads(variable_path.read_text(encoding="utf-8")),
+    )
+
+
 def test_aws_bootstrap_builds_manifest_projection_without_apply(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     calls: list[tuple[tuple[str, ...], dict[str, str]]] = []
+    plan_variables: list[dict[str, object]] = []
 
     def fake_run(
         args: tuple[str, ...],
@@ -91,6 +100,8 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
         assert cwd == tmp_path.resolve()
         assert check
         calls.append((args, env))
+        if args[:2] == ("terraform", "plan"):
+            plan_variables.append(_plan_variables(args))
         return subprocess.CompletedProcess(args, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -104,12 +115,9 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
     assert terraform_plan[:2] == ("terraform", "plan")
     assert all(call[0][:2] != ("terraform", "apply") for call in calls)
     assert all(call[1]["AWS_PROFILE"] == "dander-test" for call in calls)
-    projection_argument = next(
-        item for item in terraform_plan if item.startswith("-var=execution_projections=")
-    )
-    projection = json.loads(projection_argument.removeprefix("-var=execution_projections="))[
-        "greenhouse_jobs"
-    ]
+    projections = plan_variables[0]["execution_projections"]
+    assert isinstance(projections, dict)
+    projection = projections["greenhouse_jobs"]
     assert projection["launcher"] == "fargate"
     assert projection["profile_id"] == "aws_fargate"
     assert projection["labels"]["profile"] == "gcp"
@@ -121,6 +129,69 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
         "provider": "gcp_secret_manager",
         "reference": "gcp-sm://projects/unit-project/secrets/greenhouse-token/versions/latest",
     }
+    projected_platforms = json.loads(projection["environment"]["DANDER_PLATFORMS_CONFIG_JSON"])
+    assert list(projected_platforms["deployments"]) == ["aws_fargate"]
+    assert projected_platforms["deployments"]["aws_fargate"]["platform"] == "gcp"
+
+
+def test_aws_bootstrap_scopes_large_multi_pipeline_overlays_out_of_cli_arguments(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    plan_variables: list[dict[str, object]] = []
+    plan_arguments: list[tuple[str, ...]] = []
+
+    def fake_run(
+        args: tuple[str, ...],
+        *,
+        cwd: Path,
+        check: bool,
+        env: dict[str, str],
+    ) -> subprocess.CompletedProcess[str]:
+        del env
+        assert cwd == tmp_path.resolve()
+        assert check
+        if args[:2] == ("terraform", "plan"):
+            plan_arguments.append(args)
+            plan_variables.append(_plan_variables(args))
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    pipeline = _pipelines()["greenhouse_jobs"]
+    pipelines = {f"pipeline_{index:03d}": dict(pipeline) for index in range(100)}
+
+    _execute(AwsTerraformBootstrap(tmp_path), pipelines=pipelines)
+
+    assert max(len(argument.encode()) for argument in plan_arguments[0]) < 128 * 1_024
+    projections = plan_variables[0]["execution_projections"]
+    assert isinstance(projections, dict)
+    assert len(projections) == len(pipelines)
+    for pipeline_id, raw_projection in projections.items():
+        assert isinstance(raw_projection, dict)
+        environment = raw_projection["environment"]
+        assert isinstance(environment, dict)
+        projected_platforms = json.loads(environment["DANDER_PLATFORMS_CONFIG_JSON"])
+        projected_pipelines = projected_platforms["deployments"]["aws_fargate"]["pipelines"]
+        assert list(projected_pipelines) == [pipeline_id]
+
+
+def test_aws_bootstrap_translates_oversized_platform_overlay_to_bootstrap_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        AwsTerraformBootstrap,
+        "_runtime_platforms_config",
+        staticmethod(lambda **_kwargs: "x" * 32_769),
+    )
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("Terraform must not run"),
+    )
+
+    with pytest.raises(AwsTerraformBootstrapError, match="exceeds 32 KiB"):
+        _execute(AwsTerraformBootstrap(tmp_path))
 
 
 def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
@@ -128,6 +199,7 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
     tmp_path: Path,
 ) -> None:
     calls: list[tuple[str, ...]] = []
+    plan_variables: list[dict[str, object]] = []
 
     def fake_run(
         args: tuple[str, ...],
@@ -140,6 +212,8 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
         assert cwd == tmp_path.resolve()
         assert check
         calls.append(args)
+        if args[:2] == ("terraform", "plan"):
+            plan_variables.append(_plan_variables(args))
         return subprocess.CompletedProcess(args, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -188,12 +262,9 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
     )
 
     terraform_plan = calls[1]
-    projection_argument = next(
-        item for item in terraform_plan if item.startswith("-var=execution_projections=")
-    )
-    projection = json.loads(projection_argument.removeprefix("-var=execution_projections="))[
-        "greenhouse_jobs"
-    ]
+    projections = plan_variables[0]["execution_projections"]
+    assert isinstance(projections, dict)
+    projection = projections["greenhouse_jobs"]
     assert projection["profile_id"] == "aws_fargate"
     assert projection["labels"]["profile"] == "aws_native"
     command = projection["command"]
@@ -203,6 +274,44 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
         "reference": secret_prefix + "postgres-dsn-AbCdEf",
     }
     assert "GCP_PROJECT_ID" not in projection["environment"]
+    projected_platforms = json.loads(projection["environment"]["DANDER_PLATFORMS_CONFIG_JSON"])
+    assert list(projected_platforms["platforms"]) == ["aws_native"]
+    assert list(projected_platforms["deployments"]) == ["aws_fargate"]
+    assert projected_platforms["platforms"]["aws_native"]["warehouse"]["provider"] == ("redshift")
+    assert (
+        projected_platforms["deployments"]["aws_fargate"]["pipelines"]["greenhouse_jobs"][
+            "secret_bindings"
+        ]
+        == pipelines["greenhouse_jobs"]["secret_env"]
+    )
+    logical_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.json"
+    logical_path.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "pipelines": {
+                    "greenhouse_jobs": {
+                        "source": "greenhouse_job_board",
+                        "models": ["stg_greenhouse__jobs"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    platforms_path.write_text(json.dumps(projected_platforms), encoding="utf-8")
+
+    resolved = load_project_config(
+        logical_path,
+        platforms_path=platforms_path,
+        deployment="aws_fargate",
+    )
+
+    assert resolved.warehouse_provider == "redshift"
+    assert resolved.state_provider == "postgresql"
+    assert resolved.catalog_provider == "glue"
+    assert resolved.secret_provider == "aws_secret_manager"
     native_argument = next(
         item for item in terraform_plan if item.startswith("-var=aws_native_profile=")
     )
@@ -212,6 +321,7 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
         "glue_database_prefix": "dander",
         "redshift_cluster_identifier": "dander-phase8",
         "redshift_database": "analytics",
+        "redshift_database_role": None,
         "redshift_db_user": "dander_runtime",
         "redshift_deployment": "provisioned",
         "redshift_workgroup_name": None,
@@ -220,6 +330,60 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
     }
     tags_argument = next(item for item in terraform_plan if item.startswith("-var=tags="))
     assert json.loads(tags_argument.removeprefix("-var=tags="))["dander-profile"] == "aws_native"
+
+
+def test_aws_bootstrap_requires_a_serverless_database_role_before_terraform(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("Terraform must not run"),
+    )
+    pipelines = _pipelines()
+    pipelines["greenhouse_jobs"]["secret_env"] = {
+        "DANDER_POSTGRES_DSN": (
+            "aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:"
+            "secret:dander/postgres-dsn-AbCdEf"
+        )
+    }
+
+    with pytest.raises(AwsTerraformBootstrapError, match="mapped database_role"):
+        _execute(
+            AwsTerraformBootstrap(tmp_path),
+            project=None,
+            profile_id="aws_native",
+            launcher_config={
+                key: value
+                for key, value in _launcher().items()
+                if key != "google_workload_identity_audience"
+            },
+            warehouse_config={
+                "provider": "redshift",
+                "deployment": "serverless",
+                "host": "dander.123456789012.us-east-1.redshift-serverless.amazonaws.com",
+                "database": "analytics",
+                "schema": "raw",
+                "region": "us-east-1",
+                "workgroup_name": "dander-phase8",
+                "copy_role_arn": "arn:aws:iam::123456789012:role/DanderRedshiftCopy",
+                "staging_bucket": "dander-phase8-staging",
+            },
+            state_config={
+                "provider": "postgresql",
+                "authority_id": "postgresql:aws-native",
+                "dsn_env": "DANDER_POSTGRES_DSN",
+            },
+            catalog_config={
+                "provider": "glue",
+                "region": "us-east-1",
+                "catalog_id": "123456789012",
+                "database_prefix": "dander",
+            },
+            secret_config={"provider": "aws_secret_manager", "region": "us-east-1"},
+            pipelines=pipelines,
+        )
 
 
 def test_aws_apply_uses_only_the_saved_plan(

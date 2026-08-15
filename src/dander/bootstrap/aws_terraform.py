@@ -5,7 +5,9 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from json import dumps
+import tempfile
+from collections.abc import Mapping
+from json import dump, dumps
 from typing import TYPE_CHECKING
 
 from dander.bootstrap.terraform import (
@@ -16,13 +18,13 @@ from dander.bootstrap.terraform import (
 )
 from dander.deployment import ExecutionProjectionError, ResolvedTemplateRequest
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
+from dander.providers.fargate.config import FargateLauncherConfig
 from dander.providers.fargate.context import FargateProfileContext
 from dander.providers.gcp_launcher import GcpLauncherContext
 from dander.providers.glue.config import GlueCatalogConfig
 from dander.providers.redshift.config import RedshiftWarehouseConfig
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from pathlib import Path
 
 _AWS_ACCOUNT_ID = re.compile(r"^[0-9]{12}$")
@@ -142,11 +144,24 @@ class AwsTerraformBootstrap:
                 launcher_config=raw_launcher,
                 fargate_profile=profile,
             )
-            projections = {
-                pipeline_id: template.as_dict()
-                for pipeline_id, template in launcher.templates.build(
+            projections: dict[str, dict[str, object]] = {}
+            for pipeline_id, pipeline in sorted(expanded_pipelines.items()):
+                scoped_pipelines = {pipeline_id: pipeline}
+                platforms_config_json = self._runtime_platforms_config(
+                    profile=profile,
+                    deployment_name=deployment_name,
+                    launcher_config=raw_launcher,
+                    runtime_cpu=runtime_cpu,
+                    runtime_memory=runtime_memory,
+                    runtime_timeout_seconds=runtime_timeout_seconds,
+                    runtime_max_retries=runtime_max_retries,
+                    runtime_batch_rows=runtime_batch_rows,
+                    require_guarded_free_tier=require_guarded_free_tier,
+                    pipelines=scoped_pipelines,
+                )
+                templates = launcher.templates.build(
                     ResolvedTemplateRequest(
-                        pipelines=expanded_pipelines,
+                        pipelines=scoped_pipelines,
                         image=container_image,
                         profile_id=profile.profile_id,
                         cpu=runtime_cpu,
@@ -156,10 +171,11 @@ class AwsTerraformBootstrap:
                         batch_rows=runtime_batch_rows,
                         alert_target=None,
                         deployment_id=deployment_name,
+                        platforms_config_json=platforms_config_json,
                     )
-                ).items()
-            }
-        except (ExecutionProjectionError, ProviderFactoryError) as error:
+                )
+                projections[pipeline_id] = templates[pipeline_id].as_dict()
+        except (ExecutionProjectionError, ProviderFactoryError, ValueError) as error:
             raise AwsTerraformBootstrapError(str(error)) from error
 
         plan_variables = [
@@ -167,12 +183,6 @@ class AwsTerraformBootstrap:
             f"-var=aws_account_id={aws_account_id}",
             f"-var=region={region}",
             f"-var=ecr_repository_name={image_match.group('repository')}",
-            "-var=execution_projections="
-            + dumps(
-                projections,
-                sort_keys=True,
-                separators=(",", ":"),
-            ),
         ]
         if profile.is_aws_native:
             plan_variables.append(
@@ -196,23 +206,37 @@ class AwsTerraformBootstrap:
             f"-backend-config=dynamodb_table={lock_table}",
             aws_profile=aws_profile,
         )
-        self._run(
-            "terraform",
-            "plan",
-            "-input=false",
-            *plan_variables,
-            "-var=tags="
-            + dumps(
-                {
-                    "dander-deployment": deployment_name,
-                    "dander-profile": profile.profile_id,
-                },
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix="dander-aws-plan-",
+            suffix=".tfvars.json",
+        ) as variables_file:
+            dump(
+                {"execution_projections": projections},
+                variables_file,
                 sort_keys=True,
                 separators=(",", ":"),
-            ),
-            f"-out={self._plan_path.name}",
-            aws_profile=aws_profile,
-        )
+            )
+            variables_file.flush()
+            self._run(
+                "terraform",
+                "plan",
+                "-input=false",
+                *plan_variables,
+                f"-var-file={variables_file.name}",
+                "-var=tags="
+                + dumps(
+                    {
+                        "dander-deployment": deployment_name,
+                        "dander-profile": profile.profile_id,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                f"-out={self._plan_path.name}",
+                aws_profile=aws_profile,
+            )
         if apply:
             self._run(
                 "terraform",
@@ -296,17 +320,90 @@ class AwsTerraformBootstrap:
         catalog = profile.catalog
         assert isinstance(warehouse, RedshiftWarehouseConfig)
         assert isinstance(catalog, GlueCatalogConfig)
+        if warehouse.deployment == "serverless" and warehouse.database_role is None:
+            raise AwsTerraformBootstrapError(
+                "AWS-native Redshift Serverless requires one mapped database_role"
+            )
         return {
             "redshift_deployment": warehouse.deployment,
             "redshift_cluster_identifier": warehouse.cluster_identifier,
             "redshift_workgroup_name": warehouse.workgroup_name,
             "redshift_database": warehouse.database,
             "redshift_db_user": warehouse.db_user,
+            "redshift_database_role": warehouse.database_role,
             "staging_bucket": warehouse.staging_bucket,
             "staging_prefix": warehouse.staging_prefix,
             "glue_catalog_id": catalog.catalog_id,
             "glue_database_prefix": catalog.database_prefix,
         }
+
+    @staticmethod
+    def _runtime_platforms_config(
+        *,
+        profile: FargateProfileContext,
+        deployment_name: str,
+        launcher_config: Mapping[str, object],
+        runtime_cpu: int,
+        runtime_memory: str,
+        runtime_timeout_seconds: int,
+        runtime_max_retries: int,
+        runtime_batch_rows: int,
+        require_guarded_free_tier: bool,
+        pipelines: Mapping[str, Mapping[str, object]],
+    ) -> str:
+        """Render one validated deployment overlay independent of image-baked coordinates."""
+        launcher = FargateLauncherConfig.model_validate(launcher_config)
+        deployment_pipelines: dict[str, object] = {}
+        for pipeline_id, pipeline in sorted(pipelines.items()):
+            secret_env = pipeline["secret_env"]
+            if not isinstance(secret_env, Mapping):  # pragma: no cover - validated upstream
+                raise AwsTerraformBootstrapError("Pipeline secret bindings are invalid")
+            resources = {
+                "job": pipeline["job_name"],
+                "runtime_service_account": pipeline["runtime_service_account_id"],
+                "scheduler_service_account": pipeline["scheduler_service_account_id"],
+            }
+            deployment_pipelines[pipeline_id] = {
+                "schedule": pipeline["schedule"],
+                "time_zone": pipeline["time_zone"],
+                "paused": pipeline["paused"],
+                "secret_bindings": dict(sorted(secret_env.items())),
+                "resources": resources,
+            }
+        document = {
+            "version": 1,
+            "platforms": {
+                profile.profile_id: {
+                    "warehouse": profile.warehouse.model_dump(
+                        mode="json", by_alias=True, exclude_none=True
+                    ),
+                    "state": profile.state.model_dump(mode="json", exclude_none=True),
+                    "catalog": profile.catalog.model_dump(mode="json", exclude_none=True),
+                    "secrets": profile.secrets.model_dump(mode="json", exclude_none=True),
+                }
+            },
+            "deployments": {
+                deployment_name: {
+                    "platform": profile.profile_id,
+                    "launcher": launcher.model_dump(mode="json", exclude_none=True),
+                    "runtime": {
+                        "cpu": runtime_cpu,
+                        "memory": runtime_memory,
+                        "timeout_seconds": runtime_timeout_seconds,
+                        "max_retries": runtime_max_retries,
+                        "batch_rows": runtime_batch_rows,
+                    },
+                    "safety": {
+                        "require_guarded_free_tier": require_guarded_free_tier,
+                    },
+                    "pipelines": deployment_pipelines,
+                }
+            },
+        }
+        from dander.project.portable_config import DanderPlatforms
+
+        DanderPlatforms.model_validate(document)
+        return dumps(document, sort_keys=True, separators=(",", ":"))
 
     def apply_saved_plan(
         self,

@@ -20,3 +20,22 @@ canonical profile gate.
 - [ ] Equal canonical output, identity refresh where applicable, provider cleanup, and retained-GCP
   no drift are recorded.
 - [ ] No unlisted Cartesian combination inherits a support claim.
+
+## Implementation Notes
+
+- The 2026-08-14 credential preflight is non-mutating: Azure requires interactive Entra
+  reauthentication, the AWS session is expired, and OCI has no complete CLI profile. No paid or
+  live pairwise run was started for those providers.
+- Continue local and retained-GCP gates independently. Do not weaken or mark the unavailable
+  provider cases passed; the sanitized blocker record contains no account or credential material.
+- AWS access was restored later on 2026-08-14. The exact RC22 objective manifest and bounded USD 3
+  authorization preceded a 28-resource disposable data-plane apply. Read-only candidate inspection
+  then found no packaged AWS deployment, so no Fargate plan or execution ran; the exact destroy and
+  empty inventory are recorded. A local runtime-overlay correction requires protected review and a
+  replacement candidate before the pairwise run can resume. No live result or support status is
+  claimed.
+- Azure and OCI interactive authentication are now restored and provider-API verified. Azure has
+  no retained Dander resources. OCI retains the accepted Phase 7 foundation and image history with
+  zero active Container Instances. The USD 2 Azure and USD 1.50 OCI allocations are available, but
+  no mutation or live pairwise run may precede the protected replacement candidate and its exact
+  objective manifests.

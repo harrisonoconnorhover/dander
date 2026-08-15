@@ -13,6 +13,18 @@ platform:
     require_guarded_free_tier: true
 
 pipelines:
+  phase8_aws_qualification:
+    source: phase8_aws_fixture
+    models: [stg_phase8_aws__posts]
+    publish_dataplex: true
+    schedule: "0 8 * * *"
+    time_zone: America/New_York
+    paused: true
+    resources:
+      job: dander-phase8-aws-qualification
+      runtime_service_account: dander-runtime-phase8-aws
+      scheduler_service_account: dander-scheduler-phase8-aws
+
   greenhouse_jobs:
     source: greenhouse_job_board
     models: [stg_greenhouse__jobs]

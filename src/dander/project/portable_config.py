@@ -307,6 +307,31 @@ def resolve_version_two_project(
     return _resolve(logical, platforms, deployment=deployment)
 
 
+def resolve_version_one_project(
+    project_path: Path,
+    raw_project: dict[str, object],
+    *,
+    platforms_path: Path,
+    deployment: str | None,
+) -> DanderProject:
+    """Resolve legacy logical intent against one explicit external deployment."""
+    try:
+        legacy = DanderProject.model_validate(raw_project)
+    except ValidationError as error:
+        raise _validation_error(
+            project_path,
+            error,
+            label="Dander project configuration",
+        ) from error
+    logical = _validate_logical_project(project_path, _logical_document(legacy))
+    raw_platforms = _load_yaml_mapping(
+        platforms_path,
+        label="Dander platform configuration",
+    )
+    platforms = _validate_platforms(platforms_path, raw_platforms)
+    return _resolve(logical, platforms, deployment=deployment)
+
+
 def prepare_version_one_migration(path: Path) -> ProjectMigration:
     """Render deterministic v2 files and prove resolved behavior is unchanged."""
     try:

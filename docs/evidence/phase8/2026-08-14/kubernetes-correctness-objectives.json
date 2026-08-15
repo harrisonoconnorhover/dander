@@ -1,0 +1,25 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  },
+  "approved_objectives": {
+    "names": [
+      "chart_verification",
+      "immutable_upgrade_and_rollback",
+      "manual_execution",
+      "owned_cleanup",
+      "replay_idempotency",
+      "scheduled_execution",
+      "versionless_secret_rotation"
+    ],
+    "benchmark_class": "correctness",
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc22",
+    "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "configuration_sha256": "06bcedfe6fb0e4aa2f99e9e2f19ad010d6d4be9cf83e4ccfd14516272f75e615",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  }
+}

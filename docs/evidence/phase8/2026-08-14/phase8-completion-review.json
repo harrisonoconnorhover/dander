@@ -1,0 +1,282 @@
+{
+  "schema": "io.dander.phase8.completion-review/v1",
+  "reviewed_on": "2026-08-14",
+  "reviewed_head": "474126efd72029dcb7dff0ff9166133dcf794a76",
+  "pull_request": 291,
+  "protected_ci_run": 31861974300,
+  "reviewer": "codex_read_only",
+  "status": "qualification_baseline_protected_ci_and_review_passed",
+  "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
+  "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
+  "protected_correction_ci_run": 31863498217,
+  "protected_status_reconciliation_head": "d35ad7f47e939370d022e38535cd7cfdbac356db",
+  "protected_status_reconciliation_ci_run": 31864001249,
+  "second_reviewed_on": "2026-08-15",
+  "second_reviewed_head": "d35ad7f47e939370d022e38535cd7cfdbac356db",
+  "second_correction_commit": "b7a3181325a92091ea7cc50046e1912fc637ca92",
+  "second_correction_ci_attempt": {
+    "run": 31864704594,
+    "head": "f4345a75af11e794fae4b7b61682cc91f288b845",
+    "status": "failed_python_test_helper_typing",
+    "cloud_mutation_performed": false
+  },
+  "protected_second_correction_head": "0d4d29dabd8830d276039364e2364f6166ef7785",
+  "protected_second_correction_ci_run": 31864784027,
+  "third_reviewed_on": "2026-08-15",
+  "third_reviewed_head": "0d4d29dabd8830d276039364e2364f6166ef7785",
+  "third_correction_commit": "b6b479d04df338e5c9747caf55922cfd1edc7516",
+  "protected_third_correction_head": "c90d8e08216f3d073efc38796b6993be6552a857",
+  "protected_third_correction_ci_run": 31865699608,
+  "fourth_reviewed_on": "2026-08-15",
+  "fourth_reviewed_head": "c90d8e08216f3d073efc38796b6993be6552a857",
+  "fourth_correction_commit": "cfe8e634a43c26868eb1f622c8d59ea3688ad7a7",
+  "protected_fourth_correction_head": "5ae0417649379e55256b6cd76eadef02a468a384",
+  "protected_fourth_correction_ci_run": 31866450352,
+  "fifth_reviewed_on": "2026-08-15",
+  "fifth_reviewed_head": "5ae0417649379e55256b6cd76eadef02a468a384",
+  "fifth_correction_commit": "553a15a8f678ba9860ce6284c0d6089acbbeb9e2",
+  "protected_fifth_correction_head": "4f633515eccf55113fe33897ea7b162dc661a5b8",
+  "protected_fifth_correction_ci_run": 31867794981,
+  "sixth_reviewed_on": "2026-08-15",
+  "sixth_reviewed_head": "4f633515eccf55113fe33897ea7b162dc661a5b8",
+  "sixth_correction_commit": "055e3a21e8cd440f134a6697d83d747e38ddc777",
+  "protected_sixth_correction_head": "34d6d559758dcdf1213e85012e94f8477ed33b2f",
+  "protected_sixth_correction_ci_run": 31868849725,
+  "seventh_reviewed_on": "2026-08-15",
+  "seventh_reviewed_head": "34d6d559758dcdf1213e85012e94f8477ed33b2f",
+  "seventh_correction_commit": "533125a92af722ed391760923fff4d926ead80f6",
+  "protected_seventh_correction_head": "3eed46e1c1c03f1858ade45a5af4fe88f9e78867",
+  "protected_seventh_correction_ci_run": 31870117994,
+  "eighth_reviewed_on": "2026-08-15",
+  "eighth_reviewed_head": "3eed46e1c1c03f1858ade45a5af4fe88f9e78867",
+  "eighth_correction_commit": "9c6e27b04a9477c3039e7d6e085111f045021fc0",
+  "protected_eighth_correction_head": "0b1a8fa97458180507c16ea2699741cf1b8c7610",
+  "protected_eighth_correction_ci_run": 31871007170,
+  "ninth_reviewed_on": "2026-08-15",
+  "ninth_reviewed_head": "0b1a8fa97458180507c16ea2699741cf1b8c7610",
+  "ninth_correction_commit": "b0314031297977192935a54f98921922b6e2ad26",
+  "ninth_correction_ci_attempt": {
+    "run": 31872949192,
+    "head": "3b2af5d33b2643927ba5568da34cebab52081646",
+    "status": "cancelled_after_failed_python_format",
+    "cloud_mutation_performed": false
+  },
+  "protected_ninth_correction_head": "4c82438eb47f8fdd1fe7ad87bcb5fdb5acdd4be4",
+  "protected_ninth_correction_ci_run": 31873024315,
+  "tenth_reviewed_on": "2026-08-15",
+  "tenth_reviewed_head": "4c82438eb47f8fdd1fe7ad87bcb5fdb5acdd4be4",
+  "tenth_correction_commit": "7a1f4299dc75c94d019e5ec2731192f8295dd8cc",
+  "protected_tenth_correction_head": "d644b2a1a9f5bf758ce744851d3c5f833ed853ce",
+  "protected_tenth_correction_ci_run": 31874238906,
+  "eleventh_reviewed_on": "2026-08-15",
+  "eleventh_reviewed_head": "d644b2a1a9f5bf758ce744851d3c5f833ed853ce",
+  "eleventh_correction_commit": "ef1833095e97b3d7a30711194eaca4124da27ae9",
+  "protected_eleventh_correction_head": "67ab7386eabc8277fde5c28837fc565eb30da337",
+  "protected_eleventh_correction_ci_run": 31875414186,
+  "twelfth_reviewed_on": "2026-08-15",
+  "twelfth_reviewed_head": "67ab7386eabc8277fde5c28837fc565eb30da337",
+  "twelfth_correction_commit": "06ec1871373eb320c286699cc0accac692c03071",
+  "protected_twelfth_correction_head": "3ea34e202a4b5a93ce86443102b932d4a9688095",
+  "protected_twelfth_correction_ci_run": 31876449299,
+  "thirteenth_reviewed_on": "2026-08-15",
+  "thirteenth_reviewed_head": "3ea34e202a4b5a93ce86443102b932d4a9688095",
+  "thirteenth_review_delta_base": "67ab7386eabc8277fde5c28837fc565eb30da337",
+  "protected_thirteenth_reconciliation_head": "0c65e429032b1db0af53f1f1b9241bf668e5de93",
+  "protected_thirteenth_reconciliation_ci_run": 31877158743,
+  "fourteenth_reviewed_on": "2026-08-15",
+  "fourteenth_reviewed_head": "0c65e429032b1db0af53f1f1b9241bf668e5de93",
+  "fourteenth_correction_commit": "b9735c9757d2dce5884b5b86ef0c3dfc108b6dc4",
+  "protected_fourteenth_correction_head": "d8a18ec64a402c5591d8ee5b2af4a06d67dfe5ee",
+  "protected_fourteenth_correction_ci_run": 31878215886,
+  "fifteenth_reviewed_on": "2026-08-15",
+  "fifteenth_reviewed_commit": "b9735c9757d2dce5884b5b86ef0c3dfc108b6dc4",
+  "fifteenth_protected_head": "d8a18ec64a402c5591d8ee5b2af4a06d67dfe5ee",
+  "protected_fifteenth_docs_head": "6ede9da830ff78ad10c7136505cb84b9dd0e539f",
+  "protected_fifteenth_docs_ci_run": 31879161660,
+  "sixteenth_reviewed_on": "2026-08-15",
+  "sixteenth_reviewed_head": "6ede9da830ff78ad10c7136505cb84b9dd0e539f",
+  "sixteenth_correction_commit": "e12ee5933554cdcb783e500514fb0dccb1bd05bb",
+  "protected_sixteenth_correction_head": "0da600ba4dd2492ec53c2ab441ae791061875931",
+  "protected_sixteenth_correction_ci_run": 31879898267,
+  "seventeenth_reviewed_on": "2026-08-15",
+  "seventeenth_reviewed_commit": "e12ee5933554cdcb783e500514fb0dccb1bd05bb",
+  "seventeenth_protected_head": "0da600ba4dd2492ec53c2ab441ae791061875931",
+  "findings": [
+    {
+      "id": "aws_database_egress",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "self-scoped PostgreSQL and Redshift egress asserted by the mocked Terraform test"
+    },
+    {
+      "id": "postgresql_direct_transaction_lookahead",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "bounded source exhaustion is asserted before connection acquisition"
+    },
+    {
+      "id": "postgresql_crossover_logical_bytes",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the 10-row threshold is derived from and accepted by the writer as 1490 logical bytes"
+    },
+    {
+      "id": "aws_projection_argument_growth",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_passed",
+      "verification": "100 manifest pipelines retain per-pipeline overlays while the projection map is passed through a temporary Terraform variable file"
+    },
+    {
+      "id": "postgresql_crossover_non_monotonic_recommendation",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_passed",
+      "verification": "the recommended DIRECT threshold stops at the first sampled size where DIRECT loses"
+    },
+    {
+      "id": "aws_qualification_task_outbound_path",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_passed",
+      "verification": "the disposable fixture exports public-IP assignment and asserts public subnets, the Internet Gateway route, TLS-only public egress, and self-scoped database traffic"
+    },
+    {
+      "id": "aws_qualification_authenticated_account_gate",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the AWS provider allows only the authorized account and a lifecycle precondition is covered by an expected-failure Terraform plan test"
+    },
+    {
+      "id": "aws_qualification_redshift_database_privileges",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the namespace creator provisions one DDL/COPY database role and each Serverless task maps it through RedshiftDbRoles with the required tag reads"
+    },
+    {
+      "id": "aws_projection_overlay_error_translation",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "a 32-KiB overlay rejection is translated to AwsTerraformBootstrapError before Terraform starts"
+    },
+    {
+      "id": "runtime_version_one_projected_platform_resolution",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "runtime execute resolves the repository's baked version-one dander.yaml through the launcher-projected AWS deployment and observes Redshift, PostgreSQL, Glue, and AWS Secrets Manager"
+    },
+    {
+      "id": "aws_qualification_redshift_compatible_source",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the immutable synthetic fixture exposes only declared INT64 and STRING fields, fetches three rows, and its portable model compiles for Redshift"
+    },
+    {
+      "id": "aws_qualification_glue_cleanup_owner",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the qualification Terraform root predeclares and owns the exact Glue database and table updated by runtime publication"
+    },
+    {
+      "id": "phase8_benchmark_sdist_contents",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the explicit sdist allowlist and distribution checker require both Phase 8 PostgreSQL harnesses"
+    },
+    {
+      "id": "aws_qualification_redshift_materialization",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the packaged portable qualification model selects Redshift-supported table materialization"
+    },
+    {
+      "id": "aws_qualification_candidate_identity",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the qualification root requires an exact release-candidate input and derives its tag and staging prefix from it"
+    },
+    {
+      "id": "redshift_deployment_database_role_exclusivity",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "provisioned Redshift rejects the Serverless-only database_role field before provider access"
+    },
+    {
+      "id": "aws_qualification_redshift_serverless_copy_trust",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the COPY role trust names both Redshift and Redshift Serverless service principals"
+    },
+    {
+      "id": "aws_qualification_deployment_role_authority",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "two action-bounded managed policies attach the disposable qualification boundary to the existing short-lived deployment role without modifying D7"
+    },
+    {
+      "id": "aws_qualification_rds_name_validation",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "mocked plans reject trailing and consecutive hyphens before provider access"
+    },
+    {
+      "id": "aws_qualification_vpc_parent_range",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "mocked plans reject parent prefixes outside AWS's usable /16 through /24 range"
+    },
+    {
+      "id": "aws_qualification_redshift_create_dependencies",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the request-tag-scoped create boundary permits dependent Redshift tagging and the exact Redshift service-linked role"
+    },
+    {
+      "id": "aws_qualification_glue_tag_lifecycle",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the exact Glue projection permits provider default-tag creation and tag refresh without widening its resource ARNs"
+    },
+    {
+      "id": "aws_qualification_fractional_usage_limit",
+      "priority": "P2",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "a mocked plan rejects fractional Redshift usage-limit amounts before provider access"
+    },
+    {
+      "id": "aws_qualification_redshift_data_api_credentials",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the deployment role permits Serverless temporary credentials for Terraform-owned Data API DDL"
+    },
+    {
+      "id": "aws_qualification_staging_bucket_version_cleanup",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "the deployment role can list versions and delete exact object versions or delete markers under the disposable staging object ARN"
+    },
+    {
+      "id": "aws_qualification_security_group_creation_dimensions",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "AWS policy simulation allows tagged security-group creation on both the new-group and account-local VPC dimensions"
+    },
+    {
+      "id": "aws_qualification_ec2_tag_takeover",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "creation-time tagging is resource-type scoped, requires ec2:CreateAction, and AWS policy simulation denies an unrelated EC2 instance"
+    },
+    {
+      "id": "aws_qualification_network_create_dependencies",
+      "priority": "P1",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
+      "verification": "route-table, subnet, and VPC-endpoint creates authorize only qualification-tagged VPC and route-table dependency dimensions"
+    }
+  ],
+  "evidence_effects": {
+    "rc23_crossover_threshold_objective": "invalidated",
+    "rc23_report": "retained_as_historical_unpromoted_evidence",
+    "aws_native_profile": "not_evaluated",
+    "replacement_candidate_gate": "open_after_qualification_baseline_merge"
+  },
+  "cloud_mutation_performed": false,
+  "public_release": false
+}

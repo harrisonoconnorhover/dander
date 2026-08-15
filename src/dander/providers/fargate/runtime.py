@@ -121,6 +121,10 @@ class FargateTemplateFactory:
                 identity=identity,
             )
             secret_bindings = self._secret_bindings(secret_env)
+            if self.profile.is_aws_native and request.platforms_config_json is None:
+                raise ExecutionProjectionError(
+                    "Fargate AWS-native projection requires a resolved platform overlay"
+                )
             template = ExecutionTemplate(
                 schema=EXECUTION_PROJECTION_SCHEMA,
                 contract=RUNTIME_CONTRACT,
@@ -225,6 +229,8 @@ class FargateTemplateFactory:
             "HOME": "/tmp",
             "TMPDIR": "/tmp",
         }
+        if request.platforms_config_json is not None:
+            environment["DANDER_PLATFORMS_CONFIG_JSON"] = request.platforms_config_json
         if self.profile.is_aws_native:
             return environment
         assert self.profile.gcp is not None

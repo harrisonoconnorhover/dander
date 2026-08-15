@@ -126,11 +126,17 @@ migration: keep schedules paused until the destination-fence and cutover workflo
 ## PostgreSQL warehouse adapter
 
 The PostgreSQL warehouse adapter is selectable but not yet a supported hosted profile. It accepts
-declared schemas, creates database-local schemas and relations, and streams records through
-PostgreSQL `COPY`. Replace and SCD2 consume one streamed endpoint so executor batch size cannot
-change their meaning; SCD1, incremental, and snapshot retain bounded Dander batches. Every mode
-publishes inside a transactionally verified destination fence. Temporary staging uses `ON COMMIT
-DROP`; nullable top-level columns may be added when additive evolution is selected.
+declared schemas, creates database-local schemas and relations, and defaults to streaming records
+through PostgreSQL `COPY`. An opt-in direct path may be configured with both `direct_max_rows` and
+`direct_max_logical_bytes`; it is selected only when the complete endpoint fits both bounds and
+otherwise preserves the prefix and falls back to COPY. Both settings default to zero. Private local
+RC23 recorded a 10-row/1,400-byte crossover for its exact TLS PostgreSQL 15.18 shape, but
+completion review invalidated that byte threshold because it omitted writer-counted field names.
+The corrected 1,490-byte calculation remains unqualified until the replacement candidate reruns it.
+Enabling direct selection makes every mode consume one bounded endpoint so executor batching cannot
+change the physical-path decision.
+Every mode publishes inside the same transactionally verified destination fence. Temporary staging
+uses `ON COMMIT DROP`; nullable top-level columns may be added when additive evolution is selected.
 
 The configured database must already exist. Runtime-created connections require TLS, and the DSN
 is supplied only through the configured environment variable. The adapter supports PostgreSQL

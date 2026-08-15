@@ -6,6 +6,30 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Keep bounded PostgreSQL direct-write lookahead outside the database transaction and derive its
+  crossover byte recommendation from the writer's exact logical-size calculation.
+- Permit the disposable AWS qualification task group to reach its self-scoped PostgreSQL and
+  Redshift endpoints while retaining HTTPS-only public egress.
+- Make the AWS qualification model Redshift-materializable, bind disposable resources to an exact
+  candidate input, and reject Serverless-only database roles on provisioned Redshift profiles.
+
+## 0.9.0rc23 — 2026-08-14 (beta)
+
+### Added
+
+- Add opt-in PostgreSQL direct inserts behind paired row and logical-byte bounds, with lossless
+  COPY fallback, shared destination fencing, and explicit selected-transport telemetry.
+- Include the protected-main Kubernetes and GCP hosted-Control deployment profiles without
+  changing their separate qualification status.
+
+### Known limitations
+
+- RC23 is a private local qualification candidate until protected review and the exact artifact's
+  crossover, regression, audit, live-provider, pairwise, and soak gates pass. Direct thresholds
+  remain disabled by default, prior RC22 reports do not transfer, and public RC20 is unchanged.
+
 ## 0.9.0rc22 — 2026-08-14 (beta)
 
 ### Fixed

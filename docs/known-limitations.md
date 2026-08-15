@@ -36,16 +36,20 @@ remain Phase 8 work.
   paths, transforms, graph execution, replay, stale fencing, concurrent claims, and cleanup.
   Redshift still has no views or provider-managed infrastructure. PostgreSQL state and warehouse
   execution are implemented and locally conformance-tested; all five ingestion modes use bounded
-  `COPY` and destination fencing. Replace-mode graph targets use the provider-neutral relational
-  AST and fenced table path; graph safe casts and cross-database relations fail preflight. The
-  ordinary hosted source runner still selects SCD1. A packaged Helm chart now renders the
+  direct-or-COPY staging and destination fencing. Direct thresholds default to disabled. Private
+  local RC23 observed a 10-row crossover for one TLS PostgreSQL 15.18 shape, but review invalidated
+  its 1,400-byte threshold. The corrected 1,490-byte calculation is not yet replacement-candidate,
+  hosted, or a global default. Replace-mode graph targets use the provider-neutral
+  relational AST and fenced table path; graph safe casts and cross-database relations fail
+  preflight. The ordinary hosted source runner still selects SCD1. A packaged Helm chart renders the
   Kubernetes launcher against an existing cluster, but no Kubernetes live profile is qualified
   yet and Dander does not create clusters. PostgreSQL-state/BigQuery-warehouse
   execution remains fail-closed until every BigQuery write mode uses destination-side fencing. The
   package publishes this pair matrix and each warehouse's exact implemented modes, transports,
   schema limits, transforms, graphs, and fencing through `dander runtime compatibility`, while the
   packaged capability manifest remains the support boundary. Local PostgreSQL benchmark results
-  are regression evidence, not a paid or controlled-memory scale qualification.
+  include RC22 controlled-memory/local scale and RC23 local rows/transport evidence, but no single
+  protected final candidate has rerun the complete PostgreSQL matrix and hosted cost remains open.
 - Azure Container Apps Jobs and Azure Key Vault have a typed projection plus locally validated,
   plan-first Terraform, digest-preserving ACR promotion tooling, provider-native lifecycle
   operations, bounded Log Analytics reads, deployment verification, and a locally validated
@@ -163,9 +167,12 @@ remain Phase 8 work.
   The Fargate factory and saved-plan Terraform path now implement only the accepted GCP data-plane
   composition and the named AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets composition. The
   AWS-native path binds full secret ARNs and scopes task access to the declared Redshift target,
-  staging prefix, Glue namespace, and secrets, but it has only local and provider-mocked evidence.
-  Protected review, a source-free candidate, and live AWS qualification remain open; this is not a
-  support claim or a provider-managed Redshift/PostgreSQL deployment.
+  staging prefix, Glue namespace, and secrets. Exact RC22 live preflight found that its image did
+  not package the selected AWS deployment, so no Fargate plan or execution ran and the disposable
+  data plane was removed exactly. A local correction projects the validated non-secret platform
+  overlay at launch, but protected review, a replacement source-free candidate, and live AWS
+  qualification remain open. This is not a support claim or a provider-managed
+  Redshift/PostgreSQL deployment.
 
 ## Support boundary
 

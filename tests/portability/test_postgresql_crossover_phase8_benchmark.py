@@ -1,0 +1,197 @@
+"""Contracts for the exact-candidate PostgreSQL crossover harness."""
+
+from __future__ import annotations
+
+import json
+from datetime import date
+from typing import TYPE_CHECKING, cast
+
+import pytest
+from scripts.benchmarks.postgresql_crossover_phase8 import (
+    _CROSSOVER_SCHEMA,
+    CandidateIdentity,
+    PostgreSQLCrossoverConfig,
+    _CrossoverResult,
+    _median_durations,
+    _recommended_direct_max_rows,
+    _records,
+    _report,
+    _Sample,
+    _workload_logical_bytes,
+    load_approval,
+)
+
+from dander.providers.postgresql.writer import _select_direct_batch
+from dander.qualification import BenchmarkClass
+from dander.writer import WriteTransport
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def test_crossover_config_is_deterministic_and_bounded() -> None:
+    config = PostgreSQLCrossoverConfig()
+
+    assert len(config.configuration_sha256()) == 64
+    assert config.row_width_bytes == 149
+    assert _workload_logical_bytes(10, config.payload_bytes) == 1_490
+    direct, remaining = _select_direct_batch(
+        _records(10, config.payload_bytes),
+        _CROSSOVER_SCHEMA,
+        max_rows=10,
+        max_logical_bytes=_workload_logical_bytes(10, config.payload_bytes),
+    )
+    assert direct is not None
+    assert direct.logical_bytes == 1_490
+    assert tuple(remaining) == ()
+    assert config.workload_payload() == {
+        "schema": "io.dander.phase8.postgresql-crossover/v1",
+        "benchmark_class": "crossover",
+        "row_counts": [1, 10, 100, 1_000, 5_000],
+        "payload_bytes": 128,
+        "repetitions": 5,
+        "direct_max_rows": 5_000,
+        "direct_max_logical_bytes": 1_024 * 1_024,
+        "write_mode": "scd1",
+        "transports": ["copy", "direct"],
+    }
+    with pytest.raises(ValueError, match="ascending"):
+        PostgreSQLCrossoverConfig(row_counts=(10, 1))
+    with pytest.raises(ValueError, match="odd integer"):
+        PostgreSQLCrossoverConfig(repetitions=4)
+    with pytest.raises(ValueError, match="does not fit"):
+        PostgreSQLCrossoverConfig(row_counts=(10_000,), payload_bytes=128)
+
+
+def test_crossover_approval_rejects_workload_and_objective_drift(tmp_path: Path) -> None:
+    config = PostgreSQLCrossoverConfig()
+    path = tmp_path / "objectives.json"
+    payload = _manifest(config)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    approval = load_approval(path, config=config)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.CROSSOVER
+    workload = cast("dict[str, object]", payload["workload"])
+    workload["payload_bytes"] = 1
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="workload"):
+        load_approval(path, config=config)
+
+    payload = _manifest(config)
+    objectives = cast("dict[str, object]", payload["approved_objectives"])
+    names = cast("list[str]", objectives["names"])
+    names.pop()
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="objective set"):
+        load_approval(path, config=config)
+
+
+def test_crossover_medians_are_transport_and_size_specific() -> None:
+    samples = tuple(
+        _Sample(transport, rows, repetition, duration, "a" * 64)
+        for transport, rows, durations in (
+            (WriteTransport.COPY, 1, (5, 3, 4)),
+            (WriteTransport.DIRECT, 1, (2, 1, 3)),
+            (WriteTransport.COPY, 10, (6, 7, 8)),
+            (WriteTransport.DIRECT, 10, (9, 8, 10)),
+        )
+        for repetition, duration in enumerate(durations)
+    )
+
+    medians = _median_durations(samples, (1, 10))
+
+    assert medians == {
+        WriteTransport.COPY: {1: 4, 10: 7},
+        WriteTransport.DIRECT: {1: 2, 10: 9},
+    }
+
+
+@pytest.mark.parametrize(
+    ("direct", "expected"),
+    [
+        ((6, 4, 6, 4), 0),
+        ((4, 5, 6, 4), 10),
+        ((4, 5, 5, 5), 1_000),
+    ],
+)
+def test_crossover_recommendation_requires_a_contiguous_winning_prefix(
+    direct: tuple[int, ...],
+    expected: int,
+) -> None:
+    row_counts = (1, 10, 100, 1_000)
+    medians = {
+        WriteTransport.COPY: dict.fromkeys(row_counts, 5),
+        WriteTransport.DIRECT: dict(zip(row_counts, direct, strict=True)),
+    }
+
+    assert _recommended_direct_max_rows(medians, row_counts) == expected
+
+
+def test_crossover_report_sorts_provider_metrics(tmp_path: Path) -> None:
+    config = PostgreSQLCrossoverConfig()
+    path = tmp_path / "objectives.json"
+    path.write_text(json.dumps(_manifest(config)), encoding="utf-8")
+    approval = load_approval(path, config=config)
+    identity = CandidateIdentity(
+        release_version="0.9.0rc23",
+        git_commit="a" * 40,
+        image_digest=f"sha256:{'b' * 64}",
+        approval_reference="codex-thread-phase8-crossover-2026-08-14",
+        benchmark_date=date(2026, 8, 14),
+        launcher="local",
+        regions=("local",),
+        secret_provider="environment",
+        provider_job_ids=("container:test",),
+        service_shapes=("dander_2cpu_512mib",),
+    )
+    medians = {
+        transport: {rows: 1 for rows in config.row_counts}
+        for transport in (WriteTransport.COPY, WriteTransport.DIRECT)
+    }
+
+    report = _report(
+        config,
+        identity,
+        approval,
+        _CrossoverResult(
+            duration_ms=1,
+            peak_rss_bytes=1,
+            samples=(),
+            medians=medians,
+            recommended_direct_max_rows=1,
+            recommended_direct_max_logical_bytes=config.row_width_bytes,
+            temporary_staging_relations=0,
+            cleanup_verified=True,
+        ),
+    )
+
+    names = [metric.name for metric in report.performance.provider_metrics]
+    assert names == sorted(names)
+
+
+def _manifest(config: PostgreSQLCrossoverConfig) -> dict[str, object]:
+    approval = "codex-thread-phase8-crossover-2026-08-14"
+    return {
+        "schema": "io.dander.qualification.objective-approval/v1",
+        "cost_ceiling": {"amount_usd": "0.00", "approval_reference": approval},
+        "workload": config.workload_payload(),
+        "approved_objectives": {
+            "names": [
+                "canonical_equality",
+                "cleanup",
+                "copy_transport_observed",
+                "cost_ceiling",
+                "crossover_measured",
+                "direct_transport_observed",
+                "threshold_recorded",
+            ],
+            "benchmark_class": "crossover",
+            "profile_id": "postgresql_local_scale",
+            "release_version": "0.9.0rc23",
+            "git_commit": "a" * 40,
+            "image_digest": f"sha256:{'b' * 64}",
+            "configuration_sha256": config.configuration_sha256(),
+            "approval_reference": approval,
+        },
+    }

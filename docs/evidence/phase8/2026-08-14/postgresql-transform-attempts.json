@@ -1,0 +1,27 @@
+{
+  "schema": "io.dander.phase8.postgresql-transform-attempts/v1",
+  "candidate_version": "0.9.0rc22",
+  "candidate_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+  "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+  "attempts": [
+    {
+      "attempt": 1,
+      "status": "failed",
+      "stage": "fixture_seed",
+      "error_type": "ProgrammingError",
+      "transform_candidate_code_exercised": false,
+      "cleanup_verified": true,
+      "incremental_cost_usd": "0.00"
+    },
+    {
+      "attempt": 2,
+      "status": "passed",
+      "stage": "complete",
+      "transform_candidate_code_exercised": true,
+      "cleanup_verified": true,
+      "incremental_cost_usd": "0.00"
+    }
+  ],
+  "final_status": "passed",
+  "total_incremental_cost_usd": "0.00"
+}

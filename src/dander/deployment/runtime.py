@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -38,12 +39,22 @@ class ResolvedTemplateRequest:
     batch_rows: int
     alert_target: str | None
     deployment_id: str | None = None
+    platforms_config_json: str | None = None
 
     def __post_init__(self) -> None:
         immutable = _freeze_resolved_value(self.pipelines)
         if not isinstance(immutable, Mapping):  # pragma: no cover - structural invariant
             raise TypeError("resolved template pipelines must be a mapping")
         object.__setattr__(self, "pipelines", immutable)
+        if self.platforms_config_json is not None:
+            if len(self.platforms_config_json.encode("utf-8")) > 32_768:
+                raise ValueError("resolved platform configuration exceeds 32 KiB")
+            try:
+                document = json.loads(self.platforms_config_json)
+            except json.JSONDecodeError as error:
+                raise ValueError("resolved platform configuration must be JSON") from error
+            if not isinstance(document, dict):
+                raise ValueError("resolved platform configuration must be a JSON object")
 
 
 @runtime_checkable

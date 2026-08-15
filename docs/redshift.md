@@ -37,8 +37,10 @@ platforms:
 ```
 
 Serverless uses `deployment: serverless` and `workgroup_name` instead of `cluster_identifier` and
-`db_user`. Dander obtains temporary IAM credentials from the ordinary AWS SDK chain. The configured
-COPY role must read the dedicated same-region staging prefix.
+`db_user`. An AWS-native Fargate deployment also declares `database_role`; infrastructure maps that
+precreated Redshift role from the task role's `RedshiftDbRoles` tag. Dander obtains temporary IAM
+credentials from the ordinary AWS SDK chain. The configured COPY role must read the dedicated
+same-region staging prefix.
 
 COPY remains the default. Set both direct limits to positive values to opt small complete endpoint
 streams into bounded parameterized inserts; for example, `direct_max_rows: 1000` and

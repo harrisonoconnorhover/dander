@@ -1,0 +1,219 @@
+{
+  "schema": "io.dander.phase8.kubernetes-lifecycle-evidence/v1",
+  "status": "passed",
+  "qualification_status": "lifecycle_passed_scale_and_soak_open",
+  "profile_status": "experimental",
+  "release_version": "0.9.0rc22",
+  "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+  "evidence_base_commit": "95540e885bde463ab175cd7527a9208e31365303",
+  "objective_manifest_commit": "9ca09e0cd530848d1465a54757ee55589a712d44",
+  "image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+  "platform_manifest": "sha256:ba30fadd6e72240bb426d93144395e69647a2ccb4cde2229a184cdcf1ecf9395",
+  "configuration": {
+    "build_context_revision": "06bcedfe6fb0e4aa2f99e9e2f19ad010d6d4be9cf83e4ccfd14516272f75e615",
+    "logical_config_sha256": "4570c18691f927f9adea2fb81661dbf27a89dc118545a612403838c1f7289fc6",
+    "platform_config_sha256": "2c7d0941e29954fc8afd74c9baf9e1470faa9fccc730bb230d7bc58f0860b1ae",
+    "helm_values_sha256": "80b3c34592e6f3418bd746ccfec294a8b2244439f62159c6dfc3230798841edd",
+    "helm_manifests_sha256": "0eb9ebe186e965f36c0757e743028a70c554fd2b679af8250bc6318bfb43bbd3"
+  },
+  "environment": {
+    "cluster": "kind-dander-phase8",
+    "namespace": "dander-phase8",
+    "kubernetes_client": "1.32.2",
+    "kubernetes_server": "1.32.2",
+    "kind": "0.32.0",
+    "helm": "4.2.3",
+    "docker_client": "28.3.0",
+    "docker_server": "28.3.0",
+    "postgresql": "15.18",
+    "postgresql_image": "sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f",
+    "postgresql_tls": true,
+    "provider": "local_docker_desktop"
+  },
+  "setup": {
+    "source_free": true,
+    "runtime_root_read_only": true,
+    "runtime_user_non_root": true,
+    "runtime_capabilities_dropped": true,
+    "runtime_seccomp_profile": "RuntimeDefault",
+    "operator_owned_postgresql": true,
+    "operator_owned_runtime_secret": true,
+    "operator_owned_registry_pull_secret": true,
+    "helm_owned_external_secrets": false,
+    "clean_cluster_attempt_used_direct_immutable_registry_pull": true,
+    "discarded_pre_runtime_attempt": "kind_multiarch_import_alias_not_launchable"
+  },
+  "correctness_objectives": [
+    {
+      "name": "chart_verification",
+      "status": "passed",
+      "evidence_reference": "helm-plan:0eb9ebe186e965f36c0757e743028a70c554fd2b679af8250bc6318bfb43bbd3"
+    },
+    {
+      "name": "immutable_upgrade_and_rollback",
+      "status": "passed",
+      "evidence_reference": "helm-revisions:8-9"
+    },
+    {
+      "name": "manual_execution",
+      "status": "passed",
+      "evidence_reference": "run:6c7cbfaa3a7e4ac18d4750684d474848"
+    },
+    {
+      "name": "owned_cleanup",
+      "status": "passed",
+      "evidence_reference": "cluster:kind-dander-phase8:deleted"
+    },
+    {
+      "name": "replay_idempotency",
+      "status": "passed",
+      "evidence_reference": "run:90eedfb2c6754264877e7e81ed1df39a"
+    },
+    {
+      "name": "scheduled_execution",
+      "status": "passed",
+      "evidence_reference": "job:dander-phase8-greenhouse-jobs-29778872"
+    },
+    {
+      "name": "versionless_secret_rotation",
+      "status": "passed",
+      "evidence_reference": "run:dd700727ed23400da6e5104c55e9b4c9"
+    }
+  ],
+  "failure_objectives": [
+    {
+      "name": "alert_routing",
+      "status": "passed",
+      "evidence_reference": "event:phase8-qualified-alert:DeadlineExceeded"
+    },
+    {
+      "name": "interruption_and_deadline",
+      "status": "passed",
+      "evidence_reference": "run:1b344d04847f4ddba49813caa68ed482"
+    },
+    {
+      "name": "overlap_exclusion",
+      "status": "passed",
+      "evidence_reference": "runs:1fd2f91ad3714334ba6b9e1b779ef3e9,06cde6ba35c8452fae8c0e0e7726778d"
+    }
+  ],
+  "runs": {
+    "manual": {
+      "job": "phase8-qualified-manual",
+      "run_id": "6c7cbfaa3a7e4ac18d4750684d474848",
+      "status": "succeeded",
+      "duration_ms": 557,
+      "extracted_rows": 16,
+      "affected_rows": 16,
+      "assertions": 3
+    },
+    "replay": {
+      "job": "phase8-qualified-replay",
+      "run_id": "90eedfb2c6754264877e7e81ed1df39a",
+      "status": "succeeded",
+      "duration_ms": 488,
+      "raw_rows": 16,
+      "raw_distinct_keys": 16,
+      "model_rows": 16,
+      "model_distinct_keys": 16
+    },
+    "scheduled": {
+      "job": "dander-phase8-greenhouse-jobs-29778872",
+      "run_id": "ef33c4bbd0cf4c0f8c2495db41dd34a9",
+      "status": "succeeded",
+      "duration_ms": 540,
+      "schedule": "* * * * *",
+      "restored_schedule": "0 9 * * *",
+      "restored_paused": true
+    },
+    "secret_rotation": {
+      "job": "phase8-qualified-rotation",
+      "run_id": "dd700727ed23400da6e5104c55e9b4c9",
+      "status": "succeeded",
+      "duration_ms": 535,
+      "image_rebuilt": false,
+      "secret_value_recorded": false
+    },
+    "rollback": {
+      "job": "phase8-qualified-rollback",
+      "run_id": "6ad81b3aa60a43e1ba16eefea92bf7a3",
+      "status": "succeeded",
+      "duration_ms": 643,
+      "image_digest": "sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1"
+    },
+    "restored": {
+      "job": "phase8-qualified-restored",
+      "run_id": "76f2771d9cd0449a9d74b90b837feec0",
+      "status": "succeeded",
+      "duration_ms": 2172,
+      "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3"
+    },
+    "overlap": {
+      "owner_run_id": "06cde6ba35c8452fae8c0e0e7726778d",
+      "owner_status": "succeeded",
+      "loser_run_id": "1fd2f91ad3714334ba6b9e1b779ef3e9",
+      "loser_status": "skipped",
+      "loser_affected_rows": 0
+    },
+    "interruption": {
+      "job": "phase8-qualified-interrupt",
+      "run_id": "1b344d04847f4ddba49813caa68ed482",
+      "status": "failed",
+      "stage": "cancelled",
+      "failure_code": "interrupted_run",
+      "retryable": true,
+      "exit_code": 130,
+      "duration_ms": 1345
+    },
+    "deadline_alert": {
+      "job": "phase8-qualified-alert",
+      "active_deadline_seconds": 10,
+      "job_reason": "DeadlineExceeded",
+      "event_type": "Warning",
+      "event_observed_at": "2026-08-14T18:34:44Z",
+      "live_watch_received": true
+    }
+  },
+  "post_run_state": {
+    "qualified_run_status_counts": {
+      "succeeded": 7,
+      "skipped": 1,
+      "failed": 1
+    },
+    "active_leases": 0,
+    "fencing_token": 20,
+    "staging_relations": 0,
+    "schedule_paused": true,
+    "active_jobs": 0
+  },
+  "cleanup": {
+    "helm_release_uninstalled": true,
+    "helm_owned_service_account_removed": true,
+    "helm_owned_config_map_removed": true,
+    "helm_owned_cron_job_removed": true,
+    "operator_secret_survived_helm_uninstall": true,
+    "operator_postgresql_survived_helm_uninstall": true,
+    "namespace_deleted": true,
+    "cluster_deleted": true,
+    "remaining_kind_clusters": 0
+  },
+  "cost": {
+    "aggregate_authorization_usd": "10.00",
+    "local_cluster_allocation_usd": "0.00",
+    "provider_measured_cost_usd": null,
+    "cost_status": "provider_invoice_pending",
+    "registry_transfer_allocation": "rc21_and_rc22_source_free_publication"
+  },
+  "sanitization": {
+    "secret_values_recorded": false,
+    "source_rows_recorded": false,
+    "provider_responses_recorded": false,
+    "private_registry_token_recorded": false
+  },
+  "not_evaluated": [
+    "hosted_kubernetes_provider",
+    "normalized_scale_and_cost",
+    "scheduled_candidate_soak"
+  ],
+  "druff_boundary": "No hosted-Control or Kubernetes lifecycle-adapter code was changed."
+}

@@ -38,6 +38,20 @@ override_resource {
   }
 }
 
+override_resource {
+  target = aws_iam_policy.deployment_phase8_qualification_infrastructure
+  values = {
+    arn = "arn:aws:iam::184463061564:policy/dander-phase8-qualification-infrastructure"
+  }
+}
+
+override_resource {
+  target = aws_iam_policy.deployment_phase8_qualification_data
+  values = {
+    arn = "arn:aws:iam::184463061564:policy/dander-phase8-qualification-data"
+  }
+}
+
 run "hardened_stage_zero" {
   command = apply
 
@@ -78,5 +92,15 @@ run "hardened_stage_zero" {
       aws_ecr_repository.runtime.image_scanning_configuration[0].scan_on_push
     )
     error_message = "The runtime repository must reject mutable tags and scan pushes."
+  }
+
+  assert {
+    condition = (
+      aws_iam_role_policy_attachment.deployment_phase8_qualification_infrastructure.role == aws_iam_role.deployment.name &&
+      aws_iam_role_policy_attachment.deployment_phase8_qualification_data.role == aws_iam_role.deployment.name &&
+      aws_iam_policy.deployment_phase8_qualification_infrastructure.name == "dander-phase8-qualification-infrastructure" &&
+      aws_iam_policy.deployment_phase8_qualification_data.name == "dander-phase8-qualification-data"
+    )
+    error_message = "The short-lived deployment role must carry the isolated Phase 8 qualification policies."
   }
 }

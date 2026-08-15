@@ -73,6 +73,7 @@ def test_init_passes_optional_runtime_inputs(
         "greenhouse_jobs",
         "greenhouse_jobs_graph",
         "hubspot_companies",
+        "phase8_aws_qualification",
         "salesforce_accounts",
         "servicenow_incidents",
     }
@@ -175,6 +176,7 @@ def test_platform_plan_resolves_complete_manifest_without_applying(
         "greenhouse_jobs",
         "greenhouse_jobs_graph",
         "hubspot_companies",
+        "phase8_aws_qualification",
         "salesforce_accounts",
         "servicenow_incidents",
     }

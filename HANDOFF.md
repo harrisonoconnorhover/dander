@@ -2,41 +2,39 @@
 
 ## Finished
 
-- Merged the AWS provider-default stability correction after full protected CI and independent review.
-- Reconfirmed literal live no-drift on its exact protected-main merge.
-- Corrected the verifier to read CloudFront `Enabled` from the provider's real nested response.
-- Normalized AWS's explicit empty capability-add list while still requiring all capabilities dropped.
-- Passed the complete read-only active AWS deployment verification against the live profile.
+- Exact correction/docs head `0da600b` passed all five protected jobs in run `31879898267`.
+- Focused seventeenth review accepted `e12ee59`'s qualification-tagged network dependency grants.
+- The qualification baseline is frozen for separate approval to merge PR #291.
+- Current protected `main` at `16f0954` is integrated; its AWS D7 fixes remain intact.
+- No new qualification objective or live cloud mutation was added to this tranche.
 
 ## Try It
 
-Run `uv run pytest -q tests/deployment/test_aws_control_plane.py` for the bounded verifier contract.
-The live verifier additionally requires the authorized local AWS profile and private input file.
+Run `uv run pytest -q tests/bootstrap/test_aws_phase8_qualification_policy.py tests/bootstrap/test_aws_admin.py && terraform -chdir=infra/aws/bootstrap-admin test`.
 
 ## Checks
 
-- Focused verifier tests passed: 6 tests.
-- Focused Ruff format/lint and mypy passed.
-- Live exact-main Terraform plan passed with `No changes`.
-- Live active AWS deployment verifier passed.
-- `git diff --check` passed.
+- Protected secret, Python, Terraform, distribution, and container jobs pass on `0da600b`.
+- Seventeen focused pytest cases, Ruff, mypy, Terraform format/validation/mocked apply, and diff checks pass.
+- AWS Access Analyzer reports no finding; the compact infrastructure policy is 5,334 characters.
+- AWS simulation allows every new/dependent resource dimension and denies an unrelated VPC.
 
 ## Decisions
 
-- Match the documented AWS CLI response shape rather than preserving a test-only fixture shape.
-- Accept only an empty capability-add list and `drop: [ALL]`; no security boundary is weakened.
-- Keep this correction limited to verifier behavior and its focused fixture.
+- Qualification authority remains isolated from D7 in two customer-managed policies.
+- The replacement-candidate gate opens only after the qualification baseline merges.
+- Post-merge Phase 8 work uses fresh protected-main branches and materially scoped evidence reruns.
 
 ## Remaining
 
-- Merge the verifier correction and verify protected exact-main CI.
-- Complete browser OIDC and canonical graph persistence.
-- Prove restart, S3 conflict/replay, and immutable digest rollback/restore.
-- Destroy disposable AWS and issuer resources and verify retained AWS/GCP no-drift.
-- Commit sanitized evidence and close the AWS D7 gate only if every check passes.
+- Merge PR #291 only with separate explicit approval.
+- Cut one private source-free multi-platform replacement candidate from fresh protected `main`.
+- Bind each exact provider objective before using the retained authorized cloud allocations.
+- Complete final-candidate scale, cost, canonical, pairwise, and hosted Kubernetes reruns.
+- Finish profile status/docs freeze and the retained soak through 2026-09-01.
 
 ## Review First
 
-- `src/dander/deployment/aws_control_plane.py`
-- `tests/deployment/test_aws_control_plane.py`
-- `HANDOFF.md`
+- `infra/aws/bootstrap-admin/phase8-qualification.tf`
+- `infra/aws/bootstrap-admin/main.tf`
+- `docs/evidence/phase8/2026-08-14/phase8-completion-review.json`

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import tempfile
 import time
 from pathlib import Path
@@ -53,6 +54,11 @@ runtime_app = typer.Typer(
 )
 _CONSOLE = Console()
 _LOGGER = logging.getLogger(__name__)
+_PROJECTED_PLATFORMS_ENV = "DANDER_PLATFORMS_CONFIG_JSON"
+
+
+class RuntimePlatformConfigError(RuntimeError):
+    """Raised when a launcher-projected platform overlay is invalid."""
 
 
 @runtime_app.command("identity-refresh-probe", hidden=True)
@@ -195,29 +201,33 @@ def execute_runtime(
             platform=platform,
         ).to_json()
     )
-    options = RunOptions(
-        pipeline_or_source=pipeline,
-        project=project,
-        dataset=dataset,
-        connectors_dir=connectors_dir,
-        project_config=project_config,
-        platforms_config=platforms_config,
-        deployment=platform,
-        dry_run=False,
-        sandbox=False,
-        guarded_free_tier=guarded_free_tier,
-        batch_rows=batch_rows,
-        budget_name=budget_name,
-        state_path=Path(".dander/state.db"),
-        build_models=False,
-        models_dir=models_dir,
-        selected_models=None,
-        catalog_output=catalog_output,
-        publish_dataplex=False,
-        dataplex_location="us",
-    )
     diagnostic_checkpoint = failure_diagnostic_checkpoint()
+    projected_directory: tempfile.TemporaryDirectory[str] | None = None
     try:
+        effective_platforms_config, projected_directory = _materialize_platforms_config(
+            platforms_config
+        )
+        options = RunOptions(
+            pipeline_or_source=pipeline,
+            project=project,
+            dataset=dataset,
+            connectors_dir=connectors_dir,
+            project_config=project_config,
+            platforms_config=effective_platforms_config,
+            deployment=platform,
+            dry_run=False,
+            sandbox=False,
+            guarded_free_tier=guarded_free_tier,
+            batch_rows=batch_rows,
+            budget_name=budget_name,
+            state_path=Path(".dander/state.db"),
+            build_models=False,
+            models_dir=models_dir,
+            selected_models=None,
+            catalog_output=catalog_output,
+            publish_dataplex=False,
+            dataplex_location="us",
+        )
         with (
             graceful_signal_handlers(),
             launcher_identity(context),
@@ -252,7 +262,7 @@ def execute_runtime(
             ).to_json()
         )
         raise typer.Exit(code=RuntimeExitCode.CANCELLED) from None
-    except (ClickException, RuntimeSecretBindingError) as error:
+    except (ClickException, RuntimePlatformConfigError, RuntimeSecretBindingError) as error:
         failure = classify_failure(error, stage=RunStage.INGEST, run_id=context.run_id)
         if failure.code != "unexpected_error":
             retryable = is_retryable_failure(failure.code)
@@ -325,6 +335,9 @@ def execute_runtime(
         )
         code = RuntimeExitCode.RETRYABLE_FAILURE if retryable else RuntimeExitCode.PERMANENT_FAILURE
         raise typer.Exit(code=code) from None
+    finally:
+        if projected_directory is not None:
+            projected_directory.cleanup()
 
     assert result is not None
     typer.echo(
@@ -335,6 +348,43 @@ def execute_runtime(
             duration_ms=_elapsed_ms(started_ns),
         ).to_json()
     )
+
+
+def _materialize_platforms_config(
+    explicit: Path | None,
+) -> tuple[Path | None, tempfile.TemporaryDirectory[str] | None]:
+    """Materialize one validated non-secret launcher overlay in writable scratch space."""
+    if explicit is not None:
+        return explicit, None
+    raw = os.environ.get(_PROJECTED_PLATFORMS_ENV)
+    if raw is None:
+        return None, None
+    if len(raw.encode("utf-8")) > 32_768:
+        raise RuntimePlatformConfigError("projected platform configuration exceeds 32 KiB")
+    try:
+        document = json.loads(raw)
+        from dander.project.portable_config import DanderPlatforms
+
+        DanderPlatforms.model_validate(document)
+    except (json.JSONDecodeError, TypeError, ValueError) as error:
+        raise RuntimePlatformConfigError("projected platform configuration is invalid") from error
+    directory = tempfile.TemporaryDirectory(
+        prefix="dander-platforms-",
+        dir=os.environ.get("TMPDIR"),
+    )
+    path = Path(directory.name) / "dander.platforms.json"
+    try:
+        path.write_text(
+            json.dumps(document, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        path.chmod(0o600)
+    except OSError as error:
+        directory.cleanup()
+        raise RuntimePlatformConfigError(
+            "projected platform configuration could not be materialized"
+        ) from error
+    return path, directory
 
 
 def _log_failure_diagnostic(

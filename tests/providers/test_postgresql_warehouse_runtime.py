@@ -16,14 +16,19 @@ from psycopg import Connection, sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from dander.concurrency import FencingToken, TargetFenceLostError
+from dander.concurrency import FencingToken, TargetFence, TargetFenceLostError
 from dander.ingestion.source import Endpoint, RawField, Source, SourceConfig
 from dander.pipeline.graph import PipelineGraph
 from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderKind, default_provider_registry
 from dander.providers.postgresql.config import PostgreSQLWarehouseConfig
 from dander.providers.postgresql.transform import PostgreSQLGraphRunner
-from dander.providers.postgresql.writer import PostgreSQLWriteError
+from dander.providers.postgresql.writer import (
+    PostgreSQLCopyWriter,
+    PostgreSQLTimeouts,
+    PostgreSQLWriteError,
+    _select_direct_batch,
+)
 from dander.runtime import PipelineRunner
 from dander.state import WatermarkStore
 from dander.telemetry import TelemetryOperation
@@ -124,7 +129,127 @@ def test_postgresql_warehouse_registration_is_lazy_and_explicit() -> None:
         "statement_timeout_ms": 300_000,
         "lock_timeout_ms": 30_000,
         "idle_transaction_timeout_ms": 60_000,
+        "direct_max_rows": 0,
+        "direct_max_logical_bytes": 0,
     }
+
+
+def test_postgresql_direct_limits_are_explicit_and_paired() -> None:
+    with pytest.raises(ValueError, match="must both be zero or positive"):
+        PostgreSQLWarehouseConfig(
+            provider="postgresql",
+            database="warehouse",
+            direct_max_rows=10,
+        )
+    with pytest.raises(ValueError, match="must both be zero or positive"):
+        PostgreSQLWarehouseConfig(
+            provider="postgresql",
+            database="warehouse",
+            direct_max_logical_bytes=1_024,
+        )
+
+    config = PostgreSQLWarehouseConfig(
+        provider="postgresql",
+        database="warehouse",
+        direct_max_rows=10,
+        direct_max_logical_bytes=1_024,
+    )
+
+    assert config.direct_max_rows == 10
+    assert config.direct_max_logical_bytes == 1_024
+
+
+def test_postgresql_direct_selection_is_bounded_and_preserves_copy_fallback() -> None:
+    schema = WriteTarget(
+        project="warehouse",
+        dataset="raw",
+        table="records",
+        schema=(
+            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+            WriteField(name="label", data_type="STRING"),
+        ),
+    ).canonical_schema
+    records = [
+        {"id": "one", "label": "first"},
+        {"id": "two", "label": "second"},
+    ]
+
+    direct, remaining = _select_direct_batch(
+        iter(records),
+        schema,
+        max_rows=2,
+        max_logical_bytes=1_024,
+    )
+    assert direct is not None
+    assert direct.records == tuple(records)
+    assert direct.logical_bytes > 0
+    assert tuple(remaining) == ()
+
+    direct, remaining = _select_direct_batch(
+        iter(records),
+        schema,
+        max_rows=1,
+        max_logical_bytes=1_024,
+    )
+    assert direct is None
+    assert list(remaining) == records
+
+    direct, remaining = _select_direct_batch(
+        iter(records),
+        schema,
+        max_rows=2,
+        max_logical_bytes=1,
+    )
+    assert direct is None
+    assert list(remaining) == records
+
+
+def test_postgresql_direct_selection_finishes_before_opening_a_transaction() -> None:
+    exhausted = False
+
+    def records() -> Iterator[Mapping[str, object]]:
+        nonlocal exhausted
+        yield {"id": "one", "label": "first"}
+        exhausted = True
+
+    class _PoolProbe:
+        def connection(self) -> object:
+            assert exhausted
+            raise RuntimeError("connection opened after bounded selection")
+
+    writer = PostgreSQLCopyWriter(
+        database="warehouse",
+        pool=cast("PostgreSQLPool", _PoolProbe()),
+        target_fence=cast("Any", object()),
+        timeouts=PostgreSQLTimeouts(statement_ms=1, lock_ms=1, idle_transaction_ms=1),
+        mode=WriteMode.SCD1,
+        direct_max_rows=10,
+        direct_max_logical_bytes=1_024,
+    )
+    target = WriteTarget(
+        project="warehouse",
+        dataset="raw",
+        table="records",
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+            WriteField(name="label", data_type="STRING"),
+        ),
+        publication_fence=TargetFence(
+            fence_table="raw.dander_target_commits",
+            target_id="warehouse.raw.records",
+            authority_id="postgresql:test-state",
+            authority_epoch=1,
+            pipeline_id="postgresql_direct",
+            run_id="run-direct",
+            token=1,
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="connection opened after bounded selection"):
+        writer.write(records(), target)
+
+    assert exhausted
 
 
 def test_postgresql_config_uses_database_and_schema_coordinates_directly() -> None:
@@ -227,7 +352,9 @@ def test_postgresql_runtime_exposes_codec_schema_capabilities_and_telemetry(
     assert schema.fields[1].data_type.kind is LogicalTypeKind.JSON
     assert schema.fields[2].data_type.kind is LogicalTypeKind.ARRAY
     assert runtime.capabilities.write_modes == frozenset(WriteMode)
-    assert runtime.capabilities.transports == frozenset({WriteTransport.COPY})
+    assert runtime.capabilities.transports == frozenset(
+        {WriteTransport.COPY, WriteTransport.DIRECT}
+    )
     assert runtime.capabilities.supports_transforms is True
     assert runtime.capabilities.supports_graphs is True
     assert telemetry.rows_affected == 9
@@ -584,6 +711,153 @@ def test_postgresql_scd1_streams_copy_replays_and_evolves_nullable_columns(
     }
     assert ledger == {"status": "committed", "run_id": "run-one", "fencing_token": 1}
     assert staging == {"count": 0}
+
+
+def test_postgresql_selects_bounded_direct_then_copy_with_explicit_telemetry(
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+) -> None:
+    from dander.providers.postgresql.runtime import PostgreSQLWriterFactory
+
+    runtime, pool, database, schema_name = postgresql_warehouse
+    assert isinstance(runtime.writers, PostgreSQLWriterFactory)
+    direct_factory = replace(
+        runtime.writers,
+        direct_max_rows=1,
+        direct_max_logical_bytes=1_024,
+    )
+    writer = direct_factory.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=100,
+        schema_evolution=SchemaEvolution.STRICT,
+    )
+    relation = RelationRef(catalog=database, namespace=schema_name, name="direct_records")
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+            WriteField(name="label", data_type="STRING"),
+        ),
+        publication_fence=runtime.target_fence.claim(
+            relation,
+            FencingToken(
+                lease_table=None,
+                pipeline_id="postgresql_direct",
+                run_id="run-direct",
+                token=1,
+                authority_id="postgresql:test-state",
+            ),
+        ),
+    )
+
+    assert writer.supports_batched_writes is False
+    assert writer.accepts_streaming_input is True
+    assert writer.write([{"id": "one", "label": "direct"}], target) == 1
+    direct_operations = writer.drain_telemetry()
+    assert len(direct_operations) == 1
+    assert direct_operations[0].transport is WriteTransport.DIRECT
+    assert direct_operations[0].rows_written == 1
+    assert direct_operations[0].bytes_written > 0
+
+    assert (
+        writer.write(
+            [
+                {"id": "one", "label": "copy-one"},
+                {"id": "two", "label": "copy-two"},
+            ],
+            target,
+        )
+        == 2
+    )
+    copy_operations = writer.drain_telemetry()
+    assert len(copy_operations) == 1
+    assert copy_operations[0].transport is WriteTransport.COPY
+    assert copy_operations[0].rows_written == 2
+    assert copy_operations[0].bytes_written == 0
+    assert writer.drain_telemetry() == ()
+
+    with pool.connection() as connection:
+        rows = connection.execute(
+            sql.SQL("SELECT id, label FROM {} ORDER BY id").format(
+                sql.Identifier(schema_name, relation.name)
+            )
+        ).fetchall()
+    assert rows == [
+        {"id": "one", "label": "copy-one"},
+        {"id": "two", "label": "copy-two"},
+    ]
+
+
+@pytest.mark.parametrize("mode", list(WriteMode))
+def test_postgresql_direct_transport_reaches_every_fenced_write_mode(
+    postgresql_warehouse: tuple[WarehouseRuntime, PostgreSQLPool, str, str],
+    mode: WriteMode,
+) -> None:
+    from dander.providers.postgresql.runtime import PostgreSQLWriterFactory
+
+    runtime, pool, database, schema_name = postgresql_warehouse
+    assert isinstance(runtime.writers, PostgreSQLWriterFactory)
+    factory = replace(
+        runtime.writers,
+        direct_max_rows=10,
+        direct_max_logical_bytes=1_024,
+    )
+    cursor_field = "observed_at" if mode is WriteMode.INCREMENTAL else None
+    snapshot_field = "observed_at" if mode is WriteMode.SNAPSHOT else None
+    writer = factory.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=100,
+        schema_evolution=SchemaEvolution.STRICT,
+        mode=mode,
+        cursor_field=cursor_field,
+        snapshot_field=snapshot_field,
+    )
+    relation = RelationRef(
+        catalog=database,
+        namespace=schema_name,
+        name=f"direct_{mode.value}",
+    )
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",)
+        if mode in {WriteMode.SCD1, WriteMode.SCD2, WriteMode.INCREMENTAL}
+        else (),
+        schema=(
+            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+            WriteField(name="label", data_type="STRING"),
+            WriteField(name="observed_at", data_type="TIMESTAMP", mode="REQUIRED"),
+        ),
+        publication_fence=runtime.target_fence.claim(
+            relation,
+            FencingToken(
+                lease_table=None,
+                pipeline_id=f"postgresql_direct_{mode.value}",
+                run_id=f"run-direct-{mode.value}",
+                token=1,
+                authority_id="postgresql:test-state",
+            ),
+        ),
+    )
+    observed_at = datetime(2026, 8, 14, 20, 0, tzinfo=UTC)
+
+    assert (
+        writer.write(
+            [{"id": "one", "label": mode.value, "observed_at": observed_at}],
+            target,
+        )
+        == 1
+    )
+    operations = writer.drain_telemetry()
+    assert len(operations) == 1
+    assert operations[0].transport is WriteTransport.DIRECT
+    assert operations[0].rows_written == 1
+    with pool.connection() as connection:
+        count = connection.execute(
+            sql.SQL("SELECT COUNT(*) AS count FROM {}").format(
+                sql.Identifier(schema_name, relation.name)
+            )
+        ).fetchone()
+    assert count == {"count": 1}
 
 
 def test_postgresql_incremental_keeps_newest_cursor_and_rejects_regression(

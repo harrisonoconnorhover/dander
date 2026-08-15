@@ -1,0 +1,29 @@
+model: stg_phase8_aws__posts
+description: Immutable synthetic posts used only for AWS-native qualification.
+owner: data-eng
+dialect: portable
+materialization: table
+dataset: staging
+source_system: phase8_aws_fixture
+sensitivity: public
+
+columns:
+  - name: post_id
+    type: INT64
+    description: Stable synthetic post identifier.
+  - name: title
+    type: STRING
+    description: Synthetic post title.
+
+tests:
+  - column: post_id
+    not_null: true
+    unique: true
+  - column: title
+    not_null: true
+
+metrics:
+  - name: post_count
+    description: Number of synthetic posts represented in the model.
+    aggregation: count_distinct
+    field: post_id

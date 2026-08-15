@@ -1,0 +1,32 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-benchmark-config/v1",
+    "rows": 2000000,
+    "payload_bytes": 1024,
+    "batch_rows": 1000,
+    "concurrent_pipelines": 4,
+    "concurrent_rows_per_pipeline": 5000,
+    "memory_limit_mib": 192
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "concurrent_pipeline_completion",
+      "cost_ceiling",
+      "stale_fence_rejection",
+      "throughput_measurement"
+    ],
+    "benchmark_class": "concurrent_pipelines",
+    "profile_id": "postgresql_local_scale",
+    "release_version": "0.9.0rc22",
+    "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "configuration_sha256": "847394a1a5d96ec00a51a7080da6ce073bce0296cd1f597ce05feb786e0637b1",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14"
+  }
+}

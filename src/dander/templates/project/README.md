@@ -1,7 +1,9 @@
 # My Dander Project
 
-This project was created by `dander new`. It starts with one paused, credential-free Greenhouse
-Job Board pipeline so infrastructure changes remain reviewable before any schedule is enabled.
+This project was created by `dander new`. It starts with two paused, credential-free pipelines so
+infrastructure changes remain reviewable before any schedule is enabled. Greenhouse is the public
+quickstart; `phase8_aws_qualification` is an immutable, flat synthetic fixture retained for
+cross-warehouse qualification and should remain paused outside a deliberate proof.
 
 > **Beta:** review Dander's
 > [known limitations](https://github.com/harrisonoconnorhover/dander/blob/main/docs/known-limitations.md)

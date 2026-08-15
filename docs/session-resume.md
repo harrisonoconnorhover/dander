@@ -15,9 +15,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 - Project `dander-proof-harrison-20260801`, region `us-central1`, remote states `dander/state` and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
-- The five retained jobs currently use private diagnostic Dander `0.9.0rc21` image
-  `sha256:ab24a0b8a9383cc08e33df0e939342602e725cbc4d2edcb1ea92b6f27fea2ca1`.
-  This Phase 8 diagnostic image is not the final qualification candidate.
+- The five retained jobs use private qualification candidate Dander `0.9.0rc22` index
+  `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
+  Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -33,6 +33,92 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- Azure and OCI interactive authentication were restored and verified through provider APIs on
+  2026-08-14. Azure contains no Dander-named resource or resource group. OCI retains its accepted
+  Phase 7 foundation and private image history but has zero active Container Instances. The OCI CLI
+  omitted the session profile's user field; it was restored from the signed token subject without
+  recording an identifier or credential. No cloud mutation occurred. Credentials no longer block
+  these providers, but one protected replacement candidate still precedes any Phase 8 live run.
+  See the Azure and OCI credential-restoration records under
+  `docs/evidence/phase8/2026-08-14/`.
+
+- AWS access was restored on 2026-08-14. Exact RC22 was copied byte-identically to private ECR,
+  and a pre-approved 28-resource Redshift Serverless/PostgreSQL/Glue/Secrets data plane was created
+  under a USD 3 allocation. Read-only image inspection then found no packaged AWS deployment, so
+  no Fargate plan, task, or pipeline ran. The exact 28-resource destroy completed, qualification
+  state and inventories are empty, and AWS D7 was unchanged. Provider cost remains pending. A local
+  correction projects the selected non-secret platform overlay at launch. Successive corrections
+  reached qualification-baseline head `3ea34e2`, which passed all five protected jobs in run
+  `31876449299`; focused thirteenth review accepted the final version-cleanup permission and
+  current-main integration. Reconciliation head `0c65e42` passed run `31877158743`; fourteenth
+  review found two EC2 authorization blockers corrected in `b9735c9`. Correction/current-main head
+  `d8a18ec` passed run `31878215886`, and focused fifteenth review accepted the correction.
+  Docs-closure head `6ede9da` then passed run `31879161660`, but sixteenth review found missing
+  existing-resource dimensions for route-table, subnet, and VPC-endpoint creation. Commit `e12ee59`
+  adds only qualification-tagged VPC/route-table dependency grants. Correction/docs head `0da600b`
+  passed run `31879898267`, and focused seventeenth review accepted the correction. A protected
+  replacement candidate is still required after baseline
+  merge and before live qualification resumes. After PR #291 merges, every remaining
+  benchmark/provider objective and
+  any live-discovered defect uses a fresh protected-main branch; rerun only materially affected
+  evidence plus the eventual final closure matrix. See
+  `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.
+
+- Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
+  was published only to the private qualification registry at index `sha256:8bd35188…3064`. It
+  passed exact artifact/runtime/security preflight and the pre-approved local DIRECT-to-COPY
+  crossover against TLS PostgreSQL 15.18. DIRECT tied COPY only at 10 rows, but completion review
+  found its 1,400-byte threshold omitted field-name bytes counted by the writer and would select
+  COPY. The corrected harness derives 1,490 bytes and buffers bounded lookahead before opening a
+  transaction. RC23's threshold objective is invalid; the replacement candidate must rerun it.
+  See `docs/evidence/phase8/2026-08-14/phase8-completion-review.json`.
+
+- Exact RC22 passed five normalized Kubernetes launcher classes on kind 1.32.2 under a 2 CPU/512
+  MiB limit, 600-second deadline, and zero retries against TLS PostgreSQL 15.18. Correctness, bulk,
+  incremental, transform, and PostgreSQL-specific failure reports all pass with exact candidate
+  identity and USD 0 local cost. An unchanged reporter-sidecar rerun retained the reports after the
+  first successful Job's ephemeral-volume collection limitation. Both Jobs and all namespace,
+  Secret, TLS, database, cluster, and temporary-tag resources were removed with zero Warning
+  events. See `docs/evidence/phase8/2026-08-14/kubernetes-postgresql-scale-attempts.json`.
+
+- On 2026-08-14, exact RC22 passed approved local PostgreSQL bulk and incremental classes inside
+  its source-free 2 CPU/512 MiB image against disposable TLS PostgreSQL 15.18. It processed
+  500,000 narrow and 200,000 wide COPY rows, then applied a 3,000-row delta against 300,000 seed
+  rows with an exact 301,500-row result and rejected cursor regression. A separate exact-candidate
+  correctness fixture matched its approved normalized SHA-256 before and after replay. All three
+  schemas and staging relations were removed; measured local service cost was USD 0. RC22 has no
+  direct transport for a crossover comparison. RC23 supplies the separate local crossover above,
+  but the seven RC22 reports do not transfer and PostgreSQL hosted cost remains open.
+  See `docs/evidence/phase8/2026-08-14/postgresql-bulk-throughput.json`.
+
+- Exact RC22 also passed the PostgreSQL transform class: 100,000 facts joined 100 dimensions,
+  produced exact ten-category aggregates, applied one update plus one insert through the
+  incremental model, and passed 21 generic assertion executions. The final target held 100,001
+  rows and cleanup was exact. The first attempt stopped before candidate transform code on a
+  harness-only fixture escaping defect; the corrected retry and both cleanup outcomes are
+  retained in `docs/evidence/phase8/2026-08-14/postgresql-transform-attempts.json`.
+
+- Exact RC22 passed the PostgreSQL-specific failure class in 173 ms: pool exhaustion failed in a
+  bounded 104 ms, a terminated connection was replaced, state operations recovered, and warehouse
+  cancellation rolled back its transaction. Cleanup was exact and local cost was USD 0. Connector
+  and launcher failure cases remain separate profile gates. See
+  `docs/evidence/phase8/2026-08-14/postgresql-failure.json`.
+
+- On 2026-08-14, exact private RC22 replaced RC21 on all five retained jobs through a saved
+  `0 add / 5 change / 0 destroy` plan. Authenticated Salesforce manual/replay executions
+  `dander-salesforce-accounts-rxvvd` and `dander-salesforce-accounts-xmm4r` produced equal counts;
+  Scheduler-created Greenhouse execution `dander-greenhouse-public-v5ps9` also passed. All leases
+  and staging relations were clean, 23 deployment checks passed, and the final 113-resource plan
+  reported no drift. Provider charges remain pending, so this is not a passed cost qualification.
+  See `docs/evidence/phase8/2026-08-14/gcp-native-profile.json`.
+
+- Exact RC22 passed protected CI run `31825533602` and a local final-candidate repeat covering
+  clean wheel/source installs, full runtime import, dependency and Git-history secret audits,
+  Terraform/Helm, rootless read-only runtime checks, and HIGH/CRITICAL Trivy scans of
+  infrastructure, the main image, and the OCI controller image. The post-merge regression suite
+  passed 1,702 tests with 28 skips. See
+  `docs/evidence/phase8/2026-08-14/rc22-local-audit.json`.
 
 - On 2026-08-14, the D7 local hosted Control profile passed exact-digest HTTPS/OIDC, restart
   persistence, byte-equal render, stable second-up, rollback/restore, and cleanup qualification.
@@ -114,9 +200,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander-servicenow-incidents-6g72x` all completed successfully.
 - The latest manual executable-graph run, `dander-greenhouse-graph-7gn9z`, completed successfully
   on 2026-08-04; its schedule remains intentionally paused.
-- The latest retained stage-zero and current-equivalent platform plans reported exactly
-  `No changes.` after the OCI proof. No
-  retained-project apply occurred.
+- The latest exact-RC22 retained platform plan reported exactly `No changes.` after the approved
+  five-job candidate rollout. Stage zero was not changed.
 - Continue the 30-day operating record in GitHub issue #26. Do not close it until the diagnostic
   defect is corrected and the required clean observation evidence is current.
 

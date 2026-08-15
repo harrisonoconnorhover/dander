@@ -1236,6 +1236,27 @@ Tickets:
 6. perform release-candidate soak with schedules enabled in each approved profile;
 7. freeze the tested compatibility matrix and known limitations.
 
+Exact private RC22 completed item 5 for its source through protected CI and a local exact-artifact
+repeat. The later direct-write capability required private arm64 RC23; RC23 passed local
+artifact/security preflight and observed equal DIRECT/COPY rows, but completion review invalidated
+its byte-threshold objective. An exact-RC22 AWS preflight separately found
+that account-local deployment coordinates were absent from the immutable image before Fargate
+planning; its disposable data plane was removed exactly. The later AWS root corrections reached
+qualification-baseline head `3ea34e2`, which passed all five protected jobs in run `31876449299`;
+focused thirteenth review accepted the final version-cleanup permission and current-main
+integration. Reconciliation head `0c65e42` passed run `31877158743`; fourteenth review found
+two EC2 authorization blockers corrected in `b9735c9`. Correction/current-main head `d8a18ec`
+passed run `31878215886`, and focused fifteenth review accepted the correction. Docs-closure head
+`6ede9da` passed run `31879161660`; sixteenth review found missing existing-resource dimensions for
+route-table, subnet, and VPC-endpoint creation. Commit `e12ee59` adds the qualification-tag-scoped
+dependency grants; correction/docs head `0da600b` passed run `31879898267`, and focused seventeenth
+review accepted the correction. One replacement
+multi-platform build and final-candidate reruns remain. After PR #291
+merges, each objective continues from a fresh protected-main branch; only materially affected
+evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,
+and 7 stay open where provider/profile evidence is incomplete;
+neither audit promotes an experimental profile.
+
 Exit gate:
 
 - every first-class definition is evidenced, the complete suite passes, provider live proofs are

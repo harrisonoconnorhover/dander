@@ -1,0 +1,85 @@
+{
+  "schema": "io.dander.phase8.release-audit/v1",
+  "status": "local_preflight_passed",
+  "checked_at_utc": "2026-08-14T21:08:44Z",
+  "candidate": {
+    "release_version": "0.9.0rc23",
+    "git_commit": "2455fc34d4503863060b7bac873be36319c13e4f",
+    "image_index_digest": "sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064",
+    "platform": "linux/arm64",
+    "wheel_sha256": "aba6bf4c8c6f60eb321d201724b50e442114d092e1260537371a309f0df146cc",
+    "sdist_sha256": "1e22abb085741b6506414f74fc60d5415ede540801a45ae6b0ecf6355321c96c"
+  },
+  "protected_ci": {
+    "status": "not_run",
+    "reason": "candidate commit is not on protected main and push or pull-request publication was not authorized"
+  },
+  "local_artifact_checks": {
+    "release_metadata": "passed",
+    "wheel_and_sdist_inspection": "passed",
+    "wheel_clean_runtime_all_install": "passed",
+    "sdist_clean_runtime_all_install": "passed",
+    "main_image_rootless_read_only_runtime": "passed",
+    "oci_labels_match_candidate": "passed",
+    "private_registry_digest_verification": "passed"
+  },
+  "local_security_checks": {
+    "dependency_audit": {
+      "tool": "pip-audit",
+      "result": "no_known_vulnerabilities"
+    },
+    "infrastructure_scan": {
+      "tool": "trivy 0.70.0",
+      "archive_checksum_verified": true,
+      "severity": [
+        "HIGH",
+        "CRITICAL"
+      ],
+      "findings": 0
+    },
+    "main_image_scan": {
+      "tool": "trivy 0.70.0",
+      "image_index_digest": "sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064",
+      "platform": "linux/arm64",
+      "ignore_unfixed": true,
+      "severity": [
+        "HIGH",
+        "CRITICAL"
+      ],
+      "findings": 0
+    },
+    "candidate_source_secret_scan": {
+      "tool": "gitleaks 8.24.3",
+      "archive_checksum_verified": true,
+      "findings": 0
+    }
+  },
+  "postgresql_crossover": {
+    "status": "passed",
+    "report_sha256": "70401a9d1e9ac18d8819b7d44935ae1996a73f6c887c7b51cd6f5bf23d29e34e",
+    "recommended_direct_max_rows": 10,
+    "recommended_direct_max_logical_bytes": 1400,
+    "local_service_cost_usd": "0.00"
+  },
+  "post_candidate_regression": {
+    "tested_branch_commit": "48e4e11bbf8b57d8323aab4f81c875b13fe74807",
+    "ruff_check": "passed",
+    "ruff_format_files": 444,
+    "mypy_source_files": 411,
+    "pytest_passed": 1708,
+    "pytest_skipped": 34,
+    "pytest_warnings": 1
+  },
+  "warnings": [
+    "The regression suite emitted the existing Starlette TestClient deprecation warning.",
+    "RC23 is a private arm64-only local qualification candidate without protected review; no support status or prior RC22 report transfers to it.",
+    "The repository Dockerfile retains checkout sources, so this exact image is not the source-free multi-platform artifact required for final-candidate qualification."
+  ],
+  "cloud_mutations_attempted": true,
+  "cloud_mutation_scope": "private Artifact Registry qualification tag only",
+  "authorized_allocation_usd": "0.25",
+  "provider_measured_cost_usd": null,
+  "cost_status": "provider_invoice_pending",
+  "temporary_artifacts_cleaned": true,
+  "public_release": false
+}

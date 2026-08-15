@@ -23,7 +23,8 @@ dander init-aws-plan \
 For the named AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets profile, omit `--project`. The
 validated manifest supplies the existing Redshift, PostgreSQL-state, Glue, and full Secrets
 Manager coordinates. The saved plan scopes each task role to those declared resources and never
-accepts a static AWS credential.
+accepts a static AWS credential. Serverless profiles additionally declare one precreated Redshift
+database role, which the task role maps through the supported `RedshiftDbRoles` IAM tag.
 
 Run AWS stage zero and promote the accepted source-free image before planning this root. The stack
 accepts existing VPC subnet and security-group IDs; it does not create a network. Use the dedicated
@@ -57,3 +58,5 @@ to the selected pipeline and print only Dander's normalized operation records.
 
 No AWS deployment is supported until source-free live acceptance proves manual and scheduled runs,
 deadline cancellation, replay, identity refresh, alerts, rollback, and no-change reconciliation.
+The complete experimental operator sequence, configuration example, network boundary, upgrade,
+rollback, cleanup, and troubleshooting checks are in `docs/aws-native-profile.md`.

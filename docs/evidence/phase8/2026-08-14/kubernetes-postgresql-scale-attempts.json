@@ -1,0 +1,50 @@
+{
+  "schema": "io.dander.phase8.kubernetes-postgresql-scale-attempts/v1",
+  "cluster": {
+    "name": "kind-dander-phase8-scale",
+    "kubernetes_version": "1.32.2",
+    "architecture": "arm64",
+    "warning_events": 0,
+    "cleanup_verified": true
+  },
+  "candidate": {
+    "release_version": "0.9.0rc22",
+    "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "index_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "arm64_manifest_digest": "sha256:ba30fadd6e72240bb426d93144395e69647a2ccb4cde2229a184cdcf1ecf9395",
+    "runtime_config_digest": "sha256:fe2a9ce70b0cd774349986a397c3bface50e2d576e232258b259fee94e3214dd"
+  },
+  "job_contract": {
+    "active_deadline_seconds": 600,
+    "backoff_limit": 0,
+    "cpu_limit": "2",
+    "memory_limit": "512Mi",
+    "postgresql_version": "15.18",
+    "tls_required": true
+  },
+  "attempts": [
+    {
+      "job": "postgresql-scale",
+      "status": "passed",
+      "reports_collected": false,
+      "collection_status": "completed_container_unavailable_for_exec",
+      "incremental_cost_usd": "0.00"
+    },
+    {
+      "job": "postgresql-scale-reports",
+      "status": "passed",
+      "reports_collected": true,
+      "report_count": 5,
+      "incremental_cost_usd": "0.00"
+    }
+  ],
+  "reports": {
+    "bulk_throughput_sha256": "081998ec97e6fe5ea1819fbd5a9f0009d0261367d3c0c6013475e0cf23485b31",
+    "correctness_sha256": "7ce45dd49ad4897b288ead773416ca2c29c8f5c868b506a9d027eaa930c553dc",
+    "failure_sha256": "d6bfd242b0f53b3b48d39b858a8d361f051dfdf9a61ed79e0c93cd9e9563eaee",
+    "incremental_sha256": "d25e6a14cd5931e4bd8b9b386f315ba6c111d0b73649100e1445ef04b4ca218e",
+    "transform_sha256": "ce91ecb95350990a9a22c28ef1a41cd57f861c03fb8838409bb0e045120f2fd5"
+  },
+  "final_status": "passed",
+  "total_incremental_cost_usd": "0.00"
+}

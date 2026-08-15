@@ -88,6 +88,9 @@ jobs:
           terraform -chdir=aws-control init -backend=false -input=false
           terraform -chdir=aws-control validate
           terraform -chdir=aws-control test
+          terraform -chdir=qualification/aws-native init -backend=false -input=false
+          terraform -chdir=qualification/aws-native validate
+          terraform -chdir=qualification/aws-native test
       - name: Validate Azure Terraform stacks
         run: |
           terraform -chdir=azure/bootstrap-admin init -backend=false -input=false

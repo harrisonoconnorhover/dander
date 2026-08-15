@@ -1,5 +1,67 @@
 # Engineering Decisions
 
+## 2026-08-15 — AWS qualification extends the short-lived deployment identity in isolation
+
+- **Authority:** The stage-zero deployment role receives two customer-managed Phase 8 policies:
+  infrastructure and data services. Splitting them keeps each below AWS's managed-policy size limit
+  and avoids consuming the role's aggregate inline-policy quota.
+- **Scope:** Named S3, IAM, RDS, Secrets Manager, and Glue resources are ARN-bounded; network and
+  Redshift creation/lifecycle require the qualification purpose tags; non-taggable API gaps retain
+  only the exact account/region-bound actions needed by the reviewed Terraform root.
+- **Boundary:** The D7 policy and resources are unchanged. Existing stage zero needs one reviewed
+  administrator upgrade, after which qualification planning and cleanup use the short-lived role.
+
+## 2026-08-15 — AWS qualification binds executable shape to candidate identity
+
+- **Materialization:** The portable AWS qualification model uses table materialization because the
+  Redshift runner deliberately rejects views; qualification must exercise the supported path.
+- **Identity:** The disposable Terraform root requires an exact release-candidate version and uses
+  it for both resource tags and the owned staging prefix. A caller tag cannot retain stale identity.
+- **Validation:** `database_role` remains available for Serverless role mapping but fails closed on
+  provisioned Redshift, where the field has no runtime meaning.
+
+## 2026-08-15 — AWS qualification owns a flat fixture and its Glue projection
+
+- **Workload:** The AWS-native correctness pipeline uses three flat synthetic rows from one pinned
+  upstream Git commit and one portable model. The nested Greenhouse schema remains a portability
+  fixture but cannot be reused as Redshift qualification evidence.
+- **Cleanup:** The disposable qualification Terraform root predeclares the exact Glue database and
+  table. Runtime publication may update their Dander metadata, while Terraform retains existence
+  ownership and destroys both after success, failure, or interruption.
+- **Artifact:** The credential-free fixture, model, and both Phase 8 PostgreSQL harnesses are explicit
+  wheel/source-distribution contents so a generated source-free candidate retains the reviewed
+  workload without application source.
+
+## 2026-08-14 — Fargate projects the selected platform independently of the image
+
+- **Selection:** A saved Fargate plan now serializes its already validated, selected platform and
+  deployment into one bounded non-secret JSON overlay. AWS-native projection fails before planning
+  if the overlay is absent; it no longer assumes the immutable image was built with account-local
+  Redshift, PostgreSQL, Glue, network, and secret-reference coordinates.
+- **Runtime:** The task passes the overlay as an ordinary environment value. The runtime validates
+  it against the typed platform contract, writes it mode `0600` under the writable scratch mount,
+  uses it only for that execution, and removes it on every terminal path. Secret values remain in
+  the task-role-resolved binding path and never enter the overlay.
+- **Boundary:** Exact RC22 exposed this packaging gap before the Fargate plan or provider execution;
+  its disposable data plane was removed. The local correction requires protected review and a new
+  source-free candidate before AWS qualification resumes; RC22 does not inherit the fix.
+
+## 2026-08-14 — PostgreSQL direct defaults stay disabled after local crossover
+
+- **Selection:** PostgreSQL admits direct inserts only when both `direct_max_rows` and
+  `direct_max_logical_bytes` are positive and the complete endpoint fits both limits. Zero remains
+  the default for both settings, preserving the accepted COPY behavior. Private local RC23 observed
+  a 10-row crossover, but completion review invalidated its 1,400-byte recommendation because it
+  omitted field-name bytes counted by the writer. The corrected harness derives 1,490 bytes from
+  the exact normalized logical-size function; the replacement candidate must rerun the measurement.
+- **Bound:** Selection retains at most the reviewed row limit plus one overflow row and at most one
+  byte-limit overflow row before opening a database transaction. An endpoint that crosses either
+  bound replays the retained prefix into the existing streaming COPY path without row loss or
+  reordering.
+- **Publication:** Both transports populate the same transaction-local staging relation and use
+  the same destination fence and logical write-mode statements. Telemetry records the selected
+  transport; adapter availability alone does not qualify a threshold or promote support.
+
 ## 2026-08-14 — Phase 8 ticket identity stays disjoint from Druff
 
 - **Identity:** Phase 8 uses DANDER-200 through DANDER-207 after concurrent Druff work consumed
@@ -1706,3 +1768,37 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** The first AWS profile is single-instance and experimental. Only Control receives
   versioned GraphStore access; Druff has a distinct empty task role. HA, autoscaling, WAF, custom
   domains, support promotion, and release qualification remain outside D7.
+
+## 2026-08-15 — AWS-native Serverless maps one explicit database role
+
+- **Bootstrap:** The disposable namespace creator provisions one `dander_runtime` database role
+  with the DDL permissions used by fenced publication and permission to use the namespace's default
+  IAM role for `COPY`.
+- **Runtime identity:** Every selected Fargate task role carries the manifest-declared
+  `RedshiftDbRoles` tag and the two global Resource Groups Tagging API reads that Redshift requires
+  to map that role during `GetCredentials`; other AWS-native permissions stay resource-scoped.
+- **Boundary:** Existing Serverless data planes must precreate and declare the mapped role. Dander
+  neither grants a broad database superuser nor transfers the mapping to provisioned clusters.
+
+## 2026-08-15 — Phase 8 continues in focused protected-main lanes
+
+- **Baseline tranche:** PR #291 remains coherent through its qualification-baseline CI, review, and
+  evidence reconciliation; it does not accumulate new benchmark or provider objectives.
+- **Continuation:** After that tranche merges, each benchmark objective, provider qualification,
+  optimization, or live-discovered defect starts from a fresh protected-main branch and worktree.
+- **Evidence:** Preserve valid prior evidence. Rerun only what a change can materially affect, plus
+  the eventual final-candidate closure matrix.
+
+## 2026-08-15 — Phase 8 EC2 creation keeps resource dimensions separate
+
+- **Creation:** Security-group creation authorizes the tagged new group separately from its
+  account-local VPC; rule creation authorizes the tagged new rule separately from its already
+  qualification-tagged parent group.
+- **Tagging:** `ec2:CreateTags` is limited to fixture resource ARNs and the corresponding
+  `ec2:CreateAction`, preventing the deployment role from adopting an unrelated EC2 resource.
+- **Dependencies:** Route-table, subnet, and gateway-endpoint creation authorize their tagged new
+  resources separately from only the already qualification-tagged VPC and route tables they use.
+- **Gate:** Sixteenth review found these missing existing-resource dimensions after docs-closure
+  head `6ede9da` passed run `31879161660`. Correction/docs head `0da600b` passed run
+  `31879898267`, and focused seventeenth review accepted `e12ee59`; the replacement-candidate gate
+  opens only after PR #291 merges.
