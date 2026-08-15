@@ -426,6 +426,7 @@ data "aws_iam_policy_document" "deployment_d7" {
       "cloudfront:ListOriginRequestPolicies",
       "cloudfront:ListTagsForResource",
       "ec2:DescribeAvailabilityZones",
+      "ec2:DescribeInternetGateways",
       "ec2:DescribeManagedPrefixLists",
       "ec2:DescribeVpcAttribute",
       "ec2:DescribeNetworkInterfaces",
@@ -578,13 +579,12 @@ data "aws_iam_policy_document" "deployment_d7" {
   }
 
   statement {
-    sid    = "CreateD7SecurityGroups"
-    effect = "Allow"
-    actions = [
-      "ec2:CreateSecurityGroup",
-      "ec2:CreateTags",
+    sid     = "CreateD7SecurityGroups"
+    effect  = "Allow"
+    actions = ["ec2:CreateSecurityGroup"]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*"
     ]
-    resources = ["*"]
 
     condition {
       test     = "StringEquals"
@@ -597,6 +597,42 @@ data "aws_iam_policy_document" "deployment_d7" {
       variable = "aws:RequestTag/phase"
       values   = ["d7"]
     }
+  }
+
+  statement {
+    sid     = "TagD7SecurityGroupsOnCreate"
+    effect  = "Allow"
+    actions = ["ec2:CreateTags"]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:CreateAction"
+      values   = ["CreateSecurityGroup"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/phase"
+      values   = ["d7"]
+    }
+  }
+
+  statement {
+    sid     = "UseVpcForD7SecurityGroupCreation"
+    effect  = "Allow"
+    actions = ["ec2:CreateSecurityGroup"]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*"
+    ]
   }
 
   statement {

@@ -19,6 +19,11 @@ selected VPC and CloudFront prefix list and to refresh the profile's listener, g
 tagged log groups. Bucket and log-tag reads remain scoped to disposable D7 resource names; the
 provider does not receive wildcard service-read authority.
 
+Security-group creation follows AWS's separate authorization dimensions: the new group must carry
+the D7 management tags, creation-time tagging is limited to `CreateSecurityGroup`, and the role may
+use account-local VPCs only as the dependent resource for that tagged create. Later mutation and
+deletion remain limited to security groups that carry the D7 management tags.
+
 The public Dander lifecycle copies this root into a private operator-artifact directory and uses a
 local backend for the first reviewed plan. After that exact plan is applied, Dander migrates the
 state into the newly created S3 backend and pins the backend client to the root's customer-managed

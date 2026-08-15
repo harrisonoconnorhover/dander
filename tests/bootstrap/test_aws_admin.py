@@ -76,6 +76,7 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "cloudfront:CreateDistribution",
         "cloudfront:CreateOriginRequestPolicy",
         "ec2:CreateSecurityGroup",
+        "ec2:DescribeInternetGateways",
         "ec2:DescribeVpcAttribute",
         "ec2:GetManagedPrefixListEntries",
         "ecs:CreateService",
@@ -100,6 +101,14 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "/dander/${var.name}/d7/*"
     ) in policy
     assert "service/${var.name}-d7-*/*" in policy
+    assert policy.count('"ec2:CreateSecurityGroup"') == 2
+    assert '"ec2:CreateTags"' in policy
+    assert (
+        "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*" in policy
+    )
+    assert "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*" in policy
+    assert 'variable = "ec2:CreateAction"' in policy
+    assert 'values   = ["CreateSecurityGroup"]' in policy
     assert 'variable = "aws:RequestTag/phase"' in policy
     assert 'variable = "aws:ResourceTag/phase"' in policy
     assert 'values   = ["elasticloadbalancing.amazonaws.com"]' in policy

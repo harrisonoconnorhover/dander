@@ -2,11 +2,11 @@
 
 ## Finished
 
+- Integrated protected main's D7 security-group policy correction without changing its separate live-proof scope.
 - Ran independent completion review on green PR #291; it found three material pre-candidate defects.
 - Added self-scoped PostgreSQL/Redshift egress while retaining HTTPS-only public AWS egress.
 - Moved bounded PostgreSQL lookahead before connection/transaction acquisition for slow sources.
 - Derived crossover bytes from the writer's exact normalized size and invalidated RC23's 1,400-byte objective.
-- Committed the three corrections at `8240bcfc3585b8217a607cb08d2d97290ca13afa`; no cloud mutation ran.
 
 ## Try It
 
@@ -15,9 +15,9 @@ Run `uv run pytest -q tests/providers/test_postgresql_warehouse_runtime.py tests
 ## Checks
 
 - The prior PR head passed all five protected CI jobs; this correction head has not run protected CI yet.
-- Focused PostgreSQL/crossover/release-metadata pytest passed (14 passed, 23 provider-gated skips).
+- Post-merge AWS/bootstrap/PostgreSQL/crossover/release pytest passed (29 passed, 23 provider-gated skips).
 - Ruff lint and strict mypy passed for the corrected Python source; Ruff formatting is clean.
-- AWS qualification Terraform validate and mocked test passed (1 test); Terraform formatting is clean.
+- AWS qualification and bootstrap-admin Terraform validation/tests passed (1 each); formatting is clean.
 - `git diff --check` passed. Local Trivy was unavailable; protected container/security CI remains required.
 
 ## Decisions
