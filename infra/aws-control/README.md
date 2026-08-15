@@ -23,6 +23,11 @@ immutable-asset headers remain authoritative. CloudFront and ALB access logging 
 OIDC callback query values cannot be persisted by the front proxy. Dander and Caddy also retain
 their reviewed no-access-log configurations.
 
+The provider-issued CloudFront domain uses CloudFront's default certificate, whose API reports the
+fixed `TLSv1` minimum policy. Enforcing a newer viewer minimum requires a custom domain and ACM
+certificate, which remain outside this disposable experimental profile rather than being implied
+by a configuration value AWS ignores.
+
 Generate the foundation projection without provider access:
 
 ```bash

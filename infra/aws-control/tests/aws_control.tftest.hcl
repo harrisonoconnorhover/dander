@@ -157,7 +157,8 @@ run "api_is_never_cached_and_forwards_viewer_inputs_without_cookies" {
       aws_cloudfront_origin_request_policy.api.headers_config[0].header_behavior == "allViewer" &&
       aws_cloudfront_origin_request_policy.api.cookies_config[0].cookie_behavior == "none" &&
       aws_cloudfront_origin_request_policy.api.query_strings_config[0].query_string_behavior == "all" &&
-      aws_cloudfront_cache_policy.static.min_ttl == 0
+      aws_cloudfront_cache_policy.static.min_ttl == 0 &&
+      aws_cloudfront_distribution.profile.viewer_certificate[0].minimum_protocol_version == "TLSv1"
     )
     error_message = "CloudFront must preserve authenticated mutable API semantics and origin cache controls."
   }
@@ -172,6 +173,22 @@ run "api_is_never_cached_and_forwards_viewer_inputs_without_cookies" {
 
 run "fargate_tasks_are_nonroot_readonly_and_config_init_is_ordered" {
   command = plan
+
+  assert {
+    condition = (
+      alltrue([for volume in aws_ecs_task_definition.control[0].volume : !volume.configure_at_launch]) &&
+      alltrue([for volume in aws_ecs_task_definition.druff[0].volume : !volume.configure_at_launch]) &&
+      alltrue([
+        for container in jsondecode(aws_ecs_task_definition.control[0].container_definitions) :
+        container.linuxParameters.capabilities.add == []
+      ]) &&
+      alltrue([
+        for container in jsondecode(aws_ecs_task_definition.druff[0].container_definitions) :
+        container.linuxParameters.capabilities.add == []
+      ])
+    )
+    error_message = "Fargate provider defaults must be explicit so repeat plans remain stable."
+  }
 
   assert {
     condition = (
