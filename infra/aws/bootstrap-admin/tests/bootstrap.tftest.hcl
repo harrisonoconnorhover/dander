@@ -24,8 +24,22 @@ variables {
   admin_principal_arn = "arn:aws:iam::184463061564:root"
 }
 
+override_resource {
+  target = aws_kms_key.stage_zero
+  values = {
+    arn = "arn:aws:kms:us-east-1:184463061564:key/00000000-0000-0000-0000-000000000000"
+  }
+}
+
+override_resource {
+  target = aws_iam_policy.deployment_d7_provider
+  values = {
+    arn = "arn:aws:iam::184463061564:policy/dander-d7-control-plane-provider"
+  }
+}
+
 run "hardened_stage_zero" {
-  command = plan
+  command = apply
 
   assert {
     condition = (
