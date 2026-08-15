@@ -66,7 +66,7 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
     assert "redshift.amazonaws.com/AWSServiceRoleForRedshift" in policy
     assert 'values   = ["redshift.amazonaws.com"]' in policy
     assert policy.count('variable = "aws:RequestTag/purpose"') == 4
-    assert policy.count('variable = "aws:ResourceTag/purpose"') == 3
+    assert policy.count('variable = "aws:ResourceTag/purpose"') == 4
     assert 'values   = ["phase8-qualification"]' in policy
 
     general_network_create = policy.split('sid    = "CreateTaggedPhase8QualificationNetwork"', 1)[
@@ -134,10 +134,23 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
 
     security_group_vpc_dependency = policy.split(
         'sid     = "UseVpcForPhase8QualificationSecurityGroupCreation"', 1
-    )[1].split('sid    = "ManageTaggedPhase8QualificationNetwork"', 1)[0]
+    )[1].split('sid    = "UseTaggedPhase8QualificationSecurityGroupForRules"', 1)[0]
     assert '"ec2:CreateSecurityGroup"' in security_group_vpc_dependency
     assert ":vpc/*" in security_group_vpc_dependency
     assert "RequestTag" not in security_group_vpc_dependency
+
+    tagged_security_group_dependency = policy.split(
+        'sid    = "UseTaggedPhase8QualificationSecurityGroupForRules"', 1
+    )[1].split('sid    = "ManageTaggedPhase8QualificationNetwork"', 1)[0]
+    assert '"ec2:AuthorizeSecurityGroupIngress"' in tagged_security_group_dependency
+    assert '"ec2:AuthorizeSecurityGroupEgress"' in tagged_security_group_dependency
+    assert ":security-group/*" in tagged_security_group_dependency
+    assert "security-group-rule" not in tagged_security_group_dependency
+    assert "RequestTag" not in tagged_security_group_dependency
+    assert 'variable = "aws:ResourceTag/managed-by"' in tagged_security_group_dependency
+    assert 'variable = "aws:ResourceTag/purpose"' in tagged_security_group_dependency
+
+    assert "table/dander_analytics_staging/*" in policy
 
     assert 'resource "aws_iam_policy" "deployment_phase8_qualification_infrastructure"' in policy
     assert 'resource "aws_iam_policy" "deployment_phase8_qualification_data"' in policy
@@ -145,3 +158,18 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
     assert 'resource "aws_iam_role_policy"' not in policy
     assert "Phase 8 qualification infrastructure policy exceeds AWS's" in policy
     assert ") <= 6144" in policy
+
+
+def test_qualification_serializes_redshift_assumerole_lockdown_before_copy_grant() -> None:
+    qualification = (_ROOT / "infra/qualification/aws-native/main.tf").read_text(encoding="utf-8")
+
+    lockdown = qualification.split(
+        'resource "aws_redshiftdata_statement" "runtime_assumerole_lockdown"', 1
+    )[1].split('resource "aws_redshiftdata_statement" "runtime_copy"', 1)[0]
+    copy_grant = qualification.split('resource "aws_redshiftdata_statement" "runtime_copy"', 1)[
+        1
+    ].split('resource "aws_redshiftserverless_usage_limit" "compute"', 1)[0]
+
+    assert 'sql            = "REVOKE ASSUMEROLE ON ALL FROM PUBLIC FOR ALL"' in lockdown
+    assert "depends_on = [aws_redshiftdata_statement.runtime_ddl]" in lockdown
+    assert "depends_on = [aws_redshiftdata_statement.runtime_assumerole_lockdown]" in copy_grant

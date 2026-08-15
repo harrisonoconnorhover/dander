@@ -326,12 +326,20 @@ resource "aws_redshiftdata_statement" "runtime_ddl" {
   depends_on = [aws_redshiftdata_statement.runtime_role]
 }
 
+resource "aws_redshiftdata_statement" "runtime_assumerole_lockdown" {
+  workgroup_name = aws_redshiftserverless_workgroup.profile.workgroup_name
+  database       = aws_redshiftserverless_namespace.profile.db_name
+  sql            = "REVOKE ASSUMEROLE ON ALL FROM PUBLIC FOR ALL"
+
+  depends_on = [aws_redshiftdata_statement.runtime_ddl]
+}
+
 resource "aws_redshiftdata_statement" "runtime_copy" {
   workgroup_name = aws_redshiftserverless_workgroup.profile.workgroup_name
   database       = aws_redshiftserverless_namespace.profile.db_name
   sql            = "GRANT ASSUMEROLE ON default TO ROLE ${local.runtime_database_role} FOR COPY"
 
-  depends_on = [aws_redshiftdata_statement.runtime_ddl]
+  depends_on = [aws_redshiftdata_statement.runtime_assumerole_lockdown]
 }
 
 resource "aws_redshiftserverless_usage_limit" "compute" {
