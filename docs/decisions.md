@@ -1788,3 +1788,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   optimization, or live-discovered defect starts from a fresh protected-main branch and worktree.
 - **Evidence:** Preserve valid prior evidence. Rerun only what a change can materially affect, plus
   the eventual final-candidate closure matrix.
+
+## 2026-08-15 — Phase 8 EC2 creation keeps resource dimensions separate
+
+- **Creation:** Security-group creation authorizes the tagged new group separately from its
+  account-local VPC; rule creation authorizes the tagged new rule separately from its already
+  qualification-tagged parent group.
+- **Tagging:** `ec2:CreateTags` is limited to fixture resource ARNs and the corresponding
+  `ec2:CreateAction`, preventing the deployment role from adopting an unrelated EC2 resource.
+- **Gate:** The replacement-candidate gate remains blocked until this correction passes protected
+  CI and focused rereview.

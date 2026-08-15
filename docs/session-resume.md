@@ -51,7 +51,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   correction projects the selected non-secret platform overlay at launch. Successive corrections
   reached qualification-baseline head `3ea34e2`, which passed all five protected jobs in run
   `31876449299`; focused thirteenth review accepted the final version-cleanup permission and
-  current-main integration. A protected replacement candidate is still required before live
+  current-main integration. Reconciliation head `0c65e42` passed run `31877158743`, but fourteenth
+  review found two EC2 authorization blockers now corrected locally in `b9735c9`; protected CI and
+  focused rereview remain. A protected replacement candidate is still required before live
   qualification resumes. After PR #291 merges, every remaining benchmark/provider objective and
   any live-discovered defect uses a fresh protected-main branch; rerun only materially affected
   evidence plus the eventual final closure matrix. See

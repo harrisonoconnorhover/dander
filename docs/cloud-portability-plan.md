@@ -1244,7 +1244,9 @@ that account-local deployment coordinates were absent from the immutable image b
 planning; its disposable data plane was removed exactly. The later AWS root corrections reached
 qualification-baseline head `3ea34e2`, which passed all five protected jobs in run `31876449299`;
 focused thirteenth review accepted the final version-cleanup permission and current-main
-integration. One replacement multi-platform build and final-candidate reruns remain. After PR #291
+integration. Reconciliation head `0c65e42` passed run `31877158743`, but fourteenth review found
+two EC2 authorization blockers now corrected locally in `b9735c9`; protected CI and focused
+rereview remain. One replacement multi-platform build and final-candidate reruns remain. After PR #291
 merges, each objective continues from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,
 and 7 stay open where provider/profile evidence is incomplete;

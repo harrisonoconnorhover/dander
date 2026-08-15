@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. Qualification-baseline head `3ea34e2` passed protected run `31876449299` and focused thirteenth review. One replacement candidate remains open; no single protected final candidate owns the combined matrix. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. Qualification-baseline head `3ea34e2` passed protected run `31876449299` and focused thirteenth review; fourteenth-review EC2 corrections in `b9735c9` await protected CI/review. One replacement candidate remains open; no single protected final candidate owns the combined matrix. |
 
 ## Current release and deployment record
 
@@ -102,7 +102,9 @@ cloud path remains outside the live proof.
   and no AWS D7 change. Provider cost remains pending; this is cleanup evidence, not a profile pass.
 - AWS qualification-baseline head `3ea34e2` passed all five protected jobs in run `31876449299`.
   Focused thirteenth review accepted the scoped forced-version cleanup correction and current-main
-  integration. No cloud mutation occurred.
+  integration. Reconciliation head `0c65e42` passed run `31877158743`; fourteenth review found two
+  EC2 authorization blockers corrected locally in `b9735c9`, pending protected CI/review. No cloud
+  mutation occurred.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions
@@ -136,7 +138,8 @@ the data, one metadata spine records what happened, and Druff authors and operat
 without becoming a second runtime. The D7 local hosted Control profile is live-qualified without
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
 RC22's protected audit and RC23's local preflight are preserved. The three completion-review
-qualification-baseline corrections pass protected CI and focused review, but a replacement candidate remains.
+qualification-baseline correction groups through `3ea34e2` pass protected CI and focused review;
+the two EC2 authorization corrections in `b9735c9` still await both gates. A replacement candidate remains.
 The combined final-candidate audit and remaining scale, cost, profile, soak,
 operator-documentation, and support-freeze gates are recorded in
 `docs/cloud-portability-phase8-qualification.md`.
