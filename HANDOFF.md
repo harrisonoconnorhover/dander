@@ -5,7 +5,7 @@
 - Exact correction/docs head `0da600b` passed all five protected jobs in run `31879898267`.
 - Focused seventeenth review accepted `e12ee59`'s qualification-tagged network dependency grants.
 - The qualification baseline is frozen for separate approval to merge PR #291.
-- Current protected `main` at `f85d79a` is integrated; its AWS D7 stability change remains intact.
+- Current protected `main` at `16f0954` is integrated; its AWS D7 fixes remain intact.
 - No new qualification objective or live cloud mutation was added to this tranche.
 
 ## Try It

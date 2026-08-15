@@ -363,9 +363,9 @@ def _distribution() -> dict[str, object]:
     return {
         "Distribution": {
             "Status": "Deployed",
-            "Enabled": True,
             "DomainName": DOMAIN,
             "DistributionConfig": {
+                "Enabled": True,
                 "Logging": {"Enabled": False},
                 "Origins": {
                     "Items": [{"DomainName": "dander-d7-control.us-east-1.elb.amazonaws.com"}]
@@ -457,7 +457,7 @@ def _task_definition(
                     "essential": False,
                     "readonlyRootFilesystem": True,
                     "user": "0:0",
-                    "linuxParameters": {"capabilities": {"drop": ["ALL"]}},
+                    "linuxParameters": {"capabilities": {"add": [], "drop": ["ALL"]}},
                     "environment": [
                         {"name": name, "value": value} for name, value in environment.items()
                     ],
@@ -468,7 +468,7 @@ def _task_definition(
                     "essential": True,
                     "readonlyRootFilesystem": True,
                     "user": "65532:65532",
-                    "linuxParameters": {"capabilities": {"drop": ["ALL"]}},
+                    "linuxParameters": {"capabilities": {"add": [], "drop": ["ALL"]}},
                     "dependsOn": [{"containerName": "config-init", "condition": "SUCCESS"}],
                     "mountPoints": [
                         {"containerPath": "/etc/dander", "readOnly": True},
