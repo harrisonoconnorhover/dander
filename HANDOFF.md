@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Integrated protected main through AWS D7 Control commit `dcbbae6` without modifying that lane.
-- Published private arm64 RC23 commit `2455fc3` at index `sha256:8bd351…3064`; public RC20 is unchanged.
-- Passed the pre-approved local PostgreSQL crossover with exact COPY/DIRECT equality and cleanup.
-- Recorded the conservative same-shape result: DIRECT max 10 rows/1,400 logical bytes; global defaults remain zero.
-- Passed RC23 local artifact/runtime/security preflight and reconciled Phase 8 status without transferring RC22 evidence.
+- Copied exact RC22 byte-identically to private ECR and retained the verified index.
+- Applied the pre-approved 28-resource AWS qualification data plane, then stopped before Fargate after read-only image inspection found no packaged AWS deployment.
+- Destroyed all 28 qualification resources; state/inventories are empty and AWS D7 was unchanged.
+- Added a validated non-secret Fargate platform overlay that is materialized mode `0600` in runtime scratch space and removed on every terminal path.
+- Recorded the `not_evaluated` AWS attempt, reopened DANDER-202 honestly, and added the qualification Terraform root to the wheel inventory.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-14/postgresql-crossover.json` and inspect `rc23-local-audit.json` beside it.
+Run `jq . docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`, then review the projected-overlay tests named below.
 
 ## Checks
 
-- Ruff, formatting, mypy, release/control metadata, and pytest passed before the latest protected-main integration: 1,708 passed, 34 skipped.
-- Exact RC23 wheel and sdist inspection plus clean `runtime-all` installs pass; rootless read-only image execution passes.
-- Pip-audit found no vulnerability; pinned Trivy and Gitleaks found no candidate image/infrastructure or source issue.
-- Crossover passed all seven objectives against TLS PostgreSQL 15.18 with complete local cleanup.
+- Full Ruff formatting/lint, mypy across 232 source files, and pytest pass; the first full pytest run found the missing wheel mapping, and the corrected full rerun passes.
+- Focused bootstrap/runtime/Fargate/infrastructure/portable-config pytest passes (61 tests).
+- AWS and qualification Terraform validation passes; Fargate module tests pass (4), and the qualification native test passes (1).
+- Wheel build passes and contains all seven qualification Terraform assets; evidence JSON parses and `git diff --check` passes.
 
 ## Decisions
 
-- RC23 is private, arm64-only, source-retaining, and unprotected; it is not the final candidate or a support promotion.
-- RC22 remains valid only for its exact protected reports; those results do not transfer to RC23.
-- The AWS session is restored; paid Phase 8 AWS work still requires an exact pre-mutation objective manifest.
+- RC22 is not AWS-qualified and cannot inherit the local correction; protected review and a replacement source-free multi-platform candidate are mandatory.
+- Account-local platform coordinates are launch inputs, not image contents; secret values remain task-role-resolved and never enter the overlay.
+- Provider cost is pending, so AWS correctness and cost remain `not_evaluated` despite exact cleanup.
 
 ## Remaining
 
-- Revalidate after the protected-main merge, then run the next authorized AWS-native Phase 8 slice within its USD 3 allocation.
-- Obtain protected review, build one source-free multi-platform final candidate, and rerun applicable RC22 gates plus the audit.
-- Restore Azure/OCI credentials and execute remaining provider scale, canonical, and pairwise profiles.
-- Record posted provider costs and complete the retained soak through 2026-09-01.
-- Finish profile operator docs, freeze compatibility/limitations, and obtain separate approval for any public release.
+- Obtain protected review/CI for the runtime-overlay and direct-write corrections, then cut one replacement multi-platform candidate.
+- Resume AWS-native correctness only on that candidate and record posted cost within the authorized Phase 8 ceiling.
+- Rerun applicable RC22 qualification classes on the final candidate and complete hosted scale/cost and pairwise profiles.
+- Restore Azure/OCI credentials; finish operator docs and freeze honest compatibility/limitations.
+- Complete the retained soak through 2026-09-01; public release still requires separate approval.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-14/postgresql-crossover.json`
-- `docs/cloud-portability-phase8-qualification.md`
-- `src/dander/deployment/aws_control_plane.py`
+- `src/dander/bootstrap/aws_terraform.py`
+- `src/dander/cli/runtime_command.py`
+- `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`

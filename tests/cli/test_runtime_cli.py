@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from click import ClickException
@@ -33,6 +34,7 @@ def _invoke(
     execute: Callable[..., PipelineExecutionResult | None],
     *,
     attempt: int = 1,
+    extra_env: dict[str, str] | None = None,
 ) -> Result:
     monkeypatch.setattr(runtime_module, "execute_run", execute)
     return CliRunner().invoke(
@@ -57,7 +59,8 @@ def _invoke(
             "DANDER_RUN_ID": "cloud-run:execution-42",
             "DANDER_LAUNCHER": "cloud_run",
             "DANDER_ATTEMPT": str(attempt),
-        },
+        }
+        | (extra_env or {}),
     )
 
 
@@ -185,6 +188,77 @@ def test_runtime_execute_selects_named_version_two_deployment(
     options = cast("RunOptions", captured["options"])
     assert options.deployment == "postgres_fargate"
     assert str(options.platforms_config) == "/app/dander.platforms.yaml"
+
+
+def test_runtime_execute_uses_and_removes_launcher_projected_platform_config(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    projected = {
+        "version": 1,
+        "platforms": {
+            "gcp": {
+                "warehouse": {"provider": "bigquery", "location": "US"},
+                "state": {"provider": "bigquery"},
+                "catalog": {"provider": "dataplex"},
+                "secrets": {"provider": "gcp_secret_manager"},
+            }
+        },
+        "deployments": {
+            "gcp": {
+                "platform": "gcp",
+                "launcher": {"provider": "cloud_run", "region": "us-central1"},
+                "pipelines": {"greenhouse_jobs": {"paused": True}},
+            }
+        },
+    }
+
+    def execute(options: RunOptions, **kwargs: object) -> PipelineExecutionResult:
+        del kwargs
+        assert options.platforms_config is not None
+        captured["path"] = options.platforms_config
+        captured["document"] = json.loads(options.platforms_config.read_text(encoding="utf-8"))
+        captured["mode"] = options.platforms_config.stat().st_mode & 0o777
+        return PipelineExecutionResult(
+            run_id="projected-config-run",
+            pipeline_id=options.pipeline_or_source,
+            ingestion=PipelineRunResult(
+                run_id="projected-config-run",
+                source="fixture",
+                endpoints=(),
+            ),
+            models=(),
+            assertions=0,
+            assets=0,
+        )
+
+    result = _invoke(
+        monkeypatch,
+        execute,
+        extra_env={
+            "DANDER_PLATFORMS_CONFIG_JSON": json.dumps(projected),
+        },
+    )
+
+    assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
+    assert captured["document"] == projected
+    assert captured["mode"] == 0o600
+    assert not Path(cast("Path", captured["path"])).exists()
+
+
+def test_runtime_execute_rejects_invalid_projected_platform_config(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    result = _invoke(
+        monkeypatch,
+        lambda *_args, **_kwargs: None,
+        extra_env={"DANDER_PLATFORMS_CONFIG_JSON": '{"private":"credential-value"}'},
+    )
+
+    assert result.exit_code == RuntimeExitCode.INVALID_INVOCATION
+    terminal = json.loads(result.output.splitlines()[-1])
+    assert terminal["failure_code"] == "invalid_configuration"
+    assert "credential-value" not in result.output
 
 
 def test_runtime_execute_sanitizes_retryable_failure(monkeypatch: MonkeyPatch) -> None:

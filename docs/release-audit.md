@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passes local crossover and audit preflight. No single protected final candidate owns the combined matrix. Remaining reruns, scale/cost, hosted/pairwise profiles, soak, profile docs, and support freeze stay open. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passes local crossover and audit preflight. RC22's missing AWS deployment was found before execution and its disposable data plane was removed. The local runtime-overlay correction is unprotected. No single protected final candidate owns the combined matrix. Remaining reruns, scale/cost, hosted/pairwise profiles, soak, profile docs, and support freeze stay open. |
 
 ## Current release and deployment record
 
@@ -95,6 +95,10 @@ cloud path remains outside the live proof.
   local artifact/runtime, dependency, source-secret, infrastructure, and image preflight plus the
   pre-approved TLS PostgreSQL crossover. Its same-shape recommendation is 10 rows/1,400 logical
   bytes. RC23 has no protected CI or multi-platform qualification, and RC22 reports do not transfer.
+- Exact RC22 was copied byte-identically to private ECR for AWS-native preflight. Its immutable
+  image lacked the selected AWS deployment, so no Fargate plan, task, or pipeline ran. The exact
+  28-resource disposable data-plane destroy completed with empty qualification state/inventories
+  and no AWS D7 change. Provider cost remains pending; this is cleanup evidence, not a profile pass.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions
@@ -127,6 +131,7 @@ GCP platform, independently installed connectors ingest into BigQuery, Dander tr
 the data, one metadata spine records what happened, and Druff authors and operates a bounded graph
 without becoming a second runtime. The D7 local hosted Control profile is live-qualified without
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
-RC22's protected audit and RC23's local preflight are preserved, but the combined final-candidate
-audit and remaining scale, cost, profile, soak, operator-documentation, and support-freeze gates are recorded in
-`docs/cloud-portability-phase8-qualification.md`.
+RC22's protected audit and RC23's local preflight are preserved, but the AWS runtime-overlay
+correction still needs protected review and a replacement candidate. The combined final-candidate
+audit and remaining scale, cost, profile, soak, operator-documentation, and support-freeze gates
+are recorded in `docs/cloud-portability-phase8-qualification.md`.

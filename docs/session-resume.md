@@ -34,6 +34,16 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- AWS access was restored on 2026-08-14. Exact RC22 was copied byte-identically to private ECR,
+  and a pre-approved 28-resource Redshift Serverless/PostgreSQL/Glue/Secrets data plane was created
+  under a USD 3 allocation. Read-only image inspection then found no packaged AWS deployment, so
+  no Fargate plan, task, or pipeline ran. The exact 28-resource destroy completed, qualification
+  state and inventories are empty, and AWS D7 was unchanged. Provider cost remains pending. A local
+  correction projects the selected non-secret platform overlay at launch and passes focused Python
+  and Terraform contracts; protected review and a replacement candidate are required before live
+  qualification resumes. See
+  `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.
+
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It
   passed exact artifact/runtime/security preflight and the pre-approved local DIRECT-to-COPY

@@ -1,0 +1,106 @@
+{
+  "schema": "io.dander.phase8.aws-native-profile-attempt/v1",
+  "attempt_date": "2026-08-14",
+  "first_paid_resource_observed_at_utc": "2026-08-15T02:07:01Z",
+  "cleanup_verified_at_utc": "2026-08-15T02:26:46Z",
+  "authorization_reference": "docs/evidence/phase8/2026-08-14/aws-native-authorization.json",
+  "objective_reference": "docs/evidence/phase8/2026-08-14/aws-native-profile-objectives.json",
+  "candidate": {
+    "release_version": "0.9.0rc22",
+    "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+    "source_index_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "ecr_index_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+    "ecr_copy_retained": true,
+    "source_free": true,
+    "multi_platform": true
+  },
+  "data_plane": {
+    "saved_plan": {
+      "add": 28,
+      "change": 0,
+      "destroy": 0,
+      "aws_d7_resources": 0
+    },
+    "apply": {
+      "add": 28,
+      "change": 0,
+      "destroy": 0
+    },
+    "limits": {
+      "redshift_base_capacity_rpu": 8,
+      "redshift_daily_usage_limit_rpu_hours": 5,
+      "redshift_breach_action": "deactivate",
+      "rds_instance_class": "db.t4g.micro",
+      "rds_storage_gib": 20
+    }
+  },
+  "pre_execution_blocker": {
+    "code": "candidate_missing_selected_deployment",
+    "discovered_by": "read_only_runtime_image_inspection",
+    "packaged_platforms": [
+      "gcp",
+      "postgres"
+    ],
+    "packaged_deployments": [
+      "gcp_cloud_run",
+      "kubernetes_portable"
+    ],
+    "required_deployment": "aws_native",
+    "fargate_plan_created": false,
+    "fargate_apply_attempted": false,
+    "pipeline_execution_attempted": false,
+    "reason": "The immutable candidate could not resolve the manifest-selected AWS deployment before provider access."
+  },
+  "authority": {
+    "authenticated_principal_class": "account_root",
+    "deployment_role_assume_attempted": true,
+    "deployment_role_assume_result": "rejected_root_cannot_assume_role",
+    "static_credentials_created": false,
+    "runtime_task_identity_created": false
+  },
+  "cleanup": {
+    "saved_destroy_plan": {
+      "add": 0,
+      "change": 0,
+      "destroy": 28,
+      "aws_d7_resources": 0
+    },
+    "destroy_apply": {
+      "add": 0,
+      "change": 0,
+      "destroy": 28
+    },
+    "terraform_state_entries": 0,
+    "redshift_workgroups": 0,
+    "redshift_namespaces": 0,
+    "rds_instances": 0,
+    "secrets": 0,
+    "staging_buckets": 0,
+    "vpcs": 0,
+    "iam_roles": 0,
+    "aws_d7_resources_changed": false,
+    "temporary_saved_plans_trashed": true,
+    "temporary_artifact_records_removed": true
+  },
+  "cost": {
+    "approved_ceiling_usd": "3.00",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "redshift_compute_guard_maximum_usd": "1.875",
+    "redshift_compute_guard_maximum_is_observed_cost": false
+  },
+  "objectives": {
+    "artifact_identity": "passed",
+    "aws_secret_manager_resolution": "not_evaluated",
+    "cost_ceiling": "not_evaluated",
+    "exact_cleanup": "passed",
+    "glue_publication": "not_evaluated",
+    "manual_execution": "not_evaluated",
+    "no_drift": "not_evaluated",
+    "postgresql_state": "not_evaluated",
+    "redshift_write": "not_evaluated",
+    "replay_idempotency": "not_evaluated"
+  },
+  "qualification_status": "not_evaluated",
+  "support_promoted": false
+}

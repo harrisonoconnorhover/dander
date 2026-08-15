@@ -52,8 +52,14 @@ published scale/qualification objectives; see the
 
 The separately named AWS-native composition projects Redshift, PostgreSQL state, Glue, and full
 AWS Secrets Manager ARNs through the same manifest-bound saved-plan lifecycle. Its task role is
-scoped to the declared data-plane resources, and the GCP projection remains unchanged. This path
-has local and provider-mocked contract evidence only; it is not live-qualified or supported.
+scoped to the declared data-plane resources, and the GCP projection remains unchanged. The saved
+plan also carries the already validated selected platform and deployment as one bounded non-secret
+JSON overlay, so account-local coordinates do not need to be baked into the OCI image. Runtime
+validates that overlay, materializes it mode `0600` in task scratch space, and removes it after the
+execution; secret values remain in the task-role-resolved binding path. Exact RC22 exposed the
+missing-overlay packaging gap before Fargate planning, and the disposable data plane was removed.
+The correction has local and provider-mocked contract evidence only; protected review, a
+replacement candidate, live qualification, and support remain open.
 
 The Kubernetes provider projects a selected named profile into a packaged Helm chart for an
 existing Kubernetes 1.27+ cluster. Its immutable template uses stdout, operator-owned Secret key

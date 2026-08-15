@@ -1238,8 +1238,11 @@ Tickets:
 
 Exact private RC22 completed item 5 for its source through protected CI and a local exact-artifact
 repeat. The later direct-write capability required private arm64 RC23; RC23 has passed local
-artifact/security preflight and PostgreSQL crossover, but protected review, a multi-platform build,
-and final-candidate reruns remain. Items 1, 3, 4, 6, and 7 stay open where provider/profile evidence
+artifact/security preflight and PostgreSQL crossover. An exact-RC22 AWS preflight separately found
+that account-local deployment coordinates were absent from the immutable image before Fargate
+planning; its disposable data plane was removed exactly, and a local runtime-overlay correction
+passes focused contracts. Both corrections require protected review, one replacement multi-platform
+build, and final-candidate reruns. Items 1, 3, 4, 6, and 7 stay open where provider/profile evidence
 is incomplete; neither audit promotes an experimental profile.
 
 Exit gate:

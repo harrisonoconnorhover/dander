@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from collections.abc import Mapping
 from json import dumps
 from typing import TYPE_CHECKING
 
@@ -16,13 +17,13 @@ from dander.bootstrap.terraform import (
 )
 from dander.deployment import ExecutionProjectionError, ResolvedTemplateRequest
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
+from dander.providers.fargate.config import FargateLauncherConfig
 from dander.providers.fargate.context import FargateProfileContext
 from dander.providers.gcp_launcher import GcpLauncherContext
 from dander.providers.glue.config import GlueCatalogConfig
 from dander.providers.redshift.config import RedshiftWarehouseConfig
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from pathlib import Path
 
 _AWS_ACCOUNT_ID = re.compile(r"^[0-9]{12}$")
@@ -142,6 +143,18 @@ class AwsTerraformBootstrap:
                 launcher_config=raw_launcher,
                 fargate_profile=profile,
             )
+            platforms_config_json = self._runtime_platforms_config(
+                profile=profile,
+                deployment_name=deployment_name,
+                launcher_config=raw_launcher,
+                runtime_cpu=runtime_cpu,
+                runtime_memory=runtime_memory,
+                runtime_timeout_seconds=runtime_timeout_seconds,
+                runtime_max_retries=runtime_max_retries,
+                runtime_batch_rows=runtime_batch_rows,
+                require_guarded_free_tier=require_guarded_free_tier,
+                pipelines=expanded_pipelines,
+            )
             projections = {
                 pipeline_id: template.as_dict()
                 for pipeline_id, template in launcher.templates.build(
@@ -156,6 +169,7 @@ class AwsTerraformBootstrap:
                         batch_rows=runtime_batch_rows,
                         alert_target=None,
                         deployment_id=deployment_name,
+                        platforms_config_json=platforms_config_json,
                     )
                 ).items()
             }
@@ -307,6 +321,74 @@ class AwsTerraformBootstrap:
             "glue_catalog_id": catalog.catalog_id,
             "glue_database_prefix": catalog.database_prefix,
         }
+
+    @staticmethod
+    def _runtime_platforms_config(
+        *,
+        profile: FargateProfileContext,
+        deployment_name: str,
+        launcher_config: Mapping[str, object],
+        runtime_cpu: int,
+        runtime_memory: str,
+        runtime_timeout_seconds: int,
+        runtime_max_retries: int,
+        runtime_batch_rows: int,
+        require_guarded_free_tier: bool,
+        pipelines: Mapping[str, Mapping[str, object]],
+    ) -> str:
+        """Render one validated deployment overlay independent of image-baked coordinates."""
+        launcher = FargateLauncherConfig.model_validate(launcher_config)
+        deployment_pipelines: dict[str, object] = {}
+        for pipeline_id, pipeline in sorted(pipelines.items()):
+            secret_env = pipeline["secret_env"]
+            if not isinstance(secret_env, Mapping):  # pragma: no cover - validated upstream
+                raise AwsTerraformBootstrapError("Pipeline secret bindings are invalid")
+            resources = {
+                "job": pipeline["job_name"],
+                "runtime_service_account": pipeline["runtime_service_account_id"],
+                "scheduler_service_account": pipeline["scheduler_service_account_id"],
+            }
+            deployment_pipelines[pipeline_id] = {
+                "schedule": pipeline["schedule"],
+                "time_zone": pipeline["time_zone"],
+                "paused": pipeline["paused"],
+                "secret_bindings": dict(sorted(secret_env.items())),
+                "resources": resources,
+            }
+        document = {
+            "version": 1,
+            "platforms": {
+                profile.profile_id: {
+                    "warehouse": profile.warehouse.model_dump(
+                        mode="json", by_alias=True, exclude_none=True
+                    ),
+                    "state": profile.state.model_dump(mode="json", exclude_none=True),
+                    "catalog": profile.catalog.model_dump(mode="json", exclude_none=True),
+                    "secrets": profile.secrets.model_dump(mode="json", exclude_none=True),
+                }
+            },
+            "deployments": {
+                deployment_name: {
+                    "platform": profile.profile_id,
+                    "launcher": launcher.model_dump(mode="json", exclude_none=True),
+                    "runtime": {
+                        "cpu": runtime_cpu,
+                        "memory": runtime_memory,
+                        "timeout_seconds": runtime_timeout_seconds,
+                        "max_retries": runtime_max_retries,
+                        "batch_rows": runtime_batch_rows,
+                    },
+                    "safety": {
+                        "require_guarded_free_tier": require_guarded_free_tier,
+                    },
+                    "pipelines": deployment_pipelines,
+                }
+            },
+        }
+        from dander.project.portable_config import DanderPlatforms
+
+        DanderPlatforms.model_validate(document)
+        return dumps(document, sort_keys=True, separators=(",", ":"))
 
     def apply_saved_plan(
         self,

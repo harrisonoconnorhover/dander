@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dander.bootstrap import AwsTerraformBootstrap, AwsTerraformBootstrapError
+from dander.project import load_project_config
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -121,6 +122,9 @@ def test_aws_bootstrap_builds_manifest_projection_without_apply(
         "provider": "gcp_secret_manager",
         "reference": "gcp-sm://projects/unit-project/secrets/greenhouse-token/versions/latest",
     }
+    projected_platforms = json.loads(projection["environment"]["DANDER_PLATFORMS_CONFIG_JSON"])
+    assert list(projected_platforms["deployments"]) == ["aws_fargate"]
+    assert projected_platforms["deployments"]["aws_fargate"]["platform"] == "gcp"
 
 
 def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
@@ -203,6 +207,44 @@ def test_aws_bootstrap_builds_the_manifest_bound_aws_native_profile(
         "reference": secret_prefix + "postgres-dsn-AbCdEf",
     }
     assert "GCP_PROJECT_ID" not in projection["environment"]
+    projected_platforms = json.loads(projection["environment"]["DANDER_PLATFORMS_CONFIG_JSON"])
+    assert list(projected_platforms["platforms"]) == ["aws_native"]
+    assert list(projected_platforms["deployments"]) == ["aws_fargate"]
+    assert projected_platforms["platforms"]["aws_native"]["warehouse"]["provider"] == ("redshift")
+    assert (
+        projected_platforms["deployments"]["aws_fargate"]["pipelines"]["greenhouse_jobs"][
+            "secret_bindings"
+        ]
+        == pipelines["greenhouse_jobs"]["secret_env"]
+    )
+    logical_path = tmp_path / "dander.yaml"
+    platforms_path = tmp_path / "dander.platforms.json"
+    logical_path.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "pipelines": {
+                    "greenhouse_jobs": {
+                        "source": "greenhouse_job_board",
+                        "models": ["stg_greenhouse__jobs"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    platforms_path.write_text(json.dumps(projected_platforms), encoding="utf-8")
+
+    resolved = load_project_config(
+        logical_path,
+        platforms_path=platforms_path,
+        deployment="aws_fargate",
+    )
+
+    assert resolved.warehouse_provider == "redshift"
+    assert resolved.state_provider == "postgresql"
+    assert resolved.catalog_provider == "glue"
+    assert resolved.secret_provider == "aws_secret_manager"
     native_argument = next(
         item for item in terraform_plan if item.startswith("-var=aws_native_profile=")
     )

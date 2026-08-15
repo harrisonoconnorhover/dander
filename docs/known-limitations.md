@@ -166,9 +166,12 @@ remain Phase 8 work.
   The Fargate factory and saved-plan Terraform path now implement only the accepted GCP data-plane
   composition and the named AWS-native Redshift/PostgreSQL/Glue/AWS-Secrets composition. The
   AWS-native path binds full secret ARNs and scopes task access to the declared Redshift target,
-  staging prefix, Glue namespace, and secrets, but it has only local and provider-mocked evidence.
-  Protected review, a source-free candidate, and live AWS qualification remain open; this is not a
-  support claim or a provider-managed Redshift/PostgreSQL deployment.
+  staging prefix, Glue namespace, and secrets. Exact RC22 live preflight found that its image did
+  not package the selected AWS deployment, so no Fargate plan or execution ran and the disposable
+  data plane was removed exactly. A local correction projects the validated non-secret platform
+  overlay at launch, but protected review, a replacement source-free candidate, and live AWS
+  qualification remain open. This is not a support claim or a provider-managed
+  Redshift/PostgreSQL deployment.
 
 ## Support boundary
 

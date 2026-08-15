@@ -1,5 +1,19 @@
 # Engineering Decisions
 
+## 2026-08-14 — Fargate projects the selected platform independently of the image
+
+- **Selection:** A saved Fargate plan now serializes its already validated, selected platform and
+  deployment into one bounded non-secret JSON overlay. AWS-native projection fails before planning
+  if the overlay is absent; it no longer assumes the immutable image was built with account-local
+  Redshift, PostgreSQL, Glue, network, and secret-reference coordinates.
+- **Runtime:** The task passes the overlay as an ordinary environment value. The runtime validates
+  it against the typed platform contract, writes it mode `0600` under the writable scratch mount,
+  uses it only for that execution, and removes it on every terminal path. Secret values remain in
+  the task-role-resolved binding path and never enter the overlay.
+- **Boundary:** Exact RC22 exposed this packaging gap before the Fargate plan or provider execution;
+  its disposable data plane was removed. The local correction requires protected review and a new
+  source-free candidate before AWS qualification resumes; RC22 does not inherit the fix.
+
 ## 2026-08-14 — PostgreSQL direct defaults stay disabled after local crossover
 
 - **Selection:** PostgreSQL admits direct inserts only when both `direct_max_rows` and

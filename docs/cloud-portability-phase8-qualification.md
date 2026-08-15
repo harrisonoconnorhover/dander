@@ -15,7 +15,7 @@ Phase 7 evidence merge.
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, and private local RC23 passed the bounded DIRECT-to-COPY crossover | Hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 passed protected CI and the final-candidate repeat; private arm64 RC23 passed the local artifact, runtime, dependency, secret, infrastructure, and image preflight | RC23 protected review/multi-platform build and every final-candidate rerun remain open, as do profile docs and the status freeze |
+| Audits | Exact RC22 passed protected CI and the final-candidate repeat; private arm64 RC23 passed the local artifact, runtime, dependency, secret, infrastructure, and image preflight | The AWS runtime-overlay correction and RC23 direct path both require protected review; one replacement multi-platform candidate and every final-candidate rerun remain open, as do profile docs and the status freeze |
 
 ## Open gates and dependency order
 
@@ -25,8 +25,9 @@ Phase 7 evidence merge.
    `dander-servicenow-incidents-7kxl4` emitted bounded class chains and a numeric status without
    messages, bodies, credentials, DSNs, or rows. This proves safe causal identity, not the external
    ServiceNow root cause.
-3. Completed: the AWS-native Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets profile passed protected
-   review; live AWS qualification and support promotion remain separate gates.
+3. Reopened after live preflight: the original AWS-native Fargate/Redshift/PostgreSQL/Glue/
+   AWS-Secrets profile passed protected review, but exact RC22 did not package its selected AWS
+   deployment. The local runtime-overlay correction requires protected review before qualification.
 4. Completed as a baseline: protected private RC22 was cut after those merges and used for the GCP,
    local Kubernetes, and seven-class PostgreSQL records.
 5. In progress: the post-RC22 bounded direct-write change is packaged as private arm64 RC23. Its
@@ -44,8 +45,9 @@ dependency order, and use the immutable candidate.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
-`sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; both deployment
-selectors passed read-only runtime inspection. Private local `0.9.0rc23` at
+`sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; its packaged GCP
+and Kubernetes deployments passed read-only runtime inspection, but no AWS deployment is present.
+Private local `0.9.0rc23` at
 `2455fc34d4503863060b7bac873be36319c13e4f` adds the bounded direct path and is published only as
 an arm64 qualification image at index
 `sha256:8bd35188dbdb09bb33be7132a7681577249677e4b3c8a0e76ede4a2975733064`. It is not protected,
@@ -104,7 +106,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | local implementation complete; protected review and Phase 8 qualification open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | runtime-overlay correction passes locally; protected review, replacement candidate, and Phase 8 qualification open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -121,13 +123,16 @@ Cartesian product. A case cannot change to supported from adapter tests alone.
 
 The 2026-08-14 read-only credential preflight found Azure blocked on required interactive Entra
 reauthentication, AWS blocked on an expired session, and OCI blocked on an incomplete CLI profile.
-AWS access was subsequently restored and a fresh read-only inventory found no reusable Redshift,
-PostgreSQL, Secrets Manager, or Glue data plane, so the pre-approved AWS-native slice requires
-disposable dependencies. Its exact RC22 objectives, USD 3 allocation, service limits, and cleanup
-boundary are committed before mutation. Azure and OCI remain credential-blocked; none of these
-cases inherits a support claim. Sanitized details are in
+AWS access was subsequently restored. Exact RC22 was copied byte-identically to private ECR, and
+the pre-approved 28-resource disposable data plane was created within its USD 3 allocation. A
+read-only inspection then found that the image packages only GCP and Kubernetes deployments, so no
+Fargate plan, task, or pipeline execution was attempted. The exact 28-resource destroy completed,
+the qualification state and inventories contain zero managed data-plane resources, and the existing
+AWS D7 lane was unchanged. Provider charges have not posted, so the profile cost and correctness
+remain `not_evaluated`. Azure and OCI remain credential-blocked; none of these cases inherits a
+support claim. Sanitized details are in
 `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
-`aws-credential-restoration.json` beside it.
+`aws-native-profile-attempt.json` beside it.
 
 ## Current PostgreSQL scale evidence
 
@@ -179,10 +184,10 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 ## Current exit recommendation
 
 Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
-PostgreSQL classes, RC22 protected audit, bounded direct implementation, and RC23 local crossover
-and preflight are complete. The exact unmet gates are protected review and multi-platform build of
-the final candidate; rerunning applicable RC22 reports on that one candidate; PostgreSQL hosted
-cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and
-pairwise live proofs; scale/cost reports for every first-class warehouse and launcher; remaining
-canonical-profile evidence; release-candidate soak; profile operator docs; and the frozen support
-matrix.
+PostgreSQL classes, RC22 protected audit, bounded direct implementation, RC23 local crossover and
+preflight, and exact AWS cleanup evidence are complete. The exact unmet gates are protected review
+of the AWS runtime-overlay and direct-write corrections and a replacement multi-platform candidate;
+rerunning applicable RC22 reports on that one candidate; PostgreSQL hosted cost; remaining
+benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
+proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile
+evidence; release-candidate soak; profile operator docs; and the frozen support matrix.

@@ -28,6 +28,9 @@ canonical profile gate.
   live pairwise run was started for those providers.
 - Continue local and retained-GCP gates independently. Do not weaken or mark the unavailable
   provider cases passed; the sanitized blocker record contains no account or credential material.
-- AWS access was restored later on 2026-08-14. The AWS-native profile now has a committed exact
-  RC22 objective manifest and bounded USD 3 authorization; the earlier blocker remains historical,
-  and no live result or support status is claimed before the disposable run completes.
+- AWS access was restored later on 2026-08-14. The exact RC22 objective manifest and bounded USD 3
+  authorization preceded a 28-resource disposable data-plane apply. Read-only candidate inspection
+  then found no packaged AWS deployment, so no Fargate plan or execution ran; the exact destroy and
+  empty inventory are recorded. A local runtime-overlay correction requires protected review and a
+  replacement candidate before the pairwise run can resume. No live result or support status is
+  claimed.
