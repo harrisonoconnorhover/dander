@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -76,7 +77,10 @@ def _execute(bootstrap: AwsTerraformBootstrap, **overrides: object) -> Path:
 def _plan_variables(args: tuple[str, ...]) -> dict[str, object]:
     variable_argument = next(item for item in args if item.startswith("-var-file="))
     variable_path = Path(variable_argument.removeprefix("-var-file="))
-    return json.loads(variable_path.read_text(encoding="utf-8"))
+    return cast(
+        "dict[str, object]",
+        json.loads(variable_path.read_text(encoding="utf-8")),
+    )
 
 
 def test_aws_bootstrap_builds_manifest_projection_without_apply(

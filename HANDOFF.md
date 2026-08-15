@@ -15,6 +15,7 @@ Run `uv run pytest -q tests/bootstrap/test_aws_terraform.py tests/providers/test
 ## Checks
 
 - Exact status head `d35ad7f` passed all five protected jobs in run `31864001249`.
+- First `f4345a7` CI attempt failed only mypy on a new JSON test helper; an explicit cast corrects it.
 - Rereview correction pytest passed (29 passed, 23 provider-gated skips).
 - Ruff lint/format and strict mypy passed for the corrected Python source.
 - The 100-pipeline regression keeps every Terraform CLI argument below 128 KiB.

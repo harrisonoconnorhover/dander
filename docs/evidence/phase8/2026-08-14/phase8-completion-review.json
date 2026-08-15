@@ -14,6 +14,12 @@
   "second_reviewed_on": "2026-08-15",
   "second_reviewed_head": "d35ad7f47e939370d022e38535cd7cfdbac356db",
   "second_correction_commit": "b7a3181325a92091ea7cc50046e1912fc637ca92",
+  "second_correction_ci_attempt": {
+    "run": 31864704594,
+    "head": "f4345a75af11e794fae4b7b61682cc91f288b845",
+    "status": "failed_python_test_helper_typing",
+    "cloud_mutation_performed": false
+  },
   "findings": [
     {
       "id": "aws_database_egress",
