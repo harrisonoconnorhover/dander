@@ -38,7 +38,13 @@ from dander.qualification import (
     QualificationStatus,
 )
 from dander.telemetry import CostAttribution, PerformanceMeasurement, RunPerformance
-from dander.warehouse import RelationRef, WarehouseRuntime
+from dander.warehouse import (
+    RelationRef,
+    RelationSchema,
+    WarehouseRuntime,
+    normalize_staging_record,
+    staging_logical_size,
+)
 from dander.writer import (
     SchemaEvolution,
     WriteField,
@@ -62,6 +68,13 @@ _OBJECTIVES = (
     "crossover_measured",
     "direct_transport_observed",
     "threshold_recorded",
+)
+_CROSSOVER_FIELDS = (
+    WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+    WriteField(name="payload", data_type="STRING"),
+)
+_CROSSOVER_SCHEMA = RelationSchema(
+    fields=tuple(field.to_canonical() for field in _CROSSOVER_FIELDS)
 )
 
 
@@ -104,14 +117,17 @@ class PostgreSQLCrossoverConfig:
             raise ValueError("direct_max_logical_bytes must be between 1 and 1 MiB")
         if self.row_counts[-1] > 10_000:
             raise ValueError("crossover row counts cannot exceed the writer's 10,000-row bound")
-        if self.row_counts[-1] * self.row_width_bytes > self.direct_max_logical_bytes:
+        if (
+            _workload_logical_bytes(self.row_counts[-1], self.payload_bytes)
+            > self.direct_max_logical_bytes
+        ):
             raise ValueError(
                 "largest crossover workload does not fit the approved direct byte bound"
             )
 
     @property
     def row_width_bytes(self) -> int:
-        return self.payload_bytes + 12
+        return _workload_logical_bytes(1, self.payload_bytes)
 
     def workload_payload(self) -> dict[str, object]:
         return {
@@ -320,7 +336,9 @@ def _run_crossover(
         if medians[WriteTransport.DIRECT][rows] <= medians[WriteTransport.COPY][rows]
     )
     recommended_rows = max(winning, default=0)
-    recommended_bytes = recommended_rows * config.row_width_bytes if recommended_rows else 0
+    recommended_bytes = (
+        _workload_logical_bytes(recommended_rows, config.payload_bytes) if recommended_rows else 0
+    )
     return _CrossoverResult(
         duration_ms=_elapsed_ms(started),
         peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
@@ -394,10 +412,7 @@ def _measure_sample(
     target = WriteTarget(
         relation=relation,
         business_key=("id",),
-        schema=(
-            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
-            WriteField(name="payload", data_type="STRING"),
-        ),
+        schema=_CROSSOVER_FIELDS,
         publication_fence=publication,
     )
     started = time.perf_counter()
@@ -421,6 +436,15 @@ def _records(rows: int, payload_bytes: int) -> Iterator[dict[str, object]]:
     payload = "x" * payload_bytes
     for index in range(rows):
         yield {"id": f"{index:012d}", "payload": payload}
+
+
+def _workload_logical_bytes(rows: int, payload_bytes: int) -> int:
+    return sum(
+        staging_logical_size(
+            normalize_staging_record(record, _CROSSOVER_SCHEMA, row_index=row_index)
+        )
+        for row_index, record in enumerate(_records(rows, payload_bytes))
+    )
 
 
 def _table_sha256(pool: PostgreSQLPool, *, schema: str, table: str) -> str:
@@ -461,7 +485,11 @@ def _report(
     result: _CrossoverResult,
 ) -> QualificationReport:
     total_rows = sum(config.row_counts) * config.repetitions * 2
-    logical_bytes = total_rows * config.row_width_bytes
+    logical_bytes = (
+        sum(_workload_logical_bytes(rows, config.payload_bytes) for rows in config.row_counts)
+        * config.repetitions
+        * 2
+    )
     metrics: list[PerformanceMeasurement] = [
         _measured(
             "recommended_direct_max_logical_bytes",

@@ -8,15 +8,19 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 from scripts.benchmarks.postgresql_crossover_phase8 import (
+    _CROSSOVER_SCHEMA,
     CandidateIdentity,
     PostgreSQLCrossoverConfig,
     _CrossoverResult,
     _median_durations,
+    _records,
     _report,
     _Sample,
+    _workload_logical_bytes,
     load_approval,
 )
 
+from dander.providers.postgresql.writer import _select_direct_batch
 from dander.qualification import BenchmarkClass
 from dander.writer import WriteTransport
 
@@ -28,6 +32,17 @@ def test_crossover_config_is_deterministic_and_bounded() -> None:
     config = PostgreSQLCrossoverConfig()
 
     assert len(config.configuration_sha256()) == 64
+    assert config.row_width_bytes == 149
+    assert _workload_logical_bytes(10, config.payload_bytes) == 1_490
+    direct, remaining = _select_direct_batch(
+        _records(10, config.payload_bytes),
+        _CROSSOVER_SCHEMA,
+        max_rows=10,
+        max_logical_bytes=_workload_logical_bytes(10, config.payload_bytes),
+    )
+    assert direct is not None
+    assert direct.logical_bytes == 1_490
+    assert tuple(remaining) == ()
     assert config.workload_payload() == {
         "schema": "io.dander.phase8.postgresql-crossover/v1",
         "benchmark_class": "crossover",

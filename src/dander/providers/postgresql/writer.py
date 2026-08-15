@@ -130,6 +130,15 @@ class PostgreSQLCopyWriter(WritePattern):
         assert publication_fence is not None
         schema = target.canonical_schema
         target_schema = _target_schema_for_mode(schema, self.mode)
+        try:
+            direct, remaining = _select_direct_batch(
+                records,
+                schema,
+                max_rows=self._direct_max_rows,
+                max_logical_bytes=self._direct_max_logical_bytes,
+            )
+        except StagingArtifactError as error:
+            raise PostgreSQLWriteError(str(error)) from error
 
         with self._pool.connection() as connection, connection.transaction():
             _set_timeouts(connection, self._timeouts)
@@ -142,15 +151,6 @@ class PostgreSQLCopyWriter(WritePattern):
             )
             staging = f"dander_stage_{uuid4().hex}"
             _create_staging(connection, staging, schema, target.business_key)
-            try:
-                direct, remaining = _select_direct_batch(
-                    records,
-                    schema,
-                    max_rows=self._direct_max_rows,
-                    max_logical_bytes=self._direct_max_logical_bytes,
-                )
-            except StagingArtifactError as error:
-                raise PostgreSQLWriteError(str(error)) from error
             started = perf_counter_ns()
             if direct is None:
                 transport = WriteTransport.COPY

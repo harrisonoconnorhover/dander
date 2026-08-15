@@ -16,14 +16,19 @@ from psycopg import Connection, sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from dander.concurrency import FencingToken, TargetFenceLostError
+from dander.concurrency import FencingToken, TargetFence, TargetFenceLostError
 from dander.ingestion.source import Endpoint, RawField, Source, SourceConfig
 from dander.pipeline.graph import PipelineGraph
 from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderKind, default_provider_registry
 from dander.providers.postgresql.config import PostgreSQLWarehouseConfig
 from dander.providers.postgresql.transform import PostgreSQLGraphRunner
-from dander.providers.postgresql.writer import PostgreSQLWriteError, _select_direct_batch
+from dander.providers.postgresql.writer import (
+    PostgreSQLCopyWriter,
+    PostgreSQLTimeouts,
+    PostgreSQLWriteError,
+    _select_direct_batch,
+)
 from dander.runtime import PipelineRunner
 from dander.state import WatermarkStore
 from dander.telemetry import TelemetryOperation
@@ -197,6 +202,54 @@ def test_postgresql_direct_selection_is_bounded_and_preserves_copy_fallback() ->
     )
     assert direct is None
     assert list(remaining) == records
+
+
+def test_postgresql_direct_selection_finishes_before_opening_a_transaction() -> None:
+    exhausted = False
+
+    def records() -> Iterator[Mapping[str, object]]:
+        nonlocal exhausted
+        yield {"id": "one", "label": "first"}
+        exhausted = True
+
+    class _PoolProbe:
+        def connection(self) -> object:
+            assert exhausted
+            raise RuntimeError("connection opened after bounded selection")
+
+    writer = PostgreSQLCopyWriter(
+        database="warehouse",
+        pool=cast("PostgreSQLPool", _PoolProbe()),
+        target_fence=cast("Any", object()),
+        timeouts=PostgreSQLTimeouts(statement_ms=1, lock_ms=1, idle_transaction_ms=1),
+        mode=WriteMode.SCD1,
+        direct_max_rows=10,
+        direct_max_logical_bytes=1_024,
+    )
+    target = WriteTarget(
+        project="warehouse",
+        dataset="raw",
+        table="records",
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+            WriteField(name="label", data_type="STRING"),
+        ),
+        publication_fence=TargetFence(
+            fence_table="raw.dander_target_commits",
+            target_id="warehouse.raw.records",
+            authority_id="postgresql:test-state",
+            authority_epoch=1,
+            pipeline_id="postgresql_direct",
+            run_id="run-direct",
+            token=1,
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="connection opened after bounded selection"):
+        writer.write(records(), target)
+
+    assert exhausted
 
 
 def test_postgresql_config_uses_database_and_schema_coordinates_directly() -> None:

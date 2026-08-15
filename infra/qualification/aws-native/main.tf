@@ -101,6 +101,24 @@ resource "aws_vpc_security_group_ingress_rule" "redshift" {
   description                  = "Redshift from the manifest-bound Fargate task"
 }
 
+resource "aws_vpc_security_group_egress_rule" "postgresql" {
+  security_group_id            = aws_security_group.profile.id
+  referenced_security_group_id = aws_security_group.profile.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+  description                  = "PostgreSQL state from the manifest-bound Fargate task"
+}
+
+resource "aws_vpc_security_group_egress_rule" "redshift" {
+  security_group_id            = aws_security_group.profile.id
+  referenced_security_group_id = aws_security_group.profile.id
+  from_port                    = 5439
+  to_port                      = 5439
+  ip_protocol                  = "tcp"
+  description                  = "Redshift from the manifest-bound Fargate task"
+}
+
 # The fixed HTTPS-only rule must reach both AWS service endpoints and the public qualification
 # source; those destinations cannot share one narrower static CIDR or managed prefix list.
 #trivy:ignore:AVD-AWS-0104

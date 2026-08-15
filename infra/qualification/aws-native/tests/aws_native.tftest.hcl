@@ -83,11 +83,17 @@ run "bounded_disposable_data_plane" {
     condition = (
       aws_vpc_security_group_ingress_rule.postgresql.referenced_security_group_id == aws_security_group.profile.id &&
       aws_vpc_security_group_ingress_rule.redshift.referenced_security_group_id == aws_security_group.profile.id &&
+      aws_vpc_security_group_egress_rule.postgresql.referenced_security_group_id == aws_security_group.profile.id &&
+      aws_vpc_security_group_egress_rule.postgresql.from_port == 5432 &&
+      aws_vpc_security_group_egress_rule.postgresql.to_port == 5432 &&
+      aws_vpc_security_group_egress_rule.redshift.referenced_security_group_id == aws_security_group.profile.id &&
+      aws_vpc_security_group_egress_rule.redshift.from_port == 5439 &&
+      aws_vpc_security_group_egress_rule.redshift.to_port == 5439 &&
       aws_vpc_security_group_egress_rule.internet.ip_protocol == "tcp" &&
       aws_vpc_security_group_egress_rule.internet.from_port == 443 &&
       aws_vpc_security_group_egress_rule.internet.to_port == 443
     )
-    error_message = "Data-plane ingress must stay internal and public egress must stay limited to TLS."
+    error_message = "Database traffic must stay self-scoped and public egress must stay limited to TLS."
   }
 
   assert {
