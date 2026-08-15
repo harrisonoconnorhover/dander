@@ -1251,8 +1251,9 @@ passed run `31878215886`, and focused fifteenth review accepted the correction. 
 route-table, subnet, and VPC-endpoint creation. Commit `e12ee59` adds the qualification-tag-scoped
 dependency grants; correction/docs head `0da600b` passed run `31879898267`, and focused seventeenth
 review accepted the correction. PR #291 merged the baseline as protected-main commit `3d7783c`,
-and exact-main CI run `31882061192` passed all five jobs. Fresh-main PR #298 prepares private RC24;
-its source-free multi-platform build and final-candidate reruns remain. Each objective continues
+and exact-main CI run `31882061192` passed all five jobs. PR #298 merged private RC24 as protected
+main `c19de39`; exact-main run `31882919709` passed, and source-free multi-platform index
+`sha256:b7eadc7e…9488` is published. Its exact-objective and final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,
 and 7 stay open where provider/profile evidence is incomplete;

@@ -1,0 +1,42 @@
+{
+  "schema": "io.dander.phase8.candidate-evidence/v1",
+  "status": "candidate",
+  "release_version": "0.9.0rc24",
+  "git_commit": "c19de3980411f20514326db9f722f07e57a3d1ef",
+  "pull_request": 298,
+  "protected_main_ci_run": 31882919709,
+  "wheel_sha256": "dbc697a925e007cfde937fc820b133c12816283406465c986a47deed4f872110",
+  "sdist_sha256": "48e0ef41349b48cfdab50b4473ea18345410e450e3d8dcaf3134bad2f8beeb16",
+  "logical_config_sha256": "84f9f0de2a3faa19438543f965fcc3e7bb0639fe1f553116ddeaaf8e618a83bf",
+  "platform_config_sha256": "e02d6539326d878ae5c3bfed1b36fcb0c7f575a7b84fb20ac682fee2de9c8241",
+  "source_free_dockerfile_sha256": "72182929b724ff713318f249f5f098bb308a7c05490b45088ee6936732e44ca2",
+  "build_context_revision": "9a02dadc839e9064e6519a5e9d1c374f608d7d88f2699f2d1529446a4ec40c54",
+  "image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:b7eadc7e42eb5b6783685d22ce31711a1bc1a7ee40323bf41683e574f5839488",
+  "platform_manifests": {
+    "linux/amd64": "sha256:1675b265ec222ac29424c1725812b801ed820437e24f98b9f0af5f4f5a491a5a",
+    "linux/arm64": "sha256:790c08c2f9cee7ed280a04943e7e010eebc94f5376f7b173f2072182dcc5a10b"
+  },
+  "sbom_attached": true,
+  "provenance_attached": true,
+  "source_free": true,
+  "exact_wheel_embedded": true,
+  "aws_qualification_assets_present": true,
+  "runtime_inspection": {
+    "contract": "io.dander.runtime/v1",
+    "capability_manifest": "io.dander.runtime.capabilities/v1",
+    "gcp_cloud_run_selector_passed": true,
+    "kubernetes_portable_selector_passed": true,
+    "aws_fargate_external_overlay_selector_passed": true,
+    "amd64_version_passed": true,
+    "arm64_version_passed": true,
+    "read_only_conformance_passed": true
+  },
+  "publication": {
+    "attempts": 1,
+    "completed_at": "2026-08-15T12:00:27.251375Z"
+  },
+  "qualification_status": "not_evaluated",
+  "public_release": false,
+  "provider_measured_cost_usd": null,
+  "cost_status": "provider_invoice_pending"
+}

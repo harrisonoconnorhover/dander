@@ -1,4 +1,4 @@
-# Session Resume — 2026-08-14
+# Session Resume — 2026-08-15
 
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
@@ -17,7 +17,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
 - The five retained jobs use private qualification candidate Dander `0.9.0rc22` index
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
-  Public RC20 remains unchanged.
+  Private RC24 at `sha256:b7eadc7e…9488` is the replacement candidate for remaining Phase 8
+  gates but has not replaced those retained jobs. Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -33,6 +34,15 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- Private Dander `0.9.0rc24` was built from protected-main commit
+  `c19de3980411f20514326db9f722f07e57a3d1ef` after all five jobs passed exact-main CI run
+  `31882919709`. The exact wheel produced source-free GAR index `sha256:b7eadc7e…9488` with
+  amd64/arm64 manifests, SBOM, and provenance. Both architectures reported RC24; GCP,
+  Kubernetes, and externally projected AWS selectors plus read-only local conformance passed.
+  No provider profile or retained workload changed, provider cost remains pending, and this is not
+  a scale, cost, live-profile, or support pass. See
+  `docs/evidence/phase8/2026-08-15/rc24-candidate.json`.
 
 - Azure and OCI interactive authentication were restored and verified through provider APIs on
   2026-08-14. Azure contains no Dander-named resource or resource group. OCI retains its accepted
@@ -57,12 +67,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Docs-closure head `6ede9da` then passed run `31879161660`, but sixteenth review found missing
   existing-resource dimensions for route-table, subnet, and VPC-endpoint creation. Commit `e12ee59`
   adds only qualification-tagged VPC/route-table dependency grants. Correction/docs head `0da600b`
-  passed run `31879898267`, and focused seventeenth review accepted the correction. A protected
-  replacement candidate is still required before live qualification resumes. PR #291 merged the
-  baseline as protected-main commit `3d7783c`, whose exact CI run `31882061192` passed all five
-  jobs. Fresh-main PR #298 prepares private RC24. Every remaining benchmark/provider objective and
-  any live-discovered defect uses a fresh protected-main branch; rerun only materially affected
-  evidence plus the eventual final closure matrix. See
+  passed run `31879898267`, and focused seventeenth review accepted the correction. PR #291 merged
+  the baseline as protected-main commit `3d7783c`, whose exact CI run `31882061192` passed all five
+  jobs. PR #298 merged private RC24 at protected main `c19de39`; its source-free replacement index
+  is published and locally inspected. AWS live qualification now waits on its fresh exact-objective
+  lane, not candidate publication. Every remaining benchmark/provider objective and any
+  live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
+  plus the eventual final closure matrix. See
   `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`

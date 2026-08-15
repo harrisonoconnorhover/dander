@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. PR #291 merged the reviewed baseline as protected-main commit `3d7783c`, and exact-main CI run `31882061192` passed. Fresh-main PR #298 prepares private RC24; no single protected final candidate owns the combined matrix. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23's byte threshold remains invalid. Private multi-platform RC24 was built from exact protected main `c19de39`, whose CI run `31882919709` passed, and is ready for separate exact-objective reruns; it does not inherit the historical matrix. |
 
 ## Current release and deployment record
 
@@ -96,6 +96,11 @@ cloud path remains outside the live proof.
   PostgreSQL run observed equal DIRECT/COPY rows, but completion review found the 1,400-byte
   recommendation omitted writer-counted field-name bytes; that threshold objective is invalid.
   The corrected 1,490-byte calculation must be rerun on a protected multi-platform successor.
+- Private RC24 at `sha256:b7eadc7e…9488` is that protected-main source-free successor. Its exact
+  wheel and source distribution passed package inspection; the GAR index has runnable amd64/arm64
+  manifests, SBOM, and provenance. Both architectures reported RC24, the image contains the flat
+  AWS qualification assets without repository source, and GCP/Kubernetes/external-AWS selectors
+  plus read-only conformance passed without provider access. No historical report transfers.
 - Exact RC22 was copied byte-identically to private ECR for AWS-native preflight. Its immutable
   image lacked the selected AWS deployment, so no Fargate plan, task, or pipeline ran. The exact
   28-resource disposable data-plane destroy completed with empty qualification state/inventories
@@ -141,8 +146,9 @@ the data, one metadata spine records what happened, and Druff authors and operat
 without becoming a second runtime. The D7 local hosted Control profile is live-qualified without
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
 RC22's protected audit and RC23's local preflight are preserved. Qualification-baseline corrections
-through `e12ee59` merged in PR #291 and passed exact-main CI at `3d7783c`. Fresh-main PR #298
-prepares private RC24; its protected merge and source-free multi-platform publication remain.
-The combined final-candidate audit and remaining scale, cost, profile, soak,
+through `e12ee59` merged in PR #291 and passed exact-main CI at `3d7783c`. PR #298 merged private
+RC24 at protected main `c19de39`; exact-main CI run `31882919709` passed, and source-free
+multi-platform index `sha256:b7eadc7e…9488` is published. The combined final-candidate audit and
+remaining scale, cost, profile, soak,
 operator-documentation, and support-freeze gates are recorded in
 `docs/cloud-portability-phase8-qualification.md`.

@@ -47,14 +47,14 @@ scale report.
   and USD 0 local cost across five sizes and five repetitions. Completion review invalidated its
   10-row/1,400-byte recommendation because it omitted writer-counted field-name bytes. The corrected
   harness derives 1,490 bytes; the replacement candidate must rerun crossover before it can pass.
-- No single protected final candidate yet owns all eight PostgreSQL classes. Correction review,
-  replacement-candidate reruns, hosted cost, other warehouses, and every first-class launcher remain
-  open.
+- Private multi-platform RC24 is the protected replacement candidate, but it owns none of the
+  historical benchmark results by publication alone. Corrected crossover and other applicable
+  reruns, hosted cost, other warehouses, and every first-class launcher remain open.
 - The Kubernetes portable launcher passed normalized correctness, bulk, incremental, transform,
   and PostgreSQL-specific failure Jobs on kind 1.32.2 under its reviewed deadline, retry, CPU, and
   memory controls. Remaining launcher classes, hosted scale/cost, and soak stay open.
 - AWS access is restored. The exact RC22 AWS-native correctness objectives and USD 3 allocation are
   committed before mutation. The first disposable data-plane plan applied and cleaned up exactly,
   but read-only candidate inspection found RC22 lacks the selected AWS deployment before a Fargate
-  plan or execution. A local runtime-overlay correction passes focused checks; protected review, a
-  replacement candidate, the live result, and measured cost remain open.
+  plan or execution. The reviewed runtime-overlay correction and private RC24 replacement candidate
+  now pass local selection; the separate exact-objective live result and measured cost remain open.
