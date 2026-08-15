@@ -2,40 +2,41 @@
 
 ## Finished
 
-- Completed the documentation/provider-source-first AWS IAM audit and merged its narrow correction.
-- Applied the disposable full AWS D7 profile: 12 resources added, one updated, none destroyed.
-- Corrected two AWS-provider normalization mismatches that made an unchanged task definition churn.
-- Recorded the real default-certificate TLS boundary instead of retaining an ignored setting.
-- Proved the corrected configuration produces a literal no-change live Terraform plan.
+- Merged the AWS provider-default stability correction after full protected CI and independent review.
+- Reconfirmed literal live no-drift on its exact protected-main merge.
+- Corrected the verifier to read CloudFront `Enabled` from the provider's real nested response.
+- Normalized AWS's explicit empty capability-add list while still requiring all capabilities dropped.
+- Passed the complete read-only active AWS deployment verification against the live profile.
 
 ## Try It
 
-Run `terraform -chdir=infra/aws-control test -filter=tests/aws_control.tftest.hcl` to verify the
-CloudFront and Fargate invariants without provider access.
+Run `uv run pytest -q tests/deployment/test_aws_control_plane.py` for the bounded verifier contract.
+The live verifier additionally requires the authorized local AWS profile and private input file.
 
 ## Checks
 
-- Terraform format and validation passed.
-- AWS Control mock-provider suite passed: 4 tests.
-- Live read-only plan passed with `No changes` against the disposable active profile.
+- Focused verifier tests passed: 6 tests.
+- Focused Ruff format/lint and mypy passed.
+- Live exact-main Terraform plan passed with `No changes`.
+- Live active AWS deployment verifier passed.
 - `git diff --check` passed.
 
 ## Decisions
 
-- Pin only provider-returned defaults that caused observed repeat-plan churn.
-- Keep the provider-issued CloudFront domain; custom-domain/ACM TLS policy remains out of scope.
-- Record that limitation honestly because AWS ignores a newer minimum with its default certificate.
+- Match the documented AWS CLI response shape rather than preserving a test-only fixture shape.
+- Accept only an empty capability-add list and `drop: [ALL]`; no security boundary is weakened.
+- Keep this correction limited to verifier behavior and its focused fixture.
 
 ## Remaining
 
-- Merge this focused stability correction and verify protected exact-main CI.
-- Reconfirm exact-main live no-drift, then run the read-only deployment verifier.
-- Complete browser persistence, restart, S3 conformance, and digest rollback/restore.
+- Merge the verifier correction and verify protected exact-main CI.
+- Complete browser OIDC and canonical graph persistence.
+- Prove restart, S3 conflict/replay, and immutable digest rollback/restore.
 - Destroy disposable AWS and issuer resources and verify retained AWS/GCP no-drift.
-- Commit sanitized qualification evidence and close the AWS D7 ticket if every gate passes.
+- Commit sanitized evidence and close the AWS D7 gate only if every check passes.
 
 ## Review First
 
-- `infra/aws-control/main.tf`
-- `infra/aws-control/tests/aws_control.tftest.hcl`
-- `infra/aws-control/README.md`
+- `src/dander/deployment/aws_control_plane.py`
+- `tests/deployment/test_aws_control_plane.py`
+- `HANDOFF.md`
