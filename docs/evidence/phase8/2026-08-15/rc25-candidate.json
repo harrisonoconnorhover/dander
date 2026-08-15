@@ -1,0 +1,46 @@
+{
+  "schema": "io.dander.phase8.candidate-evidence/v1",
+  "status": "candidate",
+  "release_version": "0.9.0rc25",
+  "git_commit": "f5935a6d263cf6734ee9944f2f0e02d025edc63e",
+  "pull_request": 317,
+  "protected_main_ci_run": 31902553474,
+  "wheel_sha256": "ec419fa057ecad1ae0dc9fda85b329c9025a7c0289a1c5c42d108dbcdfae0c6c",
+  "sdist_sha256": "61b3075bcb66a1e98ae6a8c354419b8069c87ebe5b1bdcd32eacd339204cc21b",
+  "logical_config_sha256": "84f9f0de2a3faa19438543f965fcc3e7bb0639fe1f553116ddeaaf8e618a83bf",
+  "platform_config_sha256": "e02d6539326d878ae5c3bfed1b36fcb0c7f575a7b84fb20ac682fee2de9c8241",
+  "source_free_dockerfile_sha256": "5894fc1b895d5daa41b5511669d183f377d56e7f14062187eeffeb892fe39e71",
+  "source_free_dockerignore_sha256": "0f76b0430ed4277d0a1a03afb8e644c40327367252de206f4a94e39c53effcb8",
+  "build_context_revision": "e2e3b5dc5835787ffe0f61e60128e597e68c22351826a4ee7ccd02efa94ad799",
+  "image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238",
+  "platform_manifests": {
+    "linux/amd64": "sha256:1a40275eeef2220aaa8b10483b3e5edc06fa59979e6e4380659176b339ad12b9",
+    "linux/arm64": "sha256:c2ebab9d07e60ccec60d91fa2a9b076bc675c9ae9761f0c6df66a06dabb02125"
+  },
+  "sbom_attached": true,
+  "provenance_attached": true,
+  "source_free": true,
+  "exact_wheel_embedded": true,
+  "aws_qualification_assets_present": true,
+  "runtime_inspection": {
+    "contract": "io.dander.runtime/v1",
+    "capability_manifest": "io.dander.runtime.capabilities/v1",
+    "gcp_cloud_run_selector_passed": true,
+    "kubernetes_portable_selector_passed": true,
+    "aws_fargate_external_overlay_selector_passed": true,
+    "amd64_version_passed": true,
+    "arm64_version_passed": true,
+    "read_only_conformance_passed": true
+  },
+  "publication": {
+    "attempts": 2,
+    "pre_push_failures": 1,
+    "pre_push_failure_stage": "build_context",
+    "registry_mutated_by_failed_attempt": false,
+    "completed_at": "2026-08-15T19:11:42Z"
+  },
+  "qualification_status": "not_evaluated",
+  "public_release": false,
+  "provider_measured_cost_usd": null,
+  "cost_status": "provider_invoice_pending"
+}

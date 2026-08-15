@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23's byte threshold remains invalid. Private multi-platform RC24 publication evidence passed protected review and its corrected local PostgreSQL crossover recommends no DIRECT range; it does not inherit the historical matrix. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private RC24 passed corrected local PostgreSQL crossover but failed AWS-native identity before provider construction. Private multi-platform RC25 is the replacement candidate and inherits no historical result. |
 
 ## Current release and deployment record
 
@@ -106,8 +106,12 @@ cloud path remains outside the live proof.
 - Exact RC24 passed the corrected local PostgreSQL crossover objective. COPY and DIRECT produced
   equal canonical rows, both transports were observed, and cleanup was exact. DIRECT lost at the
   first sampled size, so the measured recommendation stays disabled at zero rows/bytes. All seven
-  objectives passed with USD 0 local cost; protected review, hosted cost, and remaining RC24
-  benchmark classes stay open.
+  objectives passed with USD 0 local cost; hosted cost and applicable RC25 reruns stay open.
+- Private RC25 at `sha256:5a0d5520…2238` is the protected-main replacement after the AWS-native
+  identity correction. Exact-main run `31902553474` passed all five jobs; its exact wheel built a
+  source-free amd64/arm64 GAR index with SPDX SBOM and SLSA provenance. Both architectures reported
+  RC25, GCP/Kubernetes/external-AWS selectors and rootless read-only conformance passed, and no RC24
+  result transfers. This is private publication evidence, not a live-profile, cost, or support pass.
 - Exact RC22 was copied byte-identically to private ECR for AWS-native preflight. Its immutable
   image lacked the selected AWS deployment, so no Fargate plan, task, or pipeline ran. The exact
   28-resource disposable data-plane destroy completed with empty qualification state/inventories
@@ -154,10 +158,11 @@ without becoming a second runtime. The D7 local hosted Control profile is live-q
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
 RC22's protected audit and RC23's local preflight are preserved. Qualification-baseline corrections
 through `e12ee59` merged in PR #291 and passed exact-main CI at `3d7783c`. PR #298 merged private
-RC24 at protected main `c19de39`; exact-main CI run `31882919709` passed, source-free
-multi-platform index `sha256:b7eadc7e…9488` is published, and PR #299's evidence merge passed
-exact-main run `31884123337`. RC24's corrected local PostgreSQL crossover also passed with the
-DIRECT recommendation disabled. The combined final-candidate audit and
+RC24 at protected main `c19de39`; its corrected local PostgreSQL crossover passed with the DIRECT
+recommendation disabled, but its AWS-native launch exposed the corrected identity defect. PR #317
+merged private RC25 at protected main `f5935a6`; exact-main run `31902553474` passed and source-free
+multi-platform index `sha256:5a0d5520…2238` is privately published and inspected. No historical
+result transfers. The combined final-candidate audit and
 remaining scale, cost, profile, soak,
 operator-documentation, and support-freeze gates are recorded in
 `docs/cloud-portability-phase8-qualification.md`.

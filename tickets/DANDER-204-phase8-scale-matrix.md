@@ -50,14 +50,15 @@ scale report.
 - Private multi-platform RC24 passed the committed corrected crossover objective against disposable
   TLS PostgreSQL 15.18. Both transports produced equal rows, but DIRECT lost at the first sampled
   size, so no contiguous DIRECT-winning prefix exists and the measured threshold remains disabled
-  at zero. All seven objectives passed with exact cleanup and USD 0 local cost. RC24 owns no other
-  historical benchmark results by publication; protected review, applicable reruns, hosted cost,
-  other warehouses, and every first-class launcher remain open.
+  at zero. All seven objectives passed with exact cleanup and USD 0 local cost. The later AWS-native
+  identity correction required private RC25, so no RC24 benchmark transfers. Applicable RC25
+  reruns, hosted cost, other warehouses, and every first-class launcher remain open.
 - The Kubernetes portable launcher passed normalized correctness, bulk, incremental, transform,
   and PostgreSQL-specific failure Jobs on kind 1.32.2 under its reviewed deadline, retry, CPU, and
   memory controls. Remaining launcher classes, hosted scale/cost, and soak stay open.
 - AWS access is restored. The exact RC22 AWS-native correctness objectives and USD 3 allocation are
   committed before mutation. The first disposable data-plane plan applied and cleaned up exactly,
   but read-only candidate inspection found RC22 lacks the selected AWS deployment before a Fargate
-  plan or execution. The reviewed runtime-overlay correction and private RC24 replacement candidate
-  now pass local selection; the separate exact-objective live result and measured cost remain open.
+  plan or execution. Private RC25 packages the reviewed runtime-overlay and Fargate identity
+  corrections and passes local selection; the separate exact-objective live result and measured
+  cost remain open.

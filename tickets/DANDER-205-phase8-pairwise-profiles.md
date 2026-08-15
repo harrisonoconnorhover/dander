@@ -31,8 +31,8 @@ canonical profile gate.
 - AWS access was restored later on 2026-08-14. The exact RC22 objective manifest and bounded USD 3
   authorization preceded a 28-resource disposable data-plane apply. Read-only candidate inspection
   then found no packaged AWS deployment, so no Fargate plan or execution ran; the exact destroy and
-  empty inventory are recorded. The reviewed runtime-overlay correction and private RC24
-  replacement candidate now pass local selection, but no pairwise live result or support status is
+  empty inventory are recorded. Private RC25 packages the reviewed runtime-overlay and Fargate
+  identity corrections and passes local selection, but no pairwise live result or support status is
   claimed.
 - Azure and OCI interactive authentication are now restored and provider-API verified. Azure has
   no retained Dander resources. OCI retains the accepted Phase 7 foundation and image history with
