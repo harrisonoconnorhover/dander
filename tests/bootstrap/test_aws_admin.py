@@ -95,9 +95,18 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
 
     definition_validation = terraform.split('sid       = "ValidateStateMachineDefinition"', 1)[
         1
-    ].split('sid       = "InspectDanderKmsRotation"', 1)[0]
+    ].split('sid       = "InspectDanderStateMachineVersions"', 1)[0]
     assert 'actions   = ["states:ValidateStateMachineDefinition"]' in definition_validation
     assert 'resources = ["*"]' in definition_validation
+
+    state_machine_versions = terraform.split('sid       = "InspectDanderStateMachineVersions"', 1)[
+        1
+    ].split('sid       = "InspectDanderKmsRotation"', 1)[0]
+    assert 'actions   = ["states:ListStateMachineVersions"]' in state_machine_versions
+    assert (
+        'resources = ["arn:${local.partition}:states:${var.region}:'
+        '${var.aws_account_id}:stateMachine:${var.name}-*"]' in state_machine_versions
+    )
 
     kms_rotation = terraform.split('sid       = "InspectDanderKmsRotation"', 1)[1].split(
         'sid    = "ManageDanderRoles"', 1
@@ -115,6 +124,7 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
         '"sqs:ListQueueTags"',
         '"sns:ListTagsForResource"',
         '"states:ValidateStateMachineDefinition"',
+        '"states:ListStateMachineVersions"',
         '"kms:GetKeyRotationStatus"',
     ):
         assert action not in generic_reads

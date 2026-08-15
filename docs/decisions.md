@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-15 — State-machine version refresh is name-bounded
+
+- **Finding:** The third RC24 platform apply created the state machine, then Terraform's post-create
+  refresh stopped on `ListStateMachineVersions` before schedule creation or any execution.
+- **Authority:** Add only `ListStateMachineVersions` for the account- and region-local
+  `stateMachine:${name}-*` ARN pattern. AWS documents that action against the state-machine resource,
+  so no wildcard resource is required.
+- **Boundary:** No ECS task or state-machine execution ran. The 18-resource partial platform and all
+  36 paid data-plane resources were removed exactly; three disabled AWS-native KMS keys remain only
+  in their mandatory pending-deletion windows.
+
 ## 2026-08-15 — Remaining Fargate refresh reads stay action- or resource-bounded
 
 - **Finding:** The second RC24 platform apply reached task-definition creation, then stopped before
