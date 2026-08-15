@@ -312,6 +312,36 @@ data "aws_iam_policy_document" "deployment" {
   }
 
   statement {
+    sid     = "InspectDanderLogGroupTags"
+    effect  = "Allow"
+    actions = ["logs:ListTagsForResource"]
+    resources = [
+      "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:/aws/vendedlogs/states/${var.name}-*",
+      "arn:${local.partition}:logs:${var.region}:${var.aws_account_id}:log-group:/dander/${var.name}*/*",
+    ]
+  }
+
+  statement {
+    sid       = "InspectDanderFailureQueueTags"
+    effect    = "Allow"
+    actions   = ["sqs:ListQueueTags"]
+    resources = ["arn:${local.partition}:sqs:${var.region}:${var.aws_account_id}:${var.name}*-failures"]
+  }
+
+  statement {
+    sid       = "InspectDanderKmsRotation"
+    effect    = "Allow"
+    actions   = ["kms:GetKeyRotationStatus"]
+    resources = ["arn:${local.partition}:kms:${var.region}:${var.aws_account_id}:key/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/managed-by"
+      values   = ["dander"]
+    }
+  }
+
+  statement {
     sid    = "ManageDanderRoles"
     effect = "Allow"
     actions = [

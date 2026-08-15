@@ -2,35 +2,36 @@
 
 ## Finished
 
-- Qualified corrected protected-main OCI Object Storage GraphStore behavior with the canonical fixture.
-- Proved fresh-client replay, list-revision update, restart persistence, stale conflicts, and deletion.
-- Removed every object version/delete marker and both disposable attempt buckets.
-- Closed DANDER-125 without promoting OCI, OCI Object Storage, or any public distribution.
+- Reproduced three provider-evaluated AWS refresh gaps before any Fargate task could run.
+- Added log-tag reads only for Dander task/controller log groups.
+- Added queue-tag reads only for Dander failure queues and rotation reads only for tagged Dander KMS keys.
+- Removed the 12-resource partial platform and all 36 paid data-plane resources.
 
 ## Try It
 
-Read `docs/evidence/oci/2026-08-15/druff-oci-object-graph-store.json` with `jq -e .`.
+Run `uv run pytest -q tests/bootstrap/test_aws_admin.py`.
 
 ## Checks
 
-- Exact-main CI run 31889668577 passed all five jobs at `f43188f7`.
-- Seventy-five focused tests and the full local pytest suite passed before protected merge.
-- Live create/read/list/update/replay/conflict/delete/version-cleanup checks all passed.
-- Stage-zero planned no changes; foundation refresh had no managed-resource action or state write.
+- Fifteen focused bootstrap tests passed; Ruff lint and format checks passed.
+- Terraform formatting, validation, and the one bootstrap mock test passed.
+- `git diff --check` passed.
+- Live platform apply stopped on three missing read actions; no task definition, state machine, schedule, or task was created.
+- Both Terraform states and every active provider inventory are empty; one KMS key is `PendingDeletion`.
 
 ## Decisions
 
-- Qualify protected-main source only; retain provider support and public distribution gates.
-- Record provider-computed foundation metrics honestly rather than claim literal zero refresh drift.
-- Keep OCI coordinates, revisions, request IDs, credentials, graph bodies, state, and plans private.
+- Keep all three additions read-only and resource- or tag-bounded.
+- Resume qualification only after protected merge and a reviewed stage-zero update.
 
 ## Remaining
 
-- Merge this coordinate-free evidence through protected CI and verify exact main.
-- Remove the now-redundant private local OCI operator folder after evidence is durable.
+- Commit, push, and merge this focused correction through protected CI and review.
+- Apply only the reviewed stage-zero policy delta, then resume RC24 AWS-native qualification.
+- Record provider cost only after billing data posts.
 
 ## Review First
 
-- `docs/evidence/oci/2026-08-15/druff-oci-object-graph-store.json`
-- `tickets/DANDER-125-oci-object-graph-store.md`
-- `docs/control-contracts.md`
+- `infra/aws/bootstrap-admin/main.tf`
+- `tests/bootstrap/test_aws_admin.py`
+- `docs/decisions.md`

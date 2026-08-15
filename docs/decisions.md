@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-15 — Fargate refresh reads remain resource-bounded
+
+- **Finding:** The first RC24 platform apply stopped before task-definition or controller creation
+  because Terraform refreshes log-group tags, failure-queue tags, and KMS rotation state after the
+  corresponding creates.
+- **Authority:** Add only `ListTagsForResource` for Dander task/controller log patterns,
+  `ListQueueTags` for Dander failure queues, and `GetKeyRotationStatus` for keys carrying the
+  existing `managed-by=dander` tag.
+- **Boundary:** The partial platform and paid data plane were removed exactly. Qualification resumes
+  only after protected merge and a reviewed stage-zero policy update; no task executed.
+
 ## 2026-08-15 — AWS qualification follows provider refresh and cleanup dimensions
 
 - **ECR:** Terraform's repository refresh evaluates `ListTagsForResource`; the retained deployment
