@@ -120,8 +120,12 @@ metadata, so healthy listing does not issue per-blob reads or download documents
 deletes only the exact current base blob: snapshots and versions are never silently expanded into
 the deletion scope, and a snapshots-present or immutability/lease policy failure remains a safe
 provider error rather than a false revision conflict. SDK imports and `DefaultAzureCredential`
-remain lazy. DANDER-124 remains in progress until separately approved live Azure
-restart/conflict/versioning/cleanup proof passes; public rc18 is not qualified for this adapter.
+remain lazy. DANDER-124's corrected protected-main source passed the separately approved live
+Azure proof, including list-revision equality, restart replay, stale-write conflicts, versioning,
+private policy, and exact account/version cleanup. The
+[coordinate-free evidence](evidence/azure/2026-08-15/druff-azure-blob-graph-store.json) contains no
+provider coordinates, credentials, graph body, state, plan, or native revisions. This
+qualification does not promote Azure Blob support or qualify a hosted Azure Control profile.
 
 The OCI Object Storage adapter keeps the same public contract behind one immutable namespace,
 bucket, and deterministic prefix. Default construction uses only resource-principal identity;
@@ -147,9 +151,9 @@ Phase D3's exit gate is satisfied on protected main commit
 for the in-memory, rooted-local, GCS, S3, Azure Blob, and OCI Object Storage implementations, and
 the accepted [GCS live proof](evidence/gcp/2026-08-13/druff-gcs-graph-store.json) supplies the
 gate's required one live create/read/update-conflict/restart/delete demonstration. DANDER-123's
-separate AWS proof has now passed, while DANDER-124 and DANDER-125 remain in progress: their Azure
-and OCI live proofs still gate promotion of those providers. The S3 proof does not promote AWS or
-S3 support, and the D3 gate does not require false all-provider live parity before hosted
+AWS proof and DANDER-124's Azure proof have now passed, while DANDER-125 remains in progress: its
+OCI live proof still gates promotion of that provider. The S3 and Azure Blob proofs do not promote
+provider support, and the D3 gate does not require false all-provider live parity before hosted
 authentication work begins.
 
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the

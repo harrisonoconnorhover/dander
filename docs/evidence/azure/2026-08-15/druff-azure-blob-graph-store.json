@@ -1,0 +1,82 @@
+{
+  "schema": "io.dander.azure-blob-graph-store.evidence/v1",
+  "provider": "azure",
+  "profile": "azure_blob_graph_store",
+  "observed_on": "2026-08-15",
+  "status": "passed",
+  "authorization": {
+    "aggregate_ceiling_usd": "10.00",
+    "provider_measured_cost_usd": null,
+    "cost_status": "provider_invoice_pending"
+  },
+  "host_contract": {
+    "protected_main_commit": "aa15d6b4413f8750039b0917a43d35d9aa536833",
+    "protected_main_ci_run": 31887695078,
+    "protected_main_ci_status": "success",
+    "etag_correction_pull_request": 304,
+    "shared_conformance_passed": true,
+    "focused_test_count": 67,
+    "public_distribution_qualified": false
+  },
+  "account_policy": {
+    "sku": "Standard_LRS",
+    "https_only": true,
+    "minimum_tls": "TLS1_2",
+    "shared_key_access": false,
+    "public_blob_access": false,
+    "private_container": true,
+    "versioning_enabled": true,
+    "blob_delete_retention": false,
+    "container_delete_retention": false,
+    "immutability_policy": false,
+    "legal_hold": false,
+    "data_role_scoped_to_storage_account": true
+  },
+  "graph_store": {
+    "create_read_equal": true,
+    "create_replay_exact_after_restart": true,
+    "list_summary_equal": true,
+    "list_revision_usable_for_conditional_update": true,
+    "restart_persistence_after_update": true,
+    "stale_update_rejected": true,
+    "stale_delete_rejected": true,
+    "create_replay_exact_after_update": true,
+    "delete_replay_exact_after_restart": true,
+    "absent_after_delete": true,
+    "empty_list_after_delete": true,
+    "fixture_content_sha256": "8d4b78b016880a28a55d2f7f8949616e617bc141abc4637afd2bb4015f634f2a",
+    "fixture_canonical_bytes": 8468
+  },
+  "version_inventory_before_cleanup": {
+    "current_entries": 8,
+    "noncurrent_versions": 22,
+    "deleted_entries": 0,
+    "all_entries_under_expected_prefix": true
+  },
+  "cleanup": {
+    "resource_group_absent": true,
+    "storage_account_absent": true,
+    "all_current_and_noncurrent_entries_absent_with_account": true,
+    "scoped_role_assignment_absent": true,
+    "storage_account_name_available": true,
+    "terraform_state_or_plan_created": false
+  },
+  "retained_reconciliation": {
+    "retained_azure_profile_present": false,
+    "terraform_no_drift_applicable": false,
+    "provider_absence_verified": true
+  },
+  "qualification_boundary": {
+    "azure_blob_support_promoted": false,
+    "azure_support_promoted": false,
+    "hosted_control_profile_qualified": false,
+    "public_distribution_qualified": false
+  },
+  "sanitization": {
+    "subscription_account_or_resource_coordinates_recorded": false,
+    "tokens_or_credentials_recorded": false,
+    "provider_native_revisions_recorded": false,
+    "graph_documents_or_rows_recorded": false,
+    "terraform_state_or_plan_recorded": false
+  }
+}

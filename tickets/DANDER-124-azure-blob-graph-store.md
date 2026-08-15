@@ -1,7 +1,7 @@
 ---
 id: DANDER-124
 title: Add Azure Blob GraphStore
-status: in_progress
+status: done
 component: python
 epic: druff-control-plane
 depends_on: [DANDER-120]
@@ -15,7 +15,7 @@ Add Azure Blob Storage behind the accepted GraphStore semantics.
 ## Acceptance Criteria
 
 - [x] Use Blob ETag conditional controls and bounded list pagination.
-- [ ] Pass shared mock conformance and a separately approved live restart/conflict/cleanup proof.
+- [x] Pass shared mock conformance and a separately approved live restart/conflict/cleanup proof.
 - [x] Keep managed identity and Blob-native metadata inside Dander/provider boundaries.
 
 ## Design
@@ -35,8 +35,8 @@ The API exposes opaque revisions and canonical hashes, never Azure request paylo
   recreations. Deletes target only the current base blob; snapshots and versions are never
   silently removed, and `SnapshotsPresent` fails closed as a provider-policy error.
 - Raised only the `azure` and `runtime-all` Blob SDK floor to `12.28`, where inclusive
-  `start_from` support was introduced. Live container policy, versioning, cleanup, and no-drift
-  evidence remain a separately approved paid gate; public rc18 predates this adapter.
+  `start_from` support was introduced. Protected-main live qualification remains separate from
+  any public-distribution or provider-support promotion.
 
 ## Review Log
 
@@ -49,3 +49,9 @@ The API exposes opaque revisions and canonical hashes, never Azure request paylo
   quoted Blob ETags while list responses omit the quotes for the same value. The adapter now
   canonicalizes both shapes to one quoted opaque revision, and a focused regression proves a
   list-returned revision equals the create summary and remains usable for a conditional update.
+- The corrected protected-main source then passed the full live proof: private/versioned policy,
+  create/read, exact replay across fresh adapters, list-summary equality, update persistence,
+  stale update/delete rejection, deletion replay, and absence. Exact cleanup removed the resource
+  group, storage account, all current/noncurrent entries, and the scoped data-role assignment.
+  The [coordinate-free record](../docs/evidence/azure/2026-08-15/druff-azure-blob-graph-store.json)
+  qualifies only this source boundary and does not promote Azure Blob support.
