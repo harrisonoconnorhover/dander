@@ -736,6 +736,26 @@ data "aws_iam_policy_document" "deployment_d7_provider" {
   }
 
   statement {
+    sid    = "InspectD7EcsDeployments"
+    effect = "Allow"
+    actions = [
+      "ecs:DescribeServiceDeployments",
+      "ecs:ListServiceDeployments",
+    ]
+    resources = [
+      "arn:${local.partition}:ecs:${var.region}:${var.aws_account_id}:service/${var.name}-d7-*/*",
+      "arn:${local.partition}:ecs:${var.region}:${var.aws_account_id}:service-deployment/${var.name}-d7-*/*/*",
+    ]
+  }
+
+  statement {
+    sid       = "InspectD7IamRoleTags"
+    effect    = "Allow"
+    actions   = ["iam:ListRoleTags"]
+    resources = ["arn:${local.partition}:iam::${var.aws_account_id}:role/${var.name}-d7-*"]
+  }
+
+  statement {
     sid     = "CreateElasticLoadBalancingServiceRole"
     effect  = "Allow"
     actions = ["iam:CreateServiceLinkedRole"]

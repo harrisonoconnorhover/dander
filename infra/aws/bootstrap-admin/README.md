@@ -20,8 +20,10 @@ manage this role, create a custom domain, or depend on wildcard provider-adminis
 
 The D7 policy also grants only the read calls that the locked AWS provider uses to resolve the
 selected VPC and CloudFront prefix list and to refresh the profile's listener, graph bucket, and
-tagged log groups. Bucket and log-tag reads remain scoped to disposable D7 resource names; the
-provider does not receive wildcard service-read authority.
+tagged log groups. Exact provider 6.60.0 source review also identified its steady-state ECS
+deployment reads and tagged-role refresh; those reads are limited to D7 service, deployment, and
+role ARNs. Bucket and log-tag reads remain scoped to disposable D7 resource names; the provider
+does not receive wildcard service-read authority.
 
 The separate Phase 8 qualification policies let the same short-lived deployment role create and
 remove only the action-bounded disposable VPC, staging bucket, Redshift Serverless, PostgreSQL,
