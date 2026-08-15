@@ -3,8 +3,9 @@
 This runbook covers the named Fargate + Redshift + PostgreSQL state + Glue + AWS Secrets Manager
 composition. It is an experimental Phase 8 target, not a supported deployment. Exact RC22 does not
 contain the required selected AWS deployment, and its historical Greenhouse objective is not
-Redshift-compatible. Use no candidate until the runtime-overlay, flat-fixture, and Glue-ownership
-corrections pass protected review and a replacement source-free multi-platform digest is published.
+Redshift-compatible. Use no candidate until the runtime-overlay, flat-fixture, Glue-ownership,
+materialization, and candidate-identity corrections pass protected review and a replacement
+source-free multi-platform digest is published.
 
 ## Ownership and prerequisites
 
@@ -30,7 +31,9 @@ The Phase 8 qualification fixture under `infra/qualification/aws-native` is disp
 infrastructure, not a production topology or an automatic spending cap. It exports
 `network.assign_public_ip: true`; retain that value for this fixture because its public subnets have
 an Internet Gateway but no NAT or private AWS service endpoints. The task has no inbound rule, and
-its public egress is limited to TLS plus self-scoped database traffic.
+its public egress is limited to TLS plus self-scoped database traffic. The root requires exact
+`candidate_version` and unique `name` inputs; candidate tags and staging prefixes derive from that
+version and cannot inherit RC22 identity.
 
 The qualification pipeline reads three flat synthetic posts from an immutable upstream Git commit.
 Its declared schema contains only Redshift-compatible scalar fields, and its one model uses Dander's

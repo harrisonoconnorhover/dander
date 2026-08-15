@@ -69,5 +69,9 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   cleanup owner. Commit `533125a92af722ed391760923fff4d926ead80f6` replaces the qualification
   workload with an immutable flat scalar fixture, makes the disposable Terraform root own the exact
   Glue database/table, and restores both Phase 8 PostgreSQL harnesses to the source distribution.
-  Full local tests, package validation, Terraform validation/mock tests, lint, and typing pass;
-  protected CI and exact-head rereview remain open.
+  Protected run `31870117994` passed all five jobs and exact-head rereview accepted those fixes. It
+  then caught unsupported view materialization, stale RC22 Terraform identity, and a provisioned
+  Redshift role-validation gap. Commit `9c6e27b04a9477c3039e7d6e085111f045021fc0` uses table
+  materialization, requires exact candidate input for tags and staging, and rejects the
+  Serverless-only field on provisioned clusters. Full local tests, package validation, Terraform
+  validation/mock tests, lint, and typing pass; protected CI and exact-head rereview remain open.

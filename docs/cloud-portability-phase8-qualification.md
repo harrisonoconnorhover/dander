@@ -15,7 +15,7 @@ Phase 7 evidence merge.
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, while private local RC23 observed equal DIRECT/COPY rows | Review invalidated RC23's byte-threshold objective; hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 passed protected CI and the final-candidate repeat; the sixth correction head passed all five jobs in run `31868849725` | Seventh-review AWS fixture/Glue and sdist corrections remain pending protected CI and exact-head review before one replacement candidate |
+| Audits | Exact RC22 passed protected CI and the final-candidate repeat; seventh-correction head `3eed46e` passed all five jobs in run `31870117994` and exact-head review | Eighth-review AWS materialization, candidate-identity, and Redshift-validation corrections remain pending protected CI and exact-head review before one replacement candidate |
 
 ## Open gates and dependency order
 
@@ -29,15 +29,18 @@ Phase 7 evidence merge.
    AWS-Secrets profile passed protected review, but exact RC22 did not package its selected AWS
    deployment. Successive reviews found and closed its projection, network, account, database-role,
    and legacy-manifest gaps. Head `34d6d55` passed protected run `31868849725`; the next review found
-   the AWS source schema and Glue cleanup ownership still invalid. Commit `533125a` corrects both
-   locally, but protected CI and exact-head review remain open.
+   the AWS source schema and Glue cleanup ownership still invalid. Commit `533125a` corrected both;
+   protected CI and exact-head review then found unsupported model materialization, stale RC22
+   Terraform identity, and a provisioned Redshift validation gap. Commit `9c6e27b` corrects all
+   three locally, but protected CI and exact-head review remain open.
 4. Completed as a baseline: protected private RC22 was cut after those merges and used for the GCP,
    local Kubernetes, and seven-class PostgreSQL records.
 5. In progress: the post-RC22 bounded direct-write change is packaged as private arm64 RC23. Its
    local PostgreSQL run observed equal rows and both transports, but completion review invalidated
    the 1,400-byte recommendation and found lookahead inside the transaction. Both corrections passed
    protected review; the source distribution then omitted both Phase 8 harnesses. Commit `533125a`
-   restores them locally, and a source-free multi-platform successor remains required.
+   restored them and passed protected review; the eighth correction and a source-free
+   multi-platform successor remain required.
 6. Use one protected exact candidate for every remaining scale, cost, pairwise, canonical-profile,
    Kubernetes, and soak gate; then repeat the full audit and freeze the compatibility documents.
 
@@ -137,7 +140,9 @@ AWS D7 lane was unchanged. Provider charges have not posted, so the profile cost
 remain `not_evaluated`. Completion review later found the disposable task group also lacked
 self-scoped database egress. Later corrections reached protected head `34d6d55` and passed run
 `31868849725`; exact-head review then found an incompatible nested Redshift source and unowned Glue
-cleanup. Commit `533125a` corrects both locally, with protected CI and review still open. Interactive
+cleanup. Commit `533125a` passed protected CI and review at head `3eed46e`; that review found the
+remaining materialization, candidate-identity, and provisioned-role validation gaps. Commit
+`9c6e27b` corrects those locally, with protected CI and review still open. Interactive
 Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained

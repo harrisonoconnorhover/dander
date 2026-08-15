@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-08-15 — AWS qualification binds executable shape to candidate identity
+
+- **Materialization:** The portable AWS qualification model uses table materialization because the
+  Redshift runner deliberately rejects views; qualification must exercise the supported path.
+- **Identity:** The disposable Terraform root requires an exact release-candidate version and uses
+  it for both resource tags and the owned staging prefix. A caller tag cannot retain stale identity.
+- **Validation:** `database_role` remains available for Serverless role mapping but fails closed on
+  provisioned Redshift, where the field has no runtime meaning.
+
 ## 2026-08-15 — AWS qualification owns a flat fixture and its Glue projection
 
 - **Workload:** The AWS-native correctness pipeline uses three flat synthetic rows from one pinned

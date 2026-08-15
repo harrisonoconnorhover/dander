@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "seventh_correction_pending_protected_ci_and_review",
+  "status": "eighth_correction_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -45,6 +45,11 @@
   "seventh_reviewed_on": "2026-08-15",
   "seventh_reviewed_head": "34d6d559758dcdf1213e85012e94f8477ed33b2f",
   "seventh_correction_commit": "533125a92af722ed391760923fff4d926ead80f6",
+  "protected_seventh_correction_head": "3eed46e1c1c03f1858ade45a5af4fe88f9e78867",
+  "protected_seventh_correction_ci_run": 31870117994,
+  "eighth_reviewed_on": "2026-08-15",
+  "eighth_reviewed_head": "3eed46e1c1c03f1858ade45a5af4fe88f9e78867",
+  "eighth_correction_commit": "9c6e27b04a9477c3039e7d6e085111f045021fc0",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -109,27 +114,45 @@
     {
       "id": "aws_qualification_redshift_compatible_source",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the immutable synthetic fixture exposes only declared INT64 and STRING fields, fetches three rows, and its portable model compiles for Redshift"
     },
     {
       "id": "aws_qualification_glue_cleanup_owner",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the qualification Terraform root predeclares and owns the exact Glue database and table updated by runtime publication"
     },
     {
       "id": "phase8_benchmark_sdist_contents",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "the explicit sdist allowlist and distribution checker require both Phase 8 PostgreSQL harnesses"
+    },
+    {
+      "id": "aws_qualification_redshift_materialization",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the packaged portable qualification model selects Redshift-supported table materialization"
+    },
+    {
+      "id": "aws_qualification_candidate_identity",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "the qualification root requires an exact release-candidate input and derives its tag and staging prefix from it"
+    },
+    {
+      "id": "redshift_deployment_database_role_exclusivity",
+      "priority": "P2",
+      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "verification": "provisioned Redshift rejects the Serverless-only database_role field before provider access"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_seventh_correction_ci_and_review"
+    "replacement_candidate_gate": "blocked_pending_eighth_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false
