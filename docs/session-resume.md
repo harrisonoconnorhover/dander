@@ -92,9 +92,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   the baseline as protected-main commit `3d7783c`, whose exact CI run `31882061192` passed all five
   jobs. PR #317 merged private RC25 at protected main `f5935a6`; exact-main run `31902553474`
   passed and its source-free replacement index is privately published and locally inspected. AWS
-  live qualification is bound to `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`:
-  one manual run, one replay, paused scheduling, exact cleanup, and a USD 3 ceiling. Mutation waits
-  for protected review and exact-main CI of that gate, not candidate publication. PR #319 later
+  live qualification was first bound to `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`:
+  one manual run, one replay, paused scheduling, exact cleanup, and a USD 3 ceiling. PR #319 later
   merged the gate as `c79b3d8`; exact-main run `31904727106` passed all five jobs. RC25 platform
   reconciliation then failed before execution because the stage-zero EventBridge tag read omitted
   the exact stable rule name. Its resources were removed, and PR #320 merged the bounded correction
@@ -103,8 +102,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   obtained Redshift credentials, then hit the configured 30-second connection limit while
   Serverless cold-started network interfaces. No provider operation or replay ran. Exact saved-plan
   cleanup removed all 25 platform and 36 data-plane resources; both states and direct inventories
-  are empty, and the platform KMS key is pending deletion on 2026-09-14. RC25 remains valid; resume
-  only after a focused protected correction to the qualification timeout. Every
+  are empty, and the platform KMS key is pending deletion on 2026-09-14. PR #321 merged that
+  sanitized failure record as protected main `b784318`. RC25 remains valid. The replacement gate at
+  `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json` preserves the exact
+  candidate, objectives, and USD 3 ceiling while binding a 120-second Redshift connection timeout
+  under the unchanged 600-second runtime deadline. Resume mutation only after this replacement
+  objective passes protected review and exact-main CI. Every
   remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See

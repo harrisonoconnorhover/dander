@@ -1924,8 +1924,8 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Observed boundary:** Exact RC25 obtained its AWS secret and Redshift credentials before a cold
   Serverless workgroup began creating network interfaces; the configured 30-second connection
   timeout expired before the endpoint accepted the connection.
-- **Correction scope:** Keep RC25 immutable and change only the committed qualification objective to
-  a bounded cold-start connection timeout in its own protected-main PR. This is fixture policy, not
-  a global provider-default change.
+- **Correction scope:** Keep RC25 immutable and bind 120 seconds only in the replacement AWS
+  qualification objective, below the unchanged 600-second runtime deadline. This is fixture policy,
+  not a global provider-default change; the original 30-second objective remains preserved.
 - **Evidence rule:** The corrected configuration reruns the complete AWS objective; no partial result
   transfers. The failed attempt and exact 25/36-resource cleanup remain separately preserved.

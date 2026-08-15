@@ -126,4 +126,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   task resolved its AWS secret and obtained Redshift credentials, but the 30-second connector limit
   expired while Serverless cold-started network interfaces. No provider operation or replay ran.
   Exact saved-plan cleanup removed all 25 platform and 36 data-plane resources. RC25 remains valid;
-  the separate focused qualification-timeout correction must merge before the objective reruns.
+  PR #321 merged the sanitized failure record as protected main `b784318`. The focused replacement
+  objective binds a 120-second Redshift connection timeout under the unchanged 600-second runtime
+  deadline without changing RC25 or the global provider default. It must pass protected merge and
+  exact-main CI before the complete objective reruns.

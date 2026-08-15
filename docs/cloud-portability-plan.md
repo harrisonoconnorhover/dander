@@ -1269,7 +1269,12 @@ drift-free. A fresh RC25 manual task reached AWS Secrets Manager, PostgreSQL sta
 credential acquisition, then timed out while the Serverless workgroup cold-started its network
 interfaces. Replay did not start; exact saved-plan cleanup removed all 25 platform and 36 data-plane
 resources. RC25 remains valid because the required correction is to the qualification connection
-timeout, not candidate code. No RC24 report transfers. Other exact-objective classes and
+timeout, not candidate code. PR #321 merged the sanitized failure record as protected main
+`b784318`. The replacement objective preserves exact RC25, its objective set, and the USD 3 ceiling
+while binding a 120-second qualification connection timeout under the unchanged 600-second runtime
+deadline. The original 30-second objective remains preserved and transfers no result; provider
+mutation waits for protected merge and exact-main CI of the replacement. No RC24 report transfers.
+Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,

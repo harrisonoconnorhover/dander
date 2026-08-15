@@ -107,12 +107,16 @@ no RC24 report transfers to it. This is private candidate publication evidence, 
 cost, benchmark, public-release, or support pass.
 
 PR #318 merged the sanitized RC25 publication record as protected-main commit `ae3be54`; exact-main
-CI run `31903775539` passed all five jobs. The AWS correctness lane is bound before mutation by
-`docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`: one manual execution and
-one replay in `us-east-1`, exact RC25 index `sha256:5a0d5520…2238`, a USD 3 ceiling from the recorded
-aggregate authorization, paused scheduling, and exact cleanup. Provider mutation may begin only
-after the commit carrying this objective gate passes protected review and exact-main CI; no result,
-cost, public-release, or support claim follows from the manifest itself.
+CI run `31903775539` passed all five jobs. The first RC25 AWS correctness gate remains preserved at
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`; its task reached a cold
+Redshift Serverless start and failed at the configured 30-second connection timeout. PR #321 merged
+that failed-attempt evidence as protected main `b784318`. The replacement gate is
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json`: it retains the exact
+candidate, objective set, USD 3 ceiling, one manual execution, one replay, paused scheduling, and
+exact cleanup while binding a 120-second Redshift connection timeout under the unchanged 600-second
+runtime deadline. Provider mutation may resume only after the replacement objective commit passes
+protected review and exact-main CI; no result, cost, public-release, or support claim follows from
+the manifest itself.
 
 ## Pre-candidate release readiness
 
@@ -166,7 +170,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | RC25 reached live provider construction; a cold-start timeout correction and full objective rerun remain open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | RC25 reached live provider construction; the 120-second cold-start gate is bound and its full objective rerun remains open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
