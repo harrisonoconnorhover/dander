@@ -49,5 +49,8 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
 - The exact-head rereview then caught quadratic Fargate overlay projection and a non-monotonic
   crossover recommendation. Commit `b7a3181325a92091ea7cc50046e1912fc637ca92` scopes each runtime
   overlay to its task, moves the aggregate projection out of the process argument, and permits only
-  a contiguous DIRECT-winning prefix. Its protected CI and independent rereview remain open before
-  a replacement source-free candidate.
+  a contiguous DIRECT-winning prefix. Protected run `31864784027` passed all five jobs.
+- The next rereview caught that the disposable task had no NAT, private service endpoints, or public
+  IP. Commit `b6b479d04df338e5c9747caf55922cfd1edc7516` binds this fixture to public-IP
+  assignment while preserving zero inbound access, TLS-only public egress, and self-scoped database
+  traffic. Its protected CI and final rereview remain open before a replacement candidate.

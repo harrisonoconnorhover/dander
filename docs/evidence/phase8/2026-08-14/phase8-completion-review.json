@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "second_corrections_pending_protected_ci_and_review",
+  "status": "third_correction_pending_protected_ci_and_review",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -20,6 +20,11 @@
     "status": "failed_python_test_helper_typing",
     "cloud_mutation_performed": false
   },
+  "protected_second_correction_head": "0d4d29dabd8830d276039364e2364f6166ef7785",
+  "protected_second_correction_ci_run": 31864784027,
+  "third_reviewed_on": "2026-08-15",
+  "third_reviewed_head": "0d4d29dabd8830d276039364e2364f6166ef7785",
+  "third_correction_commit": "b6b479d04df338e5c9747caf55922cfd1edc7516",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -42,21 +47,27 @@
     {
       "id": "aws_projection_argument_growth",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci",
+      "disposition": "corrected_and_protected_ci_passed",
       "verification": "100 manifest pipelines retain per-pipeline overlays while the projection map is passed through a temporary Terraform variable file"
     },
     {
       "id": "postgresql_crossover_non_monotonic_recommendation",
       "priority": "P2",
-      "disposition": "corrected_locally_pending_protected_ci",
+      "disposition": "corrected_and_protected_ci_passed",
       "verification": "the recommended DIRECT threshold stops at the first sampled size where DIRECT loses"
+    },
+    {
+      "id": "aws_qualification_task_outbound_path",
+      "priority": "P1",
+      "disposition": "corrected_locally_pending_protected_ci",
+      "verification": "the disposable fixture exports public-IP assignment and asserts public subnets, the Internet Gateway route, TLS-only public egress, and self-scoped database traffic"
     }
   ],
   "evidence_effects": {
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_second_correction_ci_and_review"
+    "replacement_candidate_gate": "blocked_pending_third_correction_ci_and_review"
   },
   "cloud_mutation_performed": false,
   "public_release": false
