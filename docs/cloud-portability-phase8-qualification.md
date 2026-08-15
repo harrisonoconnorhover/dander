@@ -191,6 +191,19 @@ accepted the correction. Docs-closure head `6ede9da` passed run `31879161660`, b
 found missing create dimensions for existing VPC and route-table dependencies. Commit `e12ee59`
 adds the qualification-tag-scoped grants; correction/docs head `0da600b` passed run `31879898267`,
 and focused seventeenth review accepted the correction.
+Private RC24 then applied and verified a drift-free 25-resource Fargate platform over its disposable
+36-resource data plane with the exact candidate digest and a disabled schedule. One authorized
+manual execution reached the runtime but exited before provider construction because the shared
+Fargate identity hook incorrectly required Google federation for the AWS-native profile. The task
+reported zero provider operations and wrote no rows; replay was not attempted. The exact platform
+and data plane were removed, both Terraform states and direct owned-resource inventories are empty,
+and the attempt's disabled KMS key is pending deletion on 2026-09-14. PR #314 corrected runtime
+identity as protected main `7b47451`; exact-main run `31900109949` passed all five jobs. PR #315
+corrected the separately discovered task-log read boundary as protected main `9c2faa6`; exact-main
+run `31900852546` passed all five jobs. Its reviewed stage-zero plan applied `0/1/0`, the next plan
+had no changes, and IAM simulation allowed the three qualified task-log reads while implicitly
+denying an unrelated log group. This is preserved failed-attempt and cleanup evidence, not a
+qualification pass; runtime source changed, so a replacement candidate is required.
 Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained

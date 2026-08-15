@@ -2,36 +2,37 @@
 
 ## Finished
 
-- Merged the AWS-native Fargate identity correction as protected-main commit `7b47451`.
-- Confirmed all five exact-main CI jobs passed in run `31900109949`.
-- Traced the live operator log denial to an exact-name ARN that excluded RC-suffixed deployments.
-- Added only the hyphen-suffixed Dander task-log ARN beside the retained exact-name ARN.
-- Added a regression that rejects a generic `/dander/*` log-read boundary.
+- Merged the scoped task-log correction as protected-main commit `9c2faa6`.
+- Confirmed all five exact-main CI jobs passed in run `31900852546`.
+- Applied the reviewed stage-zero plan with `0 added / 1 changed / 0 destroyed`.
+- Proved the next stage-zero plan has no changes and the SSO trust principal is unchanged.
+- Preserved the RC24 objective, failed execution, exact cleanup, and correction evidence.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_aws_admin.py`.
+Run `aws iam get-role-policy --role-name dander-bootstrap --policy-name dander-platform-administration`.
 
 ## Checks
 
-- Exact protected-main run `31900109949` passed all five jobs at `7b47451`.
-- All 15 AWS bootstrap tests passed.
-- Terraform formatting and validation passed; `git diff --check` passed.
+- Exact protected-main run `31900852546` passed all five jobs at `9c2faa6`.
+- Stage zero applied only the inline policy; the post-apply plan reported no changes.
+- IAM simulation allowed three qualified log reads and implicitly denied an unrelated group.
+- Posted AWS costs remain effectively zero but incomplete; provider invoice status remains pending.
 
 ## Decisions
 
-- Keep exact-name log reads for stable deployments and add only the `${name}-*` qualification form.
-- Preserve account, region, Dander namespace, action, and log-stream bounds.
+- The stable stage-zero name is `dander`; the failed deployment prefix was `dander-p8q-rc24`.
+- Preserve account, region, Dander namespace, action, log-stream, and SSO trust bounds.
 
 ## Remaining
 
-- Merge this independent permission correction through protected CI and review.
-- Apply the reviewed stage-zero policy through an exact saved plan and prove no drift.
-- Cut a replacement private candidate, then resume the AWS-native correctness and replay lane.
+- Merge this live-evidence record through protected CI and review.
+- Cut a replacement private candidate from protected main.
+- Resume the AWS-native manual correctness and replay lane on the replacement candidate.
 - Record AWS cost only after billing data posts.
 
 ## Review First
 
-- `infra/aws/bootstrap-admin/main.tf`
-- `tests/bootstrap/test_aws_admin.py`
+- `docs/evidence/phase8/2026-08-15/aws-native-profile-attempt.json`
+- `docs/cloud-portability-phase8-qualification.md`
 - `docs/decisions.md`
