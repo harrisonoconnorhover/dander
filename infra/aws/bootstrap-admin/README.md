@@ -30,6 +30,12 @@ resources stay under the `${name}-p8q-*` boundary; taggable network and Redshift
 carry Dander's `phase8-qualification` purpose tag. The account administrator remains stage-zero
 only and is not required for a qualification plan or apply.
 
+Phase 8 creation-time network tagging is limited to the exact EC2 resource types in the fixture and
+only while their corresponding create or rule-authorization action is running. Security-group
+creation authorizes the tagged new group and its account-local VPC separately. Rule creation
+authorizes the tagged new rule separately from the already qualification-tagged parent group, so
+the deployment role cannot relabel an unrelated EC2 resource and take ownership of it.
+
 Security-group creation follows AWS's separate authorization dimensions: the new group must carry
 the D7 management tags, creation-time tagging is limited to `CreateSecurityGroup`, and the role may
 use account-local VPCs only as the dependent resource for that tagged create. Rule creation likewise

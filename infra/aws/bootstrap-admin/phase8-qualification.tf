@@ -51,13 +51,9 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_infrastructure" 
     sid    = "CreateTaggedPhase8QualificationNetwork"
     effect = "Allow"
     actions = [
-      "ec2:AuthorizeSecurityGroupEgress",
-      "ec2:AuthorizeSecurityGroupIngress",
       "ec2:CreateInternetGateway",
       "ec2:CreateRouteTable",
-      "ec2:CreateSecurityGroup",
       "ec2:CreateSubnet",
-      "ec2:CreateTags",
       "ec2:CreateVpc",
       "ec2:CreateVpcEndpoint",
     ]
@@ -74,6 +70,83 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_infrastructure" 
       variable = "aws:RequestTag/purpose"
       values   = ["phase8-qualification"]
     }
+  }
+
+  statement {
+    sid    = "CreateTaggedPhase8QualificationSecurityResources"
+    effect = "Allow"
+    actions = [
+      "ec2:AuthorizeSecurityGroupEgress",
+      "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:CreateSecurityGroup",
+    ]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*",
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group-rule/*",
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/purpose"
+      values   = ["phase8-qualification"]
+    }
+  }
+
+  statement {
+    sid     = "TagPhase8QualificationNetworkOnCreate"
+    effect  = "Allow"
+    actions = ["ec2:CreateTags"]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:internet-gateway/*",
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:route-table/*",
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*",
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group-rule/*",
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:subnet/*",
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*",
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc-endpoint/*",
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:CreateAction"
+      values = [
+        "AuthorizeSecurityGroupEgress",
+        "AuthorizeSecurityGroupIngress",
+        "CreateInternetGateway",
+        "CreateRouteTable",
+        "CreateSecurityGroup",
+        "CreateSubnet",
+        "CreateVpc",
+        "CreateVpcEndpoint",
+      ]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/purpose"
+      values   = ["phase8-qualification"]
+    }
+  }
+
+  statement {
+    sid     = "UseVpcForPhase8QualificationSecurityGroupCreation"
+    effect  = "Allow"
+    actions = ["ec2:CreateSecurityGroup"]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:vpc/*"
+    ]
   }
 
   statement {
@@ -195,6 +268,15 @@ resource "aws_iam_policy" "deployment_phase8_qualification_infrastructure" {
   name   = "${var.name}-phase8-qualification-infrastructure"
   policy = data.aws_iam_policy_document.deployment_phase8_qualification_infrastructure.json
   tags   = local.tags
+
+  lifecycle {
+    precondition {
+      condition = length(
+        jsonencode(jsondecode(data.aws_iam_policy_document.deployment_phase8_qualification_infrastructure.json))
+      ) <= 6144
+      error_message = "Phase 8 qualification infrastructure policy exceeds AWS's 6,144-character managed-policy quota."
+    }
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "deployment_phase8_qualification_infrastructure" {

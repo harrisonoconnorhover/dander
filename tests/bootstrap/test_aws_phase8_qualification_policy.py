@@ -65,11 +65,68 @@ def test_deployment_role_has_action_bounded_phase8_qualification_policies() -> N
     assert 'sid     = "CreateRedshiftServiceLinkedRole"' in policy
     assert "redshift.amazonaws.com/AWSServiceRoleForRedshift" in policy
     assert 'values   = ["redshift.amazonaws.com"]' in policy
-    assert policy.count('variable = "aws:RequestTag/purpose"') == 2
+    assert policy.count('variable = "aws:RequestTag/purpose"') == 4
     assert policy.count('variable = "aws:ResourceTag/purpose"') == 2
     assert 'values   = ["phase8-qualification"]' in policy
+
+    general_network_create = policy.split('sid    = "CreateTaggedPhase8QualificationNetwork"', 1)[
+        1
+    ].split('sid    = "CreateTaggedPhase8QualificationSecurityResources"', 1)[0]
+    for security_action in (
+        '"ec2:AuthorizeSecurityGroupEgress"',
+        '"ec2:AuthorizeSecurityGroupIngress"',
+        '"ec2:CreateSecurityGroup"',
+        '"ec2:CreateTags"',
+    ):
+        assert security_action not in general_network_create
+
+    security_create = policy.split(
+        'sid    = "CreateTaggedPhase8QualificationSecurityResources"', 1
+    )[1].split('sid     = "TagPhase8QualificationNetworkOnCreate"', 1)[0]
+    assert '"ec2:CreateSecurityGroup"' in security_create
+    assert '"ec2:AuthorizeSecurityGroupIngress"' in security_create
+    assert '"ec2:AuthorizeSecurityGroupEgress"' in security_create
+    assert "security-group/*" in security_create
+    assert "security-group-rule/*" in security_create
+
+    create_tags = policy.split('sid     = "TagPhase8QualificationNetworkOnCreate"', 1)[1].split(
+        'sid     = "UseVpcForPhase8QualificationSecurityGroupCreation"', 1
+    )[0]
+    assert policy.count('"ec2:CreateTags"') == 1
+    assert 'resources = ["*"]' not in create_tags
+    assert 'variable = "ec2:CreateAction"' in create_tags
+    for resource_type in (
+        "internet-gateway",
+        "route-table",
+        "security-group",
+        "security-group-rule",
+        "subnet",
+        "vpc",
+        "vpc-endpoint",
+    ):
+        assert f":{resource_type}/*" in create_tags
+    for create_action in (
+        "AuthorizeSecurityGroupEgress",
+        "AuthorizeSecurityGroupIngress",
+        "CreateInternetGateway",
+        "CreateRouteTable",
+        "CreateSecurityGroup",
+        "CreateSubnet",
+        "CreateVpc",
+        "CreateVpcEndpoint",
+    ):
+        assert f'"{create_action}"' in create_tags
+
+    vpc_dependency = policy.split(
+        'sid     = "UseVpcForPhase8QualificationSecurityGroupCreation"', 1
+    )[1].split('sid    = "ManageTaggedPhase8QualificationNetwork"', 1)[0]
+    assert '"ec2:CreateSecurityGroup"' in vpc_dependency
+    assert ":vpc/*" in vpc_dependency
+    assert "RequestTag" not in vpc_dependency
 
     assert 'resource "aws_iam_policy" "deployment_phase8_qualification_infrastructure"' in policy
     assert 'resource "aws_iam_policy" "deployment_phase8_qualification_data"' in policy
     assert policy.count('resource "aws_iam_role_policy_attachment"') == 2
     assert 'resource "aws_iam_role_policy"' not in policy
+    assert "Phase 8 qualification infrastructure policy exceeds AWS's" in policy
+    assert ") <= 6144" in policy
