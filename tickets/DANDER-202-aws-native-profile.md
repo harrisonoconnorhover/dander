@@ -99,3 +99,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   RC24 at protected main `c19de39`, exact-main run `31882919709` passed, and source-free
   multi-platform candidate `sha256:b7eadc7e…9488` passed external AWS-overlay selection without
   provider access. The separate exact-objective live-profile lane and support acceptance remain open.
+- The first complete RC24 AWS-native Fargate launch later failed before provider construction
+  because the shared launcher identity hook required Google federation for every Fargate task.
+  AWS-native Fargate now keeps its ECS task role ambient when no Google federation is declared;
+  Fargate-to-GCP behavior is unchanged and partial federation configuration still fails closed.

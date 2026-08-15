@@ -26,6 +26,10 @@ _AWS_CREDENTIAL_NAMES = (
     "AWS_SESSION_TOKEN",
 )
 _AWS_REGION = re.compile(r"^[a-z]{2}(?:-gov)?-[a-z]+-[0-9]+$")
+_GOOGLE_FEDERATION_ENV = (
+    "DANDER_GCP_SERVICE_ACCOUNT",
+    "DANDER_GCP_WIF_AUDIENCE",
+)
 _WIF_AUDIENCE = re.compile(
     r"^//iam\.googleapis\.com/projects/[0-9]{6,20}/locations/global/"
     r"workloadIdentityPools/[a-z][a-z0-9-]{3,31}/providers/[a-z][a-z0-9-]{3,31}$"
@@ -126,14 +130,14 @@ def launcher_identity(context: LauncherContext) -> Iterator[None]:
 
 def prepare_launcher_identity(context: LauncherContext) -> object | None:
     """Prepare only the selected launcher's ambient identity before clients start."""
-    if context.launcher == "fargate":
+    google_federation_configured = any(os.environ.get(name) for name in _GOOGLE_FEDERATION_ENV)
+    if context.launcher == "fargate" and google_federation_configured:
         return prepare_fargate_google_identity()
     if context.launcher == "azure_container_apps" and any(
         os.environ.get(name)
         for name in (
             "DANDER_AZURE_GCP_APPLICATION_ID_URI",
-            "DANDER_GCP_SERVICE_ACCOUNT",
-            "DANDER_GCP_WIF_AUDIENCE",
+            *_GOOGLE_FEDERATION_ENV,
         )
     ):
         from dander.identity.azure_google import prepare_azure_google_identity

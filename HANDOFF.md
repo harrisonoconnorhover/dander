@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Merged PR #312; its PR and exact protected-main CI runs passed all five gates with no review threads.
-- Applied its stage-zero delta from a 0-add/1-change/0-destroy plan and confirmed immediate no drift.
-- Recreated the 36-create RC24 data plane and confirmed no drift before the exact 25-create platform plan.
-- Reached disabled-schedule and failure-target creation, then reproduced the target-list refresh with no execution.
-- Added only the target-list read to the existing Dander controller-failure rule boundary.
+- Applied and verified the exact RC24 AWS-native platform with no drift and a disabled schedule.
+- Ran one manual task; the controller worked, but runtime identity failed before any provider operation.
+- Scoped Google federation startup to Fargate deployments that declare Google identity settings.
+- Preserved fail-closed partial federation behavior and added identity plus runtime regressions.
+- Removed the exact 25-resource platform and 32-resource data plane after preserving sanitized evidence.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_aws_admin.py`.
+Run `uv run pytest -q tests/identity/test_aws_google.py tests/cli/test_runtime_cli.py`.
 
 ## Checks
 
-- Fifteen focused bootstrap tests passed; Ruff lint and format checks passed.
-- Terraform formatting, validation, and the one bootstrap mock test passed.
-- `git diff --check` passed.
-- Live platform apply stopped after disabled-schedule and failure-target creation; no ECS task or execution ran.
-- Both Terraform states and every active owned-resource inventory are empty.
-- The 25-resource platform and 32 persistent data-plane resources were removed exactly.
-- Five disabled AWS-native KMS keys are `PendingDeletion` under AWS's mandatory 30-day window.
+- Thirty-nine identity and runtime CLI tests passed; Ruff lint/format and strict mypy passed.
+- Live verification confirmed the RC24 digest, disabled schedule, and drift-free platform.
+- The failed task reported zero provider operations and no rows written.
+- Both Terraform states and all direct owned-resource inventories are empty.
+- KMS key `46a9d38c-a77c-4145-bc4a-6c53aebfc877` is disabled and pending deletion on September 14.
 
 ## Decisions
 
-- Reuse the exact account-, region-, and name-bounded EventBridge rule ARN for the target-list read.
-- Resume qualification only after protected merge and a reviewed stage-zero update.
+- Leave the ECS task role ambient for AWS-native Fargate; build Google credentials only when declared.
+- Treat any partial Google federation declaration as invalid rather than silently falling back.
 
 ## Remaining
 
-- Merge this correction through protected CI and review.
-- Apply only the reviewed stage-zero policy delta, then resume RC24 AWS-native qualification.
-- Record provider cost only after billing data posts.
+- Merge this focused runtime correction through protected CI and review.
+- Correct the separately discovered operator log-read permission in its own PR.
+- Cut a replacement private candidate, then resume the AWS-native correctness and replay lane.
+- Record AWS cost only after billing data posts.
 
 ## Review First
 
-- `infra/aws/bootstrap-admin/main.tf`
-- `tests/bootstrap/test_aws_admin.py`
-- `docs/decisions.md`
+- `src/dander/identity/aws_google.py`
+- `tests/identity/test_aws_google.py`
+- `tests/cli/test_runtime_cli.py`

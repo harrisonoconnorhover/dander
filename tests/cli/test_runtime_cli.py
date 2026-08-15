@@ -36,6 +36,7 @@ def _invoke(
     *,
     attempt: int = 1,
     extra_env: dict[str, str] | None = None,
+    platform: str = "gcp",
 ) -> Result:
     monkeypatch.setattr(runtime_module, "execute_run", execute)
     return CliRunner().invoke(
@@ -48,7 +49,7 @@ def _invoke(
             "--pipeline",
             "greenhouse_jobs",
             "--platform",
-            "gcp",
+            platform,
             "--project",
             "unit-project",
             "--batch-rows",
@@ -146,6 +147,38 @@ def test_runtime_execute_marks_later_launcher_attempt_as_retry(
     assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
     assert captured["run_id"] == "cloud-run:execution-42"
     assert captured["retry"] is True
+
+
+def test_runtime_execute_allows_aws_native_fargate_without_google_identity(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def execute(options: RunOptions, **kwargs: object) -> PipelineExecutionResult:
+        captured["options"] = options
+        run_id = cast("str", kwargs["run_id"])
+        return PipelineExecutionResult(
+            run_id=run_id,
+            pipeline_id=options.pipeline_or_source,
+            ingestion=PipelineRunResult(run_id=run_id, source="fixture", endpoints=()),
+            models=(),
+            assertions=0,
+            assets=0,
+        )
+
+    result = _invoke(
+        monkeypatch,
+        execute,
+        extra_env={
+            "DANDER_LAUNCHER": "fargate",
+            "DANDER_GCP_SERVICE_ACCOUNT": "",
+            "DANDER_GCP_WIF_AUDIENCE": "",
+        },
+        platform="aws_fargate",
+    )
+
+    assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
+    assert cast("RunOptions", captured["options"]).deployment == "aws_fargate"
 
 
 def test_runtime_execute_selects_named_version_two_deployment(

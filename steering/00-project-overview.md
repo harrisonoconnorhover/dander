@@ -72,6 +72,10 @@ material, credentials, or non-public data is introduced.
 
 Append newest at top. Format: `- YYYY-MM-DD — decision — rationale`.
 
+- 2026-08-15 — **Fargate prepares Google identity only for a declared Google federation** — the
+  AWS-native profile keeps its renewable ECS task role ambient, while Fargate-to-GCP deployments
+  continue to build keyless Google credentials when their federation settings are projected.
+  Partial federation configuration still fails closed.
 - 2026-08-07 — **Dander becomes cloud-selectable without weakening the GCP contract** — a
   versioned OCI runtime and named deployment profiles will separate logical pipelines from cloud
   projection. GCP/Cloud Run/BigQuery remains the primary compatibility profile, and each added
