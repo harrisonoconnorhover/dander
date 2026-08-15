@@ -39,8 +39,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Phase 7 foundation and private image history but has zero active Container Instances. The OCI CLI
   omitted the session profile's user field; it was restored from the signed token subject without
   recording an identifier or credential. No cloud mutation occurred. Credentials no longer block
-  these providers, but independent review rerun and one replacement candidate still precede any Phase 8
-  live run. See the Azure and OCI credential-restoration records under
+  these providers, but one protected replacement candidate still precedes any Phase 8 live run.
+  See the Azure and OCI credential-restoration records under
   `docs/evidence/phase8/2026-08-14/`.
 
 - AWS access was restored on 2026-08-14. Exact RC22 was copied byte-identically to private ECR,
@@ -49,11 +49,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   no Fargate plan, task, or pipeline ran. The exact 28-resource destroy completed, qualification
   state and inventories are empty, and AWS D7 was unchanged. Provider cost remains pending. A local
   correction projects the selected non-secret platform overlay at launch. Successive corrections
-  reached head `d644b2a`, which passed all five protected jobs in run `31874238906`; eleventh
-  exact-head review accepted the Redshift create, Glue tag-lifecycle, and whole-number usage-limit
-  fixes. That review found missing Data API credential and residual S3 cleanup permissions. Commit
-  `ef18330` corrects those locally; protected CI, exact-head review, and a replacement candidate are
-  required before live qualification resumes. See
+  reached qualification-baseline head `3ea34e2`, which passed all five protected jobs in run
+  `31876449299`; focused thirteenth review accepted the final version-cleanup permission and
+  current-main integration. A protected replacement candidate is still required before live
+  qualification resumes. After PR #291 merges, every remaining benchmark/provider objective and
+  any live-discovered defect uses a fresh protected-main branch; rerun only materially affected
+  evidence plus the eventual final closure matrix. See
   `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`

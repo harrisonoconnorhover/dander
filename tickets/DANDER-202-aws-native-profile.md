@@ -84,5 +84,8 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   lifecycle permissions, and whole-number usage-limit validation. Commit `7a1f429` corrects those
   three; head `d644b2a` passed all five protected jobs in run `31874238906`. Eleventh exact-head
   review accepted those corrections and found missing Serverless Data API credentials plus residual
-  staging-object version cleanup authority. Commit `ef18330` corrects both locally; protected CI
-  and exact-head rereview remain open.
+  staging-object version cleanup authority. Commit `ef18330` corrected both; head `67ab738` passed
+  protected run `31875414186`, but twelfth review found forced cleanup also required exact version
+  deletion. Commit `06ec187` added that scoped action. Current-main integration head `3ea34e2`
+  passed all five protected jobs in run `31876449299`, and focused thirteenth review accepted the
+  complete delta. Replacement-candidate and live-profile acceptance criteria remain open.

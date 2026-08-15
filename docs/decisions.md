@@ -1779,3 +1779,12 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   to map that role during `GetCredentials`; other AWS-native permissions stay resource-scoped.
 - **Boundary:** Existing Serverless data planes must precreate and declare the mapped role. Dander
   neither grants a broad database superuser nor transfers the mapping to provisioned clusters.
+
+## 2026-08-15 — Phase 8 continues in focused protected-main lanes
+
+- **Baseline tranche:** PR #291 remains coherent through its qualification-baseline CI, review, and
+  evidence reconciliation; it does not accumulate new benchmark or provider objectives.
+- **Continuation:** After that tranche merges, each benchmark objective, provider qualification,
+  optimization, or live-discovered defect starts from a fresh protected-main branch and worktree.
+- **Evidence:** Preserve valid prior evidence. Rerun only what a change can materially affect, plus
+  the eventual final-candidate closure matrix.
