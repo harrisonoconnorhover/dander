@@ -118,3 +118,13 @@ run "bounded_disposable_data_plane" {
     error_message = "Disposable staging objects must remain encrypted and expire after one day."
   }
 }
+
+run "rejects_unauthorized_authenticated_account" {
+  command = plan
+
+  variables {
+    aws_account_id = "999999999999"
+  }
+
+  expect_failures = [aws_vpc.profile]
+}
