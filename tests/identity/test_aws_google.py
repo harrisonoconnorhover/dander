@@ -14,6 +14,7 @@ from dander.identity import (
     launcher_identity,
     prepare_fargate_google_identity,
     prepare_fargate_task_credentials,
+    prepare_launcher_identity,
 )
 from dander.runtime_contract import LauncherContext
 
@@ -139,6 +140,31 @@ def test_launcher_identity_scopes_google_credentials(
     with launcher_identity(context):
         assert google_client_options() == {"credentials": sentinel}
     assert google_client_options() == {}
+
+
+def test_aws_native_fargate_leaves_task_role_identity_ambient(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DANDER_GCP_SERVICE_ACCOUNT", raising=False)
+    monkeypatch.delenv("DANDER_GCP_WIF_AUDIENCE", raising=False)
+    context = LauncherContext.from_environment(
+        {"DANDER_LAUNCHER": "fargate", "DANDER_RUN_ID": "aws-native-run"}
+    )
+
+    assert prepare_launcher_identity(context) is None
+
+
+def test_fargate_partial_google_federation_configuration_fails_closed(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DANDER_GCP_WIF_AUDIENCE", "incomplete")
+    monkeypatch.delenv("DANDER_GCP_SERVICE_ACCOUNT", raising=False)
+    context = LauncherContext.from_environment(
+        {"DANDER_LAUNCHER": "fargate", "DANDER_RUN_ID": "invalid-federation-run"}
+    )
+
+    with pytest.raises(FargateIdentityError, match="invalid"):
+        prepare_launcher_identity(context)
 
 
 @pytest.mark.parametrize(

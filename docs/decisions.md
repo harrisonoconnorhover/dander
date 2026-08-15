@@ -1,5 +1,17 @@
 # Engineering Decisions
 
+## 2026-08-15 — Fargate identity follows the declared data-plane boundary
+
+- **Finding:** The first complete RC24 AWS-native platform and manual task launch reached the
+  runtime, which exited before provider construction because Fargate unconditionally required
+  Google federation settings that an AWS-native deployment correctly omits.
+- **Correction:** Prepare Google credentials only when at least one Google federation setting is
+  present. No settings leaves the renewable ECS task role ambient for AWS providers; partial or
+  invalid Google configuration still fails closed through the existing validation.
+- **Boundary:** The failed task wrote no rows and reported zero provider operations. The exact
+  25-resource platform and 32-resource data plane were removed; its disabled KMS key is pending
+  deletion. AWS-native qualification resumes only on a replacement candidate after protected merge.
+
 ## 2026-08-15 — EventBridge target refresh uses the existing rule boundary
 
 - **Finding:** The fifth RC24 platform apply created both failure targets, then Terraform's
