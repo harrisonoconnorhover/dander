@@ -6,11 +6,12 @@ manages `infra/aws-control` or another retained Dander stack.
 
 The root owns one three-AZ VPC, encrypted staging bucket, Redshift Serverless namespace/workgroup,
 8-RPU base capacity with a 5 RPU-hour daily deactivation limit, one encrypted `db.t4g.micro`
-PostgreSQL 15 state instance, its generated DSN in Secrets Manager, and a prefix-scoped Redshift
-COPY role. The namespace creator also provisions a `dander_runtime` database role with only the
-DDL and default COPY-role permissions needed by the qualification writer; the Fargate task maps
-that role through its `RedshiftDbRoles` IAM tag. Sensitive values remain only in Secrets Manager
-and the existing encrypted remote state.
+PostgreSQL 15 state instance, its generated DSN in Secrets Manager, a prefix-scoped Redshift COPY
+role, and the exact `dander_analytics_staging.stg_phase8_aws__posts` Glue projection. The namespace
+creator also provisions a `dander_runtime` database role with only the DDL and default COPY-role
+permissions needed by the qualification writer; the Fargate task maps that role through its
+`RedshiftDbRoles` IAM tag. Sensitive values remain only in Secrets Manager and the existing
+encrypted remote state.
 
 The root deliberately exposes public subnets and exports `network.assign_public_ip = true` for this
 disposable fixture. The Fargate task has no inbound rule and may use only TLS public egress plus the
@@ -19,10 +20,12 @@ there is no NAT gateway or private ECR, CloudWatch Logs, and Secrets Manager end
 
 Initialize with a dedicated qualification state key, create and inspect a saved plan, and apply
 only that plan. Export the non-secret outputs into a temporary version-2 project manifest before
-planning `infra/aws`. After the approved manual/replay executions and evidence collection, destroy
-the Fargate root first and this data-plane root second. Confirm Redshift, RDS, S3 objects, Glue
-databases, Secrets Manager secrets, network resources, IAM roles, and both Terraform states are
-clean before closing the run.
+planning `infra/aws`. The runtime updates the Terraform-predeclared Glue table; it does not create
+an unowned qualification asset. After the approved manual/replay executions and evidence
+collection, destroy the Fargate root first and this data-plane root second. Confirm Redshift, RDS,
+S3 objects, the Glue table/database, Secrets Manager secrets, network resources, IAM roles, and
+both Terraform states are clean before closing the run.
 
-This fixture is bound to the committed RC22 AWS-native objectives and USD 3 allocation. It does not
-promote RC22 as the final candidate, transfer evidence to a successor, or authorize public release.
+RC22's historical objective is invalidated and cannot be rerun with this fixture. Bind a new exact
+candidate objective and authorization before mutation. This root does not promote a final candidate,
+transfer evidence, or authorize public release.

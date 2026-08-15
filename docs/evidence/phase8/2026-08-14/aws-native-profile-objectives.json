@@ -1,5 +1,12 @@
 {
   "schema": "io.dander.qualification.objective-approval/v1",
+  "status": "invalidated_before_execution",
+  "invalidation": {
+    "reason": "greenhouse_job_board declares ARRAY, RECORD, and JSON fields that cannot satisfy Redshift schema preflight",
+    "successor_pipeline": "phase8_aws_qualification",
+    "successor_source": "phase8_aws_fixture",
+    "evidence_transfer_allowed": false
+  },
   "cost_ceiling": {
     "amount_usd": "3.00",
     "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14-aws-restored"

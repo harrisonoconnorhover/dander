@@ -183,6 +183,56 @@ resource "aws_s3_bucket_lifecycle_configuration" "staging" {
   }
 }
 
+# Runtime publication updates only this exact predeclared Glue database and table. Terraform owns
+# their existence so the qualification destroy removes both even after a failed or interrupted
+# task; publication-owned metadata is intentionally ignored while existence drift is not.
+resource "aws_glue_catalog_database" "qualification" {
+  catalog_id  = var.aws_account_id
+  name        = "dander_analytics_staging"
+  description = "Dander catalog projection for analytics.staging"
+  parameters = {
+    "dander.catalog"   = "analytics"
+    "dander.managed"   = "true"
+    "dander.namespace" = "staging"
+  }
+
+  lifecycle {
+    ignore_changes = [description, parameters]
+  }
+}
+
+resource "aws_glue_catalog_table" "qualification" {
+  catalog_id    = var.aws_account_id
+  database_name = aws_glue_catalog_database.qualification.name
+  name          = "stg_phase8_aws__posts"
+  description   = "Immutable synthetic posts used only for AWS-native qualification."
+  owner         = "data-eng"
+  table_type    = "EXTERNAL_TABLE"
+  parameters = {
+    classification              = "dander"
+    "dander.catalog"            = "analytics"
+    "dander.managed"            = "true"
+    "dander.namespace"          = "staging"
+    "dander.relation"           = "analytics.staging.stg_phase8_aws__posts"
+    "dander.warehouse_provider" = "redshift"
+  }
+
+  storage_descriptor {
+    columns {
+      name = "post_id"
+      type = "bigint"
+    }
+    columns {
+      name = "title"
+      type = "string"
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [description, owner, parameters, storage_descriptor]
+  }
+}
+
 data "aws_iam_policy_document" "redshift_assume" {
   statement {
     effect  = "Allow"

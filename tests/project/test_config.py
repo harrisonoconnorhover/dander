@@ -57,7 +57,7 @@ edges:
 """.strip()
 
 
-def test_repository_manifest_defines_five_additive_hosted_pipelines() -> None:
+def test_repository_manifest_defines_six_additive_hosted_pipelines() -> None:
     project = load_project_config(Path("dander.yaml"))
     project.validate_references(Path.cwd())
 
@@ -77,11 +77,16 @@ def test_repository_manifest_defines_five_additive_hosted_pipelines() -> None:
         "greenhouse_jobs",
         "greenhouse_jobs_graph",
         "hubspot_companies",
+        "phase8_aws_qualification",
         "salesforce_accounts",
         "servicenow_incidents",
     }
     assert expanded["greenhouse_jobs"]["job_name"] == "dander-greenhouse-public"
     assert expanded["greenhouse_jobs"]["secret_env"] == {}
+    assert expanded["phase8_aws_qualification"]["source"] == "phase8_aws_fixture"
+    assert expanded["phase8_aws_qualification"]["models"] == ["stg_phase8_aws__posts"]
+    assert expanded["phase8_aws_qualification"]["paused"] is True
+    assert expanded["phase8_aws_qualification"]["publish_dataplex"] is True
     assert expanded["greenhouse_jobs_graph"]["job_name"] == "dander-greenhouse-graph"
     assert expanded["greenhouse_jobs_graph"]["models"] == []
     assert expanded["greenhouse_jobs_graph"]["build_models"] is False

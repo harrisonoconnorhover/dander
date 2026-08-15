@@ -27,6 +27,14 @@ deployments:
     safety:
       require_guarded_free_tier: false
     pipelines:
+      phase8_aws_qualification:
+        schedule: "0 8 * * *"
+        time_zone: America/New_York
+        paused: true
+        resources:
+          job: dander-phase8-aws-qualification
+          runtime_service_account: dander-runtime-phase8-aws
+          scheduler_service_account: dander-scheduler-phase8-aws
       greenhouse_jobs:
         schedule: "0 9 * * *"
         time_zone: America/New_York

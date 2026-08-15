@@ -2,8 +2,9 @@
 
 This runbook covers the named Fargate + Redshift + PostgreSQL state + Glue + AWS Secrets Manager
 composition. It is an experimental Phase 8 target, not a supported deployment. Exact RC22 does not
-contain the required selected AWS deployment. Use no candidate until the runtime-overlay correction
-has passed protected review and a replacement source-free multi-platform digest is published.
+contain the required selected AWS deployment, and its historical Greenhouse objective is not
+Redshift-compatible. Use no candidate until the runtime-overlay, flat-fixture, and Glue-ownership
+corrections pass protected review and a replacement source-free multi-platform digest is published.
 
 ## Ownership and prerequisites
 
@@ -31,6 +32,11 @@ infrastructure, not a production topology or an automatic spending cap. It expor
 an Internet Gateway but no NAT or private AWS service endpoints. The task has no inbound rule, and
 its public egress is limited to TLS plus self-scoped database traffic.
 
+The qualification pipeline reads three flat synthetic posts from an immutable upstream Git commit.
+Its declared schema contains only Redshift-compatible scalar fields, and its one model uses Dander's
+portable SQL contract. Do not substitute the nested Greenhouse fixture: that schema intentionally
+exercises ARRAY, RECORD, and JSON portability behavior and cannot satisfy this Redshift objective.
+
 ## Configure the exact profile
 
 Keep portable pipeline intent in `dander.yaml`:
@@ -38,9 +44,9 @@ Keep portable pipeline intent in `dander.yaml`:
 ```yaml
 version: 2
 pipelines:
-  greenhouse_jobs:
-    source: greenhouse_job_board
-    models: [stg_greenhouse__jobs]
+  phase8_aws_qualification:
+    source: phase8_aws_fixture
+    models: [stg_phase8_aws__posts]
     publish_catalog: true
 ```
 
@@ -95,7 +101,7 @@ deployments:
     safety:
       require_guarded_free_tier: false
     pipelines:
-      greenhouse_jobs:
+      phase8_aws_qualification:
         schedule: 0 9 * * *
         time_zone: America/New_York
         paused: true
@@ -173,21 +179,22 @@ and state.
 Keep the schedule paused. Start one paid manual execution only after reviewing the provider budget:
 
 ```bash
-dander aws run --deployment aws_fargate --pipeline greenhouse_jobs --aws-profile dander-deploy
-dander aws status --deployment aws_fargate --pipeline greenhouse_jobs --aws-profile dander-deploy
-dander aws logs --deployment aws_fargate --pipeline greenhouse_jobs \
+dander aws run --deployment aws_fargate --pipeline phase8_aws_qualification --aws-profile dander-deploy
+dander aws status --deployment aws_fargate --pipeline phase8_aws_qualification --aws-profile dander-deploy
+dander aws logs --deployment aws_fargate --pipeline phase8_aws_qualification \
   --execution-arn EXECUTION_ARN --aws-profile dander-deploy
-dander aws replay --deployment aws_fargate --pipeline greenhouse_jobs \
+dander aws replay --deployment aws_fargate --pipeline phase8_aws_qualification \
   --execution-arn TERMINAL_EXECUTION_ARN --aws-profile dander-deploy
-dander aws verify --deployment aws_fargate --pipeline greenhouse_jobs \
+dander aws verify --deployment aws_fargate --pipeline phase8_aws_qualification \
   --expected-image 123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:ACCEPTED_INDEX_DIGEST \
   --aws-profile dander-deploy
 ```
 
 `run`, `cancel`, and `replay` confirm before changing paid execution state. Status, logs, and verify
 are read-only and emit normalized records. Require successful manual/replay equality, clean leases
-and staging objects, bounded logs, expected Glue readback, and a final no-change Terraform plan
-before enabling a schedule.
+and staging objects, bounded logs, expected Glue readback from
+`dander_analytics_staging.stg_phase8_aws__posts`, and a final no-change Terraform plan before
+enabling a schedule.
 
 ## Upgrade, rollback, and cleanup
 
@@ -199,8 +206,11 @@ retag an image, or rebuild the rollback artifact.
 Destroy launcher resources before disposable data-plane resources. Produce and inspect an exact
 saved destroy plan against the same remote state and variables; do not delete a state object as a
 substitute for destroy. Confirm the Fargate task definitions/controller/schedules/logs/alerts first,
-then Redshift/RDS/Glue/S3/network/IAM resources and both state inventories. Retained stage-zero state,
-registry, or deployment-role resources are separate ownership decisions.
+then the qualification root. That root predeclares and owns the exact Glue database/table that the
+runtime updates; its destroy therefore removes Glue together with Redshift, RDS, S3, network, IAM,
+and the other disposable resources even if execution was interrupted. Confirm both Terraform state
+inventories are empty. Retained stage-zero state, registry, or deployment-role resources are
+separate ownership decisions.
 
 ## Troubleshooting
 

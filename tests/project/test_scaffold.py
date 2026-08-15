@@ -52,12 +52,15 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
         "Dockerfile",
         "dander.platforms.yaml",
         "connectors/greenhouse_job_board.yaml",
+        "connectors/phase8_aws_fixture.yaml",
         "graphs/greenhouse_jobs.yaml",
         "infra/main.tf",
         "infra/bootstrap-admin/main.tf",
         "models/staging/stg_greenhouse__jobs.sql",
         "models/staging/stg_greenhouse__jobs.postgres.sql",
         "models/staging/stg_greenhouse__jobs.yml",
+        "models/staging/stg_phase8_aws__posts.sql",
+        "models/staging/stg_phase8_aws__posts.yml",
         "examples/salesforce/dander.yaml",
         "examples/salesforce/connectors/salesforce.yaml",
         "examples/salesforce/models/staging/stg_salesforce__users.sql",
@@ -67,6 +70,8 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
         "examples/salesforce/models/marts/fct_salesforce__opportunities.sql",
     ):
         assert (project / relative).is_file()
+    project_manifest = load_project_config(project / "dander.yaml")
+    assert project_manifest.pipelines["phase8_aws_qualification"].publish_catalog
     salesforce = load_project_config(project / "examples" / "salesforce" / "dander.yaml")
     assert salesforce.plugins["salesforce"].version == "0.3.1"
     assert set(salesforce.pipelines) == {"salesforce_crm"}

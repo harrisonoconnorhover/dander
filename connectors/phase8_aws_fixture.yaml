@@ -1,0 +1,24 @@
+# Immutable, credential-free Phase 8 AWS qualification fixture.
+# The pinned upstream document contains three flat synthetic posts and no tenant data.
+name: phase8_aws_fixture
+base_url: https://raw.githubusercontent.com/typicode/demo/f0b44972443d306e32eed093910687d26cd9f3f1
+auth_strategy: none
+rate_limit:
+  requests_per_second: 1
+  burst: 1
+  backoff: exponential
+  max_retries: 3
+
+endpoints:
+  - name: posts
+    path: /db.json
+    pagination: none
+    data_selector: posts
+    primary_key: [id]
+    raw_schema:
+      - name: id
+        type: INT64
+        mode: REQUIRED
+      - name: title
+        type: STRING
+        mode: REQUIRED

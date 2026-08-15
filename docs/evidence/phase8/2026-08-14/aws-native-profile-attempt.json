@@ -51,6 +51,15 @@
     "pipeline_execution_attempted": false,
     "reason": "The immutable candidate could not resolve the manifest-selected AWS deployment before provider access."
   },
+  "post_review_invalidation": {
+    "status": "historical_objective_must_not_be_retried",
+    "reason": "The selected Greenhouse schema cannot pass Redshift schema preflight and the qualification root did not own runtime-created Glue assets.",
+    "successor_requirements": [
+      "new_exact_candidate_authorization_and_objective",
+      "redshift_compatible_phase8_aws_fixture",
+      "terraform_owned_glue_database_and_table"
+    ]
+  },
   "authority": {
     "authenticated_principal_class": "account_root",
     "deployment_role_assume_attempted": true,

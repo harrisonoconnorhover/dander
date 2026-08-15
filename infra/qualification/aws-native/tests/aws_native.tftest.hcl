@@ -80,9 +80,12 @@ run "bounded_disposable_data_plane" {
       contains(aws_vpc_endpoint.s3.route_table_ids, aws_route_table.profile.id) &&
       aws_s3_bucket.staging.force_destroy &&
       aws_s3_bucket_public_access_block.staging.restrict_public_buckets &&
-      aws_secretsmanager_secret.postgresql_dsn.recovery_window_in_days == 0
+      aws_secretsmanager_secret.postgresql_dsn.recovery_window_in_days == 0 &&
+      output.qualification_boundary.glue_database == "dander_analytics_staging" &&
+      output.qualification_boundary.glue_table == "stg_phase8_aws__posts" &&
+      aws_glue_catalog_table.qualification.database_name == aws_glue_catalog_database.qualification.name
     )
-    error_message = "The qualification network must expose the bounded task egress path while its data plane remains exactly owned and destroyable."
+    error_message = "The qualification network and Glue projection must remain exactly owned and destroyable."
   }
 
   assert {

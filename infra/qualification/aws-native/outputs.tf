@@ -35,5 +35,7 @@ output "qualification_boundary" {
     redshift_breach_action              = aws_redshiftserverless_usage_limit.compute.breach_action
     rds_instance_class                  = var.rds_instance_class
     rds_storage_gib                     = aws_db_instance.postgresql.allocated_storage
+    glue_database                       = aws_glue_catalog_database.qualification.name
+    glue_table                          = aws_glue_catalog_table.qualification.name
   }
 }

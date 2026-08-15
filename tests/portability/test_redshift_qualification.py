@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import pytest
 from scripts.benchmarks import redshift
 
+from dander.ingestion import load_source_config
+from dander.providers.redshift.runtime import RedshiftSchemaMapper
 from dander.providers.redshift.session import RedshiftStatementResult
 from dander.transform import SqlDialect, TransformProject
 from dander.warehouse import RelationRef, WarehouseRuntime
 
-if TYPE_CHECKING:
-    from pathlib import Path
+_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _config(**overrides: object) -> redshift.RedshiftQualificationConfig:
@@ -133,6 +135,29 @@ def test_model_fixture_and_physical_source_use_the_same_relation(tmp_path: Path)
     model = project.ordered(("table_model",))[0]
 
     assert '"analytics"."dander_qual_test"."records"' in project.compile(model)
+
+
+def test_aws_profile_fixture_is_flat_and_compiles_for_redshift() -> None:
+    source = load_source_config(_ROOT / "connectors" / "phase8_aws_fixture.yaml")
+    (endpoint,) = source.endpoints
+
+    schema = RedshiftSchemaMapper().canonical_schema(endpoint.canonical_raw_schema().fields)
+    assert [(field.name, field.data_type.kind.value) for field in schema.fields] == [
+        ("id", "integer"),
+        ("title", "string"),
+    ]
+
+    project = TransformProject.load(
+        _ROOT / "models",
+        catalog="analytics",
+        raw_namespace="raw",
+        target_dialect=SqlDialect.REDSHIFT,
+    )
+    model = project.models["stg_phase8_aws__posts"]
+    compiled = project.compile(model)
+
+    assert 'FROM "analytics"."raw"."phase8_aws_fixture_posts"' in compiled
+    assert "id AS post_id" in compiled
 
 
 def test_staging_residue_query_excludes_durable_load_history(

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 _SOURCE_ASSETS = (
     (Path("connectors/greenhouse_job_board.yaml"), Path("connectors/greenhouse_job_board.yaml")),
+    (Path("connectors/phase8_aws_fixture.yaml"), Path("connectors/phase8_aws_fixture.yaml")),
     (Path("graphs/greenhouse_jobs.yaml"), Path("graphs/greenhouse_jobs.yaml")),
     (
         Path("models/staging/stg_greenhouse__jobs.sql"),
@@ -27,6 +28,14 @@ _SOURCE_ASSETS = (
     (
         Path("models/staging/stg_greenhouse__jobs.yml"),
         Path("models/staging/stg_greenhouse__jobs.yml"),
+    ),
+    (
+        Path("models/staging/stg_phase8_aws__posts.sql"),
+        Path("models/staging/stg_phase8_aws__posts.sql"),
+    ),
+    (
+        Path("models/staging/stg_phase8_aws__posts.yml"),
+        Path("models/staging/stg_phase8_aws__posts.yml"),
     ),
     (Path("examples/salesforce/dander.yaml"), Path("examples/salesforce/dander.yaml")),
     (
