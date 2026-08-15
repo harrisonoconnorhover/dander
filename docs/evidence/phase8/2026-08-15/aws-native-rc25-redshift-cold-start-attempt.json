@@ -1,0 +1,112 @@
+{
+  "schema": "io.dander.phase8.aws-native-profile-attempt/v1",
+  "attempt_date": "2026-08-15",
+  "authorization_reference": "docs/evidence/phase8/2026-08-15/rc25-authorization.json",
+  "objective_reference": "docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json",
+  "candidate": {
+    "release_version": "0.9.0rc25",
+    "git_commit": "f5935a6d263cf6734ee9944f2f0e02d025edc63e",
+    "source_index_digest": "sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238",
+    "ecr_index_digest": "sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238",
+    "source_free": true,
+    "multi_platform": true
+  },
+  "stage_zero": {
+    "protected_main_commit": "7155d54c24d07a87c0a90425b02848967a6fd605",
+    "saved_plan_sha256": "38fd53883820440ba21a039461ac2c560d8111e30d6a0ab2c689217f949049a6",
+    "saved_plan": {"add": 0, "change": 1, "destroy": 0},
+    "apply": {"add": 0, "change": 1, "destroy": 0},
+    "post_apply_drift": false,
+    "stable_rule_reads_allowed": 2,
+    "named_rule_reads_allowed": 2,
+    "unrelated_rule_decisions": 2,
+    "unrelated_rule_decision": "implicitDeny",
+    "trust_principal_changed": false
+  },
+  "data_plane": {
+    "saved_plan_sha256": "9b9896469f0dc10e0b036a0b27f5c1979b88cac60c4c7673ceb4b8d3f1447253",
+    "saved_plan": {"add": 36, "change": 0, "destroy": 0},
+    "apply": {"add": 36, "change": 0, "destroy": 0},
+    "post_apply_drift": false
+  },
+  "platform": {
+    "saved_plan_sha256": "880a36aeea8efe2a6ca184f64671d3e6737bc739d42f01babf0daea60ec9a2ad",
+    "saved_plan": {"add": 25, "change": 0, "destroy": 0, "read": 7},
+    "apply": {"add": 25, "change": 0, "destroy": 0},
+    "verification": {
+      "exact_image_digest": true,
+      "schedule_disabled": true,
+      "state_machine_expected": true,
+      "task_definition_expected": true,
+      "log_group_expected": true,
+      "aws_native_identity": true,
+      "post_apply_drift": false
+    }
+  },
+  "execution": {
+    "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-phase8-aws-qualifica-35e4e06f:phase8-rc25-aws-native-rerun-20260815",
+    "task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander/4241300693114e7fb930e48ab17e59fb",
+    "run_id": "phase8_aws_qualification:2026-08-15T21:23:11Z",
+    "started_at_utc": "2026-08-15T21:23:12Z",
+    "stopped_at_utc": "2026-08-15T21:24:39Z",
+    "controller_status": "runtime_permanent_failure",
+    "task_exit_code": 2,
+    "failure_code": "invalid_configuration",
+    "failure_stage": "configuration",
+    "exception_class_chain": ["ClickException", "ProviderFactoryError", "TimeoutError", "KeyError"],
+    "provider_operations": 0,
+    "rows_written": 0,
+    "replay_attempted": false
+  },
+  "finding": {
+    "classification": "redshift_serverless_cold_start_timeout",
+    "configured_connect_timeout_seconds": 30,
+    "runtime_duration_ms": 30870,
+    "task_secret_read_at_utc": "2026-08-15T21:23:45Z",
+    "task_redshift_credentials_read_at_utc": "2026-08-15T21:23:45Z",
+    "redshift_network_interface_creation_started_at_utc": "2026-08-15T21:23:50Z",
+    "runtime_failed_at_utc": "2026-08-15T21:24:15Z",
+    "exact_redshift_credentials_decision": "allowed",
+    "exact_secret_read_decision": "allowed",
+    "task_and_workgroup_vpc_match": true,
+    "task_and_workgroup_subnets_match": true,
+    "task_and_workgroup_security_group_match": true,
+    "summary": "The task resolved its PostgreSQL secret and obtained Redshift credentials before the workgroup began cold-starting network interfaces; the 30-second connector limit expired before the Serverless endpoint accepted the connection."
+  },
+  "cleanup": {
+    "platform_destroy_plan_sha256": "2fd2d944e2b8b95b3ea3d7a2db06245689c698625107f7a992704b37b7a05ec8",
+    "platform_destroy": {"add": 0, "change": 0, "destroy": 25},
+    "data_plane_destroy_plan_sha256": "cce8c89ce61999b6541720f7968c03e96c71c4f8c4ae359f11f61f36fa6c9327",
+    "data_plane_destroy": {"add": 0, "change": 0, "destroy": 36},
+    "platform_state_entries": 0,
+    "data_plane_state_entries": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "aws_d7_resources_changed": false,
+    "attempt_kms_key_id": "26e9be30-cb9a-4ae6-bfba-6a37ad4844e6",
+    "attempt_kms_key_status": "PendingDeletion",
+    "attempt_kms_key_deletion_date": "2026-09-14"
+  },
+  "cost": {
+    "aggregate_phase8_ceiling_usd": "10.00",
+    "aws_allocation_usd": "3.00",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "cost_explorer_checked_at_utc": "2026-08-15T21:39:28Z"
+  },
+  "objectives": {
+    "artifact_identity": "passed",
+    "aws_secret_manager_resolution": "passed",
+    "cost_ceiling": "not_evaluated",
+    "exact_cleanup": "passed",
+    "glue_publication": "not_evaluated",
+    "manual_execution": "failed",
+    "no_drift": "passed",
+    "postgresql_state": "passed",
+    "redshift_write": "failed",
+    "replay_idempotency": "not_evaluated"
+  },
+  "qualification_status": "failed",
+  "evidence_transfer_allowed": false,
+  "replacement_candidate_required": false,
+  "support_promoted": false
+}
