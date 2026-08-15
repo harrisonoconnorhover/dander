@@ -2,7 +2,7 @@
 
 ## Finished
 
-- Integrated protected main through the AWS stage-zero KMS backend correction.
+- Integrated protected main through the AWS D7 provider-read correction without changing that separate live-proof scope.
 - Applied and exactly destroyed the 28-resource AWS qualification data plane after RC22 preflight exposed its missing AWS deployment.
 - Added the validated non-secret Fargate platform overlay and packaged qualification Terraform root.
 - Recorded the AWS `not_evaluated` attempt, published its operator runbook, and cleared the qualification root's protected Trivy findings.

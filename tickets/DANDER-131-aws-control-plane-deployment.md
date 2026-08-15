@@ -83,3 +83,10 @@ Protected CI then surfaced five generic static-analysis warnings for the reviewe
 Resource-local Trivy exceptions now document why this bounded acceptance profile uses AWS-owned
 SSE-S3, HTTPS-only public egress, a CloudFront-prefix-restricted public ALB with an HTTP origin, and
 no WAF. The correction suppresses only those exact checks and adds no broader ignore policy.
+
+The first temporary-credential foundation plan stopped before saving a plan or creating resources
+because the retained deployment role lacked two read calls used by the locked provider's VPC and
+managed-prefix-list data sources. Provider-source review identified the related deterministic
+post-create refresh reads for the profile listener, D7 graph bucket, and tagged log groups. The
+stage-zero correction adds only those exact reads, keeps bucket/log access name-scoped, and adds no
+wildcard service permission or application-root change.
