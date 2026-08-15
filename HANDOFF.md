@@ -2,33 +2,33 @@
 
 ## Finished
 
-- Added the exact EC2 and ELB reads used by the locked AWS provider during D7 planning and refresh.
-- Scoped deterministic S3 refresh reads to disposable D7 buckets.
-- Scoped CloudWatch log-tag reads to `/dander/<name>/d7/*` log groups.
-- Recorded the stopped live plan and confirmed that it created no resources or state.
+- Split security-group creation into AWS's group, creation-time tag, and VPC authorization arms.
+- Kept required D7 tags on every new group and tag writes bound to `CreateSecurityGroup`.
+- Added the observed internet-gateway read used while ELB creates target groups.
+- Recorded the partial foundation apply; all created resources remain tracked and disposable.
 
 ## Try It
 
-Run `uv run pytest -q tests/bootstrap/test_aws_admin.py` and `terraform -chdir=infra/aws/bootstrap-admin
-test -no-color` to verify the focused IAM boundary.
+Run `uv run pytest -q tests/bootstrap/test_aws_admin.py` and the bootstrap-admin Terraform test to
+verify the focused IAM boundary.
 
 ## Checks
 
 - Focused AWS bootstrap tests passed: 15 tests.
-- Terraform initialization, validation, and the bootstrap-admin test passed.
+- Terraform format, initialization, validation, and the bootstrap-admin test passed.
 - Focused Ruff lint and format checks passed.
 
 ## Decisions
 
-- Grant only provider calls proven by the stopped plan or deterministic provider refresh paths.
-- Keep bucket and log reads resource-scoped; add no wildcard service-read authority.
-- Leave the application Terraform root and provider resources unchanged.
+- Follow AWS's documented dependent-resource split for tagged security-group creation.
+- Keep the application Terraform root and the partially created provider resources unchanged.
+- Retry through the same remote state so Terraform adopts its tracked partial apply.
 
 ## Remaining
 
 - Merge the protected correction PR and verify exact-main CI.
 - Apply the reviewed retained-role policy update and verify stage-zero no-drift.
-- Rerun the AWS foundation plan through the temporary deployment role.
+- Replan and finish the tracked AWS foundation through the temporary deployment role.
 - Continue the disposable D7 live proof, rollback, and exact cleanup.
 
 ## Review First
