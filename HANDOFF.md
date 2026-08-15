@@ -5,7 +5,7 @@
 - Integrated protected main through the AWS D7 provider-read correction without changing that separate live-proof scope.
 - Applied and exactly destroyed the 28-resource AWS qualification data plane after RC22 preflight exposed its missing AWS deployment.
 - Added the validated non-secret Fargate platform overlay and packaged qualification Terraform root.
-- Recorded the AWS `not_evaluated` attempt, published its operator runbook, and cleared the qualification root's protected Trivy findings.
+- Recorded the AWS `not_evaluated` attempt, published its runbook, and moved PR #291 through green protected CI into review.
 - Restored Azure/OCI API access with Azure empty and zero active OCI Container Instances.
 
 ## Try It
@@ -14,7 +14,8 @@ Run `jq . docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`, then
 
 ## Checks
 
-- Full Ruff formatting/lint, strict mypy across 232 source files, and pytest pass after the protected-main integration.
+- Protected PR CI passed Python, Terraform, secret, distribution, and container/security jobs after the protected-main integration.
+- Full Ruff formatting/lint, strict mypy across 232 source files, and pytest pass locally.
 - Focused bootstrap/runtime/Fargate/infrastructure/portable-config pytest passed (61 tests).
 - AWS and qualification Terraform validation passed; Fargate module tests passed (4), and the qualification native test passed (1).
 - The CI-equivalent Trivy 0.70.0 HIGH/CRITICAL configuration scan passed with zero findings.
@@ -28,7 +29,7 @@ Run `jq . docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`, then
 
 ## Remaining
 
-- Obtain green replacement protected CI and complete review on draft PR #291.
+- Merge ready PR #291 only after separate human approval; no unresolved review thread exists at handoff.
 - Cut one replacement multi-platform candidate, then resume AWS-native correctness within the authorized ceiling.
 - Rerun applicable RC22 classes on the final candidate and complete hosted scale/cost and pairwise profiles.
 - Preserve the retained OCI Phase 7 foundation; finish remaining profile docs and freeze compatibility/limitations.
