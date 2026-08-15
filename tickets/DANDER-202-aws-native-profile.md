@@ -53,4 +53,8 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
 - The next rereview caught that the disposable task had no NAT, private service endpoints, or public
   IP. Commit `b6b479d04df338e5c9747caf55922cfd1edc7516` binds this fixture to public-IP
   assignment while preserving zero inbound access, TLS-only public egress, and self-scoped database
-  traffic. Its protected CI and final rereview remain open before a replacement candidate.
+  traffic. Protected run `31865699608` passed all five jobs.
+- The following review caught that a root-level Terraform check only warned on a wrong authenticated
+  account. Commit `cfe8e634a43c26868eb1f622c8d59ea3688ad7a7` constrains the AWS provider to the
+  authorized account and adds a blocking lifecycle precondition with a negative plan test. Its
+  protected CI and independent rereview remain open before a replacement candidate.
