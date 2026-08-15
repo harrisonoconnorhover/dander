@@ -74,6 +74,37 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
     assert "resources = [aws_ecr_repository.runtime.arn]" in runtime_image
     assert '"ecr:*"' not in runtime_image
 
+    log_tag_reads = terraform.split('sid     = "InspectDanderLogGroupTags"', 1)[1].split(
+        'sid       = "InspectDanderFailureQueueTags"', 1
+    )[0]
+    assert 'actions = ["logs:ListTagsForResource"]' in log_tag_reads
+    assert "log-group:/aws/vendedlogs/states/${var.name}-*" in log_tag_reads
+    assert "log-group:/dander/${var.name}*/*" in log_tag_reads
+
+    queue_tag_reads = terraform.split('sid       = "InspectDanderFailureQueueTags"', 1)[1].split(
+        'sid       = "InspectDanderKmsRotation"', 1
+    )[0]
+    assert 'actions   = ["sqs:ListQueueTags"]' in queue_tag_reads
+    assert ":${var.name}*-failures" in queue_tag_reads
+
+    kms_rotation = terraform.split('sid       = "InspectDanderKmsRotation"', 1)[1].split(
+        'sid    = "ManageDanderRoles"', 1
+    )[0]
+    assert 'actions   = ["kms:GetKeyRotationStatus"]' in kms_rotation
+    assert ":key/*" in kms_rotation
+    assert 'variable = "aws:ResourceTag/managed-by"' in kms_rotation
+    assert 'values   = ["dander"]' in kms_rotation
+
+    generic_reads = terraform.split('sid    = "DescribeDeploymentPrerequisites"', 1)[1].split(
+        'sid     = "InspectDanderLogGroupTags"', 1
+    )[0]
+    for action in (
+        '"logs:ListTagsForResource"',
+        '"sqs:ListQueueTags"',
+        '"kms:GetKeyRotationStatus"',
+    ):
+        assert action not in generic_reads
+
 
 def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
     terraform = (_REPO_ROOT / "infra/aws/bootstrap-admin/main.tf").read_text(encoding="utf-8")
