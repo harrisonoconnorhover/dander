@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Merged the scoped task-log correction as protected-main commit `9c2faa6`.
-- Confirmed all five exact-main CI jobs passed in run `31900852546`.
-- Applied the reviewed stage-zero plan with `0 added / 1 changed / 0 destroyed`.
-- Proved the next stage-zero plan has no changes and the SSO trust principal is unchanged.
-- Preserved the RC24 objective, failed execution, exact cleanup, and correction evidence.
+- Merged RC24 failure evidence as protected-main commit `41147c6`.
+- Confirmed all five exact-main CI jobs passed in run `31901767206`.
+- Prepared private `0.9.0rc25` metadata from that exact protected main.
+- Opened draft PR #317 and bound publication authorization to preparation commit `d974a97`.
+- Allocated the final USD 0.25 contingency without changing the USD 10 aggregate ceiling.
 
 ## Try It
 
-Run `aws iam get-role-policy --role-name dander-bootstrap --policy-name dander-platform-administration`.
+Run `uv run pytest -q tests/test_release_metadata.py && uv run python scripts/check_release_metadata.py`.
 
 ## Checks
 
-- Exact protected-main run `31900852546` passed all five jobs at `9c2faa6`.
-- Stage zero applied only the inline policy; the post-apply plan reported no changes.
-- IAM simulation allowed three qualified log reads and implicitly denied an unrelated group.
-- Posted AWS costs remain effectively zero but incomplete; provider invoice status remains pending.
+- Exact protected-main run `31901767206` passed all five jobs at `41147c6`.
+- Four release-metadata tests, metadata/lock validation, Ruff, and diff checks passed.
+- RC25 wheel and source distribution built and passed distribution inspection.
+- Authorization JSON parses and planned allocations sum to exactly USD 10.
 
 ## Decisions
 
-- The stable stage-zero name is `dander`; the failed deployment prefix was `dander-p8q-rc24`.
-- Preserve account, region, Dander namespace, action, log-stream, and SSO trust bounds.
+- Publish RC25 privately only after PR #317 and its exact-main CI pass.
+- Keep public RC20, support status, and prior-candidate evidence unchanged.
+- No unallocated contingency remains; actual provider spend must stay below USD 10.
 
 ## Remaining
 
-- Merge this live-evidence record through protected CI and review.
-- Cut a replacement private candidate from protected main.
-- Resume the AWS-native manual correctness and replay lane on the replacement candidate.
+- Complete protected CI/review and merge PR #317.
+- Build, privately publish, and inspect one source-free amd64/arm64 RC25 index.
+- Resume AWS-native manual correctness and replay in a fresh objective lane.
 - Record AWS cost only after billing data posts.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/aws-native-profile-attempt.json`
-- `docs/cloud-portability-phase8-qualification.md`
-- `docs/decisions.md`
+- `docs/evidence/phase8/2026-08-15/rc25-authorization.json`
+- `CHANGELOG.md`
+- `pyproject.toml`
