@@ -1249,7 +1249,8 @@ two EC2 authorization blockers corrected in `b9735c9`. Correction/current-main h
 passed run `31878215886`, and focused fifteenth review accepted the correction. Docs-closure head
 `6ede9da` passed run `31879161660`; sixteenth review found missing existing-resource dimensions for
 route-table, subnet, and VPC-endpoint creation. Commit `e12ee59` adds the qualification-tag-scoped
-dependency grants locally; protected CI and focused rereview remain. One replacement
+dependency grants; correction/docs head `0da600b` passed run `31879898267`, and focused seventeenth
+review accepted the correction. One replacement
 multi-platform build and final-candidate reruns remain. After PR #291
 merges, each objective continues from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,

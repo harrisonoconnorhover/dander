@@ -20,7 +20,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
 - [x] Terraform and operations remain manifest-bound, plan-first, least-privileged, and keyless.
 - [x] Contract tests cover projection, secret binding, provider assembly, and fail-closed invalid
   compositions.
-- [ ] Protected CI and independent completion review pass for the runtime-overlay correction before
+- [x] Protected CI and independent completion review pass for the runtime-overlay correction before
   a replacement qualification candidate is cut.
 
 ## Implementation Notes
@@ -93,5 +93,6 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   correction/current-main head `d8a18ec` passed run `31878215886`, and focused fifteenth review
   accepted the correction. Docs-closure head `6ede9da` passed run `31879161660`; sixteenth review
   found that route-table, subnet, and VPC-endpoint creation still lacked their tagged VPC/route-table
-  dependency dimensions. Commit `e12ee59` corrects that locally; protected CI, focused rereview,
-  baseline merge, replacement-candidate, and live-profile acceptance criteria remain open.
+  dependency dimensions. Commit `e12ee59` corrects them; correction/docs head `0da600b` passed run
+  `31879898267`, and focused seventeenth review accepted the correction. Baseline merge,
+  replacement-candidate, and live-profile acceptance criteria remain open.

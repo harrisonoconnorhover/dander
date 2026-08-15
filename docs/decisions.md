@@ -1799,5 +1799,6 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Dependencies:** Route-table, subnet, and gateway-endpoint creation authorize their tagged new
   resources separately from only the already qualification-tagged VPC and route tables they use.
 - **Gate:** Sixteenth review found these missing existing-resource dimensions after docs-closure
-  head `6ede9da` passed run `31879161660`. The replacement-candidate gate stays blocked until
-  correction `e12ee59` passes protected CI and focused rereview, then PR #291 merges.
+  head `6ede9da` passed run `31879161660`. Correction/docs head `0da600b` passed run
+  `31879898267`, and focused seventeenth review accepted `e12ee59`; the replacement-candidate gate
+  opens only after PR #291 merges.

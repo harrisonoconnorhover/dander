@@ -2,9 +2,9 @@
 
 ## Finished
 
-- Exact docs-closure head `6ede9da` passed all five protected jobs in run `31879161660`.
-- Sixteenth review found missing VPC/route-table authorization dimensions for three EC2 creates.
-- Commit `e12ee59` adds only qualification-tagged dependency grants and focused assertions.
+- Exact correction/docs head `0da600b` passed all five protected jobs in run `31879898267`.
+- Focused seventeenth review accepted `e12ee59`'s qualification-tagged network dependency grants.
+- The qualification baseline is frozen for separate approval to merge PR #291.
 - No new qualification objective or live cloud mutation was added to this tranche.
 
 ## Try It
@@ -13,6 +13,7 @@ Run `uv run pytest -q tests/bootstrap/test_aws_phase8_qualification_policy.py te
 
 ## Checks
 
+- Protected secret, Python, Terraform, distribution, and container jobs pass on `0da600b`.
 - Seventeen focused pytest cases, Ruff, mypy, Terraform format/validation/mocked apply, and diff checks pass.
 - AWS Access Analyzer reports no finding; the compact infrastructure policy is 5,334 characters.
 - AWS simulation allows every new/dependent resource dimension and denies an unrelated VPC.
@@ -20,12 +21,12 @@ Run `uv run pytest -q tests/bootstrap/test_aws_phase8_qualification_policy.py te
 ## Decisions
 
 - Qualification authority remains isolated from D7 in two customer-managed policies.
-- The replacement-candidate gate remains blocked pending correction protected CI and focused rereview.
+- The replacement-candidate gate opens only after the qualification baseline merges.
 - Post-merge Phase 8 work uses fresh protected-main branches and materially scoped evidence reruns.
 
 ## Remaining
 
-- Pass protected CI and focused rereview for `e12ee59` before separate merge approval.
+- Merge PR #291 only with separate explicit approval.
 - Cut one private source-free multi-platform replacement candidate from fresh protected `main`.
 - Bind each exact provider objective before using the retained authorized cloud allocations.
 - Complete final-candidate scale, cost, canonical, pairwise, and hosted Kubernetes reruns.

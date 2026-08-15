@@ -5,7 +5,7 @@
   "pull_request": 291,
   "protected_ci_run": 31861974300,
   "reviewer": "codex_read_only",
-  "status": "sixteenth_correction_pending_protected_ci_and_review",
+  "status": "qualification_baseline_protected_ci_and_review_passed",
   "correction_commit": "8240bcfc3585b8217a607cb08d2d97290ca13afa",
   "protected_correction_head": "75c965cc309bb96300d2c62e9f34fa2d040d5067",
   "protected_correction_ci_run": 31863498217,
@@ -96,6 +96,11 @@
   "sixteenth_reviewed_on": "2026-08-15",
   "sixteenth_reviewed_head": "6ede9da830ff78ad10c7136505cb84b9dd0e539f",
   "sixteenth_correction_commit": "e12ee5933554cdcb783e500514fb0dccb1bd05bb",
+  "protected_sixteenth_correction_head": "0da600ba4dd2492ec53c2ab441ae791061875931",
+  "protected_sixteenth_correction_ci_run": 31879898267,
+  "seventeenth_reviewed_on": "2026-08-15",
+  "seventeenth_reviewed_commit": "e12ee5933554cdcb783e500514fb0dccb1bd05bb",
+  "seventeenth_protected_head": "0da600ba4dd2492ec53c2ab441ae791061875931",
   "findings": [
     {
       "id": "aws_database_egress",
@@ -262,7 +267,7 @@
     {
       "id": "aws_qualification_network_create_dependencies",
       "priority": "P1",
-      "disposition": "corrected_locally_pending_protected_ci_and_review",
+      "disposition": "corrected_and_protected_ci_and_review_passed",
       "verification": "route-table, subnet, and VPC-endpoint creates authorize only qualification-tagged VPC and route-table dependency dimensions"
     }
   ],
@@ -270,7 +275,7 @@
     "rc23_crossover_threshold_objective": "invalidated",
     "rc23_report": "retained_as_historical_unpromoted_evidence",
     "aws_native_profile": "not_evaluated",
-    "replacement_candidate_gate": "blocked_pending_sixteenth_correction_protected_ci_and_review"
+    "replacement_candidate_gate": "open_after_qualification_baseline_merge"
   },
   "cloud_mutation_performed": false,
   "public_release": false

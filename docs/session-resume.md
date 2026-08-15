@@ -56,8 +56,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `d8a18ec` passed run `31878215886`, and focused fifteenth review accepted the correction.
   Docs-closure head `6ede9da` then passed run `31879161660`, but sixteenth review found missing
   existing-resource dimensions for route-table, subnet, and VPC-endpoint creation. Commit `e12ee59`
-  adds only qualification-tagged VPC/route-table dependency grants locally; protected CI and
-  focused rereview remain. A protected replacement candidate is still required after baseline
+  adds only qualification-tagged VPC/route-table dependency grants. Correction/docs head `0da600b`
+  passed run `31879898267`, and focused seventeenth review accepted the correction. A protected
+  replacement candidate is still required after baseline
   merge and before live qualification resumes. After PR #291 merges, every remaining
   benchmark/provider objective and
   any live-discovered defect uses a fresh protected-main branch; rerun only materially affected

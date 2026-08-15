@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. Docs-closure head `6ede9da` passed protected run `31879161660`; sixteenth review found an EC2 network-dependency blocker corrected locally in `e12ee59`, pending protected CI/review. One replacement candidate remains open; no single protected final candidate owns the combined matrix. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private arm64 RC23 passed local audit preflight and observed equal DIRECT/COPY rows, but review invalidated its byte threshold. Correction/docs head `0da600b` passed protected run `31879898267`, and focused seventeenth review accepted `e12ee59`. Baseline merge and one replacement candidate remain open; no single protected final candidate owns the combined matrix. |
 
 ## Current release and deployment record
 
@@ -106,7 +106,8 @@ cloud path remains outside the live proof.
   EC2 authorization blockers corrected in `b9735c9`. Correction/current-main head `d8a18ec` passed
   run `31878215886`, and focused fifteenth review accepted the correction. Docs-closure head
   `6ede9da` passed run `31879161660`; sixteenth review found missing VPC/route-table dependency
-  dimensions corrected locally in `e12ee59`, pending protected CI/review. No cloud mutation occurred.
+  dimensions corrected in `e12ee59`. Correction/docs head `0da600b` passed run `31879898267`, and
+  focused seventeenth review accepted the correction. No cloud mutation occurred.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions
@@ -140,8 +141,8 @@ the data, one metadata spine records what happened, and Druff authors and operat
 without becoming a second runtime. The D7 local hosted Control profile is live-qualified without
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
 RC22's protected audit and RC23's local preflight are preserved. Qualification-baseline corrections
-through `d8a18ec` pass protected CI and focused review; the network-dependency correction in
-`e12ee59` still awaits both gates. A replacement candidate remains.
+through `e12ee59` pass protected CI and focused review. Baseline merge and a replacement candidate
+remain.
 The combined final-candidate audit and remaining scale, cost, profile, soak,
 operator-documentation, and support-freeze gates are recorded in
 `docs/cloud-portability-phase8-qualification.md`.
