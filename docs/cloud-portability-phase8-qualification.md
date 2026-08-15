@@ -246,8 +246,10 @@ network interfaces after that request and the configured 30-second connector tim
 task recorded zero provider operations and rows; replay was not attempted. Exact saved-plan cleanup
 removed all 25 platform and 36 data-plane resources, both states and direct inventories are empty,
 and the platform KMS key is pending deletion on 2026-09-14. RC25 remains valid because the defect is
-in the qualification timeout, not candidate code; resume only after a focused reviewed objective
-correction. See
+in the qualification timeout, not candidate code. PR #322 merged the 120-second replacement
+objective as protected main `ea625e3`; exact-main run `31911384116` passed all five jobs. The next
+run must project that exact timeout and rerun the complete objective; no partial result transfers.
+See
 `docs/evidence/phase8/2026-08-15/aws-native-rc25-redshift-cold-start-attempt.json`.
 Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted

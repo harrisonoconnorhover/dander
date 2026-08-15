@@ -7,7 +7,7 @@ Redshift-compatible. Private RC25 contains the reviewed runtime-overlay, flat-fi
 Glue-ownership, materialization, candidate-identity, and Fargate ambient-identity corrections at
 source-free multi-platform index `sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238`.
 Use it only with the exact committed objective manifest under
-`docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json` after that gate passes
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json` after that gate passes
 protected review and exact-main CI. This is not a public-release or support claim.
 
 ## Ownership and prerequisites
@@ -77,6 +77,7 @@ platforms:
       copy_role_arn: arn:aws:iam::123456789012:role/DanderRedshiftCopy
       staging_bucket: dander-aws-native-staging
       staging_prefix: dander/staging
+      connect_timeout_seconds: 120
     state:
       provider: postgresql
       authority_id: postgresql:aws-native
@@ -116,6 +117,9 @@ deployments:
         secret_bindings:
           DANDER_POSTGRES_DSN: aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:secret:dander/postgres-dsn-AbCdEf
 ```
+
+The 120-second connection timeout is bound only to this RC25 qualification objective and remains
+below the 600-second whole-runtime deadline. It does not change the provider's 30-second default.
 
 Run `dander validate --deployment aws_fargate` before any provider mutation. Project validation
 rejects a cross-account or cross-region secret, COPY role, or Glue catalog; `init-aws-plan`
