@@ -92,9 +92,10 @@ cloud path remains outside the live proof.
   audits, rootless read-only runtime checks, and HIGH/CRITICAL Trivy infrastructure/main-image/
   OCI-controller scans. See `docs/evidence/phase8/2026-08-14/rc22-local-audit.json`.
 - Private arm64 RC23 at `sha256:8bd35188…3064` adds the bounded PostgreSQL direct path and passed
-  local artifact/runtime, dependency, source-secret, infrastructure, and image preflight plus the
-  pre-approved TLS PostgreSQL crossover. Its same-shape recommendation is 10 rows/1,400 logical
-  bytes. RC23 has no protected CI or multi-platform qualification, and RC22 reports do not transfer.
+  local artifact/runtime, dependency, source-secret, infrastructure, and image preflight. Its TLS
+  PostgreSQL run observed equal DIRECT/COPY rows, but completion review found the 1,400-byte
+  recommendation omitted writer-counted field-name bytes; that threshold objective is invalid.
+  The corrected 1,490-byte calculation must be rerun on a protected multi-platform successor.
 - Exact RC22 was copied byte-identically to private ECR for AWS-native preflight. Its immutable
   image lacked the selected AWS deployment, so no Fargate plan, task, or pipeline ran. The exact
   28-resource disposable data-plane destroy completed with empty qualification state/inventories
@@ -131,7 +132,7 @@ GCP platform, independently installed connectors ingest into BigQuery, Dander tr
 the data, one metadata spine records what happened, and Druff authors and operates a bounded graph
 without becoming a second runtime. The D7 local hosted Control profile is live-qualified without
 promoting a real identity provider or cloud profile. Phase 8 support qualification is not complete;
-RC22's protected audit and RC23's local preflight are preserved, but the AWS runtime-overlay
-correction still needs protected review and a replacement candidate. The combined final-candidate
+RC22's protected audit and RC23's local preflight are preserved, but the three completion-review
+corrections still need protected CI/review and a replacement candidate. The combined final-candidate
 audit and remaining scale, cost, profile, soak, operator-documentation, and support-freeze gates
 are recorded in `docs/cloud-portability-phase8-qualification.md`.

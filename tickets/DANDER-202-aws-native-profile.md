@@ -42,5 +42,8 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   image contains only the GCP and Kubernetes deployment coordinates, so the AWS-native command
   cannot resolve its selected deployment. The disposable data plane was removed without a task run.
 - The local correction projects the validated, selected non-secret platform overlay through the
-  task definition and materializes it only in runtime scratch space. Focused Python and Terraform
-  checks pass; protected review and a replacement source-free candidate remain open.
+  task definition and materializes it only in runtime scratch space. The first completion review
+  then caught missing self-scoped database egress, direct lookahead inside an open transaction, and
+  an understated crossover threshold. Commit `8240bcfc3585b8217a607cb08d2d97290ca13afa`
+  corrects all three with focused Python and Terraform checks; protected CI, review rerun, and a
+  replacement source-free candidate remain open.

@@ -2,41 +2,40 @@
 
 ## Finished
 
-- Integrated protected main through the AWS D7 provider-read correction without changing that separate live-proof scope.
-- Applied and exactly destroyed the 28-resource AWS qualification data plane after RC22 preflight exposed its missing AWS deployment.
-- Added the validated non-secret Fargate platform overlay and packaged qualification Terraform root.
-- Recorded the AWS `not_evaluated` attempt, published its runbook, and moved PR #291 through green protected CI into review.
-- Restored Azure/OCI API access with Azure empty and zero active OCI Container Instances.
+- Ran independent completion review on green PR #291; it found three material pre-candidate defects.
+- Added self-scoped PostgreSQL/Redshift egress while retaining HTTPS-only public AWS egress.
+- Moved bounded PostgreSQL lookahead before connection/transaction acquisition for slow sources.
+- Derived crossover bytes from the writer's exact normalized size and invalidated RC23's 1,400-byte objective.
+- Committed the three corrections at `8240bcfc3585b8217a607cb08d2d97290ca13afa`; no cloud mutation ran.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`, then review the projected-overlay tests named below.
+Run `uv run pytest -q tests/providers/test_postgresql_warehouse_runtime.py tests/portability/test_postgresql_crossover_phase8_benchmark.py`, then `terraform -chdir=infra/qualification/aws-native test -no-color`.
 
 ## Checks
 
-- Protected PR CI passed Python, Terraform, secret, distribution, and container/security jobs after the protected-main integration.
-- Full Ruff formatting/lint, strict mypy across 232 source files, and pytest pass locally.
-- Focused bootstrap/runtime/Fargate/infrastructure/portable-config pytest passed (61 tests).
-- AWS and qualification Terraform validation passed; Fargate module tests passed (4), and the qualification native test passed (1).
-- The CI-equivalent Trivy 0.70.0 HIGH/CRITICAL configuration scan passed with zero findings.
-- Wheel/sdist builds contain the qualification Terraform assets and AWS runbook; evidence JSON and diff checks passed.
+- The prior PR head passed all five protected CI jobs; this correction head has not run protected CI yet.
+- Focused PostgreSQL/crossover/release-metadata pytest passed (14 passed, 23 provider-gated skips).
+- Ruff lint and strict mypy passed for the corrected Python source; Ruff formatting is clean.
+- AWS qualification Terraform validate and mocked test passed (1 test); Terraform formatting is clean.
+- `git diff --check` passed. Local Trivy was unavailable; protected container/security CI remains required.
 
 ## Decisions
 
-- RC22 is not AWS-qualified and cannot inherit the local correction; protected review and a replacement source-free multi-platform candidate are mandatory.
-- Account-local platform coordinates are launch inputs, not image contents; secret values remain task-role-resolved and never enter the overlay.
-- Provider cost is pending, so AWS correctness and cost remain `not_evaluated` despite exact cleanup.
+- RC23's local rows/transport observation remains historical, but its threshold objective is invalid and cannot transfer.
+- RC24 is blocked until this exact correction head passes protected CI and independent review rerun.
+- Merge, public release, and support promotion still require separate approval.
 
 ## Remaining
 
-- Merge ready PR #291 only after separate human approval; no unresolved review thread exists at handoff.
-- Cut one replacement multi-platform candidate, then resume AWS-native correctness within the authorized ceiling.
+- Push the correction/doc head to PR #291, pass all protected jobs, and rerun independent review.
+- Cut one source-free multi-platform RC24 candidate within the reserved USD 0.50 only after that gate.
+- Resume AWS-native correctness within its existing USD 3 allocation, then Azure/OCI and pairwise work.
 - Rerun applicable RC22 classes on the final candidate and complete hosted scale/cost and pairwise profiles.
-- Preserve the retained OCI Phase 7 foundation; finish remaining profile docs and freeze compatibility/limitations.
-- Complete the retained soak through 2026-09-01; public release still requires separate approval.
+- Finish profile docs/status freeze and the retained soak through 2026-09-01.
 
 ## Review First
 
-- `src/dander/bootstrap/aws_terraform.py`
-- `src/dander/cli/runtime_command.py`
-- `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`
+- `src/dander/providers/postgresql/writer.py`
+- `scripts/benchmarks/postgresql_crossover_phase8.py`
+- `infra/qualification/aws-native/main.tf`

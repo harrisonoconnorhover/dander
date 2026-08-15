@@ -6,6 +6,13 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Fixed
+
+- Keep bounded PostgreSQL direct-write lookahead outside the database transaction and derive its
+  crossover byte recommendation from the writer's exact logical-size calculation.
+- Permit the disposable AWS qualification task group to reach its self-scoped PostgreSQL and
+  Redshift endpoints while retaining HTTPS-only public egress.
+
 ## 0.9.0rc23 — 2026-08-14 (beta)
 
 ### Added

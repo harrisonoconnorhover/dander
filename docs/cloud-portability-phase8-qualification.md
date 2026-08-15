@@ -14,8 +14,8 @@ Phase 7 evidence merge.
 | Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle plus normalized correctness/bulk/incremental/transform/failure Jobs, including alert visibility and cleanup | Hosted-provider proof, remaining launcher classes/cost, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, and private local RC23 passed the bounded DIRECT-to-COPY crossover | Hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
-| Audits | Exact RC22 passed protected CI and the final-candidate repeat; private arm64 RC23 passed the local artifact, runtime, dependency, secret, infrastructure, and image preflight | The AWS runtime-overlay correction and RC23 direct path both require protected review; one replacement multi-platform candidate and every final-candidate rerun remain open, as do profile docs and the status freeze |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, while private local RC23 observed equal DIRECT/COPY rows | Review invalidated RC23's byte-threshold objective; hosted PostgreSQL cost, final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
+| Audits | Exact RC22 passed protected CI and the final-candidate repeat; private arm64 RC23 passed the local artifact, runtime, dependency, secret, infrastructure, and image preflight | Completion review found three pre-candidate defects; their local corrections require new protected CI and review before one replacement multi-platform candidate and every final-candidate rerun |
 
 ## Open gates and dependency order
 
@@ -27,12 +27,14 @@ Phase 7 evidence merge.
    ServiceNow root cause.
 3. Reopened after live preflight: the original AWS-native Fargate/Redshift/PostgreSQL/Glue/
    AWS-Secrets profile passed protected review, but exact RC22 did not package its selected AWS
-   deployment. The local runtime-overlay correction requires protected review before qualification.
+   deployment. The first completion review found missing database egress in the disposable fixture;
+   its local correction requires protected CI and review rerun before qualification.
 4. Completed as a baseline: protected private RC22 was cut after those merges and used for the GCP,
    local Kubernetes, and seven-class PostgreSQL records.
 5. In progress: the post-RC22 bounded direct-write change is packaged as private arm64 RC23. Its
-   local PostgreSQL crossover passes, but protected review and a source-free multi-platform build
-   must precede treating RC23 or a successor as the final qualification candidate.
+   local PostgreSQL run observed equal rows and both transports, but completion review invalidated
+   the 1,400-byte recommendation and found lookahead inside the transaction. Both are corrected
+   locally; protected CI, review rerun, and a source-free multi-platform successor remain required.
 6. Use one protected exact candidate for every remaining scale, cost, pairwise, canonical-profile,
    Kubernetes, and soak gate; then repeat the full audit and freeze the compatibility documents.
 
@@ -106,7 +108,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | runtime-overlay correction passes locally; protected review, replacement candidate, and Phase 8 qualification open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | runtime overlay and database-egress corrections pass locally; protected CI/review rerun, replacement candidate, and Phase 8 qualification open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -129,7 +131,9 @@ read-only inspection then found that the image packages only GCP and Kubernetes 
 Fargate plan, task, or pipeline execution was attempted. The exact 28-resource destroy completed,
 the qualification state and inventories contain zero managed data-plane resources, and the existing
 AWS D7 lane was unchanged. Provider charges have not posted, so the profile cost and correctness
-remain `not_evaluated`. Interactive Azure and OCI authentication was subsequently restored and
+remain `not_evaluated`. Completion review later found the disposable task group also lacked
+self-scoped database egress. The local correction passes its mocked Terraform contract but still
+requires protected CI and review. Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
 no-drift baseline must be preserved. Credentials no longer block either provider, but the protected
@@ -161,14 +165,14 @@ cleanup and USD 0 local cost. Connector throttling/credential expiry and catalog
 failures remain in their respective connector and launcher profile gates.
 
 RC22's PostgreSQL writer factory exposes only COPY, so its record cannot satisfy crossover. Private
-local RC23 adds paired row/byte bounds and ran the pre-approved crossover workload against TLS
-PostgreSQL 15.18. Across five repetitions at 1, 10, 100, 1,000, and 5,000 rows, COPY and DIRECT
-produced equal canonical rows and emitted their selected transports. DIRECT tied COPY only at 10
-rows; the recorded conservative local threshold is therefore 10 rows and 1,400 logical bytes.
-All seven objectives and cleanup passed at USD 0 local cost. The first attempt completed its
-workload but failed report construction on unsorted provider metrics; the corrected harness rerun
-retains the same objective manifest. Global defaults remain disabled because this is one local,
-arm64, unprotected result, not hosted or final-candidate evidence.
+local RC23 ran the pre-approved paired row/byte workload against TLS PostgreSQL 15.18. Across five
+repetitions at 1, 10, 100, 1,000, and 5,000 rows, COPY and DIRECT produced equal canonical rows and
+emitted their selected transports; DIRECT tied COPY only at 10 rows. Completion review found that
+the recorded 1,400-byte recommendation omitted field-name bytes counted by the writer, so that
+threshold would select COPY and its `threshold_recorded` objective is invalid. The corrected
+harness derives 1,490 bytes from the writer's exact normalized logical-size function, and bounded
+lookahead now completes before a transaction opens. The RC23 report is not rewritten or promoted;
+the replacement candidate must rerun crossover. Global defaults remain disabled.
 
 ## Current Kubernetes scale evidence
 
@@ -188,9 +192,9 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 ## Current exit recommendation
 
 Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
-PostgreSQL classes, RC22 protected audit, bounded direct implementation, RC23 local crossover and
-preflight, and exact AWS cleanup evidence are complete. The exact unmet gates are protected review
-of the AWS runtime-overlay and direct-write corrections and a replacement multi-platform candidate;
+PostgreSQL classes, RC22 protected audit, RC23 local preflight/transport observation, and exact AWS
+cleanup evidence are complete. Completion review found three defects and their corrections pass
+focused local checks; new protected CI and review remain required before a replacement candidate;
 rerunning applicable RC22 reports on that one candidate; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile

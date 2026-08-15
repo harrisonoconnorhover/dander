@@ -48,17 +48,20 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   under a USD 3 allocation. Read-only image inspection then found no packaged AWS deployment, so
   no Fargate plan, task, or pipeline ran. The exact 28-resource destroy completed, qualification
   state and inventories are empty, and AWS D7 was unchanged. Provider cost remains pending. A local
-  correction projects the selected non-secret platform overlay at launch and passes focused Python
-  and Terraform contracts; protected review and a replacement candidate are required before live
-  qualification resumes. See
+  correction projects the selected non-secret platform overlay at launch. Completion review then
+  found missing self-scoped database egress in the disposable fixture; its correction passes the
+  focused Terraform contract, but protected CI/review and a replacement candidate are required
+  before live qualification resumes. See
   `docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It
   passed exact artifact/runtime/security preflight and the pre-approved local DIRECT-to-COPY
-  crossover against TLS PostgreSQL 15.18. DIRECT tied COPY only at 10 rows, producing a conservative
-  same-shape threshold of 10 rows/1,400 logical bytes; defaults remain disabled. RC23 is unprotected,
-  arm64-only, and not a support candidate. See `docs/evidence/phase8/2026-08-14/rc23-local-audit.json`.
+  crossover against TLS PostgreSQL 15.18. DIRECT tied COPY only at 10 rows, but completion review
+  found its 1,400-byte threshold omitted field-name bytes counted by the writer and would select
+  COPY. The corrected harness derives 1,490 bytes and buffers bounded lookahead before opening a
+  transaction. RC23's threshold objective is invalid; the replacement candidate must rerun it.
+  See `docs/evidence/phase8/2026-08-14/phase8-completion-review.json`.
 
 - Exact RC22 passed five normalized Kubernetes launcher classes on kind 1.32.2 under a 2 CPU/512
   MiB limit, 600-second deadline, and zero retries against TLS PostgreSQL 15.18. Correctness, bulk,
