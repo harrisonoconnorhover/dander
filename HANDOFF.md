@@ -2,34 +2,41 @@
 
 ## Finished
 
-- Recorded the accepted AWS ECS/Fargate D7 live qualification in coordinate-free evidence.
-- Closed DANDER-131 after browser persistence, rollback/restore, cleanup, and no-drift passed.
-- Closed DANDER-123 after shared conformance and live S3 restart/conflict/replay/cleanup passed.
-- Kept AWS, S3, real-provider identity, HA, and horizontal scaling explicitly unpromoted.
+- Reproduced three AWS-native provider defects after applying the reviewed Phase 8 stage-zero prerequisite.
+- Removed every discovery-attempt resource; RC24 state and matching AWS service inventories are empty.
+- Scoped security-rule creation to its tagged parent group and Glue cleanup to tables in the exact owned database.
+- Serialized the required Redshift public-`ASSUMEROLE` revoke before the runtime COPY-role grant.
+- Kept the correction on a fresh protected-main branch without modifying the AWS qualification objective lane.
 
 ## Try It
 
-Read `docs/evidence/aws/2026-08-15/d7-control-plane.json` and run `jq -e .` against it.
+Run `uv run pytest -q tests/bootstrap/test_aws_phase8_qualification_policy.py` and
+`terraform -chdir=infra/qualification/aws-native test`.
 
 ## Checks
 
-- Protected CI run 31880676552 passed on the exact qualified source commit `16f0954c`.
-- Active, rollback, and restored live verifiers passed with literal no-change Terraform plans.
-- AWS application/state cleanup, retained AWS no drift, and retained-GCP no drift passed.
+- Python bootstrap-policy tests passed: 18 tests.
+- AWS stage-zero Terraform validate/test passed: 1 test.
+- AWS-native qualification Terraform validate/test passed: 8 tests.
+- Live read-only stage-zero plan contains only two policy updates; rendered sizes are 5,676 and 3,395 characters.
+- Post-cleanup state, VPC, RDS, Redshift, Glue, secret, bucket, and IAM-role inventories all returned zero.
 
 ## Decisions
 
-- Accept only the named experimental AWS profile and protected-main S3 source boundary.
-- Retain accepted application image objects; remove disposable resources, state history, and plans.
-- Leave provider cost pending until AWS billing data is available under the approved aggregate cap.
+- Add only AWS's provider-evaluated parent-group and Glue table-wildcard resource dimensions.
+- Revoke public Redshift `ASSUMEROLE` before granting the default COPY role to `dander_runtime`.
+- Treat this as a focused implementation correction; it is not AWS qualification evidence or a support pass.
 
 ## Remaining
 
-- Complete protected CI, merge, and exact-main CI verification for this reviewed record.
-- Continue later roadmap work without treating this qualification as provider support promotion.
+- Merge this focused defect PR after protected CI and review.
+- Apply the exact two-policy stage-zero saved plan from protected main and verify no drift.
+- Rebase the separate RC24 AWS objective lane, then rerun manual/replay qualification and exact cleanup.
+- Complete remaining exact-candidate scale, pairwise, hosted-cost, and canonical-profile gates.
+- Finish final-candidate audit, operator docs, compatibility freeze, and soak through 2026-09-01.
 
 ## Review First
 
-- `docs/evidence/aws/2026-08-15/d7-control-plane.json`
-- `tickets/DANDER-131-aws-control-plane-deployment.md`
-- `tickets/DANDER-123-s3-graph-store.md`
+- `infra/aws/bootstrap-admin/phase8-qualification.tf`
+- `infra/qualification/aws-native/main.tf`
+- `tests/bootstrap/test_aws_phase8_qualification_policy.py`

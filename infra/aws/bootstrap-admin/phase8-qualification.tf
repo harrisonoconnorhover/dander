@@ -175,6 +175,33 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_infrastructure" 
     ]
   }
 
+  # Authorizing a tagged rule evaluates both the new security-group-rule resource and its existing
+  # parent security group. The request-tag grant above owns the new rule; this separate grant lets
+  # that operation use only the already qualification-tagged parent group.
+  statement {
+    sid    = "UseTaggedPhase8QualificationSecurityGroupForRules"
+    effect = "Allow"
+    actions = [
+      "ec2:AuthorizeSecurityGroupEgress",
+      "ec2:AuthorizeSecurityGroupIngress",
+    ]
+    resources = [
+      "arn:${local.partition}:ec2:${var.region}:${var.aws_account_id}:security-group/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/managed-by"
+      values   = ["dander"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/purpose"
+      values   = ["phase8-qualification"]
+    }
+  }
+
   statement {
     sid    = "ManageTaggedPhase8QualificationNetwork"
     effect = "Allow"
@@ -458,6 +485,7 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_data" {
       "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:catalog",
       "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:database/dander_analytics_staging",
       "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:table/dander_analytics_staging/stg_phase8_aws__posts",
+      "arn:${local.partition}:glue:${var.region}:${var.aws_account_id}:table/dander_analytics_staging/*",
     ]
   }
 

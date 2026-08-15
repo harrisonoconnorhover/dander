@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-08-15 — AWS qualification follows provider-evaluated dependency resources
+
+- **EC2 and Glue:** A tagged security-group rule needs separate authority for its already
+  qualification-tagged parent group, while Glue database deletion evaluates the table wildcard
+  inside the exact owned database. The policies add only those two provider-required dimensions.
+- **Redshift:** Serverless must revoke public `ASSUMEROLE` access before granting the default COPY
+  role to `dander_runtime`; the qualification root serializes that statement before the grant.
+- **Boundary:** The discovery attempt ran no Fargate task and was fully removed. These corrections
+  require protected merge and a saved stage-zero policy update before AWS qualification resumes.
+
 ## 2026-08-15 — AWS qualification extends the short-lived deployment identity in isolation
 
 - **Authority:** The stage-zero deployment role receives two customer-managed Phase 8 policies:
