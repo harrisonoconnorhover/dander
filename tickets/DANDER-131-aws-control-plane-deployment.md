@@ -1,7 +1,7 @@
 ---
 id: DANDER-131
 title: Add the AWS hosted Control-plane deployment
-status: in_progress
+status: done
 component: python
 epic: druff-control-plane
 depends_on: [DANDER-130]
@@ -25,7 +25,7 @@ deployment role, and keep disposable resources in an isolated state prefix.
       GraphStore storage.
 - [x] Add deterministic backend-free preflight, bounded read-only live verification, focused
       Python/Terraform tests, and protected-CI coverage.
-- [ ] Qualify synthetic OIDC, canonical browser persistence, S3 conflicts/replay/restart/cleanup,
+- [x] Qualify synthetic OIDC, canonical browser persistence, S3 conflicts/replay/restart/cleanup,
       immutable digest rollback/restore, no-change plans, and retained AWS/GCP no-drift.
 
 ## Design
@@ -125,3 +125,13 @@ then stopped safely before deleting its three empty IAM roles because provider 6
 final `ListInstanceProfilesForRole` read. The cleanup correction adds only that read to the existing
 D7 role-ARN statement; it grants no instance-profile mutation and does not widen any retained
 resource boundary.
+
+Live qualification then passed from protected-main source commit `16f0954c`. One synthetic
+authorization-code/PKCE browser session created a canonical graph that survived a fresh session,
+Control restart, immutable digest rollback, and active restoration. The same attempt proved S3
+restart replay and stale-write fencing, literal no-change active/rollback/restore plans, exact
+resource and isolated state-history cleanup, and retained AWS/GCP no drift. The
+[sanitized record](../docs/evidence/aws/2026-08-15/d7-control-plane.json) contains no provider
+coordinates, credentials, tokens, graph body, state, or plan. This accepts only the named
+experimental profile with synthetic identity; it does not promote AWS support, real-provider
+identity, HA, or horizontal scale.
