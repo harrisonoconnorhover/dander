@@ -329,6 +329,20 @@ data "aws_iam_policy_document" "deployment" {
   }
 
   statement {
+    sid       = "InspectDanderFailureTopicTags"
+    effect    = "Allow"
+    actions   = ["sns:ListTagsForResource"]
+    resources = ["arn:${local.partition}:sns:${var.region}:${var.aws_account_id}:${var.name}*-failures"]
+  }
+
+  statement {
+    sid       = "ValidateStateMachineDefinition"
+    effect    = "Allow"
+    actions   = ["states:ValidateStateMachineDefinition"]
+    resources = ["*"]
+  }
+
+  statement {
     sid       = "InspectDanderKmsRotation"
     effect    = "Allow"
     actions   = ["kms:GetKeyRotationStatus"]
