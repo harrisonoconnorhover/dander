@@ -140,6 +140,7 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_infrastructure" 
       "s3:GetLifecycleConfiguration",
       "s3:ListBucket",
       "s3:ListBucketMultipartUploads",
+      "s3:ListBucketVersions",
       "s3:PutBucketPublicAccessBlock",
       "s3:PutBucketTagging",
       "s3:PutEncryptionConfiguration",
@@ -317,6 +318,7 @@ data "aws_iam_policy_document" "deployment_phase8_qualification_data" {
       "redshift-data:GetStatementResult",
       "redshift-serverless:CreateUsageLimit",
       "redshift-serverless:DeleteUsageLimit",
+      "redshift-serverless:GetCredentials",
       "redshift-serverless:UpdateUsageLimit",
     ]
     resources = ["*"]
