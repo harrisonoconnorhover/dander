@@ -71,9 +71,10 @@ Phase 7 evidence merge.
 
 The operator approved cloud mutations, conservative provider-specific SLO selection, and an
 aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Private RC22 publication, the retained GCP
-diagnostic, private arm64 RC23 publication, and private RC24 publication use pre-recorded USD 0.75,
-USD 1.25, USD 0.25, and USD 0.25 allocations. The RC24 allocation comes from contingency, leaving
-USD 0.25 reserved; provider-measured charges have not posted, so no exact cloud cost is claimed.
+diagnostic, private arm64 RC23 publication, private RC24 publication, and private RC25 publication
+use pre-recorded USD 0.75, USD 1.25, USD 0.25, USD 0.25, and USD 0.25 allocations. RC25 uses the
+final contingency, leaving USD 0 unallocated; provider-measured charges have not fully posted, so
+no exact cloud cost is claimed.
 Each paid run must still record its objective manifest and per-run allocation before mutation,
 preserve the dependency order, and use the immutable candidate.
 
@@ -94,6 +95,10 @@ projected AWS deployment selection plus credential-free read-only conformance. T
 publication evidence plus one corrected local crossover result, not a transferred benchmark,
 live-provider result, hosted-cost pass, or support claim. Public RC20 and the five retained RC22
 jobs remain unchanged.
+
+Private `0.9.0rc25` is preparation-only on draft PR #317 until that PR merges, its exact protected-
+main CI passes, and the source-free multi-platform image is privately published and inspected. It
+packages the AWS-native Fargate identity correction; no RC24 report transfers to it.
 
 ## Pre-candidate release readiness
 

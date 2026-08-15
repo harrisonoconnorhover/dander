@@ -37,7 +37,7 @@ def test_publication_check_rejects_unpromoted_prepared_version(tmp_path: Path) -
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         pyproject.read_text(encoding="utf-8").replace(
-            'version = "0.9.0rc24"',
+            'version = "0.9.0rc25"',
             'version = "0.9.0rc99"',
             1,
         ),
@@ -69,7 +69,7 @@ def test_publication_check_accepts_matching_package_and_public_versions(tmp_path
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         pyproject.read_text(encoding="utf-8").replace(
-            'version = "0.9.0rc24"',
+            'version = "0.9.0rc25"',
             'version = "0.9.0rc20"',
             1,
         ),
