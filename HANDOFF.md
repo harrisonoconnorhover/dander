@@ -2,40 +2,34 @@
 
 ## Finished
 
-- Merged RC24 candidate-evidence PR #299 as protected-main commit `a66ce65`; exact-main CI run `31884123337` passed all five jobs.
-- Committed the corrected crossover objectives before execution and ran exact RC24 against disposable TLS PostgreSQL 15.18.
-- Passed canonical equality, both-transport observation, cost, threshold, and cleanup objectives in one attempt.
-- Removed the disposable schema, staging relations, database container, isolated network, and both volumes.
-- Rebased on protected main `0ea4d43` without touching the separate D7 cleanup state or DRUFF work.
+- Recorded the accepted AWS ECS/Fargate D7 live qualification in coordinate-free evidence.
+- Closed DANDER-131 after browser persistence, rollback/restore, cleanup, and no-drift passed.
+- Closed DANDER-123 after shared conformance and live S3 restart/conflict/replay/cleanup passed.
+- Kept AWS, S3, real-provider identity, HA, and horizontal scaling explicitly unpromoted.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-15/postgresql-crossover.json` to inspect the normalized report.
+Read `docs/evidence/aws/2026-08-15/d7-control-plane.json` and run `jq -e .` against it.
 
 ## Checks
 
-- Focused crossover tests passed: 7 tests.
-- Exact RC24 reported all seven approved objectives passed.
-- Report identity, objective/config hashes, sorted metrics, USD 0 measured cost, and SHA-256 passed validation.
-- Disposable Docker resource inventory was empty after cleanup.
-- JSON parsing, secret/path scan, and `git diff --check` passed.
+- Protected CI run 31880676552 passed on the exact qualified source commit `16f0954c`.
+- Active, rollback, and restored live verifiers passed with literal no-change Terraform plans.
+- AWS application/state cleanup, retained AWS no drift, and retained-GCP no drift passed.
 
 ## Decisions
 
-- DIRECT lost at the first sampled size, so no contiguous DIRECT-winning prefix exists; keep the global threshold disabled at zero.
-- The corrected ten-row fixture is 1,490 logical bytes, but equality at that size does not justify enabling DIRECT.
-- This closes only corrected local crossover; it does not transfer RC22 results or promote support.
+- Accept only the named experimental AWS profile and protected-main S3 source boundary.
+- Retain accepted application image objects; remove disposable resources, state history, and plans.
+- Leave provider cost pending until AWS billing data is available under the approved aggregate cap.
 
 ## Remaining
 
-- Merge this focused crossover evidence after protected CI and review.
-- Leave the separate D7 cleanup owner to resume its partially destroyed AWS state from protected main.
-- Run AWS-native qualification from a fresh protected-main exact-objective lane after D7 cleanup cannot collide.
-- Complete remaining exact-candidate scale, pairwise, hosted-cost, and canonical-profile gates.
-- Finish final-candidate audit, operator docs, compatibility freeze, and soak through 2026-09-01.
+- Complete protected CI, merge, and exact-main CI verification for this reviewed record.
+- Continue later roadmap work without treating this qualification as provider support promotion.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/postgresql-crossover.json`
-- `docs/evidence/phase8/2026-08-15/postgresql-crossover-attempts.json`
-- `docs/cloud-portability-phase8-qualification.md`
+- `docs/evidence/aws/2026-08-15/d7-control-plane.json`
+- `tickets/DANDER-131-aws-control-plane-deployment.md`
+- `tickets/DANDER-123-s3-graph-store.md`

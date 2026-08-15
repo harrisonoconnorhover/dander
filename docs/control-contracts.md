@@ -105,9 +105,12 @@ objects. Native exclusive `StartAfter` pagination plus validated `HeadObject` me
 healthy summaries without downloading graph bodies. Bounded range reads close their streams, and
 404/409/412 responses are interpreted by operation so a read absence cannot masquerade as a lost
 conditional mutation race. Directory buckets remain unsupported because they do not provide the
-ordered `StartAfter` contract. DANDER-123 remains in progress until a separately approved live AWS
-restart/conflict/versioning/cleanup proof passes; neither the current source nor public rc18 is
-live-qualified for S3.
+ordered `StartAfter` contract. DANDER-123's separately approved live AWS proof passed on
+protected-main source commit `16f0954c`, including restart replay, stale-write conflicts,
+versioning, provider-default encryption, public-access blocking, and exact cleanup. The
+[coordinate-free evidence](evidence/aws/2026-08-15/d7-control-plane.json) contains no provider
+coordinates, credentials, graph body, state, plan, or native revisions. This qualification does
+not promote S3 support.
 
 The Azure Blob adapter keeps the same public contract behind one HTTPS storage-account endpoint,
 container, and deterministic prefix. Creates rely on native absence semantics and every later
@@ -143,10 +146,11 @@ Phase D3's exit gate is satisfied on protected main commit
 `edf0ee3f473839a10f5eb53710636c95c2f5bd64`. The same provider-neutral conformance suite passes
 for the in-memory, rooted-local, GCS, S3, Azure Blob, and OCI Object Storage implementations, and
 the accepted [GCS live proof](evidence/gcp/2026-08-13/druff-gcs-graph-store.json) supplies the
-gate's required one live create/read/update-conflict/restart/delete demonstration. DANDER-123,
-DANDER-124, and DANDER-125 remain in progress: their AWS, Azure, and OCI live proofs still gate
-promotion of those providers, but the D3 gate does not require false all-provider live parity
-before hosted authentication work begins.
+gate's required one live create/read/update-conflict/restart/delete demonstration. DANDER-123's
+separate AWS proof has now passed, while DANDER-124 and DANDER-125 remain in progress: their Azure
+and OCI live proofs still gate promotion of those providers. The S3 proof does not promote AWS or
+S3 support, and the D3 gate does not require false all-provider live parity before hosted
+authentication work begins.
 
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
@@ -297,6 +301,24 @@ unchanged policy. Fresh retained-GCP stage-zero and current-equivalent platform 
 no-change without apply. The sanitized record is
 `docs/evidence/gcp/2026-08-14/d7-control-plane.json`. This qualifies neither a real identity
 provider nor GCP support, HA, or horizontal scale.
+
+The second cloud-hosted D7 renderer is the separate experimental AWS ECS/Fargate profile. One
+closed immutable input projects the same D6 service, OIDC, S3 GraphStore, and Druff bootstrap
+contracts into digest-pinned tasks behind one CloudFront origin. Control and Druff use distinct
+keyless task identities, read-only roots, content-bound startup configuration, and private
+versioned graph storage. The isolated partial-backend root and retained short-lived deployment
+role constrain creation and exact versioned-state cleanup to this named profile.
+
+The AWS profile passed live qualification on 2026-08-15 from protected-main source commit
+`16f0954c`. A synthetic authorization-code/PKCE browser session created a canonical graph that
+survived a fresh session, Control restart, immutable digest rollback, and active restoration. S3
+also passed exact replay across fresh adapters, stale update/delete rejection, restart
+persistence, versioning, provider-default encryption, public-access blocking, and deletion.
+Active, rollback, and restored plans were literal no-change; exact cleanup removed all disposable
+runtime, network, storage, IAM, graph-version, isolated state-history, and synthetic-issuer
+resources. Retained AWS stage zero and both retained-GCP plans remained no-change. The sanitized
+record is `docs/evidence/aws/2026-08-15/d7-control-plane.json`. This qualifies neither a real
+identity provider nor AWS/S3 support, HA, or horizontal scale.
 
 ## Regenerate and verify
 

@@ -1,7 +1,7 @@
 ---
 id: DANDER-123
 title: Add S3 GraphStore
-status: in_progress
+status: done
 component: python
 epic: druff-control-plane
 depends_on: [DANDER-120]
@@ -15,8 +15,8 @@ Add S3 storage behind the accepted GraphStore semantics.
 ## Acceptance Criteria
 
 - [x] Use provider-native conditional/version controls and bounded list pagination.
-- [ ] Pass shared mock conformance and a separately approved live restart/conflict/cleanup proof.
-- [ ] Keep credentials, rows, plans, state, and provider-native revisions out of committed evidence.
+- [x] Pass shared mock conformance and a separately approved live restart/conflict/cleanup proof.
+- [x] Keep credentials, rows, plans, state, and provider-native revisions out of committed evidence.
 
 ## Design
 
@@ -45,3 +45,8 @@ Resolve any narrow S3 conditional-write quirk inside this adapter without weaken
   bounded-read, and sanitization tests pass locally.
 - Completion review found that a meaningful `NoSuchBucket` 404 could be misclassified as a missing
   graph. Error helpers now prefer the AWS error code, and a focused regression covers the fix.
+- Live qualification on protected-main source commit `16f0954c` passed create/read, list, update,
+  exact replay across fresh adapters, stale update/delete rejection, deletion replay, restart
+  persistence, versioning, provider-default encryption, public-access blocking, and exact cleanup.
+  The [coordinate-free evidence](../docs/evidence/aws/2026-08-15/d7-control-plane.json) retains
+  hashes and booleans only. It qualifies this source boundary without promoting S3 support.
