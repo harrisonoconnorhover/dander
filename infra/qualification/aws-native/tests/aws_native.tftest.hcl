@@ -82,8 +82,27 @@ run "bounded_disposable_data_plane" {
   assert {
     condition = (
       aws_vpc_security_group_ingress_rule.postgresql.referenced_security_group_id == aws_security_group.profile.id &&
-      aws_vpc_security_group_ingress_rule.redshift.referenced_security_group_id == aws_security_group.profile.id
+      aws_vpc_security_group_ingress_rule.redshift.referenced_security_group_id == aws_security_group.profile.id &&
+      aws_vpc_security_group_egress_rule.internet.ip_protocol == "tcp" &&
+      aws_vpc_security_group_egress_rule.internet.from_port == 443 &&
+      aws_vpc_security_group_egress_rule.internet.to_port == 443
     )
-    error_message = "PostgreSQL and Redshift ingress must be limited to the profile security group."
+    error_message = "Data-plane ingress must stay internal and public egress must stay limited to TLS."
+  }
+
+  assert {
+    condition = (
+      toset(flatten([
+        for rule in aws_s3_bucket_server_side_encryption_configuration.staging.rule : [
+          for encryption in rule.apply_server_side_encryption_by_default : encryption.sse_algorithm
+        ]
+      ])) == toset(["AES256"]) &&
+      toset(flatten([
+        for rule in aws_s3_bucket_lifecycle_configuration.staging.rule : [
+          for expiration in rule.expiration : expiration.days
+        ]
+      ])) == toset([1])
+    )
+    error_message = "Disposable staging objects must remain encrypted and expire after one day."
   }
 }

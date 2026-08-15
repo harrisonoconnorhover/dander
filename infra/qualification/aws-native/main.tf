@@ -101,10 +101,15 @@ resource "aws_vpc_security_group_ingress_rule" "redshift" {
   description                  = "Redshift from the manifest-bound Fargate task"
 }
 
+# The fixed HTTPS-only rule must reach both AWS service endpoints and the public qualification
+# source; those destinations cannot share one narrower static CIDR or managed prefix list.
+#trivy:ignore:AVD-AWS-0104
 resource "aws_vpc_security_group_egress_rule" "internet" {
   security_group_id = aws_security_group.profile.id
   cidr_ipv4         = "0.0.0.0/0"
-  ip_protocol       = "-1"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
   description       = "TLS access to AWS APIs and the public qualification source"
 }
 
@@ -124,6 +129,10 @@ resource "aws_s3_bucket_public_access_block" "staging" {
   restrict_public_buckets = true
 }
 
+# The qualification bucket holds only disposable public-source staging objects, expires them after
+# one day, and is destroyed with the data plane. Reusing the retained stage-zero key would also
+# require widening the runtime and Redshift COPY-role KMS contract without protecting new data.
+#trivy:ignore:AVD-AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "staging" {
   bucket = aws_s3_bucket.staging.id
 

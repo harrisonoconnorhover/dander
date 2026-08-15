@@ -5,7 +5,7 @@
 - Integrated protected main through the AWS stage-zero KMS backend correction.
 - Applied and exactly destroyed the 28-resource AWS qualification data plane after RC22 preflight exposed its missing AWS deployment.
 - Added the validated non-secret Fargate platform overlay and packaged qualification Terraform root.
-- Recorded the AWS `not_evaluated` attempt and published an experimental AWS-native operator runbook.
+- Recorded the AWS `not_evaluated` attempt, published its operator runbook, and cleared the qualification root's protected Trivy findings.
 - Restored Azure/OCI API access with Azure empty and zero active OCI Container Instances.
 
 ## Try It
@@ -17,8 +17,8 @@ Run `jq . docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`, then
 - Full Ruff formatting/lint, strict mypy across 232 source files, and pytest pass after the protected-main integration.
 - Focused bootstrap/runtime/Fargate/infrastructure/portable-config pytest passed (61 tests).
 - AWS and qualification Terraform validation passed; Fargate module tests passed (4), and the qualification native test passed (1).
+- The CI-equivalent Trivy 0.70.0 HIGH/CRITICAL configuration scan passed with zero findings.
 - Wheel/sdist builds contain the qualification Terraform assets and AWS runbook; evidence JSON and diff checks passed.
-- Azure and OCI read-only provider API checks passed without recording provider or credential identifiers.
 
 ## Decisions
 
@@ -28,7 +28,7 @@ Run `jq . docs/evidence/phase8/2026-08-14/aws-native-profile-attempt.json`, then
 
 ## Remaining
 
-- Complete post-integration validation, push the branch, and obtain protected CI/review.
+- Obtain green replacement protected CI and complete review on draft PR #291.
 - Cut one replacement multi-platform candidate, then resume AWS-native correctness within the authorized ceiling.
 - Rerun applicable RC22 classes on the final candidate and complete hosted scale/cost and pairwise profiles.
 - Preserve the retained OCI Phase 7 foundation; finish remaining profile docs and freeze compatibility/limitations.
