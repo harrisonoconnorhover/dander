@@ -129,10 +129,14 @@ read-only inspection then found that the image packages only GCP and Kubernetes 
 Fargate plan, task, or pipeline execution was attempted. The exact 28-resource destroy completed,
 the qualification state and inventories contain zero managed data-plane resources, and the existing
 AWS D7 lane was unchanged. Provider charges have not posted, so the profile cost and correctness
-remain `not_evaluated`. Azure and OCI remain credential-blocked; none of these cases inherits a
+remain `not_evaluated`. Interactive Azure and OCI authentication was subsequently restored and
+verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
+Phase 7 foundation and private image history with zero active Container Instances; that retained
+no-drift baseline must be preserved. Credentials no longer block either provider, but the protected
+replacement-candidate gate still blocks new qualification runs and none of these cases inherits a
 support claim. Sanitized details are in
 `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
-`aws-native-profile-attempt.json` beside it.
+the three provider credential-restoration records beside it.
 
 ## Current PostgreSQL scale evidence
 

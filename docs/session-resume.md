@@ -34,6 +34,15 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- Azure and OCI interactive authentication were restored and verified through provider APIs on
+  2026-08-14. Azure contains no Dander-named resource or resource group. OCI retains its accepted
+  Phase 7 foundation and private image history but has zero active Container Instances. The OCI CLI
+  omitted the session profile's user field; it was restored from the signed token subject without
+  recording an identifier or credential. No cloud mutation occurred. Credentials no longer block
+  these providers, but protected review and one replacement candidate still precede any Phase 8
+  live run. See the Azure and OCI credential-restoration records under
+  `docs/evidence/phase8/2026-08-14/`.
+
 - AWS access was restored on 2026-08-14. Exact RC22 was copied byte-identically to private ECR,
   and a pre-approved 28-resource Redshift Serverless/PostgreSQL/Glue/Secrets data plane was created
   under a USD 3 allocation. Read-only image inspection then found no packaged AWS deployment, so

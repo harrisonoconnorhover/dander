@@ -34,3 +34,8 @@ canonical profile gate.
   empty inventory are recorded. A local runtime-overlay correction requires protected review and a
   replacement candidate before the pairwise run can resume. No live result or support status is
   claimed.
+- Azure and OCI interactive authentication are now restored and provider-API verified. Azure has
+  no retained Dander resources. OCI retains the accepted Phase 7 foundation and image history with
+  zero active Container Instances. The USD 2 Azure and USD 1.50 OCI allocations are available, but
+  no mutation or live pairwise run may precede the protected replacement candidate and its exact
+  objective manifests.

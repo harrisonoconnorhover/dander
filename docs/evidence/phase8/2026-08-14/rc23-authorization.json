@@ -41,7 +41,7 @@
     {
       "activity": "oci_native_and_pairwise_profiles",
       "ceiling_usd": "1.50",
-      "status": "blocked_credentials"
+      "status": "approved"
     },
     {
       "activity": "retained_gcp_soak_and_final_audits",
