@@ -38,3 +38,8 @@ Use the resulting short-lived deployment role for later platform plans and regis
 
 The credentialed read-only AWS plan proposed 12 creates, zero updates, and zero deletes. No AWS or
 GCP apply occurred.
+
+The first 2026-08-14 stage-zero apply exposed that Terraform's `encrypt = true` backend setting
+selected SSE-S3 for the state object even though the bucket default uses the root's
+customer-managed key. The backend projection now pins the deterministic stage-zero KMS alias;
+the live current object and retained no-drift proof remain part of the follow-up evidence run.
