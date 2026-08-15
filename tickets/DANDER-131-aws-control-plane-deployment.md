@@ -98,3 +98,10 @@ so applying request-tag conditions to the combined wildcard statement denied the
 ELB target-group creation also performed an observed `DescribeInternetGateways` read. The next
 stage-zero correction follows AWS's documented split security-group policy, adds that one read,
 and leaves the partial provider resources tracked in the same disposable state for the retry.
+
+The retry created both tagged security groups and target groups, then stopped at two further
+provider authorization dimensions. Standalone tagged rules require both the already-authorized
+parent security group and the new `security-group-rule` resource, including creation-time tag
+authorization; load-balancer creation also performed an observed `DescribeAccountAttributes`
+read. The focused stage-zero correction adds those exact boundaries and leaves every partial
+resource tracked in the same disposable state.
