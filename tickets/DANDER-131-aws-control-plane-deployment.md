@@ -119,3 +119,9 @@ identified three deterministic refresh calls still absent from the role. Its ECS
 waiter lists and describes service deployments, and tagged IAM roles are refreshed through
 `ListRoleTags`. The correction adds only those reads, scoped to D7 service, service-deployment, and
 role ARNs; policy-size checks and Access Analyzer validation precede the next disposable apply.
+
+The reviewed live destroy removed the profile's runtime, network, and versioned graph storage,
+then stopped safely before deleting its three empty IAM roles because provider 6.60.0 performs a
+final `ListInstanceProfilesForRole` read. The cleanup correction adds only that read to the existing
+D7 role-ARN statement; it grants no instance-profile mutation and does not widen any retained
+resource boundary.
