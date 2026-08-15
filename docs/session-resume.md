@@ -41,7 +41,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   amd64/arm64 manifests, SPDX SBOM, and SLSA provenance. Both architectures reported RC25;
   GCP, Kubernetes, and externally projected AWS selectors plus rootless read-only conformance
   passed. No RC24 report transfers, and publication is not a live-profile, cost, public-release, or
-  support pass. See `docs/evidence/phase8/2026-08-15/rc25-candidate.json`.
+  support pass. PR #318 merged the sanitized evidence as protected-main `ae3be54`; exact-main run
+  `31903775539` passed all five jobs. See `docs/evidence/phase8/2026-08-15/rc25-candidate.json`.
 
 - Private Dander `0.9.0rc24` was built from protected-main commit
   `c19de3980411f20514326db9f722f07e57a3d1ef` after all five jobs passed exact-main CI run
@@ -91,7 +92,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   the baseline as protected-main commit `3d7783c`, whose exact CI run `31882061192` passed all five
   jobs. PR #317 merged private RC25 at protected main `f5935a6`; exact-main run `31902553474`
   passed and its source-free replacement index is privately published and locally inspected. AWS
-  live qualification now waits on its fresh exact-objective lane, not candidate publication. Every
+  live qualification is bound to `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`:
+  one manual run, one replay, paused scheduling, exact cleanup, and a USD 3 ceiling. Mutation waits
+  for protected review and exact-main CI of that gate, not candidate publication. Every
   remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See
@@ -182,8 +185,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   as `unexpected_error`; neither the durable ledger nor Cloud Logging retained a safe exception
   identity. That diagnosability defect blocks the current soak gate and is tracked separately from
   the normalized Phase 8 report contract. A later local Phase 8 slice implemented the exact
-  AWS-native Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets projection and scoped task policy, but
-  protected review, candidate creation, and live qualification remain open. See
+  AWS-native Fargate/Redshift/PostgreSQL/Glue/AWS-Secrets projection and scoped task policy. The
+  implementation and RC25 candidate gates are complete; exact-objective live qualification remains
+  open. See
   `docs/cloud-portability-phase8-qualification.md`.
 
 - On 2026-08-13, public Dander `0.9.0rc17` passed the complete Phase 7 lifecycle for the named

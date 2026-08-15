@@ -1,0 +1,50 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "3.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-15-rc25"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.aws-native-profile-config/v1",
+    "benchmark_class": "correctness",
+    "region": "us-east-1",
+    "resource_prefix": "dander-p8q-rc25",
+    "pipeline": "phase8_aws_qualification",
+    "source": "phase8_aws_fixture",
+    "build_models": true,
+    "schedule_paused": true,
+    "runtime_cpu": 1,
+    "runtime_memory_mib": 2048,
+    "runtime_timeout_seconds": 600,
+    "runtime_max_retries": 0,
+    "runtime_batch_rows": 1000,
+    "redshift_serverless_base_capacity_rpu": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 5,
+    "postgresql_instance_class": "db.t4g.micro",
+    "postgresql_storage_gib": 20,
+    "manual_executions": 1,
+    "replay_executions": 1,
+    "cleanup": "terraform_destroy_and_owned_data_removal"
+  },
+  "approved_objectives": {
+    "names": [
+      "artifact_identity",
+      "aws_secret_manager_resolution",
+      "cost_ceiling",
+      "exact_cleanup",
+      "glue_publication",
+      "manual_execution",
+      "no_drift",
+      "postgresql_state",
+      "redshift_write",
+      "replay_idempotency"
+    ],
+    "benchmark_class": "correctness",
+    "profile_id": "aws_native",
+    "release_version": "0.9.0rc25",
+    "git_commit": "f5935a6d263cf6734ee9944f2f0e02d025edc63e",
+    "image_digest": "sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238",
+    "configuration_sha256": "dc9a75bb2c2df41cfb61ab98367212f2625c7e0566faacbe89094a8cb7304057",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-15-rc25"
+  }
+}

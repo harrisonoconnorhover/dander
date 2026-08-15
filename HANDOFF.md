@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Merged RC25 preparation PR #317 as protected-main commit `f5935a6`; exact-main run `31902553474` passed all five jobs.
-- Built and inspected exact `0.9.0rc25` wheel and source distribution from that commit.
-- Published private source-free GAR index `sha256:5a0d5520…2238` with amd64/arm64 manifests, SBOM, and provenance.
-- Passed both-architecture version checks, GCP/Kubernetes/AWS-overlay selection, and rootless read-only conformance.
-- Preserved public RC20, retained workloads, DRUFF work, and all provider support status.
+- Merged RC25 publication evidence in PR #318 as protected main `ae3be54`.
+- Verified exact-main run `31903775539`; all five protected jobs passed.
+- Bound the AWS correctness lane to exact RC25, one manual run, one replay, and exact cleanup.
+- Reused the recorded USD 3 AWS allocation without changing the aggregate USD 10 ceiling.
+- Aligned the AWS runbook with the RC25 gate's 600-second, zero-retry, 1,000-row runtime.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-15/rc25-candidate.json` to inspect the sanitized candidate record.
+Run `jq . docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`.
 
 ## Checks
 
-- Exact-main Python, secret, Terraform, distribution, and container jobs passed.
-- Wheel/sdist inspection and source-free scaffold validation passed.
-- GAR returned the recorded immutable index and both runnable platform digests.
-- Both platform attestations contain SPDX SBOM and SLSA provenance predicates.
-- The first build-context attempt failed before push; the corrected second attempt published successfully.
+- RC25 publication exact-main CI passed all five jobs.
+- Canonical workload SHA-256 recomputes to `dc9a75bb…4057`.
+- Objective release, commit, image digest, authorization reference, and cost ceiling match RC25 evidence.
+- AWS read-only identity preflight passed through the short-lived `dander-deploy` role.
+- JSON parsing and diff checks passed.
 
 ## Decisions
 
-- RC25 becomes the replacement candidate only after this evidence passes protected review.
-- No RC24 report transfers; public RC20 and support status remain unchanged.
-- Provider charges remain pending and the aggregate authorization ceiling remains USD 10.
+- Provider mutation remains blocked until this objective commit passes protected review and exact-main CI.
+- The prior RC24 failed attempt remains historical evidence; no result transfers to RC25.
+- Public RC20, retained workloads, DRUFF work, provider cost, and support status remain unchanged.
 
 ## Remaining
 
-- Merge this focused candidate-evidence PR after protected CI and review.
-- Resume AWS-native manual correctness and replay from a fresh exact-objective lane.
-- Record provider cost only after billing data posts.
-- Complete the remaining scale, pairwise, canonical-profile, audit, soak, documentation, and support-freeze gates.
+- Merge this focused objective-gate PR after protected CI and review.
+- Promote the exact private RC25 index byte-identically to private ECR.
+- Run one AWS manual execution and one replay, verify every objective, then clean up exactly.
+- Record provider cost when billing data posts.
+- Continue remaining Phase 8 lanes on fresh protected-main branches.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/rc25-candidate.json`
+- `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`
+- `docs/aws-native-profile.md`
 - `docs/cloud-portability-phase8-qualification.md`
-- `tickets/DANDER-202-aws-native-profile.md`

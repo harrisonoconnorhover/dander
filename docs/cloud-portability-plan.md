@@ -1259,7 +1259,10 @@ objective with exact equality/cleanup and a measured disabled DIRECT threshold b
 contiguous DIRECT-winning prefix existed. The later AWS-native execution exposed a Fargate identity
 defect, so PR #317 merged private RC25 as protected main `f5935a6`; exact-main run `31902553474`
 passed all five jobs, and source-free multi-platform index `sha256:5a0d5520…2238` passed artifact,
-selector, and read-only checks. No RC24 report transfers. Other exact-objective classes and
+selector, and read-only checks. PR #318 merged its sanitized publication evidence as `ae3be54`, and
+exact-main run `31903775539` passed all five jobs. The AWS correctness lane is now bound by the
+committed RC25/USD 3 objective manifest; provider mutation still requires that gate's protected
+review and exact-main CI. No RC24 report transfers. Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,

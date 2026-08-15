@@ -106,6 +106,14 @@ SBOM and SLSA provenance predicates. It packages the AWS-native Fargate identity
 no RC24 report transfers to it. This is private candidate publication evidence, not a live-provider,
 cost, benchmark, public-release, or support pass.
 
+PR #318 merged the sanitized RC25 publication record as protected-main commit `ae3be54`; exact-main
+CI run `31903775539` passed all five jobs. The AWS correctness lane is bound before mutation by
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`: one manual execution and
+one replay in `us-east-1`, exact RC25 index `sha256:5a0d5520…2238`, a USD 3 ceiling from the recorded
+aggregate authorization, paused scheduling, and exact cleanup. Provider mutation may begin only
+after the commit carrying this objective gate passes protected review and exact-main CI; no result,
+cost, public-release, or support claim follows from the manifest itself.
+
 ## Pre-candidate release readiness
 
 Commit `2d020d15fc52` passed a local release-readiness audit on 2026-08-14: wheel and source archive
@@ -219,8 +227,9 @@ Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
 no-drift baseline must be preserved. Private RC25 now satisfies the replacement-candidate
-publication gate, but each provider still requires its committed exact objective manifest and
-separate lane before mutation; none of these cases inherits a support claim. Sanitized details are in
+publication gate. The AWS correctness lane has the immutable objective manifest named above; every
+other provider still requires its own committed exact objective manifest and separate lane before
+mutation. None inherits a support claim. Sanitized details are in
 `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
 the three provider credential-restoration records beside it.
 

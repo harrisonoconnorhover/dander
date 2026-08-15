@@ -3,9 +3,12 @@
 This runbook covers the named Fargate + Redshift + PostgreSQL state + Glue + AWS Secrets Manager
 composition. It is an experimental Phase 8 target, not a supported deployment. Exact RC22 does not
 contain the required selected AWS deployment, and its historical Greenhouse objective is not
-Redshift-compatible. Use no candidate until the runtime-overlay, flat-fixture, Glue-ownership,
-materialization, and candidate-identity corrections pass protected review and a replacement
-source-free multi-platform digest is published.
+Redshift-compatible. Private RC25 contains the reviewed runtime-overlay, flat-fixture,
+Glue-ownership, materialization, candidate-identity, and Fargate ambient-identity corrections at
+source-free multi-platform index `sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238`.
+Use it only with the exact committed objective manifest under
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json` after that gate passes
+protected review and exact-main CI. This is not a public-release or support claim.
 
 ## Ownership and prerequisites
 
@@ -100,9 +103,9 @@ deployments:
     runtime:
       cpu: 1
       memory: 2Gi
-      timeout_seconds: 900
-      max_retries: 1
-      batch_rows: 10000
+      timeout_seconds: 600
+      max_retries: 0
+      batch_rows: 1000
     safety:
       require_guarded_free_tier: false
     pipelines:
