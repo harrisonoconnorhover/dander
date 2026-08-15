@@ -1,0 +1,104 @@
+{
+  "schema": "io.dander.phase8.aws-native-profile-attempt/v1",
+  "attempt_date": "2026-08-15",
+  "authorization_reference": "docs/evidence/phase8/2026-08-15/rc25-authorization.json",
+  "objective_reference": "docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json",
+  "candidate": {
+    "release_version": "0.9.0rc25",
+    "git_commit": "f5935a6d263cf6734ee9944f2f0e02d025edc63e",
+    "source_index_digest": "sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238",
+    "ecr_index_digest": "sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238",
+    "source_free": true,
+    "multi_platform": true
+  },
+  "data_plane": {
+    "saved_plan_sha256": "4093e591aa4c610cb1d7131e391fbca35c9c06e1f78018705fca57e227571af3",
+    "saved_plan": {
+      "add": 36,
+      "change": 0,
+      "destroy": 0
+    },
+    "apply": {
+      "add": 36,
+      "change": 0,
+      "destroy": 0
+    }
+  },
+  "platform": {
+    "initial_saved_plan_sha256": "5ec6b66affc93f1da645b8dc4354c5e7076cd3d9ea7aec52f31114ee232df02a",
+    "initial_saved_plan": {
+      "add": 25,
+      "change": 0,
+      "destroy": 0
+    },
+    "initial_apply": {
+      "status": "interrupted",
+      "failure_class": "external_dns",
+      "failed_endpoint": "logs.us-east-1.amazonaws.com"
+    },
+    "reconciliation_saved_plan_sha256": "b72e0d16a75a3ccf5e545abc345879cbe84e941353bec1cd8119e5ce77e84571",
+    "reconciliation_saved_plan": {
+      "add": 13,
+      "change": 0,
+      "destroy": 0,
+      "no_op": 12,
+      "read": 5
+    },
+    "reconciliation_apply": {
+      "status": "failed",
+      "failure_class": "authorization",
+      "denied_action": "events:ListTagsForResource",
+      "resource": "arn:aws:events:us-east-1:184463061564:rule/dander-controller-failures",
+      "finding": "The stable rule name did not match the existing hyphen-suffixed deployment pattern."
+    }
+  },
+  "execution": {
+    "manual_attempted": false,
+    "replay_attempted": false,
+    "provider_operations": 0,
+    "rows_written": 0
+  },
+  "cleanup": {
+    "platform_destroy_plan_sha256": "32f9b5cb17ed3eea9a197bca3518ffb8104a6b93e72d312e776f86b518c7d9b6",
+    "platform_destroy": {
+      "add": 0,
+      "change": 0,
+      "destroy": 21
+    },
+    "data_plane_destroy_plan_sha256": "db321d01278566c04289530ab180741863a26b5d903a363bff81213ab1646009",
+    "data_plane_destroy": {
+      "add": 0,
+      "change": 0,
+      "destroy": 36
+    },
+    "platform_state_entries": 0,
+    "data_plane_state_entries": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "aws_d7_resources_changed": false,
+    "attempt_kms_key_id": "53b170ad-64d8-4f45-9615-439e1df10bb0",
+    "attempt_kms_key_status": "PendingDeletion",
+    "attempt_kms_key_deletion_date": "2026-09-14"
+  },
+  "cost": {
+    "aggregate_phase8_ceiling_usd": "10.00",
+    "aws_allocation_usd": "3.00",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending"
+  },
+  "objectives": {
+    "artifact_identity": "passed",
+    "aws_secret_manager_resolution": "not_evaluated",
+    "cost_ceiling": "not_evaluated",
+    "exact_cleanup": "passed",
+    "glue_publication": "not_evaluated",
+    "manual_execution": "not_evaluated",
+    "no_drift": "not_evaluated",
+    "postgresql_state": "not_evaluated",
+    "redshift_write": "not_evaluated",
+    "replay_idempotency": "not_evaluated"
+  },
+  "qualification_status": "failed_before_execution",
+  "evidence_transfer_allowed": false,
+  "replacement_candidate_required": false,
+  "support_promoted": false
+}

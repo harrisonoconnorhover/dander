@@ -223,6 +223,16 @@ run `31900852546` passed all five jobs. Its reviewed stage-zero plan applied `0/
 had no changes, and IAM simulation allowed the three qualified task-log reads while implicitly
 denying an unrelated log group. This is preserved failed-attempt and cleanup evidence, not a
 qualification pass; runtime source changed, so RC25 was built as the replacement candidate.
+PR #319 then merged the exact RC25 AWS objective as protected main `c79b3d8`; exact-main run
+`31904727106` passed all five jobs. The first RC25 platform apply was interrupted by a transient
+CloudWatch Logs DNS failure. Its reviewed 13-create reconciliation reached the stable
+`dander-controller-failures` rule, then failed before any execution because stage zero allowed
+EventBridge tag/target reads only for the hyphen-suffixed deployment form. The 21-resource partial
+platform and all 36 data-plane resources were removed, both Terraform states and direct owned
+inventories are empty, and the disabled platform KMS key is pending deletion on 2026-09-14. RC25
+remains the exact candidate; the live lane resumes only after the bounded exact-rule read reaches
+protected main and its reviewed stage-zero update has no drift. Sanitized evidence is in
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-platform-attempt.json`.
 Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
@@ -293,7 +303,9 @@ exact AWS cleanup evidence are complete. PR #317 merged private RC25 as protecte
 exact-main run `31902553474` passed all five jobs, and source-free multi-platform candidate
 `sha256:5a0d5520…2238` passed local artifact and selector checks. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
-affected evidence plus the eventual final-candidate closure matrix. Remaining work includes
+affected evidence plus the eventual final-candidate closure matrix. RC25 AWS execution is paused
+at the bounded EventBridge tag-read defect described above; no manual or replay task started and
+cleanup is exact. Remaining work includes
 rerunning applicable evidence on RC25; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile

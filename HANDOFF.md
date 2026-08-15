@@ -2,40 +2,39 @@
 
 ## Finished
 
-- Merged RC25 publication evidence in PR #318 as protected main `ae3be54`.
-- Verified exact-main run `31903775539`; all five protected jobs passed.
-- Bound the AWS correctness lane to exact RC25, one manual run, one replay, and exact cleanup.
-- Reused the recorded USD 3 AWS allocation without changing the aggregate USD 10 ceiling.
-- Aligned the AWS runbook with the RC25 gate's 600-second, zero-retry, 1,000-row runtime.
+- Preserved the RC25 pre-execution failure and exact cleanup in sanitized evidence.
+- Added the stable `dander-controller-failures` ARN to the existing scoped EventBridge reads.
+- Kept the hyphen-suffixed qualification rule pattern and rejected generic rule reads in tests.
+- Removed the 21-resource partial platform and 36-resource data plane; both states are empty.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`.
+Run `uv run pytest tests/bootstrap/test_aws_admin.py`.
 
 ## Checks
 
-- RC25 publication exact-main CI passed all five jobs.
-- Canonical workload SHA-256 recomputes to `dc9a75bb…4057`.
-- Objective release, commit, image digest, authorization reference, and cost ceiling match RC25 evidence.
-- AWS read-only identity preflight passed through the short-lived `dander-deploy` role.
-- JSON parsing and diff checks passed.
+- AWS admin tests: 15 passed.
+- Ruff and mypy passed for the changed regression test.
+- Terraform formatting, initialization, validation, and mocked test passed.
+- Evidence JSON, handoff format, and diff checks passed.
+- Both Terraform state entry counts are zero.
 
 ## Decisions
 
-- Provider mutation remains blocked until this objective commit passes protected review and exact-main CI.
-- The prior RC24 failed attempt remains historical evidence; no result transfers to RC25.
-- Public RC20, retained workloads, DRUFF work, provider cost, and support status remain unchanged.
+- RC25 remains valid because no candidate code changed and no workload execution started.
+- Add only the exact stable rule ARN; the existing named-deployment pattern remains bounded.
+- Resume the AWS lane only after protected merge and a reviewed drift-free stage-zero update.
 
 ## Remaining
 
-- Merge this focused objective-gate PR after protected CI and review.
-- Promote the exact private RC25 index byte-identically to private ECR.
-- Run one AWS manual execution and one replay, verify every objective, then clean up exactly.
-- Record provider cost when billing data posts.
-- Continue remaining Phase 8 lanes on fresh protected-main branches.
+- Pass local checks, protected review, and exact-main CI for this focused correction.
+- Apply the reviewed stage-zero policy-only update and confirm no drift.
+- Resume the same RC25 objective from a fresh protected-main qualification branch.
+- Record provider cost when AWS billing data posts.
+- Continue remaining Phase 8 lanes in separate focused PRs.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives.json`
-- `docs/aws-native-profile.md`
-- `docs/cloud-portability-phase8-qualification.md`
+- `infra/aws/bootstrap-admin/main.tf`
+- `tests/bootstrap/test_aws_admin.py`
+- `docs/evidence/phase8/2026-08-15/aws-native-rc25-platform-attempt.json`

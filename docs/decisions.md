@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-08-15 — EventBridge refresh covers the stable deployment name
+
+- **Finding:** RC25 used the documented default deployment name `dander`, so Terraform created
+  `rule/dander-controller-failures`. The stage-zero tag/target read boundary covered only the
+  hyphen-suffixed `dander-*-controller-failures` form and denied the post-create tag refresh.
+- **Authority:** Retain the qualified hyphen-suffixed pattern and add only the account- and
+  region-local exact stable rule ARN. No wildcard rule read or mutation authority is added.
+- **Boundary:** Neither the manual nor replay execution started. The 21-resource partial platform
+  and all 36 data-plane resources were removed; both states and direct inventories are empty. The
+  disabled platform KMS key is pending deletion on 2026-09-14.
+
 ## 2026-08-15 — AWS task-log reads include named qualification deployments
 
 - **Finding:** The first complete RC24 AWS-native execution reached the task, but the deployment
