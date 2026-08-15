@@ -1,0 +1,89 @@
+mock_provider "aws" {
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+
+  mock_data "aws_availability_zones" {
+    defaults = {
+      names = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    }
+  }
+
+  mock_data "aws_iam_policy_document" {
+    defaults = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    }
+  }
+
+  mock_resource "aws_iam_role" {
+    defaults = {
+      arn = "arn:aws:iam::123456789012:role/dander-p8q-rc22-redshift-copy"
+    }
+  }
+
+  mock_resource "aws_redshiftserverless_workgroup" {
+    defaults = {
+      arn = "arn:aws:redshift-serverless:us-east-1:123456789012:workgroup/00000000-0000-0000-0000-000000000000"
+      endpoint = [{
+        address      = "dander-p8q-rc22.123456789012.us-east-1.redshift-serverless.amazonaws.com"
+        port         = 5439
+        vpc_endpoint = []
+      }]
+    }
+  }
+}
+
+mock_provider "random" {}
+
+variables {
+  aws_account_id = "123456789012"
+  region         = "us-east-1"
+  name           = "dander-p8q-rc22"
+}
+
+run "bounded_disposable_data_plane" {
+  command = apply
+
+  assert {
+    condition = (
+      aws_redshiftserverless_workgroup.profile.base_capacity == 8 &&
+      aws_redshiftserverless_usage_limit.compute.amount == 5 &&
+      aws_redshiftserverless_usage_limit.compute.period == "daily" &&
+      aws_redshiftserverless_usage_limit.compute.breach_action == "deactivate"
+    )
+    error_message = "Redshift Serverless must retain the approved 8-RPU and 5-RPU-hour deactivation boundary."
+  }
+
+  assert {
+    condition = (
+      aws_db_instance.postgresql.instance_class == "db.t4g.micro" &&
+      aws_db_instance.postgresql.allocated_storage == 20 &&
+      aws_db_instance.postgresql.storage_encrypted &&
+      !aws_db_instance.postgresql.publicly_accessible &&
+      aws_db_instance.postgresql.skip_final_snapshot
+    )
+    error_message = "PostgreSQL state must remain small, encrypted, private, and disposable."
+  }
+
+  assert {
+    condition = (
+      length(aws_subnet.profile) == 3 &&
+      aws_vpc_endpoint.s3.vpc_endpoint_type == "Gateway" &&
+      contains(aws_vpc_endpoint.s3.route_table_ids, aws_route_table.profile.id) &&
+      aws_s3_bucket.staging.force_destroy &&
+      aws_s3_bucket_public_access_block.staging.restrict_public_buckets &&
+      aws_secretsmanager_secret.postgresql_dsn.recovery_window_in_days == 0
+    )
+    error_message = "The qualification network, staging bucket, and DSN secret must be exactly owned and destroyable."
+  }
+
+  assert {
+    condition = (
+      aws_vpc_security_group_ingress_rule.postgresql.referenced_security_group_id == aws_security_group.profile.id &&
+      aws_vpc_security_group_ingress_rule.redshift.referenced_security_group_id == aws_security_group.profile.id
+    )
+    error_message = "PostgreSQL and Redshift ingress must be limited to the profile security group."
+  }
+}
