@@ -74,13 +74,14 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
     assert "resources = [aws_ecr_repository.runtime.arn]" in runtime_image
     assert '"ecr:*"' not in runtime_image
 
-    event_rule_tag_reads = terraform.split('sid       = "InspectDanderEventRuleTags"', 1)[1].split(
+    event_rule_reads = terraform.split('sid    = "InspectDanderEventRuleTags"', 1)[1].split(
         'sid     = "InspectDanderLogGroupTags"', 1
     )[0]
-    assert 'actions   = ["events:ListTagsForResource"]' in event_rule_tag_reads
+    assert '"events:ListTagsForResource"' in event_rule_reads
+    assert '"events:ListTargetsByRule"' in event_rule_reads
     assert (
         'resources = ["arn:${local.partition}:events:${var.region}:'
-        '${var.aws_account_id}:rule/${var.name}-*-controller-failures"]' in event_rule_tag_reads
+        '${var.aws_account_id}:rule/${var.name}-*-controller-failures"]' in event_rule_reads
     )
 
     log_tag_reads = terraform.split('sid     = "InspectDanderLogGroupTags"', 1)[1].split(
@@ -126,10 +127,11 @@ def test_deployment_role_scopes_fargate_operations_to_dander_resources() -> None
     assert 'values   = ["dander"]' in kms_rotation
 
     generic_reads = terraform.split('sid    = "DescribeDeploymentPrerequisites"', 1)[1].split(
-        'sid       = "InspectDanderEventRuleTags"', 1
+        'sid    = "InspectDanderEventRuleTags"', 1
     )[0]
     for action in (
         '"events:ListTagsForResource"',
+        '"events:ListTargetsByRule"',
         '"logs:ListTagsForResource"',
         '"sqs:ListQueueTags"',
         '"sns:ListTagsForResource"',
