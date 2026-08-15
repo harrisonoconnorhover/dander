@@ -2,11 +2,11 @@
 
 ## Finished
 
-- Merged PR #310; its PR and exact protected-main CI runs passed all five gates with no review threads.
-- Recreated the RC24 data plane from a 36-create plan and confirmed immediate no drift.
-- Reached state-machine creation, then reproduced the provider's version-list refresh before schedule creation.
-- Added only the version-list read scoped to Dander state-machine names.
-- Removed the 18-resource partial platform and all 36 paid data-plane resources exactly.
+- Merged PR #311; its PR and exact protected-main CI runs passed all five gates with no review threads.
+- Applied its stage-zero delta from a 0-add/1-change/0-destroy plan and confirmed immediate no drift.
+- Recreated the 36-create RC24 data plane and confirmed no drift before the platform plan.
+- Reached disabled-schedule creation, then reproduced the EventBridge rule-tag refresh with no execution.
+- Added only the rule-tag read scoped to Dander controller-failure names.
 
 ## Try It
 
@@ -17,13 +17,14 @@ Run `uv run pytest -q tests/bootstrap/test_aws_admin.py`.
 - Fifteen focused bootstrap tests passed; Ruff lint and format checks passed.
 - Terraform formatting, validation, and the one bootstrap mock test passed.
 - `git diff --check` passed.
-- Live platform apply stopped after state-machine creation; no schedule, ECS task, or execution was created.
+- Live platform apply stopped after disabled-schedule creation; no ECS task or execution was created.
 - Both Terraform states and every active owned-resource inventory are empty.
-- Three disabled AWS-native KMS keys are `PendingDeletion` under AWS's mandatory 30-day window.
+- The 21-resource partial platform and 32 persistent data-plane resources were removed exactly.
+- Four disabled AWS-native KMS keys are `PendingDeletion` under AWS's mandatory 30-day window.
 
 ## Decisions
 
-- Scope the version-list read to the exact account, region, and Dander state-machine name pattern.
+- Scope the EventBridge tag read to the exact account, region, and Dander controller-failure name pattern.
 - Resume qualification only after protected merge and a reviewed stage-zero update.
 
 ## Remaining

@@ -312,6 +312,13 @@ data "aws_iam_policy_document" "deployment" {
   }
 
   statement {
+    sid       = "InspectDanderEventRuleTags"
+    effect    = "Allow"
+    actions   = ["events:ListTagsForResource"]
+    resources = ["arn:${local.partition}:events:${var.region}:${var.aws_account_id}:rule/${var.name}-*-controller-failures"]
+  }
+
+  statement {
     sid     = "InspectDanderLogGroupTags"
     effect  = "Allow"
     actions = ["logs:ListTagsForResource"]
