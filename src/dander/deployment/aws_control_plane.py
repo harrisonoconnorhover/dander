@@ -638,12 +638,16 @@ def _verify_distribution(source: AWSControlPlaneInput, value: object) -> tuple[s
     distribution = value.get("Distribution")
     if not isinstance(distribution, Mapping):
         raise AWSControlPlaneError("CloudFront distribution is absent")
-    if distribution.get("Status") != "Deployed" or distribution.get("Enabled") is not True:
+    config = distribution.get("DistributionConfig")
+    if (
+        distribution.get("Status") != "Deployed"
+        or not isinstance(config, Mapping)
+        or config.get("Enabled") is not True
+    ):
         raise AWSControlPlaneError("CloudFront distribution is not deployed and enabled")
     if distribution.get("DomainName") != source.cloudfront_domain:
         raise AWSControlPlaneError("CloudFront domain does not match the projection")
-    config = distribution.get("DistributionConfig")
-    if not isinstance(config, Mapping) or config.get("Logging", {}).get("Enabled") is not False:
+    if config.get("Logging", {}).get("Enabled") is not False:
         raise AWSControlPlaneError("CloudFront access logging must remain disabled")
     behaviors = config.get("CacheBehaviors")
     items = behaviors.get("Items") if isinstance(behaviors, Mapping) else None
@@ -864,7 +868,7 @@ def _verify_task_definition(
         or init.get("essential") is not False
         or init.get("readonlyRootFilesystem") is not True
         or init.get("user") != "0:0"
-        or _capabilities(init) != {"drop": ["ALL"]}
+        or _capabilities(init) != {"add": [], "drop": ["ALL"]}
     ):
         raise AWSControlPlaneError(f"AWS {workload} config init boundary is invalid")
     depends_on = app.get("dependsOn")
@@ -873,7 +877,7 @@ def _verify_task_definition(
         or app.get("essential") is not True
         or app.get("readonlyRootFilesystem") is not True
         or app.get("user") != "65532:65532"
-        or _capabilities(app) != {"drop": ["ALL"]}
+        or _capabilities(app) != {"add": [], "drop": ["ALL"]}
         or depends_on != [{"containerName": "config-init", "condition": "SUCCESS"}]
     ):
         raise AWSControlPlaneError(f"AWS {workload} application boundary is invalid")
@@ -932,7 +936,13 @@ def _nested_mapping(value: object, *keys: str) -> Mapping[str, object]:
 
 def _capabilities(container: Mapping[str, object]) -> object:
     linux = container.get("linuxParameters")
-    return linux.get("capabilities") if isinstance(linux, Mapping) else None
+    capabilities = linux.get("capabilities") if isinstance(linux, Mapping) else None
+    if not isinstance(capabilities, Mapping):
+        return None
+    return {
+        "add": capabilities.get("add", []),
+        "drop": capabilities.get("drop", []),
+    }
 
 
 def _verify_bucket(source: AWSControlPlaneInput, bucket: str) -> None:
