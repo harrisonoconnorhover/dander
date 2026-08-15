@@ -57,3 +57,5 @@ to the selected pipeline and print only Dander's normalized operation records.
 
 No AWS deployment is supported until source-free live acceptance proves manual and scheduled runs,
 deadline cancellation, replay, identity refresh, alerts, rollback, and no-change reconciliation.
+The complete experimental operator sequence, configuration example, network boundary, upgrade,
+rollback, cleanup, and troubleshooting checks are in `docs/aws-native-profile.md`.

@@ -38,3 +38,7 @@ must describe the exact qualified profiles and candidate.
   RC22's protected result.
 - This ticket remains open for profile-specific operator documentation and the final honest status
   reconciliation after DANDER-204 and DANDER-205; the completed audit does not promote support.
+- The AWS-native profile now has one explicit experimental runbook covering prerequisites,
+  non-root/keyless identity, typed configuration, network and secret boundaries, saved-plan
+  deployment, operations, upgrade, rollback, exact cleanup, and troubleshooting. It records the
+  RC22 packaging defect and replacement-candidate gate rather than promoting the profile.

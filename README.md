@@ -47,6 +47,7 @@ workflow artifact is reviewed.
 Operator-facing documentation:
 
 - [Hosted Greenhouse quickstart](https://github.com/harrisonoconnorhover/dander/blob/main/docs/getting-started.md)
+- [Experimental AWS-native Fargate runbook](https://github.com/harrisonoconnorhover/dander/blob/main/docs/aws-native-profile.md)
 - [Upgrades and safe reruns](https://github.com/harrisonoconnorhover/dander/blob/main/docs/upgrading.md)
 - [Known limitations](https://github.com/harrisonoconnorhover/dander/blob/main/docs/known-limitations.md)
 - [Post-release operator soak](https://github.com/harrisonoconnorhover/dander/blob/main/docs/operator-soak.md)
