@@ -121,3 +121,9 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   removed, both states and direct inventories are empty, and the platform KMS key is pending
   deletion. Qualification resumes only after the exact-rule read correction reaches protected main
   and a reviewed stage-zero policy update is drift-free.
+- PR #320 merged the exact stable-rule read as protected main `7155d54`; the reviewed stage-zero
+  update applied `0/1/0`, was drift-free, and retained bounded IAM simulation. The next fresh RC25
+  task resolved its AWS secret and obtained Redshift credentials, but the 30-second connector limit
+  expired while Serverless cold-started network interfaces. No provider operation or replay ran.
+  Exact saved-plan cleanup removed all 25 platform and 36 data-plane resources. RC25 remains valid;
+  the separate focused qualification-timeout correction must merge before the objective reruns.

@@ -1918,3 +1918,14 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   head `6ede9da` passed run `31879161660`. Correction/docs head `0da600b` passed run
   `31879898267`, and focused seventeenth review accepted `e12ee59`; the replacement-candidate gate
   opens only after PR #291 merges.
+
+## 2026-08-15 — AWS qualification must budget for a cold Serverless connection
+
+- **Observed boundary:** Exact RC25 obtained its AWS secret and Redshift credentials before a cold
+  Serverless workgroup began creating network interfaces; the configured 30-second connection
+  timeout expired before the endpoint accepted the connection.
+- **Correction scope:** Keep RC25 immutable and change only the committed qualification objective to
+  a bounded cold-start connection timeout in its own protected-main PR. This is fixture policy, not
+  a global provider-default change.
+- **Evidence rule:** The corrected configuration reruns the complete AWS objective; no partial result
+  transfers. The failed attempt and exact 25/36-resource cleanup remain separately preserved.

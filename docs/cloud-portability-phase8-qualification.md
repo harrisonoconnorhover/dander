@@ -166,7 +166,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | The reviewed baseline and RC25 replacement candidate are available; exact-objective live qualification remains open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | RC25 reached live provider construction; a cold-start timeout correction and full objective rerun remain open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -230,9 +230,21 @@ CloudWatch Logs DNS failure. Its reviewed 13-create reconciliation reached the s
 EventBridge tag/target reads only for the hyphen-suffixed deployment form. The 21-resource partial
 platform and all 36 data-plane resources were removed, both Terraform states and direct owned
 inventories are empty, and the disabled platform KMS key is pending deletion on 2026-09-14. RC25
-remains the exact candidate; the live lane resumes only after the bounded exact-rule read reaches
-protected main and its reviewed stage-zero update has no drift. Sanitized evidence is in
-`docs/evidence/phase8/2026-08-15/aws-native-rc25-platform-attempt.json`.
+remained the exact candidate; the live lane paused until the bounded exact-rule read reached
+protected main and its reviewed stage-zero update was drift-free. Sanitized evidence is in
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-platform-attempt.json`. PR #320 merged the exact
+stable-rule read as protected main `7155d54`; its stage-zero update applied `0/1/0`, the next plan
+had no changes, and IAM simulation allowed both qualified reads for the stable and named rules
+while denying both reads for an unrelated rule. A fresh source-free RC25 data plane and platform
+then applied from reviewed saved plans and had no drift. The authorized manual task resolved its
+AWS secret and obtained Redshift credentials, but the Serverless workgroup began cold-starting
+network interfaces after that request and the configured 30-second connector timeout expired. The
+task recorded zero provider operations and rows; replay was not attempted. Exact saved-plan cleanup
+removed all 25 platform and 36 data-plane resources, both states and direct inventories are empty,
+and the platform KMS key is pending deletion on 2026-09-14. RC25 remains valid because the defect is
+in the qualification timeout, not candidate code; resume only after a focused reviewed objective
+correction. See
+`docs/evidence/phase8/2026-08-15/aws-native-rc25-redshift-cold-start-attempt.json`.
 Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
@@ -303,9 +315,9 @@ exact AWS cleanup evidence are complete. PR #317 merged private RC25 as protecte
 exact-main run `31902553474` passed all five jobs, and source-free multi-platform candidate
 `sha256:5a0d5520…2238` passed local artifact and selector checks. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
-affected evidence plus the eventual final-candidate closure matrix. RC25 AWS execution is paused
-at the bounded EventBridge tag-read defect described above; no manual or replay task started and
-cleanup is exact. Remaining work includes
+affected evidence plus the eventual final-candidate closure matrix. RC25 AWS execution is paused at
+the live-discovered Redshift Serverless cold-start timeout described above; the manual task failed
+before provider operations, replay did not start, and cleanup is exact. Remaining work includes
 rerunning applicable evidence on RC25; PostgreSQL hosted cost; remaining
 benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
 proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile

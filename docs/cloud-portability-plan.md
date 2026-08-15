@@ -1263,10 +1263,13 @@ selector, and read-only checks. PR #318 merged its sanitized publication evidenc
 exact-main run `31903775539` passed all five jobs. The AWS correctness lane is now bound by the
 committed RC25/USD 3 objective manifest. PR #319 merged that gate as `c79b3d8`, and exact-main run
 `31904727106` passed all five jobs. The first RC25 platform reconciliation then exposed a
-stable-name EventBridge tag-read gap before any task ran. Its 21-resource partial platform and
-36-resource data plane were removed exactly; qualification resumes after the bounded permission
-correction reaches protected main and the reviewed stage-zero update is drift-free. No RC24 report
-transfers. Other exact-objective classes and
+stable-name EventBridge tag-read gap before any task ran. Its partial resources were removed
+exactly, PR #320 merged the bounded correction as `7155d54`, and the reviewed stage-zero update is
+drift-free. A fresh RC25 manual task reached AWS Secrets Manager, PostgreSQL state, and Redshift
+credential acquisition, then timed out while the Serverless workgroup cold-started its network
+interfaces. Replay did not start; exact saved-plan cleanup removed all 25 platform and 36 data-plane
+resources. RC25 remains valid because the required correction is to the qualification connection
+timeout, not candidate code. No RC24 report transfers. Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
 evidence and the eventual closure matrix are rerun. Items 1, 3, 4, 6,

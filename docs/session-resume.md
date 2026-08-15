@@ -97,14 +97,18 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   for protected review and exact-main CI of that gate, not candidate publication. PR #319 later
   merged the gate as `c79b3d8`; exact-main run `31904727106` passed all five jobs. RC25 platform
   reconciliation then failed before execution because the stage-zero EventBridge tag read omitted
-  the exact stable rule name. The 21-resource partial platform and 36-resource data plane were
-  removed; both states and direct inventories are empty, and the disabled platform KMS key is
-  pending deletion on 2026-09-14. Resume only after the bounded permission correction reaches
-  protected main and its reviewed stage-zero update has no drift. Every
+  the exact stable rule name. Its resources were removed, and PR #320 merged the bounded correction
+  as protected main `7155d54`; the reviewed stage-zero update applied `0/1/0`, was drift-free, and
+  retained exact allow/deny simulation. A fresh RC25 manual task resolved its AWS secret and
+  obtained Redshift credentials, then hit the configured 30-second connection limit while
+  Serverless cold-started network interfaces. No provider operation or replay ran. Exact saved-plan
+  cleanup removed all 25 platform and 36 data-plane resources; both states and direct inventories
+  are empty, and the platform KMS key is pending deletion on 2026-09-14. RC25 remains valid; resume
+  only after a focused protected correction to the qualification timeout. Every
   remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See
-  `docs/evidence/phase8/2026-08-15/aws-native-rc25-platform-attempt.json`.
+  `docs/evidence/phase8/2026-08-15/aws-native-rc25-redshift-cold-start-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It
