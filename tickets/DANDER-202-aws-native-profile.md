@@ -130,3 +130,8 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   objective binds a 120-second Redshift connection timeout under the unchanged 600-second runtime
   deadline without changing RC25 or the global provider default. It must pass protected merge and
   exact-main CI before the complete objective reruns.
+- PR #324 preserved the corrected-timeout retry as protected main `804496e`; exact-main run
+  `31914082961` passed all five jobs. The task connected and created its temporary table, then COPY
+  failed because the runtime database role had ASSUMEROLE on `default` while the writer supplied the
+  explicit staging-role ARN. The focused correction grants only that exact role ARN to
+  `dander_runtime` for COPY; a replacement candidate and complete live objective remain separate.

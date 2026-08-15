@@ -337,7 +337,7 @@ resource "aws_redshiftdata_statement" "runtime_assumerole_lockdown" {
 resource "aws_redshiftdata_statement" "runtime_copy" {
   workgroup_name = aws_redshiftserverless_workgroup.profile.workgroup_name
   database       = aws_redshiftserverless_namespace.profile.db_name
-  sql            = "GRANT ASSUMEROLE ON default TO ROLE ${local.runtime_database_role} FOR COPY"
+  sql            = "GRANT ASSUMEROLE ON '${aws_iam_role.redshift_copy.arn}' TO ROLE ${local.runtime_database_role} FOR COPY"
 
   depends_on = [aws_redshiftdata_statement.runtime_assumerole_lockdown]
 }

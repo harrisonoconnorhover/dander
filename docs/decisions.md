@@ -1888,8 +1888,8 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 ## 2026-08-15 — AWS-native Serverless maps one explicit database role
 
 - **Bootstrap:** The disposable namespace creator provisions one `dander_runtime` database role
-  with the DDL permissions used by fenced publication and permission to use the namespace's default
-  IAM role for `COPY`.
+  with the DDL permissions used by fenced publication and permission to assume only the explicit
+  staging-role ARN supplied by the writer for `COPY`.
 - **Runtime identity:** Every selected Fargate task role carries the manifest-declared
   `RedshiftDbRoles` tag and the two global Resource Groups Tagging API reads that Redshift requires
   to map that role during `GetCredentials`; other AWS-native permissions stay resource-scoped.
