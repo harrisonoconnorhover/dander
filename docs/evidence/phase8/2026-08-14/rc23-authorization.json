@@ -36,7 +36,7 @@
     {
       "activity": "aws_native_and_pairwise_profiles",
       "ceiling_usd": "3.00",
-      "status": "blocked_credentials"
+      "status": "approved"
     },
     {
       "activity": "oci_native_and_pairwise_profiles",

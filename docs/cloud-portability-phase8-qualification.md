@@ -121,8 +121,13 @@ Cartesian product. A case cannot change to supported from adapter tests alone.
 
 The 2026-08-14 read-only credential preflight found Azure blocked on required interactive Entra
 reauthentication, AWS blocked on an expired session, and OCI blocked on an incomplete CLI profile.
-No mutation or spend occurred. These cases remain open rather than inheriting a support claim;
-sanitized details are in `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json`.
+AWS access was subsequently restored and a fresh read-only inventory found no reusable Redshift,
+PostgreSQL, Secrets Manager, or Glue data plane, so the pre-approved AWS-native slice requires
+disposable dependencies. Its exact RC22 objectives, USD 3 allocation, service limits, and cleanup
+boundary are committed before mutation. Azure and OCI remain credential-blocked; none of these
+cases inherits a support claim. Sanitized details are in
+`docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
+`aws-credential-restoration.json` beside it.
 
 ## Current PostgreSQL scale evidence
 

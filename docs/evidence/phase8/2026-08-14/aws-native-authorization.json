@@ -1,0 +1,46 @@
+{
+  "schema": "io.dander.qualification.authorization/v1",
+  "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-14-aws-restored",
+  "approved_on": "2026-08-14",
+  "aggregate_phase8_ceiling_usd": "10.00",
+  "aws_allocation_usd": "3.00",
+  "release_version": "0.9.0rc22",
+  "git_commit": "aebecade458e85c5d3b077c1f2a96ccd6ee825aa",
+  "image_digest": "sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3",
+  "status": "approved",
+  "boundary": {
+    "account_selection": "active_authenticated_aws_account",
+    "region": "us-east-1",
+    "resource_prefix": "dander-p8q-rc22",
+    "activities": [
+      "copy_exact_rc22_index_to_existing_private_ecr",
+      "create_disposable_aws_native_data_plane",
+      "apply_manifest_bound_fargate_profile",
+      "run_manual_and_replay_correctness_workload",
+      "verify_cleanup_and_terraform_no_drift",
+      "destroy_all_disposable_profile_resources"
+    ],
+    "service_limits": {
+      "redshift_serverless_base_capacity_rpu": 8,
+      "redshift_serverless_daily_usage_limit_rpu_hours": 5,
+      "redshift_serverless_breach_action": "deactivate",
+      "rds_instance_class": "db.t4g.micro",
+      "rds_storage_gib": 20,
+      "fargate_cpu": 1,
+      "fargate_memory_mib": 2048,
+      "fargate_task_timeout_seconds": 600,
+      "fargate_launcher_retries": 0
+    },
+    "cleanup": "destroy_immediately_after_evidence_collection",
+    "public_release": false,
+    "protected_review_or_support_promotion": false,
+    "aws_d7_control_resources_in_scope": false
+  },
+  "constraints": {
+    "exact_objective_manifest_committed_before_mutation": true,
+    "saved_terraform_plans_required": true,
+    "provider_measured_cost_required_for_passed_cost_claim": true,
+    "rc22_evidence_does_not_transfer_to_final_candidate": true,
+    "stop_before_aws_allocation_is_exceeded": true
+  }
+}

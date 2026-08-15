@@ -52,3 +52,7 @@ scale report.
 - The Kubernetes portable launcher passed normalized correctness, bulk, incremental, transform,
   and PostgreSQL-specific failure Jobs on kind 1.32.2 under its reviewed deadline, retry, CPU, and
   memory controls. Remaining launcher classes, hosted scale/cost, and soak stay open.
+- AWS access is restored. The exact RC22 AWS-native correctness objectives and USD 3 allocation are
+  committed before mutation; the disposable Redshift/PostgreSQL/Glue/Secrets data plane and live
+  Fargate result remain open until the saved plans, execution, cleanup, and measured cost evidence
+  are recorded.
