@@ -435,8 +435,15 @@ exact RC27 and `kubernetes_portable` to the accepted passing RC22 retry workload
 2.7248 GB logical input, 1,000-row batches, an externally enforced 256 MiB candidate limit, and the
 unchanged 80% peak-RSS ceiling. The disposable kind 1.32.2 arm64 Job retains 2 CPU, TLS PostgreSQL
 15.18 at 2 CPU/1 GiB, a 600-second deadline, zero retries, reporter-sidecar collection, and a USD 0
-local ceiling. Protected merge and exact-main CI must precede execution; no historical result
-transfers.
+local ceiling. PR #340 merged that objective as protected main `72a422e`; exact-main CI run
+`31944524241` passed all five jobs before execution. Exact RC27 then processed all 2.7248 GB in
+129.180 seconds at 20,127 rows/second with 176,115,712 bytes peak RSS, below the 214,748,364.8-byte
+ceiling. Both containers exited zero with no retry or restart, PostgreSQL retained no Dander schema
+or staging relation, and the successful cluster reported zero Warning events and USD 0 local cost.
+An initial harness-only preflight used the current-source Python path rather than RC27's packaged
+`/usr/local/bin/python`; benchmark code did not start, the immutable image was inspected, and the
+owned cluster was recreated before the passing run. The cluster, node container, in-cluster
+Secrets/TLS material, and temporary candidate tag were deleted. No RC22 result transferred.
 
 ## Current exit recommendation
 
@@ -449,7 +456,7 @@ the sanitized evidence as protected main `df018e6`; exact-main CI run `319412109
 jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes the protected RC27 Kubernetes bounded-memory objective and run;
+Remaining work includes protected RC27 Kubernetes concurrency and crossover objectives/runs;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and

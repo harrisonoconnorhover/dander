@@ -48,10 +48,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Kubernetes scale/cost, remaining launcher classes, soak, and support stay open. See
   `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`.
   PR #339 merged that sanitized result as protected main `b73fafc`; exact-main run `31943674409`
-  passed all five jobs. The next focused gate is the committed exact-RC27 Kubernetes bounded-memory
-  objective: the accepted 2.6-million-row/256 MiB workload under 2 CPU, a 600-second deadline, zero
-  retries, reporter-sidecar collection, and USD 0 local cost. It requires protected merge and
-  exact-main CI before execution; the RC22 result does not transfer.
+  passed all five jobs. PR #340 merged the exact-RC27 Kubernetes bounded-memory objective as
+  protected main `72a422e`; exact-main run `31944524241` passed all five jobs before execution. The
+  disposable 2 CPU/256 MiB Job then processed 2.7248 GB logical input in 129.180 seconds at 20,127
+  rows/second with 176,115,712 bytes peak RSS. TLS, reporter collection, zero retries/restarts, zero
+  Warning events, database cleanup, USD 0 cost, cluster cleanup, and temporary-tag cleanup passed.
+  One harness-only runtime-path preflight was corrected against the immutable image before the
+  cluster was recreated; no RC22 result transferred. Kubernetes concurrency and crossover remain
+  the next focused launcher classes.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
