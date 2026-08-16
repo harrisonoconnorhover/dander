@@ -17,6 +17,8 @@ Run the focused Azure tests listed in `Checks`.
 - Full pytest passed: 1,744 passed and 34 skipped.
 - Ruff lint/format passed on 451 files; canonical strict mypy passed on 419 files.
 - Wheel/sdist validation, Control-contract drift, and diff whitespace validation passed.
+- PR #350 implementation head `1830765` passed all five protected jobs in run `31959446996`;
+  completion review found no remaining material defect, comment, or thread.
 
 ## Decisions
 
@@ -26,8 +28,7 @@ Run the focused Azure tests listed in `Checks`.
 
 ## Remaining
 
-- Complete focused diff review.
-- Push the focused PR, pass protected CI/review, and merge it.
+- Merge PR #350 after its final documentation-only head passes protected CI.
 - Cut a later candidate containing this correction.
 - Bind Azure qualification in a fresh protected-main branch before any live execution.
 - Complete Azure scale, cost, pairwise, soak, and final closure gates.
