@@ -39,7 +39,10 @@ repository. Saved plans and state use the secured operator artifact directories 
    the environment, vault, and scoped roles but no job or alert. Populate only the
    manifest-declared PostgreSQL and Snowflake credentials outside Terraform. Then review and apply
    the normal platform plan, which may create jobs only after their Key Vault references exist.
-5. Run the read-only gate:
+5. During Snowflake setup, grant the runtime role `CREATE SCHEMA` on only the named disposable
+   database. Do not grant database ownership, `ALL PRIVILEGES`, or account-level authority. Project
+   a current OAuth token for that exact role through the manifest's configured environment name,
+   then run the read-only gate:
 
    ```bash
    dander azure canonical-preflight \
@@ -47,6 +50,11 @@ repository. Saved plans and state use the secured operator artifact directories 
      --pipeline warehouse_fixture \
      --expected-image danderphase6.azurecr.io/dander/runtime@sha256:DIGEST
    ```
+
+   In addition to the Azure deployment and declared-secret metadata checks, this reads the active
+   Snowflake role's grants and requires `CREATE SCHEMA` on the exact configured database. It creates
+   no schema and emits no credential, DSN, SQL row, or raw provider error. A failure here is setup
+   evidence and stops before any Container Apps candidate execution or allowance.
 
 6. Require initial execution, exact replay, overlapping-start fencing, interruption/cancellation,
    paused and UTC-scheduled behavior, retry exhaustion, bounded logs, and alert routing to match

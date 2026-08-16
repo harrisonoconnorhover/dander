@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from unittest.mock import ANY
 
 import pytest
 from typer.testing import CliRunner
@@ -15,6 +16,10 @@ from dander.providers.azure_container_apps import (
     AzureContainerAppsLogEvent,
     AzureDeploymentVerification,
     AzureSecretMetadata,
+)
+from dander.providers.snowflake import (
+    SnowflakeStagingAuthority,
+    SnowflakeStagingAuthorityError,
 )
 
 if TYPE_CHECKING:
@@ -329,10 +334,17 @@ def test_canonical_preflight_requires_exact_profile_and_emits_sanitized_metadata
             catalog_provider="none",
             secret_provider="azure_key_vault",
             warehouse_config={
+                "provider": "snowflake",
+                "account": "org-account",
+                "user": "DANDER_USER",
+                "database": "DANDER_TEST",
+                "schema": "RAW",
+                "warehouse": "DANDER_WH",
+                "role": "DANDER_ROLE",
                 "auth": {
                     "method": "oauth",
                     "token_env": "DANDER_SNOWFLAKE_OAUTH_TOKEN",
-                }
+                },
             },
             state_config={"dsn_env": "DANDER_POSTGRES_DSN"},
             pipelines={
@@ -347,6 +359,20 @@ def test_canonical_preflight_requires_exact_profile_and_emits_sanitized_metadata
     )
     monkeypatch.setattr(azure_command, "AzureDeploymentBinding", _Binding)
     monkeypatch.setattr(azure_command, "AzureDeploymentVerifier", _Verifier)
+
+    def verify_snowflake(config: object) -> SnowflakeStagingAuthority:
+        calls.append(("snowflake-authority", config))
+        return SnowflakeStagingAuthority(
+            database="DANDER_TEST",
+            role="DANDER_ROLE",
+            warehouse="DANDER_WH",
+        )
+
+    monkeypatch.setattr(
+        azure_command,
+        "verify_snowflake_staging_authority",
+        verify_snowflake,
+    )
     image = "danderphase6.azurecr.io/dander/runtime@sha256:" + "a" * 64
 
     result = CliRunner().invoke(
@@ -363,6 +389,8 @@ def test_canonical_preflight_requires_exact_profile_and_emits_sanitized_metadata
     assert result.exit_code == 0, result.output
     assert '"name": "postgres-dsn"' in result.output
     assert '"enabled": true' in result.output
+    assert '"create_schema": true' in result.output
+    assert '"staging_schema_lifecycle": true' in result.output
     assert "value" not in result.output
     assert calls == [
         (
@@ -376,7 +404,37 @@ def test_canonical_preflight_requires_exact_profile_and_emits_sanitized_metadata
         ),
         ("verify", image),
         ("secret-metadata", None),
+        ("snowflake-authority", ANY),
     ]
+
+    def reject_snowflake(_config: object) -> SnowflakeStagingAuthority:
+        raise SnowflakeStagingAuthorityError(
+            "Snowflake staging-schema preflight requires CREATE SCHEMA on database "
+            "'DANDER_TEST' for role 'DANDER_ROLE'"
+        )
+
+    monkeypatch.setattr(
+        azure_command,
+        "verify_snowflake_staging_authority",
+        reject_snowflake,
+    )
+    rejected = CliRunner().invoke(
+        app,
+        [
+            "azure",
+            "canonical-preflight",
+            *_base_args(tmp_path),
+            "--expected-image",
+            image,
+        ],
+    )
+
+    assert rejected.exit_code == 1
+    assert rejected.exception is not None
+    message = str(rejected.exception)
+    assert "requires CREATE SCHEMA on database 'DANDER_TEST'" in message
+    assert "token" not in message.casefold()
+    assert "dsn" not in message.casefold()
 
 
 def test_canonical_preflight_rejects_other_compositions_before_provider_access(

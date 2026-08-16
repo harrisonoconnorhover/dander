@@ -98,9 +98,21 @@ The repository contains a bounded live harness for the warehouse adapter. It doe
 account, database, warehouse, role, network policy, or resource monitor. Running it may resume the
 selected warehouse and consume Snowflake credits, so agree on a paid-test ceiling first.
 
-The role must have warehouse usage plus database usage and permission to create and drop schemas in
-the selected database. Supply only a credential reference; never put the private key or OAuth token
-on the command line. For key-pair authentication:
+The role must have warehouse usage plus database usage and the narrow database-level authority to
+create its owned staging schemas. Qualification setup adds that authority on only the named
+disposable database; it does not grant database ownership, `ALL PRIVILEGES`, or an account-level
+role:
+
+```sql
+GRANT CREATE SCHEMA ON DATABASE "DANDER_TEST" TO ROLE "DANDER_ROLE";
+```
+
+The role that creates a staging schema owns that schema and can remove it during Dander's bounded
+cleanup. Before a qualification candidate starts, the Azure canonical preflight connects with the
+configured runtime role and reads `SHOW GRANTS TO ROLE` to require that exact grant. Missing
+authority is a setup/preflight failure and must stop before a candidate allowance is consumed.
+Supply only a credential reference; never put the private key or OAuth token on the command line.
+For key-pair authentication:
 
 ```bash
 export DANDER_SNOWFLAKE_PRIVATE_KEY_FILE=/secure/path/rsa_key.p8
