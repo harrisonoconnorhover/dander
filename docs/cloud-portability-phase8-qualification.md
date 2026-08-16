@@ -127,10 +127,13 @@ claim transfers.
 
 PR #324 merged the sanitized failure record as protected main `804496e`; exact-main CI run
 `31914082961` passed all five jobs. PR #325 then merged the exact staging-role grant as protected
-main `7cea5a8`; exact-main CI run `31914830354` passed all five jobs. Private `0.9.0rc26` is
-preparation-only on draft PR #326 until protected CI and review pass, the PR merges, exact-main CI
-passes, and its source-free multi-platform image is privately published and inspected. RC25 AWS
-results do not transfer.
+main `7cea5a8`; exact-main CI run `31914830354` passed all five jobs. PR #326 merged private
+`0.9.0rc26` as protected main `f0fe54f`; exact-main CI run `31915564765` passed all five jobs. Its
+exact wheel built private source-free multi-platform index `sha256:e63aef4b…d28e`. Both runnable
+manifests report RC26; GCP, Kubernetes, and externally projected AWS deployment selection plus
+rootless read-only conformance passed on both architectures, and both platform attestations contain
+SPDX SBOM and SLSA provenance predicates. This is private candidate publication evidence, not a
+live-provider, cost, benchmark, public-release, or support pass. RC25 AWS results do not transfer.
 
 ## Pre-candidate release readiness
 
@@ -184,7 +187,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | RC25 connected after the 120-second cold-start allowance, then COPY exposed an ASSUMEROLE permission defect; replay and remaining objectives are open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | RC26 packages the exact staging-role grant and passes local candidate inspection; a fresh exact-objective live rerun remains open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -278,10 +281,10 @@ private candidate before the complete objective reruns. See
 Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
-no-drift baseline must be preserved. Private RC25 now satisfies the replacement-candidate
-publication gate. The AWS correctness lane has the immutable objective manifest named above; every
-other provider still requires its own committed exact objective manifest and separate lane before
-mutation. None inherits a support claim. Sanitized details are in
+no-drift baseline must be preserved. Private RC26 now satisfies the replacement-candidate
+publication gate. AWS requires a fresh RC26-bound objective manifest before mutation; every other
+provider still requires its own committed exact objective manifest and separate lane. None inherits
+a support claim. Sanitized details are in
 `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
 the three provider credential-restoration records beside it.
 
@@ -341,16 +344,15 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
 Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
 PostgreSQL classes, RC22 protected audit, RC23 local preflight, RC24 corrected local crossover, and
-exact AWS cleanup evidence are complete. PR #317 merged private RC25 as protected main `f5935a6`,
-exact-main run `31902553474` passed all five jobs, and source-free multi-platform candidate
-`sha256:5a0d5520…2238` passed local artifact and selector checks. Each benchmark, provider,
+exact AWS cleanup evidence are complete. PR #326 merged private RC26 as protected main `f0fe54f`,
+exact-main run `31915564765` passed all five jobs, and source-free multi-platform candidate
+`sha256:e63aef4b…d28e` passed local artifact and selector checks. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
-affected evidence plus the eventual final-candidate closure matrix. PR #325 merged the focused
-Redshift COPY ASSUMEROLE correction as protected main `7cea5a8`; RC26 preparation is isolated on
-draft PR #326. The 120-second RC25 attempt allowed connection and temporary-table creation, but the
-manual task failed before COPY could record an operation, replay did not start, and cleanup is
-exact. Protected RC26 publication and a fresh exact objective must precede the complete AWS rerun. Remaining work
-includes rerunning applicable evidence on the replacement candidate; PostgreSQL hosted cost; remaining
-benchmark classes/providers and Kubernetes hosted scale/soak; hosted-provider and pairwise live
-proofs; scale/cost reports for every first-class warehouse and launcher; remaining canonical-profile
-evidence; release-candidate soak; profile operator docs; and the frozen support matrix.
+affected evidence plus the eventual final-candidate closure matrix. The 120-second RC25 attempt
+allowed connection and temporary-table creation, but the manual task failed before COPY could
+record an operation, replay did not start, and cleanup is exact. A fresh RC26-bound objective must
+precede the complete AWS rerun. Remaining work includes applicable replacement-candidate evidence;
+PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
+hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
+launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and
+the frozen support matrix.

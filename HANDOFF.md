@@ -2,40 +2,44 @@
 
 ## Finished
 
-- Merged PR #324 as protected main `804496e`; exact-main CI run `31914082961` passed all five jobs.
-- Merged the exact Redshift COPY staging-role correction in PR #325 as protected main `7cea5a8`.
-- Prepared private `0.9.0rc26` metadata from that protected main as commit `2ab829f`.
-- Opened draft PR #326 and bound private publication authorization to its preparation commit.
-- Kept the aggregate Phase 8 ceiling at USD 10 by sharing the existing RC25 publication allocation.
+- Merged private RC26 preparation PR #326 as protected main `f0fe54f`; exact-main run
+  `31915564765` passed all five jobs.
+- Built and inspected exact `0.9.0rc26` wheel and source distribution from that commit.
+- Published private source-free GAR index `sha256:e63aef4b…d28e` with amd64/arm64 manifests, SBOM,
+  and provenance.
+- Passed both-architecture version and rootless read-only checks plus GCP/Kubernetes/external-AWS
+  deployment selection.
+- Preserved public RC20, retained workloads, DRUFF work, the USD 10 ceiling, and all provider
+  support status.
 
 ## Try It
 
-Run `uv run pytest -q tests/test_release_metadata.py && uv run python scripts/check_release_metadata.py`.
+Run `jq . docs/evidence/phase8/2026-08-15/rc26-candidate.json` to inspect the sanitized candidate record.
 
 ## Checks
 
-- PR #325 and exact-main run `31914830354` passed all five protected checks.
-- Four release-metadata tests, metadata/lock validation, Ruff, and diff checks pass.
-- RC26 wheel and source distribution passed inspection; an outside-checkout wheel install generated
-  a valid project with the exact staging-role grant and passed Terraform validation.
-- Authorization JSON parses and planned allocations sum to exactly USD 10.
+- Exact-main Python, secret, Terraform, distribution, and container jobs passed.
+- Wheel/sdist inspection and source-free scaffold validation passed.
+- GAR returned the recorded immutable index, runnable platform digests, and two attestation manifests.
+- Both platform attestations contain SPDX SBOM and SLSA provenance predicates.
+- The first build-context attempt failed before push; the corrected second attempt published
+  successfully.
 
 ## Decisions
 
-- Publish RC26 privately only after PR #326 and its exact-main CI pass.
-- Share RC25's existing USD 0.25 publication allocation; do not increase the USD 10 ceiling.
-- Keep public RC20, support status, and prior-candidate evidence unchanged.
+- RC26 becomes the replacement candidate only after this evidence passes protected review.
+- No RC25 live result transfers; public RC20 and support status remain unchanged.
+- Provider charges remain pending and the aggregate authorization ceiling remains USD 10.
 
 ## Remaining
 
-- Complete protected CI/review and merge PR #326.
-- Build and privately publish one source-free amd64/arm64 RC26 index.
-- Commit a fresh candidate-bound AWS objective before provider mutation.
-- Rerun manual execution, conditional replay, cost collection, and exact cleanup.
-- Continue other Phase 8 lanes separately without colliding with DRUFF.
+- Merge this focused candidate-evidence PR after protected CI and review.
+- Commit a fresh RC26-bound AWS objective before provider mutation.
+- Rerun AWS manual correctness, conditional replay, cost collection, and exact cleanup.
+- Complete the remaining scale, pairwise, canonical-profile, audit, soak, documentation, and support-freeze gates.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/rc26-authorization.json`
-- `CHANGELOG.md`
+- `docs/evidence/phase8/2026-08-15/rc26-candidate.json`
 - `docs/cloud-portability-phase8-qualification.md`
+- `tickets/DANDER-202-aws-native-profile.md`
