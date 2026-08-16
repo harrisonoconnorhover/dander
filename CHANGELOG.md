@@ -6,6 +6,19 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc27 — 2026-08-15 (beta)
+
+### Fixed
+
+- Request the base text transfer protocol for Redshift Serverless connections so startup does not
+  depend on extended or binary protocol negotiation after authentication.
+
+### Known limitations
+
+- RC27 is a private Phase 8 qualification candidate. The startup correction still requires a fresh
+  exact-candidate AWS objective, RC26 AWS results do not transfer, direct thresholds remain disabled
+  by default, provider/cost/pairwise/audit/soak gates remain open, and public RC20 is unchanged.
+
 ## 0.9.0rc26 — 2026-08-15 (beta)
 
 ### Fixed
