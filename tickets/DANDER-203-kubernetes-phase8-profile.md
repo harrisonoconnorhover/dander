@@ -39,3 +39,7 @@ passes the complete lifecycle and a five-class normalized scale slice on disposa
 - RC22 remains accepted baseline evidence, but the bounded direct-write change moved the prospective
   final candidate to RC23 or a successor. The final-candidate Kubernetes rerun is therefore open;
   no RC22 result is silently transferred.
+- Five fresh objective approvals bind correctness, bulk, incremental, transform, and
+  PostgreSQL-specific failure to exact RC27, the accepted zero-cost local workloads, kind 1.32.2,
+  TLS PostgreSQL 15.18, 2 CPU/512 MiB, a 600-second deadline, zero retries, and reporter-sidecar
+  collection. Protected review and exact-main CI must pass before the disposable rerun starts.

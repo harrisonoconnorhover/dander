@@ -1,0 +1,32 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-bulk-incremental/v1",
+    "benchmark_class": "incremental",
+    "batch_rows": 1000,
+    "seed_rows": 300000,
+    "delta_rows": 3000,
+    "payload_bytes": 128
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "cost_ceiling",
+      "delta_target_ratio",
+      "exact_result",
+      "incremental_cursor_monotonic",
+      "incremental_throughput_measurement"
+    ],
+    "benchmark_class": "incremental",
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "configuration_sha256": "a568e83683c548350f2982d3236c33755ff9cb878e3b7f06285645c1ca6606c1",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27"
+  }
+}

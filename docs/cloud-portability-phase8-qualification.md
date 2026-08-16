@@ -407,16 +407,27 @@ unchanged workload added a reporter sidecar and retained all five reports. Both 
 collection limitation are preserved in the attempts ledger. This is a local launcher-scale slice,
 not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
+The RC27 final-candidate rerun is now bound by five exact objective files under
+`docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-*-objectives.json`. They preserve the
+accepted correctness, bulk, incremental, transform, and PostgreSQL-specific failure workloads,
+USD 0 local ceiling, kind 1.32.2 arm64 cluster, TLS PostgreSQL 15.18, 2 CPU/512 MiB Job limit,
+600-second deadline, zero launcher retries, and reporter-sidecar collection. The accepted lifecycle
+record is not repeated because the candidate changes after RC22 affect PostgreSQL/runtime behavior,
+not the Helm lifecycle contract. Protected review, merge, and exact-main CI must precede cluster
+creation; the eventual closure matrix still applies.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
 manual/replay correctness slice: three canonical rows survived duplicate-free replay, Glue and
 PostgreSQL state paths completed, the schedule stayed disabled, and exact cleanup removed every
 owned disposable resource. Provider invoice data has not posted and the operator role cannot read
-Cost Explorer, so AWS cost remains `not_evaluated`; this is not a support promotion. Each benchmark,
+Cost Explorer, so AWS cost remains `not_evaluated`; this is not a support promotion. PR #337 merged
+the sanitized evidence as protected main `df018e6`; exact-main CI run `31941210969` passed all five
+jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes this evidence PR and protected exact-main validation;
+Remaining work includes the fresh RC27 Kubernetes objective's protected merge and local rerun;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and

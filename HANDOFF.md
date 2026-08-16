@@ -2,44 +2,40 @@
 
 ## Finished
 
-- Passed exact RC27 AWS-native manual and replay correctness on the protected objective.
-- Verified three duplicate-free Redshift rows, six total assertions, Glue publication, PostgreSQL
-  state participation, zero provider retries, and an empty owned staging prefix.
-- Destroyed the reviewed 25-resource platform and 36-resource data plane exactly.
-- Confirmed both Terraform states and direct active owned-resource inventories are empty; retained
-  only the exact private ECR digest, with the platform KMS key pending deletion.
-- Recorded sanitized evidence without changing retained jobs, public RC20, DRUFF, or support status.
+- Merged RC27 AWS correctness evidence PR #337 as protected main `df018e6`.
+- Confirmed exact-main CI run `31941210969` passed all five jobs.
+- Bound five Kubernetes PostgreSQL classes to exact RC27 and the accepted deterministic workloads.
+- Preserved kind 1.32.2, TLS PostgreSQL 15.18, 2 CPU/512 MiB, a 600-second deadline, zero retries,
+  reporter-sidecar collection, and the USD 0 local ceiling.
+- Kept retained GCP, private ECR, DRUFF, public RC20, and support status unchanged.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json`.
+Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-correctness-objectives.json`.
 
 ## Checks
 
-- Protected-main objective CI run `31927276568` passed all five jobs.
-- Saved create/no-drift/destroy plans were machine-checked and applied exactly: `36/0/0`, `25/0/0`,
-  then `0/0/25` and `0/0/36`; both final state counts are zero.
-- Manual `p8rc27-manual-01` and replay `p8rc27-replay-01` succeeded with exit code 0.
-- Redshift/Glue/S3/ECS and post-cleanup service inventories were checked through provider APIs.
-- All 13 qualification contract tests, evidence consistency, documentation structure, and diff
-  review pass locally.
+- AWS evidence exact-main Python, secret, Terraform, distribution, and container jobs passed.
+- All five objective JSON files parse and retain the accepted workload configuration hashes.
+- Candidate version, commit, image digest, approval reference, profile, and zero-cost ceiling match.
+- HANDOFF structure, documentation status, and repository diff checks pass.
 
 ## Decisions
 
-- Mark AWS-native correctness passed while keeping full qualification `not_evaluated_cost_pending`.
-- Preserve least privilege after direct state-table validation was denied before any extra task ran.
-- Retain the exact private ECR digest; remove every disposable launcher and data-plane resource.
+- Require protected review and exact-main CI before creating the disposable kind cluster.
+- Rerun the five materially affected PostgreSQL/runtime classes; retain accepted lifecycle evidence.
+- Keep hosted Kubernetes scale/cost, soak, and support open.
 
 ## Remaining
 
-- Pass protected review, merge this focused evidence PR, and verify exact-main CI.
-- Collect provider-measured AWS cost when billing data and authority are available.
-- Continue remaining benchmark/provider objectives from fresh protected-main branches.
-- Run only materially affected evidence plus the eventual final-candidate closure matrix.
-- Keep scale, soak, public release, and support claims open until their gates pass.
+- Merge this focused objective PR after protected CI and review.
+- Run exact RC27 correctness, bulk, incremental, transform, and failure in disposable kind.
+- Retain sanitized reports through the reporter sidecar and verify exact cleanup.
+- Record the result in a separate fresh evidence branch.
+- Continue remaining Phase 8 lanes without colliding with DRUFF.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json`
+- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-correctness-objectives.json`
 - `docs/cloud-portability-phase8-qualification.md`
-- `docs/cloud-portability-plan.md`
+- `tickets/DANDER-203-kubernetes-phase8-profile.md`
