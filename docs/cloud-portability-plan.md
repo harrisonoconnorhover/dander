@@ -1414,6 +1414,13 @@ closed correctly and remains reusable. PR #355 closed DANDER-213 as protected ma
 exact-main run `31973943176` passed all five jobs; the canonical preflight now requires the exact
 runtime role's database-level staging-schema authority read-only. Azure correctness and support
 stay open until a fresh protected objective is approved with known budget headroom.
+A later read-only provider-cost reconciliation found AWS Cost Explorer still denied, Azure actual
+cost rows still empty, and no GKE or Compute Engine charge yet visible for the hosted GKE run. The
+retained GCP report's displayed August 14/15/16 subtotals were USD 0.00/0.24/0.02, but neither
+those rounded daily values nor the USD 1.31 month-to-date subtotal provide complete Phase 8
+attribution. Exact aggregate spend and remaining headroom therefore stay unknown; no paid objective
+may start and no cost or support gate changes status. See
+`docs/evidence/phase8/2026-08-16/provider-cost-reconciliation.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

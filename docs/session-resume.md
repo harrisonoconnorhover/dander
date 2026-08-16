@@ -37,6 +37,16 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- A read-only provider-cost reconciliation on 2026-08-16 made no cloud mutation. AWS Cost Explorer
+  still denied `ce:GetCostAndUsage`, Azure Cost Management returned no rows for August 14 through
+  16, and the retained GCP billing report showed no GKE or Compute Engine charge for the hosted
+  run. Its rounded August 14/15/16 subtotals were USD 0.00/0.24/0.02; the USD 1.31 month-to-date
+  subtotal includes pre-authorization retained-project activity and is not wholly attributable to
+  Phase 8. With USD 0 unallocated and incomplete provider posting, exact aggregate spend and
+  remaining headroom are unknown. All affected cost gates remain `not_evaluated`, and no new paid
+  objective may start. See
+  `docs/evidence/phase8/2026-08-16/provider-cost-reconciliation.json`.
+
 - Exact private RC27 passed the five protected Kubernetes objectives from main `6ff041f` after
   exact-main CI run `31942160724` passed all five jobs. One named kind 1.32.2 arm64 cluster ran
   correctness, bulk, incremental, transform, and PostgreSQL-specific failure against TLS

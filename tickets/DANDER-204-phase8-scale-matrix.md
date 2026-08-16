@@ -115,3 +115,8 @@ scale report.
   attempt plus one success-conditional replay, exact cleanup, and the full USD 2 Azure allocation.
   Protected merge and exact-main CI must precede any Azure, Snowflake, or PostgreSQL mutation;
   provider billing must post before cost can pass.
+- The 2026-08-16 read-only provider-cost reconciliation found AWS Cost Explorer still denied,
+  Azure actual-cost rows still empty, and no hosted-GKE charge visible in the retained GCP billing
+  report. Rounded GCP daily subtotals cannot establish Phase 8 attribution. Exact aggregate spend
+  and remaining headroom remain unknown with USD 0 unallocated, so all affected cost gates stay
+  `not_evaluated` and no new paid objective may start.

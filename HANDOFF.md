@@ -2,43 +2,41 @@
 
 ## Finished
 
-- Merged the mandatory Snowflake staging-authority rail in PR #355 as protected main `4815561`.
-- Required the active runtime role, database, warehouse, and exact database-level `CREATE SCHEMA`
-  grant before any Azure candidate execution.
-- Kept the preflight read-only and sanitized: no token, DSN, grant row, or raw provider error emits.
-- Closed DANDER-213 after protected review and exact-main CI.
-- Preserved RC28 publication and failure evidence without authorizing or transferring a rerun.
+- Reconciled available AWS, Azure, and GCP billing views without cloud mutation.
+- Recorded AWS Cost Explorer's operator denial and Azure Cost Management's empty actual-cost rows.
+- Recorded the retained GCP report's rounded daily/month-to-date subtotals without treating them as
+  complete Phase 8 attribution or a hosted-GKE cost result.
+- Kept AWS, hosted GKE, Azure, aggregate cost, and support gates open.
+- Preserved the USD 10 ceiling, USD 10 allocation total, and USD 0 unallocated contingency.
 
 ## Try It
 
-No provider objects currently exist. A future protected objective must project a current Snowflake
-token through the configured environment name, then run `dander azure canonical-preflight` before
-starting its one approved candidate execution.
+Review `docs/evidence/phase8/2026-08-16/provider-cost-reconciliation.json`. Recheck the same
+provider billing sources before binding any new paid objective; do not infer headroom from empty or
+rounded provider displays.
 
 ## Checks
 
-- Local Ruff lint/format, strict typing, contract drift, and full suite passed: 1,748 passed,
-  34 skipped.
-- PR #355 run `31973525550` passed Python, Terraform, secret, container, and distribution jobs.
-- Exact-main run `31973943176` passed the same five jobs for `4815561`.
-- Completion review found no comments, reviews, unresolved threads, or material defect.
+- Evidence JSON parse and Git whitespace checks passed.
+- Ruff lint and format checks passed for 453 files.
+- Canonical strict typing passed for 421 source files.
+- Control contract drift check passed.
+- Full tests passed: 1,748 passed, 34 skipped, one third-party deprecation warning.
 
 ## Decisions
 
-- Grant only `CREATE SCHEMA` on the named disposable database; no database ownership,
-  `ALL PRIVILEGES`, or account-level authority.
-- Keep Azure correctness, support, and cost open; the rail is setup evidence, not qualification.
-- Require known remaining budget headroom and a fresh objective before any provider mutation.
+- Treat unavailable, denied, delayed, or unattributed billing data as `not_evaluated`, never zero.
+- Do not start another paid objective until exact remaining aggregate headroom is established.
+- Keep valid RC27/RC28 runtime and publication evidence; this read-only audit invalidates nothing.
 
 ## Remaining
 
-- Determine exact remaining headroom under the authorized USD 10 Phase 8 ceiling.
-- Bind a fresh protected Azure correctness objective only if that headroom can cover it.
-- Resume manual/replay correctness without rerunning unaffected RC28 publication evidence.
-- Complete provider/profile, scale, soak, cost, and final-candidate closure gates.
+- Recheck provider-posted charges and obtain the AWS cost read needed for exact reconciliation.
+- Bind a fresh protected Azure correctness objective only after headroom is known.
+- Complete the remaining provider/profile, scale, pairwise, soak, cost, and closure gates.
 
 ## Review First
 
-- `tickets/DANDER-213-snowflake-create-schema-preflight.md`
+- `docs/evidence/phase8/2026-08-16/provider-cost-reconciliation.json`
 - `docs/cloud-portability-phase8-qualification.md`
-- `docs/session-resume.md`
+- `tickets/DANDER-204-phase8-scale-matrix.md`

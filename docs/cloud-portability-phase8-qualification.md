@@ -80,6 +80,17 @@ under that cumulative allocation only after its preparation merges and exact-mai
 Each paid run must still record its objective manifest and per-run allocation before mutation,
 preserve the dependency order, and use the immutable candidate.
 
+A read-only cost reconciliation on 2026-08-16 found no basis for a new paid objective. AWS Cost
+Explorer still denies `ce:GetCostAndUsage` to the operator, Azure Cost Management returned no
+posted rows for August 14 through 16, and the retained GCP billing report still showed no GKE or
+Compute Engine charge for the hosted run. Its displayed August 14/15/16 subtotals were USD
+0.00/0.24/0.02, while the USD 1.31 month-to-date subtotal includes activity before the Phase 8
+authorization window and cannot be attributed wholly to this phase. Provider-measured aggregate
+spend and exact remaining headroom therefore remain unknown, the USD 0 unallocated contingency is
+unchanged, and every affected cost objective stays `not_evaluated`. No cloud mutation or support
+promotion follows from this observation; see
+`docs/evidence/phase8/2026-08-16/provider-cost-reconciliation.json`.
+
 ## Canonical qualification harness invocation
 
 Future qualification manifests use the immutable image's normal `dander` entrypoint and pass the
