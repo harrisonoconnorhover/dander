@@ -1396,9 +1396,13 @@ Current source exposes `dander qualification-run` as the image-owned harness bou
 manifests must use it instead of an installation-layout path. RC27 evidence remains unchanged, and
 only qualification lanes materially affected after the next candidate require rerun.
 DANDER-209 then closed Azure's pre-live immutable-image platform handoff in PR #350 at protected
-main `1436092`; exact-main run `31960158477` passed all five jobs. Draft PR #351 prepares private
-RC28 from that main under the unchanged aggregate ceiling. RC28 remains unpublished, and Azure
-still requires a fresh protected exact-candidate objective before any resource mutation.
+main `1436092`; exact-main run `31960158477` passed all five jobs. PR #351 prepared private RC28;
+its exact protected-main commit `7135b8c` passed run `31961210116` before source-free multi-platform
+index `sha256:f8259276…f94959e` was privately published and inspected. Both architectures passed the
+stable qualification entrypoint, exact-wheel, rootless read-only, SBOM, and provenance checks;
+credential-free GCP, Kubernetes, AWS, and Azure selectors passed. This does not transfer prior
+results or close qualification, cost, public-release, or support gates. Azure still requires a
+fresh protected exact-candidate objective before any resource mutation.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
