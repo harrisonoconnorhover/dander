@@ -1472,6 +1472,18 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   individual versions. Version rotation, runtime use, lifecycle behavior, and warehouse
   correctness remain live acceptance steps under explicit provider ceilings.
 
+## 2026-08-16 — Canonical Azure preflight proves Snowflake staging authority
+
+- **Need:** The Snowflake writer creates and owns disposable staging schemas. Schema ownership on
+  the configured target does not supply the database-level `CREATE SCHEMA` privilege needed for
+  that lifecycle.
+- **Decision:** Qualification setup grants only `CREATE SCHEMA` on the named disposable database.
+  The canonical Azure preflight uses the configured OAuth runtime role to read its explicit grants
+  and requires that exact privilege before any candidate job starts.
+- **Boundary:** The check creates no object and emits only configured coordinates and pass booleans;
+  tokens, DSNs, grant rows, and raw provider failures remain excluded. This is a setup rail, not a
+  transferred qualification result or permission to rerun a consumed objective.
+
 ## 2026-08-11 — Azure stage zero precedes the exact source-free candidate
 
 - **Dependency:** Azure assigns the user-assigned managed-identity client ID during stage zero,

@@ -124,9 +124,13 @@ row limit.
 
 Before any approved execution of the named Snowflake/PostgreSQL profile, run `dander azure
 canonical-preflight` with the accepted ACR digest. It rejects other compositions, requires
-Snowflake OAuth and PostgreSQL DSN secret bindings, performs normal deployment verification, and
-lists only the declared Key Vault base identifiers and enabled state. The full ordered protocol is
-in `docs/cloud-portability-azure-lifecycle-acceptance.md`.
+Snowflake OAuth and PostgreSQL DSN secret bindings, performs normal deployment verification, lists
+only the declared Key Vault base identifiers and enabled state, and uses the locally projected
+Snowflake OAuth token to read the configured runtime role's grants. The preflight requires the
+exact role, database, and warehouse plus `CREATE SCHEMA` on the named database; it creates no
+schema and emits no token, DSN, SQL row, or raw provider error. Install both the `azure` and
+`snowflake` extras, and project the token only through the manifest's configured environment name.
+The full ordered protocol is in `docs/cloud-portability-azure-lifecycle-acceptance.md`.
 
 ## Boundaries
 

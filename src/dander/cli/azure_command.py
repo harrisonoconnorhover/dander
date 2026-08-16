@@ -25,6 +25,11 @@ from dander.providers.azure_container_apps import (
     AzureDeploymentVerificationError,
     AzureDeploymentVerifier,
 )
+from dander.providers.snowflake import (
+    SnowflakeStagingAuthorityError,
+    SnowflakeWarehouseConfig,
+    verify_snowflake_staging_authority,
+)
 
 _DEFAULT_AZURE_INFRA_DIR = Path("infra/azure")
 _DEFAULT_AZURE_BOOTSTRAP_ADMIN_DIR = Path("infra/azure/bootstrap-admin")
@@ -286,6 +291,12 @@ def azure_canonical_preflight(
                 "Canonical preflight requires pipeline bindings for Snowflake OAuth and "
                 "PostgreSQL DSN secrets"
             )
+        try:
+            snowflake_config = SnowflakeWarehouseConfig.model_validate(manifest.warehouse_config)
+        except ValueError as error:
+            raise ProjectConfigError(
+                "Canonical preflight requires a valid Snowflake warehouse configuration"
+            ) from error
         binding = AzureDeploymentBinding.from_project(
             config=config,
             deployment=deployment,
@@ -295,12 +306,18 @@ def azure_canonical_preflight(
         verifier = AzureDeploymentVerifier(binding)
         verification = verifier.verify(expected_image=expected_image)
         secret_metadata = verifier.verify_declared_secret_metadata()
-    except (AzureDeploymentVerificationError, ProjectConfigError) as error:
+        snowflake_authority = verify_snowflake_staging_authority(snowflake_config)
+    except (
+        AzureDeploymentVerificationError,
+        ProjectConfigError,
+        SnowflakeStagingAuthorityError,
+    ) as error:
         raise ClickException(str(error)) from error
     console.print_json(
         data={
             "deployment": verification.as_dict(),
             "declared_secrets": [metadata.as_dict() for metadata in secret_metadata],
+            "snowflake_staging_authority": snowflake_authority.as_dict(),
         }
     )
 

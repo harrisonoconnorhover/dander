@@ -27,11 +27,19 @@ failed closed after reaching Snowflake.
 
 ## Design
 
-Pending focused implementation on a fresh branch from protected main.
+Extend the existing canonical Azure preflight rather than add an optional side command. It validates
+the complete Snowflake warehouse configuration, connects with the configured OAuth runtime role,
+checks the active database/role/warehouse, and reads only that role's explicit grants. Qualification
+setup adds the single missing `CREATE SCHEMA` grant on the disposable database; the creator's schema
+ownership supplies the matching cleanup authority.
 
 ## Implementation Notes
 
-Pending.
+- `SHOW GRANTS TO ROLE` is read-only and does not require schema creation. Dander retains no grant
+  rows and converts connector failures to a stable sanitized message.
+- Successful CLI output contains only configured database, role, warehouse, and two pass booleans.
+- Missing authority names `CREATE SCHEMA`, the database, and the role before any Azure job starts.
+- No Azure, Snowflake, PostgreSQL, Terraform, or candidate operation is part of this correction PR.
 
 ## Review Log
 
