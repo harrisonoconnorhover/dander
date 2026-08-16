@@ -139,8 +139,10 @@ start. Reviewed destroy plans removed 7 platform, 6 network/PostgreSQL, and 6 st
 the named Snowflake objects and active Azure inventories are empty, with only the expected inactive
 purge-protected Key Vault tombstone remaining. Cost Management had no posted rows, so cost stays
 `not_evaluated`. RC28 publication evidence remains valid, but Azure correctness and support remain
-open. DANDER-213 requires a focused grant and read-only privilege preflight before a fresh objective
-may reuse RC28; see
+open. PR #355 closed DANDER-213 as protected main `4815561`; exact-main run `31973943176` passed
+all five jobs. The mandatory canonical preflight now requires the exact runtime role's
+database-level `CREATE SCHEMA` grant without creating a schema or exposing grant rows. A fresh
+protected objective and known budget headroom remain mandatory before RC28 may run again; see
 `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json`.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
@@ -319,7 +321,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
 | `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | exact RC27 manual/replay correctness and exact cleanup passed; provider cost, scale, soak, and support remain open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
-| `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | RC28 manual failed closed on a setup privilege gap; replacement objective open |
+| `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | RC28 manual failed closed; setup/preflight rail corrected; replacement objective open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
 | `fargate_gcp` | Fargate | BigQuery | BigQuery | Dataplex | GCP Secret Manager | lifecycle accepted; Phase 8 open |
 | `azure_gcp` | Azure Container Apps Jobs | BigQuery | BigQuery | Dataplex | GCP Secret Manager | identity/lifecycle accepted; Phase 8 open |

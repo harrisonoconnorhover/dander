@@ -1410,8 +1410,10 @@ the writer's owned staging-schema lifecycle. No replay or corrective rerun was a
 saved-plan cleanup removed all 19 Azure resources across the platform, network/PostgreSQL, and
 stage-zero states; the named Snowflake objects and active Azure inventories are empty, with one
 inactive purge-protected Key Vault tombstone. Provider cost has not posted. RC28 itself failed
-closed correctly and remains reusable, but Azure correctness and support stay open until
-DANDER-213 adds the focused setup/privilege preflight and a fresh protected objective is approved.
+closed correctly and remains reusable. PR #355 closed DANDER-213 as protected main `4815561` after
+exact-main run `31973943176` passed all five jobs; the canonical preflight now requires the exact
+runtime role's database-level staging-schema authority read-only. Azure correctness and support
+stay open until a fresh protected objective is approved with known budget headroom.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

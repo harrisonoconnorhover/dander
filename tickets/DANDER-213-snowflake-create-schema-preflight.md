@@ -1,7 +1,7 @@
 ---
 id: DANDER-213
 title: Verify Snowflake staging-schema authority before qualification
-status: open
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: [DANDER-212]
@@ -17,13 +17,13 @@ failed closed after reaching Snowflake.
 
 ## Acceptance Criteria
 
-- [ ] Qualification setup grants only the database-level schema-creation authority the writer
+- [x] Qualification setup grants only the database-level schema-creation authority the writer
   requires, scoped to the owned disposable database.
-- [ ] A read-only preflight proves the runtime role can perform the required staging-schema
+- [x] A read-only preflight proves the runtime role can perform the required staging-schema
   lifecycle before a candidate allowance is consumed.
-- [ ] Failure output identifies the missing privilege without exposing tokens, DSNs, or SQL rows.
-- [ ] Focused tests and documentation distinguish setup/preflight failure from candidate failure.
-- [ ] Protected review and exact-main CI pass before a replacement objective or provider mutation.
+- [x] Failure output identifies the missing privilege without exposing tokens, DSNs, or SQL rows.
+- [x] Focused tests and documentation distinguish setup/preflight failure from candidate failure.
+- [x] Protected review and exact-main CI pass before a replacement objective or provider mutation.
 
 ## Design
 
@@ -43,4 +43,10 @@ ownership supplies the matching cleanup authority.
 
 ## Review Log
 
-Pending.
+### 2026-08-16 — PASS
+
+PR #355 exact head `edda9dd` passed all five protected jobs in run `31973525550`; completion review
+found no material defect, comment, review, or unresolved thread. It merged as protected main
+`4815561`, whose exact-main run `31973943176` passed all five jobs. No Azure, Snowflake,
+PostgreSQL, Terraform, or candidate operation occurred. A fresh protected objective and known
+budget headroom remain mandatory before the qualification lane resumes.
