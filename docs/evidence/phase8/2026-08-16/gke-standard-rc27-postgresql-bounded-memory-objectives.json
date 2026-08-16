@@ -1,0 +1,74 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.50",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-gke-standard-rc27-bounded-memory"
+  },
+  "budget_allocation": {
+    "authorization_path": "docs/evidence/phase8/2026-08-15/rc27-authorization.json",
+    "activity": "retained_gcp_soak_and_final_audits",
+    "activity_ceiling_usd": "0.75",
+    "run_ceiling_usd": "0.50",
+    "remaining_activity_ceiling_usd": "0.25"
+  },
+  "deployment": {
+    "provider": "gcp",
+    "project": "dander-proof-harrison-20260801",
+    "zone": "us-central1-a",
+    "launcher": "gke_standard_zonal",
+    "release_channel": "regular",
+    "minimum_kubernetes_version": "1.32",
+    "resource_prefix": "dander-p8q-rc27-gke-bm",
+    "node_count": 1,
+    "node_machine_type": "e2-standard-4",
+    "node_provisioning_model": "standard",
+    "node_disk_type": "pd-standard",
+    "node_disk_size_gib": 30,
+    "max_cluster_lifetime_minutes": 60,
+    "max_infrastructure_attempts": 2,
+    "candidate_attempts": 1,
+    "billing_confirmation_required_before_pass": true,
+    "restore_preexisting_api_activation": true,
+    "remove_owned_iam_grants": true,
+    "delete_owned_cluster_network_namespace_secrets_tls_and_data": true,
+    "provider_managed_service_identities_are_provider_owned": true
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-benchmark-config/v1",
+    "rows": 2600000,
+    "payload_bytes": 1024,
+    "batch_rows": 1000,
+    "concurrent_pipelines": 4,
+    "concurrent_rows_per_pipeline": 5000,
+    "memory_limit_mib": 256
+  },
+  "runtime": {
+    "candidate_cpu_limit": 2,
+    "candidate_memory_limit_mib": 256,
+    "postgresql_version": "15.18",
+    "postgresql_cpu_limit": 2,
+    "postgresql_memory_limit_mib": 1024,
+    "tls_required": true,
+    "rootless": true,
+    "read_only_root_filesystem": true,
+    "active_deadline_seconds": 600,
+    "backoff_limit": 0,
+    "reporter_sidecar": true
+  },
+  "approved_objectives": {
+    "names": [
+      "bounded_input_ratio",
+      "cleanup",
+      "cost_ceiling",
+      "peak_rss",
+      "throughput_measurement"
+    ],
+    "benchmark_class": "bounded_memory",
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "configuration_sha256": "fbdfda0bfcd726eb83e2811304bb6a9146fe7506c4d13cba987404172a43d52c",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-gke-standard-rc27-bounded-memory"
+  }
+}

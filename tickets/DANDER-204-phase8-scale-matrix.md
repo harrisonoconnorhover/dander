@@ -101,4 +101,11 @@ scale report.
   larger samples, yielding an environment-specific 10-row/1,490-byte measurement without changing
   a product default. The run recorded 61,110 rows in 2.433 seconds, 25,117.139 rows/second,
   177,549,312 bytes peak RSS, zero retries/restarts/Warning events, no database residue, USD 0 local
-  cost, and exact cluster/tag cleanup. Protected evidence review remains.
+  cost, and exact cluster/tag cleanup. PR #345 merged the sanitized evidence as protected main
+  `366ce8a`; exact-main run `31951009601` passed all five jobs.
+- The next focused objective binds the same exact-RC27 2.6-million-row/2.7248-GB bounded-memory
+  workload to one disposable zonal GKE Standard cluster. It preserves the 256 MiB candidate limit,
+  unchanged 80% peak-RSS gate, 2 CPU, TLS PostgreSQL 15.18, 600-second deadline, zero candidate
+  retries, reporter collection, and exact owned-resource cleanup. Its USD 0.50 run ceiling is
+  inside the retained USD 0.75 GCP soak/final-audit allocation; provider billing must post before
+  cost can pass. Protected merge and exact-main CI precede any GCP mutation.

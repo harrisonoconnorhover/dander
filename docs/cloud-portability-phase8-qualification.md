@@ -491,8 +491,16 @@ does not transfer RC24's zero threshold and does not tune a product default. The
 61,110 rows in 2.433 seconds at 25,117.139 rows/second with 177,549,312 bytes peak RSS, zero retries
 or restarts, zero Warning events, no database residue, and non-estimated USD 0 local cost. The
 cluster, node container, in-cluster Secrets/TLS material, and temporary candidate tag were deleted.
-The sanitized report and one-attempt ledger now await protected review; hosted Kubernetes
-scale/cost and soak remain open.
+PR #345 merged the sanitized report and one-attempt ledger as protected main `366ce8a`; exact-main
+CI run `31951009601` passed all five jobs. Hosted Kubernetes scale/cost and soak remain open.
+
+The next focused objective is one bounded-memory final audit on a disposable one-node zonal GKE
+Standard cluster. `docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-objectives.json`
+binds exact RC27 to the protected 2.6-million-row/2.7248-GB workload, a 256 MiB candidate limit,
+the unchanged 80% peak-RSS gate, 2 CPU, TLS PostgreSQL 15.18, a 600-second deadline, zero candidate
+retries, reporter collection, and exact owned-resource cleanup. The run uses at most USD 0.50 of
+the existing USD 0.75 `retained_gcp_soak_and_final_audits` allocation; provider billing must post
+before the cost objective may pass. Protected merge and exact-main CI must precede GCP mutation.
 
 ## Current exit recommendation
 
@@ -505,8 +513,8 @@ the sanitized evidence as protected main `df018e6`; exact-main CI run `319412109
 jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes protected review of the RC27 Kubernetes crossover evidence;
-PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
+Remaining work includes the protected GKE objective and its hosted PostgreSQL scale/cost evidence;
+remaining benchmark classes/providers and Kubernetes soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and
 the frozen support matrix.
