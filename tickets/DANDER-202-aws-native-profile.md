@@ -138,4 +138,7 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
 - PR #325 merged that focused grant as protected main `7cea5a8`, and PR #326 merged private RC26 as
   protected main `f0fe54f`; both exact-main runs passed all five jobs. Source-free multi-platform
   index `sha256:e63aef4b…d28e` passed both-architecture, external AWS-overlay, attestation, and
-  rootless read-only checks. A fresh RC26-bound objective and complete live rerun remain open.
+  rootless read-only checks. PR #327 merged the publication record as protected main `6e9d65e`, and
+  exact-main run `31916736418` passed all five jobs. The fresh RC26-bound objective preserves one
+  manual run, one replay, the reviewed timeout, exact cleanup, and the USD 3 allocation; protected
+  review and the complete live rerun remain open.

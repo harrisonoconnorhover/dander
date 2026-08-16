@@ -134,6 +134,12 @@ manifests report RC26; GCP, Kubernetes, and externally projected AWS deployment 
 rootless read-only conformance passed on both architectures, and both platform attestations contain
 SPDX SBOM and SLSA provenance predicates. This is private candidate publication evidence, not a
 live-provider, cost, benchmark, public-release, or support pass. RC25 AWS results do not transfer.
+PR #327 merged the sanitized RC26 publication record as protected main `6e9d65e`; exact-main CI run
+`31916736418` passed all five jobs. The fresh AWS correctness gate is
+`docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json`: it binds one manual
+execution and one replay to exact RC26, `us-east-1`, paused scheduling, exact cleanup, the existing
+USD 3 allocation, and the reviewed 120-second Redshift connection timeout. No AWS mutation may
+precede this objective commit's protected review and exact-main CI.
 
 ## Pre-candidate release readiness
 
@@ -350,8 +356,9 @@ exact-main run `31915564765` passed all five jobs, and source-free multi-platfor
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
 affected evidence plus the eventual final-candidate closure matrix. The 120-second RC25 attempt
 allowed connection and temporary-table creation, but the manual task failed before COPY could
-record an operation, replay did not start, and cleanup is exact. A fresh RC26-bound objective must
-precede the complete AWS rerun. Remaining work includes applicable replacement-candidate evidence;
+record an operation, replay did not start, and cleanup is exact. The fresh RC26-bound objective is
+prepared for protected review; its merge and exact-main CI must precede the complete AWS rerun.
+Remaining work includes applicable replacement-candidate evidence;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and

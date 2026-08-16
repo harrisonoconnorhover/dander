@@ -41,7 +41,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   amd64/arm64 manifests, SPDX SBOM, and SLSA provenance. Both architectures reported RC26; GCP,
   Kubernetes, and externally projected AWS selectors plus rootless read-only conformance on both
   architectures passed. No RC25 result transfers, and publication is not a live-profile, cost,
-  public-release, or support pass. See
+  public-release, or support pass. PR #327 merged the sanitized record as protected main `6e9d65e`;
+  exact-main run `31916736418` passed all five jobs. See
   `docs/evidence/phase8/2026-08-15/rc26-candidate.json`.
 
 - Private Dander `0.9.0rc25` was built from protected-main commit
@@ -127,8 +128,11 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   the failure record as protected main `804496e`, and PR #325 merged the exact staging-role grant
   as protected main `7cea5a8`; exact-main CI run `31914830354` passed all five jobs. PR #326 merged
   private RC26 as protected main `f0fe54f`; exact-main run `31915564765` passed all five jobs, and
-  its source-free multi-platform index passed local inspection. A fresh RC26-bound exact objective
-  still precedes the AWS rerun. Every remaining benchmark/provider objective and any
+  its source-free multi-platform index passed local inspection. The fresh gate at
+  `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json` preserves one manual
+  run, one replay, the 120-second connection timeout, exact cleanup, and the existing USD 3
+  allocation. Protected review, merge, and exact-main CI still precede the AWS rerun. Every
+  remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See
   `docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`.
