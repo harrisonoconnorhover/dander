@@ -181,8 +181,13 @@ official default. PR #334 merged private `0.9.0rc27` as protected main `d7ac61f`
 projected AWS deployment selection plus rootless read-only conformance passed on both architectures,
 and both platform attestations contain SPDX SBOM and SLSA provenance predicates. This is private
 candidate publication evidence, not a live-provider, cost, benchmark, public-release, or support
-pass. RC26 AWS results do not transfer. No AWS objective may bind to RC27 until this sanitized
-publication record passes protected review and exact-main CI.
+pass. RC26 AWS results do not transfer. PR #335 merged the sanitized publication record as
+protected main `ea3e260`; exact-main CI run `31926577710` passed all five jobs. The fresh AWS
+correctness gate is
+`docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json`: it binds one manual
+execution and one success-conditional replay to exact RC27, `us-east-1`, paused scheduling, exact
+cleanup, the existing cumulative USD 3 allocation, and the reviewed 300-second Redshift connection
+timeout. No AWS mutation may precede this objective commit's protected review and exact-main CI.
 
 ## Pre-candidate release readiness
 
@@ -330,9 +335,9 @@ private candidate before the complete objective reruns. See
 Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
-no-drift baseline must be preserved. Private RC27 now satisfies the replacement-candidate
-publication gate, subject to this sanitized record reaching protected main. AWS requires a fresh
-RC27-bound objective manifest after that merge and exact-main CI, before mutation; every other
+no-drift baseline must be preserved. Private RC27 satisfies the protected replacement-candidate
+publication gate. Its fresh RC27-bound objective is prepared for protected review and exact-main CI;
+no AWS mutation may precede those checks. Every other
 provider still requires its own committed exact objective manifest and separate lane. None inherits
 a support claim. Sanitized details are in
 `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
@@ -396,13 +401,15 @@ Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and 
 PostgreSQL classes, RC22 protected audit, RC23 local preflight, RC24 corrected local crossover, and
 exact AWS cleanup evidence are complete. PR #334 merged private RC27 as protected main `d7ac61f`,
 exact-main run `31925228450` passed all five jobs, and source-free multi-platform candidate
-`sha256:bcf62d2c…4e09c` passed artifact, selector, attestation, and rootless read-only checks. Each benchmark, provider,
+`sha256:bcf62d2c…4e09c` passed artifact, selector, attestation, and rootless read-only checks. PR #335
+merged its publication record as protected main `ea3e260`; exact-main run `31926577710` passed all
+five jobs. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
 affected evidence plus the eventual final-candidate closure matrix. The RC26 300-second task
 authenticated to Redshift but stalled before its first user query; replay did not start and cleanup
 is exact. RC26 is not qualified and no result transfers. RC27 packages the focused startup
-correction and is privately published; the AWS lane still requires this publication record to reach
-protected main followed by a fresh protected RC27 objective before rerun.
+correction and is privately published. Its fresh exact objective is prepared for protected review;
+that objective's merge and exact-main CI must precede the complete rerun.
 Remaining work includes applicable replacement-candidate evidence;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and

@@ -41,7 +41,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   amd64/arm64 manifests, SPDX SBOM, and SLSA provenance. Both architectures reported RC27; GCP,
   Kubernetes, and externally projected AWS selectors plus rootless read-only conformance on both
   architectures passed. No RC26 result transfers, and publication is not a live-profile, cost,
-  public-release, or support pass. See
+  public-release, or support pass. PR #335 merged the sanitized record as protected main `ea3e260`;
+  exact-main run `31926577710` passed all five jobs. See
   `docs/evidence/phase8/2026-08-16/rc27-candidate.json`.
 
 - Private Dander `0.9.0rc26` was built from protected-main commit
@@ -170,8 +171,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   main `141fab6`; exact-main run `31924339366` passed all five jobs. PR #334 merged private RC27 as
   protected main `d7ac61f`; exact-main run `31925228450` passed all five jobs, and its source-free
   multi-platform index passed artifact, selector, attestation, and rootless read-only inspection.
-  The sanitized publication record and then a fresh protected candidate-bound objective must reach
-  protected main before AWS mutation; no RC26 result transfers.
+  PR #335 merged the sanitized publication record as protected main `ea3e260`; exact-main run
+  `31926577710` passed all five jobs. The fresh gate at
+  `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json` preserves one manual run,
+  one success-conditional replay, the 300-second connection timeout, paused scheduling, exact
+  cleanup, and the cumulative USD 3 allocation. Protected review, merge, and exact-main CI still
+  precede AWS mutation; no RC26 result transfers.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It

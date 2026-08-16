@@ -2,42 +2,41 @@
 
 ## Finished
 
-- Merged private RC27 preparation PR #334 as protected main `d7ac61f`; exact-main run
-  `31925228450` passed all five jobs.
-- Built and inspected exact `0.9.0rc27` wheel and source distribution from that commit.
-- Published private source-free GAR index `sha256:bcf62d2c…4e09c` with amd64/arm64 manifests,
-  SPDX SBOM, and SLSA provenance.
-- Passed both-architecture version and rootless read-only checks plus GCP/Kubernetes/external-AWS
-  deployment selection.
-- Preserved public RC20, retained workloads, DRUFF work, the USD 10 ceiling, and support status.
+- Merged RC27 candidate-evidence PR #335 as protected main `ea3e260`.
+- Confirmed exact-main CI run `31926577710` passed all five jobs.
+- Bound a fresh AWS correctness gate to exact RC27 index `sha256:bcf62d2c…4e09c`.
+- Preserved one manual run, one success-conditional replay, paused scheduling, exact cleanup, and
+  the existing USD 3 AWS allocation.
+- Kept public RC20, retained workloads, DRUFF work, and provider support status unchanged.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/rc27-candidate.json` to inspect the sanitized candidate record.
+Run `jq . docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json`.
 
 ## Checks
 
 - Exact-main Python, secret, Terraform, distribution, and container jobs passed.
-- Wheel/sdist inspection and source-free scaffold validation passed.
-- GAR returned the recorded immutable index, runnable platform digests, and attestation manifests.
-- Both platform attestations contain SPDX SBOM and SLSA provenance predicates.
-- One authorized private publication attempt completed without a pre-push failure.
+- The objective JSON parses and its canonical workload hash matches `configuration_sha256`.
+- Candidate version, commit, image digest, region, timeout, run counts, and cost ceiling match the
+  protected evidence and authorization.
+- HANDOFF structure and repository diff checks pass.
 
 ## Decisions
 
-- RC27 becomes the replacement candidate only after this evidence passes protected review.
-- No RC26 live result transfers; public RC20 and support status remain unchanged.
-- Provider charges remain pending and the aggregate authorization ceiling remains USD 10.
+- Require protected review and exact-main CI for this objective before any AWS mutation.
+- Rerun the complete correctness gate; no RC26 result transfers.
+- Keep the aggregate ceiling at USD 10 and the cumulative AWS allocation at USD 3.
 
 ## Remaining
 
-- Merge this focused candidate-evidence PR after protected CI and review.
-- Commit a fresh RC27-bound AWS objective before provider mutation.
-- Rerun AWS manual correctness, conditional replay, cost collection, and exact cleanup.
-- Complete remaining scale, pairwise, canonical-profile, audit, soak, documentation, and support gates.
+- Merge this focused objective PR after protected CI and review.
+- Promote exact RC27 byte-identically to private ECR.
+- Apply reviewed disposable AWS plans and prove one manual run plus one success-conditional replay.
+- Collect provider cost when available and remove every owned disposable resource exactly.
+- Continue remaining Phase 8 lanes separately without colliding with DRUFF.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/rc27-candidate.json`
+- `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json`
 - `docs/cloud-portability-phase8-qualification.md`
-- `tickets/DANDER-202-aws-native-profile.md`
+- `docs/aws-native-profile.md`
