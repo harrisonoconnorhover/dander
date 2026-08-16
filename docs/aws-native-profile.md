@@ -6,10 +6,12 @@ contain the required selected AWS deployment, and its historical Greenhouse obje
 Redshift-compatible. Private RC26 contains the reviewed runtime-overlay, flat-fixture,
 Glue-ownership, materialization, candidate-identity, Fargate ambient-identity, and exact Redshift
 staging-role grant corrections at source-free multi-platform index
-`sha256:e63aef4b29648864a119219fd973c2a417f5971205907f04997f9009e472d28e`. Use it only with the
-exact committed objective manifest under
-`docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json`. PR #328 merged that gate
-as protected main `156c496`; exact-main CI run `31917460254` passed all five jobs. This is not a
+`sha256:e63aef4b29648864a119219fd973c2a417f5971205907f04997f9009e472d28e`. The exact objective at
+`docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json` was consumed by one manual
+attempt: PostgreSQL setup completed, then Redshift connection validation expired at its 120-second
+bound before any warehouse operation. Replay did not start, and exact cleanup completed. Do not
+reuse that objective; a fresh committed replacement must reach protected main before another AWS
+mutation. RC26 remains private and current while the connection delay is isolated. This is not a
 public-release or support claim.
 
 ## Ownership and prerequisites

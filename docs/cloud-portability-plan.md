@@ -1286,9 +1286,14 @@ main `f0fe54f`; exact-main run `31915564765` passed all five jobs, and source-fr
 index `sha256:e63aef4b…d28e` passed artifact, selector, attestation, and rootless read-only checks.
 PR #327 merged the publication record as protected main `6e9d65e`; exact-main run `31916736418`
 passed all five jobs. The fresh exact RC26 objective preserves one manual run, one replay, the
-reviewed 120-second connection timeout, exact cleanup, and the existing USD 3 allocation. It must
-pass protected review and exact-main CI before the complete AWS rerun. No RC24 or RC25 result
-transfers.
+reviewed 120-second connection timeout, exact cleanup, and the existing USD 3 allocation. Its one
+manual task completed PostgreSQL state setup, then Redshift connection validation expired after
+121,066 ms with no provider operation or row. Replay did not start. The task and private workgroup
+shared the reviewed VPC, subnets, and security group; immediate post-failure Data API access worked,
+so the exact delay remains unproven. Saved-plan cleanup removed all 25 platform and 36 data-plane
+resources, and both states and direct active inventories are empty. RC26 remains current, but the
+consumed objective transfers no result; a fresh protected objective must precede another AWS run.
+No RC24 or RC25 result transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

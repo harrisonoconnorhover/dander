@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Merged the RC26 AWS objective in PR #328 as protected main `156c496`.
-- Confirmed exact-main CI run `31917460254` passed all five jobs.
-- Corrected the AWS operator runbook to exact RC26 index `sha256:e63aef4b…d28e` and its protected
-  objective manifest.
-- Kept the 120-second timeout scoped only to this qualification objective.
-- Left AWS resources untouched while the runbook correction awaits protected review.
+- Promoted exact private RC26 index `sha256:e63aef4b…d28e` byte-identically to private ECR.
+- Applied reviewed 36-resource data and 25-resource platform plans with clean post-apply drift.
+- Ran one manual task; PostgreSQL setup passed, but Redshift connect expired at 121,066 ms.
+- Skipped the success-conditional replay and recorded zero warehouse operations/rows.
+- Destroyed all active attempt resources and recorded the sanitized evidence.
 
 ## Try It
 
-Run `rg -n "RC26|aws-native-rc26" docs/aws-native-profile.md`.
+Run `jq '{execution, finding, cleanup, objectives}' docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-connect-attempt.json`.
 
 ## Checks
 
-- The runbook contains no RC25 candidate, digest, or objective references.
-- The RC26 digest and objective path match protected candidate and objective evidence.
-- HANDOFF structure and diff checks pass.
+- Exact image, paused schedule, 120-second Redshift timeout, and objective hash matched.
+- Data/platform post-apply plans each reported no changes.
+- Platform/data Terraform states and direct active AWS inventories are empty.
+- Cost Explorer currently reports no positive RDS/Redshift/Fargate charge; billing remains pending.
+- Evidence JSON parses; focused docs and repository diff checks pass.
 
 ## Decisions
 
-- Treat the stale operator instruction as a focused documentation defect before live qualification.
-- Require protected review and exact-main CI before using the corrected runbook.
-- Preserve public RC20, support status, the USD 10 aggregate ceiling, and USD 3 AWS allocation.
+- Do not spend the replay after manual failure or reuse the consumed objective.
+- Keep RC26 current because the evidence does not prove a candidate-code defect.
+- Use a fresh protected objective to isolate a longer Serverless connection window.
 
 ## Remaining
 
-- Merge this focused runbook PR after protected CI and review.
-- Start the live lane from a fresh protected-main worktree.
-- Promote the exact RC26 index byte-identically to private ECR.
-- Prove one AWS manual run plus one replay, collect cost when available, and clean up exactly.
-- Continue remaining Phase 8 lanes separately without colliding with DRUFF.
+- Merge this focused failed-attempt evidence through protected CI and review.
+- Commit a separate exact RC26 replacement objective before any AWS mutation.
+- Rerun one manual execution plus one success-conditional replay and exact cleanup.
+- Continue other Phase 8 lanes separately without colliding with DRUFF.
+- Recheck delayed provider cost before final Phase 8 closure.
 
 ## Review First
 
+- `docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-connect-attempt.json`
+- `docs/cloud-portability-phase8-qualification.md`
 - `docs/aws-native-profile.md`
-- `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json`
-- `HANDOFF.md`

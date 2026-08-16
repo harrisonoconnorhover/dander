@@ -140,5 +140,9 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   index `sha256:e63aef4b…d28e` passed both-architecture, external AWS-overlay, attestation, and
   rootless read-only checks. PR #327 merged the publication record as protected main `6e9d65e`, and
   exact-main run `31916736418` passed all five jobs. The fresh RC26-bound objective preserves one
-  manual run, one replay, the reviewed timeout, exact cleanup, and the USD 3 allocation; protected
-  review and the complete live rerun remain open.
+  manual run, one replay, the reviewed timeout, exact cleanup, and the USD 3 allocation. Its manual
+  task completed PostgreSQL setup but expired during Redshift connection validation after 121,066
+  ms; no provider operation or replay ran. Reviewed saved-plan cleanup removed all 25 platform and
+  36 data-plane resources, both states and direct active inventories are empty, and RC26 remains
+  current. The consumed objective transfers no result; another AWS run requires a fresh protected
+  objective that isolates the connection delay.
