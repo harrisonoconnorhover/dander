@@ -84,3 +84,9 @@ scale report.
   2.6-million-row/256 MiB configuration for the accepted coupled script but approves only four
   independent 5,000-row pipelines, stale-fence rejection, throughput, cleanup, and USD 0 cost.
   Protected merge and exact-main CI precede execution; no prior concurrency measurement transfers.
+- PR #342 merged the concurrency objective as protected main `7dc51f8`; exact-main run
+  `31946605370` passed all five jobs before execution. Exact RC27 completed all four 5,000-row
+  pipelines in 334.55 ms at 59,781.789 rows/second, rejected the stale fence, and passed TLS,
+  reporter, zero-retry/restart/warning, database cleanup, cluster/tag cleanup, and USD 0 checks. A
+  PostgreSQL storage preflight failed before the candidate Job existed and was isolated by
+  recreating the owned cluster. Protected evidence review remains; crossover stays separate.

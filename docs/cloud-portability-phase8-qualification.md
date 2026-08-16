@@ -457,6 +457,18 @@ its concurrency probe with that phase; it receives no additional qualification c
 merge and exact-main CI must precede execution, and neither the RC22 concurrency result nor the
 incidental measurement from the bounded-memory run transfers.
 
+PR #342 merged that objective as protected main `7dc51f8`; exact-main CI run `31946605370` passed
+all five jobs before cluster creation. Exact RC27 then completed all four independent 5,000-row
+pipelines in 334.55 ms at 59,781.789 rows/second and rejected the stale publication fence. The
+candidate, TLS preflight, and reporter exited zero without retries or restarts; PostgreSQL retained
+zero Dander schemas or staging relations; and the successful cluster reported zero Warning events
+and USD 0 local cost. A first harness-only PostgreSQL storage preflight failed before the candidate
+Job existed, so the non-root PGDATA initialization was corrected and the owned cluster was
+recreated before execution. The cluster, node container, in-cluster Secrets/TLS material, and
+temporary candidate tag were deleted. This closes the local concurrency class once its sanitized
+report and attempts ledger pass protected review; it does not add a second bounded-memory claim or
+close crossover, hosted scale/cost, soak, public release, or support.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
@@ -468,7 +480,8 @@ the sanitized evidence as protected main `df018e6`; exact-main CI run `319412109
 jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes protected RC27 Kubernetes concurrency and crossover objectives/runs;
+Remaining work includes protected review of the RC27 Kubernetes concurrency evidence and a fresh
+RC27 Kubernetes crossover objective/run;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and

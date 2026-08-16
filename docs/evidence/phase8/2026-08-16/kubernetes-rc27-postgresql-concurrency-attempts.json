@@ -1,0 +1,111 @@
+{
+  "schema": "io.dander.phase8.kubernetes-postgresql-concurrency-attempts/v1",
+  "qualification_date": "2026-08-16",
+  "protected_objective": {
+    "pull_request": 342,
+    "merge_commit": "7dc51f8c5515fc2fc2c0eef86dbef6c2576f2134",
+    "exact_main_ci_run": 31946605370,
+    "all_five_jobs_passed": true
+  },
+  "cluster": {
+    "name": "dander-phase8-rc27-concurrency",
+    "kubernetes_version": "1.32.2",
+    "architecture": "arm64",
+    "node_image": "kindest/node@sha256:142f543559cc55d64e1ab9341df08e5ced84bd2e893736da8f51320f26f5950b",
+    "namespace": "dander-phase8-rc27-concurrency",
+    "successful_generation_warning_events": 0,
+    "cleanup_verified": true
+  },
+  "candidate": {
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "index_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "arm64_manifest_digest": "sha256:669ab80e4fb4665d955972b71b08310b15e1227701aa49922138656618927fd1",
+    "arm64_config_digest": "sha256:ae749c1654530f8ac92c10602f0ffe4faa35a026297a1f32c8f99e2016c939ef",
+    "benchmark_script_sha256": "3fe54cd17d91db1e5f9ee0501c37c7ec23870a8ae34a92ffdf58f82a41a8dc2a",
+    "local_tag_binding_verified": true,
+    "temporary_local_tag_removed": true
+  },
+  "objective": {
+    "path": "docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-concurrency-objectives.json",
+    "sha256": "d3dd9f10d97b8892bfda6429cfbd9c7149c0f7394bb461c45691cffbe8b68824",
+    "configuration_sha256": "fbdfda0bfcd726eb83e2811304bb6a9146fe7506c4d13cba987404172a43d52c"
+  },
+  "job_contract": {
+    "active_deadline_seconds": 600,
+    "backoff_limit": 0,
+    "cpu_limit": "2",
+    "memory_limit": "256Mi",
+    "postgresql_version": "15.18",
+    "postgresql_image": "postgres@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f",
+    "postgresql_cpu_limit": "2",
+    "postgresql_memory_limit": "1Gi",
+    "tls_required": true,
+    "service_account_token_mounted": false,
+    "read_only_root_filesystem": true,
+    "allow_privilege_escalation": false,
+    "reporter_sidecar": true,
+    "job_manifest_sha256": "e4c7e345d9794380fbcbacc066da3c802be7571f2e7edf29cb0b3504b0fb96e0",
+    "postgresql_manifest_sha256": "62558a52e1978678d267133e7344c73329198c0538ec61142db823c8ac55f291"
+  },
+  "attempts": [
+    {
+      "name": "postgresql-storage-preflight-01",
+      "cluster_generation": 1,
+      "status": "harness_preflight_failed",
+      "candidate_benchmark_started": false,
+      "provider_pod_uid": "fe5a9a1c-5be4-412d-937b-b0ea9f1760cc",
+      "failure_stage": "postgresql_storage_initialization",
+      "observation": "The harness mounted PostgreSQL data at an EmptyDir root that the non-root image entrypoint could not chmod, so initdb stopped before the candidate Job existed.",
+      "resolution": "Initialize a user-owned PGDATA subdirectory in the non-root setup container and recreate the owned cluster before candidate execution.",
+      "cleanup_verified": true,
+      "incremental_cost_usd": "0.00"
+    },
+    {
+      "name": "postgresql-concurrency-rc27",
+      "cluster_generation": 2,
+      "status": "passed",
+      "candidate_benchmark_started": true,
+      "provider_job_ids": [
+        "cluster:dander-phase8-rc27-concurrency",
+        "job:postgresql-concurrency-rc27"
+      ],
+      "provider_job_uid": "388ae690-e4af-4c33-9fa0-01bfcbc3cb8e",
+      "provider_pod": "postgresql-concurrency-rc27-bqn96",
+      "provider_pod_uid": "2b11e1e5-86f4-499d-986f-909972791269",
+      "job_started_at": "2026-08-16T12:49:46Z",
+      "job_completed_at": "2026-08-16T12:51:58Z",
+      "tls_preflight_started_at": "2026-08-16T12:49:47Z",
+      "tls_preflight_finished_at": "2026-08-16T12:49:48Z",
+      "benchmark_container_started_at": "2026-08-16T12:49:48Z",
+      "benchmark_container_finished_at": "2026-08-16T12:51:54Z",
+      "tls_preflight_exit_code": 0,
+      "benchmark_exit_code": 0,
+      "reporter_exit_code": 0,
+      "container_restarts": 0,
+      "raw_report_sha256": "c2f00548a804484cd9729187bbcf6d958ca7a102d4d47dc531ce8465a72500bd",
+      "incremental_cost_usd": "0.00"
+    }
+  ],
+  "verification": {
+    "tls_connection": true,
+    "remaining_dander_schemas": 0,
+    "remaining_staging_relations": 0,
+    "namespace_warning_events": 0,
+    "candidate_index_bound_in_node": true,
+    "arm64_manifest_bound_to_observed_config": true,
+    "concurrent_pipelines": 4,
+    "concurrent_rows": 20000,
+    "concurrent_duration_ms": "334.55",
+    "concurrent_throughput_rows_per_second": "59781.789",
+    "stale_publication_rejected": true,
+    "cluster_absent_after_cleanup": true,
+    "node_container_absent_after_cleanup": true
+  },
+  "report": {
+    "path": "docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-concurrency.json",
+    "sha256": "30d184f28b995323bc0f5bb8de0798fd46e43393f04609c0175387da93ebecba"
+  },
+  "final_status": "passed",
+  "total_incremental_cost_usd": "0.00"
+}

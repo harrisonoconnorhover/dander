@@ -54,13 +54,19 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   rows/second with 176,115,712 bytes peak RSS. TLS, reporter collection, zero retries/restarts, zero
   Warning events, database cleanup, USD 0 cost, cluster cleanup, and temporary-tag cleanup passed.
   One harness-only runtime-path preflight was corrected against the immutable image before the
-  cluster was recreated; no RC22 result transferred. Kubernetes concurrency and crossover remain
-  the next focused launcher classes. PR #341 merged the sanitized bounded-memory evidence as
+  cluster was recreated; no RC22 result transferred. PR #341 merged the sanitized bounded-memory
+  evidence as
   protected main `f864a2b`; exact-main run `31945860151` passed all five jobs, after which its local
   TLS/operator package was deleted. The committed concurrency objective reuses the exact protected
   2.6-million-row/256 MiB configuration but approves only four independent 5,000-row pipelines,
-  stale-fence rejection, throughput, cleanup, and USD 0 cost. It requires protected merge and
-  exact-main CI before execution; prior incidental and RC22 measurements do not transfer.
+  stale-fence rejection, throughput, cleanup, and USD 0 cost. PR #342 merged it as protected main
+  `7dc51f8`; exact-main run `31946605370` passed all five jobs before execution. Exact RC27 then
+  completed 20,000 concurrent rows in 334.55 ms at 59,781.789 rows/second, rejected the stale
+  publication fence, and left no database residue. TLS, reporter collection, zero retries/restarts,
+  zero Warning events, USD 0 cost, cluster cleanup, and temporary-tag cleanup passed. One
+  harness-only PostgreSQL storage preflight stopped before the candidate Job existed; the corrected
+  run used a freshly recreated cluster. The sanitized concurrency evidence awaits protected review,
+  and crossover remains the next focused local Kubernetes class. No prior result transferred.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
