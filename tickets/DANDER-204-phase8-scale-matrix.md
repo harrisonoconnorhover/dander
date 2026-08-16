@@ -68,3 +68,9 @@ scale report.
   classes on named kind 1.32.2 arm64 with zero retries, exact identity/objective evidence,
   non-estimated USD 0 cost, zero Warning events, and exact cleanup. Remaining Kubernetes launcher
   classes, hosted scale/cost, and soak remain open, as do the other warehouse and launcher cells.
+- PR #339 merged the five resulting reports as protected main `b73fafc`; exact-main run
+  `31943674409` passed all five jobs. The next focused objective binds Kubernetes bounded memory to
+  exact RC27 and the accepted passing RC22 retry workload: 2.6 million rows, 2.7248 GB logical
+  input, a 256 MiB candidate limit, the 80% peak-RSS gate, 2 CPU, a 600-second deadline, zero
+  retries, reporter-sidecar collection, and USD 0 local cost. Protected merge and exact-main CI
+  must precede execution; the RC22 result does not transfer.

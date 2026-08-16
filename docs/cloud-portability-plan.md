@@ -1331,6 +1331,11 @@ containers, or temporary image tags. This closes the final-candidate named local
 five-class Kubernetes launcher-scale slice only; hosted Kubernetes scale/cost, remaining launcher
 classes, and soak remain open. See
 `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`.
+PR #339 merged the sanitized result as protected main `b73fafc`; exact-main run `31943674409`
+passed all five jobs. The next focused DANDER-204 objective binds exact RC27 Kubernetes bounded
+memory to the accepted 2.6-million-row/256 MiB PostgreSQL workload, 80% peak-RSS ceiling, 2 CPU,
+600-second deadline, zero retries, reporter-sidecar collection, and non-estimated USD 0 cost.
+Protected review and exact-main CI precede the disposable run; no RC22 result transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
