@@ -78,11 +78,22 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   this environment-specific measurement recommends 10 rows / 1,490 logical bytes without changing
   a product default. TLS, zero retries/restarts/Warning events, database cleanup, USD 0 local cost,
   cluster cleanup, and temporary-tag cleanup all passed. PR #345 merged the sanitized evidence as
-  protected main `366ce8a`; exact-main run `31951009601` passed all five jobs. The next objective
-  binds exact RC27 and the protected bounded-memory workload to one disposable zonal GKE Standard
-  cluster with a USD 0.50 ceiling inside the retained USD 0.75 GCP soak/final-audit allocation.
-  Provider billing must post before the cost objective passes, and protected merge plus exact-main
-  CI must precede any GCP mutation.
+  protected main `366ce8a`; exact-main run `31951009601` passed all five jobs. PR #346 merged the
+  GKE bounded-memory objective as protected main `b01bf8b`; exact-main run `31952323045` passed all
+  five jobs. Execution used later main `1256213` after exact-main run `31953203115` also passed all
+  five jobs, with the benchmark helper unchanged from exact RC27. One disposable zonal GKE Standard
+  1.35.6 cluster ran the single candidate attempt on one on-demand `e2-standard-4` amd64 node
+  against rootless TLS PostgreSQL 15.18. Exact RC27 processed 2.7248 GB in 356.685 seconds at
+  7,289.345 rows/second with 179,863,552 bytes peak RSS below the 80% ceiling. Both candidate and
+  reporter exited zero with no retry or restart; no Dander schema or staging relation remained. A
+  first infrastructure-only Job hit RC27's immutable `/usr/local/bin/python` path difference before
+  candidate code started and was corrected within the two-attempt ceiling. Cleanup removed every
+  owned cluster, compute, network, secret, TLS, service-account, and IAM resource and restored
+  Compute Engine and GKE APIs to their disabled prestate. Provider billing has not posted, so cost
+  and the normalized report remain `not_evaluated`. The raw report also preserves an unused
+  `catalog=postgresql` context that must be corrected explicitly only in a later derived final
+  report. See
+  `docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-attempts.json`.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
