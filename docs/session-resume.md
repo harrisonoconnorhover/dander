@@ -131,11 +131,17 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   its source-free multi-platform index passed local inspection. The fresh gate at
   `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json` preserves one manual
   run, one replay, the 120-second connection timeout, exact cleanup, and the existing USD 3
-  allocation. Protected review, merge, and exact-main CI still precede the AWS rerun. Every
+  allocation. That protected objective was consumed by one exact RC26 manual task. PostgreSQL setup
+  completed, then Redshift connection validation expired after 121,066 ms with no provider
+  operation or row; replay did not start. The reviewed network coordinates matched and an immediate
+  post-failure Data API read completed, but the exact connection delay is not yet proven. Exact
+  cleanup removed all 25 platform and 36 data-plane resources; both Terraform states and direct
+  active inventories are empty, and the attempt KMS key is pending deletion on 2026-09-14. RC26
+  remains current, but the consumed objective transfers no result and must not be reused. Every
   remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See
-  `docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`.
+  `docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-connect-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It

@@ -141,6 +141,16 @@ execution and one replay to exact RC26, `us-east-1`, paused scheduling, exact cl
 USD 3 allocation, and the reviewed 120-second Redshift connection timeout. No AWS mutation may
 precede this objective commit's protected review and exact-main CI.
 
+That protected objective was consumed by one exact RC26 manual task. The task ran the expected
+digest and completed PostgreSQL state setup, then Redshift connection validation expired at 121,066
+ms with zero provider operations or rows. The private workgroup was available and shared the task's
+VPC, subnets, and security group; an immediate Data API read completed after failure, so the record
+does not yet distinguish a cold wake-up from another connection-path delay. Replay did not start.
+Exact saved-plan cleanup removed all 25 platform and 36 data-plane resources; both states and direct
+active inventories are empty, and the attempt KMS key is pending deletion on 2026-09-14. RC26
+remains current, but the consumed objective transfers no result and must not be reused. See
+`docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-connect-attempt.json`.
+
 ## Pre-candidate release readiness
 
 Commit `2d020d15fc52` passed a local release-readiness audit on 2026-08-14: wheel and source archive
