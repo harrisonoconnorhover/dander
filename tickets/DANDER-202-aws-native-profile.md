@@ -163,5 +163,8 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   protected main `d7ac61f`; exact-main run `31925228450` passed all five jobs. Source-free
   multi-platform index `sha256:bcf62d2c…4e09c` passed both-architecture, external AWS-overlay,
   attestation, and rootless read-only checks under the unchanged aggregate authorization. Its
-  publication record, a fresh RC27-bound protected objective, and the complete AWS rerun remain
-  open; RC26 results do not transfer.
+  publication record merged in PR #335 as protected main `ea3e260`; exact-main run `31926577710`
+  passed all five jobs. The fresh RC27-bound objective preserves one manual run, one
+  success-conditional replay, the reviewed 300-second timeout, paused scheduling, exact cleanup,
+  and the cumulative USD 3 allocation. Protected review and the complete live rerun remain open;
+  RC26 results do not transfer.

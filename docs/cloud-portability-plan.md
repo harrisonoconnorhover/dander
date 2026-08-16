@@ -1309,8 +1309,11 @@ PR #333 merged the scoped Serverless base-protocol correction as protected main 
 exact-main run `31924339366` passed all five jobs. PR #334 merged private RC27 as protected main
 `d7ac61f`; exact-main run `31925228450` passed all five jobs, and source-free multi-platform index
 `sha256:bcf62d2c…4e09c` passed artifact, selector, attestation, and rootless read-only checks under the
-unchanged USD 10 ceiling. The sanitized publication record must reach protected main before a fresh
-RC27-bound objective is committed; that objective remains mandatory before AWS mutation.
+unchanged USD 10 ceiling. PR #335 merged the sanitized publication record as protected main
+`ea3e260`; exact-main run `31926577710` passed all five jobs. The fresh RC27-bound objective preserves
+one manual run, one success-conditional replay, the reviewed 300-second connection timeout, paused
+scheduling, exact cleanup, and the cumulative USD 3 allocation. It must pass protected review and
+exact-main CI before AWS mutation.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

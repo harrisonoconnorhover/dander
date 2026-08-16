@@ -3,19 +3,22 @@
 This runbook covers the named Fargate + Redshift + PostgreSQL state + Glue + AWS Secrets Manager
 composition. It is an experimental Phase 8 target, not a supported deployment. Exact RC22 does not
 contain the required selected AWS deployment, and its historical Greenhouse objective is not
-Redshift-compatible. Private RC26 contains the reviewed runtime-overlay, flat-fixture,
-Glue-ownership, materialization, candidate-identity, Fargate ambient-identity, and exact Redshift
-staging-role grant corrections at source-free multi-platform index
-`sha256:e63aef4b29648864a119219fd973c2a417f5971205907f04997f9009e472d28e`. The exact objective at
+Redshift-compatible. Private RC27 contains the reviewed runtime-overlay, flat-fixture,
+Glue-ownership, materialization, candidate-identity, Fargate ambient-identity, exact Redshift
+staging-role grant, and Serverless base-protocol corrections at source-free multi-platform index
+`sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c`. The exact objective at
 `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json` was consumed by one manual
 attempt: PostgreSQL setup completed, then Redshift connection validation expired at its 120-second
 bound before any warehouse operation. Replay did not start, and exact cleanup completed. Do not
 reuse that objective. The replacement at
 `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json` isolates the connection
 window at 300 seconds while preserving exact RC26, the 600-second runtime deadline, the run counts,
-and the existing cumulative USD 3 allocation. It must reach protected main before another AWS
-mutation. RC26 remains private and current while the connection delay is isolated. This is not a
-public-release or support claim.
+and the existing cumulative USD 3 allocation. Its manual task authenticated but stalled during
+driver startup, so it is also consumed and no result transfers. The fresh objective at
+`docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json` preserves the bounded
+workload while binding exact RC27 and a unique resource namespace. It must reach protected main
+before another AWS mutation. RC27 remains private and unqualified. This is not a public-release or
+support claim.
 
 ## Ownership and prerequisites
 
@@ -125,7 +128,7 @@ deployments:
           DANDER_POSTGRES_DSN: aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:secret:dander/postgres-dsn-AbCdEf
 ```
 
-The 300-second connection timeout is bound only to the RC26 replacement qualification objective and
+The 300-second connection timeout is bound only to the RC27 qualification objective and
 remains below the 600-second whole-runtime deadline. It is the largest accepted provider setting and
 does not change the provider's 30-second default.
 
