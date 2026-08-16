@@ -74,3 +74,8 @@ scale report.
   input, a 256 MiB candidate limit, the 80% peak-RSS gate, 2 CPU, a 600-second deadline, zero
   retries, reporter-sidecar collection, and USD 0 local cost. Protected merge and exact-main CI
   must precede execution; the RC22 result does not transfer.
+- PR #340 merged that objective as protected main `72a422e`; exact-main run `31944524241` passed all
+  five jobs before execution. Exact RC27 passed with 176,115,712 bytes peak RSS, 20,127 rows/second,
+  zero retries/restarts, zero Warning events, no database residue, USD 0 local cost, and exact
+  cluster/tag cleanup. A runtime-path harness preflight failed before benchmark code and was
+  isolated by recreating the owned cluster. Kubernetes concurrency and crossover remain open.

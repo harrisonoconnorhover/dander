@@ -2,42 +2,44 @@
 
 ## Finished
 
-- Merged Kubernetes evidence PR #339 as protected main `b73fafc`; exact-main run `31943674409`
-  passed all five jobs.
-- Deleted the completed run's local operator package and TLS private key, then retired its clean
-  worktree and branch.
-- Bound the next dependency-ordered Kubernetes bounded-memory class to exact RC27.
-- Preserved the accepted 2.6-million-row/256 MiB workload, 80% peak-RSS gate, 2 CPU, 600-second
-  deadline, zero retries, reporter-sidecar collection, and USD 0 ceiling.
-- Kept retained GCP, cloud providers, DRUFF, public RC20, and support status unchanged.
+- Merged bounded-memory objective PR #340 as protected main `72a422e`; exact-main run
+  `31944524241` passed all five jobs before execution.
+- Exact private RC27 passed the protected Kubernetes bounded-memory objective on kind 1.32.2 arm64
+  against TLS PostgreSQL 15.18.
+- Processed 2.7248 GB in 129.180 seconds at 20,127 rows/second with 176,115,712 bytes peak RSS under
+  the externally enforced 256 MiB limit.
+- Verified zero retries, restarts, Warning events, Dander schemas, staging relations, and USD cost.
+- Deleted the disposable cluster, node container, in-cluster credentials/TLS, and temporary tag.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-bounded-memory-objectives.json`.
+Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-bounded-memory.json`.
 
 ## Checks
 
-- Evidence exact-main Python, secret, Terraform, distribution, and container jobs passed.
-- The new objective parses and matches the accepted workload hash, exact candidate, profile,
-  objective set, and zero-cost ceiling.
-- Qualification contract tests, repository diff, and handoff checks pass.
+- Objective PR and exact-main Python, secret, Terraform, distribution, and container jobs passed.
+- The normalized report passed the fail-closed qualification contract during generation.
+- Qualification and PostgreSQL benchmark tests passed: 14 passed, one DSN-dependent integration
+  skipped.
+- TLS preflight, reporter collection, database residue checks, Warning-event checks, and exact
+  cluster/tag cleanup passed.
 
 ## Decisions
 
-- Run bounded memory as its own reviewable DANDER-204 objective.
-- Reuse the accepted passing workload and thresholds without tuning before measurement.
-- Require protected merge and exact-main CI before creating its disposable cluster.
+- Recorded the initial packaged-Python-path miss as a harness-only preflight, not a candidate result.
+- Recreated the owned cluster after correcting the immutable-image runtime path.
+- Kept incidental concurrency measurements out of the bounded-memory qualification claim.
 
 ## Remaining
 
-- Merge this objective PR after protected CI and review, then verify exact-main CI.
-- Run exact RC27 bounded memory in a disposable kind cluster and retain sanitized evidence.
-- Give Kubernetes concurrency and crossover their own focused objective branches.
-- Complete hosted Kubernetes scale/cost, remaining benchmark/provider cells, and soak.
-- Continue remaining Phase 8 lanes without colliding with DRUFF.
+- Protect this sanitized evidence through its focused PR, review, merge, and exact-main CI.
+- Give Kubernetes concurrency and crossover separate objective branches and evidence PRs.
+- Complete hosted Kubernetes scale/cost and soak.
+- Complete remaining provider/warehouse scale, cost, pairwise, and live-proof cells.
+- Freeze support only after the final-candidate closure matrix and soak pass.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-bounded-memory-objectives.json`
+- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-bounded-memory.json`
+- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-bounded-memory-attempts.json`
 - `docs/cloud-portability-phase8-qualification.md`
-- `tickets/DANDER-204-phase8-scale-matrix.md`

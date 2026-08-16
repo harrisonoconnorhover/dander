@@ -1,0 +1,108 @@
+{
+  "schema": "io.dander.phase8.kubernetes-postgresql-bounded-memory-attempts/v1",
+  "qualification_date": "2026-08-16",
+  "protected_objective": {
+    "pull_request": 340,
+    "merge_commit": "72a422e83fdc1415b4ec666d0c4dcdd4a01647d8",
+    "exact_main_ci_run": 31944524241,
+    "all_five_jobs_passed": true
+  },
+  "cluster": {
+    "name": "dander-phase8-rc27-bounded-memory",
+    "kubernetes_version": "1.32.2",
+    "architecture": "arm64",
+    "node_image": "kindest/node@sha256:142f543559cc55d64e1ab9341df08e5ced84bd2e893736da8f51320f26f5950b",
+    "namespace": "dander-phase8-rc27-bounded-memory",
+    "successful_generation_warning_events": 0,
+    "cleanup_verified": true
+  },
+  "candidate": {
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "index_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "arm64_manifest_digest": "sha256:669ab80e4fb4665d955972b71b08310b15e1227701aa49922138656618927fd1",
+    "arm64_config_digest": "sha256:ae749c1654530f8ac92c10602f0ffe4faa35a026297a1f32c8f99e2016c939ef",
+    "benchmark_script_sha256": "3fe54cd17d91db1e5f9ee0501c37c7ec23870a8ae34a92ffdf58f82a41a8dc2a",
+    "local_tag_binding_verified": true,
+    "temporary_local_tag_removed": true
+  },
+  "objective": {
+    "path": "docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-bounded-memory-objectives.json",
+    "sha256": "a3a161d3ba407716aa8e270a80204993a448525620e114955cce824a10325b07",
+    "configuration_sha256": "fbdfda0bfcd726eb83e2811304bb6a9146fe7506c4d13cba987404172a43d52c"
+  },
+  "job_contract": {
+    "active_deadline_seconds": 600,
+    "backoff_limit": 0,
+    "cpu_limit": "2",
+    "memory_limit": "256Mi",
+    "postgresql_version": "15.18",
+    "postgresql_image": "postgres@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f",
+    "postgresql_cpu_limit": "2",
+    "postgresql_memory_limit": "1Gi",
+    "tls_required": true,
+    "service_account_token_mounted": false,
+    "read_only_root_filesystem": true,
+    "allow_privilege_escalation": false,
+    "reporter_sidecar": true,
+    "job_manifest_sha256": "be0e95b0c391dcbf898c8628b8f223f5f3da6f89cba7d9a42cff61a5247dc2d5",
+    "postgresql_manifest_sha256": "ace460164c186e9c1ce3fe245f8971cd8e59bda1d82b60b820a359dad66997f4"
+  },
+  "attempts": [
+    {
+      "name": "runtime-path-preflight-01",
+      "cluster_generation": 1,
+      "status": "harness_preflight_failed",
+      "candidate_benchmark_started": false,
+      "provider_job_uid": "886a1d1b-5c92-43fd-80ef-67731a940c8b",
+      "provider_pod": "postgresql-bounded-memory-rc27-gsg4t",
+      "failure_stage": "candidate_runtime_path",
+      "observation": "The immutable RC27 runtime overlay exposes Python at /usr/local/bin/python rather than the current-source Dockerfile path /app/.venv/bin/python.",
+      "resolution": "Inspect the immutable image, bind the Job to /usr/local/bin/python, and recreate the owned cluster before benchmark execution.",
+      "cleanup_verified": true,
+      "incremental_cost_usd": "0.00"
+    },
+    {
+      "name": "postgresql-bounded-memory-rc27",
+      "cluster_generation": 2,
+      "status": "passed",
+      "candidate_benchmark_started": true,
+      "provider_job_ids": [
+        "cluster:dander-phase8-rc27-bounded-memory",
+        "job:postgresql-bounded-memory-rc27"
+      ],
+      "provider_job_uid": "149a9433-a180-4391-9745-80dd417f477b",
+      "provider_pod_uid": "69523645-dd99-4973-8e4d-f53ff7c87856",
+      "job_started_at": "2026-08-16T11:44:29Z",
+      "job_completed_at": "2026-08-16T11:46:45Z",
+      "benchmark_container_started_at": "2026-08-16T11:44:29Z",
+      "benchmark_container_finished_at": "2026-08-16T11:46:42Z",
+      "benchmark_exit_code": 0,
+      "reporter_exit_code": 0,
+      "container_restarts": 0,
+      "raw_report_sha256": "80d8ee1b9bfdea3f1ebc1dcfd0e34da2686188cd68b7a69f129c816d4c7df77f",
+      "incremental_cost_usd": "0.00"
+    }
+  ],
+  "verification": {
+    "tls_connection": true,
+    "remaining_dander_schemas": 0,
+    "remaining_staging_relations": 0,
+    "namespace_warning_events": 0,
+    "candidate_index_bound_in_node": true,
+    "arm64_manifest_bound_to_observed_config": true,
+    "memory_limit_bytes": 268435456,
+    "peak_rss_bytes": 176115712,
+    "peak_rss_limit_bytes": "214748364.8",
+    "logical_input_bytes": 2724800000,
+    "minimum_logical_input_bytes": 2684354560,
+    "cluster_absent_after_cleanup": true,
+    "node_container_absent_after_cleanup": true
+  },
+  "report": {
+    "path": "docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-bounded-memory.json",
+    "sha256": "0970eb427f6d22853b85dcb803fd3c558a74f39b570e1251a4afafe0e66d0aba"
+  },
+  "final_status": "passed",
+  "total_incremental_cost_usd": "0.00"
+}

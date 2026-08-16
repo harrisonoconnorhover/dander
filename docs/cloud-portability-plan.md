@@ -1335,7 +1335,14 @@ PR #339 merged the sanitized result as protected main `b73fafc`; exact-main run 
 passed all five jobs. The next focused DANDER-204 objective binds exact RC27 Kubernetes bounded
 memory to the accepted 2.6-million-row/256 MiB PostgreSQL workload, 80% peak-RSS ceiling, 2 CPU,
 600-second deadline, zero retries, reporter-sidecar collection, and non-estimated USD 0 cost.
-Protected review and exact-main CI precede the disposable run; no RC22 result transfers.
+PR #340 merged that objective as protected main `72a422e`; exact-main run `31944524241` passed all
+five jobs before cluster creation. The exact RC27 Job then processed 2.7248 GB logical input in
+129.180 seconds at 20,127 rows/second with 176,115,712 bytes peak RSS under the reviewed 256 MiB
+limit. TLS, the reporter, zero retries/restarts, zero Warning events, database cleanup, USD 0 local
+cost, cluster cleanup, and temporary-tag cleanup all passed. One runtime-path preflight failed
+before benchmark execution, was corrected against the immutable image, and was isolated by
+recreating the owned cluster. No RC22 result transferred. Kubernetes concurrency and crossover are
+the next focused launcher classes.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
