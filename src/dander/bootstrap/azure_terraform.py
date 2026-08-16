@@ -133,6 +133,13 @@ class AzureTerraformBootstrap:
             raise AzureTerraformBootstrapError(
                 "Azure planning requires launcher.provider='azure_container_apps'"
             )
+        self._validate_platform_profile(
+            warehouse_config=warehouse_config,
+            state_config=state_config,
+            catalog_config=catalog_config,
+            secret_config=secret_config,
+            gcp_project=gcp_project,
+        )
         location = self._required(raw_launcher, "region", _LOCATION)
         resource_group_name = self._required(raw_launcher, "resource_group_name", _RESOURCE_NAME)
         environment_name = self._required(
@@ -266,6 +273,32 @@ class AzureTerraformBootstrap:
         if apply:
             self._run("terraform", "apply", "-input=false", self._plan_path.name)
         return self._plan_path
+
+    @staticmethod
+    def _validate_platform_profile(
+        *,
+        warehouse_config: Mapping[str, object],
+        state_config: Mapping[str, object],
+        catalog_config: Mapping[str, object],
+        secret_config: Mapping[str, object],
+        gcp_project: str | None,
+    ) -> None:
+        providers = (
+            warehouse_config.get("provider"),
+            state_config.get("provider"),
+            catalog_config.get("provider"),
+            secret_config.get("provider"),
+        )
+        expected = (
+            ("bigquery", "bigquery", "dataplex", "gcp_secret_manager")
+            if gcp_project is not None
+            else ("snowflake", "postgresql", "none", "azure_key_vault")
+        )
+        if providers != expected:
+            profile_name = "Azure/GCP federation" if gcp_project is not None else "Azure canonical"
+            raise AzureTerraformBootstrapError(
+                f"{profile_name} planning requires its named provider composition"
+            )
 
     @staticmethod
     def _runtime_platforms_config(

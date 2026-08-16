@@ -312,6 +312,7 @@ def test_azure_bootstrap_projects_gcp_federation_without_credentials(
         ({"alert_target": "not-an-id"}, "alert target"),
         ({"key_vault_allowed_ip_rule": "0.0.0.0/0"}, "Key Vault allowed IP"),
         ({"infrastructure_subnet_id": None}, "infrastructure subnet"),
+        ({"warehouse_config": {"provider": "bigquery"}}, "provider composition"),
     ],
 )
 def test_azure_bootstrap_rejects_unsafe_inputs_before_terraform(

@@ -36,5 +36,7 @@ normal non-secret environment value. Secret values remain in Key Vault bindings.
 
 - No Azure API or Terraform operation is part of this correction.
 - The overlay is parsed and normalized by `DanderPlatforms` before Terraform can receive it.
+- Direct bootstrap callers must select either the named Azure canonical composition or the named
+  Azure/GCP federation composition before Terraform can run.
 - Existing image-baked Azure/GCP federation behavior remains compatible; planned deployments now
   receive their exact external platform selection as well.

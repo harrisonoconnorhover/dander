@@ -13,8 +13,8 @@ Run the focused Azure tests listed in `Checks`.
 
 ## Checks
 
-- `uv run pytest tests/providers/test_azure_container_apps_runtime.py tests/bootstrap/test_azure_terraform.py tests/cli/test_init_cli.py -q` passed: 39 tests.
-- Full pytest passed: 1,743 passed and 34 skipped.
+- `uv run pytest tests/providers/test_azure_container_apps_runtime.py tests/bootstrap/test_azure_terraform.py tests/cli/test_init_cli.py -q` passed: 40 tests.
+- Full pytest passed: 1,744 passed and 34 skipped.
 - Ruff lint/format passed on 451 files; canonical strict mypy passed on 419 files.
 - Wheel/sdist validation, Control-contract drift, and diff whitespace validation passed.
 
