@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Merged RC26's authenticated-but-stalled Redshift startup evidence as PR #332.
-- Confirmed protected exact-main CI run `31923526315` passed all five jobs.
-- Made Redshift Serverless request the driver's base text startup protocol.
-- Kept provisioned Redshift on the official driver's default protocol.
-- Added a focused connector-argument regression test and durable decision record.
+- Merged the focused Redshift Serverless startup correction in PR #333 as protected main `141fab6`.
+- Confirmed exact-main CI run `31924339366` passed all five jobs.
+- Prepared private `0.9.0rc27` metadata as exact commit `30abed9` from that protected main.
+- Opened draft PR #334 and bound private publication to its exact preparation commit.
+- Kept the aggregate Phase 8 ceiling at USD 10 by sharing the existing publication allocation.
 
 ## Try It
 
-Run `uv run pytest -q tests/providers/test_redshift_warehouse_runtime.py`.
+Run `uv run pytest -q tests/test_release_metadata.py && uv run python scripts/check_release_metadata.py`.
 
 ## Checks
 
-- The complete Redshift runtime suite passes: 56 tests.
-- Focused Ruff lint and format checks pass.
-- Focused strict typing passes for the changed runtime and test files.
-- PR #332 and exact-main run `31923526315` passed protected CI.
+- Four release-metadata tests, lock/metadata validation, Ruff, and diff checks pass.
+- RC27 wheel and source distribution passed package inspection.
+- Both artifacts installed outside the checkout, generated valid projects, and passed validation.
+- The full runtime dependency import and generated-project Terraform validation pass.
 
 ## Decisions
 
-- Request `client_protocol_version=0` only for Redshift Serverless.
-- Treat this as a candidate correction, not live qualification evidence.
-- Require a replacement immutable candidate and fresh protected AWS objective.
+- Publish RC27 privately only after PR #334 and its exact-main CI pass.
+- Share the existing USD 0.25 RC25/RC26/RC27 publication allocation; do not raise the ceiling.
+- Keep public RC20, support status, retained jobs, and all prior-candidate results unchanged.
 
 ## Remaining
 
-- Merge this focused startup correction through protected CI and review.
-- Publish and verify the replacement candidate in a fresh branch.
-- Create a fresh protected AWS objective bound to that candidate.
-- Rerun the full AWS qualification objective without transferring RC26 results.
+- Complete protected CI/review and merge PR #334.
+- Build, inspect, and privately publish one source-free amd64/arm64 RC27 index in a fresh lane.
+- Commit a fresh protected AWS objective bound to the published RC27 digest.
+- Rerun the complete AWS objective without transferring RC26 results.
 - Continue other Phase 8 lanes separately without colliding with DRUFF.
 
 ## Review First
 
-- `src/dander/providers/redshift/runtime.py`
-- `tests/providers/test_redshift_warehouse_runtime.py`
-- `docs/decisions.md`
+- `docs/evidence/phase8/2026-08-15/rc27-authorization.json`
+- `CHANGELOG.md`
+- `docs/cloud-portability-phase8-qualification.md`
