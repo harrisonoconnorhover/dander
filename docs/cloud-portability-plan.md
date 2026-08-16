@@ -1284,7 +1284,11 @@ protected main `804496e`; PR #325 merged the exact staging-role grant as protect
 Its exact-main CI run `31914830354` passed all five jobs. PR #326 merged private RC26 as protected
 main `f0fe54f`; exact-main run `31915564765` passed all five jobs, and source-free multi-platform
 index `sha256:e63aef4b…d28e` passed artifact, selector, attestation, and rootless read-only checks.
-A fresh exact RC26 objective must precede the complete AWS rerun. No RC24 or RC25 result transfers.
+PR #327 merged the publication record as protected main `6e9d65e`; exact-main run `31916736418`
+passed all five jobs. The fresh exact RC26 objective preserves one manual run, one replay, the
+reviewed 120-second connection timeout, exact cleanup, and the existing USD 3 allocation. It must
+pass protected review and exact-main CI before the complete AWS rerun. No RC24 or RC25 result
+transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
