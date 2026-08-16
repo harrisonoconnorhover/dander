@@ -1,7 +1,7 @@
 ---
 id: DANDER-208
 title: Add a stable qualification entrypoint
-status: in-review
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: [DANDER-200]
@@ -24,7 +24,7 @@ qualification Jobs need one image-owned command that does not expose installatio
 - [x] Phase 8 guidance requires the stable command for future manifests without invalidating or
   rerunning accepted RC27 evidence.
 - [x] Focused tests, Ruff, canonical strict typing, and the local container contract pass.
-- [ ] Protected CI and PR review pass before merge.
+- [x] Protected CI and PR review pass before merge.
 
 ## Design
 
@@ -40,7 +40,14 @@ objectives, provider logic, and script contents outside the command.
   non-root entrypoint under a read-only filesystem, without any interpreter path.
 - Local verification passed 1,742 tests, Ruff on 451 files, canonical strict typing on 419 files,
   Control-contract drift, the installed command probe, and the built-image smoke.
+- PR #349 head `bd44095` passed all five protected jobs in run `31957072595`, including the new
+  immutable-image qualification probe; the ready-for-review PR had no comments or review threads.
 
 ## Review Log
 
-_Protected CI and PR review are the completion gate._
+### 2026-08-16 — PASS
+
+The focused completion review found no material defect or unnecessary scope. The command preserves
+the harness argument vector (including `--help`), uses process replacement for native signals and
+exit status, and adds no provider authority. Protected CI, package installation, container scanning,
+and the rootless read-only image probe all passed.

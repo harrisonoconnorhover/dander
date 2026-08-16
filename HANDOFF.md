@@ -17,6 +17,7 @@ Run `uv run dander qualification-run tests/fixtures/qualification_runner_probe.p
 - Ruff lint/format passed on 451 files; canonical strict mypy passed on 419 files.
 - Control-contract drift, installed-command execution, image build, uid 65532, and read-only image
   execution passed.
+- PR #349 protected run `31957072595` passed all five jobs with no review comments or threads.
 
 ## Decisions
 
