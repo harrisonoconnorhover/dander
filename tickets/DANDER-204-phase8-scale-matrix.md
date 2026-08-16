@@ -95,3 +95,10 @@ scale report.
   RC27 and the corrected RC24 1/10/100/1,000/5,000-row COPY/DIRECT workload, but transfers no RC24
   result or threshold. It preserves five repetitions, SCD1 equality, the 1 MiB direct ceiling,
   exact cleanup, a 2 CPU/512 MiB rootless Job, TLS PostgreSQL 15.18, and USD 0 local cost.
+- PR #344 merged that objective as protected main `4166afb`; exact-main run `31949803615` passed all
+  five jobs before execution. Exact RC27 passed all seven objectives in one disposable kind 1.32.2
+  arm64 Job. COPY and DIRECT remained canonically equal; DIRECT tied through 10 rows and lost at
+  larger samples, yielding an environment-specific 10-row/1,490-byte measurement without changing
+  a product default. The run recorded 61,110 rows in 2.433 seconds, 25,117.139 rows/second,
+  177,549,312 bytes peak RSS, zero retries/restarts/Warning events, no database residue, USD 0 local
+  cost, and exact cluster/tag cleanup. Protected evidence review remains.

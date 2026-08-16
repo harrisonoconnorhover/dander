@@ -2,40 +2,39 @@
 
 ## Finished
 
-- Merged concurrency evidence PR #343 as protected main `bd7489d`; exact-main run
-  `31948875002` passed all five jobs.
-- Moved the protected concurrency run's isolated TLS/operator package to Trash.
-- Bound the next Kubernetes crossover class to exact private RC27 and `kubernetes_portable`.
-- Preserved the corrected 1/10/100/1,000/5,000-row COPY/DIRECT workload, five repetitions,
-  canonical equality, measured threshold, exact cleanup, and USD 0 ceiling.
-- Kept hosted scale/cost, remaining provider cells, soak, public RC20, support, and DRUFF unchanged.
+- Merged crossover objective PR #344 as protected main `4166afb`; exact-main run `31949803615`
+  passed all five jobs before execution.
+- Ran exact private RC27 once in a disposable kind 1.32.2 arm64 Job against TLS PostgreSQL 15.18.
+- Passed all seven approved crossover objectives with canonical COPY/DIRECT equality and USD 0 cost.
+- Recorded a Kubernetes-specific measured DIRECT recommendation of 10 rows / 1,490 logical bytes.
+- Removed the cluster, node container, in-cluster secrets/TLS material, and temporary image tag.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover-objectives.json`.
+Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover.json`.
 
 ## Checks
 
-- Concurrency evidence exact-main Python, secret, Terraform, distribution, and container jobs passed.
-- The crossover objective matches the deterministic corrected workload and exact RC27 identity.
-- Repository diff, JSON, and handoff structure checks pass.
+- Raw report semantics reproduce SHA-256 `afcc8178…63d` exactly.
+- The Job processed 61,110 rows in 2.433 seconds at 25,117.139 rows/second.
+- TLS, zero retries/restarts/warnings, database cleanup, and exact cluster/tag cleanup passed.
 
 ## Decisions
 
-- Measure both COPY and DIRECT without preselecting a nonzero threshold.
-- Accept zero as the measured threshold when DIRECT has no contiguous winning prefix.
-- Transfer no RC24 result; require a fresh exact-RC27 Job after protected objective CI.
+- Treat 10 rows / 1,490 bytes as an environment-specific measurement, not a product default.
+- Transfer neither RC24's result nor its zero threshold.
+- Preserve hosted scale/cost and soak as separate fresh protected-main lanes.
 
 ## Remaining
 
-- Merge this crossover objective after protected CI and review, then verify exact-main CI.
-- Run exact RC27 crossover in a disposable kind cluster and retain sanitized evidence.
+- Merge this sanitized evidence after protected CI and review, then verify exact-main CI.
+- Move the isolated crossover operator TLS package to Trash after the evidence is protected.
 - Complete hosted Kubernetes scale/cost, remaining provider cells, and soak.
 - Run the eventual final-candidate closure matrix.
 - Freeze support only after the final-candidate closure matrix passes.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover-objectives.json`
+- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover.json`
+- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover-attempts.json`
 - `docs/cloud-portability-phase8-qualification.md`
-- `scripts/benchmarks/postgresql_crossover_phase8.py`

@@ -482,6 +482,18 @@ local cost. The disposable kind 1.32.2 arm64 Job retains 2 CPU/512 MiB, TLS Post
 read-only candidate execution. Protected merge and exact-main CI must precede execution; RC24's
 local result and zero threshold do not transfer.
 
+PR #344 merged that objective as protected main `4166afb`; exact-main CI run `31949803615` passed
+all five jobs before cluster creation. One disposable kind 1.32.2 arm64 Job then ran exact private
+RC27 against TLS PostgreSQL 15.18 and passed all seven objectives. COPY and DIRECT produced equal
+SCD1 rows at every size; DIRECT tied COPY at 1 and 10 rows, then lost at 100, 1,000, and 5,000 rows,
+so this measured environment-specific recommendation is 10 rows / 1,490 logical bytes. That result
+does not transfer RC24's zero threshold and does not tune a product default. The Job processed
+61,110 rows in 2.433 seconds at 25,117.139 rows/second with 177,549,312 bytes peak RSS, zero retries
+or restarts, zero Warning events, no database residue, and non-estimated USD 0 local cost. The
+cluster, node container, in-cluster Secrets/TLS material, and temporary candidate tag were deleted.
+The sanitized report and one-attempt ledger now await protected review; hosted Kubernetes
+scale/cost and soak remain open.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
@@ -493,7 +505,7 @@ the sanitized evidence as protected main `df018e6`; exact-main CI run `319412109
 jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes the protected RC27 Kubernetes crossover objective/run;
+Remaining work includes protected review of the RC27 Kubernetes crossover evidence;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and
