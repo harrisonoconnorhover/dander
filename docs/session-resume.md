@@ -18,8 +18,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 - The five retained jobs use private qualification candidate Dander `0.9.0rc22` index
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
   Private RC27 at `sha256:bcf62d2c…4e09c` is the latest published candidate but has not replaced
-  those retained jobs. Its AWS-native correctness slice passed, but provider cost and the remaining
-  Phase 8 gates are open, so it is not fully qualified. Public RC20 remains unchanged.
+  those retained jobs. Its AWS-native correctness and named local Kubernetes five-class slices
+  passed, but provider cost and the remaining Phase 8 gates are open, so it is not fully qualified.
+  Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -35,6 +36,17 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- Exact private RC27 passed the five protected Kubernetes objectives from main `6ff041f` after
+  exact-main CI run `31942160724` passed all five jobs. One named kind 1.32.2 arm64 cluster ran
+  correctness, bulk, incremental, transform, and PostgreSQL-specific failure against TLS
+  PostgreSQL 15.18 with PostgreSQL state/warehouse, catalog `none`, an existing Secret projection,
+  2 CPU/512 MiB, a 600-second deadline, zero retries, and reporter-sidecar collection. All reports
+  bind exact candidate/objective identity and non-estimated USD 0 cost. Exact cleanup left zero
+  Dander schemas, staging relations, Warning events, clusters, node containers, or temporary image
+  tags. This closes the named local profile and five-class launcher-scale slice only; hosted
+  Kubernetes scale/cost, remaining launcher classes, soak, and support stay open. See
+  `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
@@ -209,10 +221,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   first successful Job's ephemeral-volume collection limitation. Both Jobs and all namespace,
   Secret, TLS, database, cluster, and temporary-tag resources were removed with zero Warning
   events. See `docs/evidence/phase8/2026-08-14/kubernetes-postgresql-scale-attempts.json`.
-  The final-candidate rerun is now bound to exact RC27 by the five
-  `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-*-objectives.json` files. They preserve
-  the accepted workloads, USD 0 local ceiling, Job controls, TLS PostgreSQL shape, and retained
-  reporter-sidecar collection. Protected review, merge, and exact-main CI precede cluster creation.
+  Exact RC27 supersedes this launcher-scale evidence as recorded above; the RC22 history remains
+  useful baseline evidence but no result was silently transferred.
 
 - On 2026-08-14, exact RC22 passed approved local PostgreSQL bulk and incremental classes inside
   its source-free 2 CPU/512 MiB image against disposable TLS PostgreSQL 15.18. It processed

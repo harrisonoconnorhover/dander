@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private RC24 passed corrected local PostgreSQL crossover. Private multi-platform RC27 is the replacement candidate after three focused AWS-native corrections and inherits no historical result. |
+| Phase 8 support qualification | Open | Private multi-platform RC27 passed AWS-native correctness and the named local Kubernetes five-class slice; hosted cost/scale, remaining matrix cells, soak, final audit, and support freeze remain open. |
 
 ## Current release and deployment record
 
@@ -125,6 +125,12 @@ cloud path remains outside the live proof.
   architectures reported RC27, GCP/Kubernetes/external-AWS selectors and rootless read-only
   conformance passed, and no RC26 result transfers. This is private publication evidence, not a
   live-profile, cost, or support pass.
+- Exact RC27 passed the protected named local Kubernetes profile and five-class launcher-scale
+  slice on kind 1.32.2 arm64 against TLS PostgreSQL 15.18. Correctness, bulk, incremental,
+  transform, and PostgreSQL-specific failure all passed under the reviewed Job controls with exact
+  candidate/objective identity, non-estimated USD 0 cost, zero Warning events, and exact cleanup.
+  This does not close hosted Kubernetes scale/cost, remaining launcher classes, soak, public
+  release, or support.
 - Exact RC22 was copied byte-identically to private ECR for AWS-native preflight. Its immutable
   image lacked the selected AWS deployment, so no Fargate plan, task, or pipeline ran. The exact
   28-resource disposable data-plane destroy completed with empty qualification state/inventories
