@@ -445,6 +445,18 @@ An initial harness-only preflight used the current-source Python path rather tha
 owned cluster was recreated before the passing run. The cluster, node container, in-cluster
 Secrets/TLS material, and temporary candidate tag were deleted. No RC22 result transferred.
 
+PR #341 merged the bounded-memory report and attempts ledger as protected main `f864a2b`;
+exact-main CI run `31945860151` passed all five jobs. The next focused launcher class is concurrent
+pipelines. `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-concurrency-objectives.json`
+binds exact RC27 and `kubernetes_portable` to the same protected 2.6-million-row/256 MiB benchmark
+configuration while approving only four independent 5,000-row pipelines, stale-fence rejection,
+throughput measurement, cleanup, and USD 0 local cost. The kind 1.32.2 arm64 runner retains 2 CPU,
+TLS PostgreSQL 15.18 at 2 CPU/1 GiB, a 600-second deadline, zero retries, and reporter-sidecar
+collection. The coupled bounded phase is rerun only because the accepted benchmark script precedes
+its concurrency probe with that phase; it receives no additional qualification claim. Protected
+merge and exact-main CI must precede execution, and neither the RC22 concurrency result nor the
+incidental measurement from the bounded-memory run transfers.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native

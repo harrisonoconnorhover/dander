@@ -1,0 +1,32 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27-concurrency"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-benchmark-config/v1",
+    "rows": 2600000,
+    "payload_bytes": 1024,
+    "batch_rows": 1000,
+    "concurrent_pipelines": 4,
+    "concurrent_rows_per_pipeline": 5000,
+    "memory_limit_mib": 256
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "concurrent_pipeline_completion",
+      "cost_ceiling",
+      "stale_fence_rejection",
+      "throughput_measurement"
+    ],
+    "benchmark_class": "concurrent_pipelines",
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "configuration_sha256": "fbdfda0bfcd726eb83e2811304bb6a9146fe7506c4d13cba987404172a43d52c",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27-concurrency"
+  }
+}

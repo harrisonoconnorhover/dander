@@ -79,3 +79,8 @@ scale report.
   zero retries/restarts, zero Warning events, no database residue, USD 0 local cost, and exact
   cluster/tag cleanup. A runtime-path harness preflight failed before benchmark code and was
   isolated by recreating the owned cluster. Kubernetes concurrency and crossover remain open.
+- PR #341 merged the bounded-memory evidence as protected main `f864a2b`; exact-main run
+  `31945860151` passed all five jobs. The next focused objective reuses its exact protected
+  2.6-million-row/256 MiB configuration for the accepted coupled script but approves only four
+  independent 5,000-row pipelines, stale-fence rejection, throughput, cleanup, and USD 0 cost.
+  Protected merge and exact-main CI precede execution; no prior concurrency measurement transfers.

@@ -1343,6 +1343,13 @@ cost, cluster cleanup, and temporary-tag cleanup all passed. One runtime-path pr
 before benchmark execution, was corrected against the immutable image, and was isolated by
 recreating the owned cluster. No RC22 result transferred. Kubernetes concurrency and crossover are
 the next focused launcher classes.
+PR #341 merged that sanitized evidence as protected main `f864a2b`; exact-main run `31945860151`
+passed all five jobs. The next focused objective binds exact RC27 Kubernetes concurrency to the
+same protected 2.6-million-row/256 MiB configuration and approves only four independent 5,000-row
+pipelines, stale-fence rejection, throughput measurement, cleanup, and USD 0 local cost. The
+accepted script's coupled bounded phase will rerun without gaining a second claim. Protected review
+and exact-main CI precede the disposable run; prior incidental and RC22 measurements do not
+transfer.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
