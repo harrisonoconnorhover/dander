@@ -122,7 +122,12 @@ projected Azure selectors passed without provider access; SPDX SBOM and SLSA pro
 attached. The Azure selector deliberately maps deployment `azure_container_apps` to platform
 `azure_snowflake`, proving the corrected deployment-to-platform handoff. This is candidate
 publication evidence only: qualification, provider cost, public release, and support remain open,
-and a separately protected exact-candidate objective must precede Azure mutation. See
+and a separately protected exact-candidate objective must precede Azure mutation. The focused RC28
+Azure objective now fixes one manual run and one success-conditional replay on the canonical
+Container Apps/Snowflake/PostgreSQL/no-catalog/Key-Vault profile, the packaged synthetic fixture,
+the disposable provider resources, a USD 2 ceiling, and exact cleanup. It authorizes nothing until
+protected review and exact-main CI pass; see
+`docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-objectives.json` and
 `docs/evidence/phase8/2026-08-16/rc28-candidate.json`.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the

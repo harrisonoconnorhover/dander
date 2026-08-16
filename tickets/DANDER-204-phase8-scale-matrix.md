@@ -109,3 +109,9 @@ scale report.
   retries, reporter collection, and exact owned-resource cleanup. Its USD 0.50 run ceiling is
   inside the retained USD 0.75 GCP soak/final-audit allocation; provider billing must post before
   cost can pass. Protected merge and exact-main CI precede any GCP mutation.
+- The first RC28 Azure objective binds one manual run and one success-conditional replay to the
+  canonical Container Apps/Snowflake/PostgreSQL/no-catalog/Key-Vault profile. It fixes the private
+  candidate, disposable provider coordinates, two infrastructure preflights, one manual candidate
+  attempt plus one success-conditional replay, exact cleanup, and the full USD 2 Azure allocation.
+  Protected merge and exact-main CI must precede any Azure, Snowflake, or PostgreSQL mutation;
+  provider billing must post before cost can pass.

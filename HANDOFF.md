@@ -2,40 +2,44 @@
 
 ## Finished
 
-- Published private source-free `0.9.0rc28` from exact protected main `7135b8c` in one attempt.
-- Recorded immutable amd64/arm64 index `sha256:f8259276…f94959e` and its four manifests.
-- Passed exact-wheel, rootless read-only conformance, and stable entrypoint probes on both arches.
-- Passed GCP, Kubernetes, AWS, and Azure selectors without provider access.
-- Recorded sanitized candidate evidence without changing public RC20 or support status.
+- Protected the private source-free RC28 candidate record as exact main `1cdc799`.
+- Bound one RC28 Azure canonical manual run and one success-conditional replay.
+- Fixed the immutable GAR/ACR digest, provider profile, disposable data plane, and cleanup boundary.
+- Limited infrastructure preflights to two and candidate execution to one manual run plus replay.
+- Kept private coordinates and secret values outside Git under the existing USD 2 Azure allocation.
 
 ## Try It
 
-Review `docs/evidence/phase8/2026-08-16/rc28-candidate.json` and run the immutable image with
-`--version` after authenticating Docker to the private GAR repository.
+Review `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-objectives.json`; no live
+provider action is permitted until this objective is protected and exact-main CI passes.
 
 ## Checks
 
-- Preparation PR #351 merged; exact-main run `31961210116` passed all five jobs before publication.
-- Wheel and source distribution hashes match the inspected protected-main artifacts.
-- Both runnable manifests report `0.9.0rc28`; rootless/read-only probes passed on amd64 and arm64.
-- SPDX 2.3 SBOM and SLSA provenance exist for both architectures.
-- Registry digest, source-free context, external selectors, JSON, and evidence claims passed review.
+- Publication PR #352 and exact-main run `31962694682` passed all five jobs.
+- Objective JSON parses; its canonical configuration hash, candidate identity, and USD 2 allocation
+  are checked locally.
+- Azure account access is current; no provider mutation was made while preparing the objective.
+- The Phase 6 PostgreSQL Keychain binding exists, but its deleted host no longer resolves.
+- Central US exposes the bound PostgreSQL shape; this subscription is restricted in East US.
+- Ruff, format, strict typing, contracts, release metadata, and full pytest passed; pytest reported
+  1,744 passed and 34 skipped.
 
 ## Decisions
 
-- Preserve accepted RC27 results; rerun only materially affected lanes and the final closure matrix.
-- Treat RC28 as private candidate evidence, not live qualification, cost, public release, or support.
-- Require a fresh protected RC28-bound Azure objective before any Azure mutation.
+- Reuse the accepted Azure lifecycle but transfer no Phase 6 qualification result to RC28.
+- Provision a fresh bounded PostgreSQL state server instead of reusing the stale Phase 6 endpoint.
+- Keep cost, scale, pairwise, soak, public release, and support open after correctness execution.
 
 ## Remaining
 
-- Protect this publication record and pass its exact-main CI.
-- Bind the Azure qualification objective in a fresh branch from that protected main.
+- Protect this objective and pass its exact-main CI before provider mutation.
+- Complete read-only Azure, Snowflake OAuth, and PostgreSQL plan preflights.
+- Execute only the approved manual/replay correctness slice, then remove owned resources.
 - Keep provider-measured cost pending until invoices post.
 - Complete remaining provider/profile, scale, soak, and final-candidate gates.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/rc28-candidate.json`
-- `tickets/DANDER-210-private-rc28-candidate.md`
+- `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-objectives.json`
+- `tickets/DANDER-211-rc28-azure-correctness-objective.md`
 - `docs/cloud-portability-phase8-qualification.md`
