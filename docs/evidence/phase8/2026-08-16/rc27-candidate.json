@@ -1,0 +1,51 @@
+{
+  "schema": "io.dander.phase8.candidate-evidence/v1",
+  "status": "candidate",
+  "release_version": "0.9.0rc27",
+  "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+  "pull_request": 334,
+  "protected_main_ci_run": 31925228450,
+  "wheel_sha256": "db9d9030d7db62c7eab42975e0db1d0aac59aa3137b812c84195df6f73450583",
+  "sdist_sha256": "0d94f714cf81bc1bdae7023ce1f1be26a402010cced881cdf9fdfc7d2f3c520d",
+  "logical_config_sha256": "84f9f0de2a3faa19438543f965fcc3e7bb0639fe1f553116ddeaaf8e618a83bf",
+  "platform_config_sha256": "e02d6539326d878ae5c3bfed1b36fcb0c7f575a7b84fb20ac682fee2de9c8241",
+  "source_free_dockerfile_sha256": "181364db5bf357f8a80ede3ad3f8786f9be86c4e8135a94a63f80b79547b832a",
+  "source_free_dockerignore_sha256": "ebfc4549548ae9fc2ed70c37071886a5bacfab92b5523094cf81c49e714024b9",
+  "build_context_revision": "d8007ccf5d9872d1b0ec45c48a3dd5cb14c019363d5e565ce29e279992a392a4",
+  "image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+  "platform_manifests": {
+    "linux/amd64": "sha256:cb01c6f9981e722105f3fe3a5e5443851b1ea227c26a33b85ac3f851f525c64c",
+    "linux/arm64": "sha256:669ab80e4fb4665d955972b71b08310b15e1227701aa49922138656618927fd1"
+  },
+  "attestation_manifests": {
+    "linux/amd64": "sha256:08ae9c0fcdb3af2af1da6b6403dcb8a0da4d551afabde62ee39a558c061097c9",
+    "linux/arm64": "sha256:dea66960f4f57cd932b6c11ebd8fcadab30ade68f685a89d73591f12e45b08e5"
+  },
+  "sbom_attached": true,
+  "provenance_attached": true,
+  "source_free": true,
+  "exact_wheel_embedded": true,
+  "aws_qualification_assets_present": true,
+  "runtime_inspection": {
+    "contract": "io.dander.runtime/v1",
+    "capability_manifest": "io.dander.runtime.capabilities/v1",
+    "gcp_cloud_run_selector_passed": true,
+    "kubernetes_portable_selector_passed": true,
+    "aws_fargate_external_overlay_selector_passed": true,
+    "amd64_version_passed": true,
+    "arm64_version_passed": true,
+    "amd64_read_only_conformance_passed": true,
+    "arm64_read_only_conformance_passed": true
+  },
+  "publication": {
+    "attempts": 1,
+    "pre_push_failures": 0,
+    "pre_push_failure_stage": null,
+    "registry_mutated_by_failed_attempt": false,
+    "completed_at": "2026-08-16T04:04:05.077123Z"
+  },
+  "qualification_status": "not_evaluated",
+  "public_release": false,
+  "provider_measured_cost_usd": null,
+  "cost_status": "provider_invoice_pending"
+}

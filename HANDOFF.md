@@ -2,39 +2,42 @@
 
 ## Finished
 
-- Merged the focused Redshift Serverless startup correction in PR #333 as protected main `141fab6`.
-- Confirmed exact-main CI run `31924339366` passed all five jobs.
-- Prepared private `0.9.0rc27` metadata as exact commit `30abed9` from that protected main.
-- Opened draft PR #334 and bound private publication to its exact preparation commit.
-- Kept the aggregate Phase 8 ceiling at USD 10 by sharing the existing publication allocation.
+- Merged private RC27 preparation PR #334 as protected main `d7ac61f`; exact-main run
+  `31925228450` passed all five jobs.
+- Built and inspected exact `0.9.0rc27` wheel and source distribution from that commit.
+- Published private source-free GAR index `sha256:bcf62d2c…4e09c` with amd64/arm64 manifests,
+  SPDX SBOM, and SLSA provenance.
+- Passed both-architecture version and rootless read-only checks plus GCP/Kubernetes/external-AWS
+  deployment selection.
+- Preserved public RC20, retained workloads, DRUFF work, the USD 10 ceiling, and support status.
 
 ## Try It
 
-Run `uv run pytest -q tests/test_release_metadata.py && uv run python scripts/check_release_metadata.py`.
+Run `jq . docs/evidence/phase8/2026-08-16/rc27-candidate.json` to inspect the sanitized candidate record.
 
 ## Checks
 
-- Four release-metadata tests, lock/metadata validation, Ruff, and diff checks pass.
-- RC27 wheel and source distribution passed package inspection.
-- Both artifacts installed outside the checkout, generated valid projects, and passed validation.
-- The full runtime dependency import and generated-project Terraform validation pass.
+- Exact-main Python, secret, Terraform, distribution, and container jobs passed.
+- Wheel/sdist inspection and source-free scaffold validation passed.
+- GAR returned the recorded immutable index, runnable platform digests, and attestation manifests.
+- Both platform attestations contain SPDX SBOM and SLSA provenance predicates.
+- One authorized private publication attempt completed without a pre-push failure.
 
 ## Decisions
 
-- Publish RC27 privately only after PR #334 and its exact-main CI pass.
-- Share the existing USD 0.25 RC25/RC26/RC27 publication allocation; do not raise the ceiling.
-- Keep public RC20, support status, retained jobs, and all prior-candidate results unchanged.
+- RC27 becomes the replacement candidate only after this evidence passes protected review.
+- No RC26 live result transfers; public RC20 and support status remain unchanged.
+- Provider charges remain pending and the aggregate authorization ceiling remains USD 10.
 
 ## Remaining
 
-- Complete protected CI/review and merge PR #334.
-- Build, inspect, and privately publish one source-free amd64/arm64 RC27 index in a fresh lane.
-- Commit a fresh protected AWS objective bound to the published RC27 digest.
-- Rerun the complete AWS objective without transferring RC26 results.
-- Continue other Phase 8 lanes separately without colliding with DRUFF.
+- Merge this focused candidate-evidence PR after protected CI and review.
+- Commit a fresh RC27-bound AWS objective before provider mutation.
+- Rerun AWS manual correctness, conditional replay, cost collection, and exact cleanup.
+- Complete remaining scale, pairwise, canonical-profile, audit, soak, documentation, and support gates.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/rc27-authorization.json`
-- `CHANGELOG.md`
+- `docs/evidence/phase8/2026-08-16/rc27-candidate.json`
 - `docs/cloud-portability-phase8-qualification.md`
+- `tickets/DANDER-202-aws-native-profile.md`

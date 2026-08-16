@@ -17,9 +17,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
 - The five retained jobs use private qualification candidate Dander `0.9.0rc22` index
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
-  Private RC26 at `sha256:e63aef4b…d28e` remains the latest published candidate but lacks the
-  Redshift Serverless startup correction and has not replaced those retained jobs. Draft PR #334
-  prepares private RC27; it is not published or qualified. Public RC20 remains unchanged.
+  Private RC27 at `sha256:bcf62d2c…4e09c` is the latest published candidate but has not replaced
+  those retained jobs and is not qualified. Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -35,6 +34,15 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- Private Dander `0.9.0rc27` was built from protected-main commit
+  `d7ac61f46b362f4e7e64365e9267ec6e7faf70f2` after all five jobs passed exact-main CI run
+  `31925228450`. Its exact wheel produced source-free GAR index `sha256:bcf62d2c…4e09c` with
+  amd64/arm64 manifests, SPDX SBOM, and SLSA provenance. Both architectures reported RC27; GCP,
+  Kubernetes, and externally projected AWS selectors plus rootless read-only conformance on both
+  architectures passed. No RC26 result transfers, and publication is not a live-profile, cost,
+  public-release, or support pass. See
+  `docs/evidence/phase8/2026-08-16/rc27-candidate.json`.
 
 - Private Dander `0.9.0rc26` was built from protected-main commit
   `f0fe54f797bbbe1cc5110f9b36c4e3e6da48f496` after all five jobs passed exact-main CI run
@@ -159,10 +167,11 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 - PR #332 merged that startup record as protected main `1fa3452`; exact-main run `31923526315`
   passed all five jobs. PR #333 merged the focused Serverless base-protocol correction as protected
-  main `141fab6`; exact-main run `31924339366` passed all five jobs. Draft PR #334 prepares private
-  RC27 from that commit and binds its private publication to the unchanged USD 10 aggregate ceiling.
-  RC27 still requires protected merge, separate private source-free publication, and a fresh
-  protected candidate-bound objective before any AWS mutation; no RC26 result transfers.
+  main `141fab6`; exact-main run `31924339366` passed all five jobs. PR #334 merged private RC27 as
+  protected main `d7ac61f`; exact-main run `31925228450` passed all five jobs, and its source-free
+  multi-platform index passed artifact, selector, attestation, and rootless read-only inspection.
+  The sanitized publication record and then a fresh protected candidate-bound objective must reach
+  protected main before AWS mutation; no RC26 result transfers.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It

@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private RC24 passed corrected local PostgreSQL crossover. Private multi-platform RC26 is the replacement candidate after two focused AWS-native corrections and inherits no historical result. |
+| Phase 8 support qualification | Open | Protected private RC22 retains Kubernetes/GCP and seven-class PostgreSQL evidence; private RC24 passed corrected local PostgreSQL crossover. Private multi-platform RC27 is the replacement candidate after three focused AWS-native corrections and inherits no historical result. |
 
 ## Current release and deployment record
 
@@ -119,6 +119,12 @@ cloud path remains outside the live proof.
   architectures reported RC26, GCP/Kubernetes/external-AWS selectors and rootless read-only
   conformance passed, and no RC25 result transfers. This is private publication evidence, not a
   live-profile, cost, or support pass.
+- Private RC27 at `sha256:bcf62d2c…4e09c` is the protected-main replacement after the scoped
+  Redshift Serverless startup correction. Exact-main run `31925228450` passed all five jobs; its
+  exact wheel built a source-free amd64/arm64 GAR index with SPDX SBOM and SLSA provenance. Both
+  architectures reported RC27, GCP/Kubernetes/external-AWS selectors and rootless read-only
+  conformance passed, and no RC26 result transfers. This is private publication evidence, not a
+  live-profile, cost, or support pass.
 - Exact RC22 was copied byte-identically to private ECR for AWS-native preflight. Its immutable
   image lacked the selected AWS deployment, so no Fargate plan, task, or pipeline ran. The exact
   28-resource disposable data-plane destroy completed with empty qualification state/inventories
@@ -170,7 +176,10 @@ recommendation disabled, but its AWS-native launch exposed the corrected identit
 merged private RC25 at protected main `f5935a6`; its AWS run exposed the Redshift staging-role
 grant defect. PR #326 merged corrected private RC26 at protected main `f0fe54f`; exact-main run
 `31915564765` passed and source-free multi-platform index `sha256:e63aef4b…d28e` is privately
-published and inspected. No historical
+published and inspected. Its AWS rerun exposed the Redshift Serverless startup response defect.
+PR #334 merged corrected private RC27 at protected main `d7ac61f`; exact-main run `31925228450`
+passed and source-free multi-platform index `sha256:bcf62d2c…4e09c` is privately published and
+inspected. No historical
 result transfers. The combined final-candidate audit and
 remaining scale, cost, profile, soak,
 operator-documentation, and support-freeze gates are recorded in
