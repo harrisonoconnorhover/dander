@@ -9,7 +9,7 @@ The core local preflight is:
 uv sync --frozen --extra dev --extra postgres
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy src tests
+python3 scripts/check_types.py
 uv run python scripts/check_control_contracts.py
 uv run pytest
 uv export --frozen --extra runtime-all --format requirements.txt --no-dev --no-emit-project \
@@ -23,6 +23,11 @@ terraform -chdir=infra/bootstrap-admin validate
 docker build --tag dander-ci:local .
 docker run --rm dander-ci:local --help
 ```
+
+`python3 scripts/check_types.py` is the only canonical strict type-check command. It selects the
+locked dev and PostgreSQL environment; the explicit target list lives in `[tool.mypy].files` in
+`pyproject.toml`. Do not substitute `mypy .` or recursively type-check auxiliary scripts. Add a
+maintained script there deliberately so local verification and protected CI expand together.
 
 This core sequence is intentionally shorter than the complete workflow. Before merging, use
 `.github/workflows/ci.yml` as the authoritative list for distribution installation, every AWS,

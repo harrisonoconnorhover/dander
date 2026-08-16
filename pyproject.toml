@@ -381,7 +381,7 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "TCH", "ANN"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts/check_types.py", "scripts/watch_workflows.py"]
 plugins = ["pydantic.mypy"]
 exclude = ["^src/dander/templates/plugin/"]
 
