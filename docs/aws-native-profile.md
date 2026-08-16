@@ -3,12 +3,14 @@
 This runbook covers the named Fargate + Redshift + PostgreSQL state + Glue + AWS Secrets Manager
 composition. It is an experimental Phase 8 target, not a supported deployment. Exact RC22 does not
 contain the required selected AWS deployment, and its historical Greenhouse objective is not
-Redshift-compatible. Private RC25 contains the reviewed runtime-overlay, flat-fixture,
-Glue-ownership, materialization, candidate-identity, and Fargate ambient-identity corrections at
-source-free multi-platform index `sha256:5a0d5520a2789cdf089015396f41047508a086cbc8ec87a9ded405d880dc2238`.
-Use it only with the exact committed objective manifest under
-`docs/evidence/phase8/2026-08-15/aws-native-rc25-profile-objectives-v2.json` after that gate passes
-protected review and exact-main CI. This is not a public-release or support claim.
+Redshift-compatible. Private RC26 contains the reviewed runtime-overlay, flat-fixture,
+Glue-ownership, materialization, candidate-identity, Fargate ambient-identity, and exact Redshift
+staging-role grant corrections at source-free multi-platform index
+`sha256:e63aef4b29648864a119219fd973c2a417f5971205907f04997f9009e472d28e`. Use it only with the
+exact committed objective manifest under
+`docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json`. PR #328 merged that gate
+as protected main `156c496`; exact-main CI run `31917460254` passed all five jobs. This is not a
+public-release or support claim.
 
 ## Ownership and prerequisites
 
@@ -118,7 +120,7 @@ deployments:
           DANDER_POSTGRES_DSN: aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:secret:dander/postgres-dsn-AbCdEf
 ```
 
-The 120-second connection timeout is bound only to this RC25 qualification objective and remains
+The 120-second connection timeout is bound only to this RC26 qualification objective and remains
 below the 600-second whole-runtime deadline. It does not change the provider's 30-second default.
 
 Run `dander validate --deployment aws_fargate` before any provider mutation. Project validation
