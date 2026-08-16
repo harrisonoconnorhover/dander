@@ -151,6 +151,14 @@ active inventories are empty, and the attempt KMS key is pending deletion on 202
 remains current, but the consumed objective transfers no result and must not be reused. See
 `docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-connect-attempt.json`.
 
+PR #330 merged that sanitized attempt as protected main `730de0b`; exact-main CI run `31920702822`
+passed all five jobs. The replacement correctness gate is
+`docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json`: it preserves exact
+RC26, one manual execution, one success-conditional replay, paused scheduling, exact cleanup, and
+the existing cumulative USD 3 allocation while isolating a 300-second Redshift connection window
+under the unchanged 600-second runtime deadline. No AWS mutation may precede this objective
+commit's protected review and exact-main CI.
+
 ## Pre-candidate release readiness
 
 Commit `2d020d15fc52` passed a local release-readiness audit on 2026-08-14: wheel and source archive

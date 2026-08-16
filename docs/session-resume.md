@@ -137,7 +137,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   post-failure Data API read completed, but the exact connection delay is not yet proven. Exact
   cleanup removed all 25 platform and 36 data-plane resources; both Terraform states and direct
   active inventories are empty, and the attempt KMS key is pending deletion on 2026-09-14. RC26
-  remains current, but the consumed objective transfers no result and must not be reused. Every
+  remains current, but the consumed objective transfers no result and must not be reused. PR #330
+  merged the sanitized attempt as protected main `730de0b`; exact-main run `31920702822` passed all
+  five jobs. The replacement objective at
+  `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json` preserves exact RC26,
+  one manual run, one success-conditional replay, paused scheduling, exact cleanup, and the existing
+  cumulative USD 3 allocation while binding a 300-second connection window below the unchanged
+  600-second runtime deadline. It must reach protected main before another AWS mutation. Every
   remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See

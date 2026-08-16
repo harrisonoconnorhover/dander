@@ -2,40 +2,39 @@
 
 ## Finished
 
-- Promoted exact private RC26 index `sha256:e63aef4b…d28e` byte-identically to private ECR.
-- Applied reviewed 36-resource data and 25-resource platform plans with clean post-apply drift.
-- Ran one manual task; PostgreSQL setup passed, but Redshift connect expired at 121,066 ms.
-- Skipped the success-conditional replay and recorded zero warehouse operations/rows.
-- Destroyed all active attempt resources and recorded the sanitized evidence.
+- Merged the RC26 120-second timeout attempt evidence as protected main `730de0b` via PR #330.
+- Verified exact-main CI run `31920702822` passed all five jobs.
+- Preserved exact RC26, run counts, paused scheduling, cleanup, and the cumulative USD 3 allocation.
+- Bound the replacement objective to a 300-second Redshift connection window.
+- Kept all provider mutations paused until this objective passes protected main.
 
 ## Try It
 
-Run `jq '{execution, finding, cleanup, objectives}' docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-connect-attempt.json`.
+Run `jq '{cost_ceiling, workload, approved_objectives}' docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json`.
 
 ## Checks
 
-- Exact image, paused schedule, 120-second Redshift timeout, and objective hash matched.
-- Data/platform post-apply plans each reported no changes.
-- Platform/data Terraform states and direct active AWS inventories are empty.
-- Cost Explorer currently reports no positive RDS/Redshift/Fargate charge; billing remains pending.
-- Evidence JSON parses; focused docs and repository diff checks pass.
+- Replacement workload hash recomputes to `a0d811399e8d…d860`.
+- Objective names, RC26 identity, and cost references remain exact.
+- Provider configuration accepts 300 seconds and the runtime deadline remains 600 seconds.
+- Evidence JSON parses; focused tests and repository diff checks pass.
 
 ## Decisions
 
-- Do not spend the replay after manual failure or reuse the consumed objective.
-- Keep RC26 current because the evidence does not prove a candidate-code defect.
-- Use a fresh protected objective to isolate a longer Serverless connection window.
+- Do not reuse the consumed 120-second objective.
+- Treat the prior result as an objective-bound timeout, not a proven RC26 defect.
+- Spend the replay only after manual success.
 
 ## Remaining
 
-- Merge this focused failed-attempt evidence through protected CI and review.
-- Commit a separate exact RC26 replacement objective before any AWS mutation.
-- Rerun one manual execution plus one success-conditional replay and exact cleanup.
+- Merge this replacement objective through protected CI and review.
+- Verify the exact merge commit on protected main.
+- Rerun one manual execution plus one success-conditional replay under this objective.
+- Capture no-drift, equality, delayed cost, and exact cleanup evidence.
 - Continue other Phase 8 lanes separately without colliding with DRUFF.
-- Recheck delayed provider cost before final Phase 8 closure.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-connect-attempt.json`
+- `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json`
 - `docs/cloud-portability-phase8-qualification.md`
 - `docs/aws-native-profile.md`

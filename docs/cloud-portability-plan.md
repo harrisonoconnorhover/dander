@@ -1292,8 +1292,12 @@ manual task completed PostgreSQL state setup, then Redshift connection validatio
 shared the reviewed VPC, subnets, and security group; immediate post-failure Data API access worked,
 so the exact delay remains unproven. Saved-plan cleanup removed all 25 platform and 36 data-plane
 resources, and both states and direct active inventories are empty. RC26 remains current, but the
-consumed objective transfers no result; a fresh protected objective must precede another AWS run.
-No RC24 or RC25 result transfers.
+consumed objective transfers no result. PR #330 merged the sanitized attempt as protected main
+`730de0b`; exact-main run `31920702822` passed all five jobs. The replacement objective at
+`docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json` preserves exact RC26,
+the run counts, paused scheduling, exact cleanup, and the existing cumulative USD 3 allocation while
+binding a 300-second Redshift connection window below the unchanged 600-second runtime deadline.
+It must reach protected main before another AWS mutation. No RC24 or RC25 result transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
