@@ -1,0 +1,180 @@
+{
+  "approved_objectives": {
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27-concurrency",
+    "benchmark_class": "concurrent_pipelines",
+    "configuration_sha256": "fbdfda0bfcd726eb83e2811304bb6a9146fe7506c4d13cba987404172a43d52c",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "names": [
+      "cleanup",
+      "concurrent_pipeline_completion",
+      "cost_ceiling",
+      "stale_fence_rejection",
+      "throughput_measurement"
+    ],
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc27"
+  },
+  "context": {
+    "benchmark_date": "2026-08-16",
+    "catalog": "none",
+    "cost_ceiling": {
+      "amount_usd": "0.00",
+      "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27-concurrency"
+    },
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "launcher": "kubernetes",
+    "profile_id": "kubernetes_portable",
+    "provider_job_ids": [
+      "cluster:dander-phase8-rc27-concurrency",
+      "job:postgresql-concurrency-rc27"
+    ],
+    "regions": [
+      "local"
+    ],
+    "release_version": "0.9.0rc27",
+    "secret_provider": "environment_projection",
+    "service_shapes": [
+      "dander_job_2cpu_256mib",
+      "kind_1.32.2_arm64",
+      "postgresql_15.18_2cpu_1gib_tls"
+    ],
+    "state_backend": "postgresql",
+    "warehouse": "postgresql"
+  },
+  "objectives": [
+    {
+      "evidence_reference": "phase8/kubernetes/postgresql/concurrency/cleanup",
+      "name": "cleanup",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/kubernetes/postgresql/concurrency/concurrent_pipeline_completion",
+      "name": "concurrent_pipeline_completion",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/kubernetes/postgresql/concurrency/cost_ceiling",
+      "name": "cost_ceiling",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/kubernetes/postgresql/concurrency/stale_fence_rejection",
+      "name": "stale_fence_rejection",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/kubernetes/postgresql/concurrency/throughput_measurement",
+      "name": "throughput_measurement",
+      "status": "passed"
+    }
+  ],
+  "performance": {
+    "costs": [
+      {
+        "amount": "0.00",
+        "currency": "USD",
+        "estimated": false,
+        "provider": "local",
+        "service": "postgresql"
+      }
+    ],
+    "measurements": [
+      {
+        "name": "rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "20000"
+      },
+      {
+        "name": "logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "3040000"
+      },
+      {
+        "name": "duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "334.55"
+      },
+      {
+        "name": "throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "59781.789"
+      },
+      {
+        "name": "peak_rss_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "178237440"
+      },
+      {
+        "name": "retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "queue_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "load_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "334.55"
+      },
+      {
+        "name": "transform_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "catalog_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "batch_rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "1000"
+      },
+      {
+        "name": "independent_targets",
+        "status": "measured",
+        "unit": "count",
+        "value": "4"
+      },
+      {
+        "name": "temporary_staging_relations",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      }
+    ]
+  },
+  "schema": "io.dander.qualification.report/v1",
+  "status": "passed",
+  "workload": {
+    "batch_bytes": 152000,
+    "batch_rows": 1000,
+    "benchmark_class": "concurrent_pipelines",
+    "concurrency": 4,
+    "configuration_sha256": "fbdfda0bfcd726eb83e2811304bb6a9146fe7506c4d13cba987404172a43d52c",
+    "input_rows": 20000,
+    "logical_input_bytes": 3040000,
+    "memory_limit_bytes": null,
+    "row_width_bytes": 152,
+    "schema_depth": 1,
+    "source_rate_limit": "unlimited_local_generator",
+    "transform_complexity": "none"
+  }
+}

@@ -1350,6 +1350,14 @@ pipelines, stale-fence rejection, throughput measurement, cleanup, and USD 0 loc
 accepted script's coupled bounded phase will rerun without gaining a second claim. Protected review
 and exact-main CI precede the disposable run; prior incidental and RC22 measurements do not
 transfer.
+PR #342 merged that objective as protected main `7dc51f8`; exact-main run `31946605370` passed all
+five jobs before execution. Exact RC27 then completed four independent 5,000-row pipelines in
+334.55 ms at 59,781.789 rows/second, rejected the stale publication fence, and left no Dander schema
+or staging relation. TLS, reporter collection, zero retries/restarts, zero Warning events, USD 0
+local cost, cluster cleanup, and temporary-tag cleanup passed. One PostgreSQL storage preflight
+failed before the candidate Job existed; the harness initialized a user-owned PGDATA subdirectory
+and recreated the owned cluster before the passing run. The sanitized concurrency evidence now
+awaits protected review; crossover remains a separate fresh objective and evidence lane.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
