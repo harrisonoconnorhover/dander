@@ -1,0 +1,45 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27-crossover"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-crossover/v1",
+    "benchmark_class": "crossover",
+    "row_counts": [
+      1,
+      10,
+      100,
+      1000,
+      5000
+    ],
+    "payload_bytes": 128,
+    "repetitions": 5,
+    "direct_max_rows": 5000,
+    "direct_max_logical_bytes": 1048576,
+    "write_mode": "scd1",
+    "transports": [
+      "copy",
+      "direct"
+    ]
+  },
+  "approved_objectives": {
+    "names": [
+      "canonical_equality",
+      "cleanup",
+      "copy_transport_observed",
+      "cost_ceiling",
+      "crossover_measured",
+      "direct_transport_observed",
+      "threshold_recorded"
+    ],
+    "benchmark_class": "crossover",
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "configuration_sha256": "86313cae9c60be3e920a9e2d6792d1f5984e106bc3b7a0b979b876a07e8ce10e",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27-crossover"
+  }
+}

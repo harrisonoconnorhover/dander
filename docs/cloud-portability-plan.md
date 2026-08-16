@@ -1358,6 +1358,13 @@ local cost, cluster cleanup, and temporary-tag cleanup passed. One PostgreSQL st
 failed before the candidate Job existed; the harness initialized a user-owned PGDATA subdirectory
 and recreated the owned cluster before the passing run. The sanitized concurrency evidence now
 awaits protected review; crossover remains a separate fresh objective and evidence lane.
+PR #343 merged the concurrency evidence as protected main `bd7489d`; exact-main run `31948875002`
+passed all five jobs. The next focused objective binds exact RC27 Kubernetes crossover to the
+corrected RC24 workload: COPY and DIRECT at 1, 10, 100, 1,000, and 5,000 rows with 128-byte payloads,
+five repetitions, SCD1 canonical equality, a 1 MiB direct ceiling, exact cleanup, and USD 0 local
+cost. The disposable kind 1.32.2 arm64 Job keeps 2 CPU/512 MiB, TLS PostgreSQL 15.18, a 600-second
+deadline, zero retries, reporter collection, and rootless read-only candidate execution. Protected
+review and exact-main CI precede execution; RC24's result and zero threshold do not transfer.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

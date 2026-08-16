@@ -469,6 +469,19 @@ temporary candidate tag were deleted. This closes the local concurrency class on
 report and attempts ledger pass protected review; it does not add a second bounded-memory claim or
 close crossover, hosted scale/cost, soak, public release, or support.
 
+PR #343 merged that sanitized concurrency evidence as protected main `bd7489d`; exact-main CI run
+`31948875002` passed all five jobs, and its isolated operator TLS package was moved to Trash. The
+next focused launcher class is crossover.
+`docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover-objectives.json` binds exact
+RC27 and `kubernetes_portable` to the corrected RC24 workload: COPY and DIRECT across 1, 10, 100,
+1,000, and 5,000 rows, 128-byte payloads, five repetitions, SCD1 equality, and the 1 MiB direct
+ceiling. It approves canonical equality, both observed transports, measured crossover, the measured
+threshold (including zero when no contiguous DIRECT-winning prefix exists), cleanup, and USD 0
+local cost. The disposable kind 1.32.2 arm64 Job retains 2 CPU/512 MiB, TLS PostgreSQL 15.18 at
+2 CPU/1 GiB, a 600-second deadline, zero retries, reporter-sidecar collection, and rootless
+read-only candidate execution. Protected merge and exact-main CI must precede execution; RC24's
+local result and zero threshold do not transfer.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
@@ -480,8 +493,7 @@ the sanitized evidence as protected main `df018e6`; exact-main CI run `319412109
 jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes protected review of the RC27 Kubernetes concurrency evidence and a fresh
-RC27 Kubernetes crossover objective/run;
+Remaining work includes the protected RC27 Kubernetes crossover objective/run;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and
