@@ -55,7 +55,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Warning events, database cleanup, USD 0 cost, cluster cleanup, and temporary-tag cleanup passed.
   One harness-only runtime-path preflight was corrected against the immutable image before the
   cluster was recreated; no RC22 result transferred. Kubernetes concurrency and crossover remain
-  the next focused launcher classes.
+  the next focused launcher classes. PR #341 merged the sanitized bounded-memory evidence as
+  protected main `f864a2b`; exact-main run `31945860151` passed all five jobs, after which its local
+  TLS/operator package was deleted. The committed concurrency objective reuses the exact protected
+  2.6-million-row/256 MiB configuration but approves only four independent 5,000-row pipelines,
+  stale-fence rejection, throughput, cleanup, and USD 0 cost. It requires protected merge and
+  exact-main CI before execution; prior incidental and RC22 measurements do not transfer.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
