@@ -120,6 +120,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   exact-main run `31926577710` passed all five jobs. See
   `docs/evidence/phase8/2026-08-16/rc27-candidate.json`.
 
+- DANDER-208 and DANDER-209 are merged at protected main `1436092`, whose exact-main CI run
+  `31960158477` passed all five jobs. Draft PR #351 prepares private `0.9.0rc28` at exact commit
+  `130a970` and binds any later private publication to the unchanged USD 10 aggregate ceiling in
+  `docs/evidence/phase8/2026-08-16/rc28-authorization.json`. RC28 is not published; no Azure
+  objective or provider mutation is authorized until preparation merges, exact-main CI passes,
+  source-free publication evidence is protected, and a separate exact objective is committed.
+
 - Private Dander `0.9.0rc26` was built from protected-main commit
   `f0fe54f797bbbe1cc5110f9b36c4e3e6da48f496` after all five jobs passed exact-main CI run
   `31915564765`. Its exact wheel produced source-free GAR index `sha256:e63aef4b…d28e` with

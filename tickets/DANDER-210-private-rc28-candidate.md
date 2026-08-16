@@ -35,3 +35,6 @@ that exact commit in a separate publication lane and record sanitized evidence i
   invocation; unaffected accepted evidence reruns only in the eventual final-candidate matrix.
 - This preparation is not a candidate publication, live-provider result, cost result, public
   release, or support claim.
+- Draft PR #351 proposes an authorization record bound to preparation commit `130a970` without
+  increasing the existing aggregate ceiling; it becomes protected only after merge. Provider cost
+  remains pending and publication waits for exact-main CI.

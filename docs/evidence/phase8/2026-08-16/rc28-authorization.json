@@ -1,0 +1,71 @@
+{
+  "schema": "io.dander.qualification.authorization/v1",
+  "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-rc28",
+  "approved_on": "2026-08-16",
+  "release_version": "0.9.0rc28",
+  "release_preparation_commit": "130a970987efdab11d6d5dc676ba4d4dc893e8e7",
+  "release_preparation_pull_request": 351,
+  "aggregate_ceiling_usd": "10.00",
+  "provider_measured_cost_usd": null,
+  "cost_status": "provider_invoice_pending",
+  "allocations": [
+    {
+      "activity": "rc21_and_rc22_source_free_publication",
+      "ceiling_usd": "0.75",
+      "status": "approved"
+    },
+    {
+      "activity": "rc23_private_candidate_publication_and_local_crossover",
+      "ceiling_usd": "0.25",
+      "status": "approved"
+    },
+    {
+      "activity": "rc24_private_source_free_publication",
+      "ceiling_usd": "0.25",
+      "status": "approved"
+    },
+    {
+      "activity": "rc25_rc26_rc27_and_rc28_replacement_private_source_free_publication",
+      "ceiling_usd": "0.25",
+      "status": "approved"
+    },
+    {
+      "activity": "gcp_native_diagnostics_scale_and_profile",
+      "ceiling_usd": "1.25",
+      "status": "approved"
+    },
+    {
+      "activity": "kubernetes_portable_local_qualification",
+      "ceiling_usd": "0.00",
+      "status": "approved"
+    },
+    {
+      "activity": "azure_scale_and_pairwise_profiles",
+      "ceiling_usd": "2.00",
+      "status": "approved"
+    },
+    {
+      "activity": "aws_native_and_pairwise_profiles",
+      "ceiling_usd": "3.00",
+      "status": "approved"
+    },
+    {
+      "activity": "oci_native_and_pairwise_profiles",
+      "ceiling_usd": "1.50",
+      "status": "approved"
+    },
+    {
+      "activity": "retained_gcp_soak_and_final_audits",
+      "ceiling_usd": "0.75",
+      "status": "approved"
+    }
+  ],
+  "constraints": {
+    "candidate_must_be_published_from_tested_protected_main": true,
+    "exact_candidate_objective_manifest_required_before_each_live_gate": true,
+    "protected_review_required_before_support_claim": true,
+    "public_release_authorized": false,
+    "provider_measured_cost_must_remain_below_aggregate_ceiling": true,
+    "unallocated_contingency_usd": "0.00"
+  }
+}
