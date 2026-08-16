@@ -1312,8 +1312,13 @@ exact-main run `31924339366` passed all five jobs. PR #334 merged private RC27 a
 unchanged USD 10 ceiling. PR #335 merged the sanitized publication record as protected main
 `ea3e260`; exact-main run `31926577710` passed all five jobs. The fresh RC27-bound objective preserves
 one manual run, one success-conditional replay, the reviewed 300-second connection timeout, paused
-scheduling, exact cleanup, and the cumulative USD 3 allocation. It must pass protected review and
-exact-main CI before AWS mutation.
+scheduling, exact cleanup, and the cumulative USD 3 allocation. PR #336 merged it as protected main
+`c348122`; exact-main run `31927276568` passed all five jobs. The exact manual run and replay both
+succeeded with zero provider retries, three duplicate-free Redshift rows, complete assertions,
+Glue publication, PostgreSQL state participation, and an empty staging prefix. Reviewed saved-plan
+cleanup removed all 25 platform and 36 data-plane resources, both Terraform states and active owned
+inventories are empty, and the exact ECR digest remains retained. This closes AWS-native correctness;
+provider cost is still `not_evaluated`, and scale, soak, support, and the evidence PR remain open.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

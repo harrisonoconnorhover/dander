@@ -2,41 +2,44 @@
 
 ## Finished
 
-- Merged RC27 candidate-evidence PR #335 as protected main `ea3e260`.
-- Confirmed exact-main CI run `31926577710` passed all five jobs.
-- Bound a fresh AWS correctness gate to exact RC27 index `sha256:bcf62d2c…4e09c`.
-- Preserved one manual run, one success-conditional replay, paused scheduling, exact cleanup, and
-  the existing USD 3 AWS allocation.
-- Kept public RC20, retained workloads, DRUFF work, and provider support status unchanged.
+- Passed exact RC27 AWS-native manual and replay correctness on the protected objective.
+- Verified three duplicate-free Redshift rows, six total assertions, Glue publication, PostgreSQL
+  state participation, zero provider retries, and an empty owned staging prefix.
+- Destroyed the reviewed 25-resource platform and 36-resource data plane exactly.
+- Confirmed both Terraform states and direct active owned-resource inventories are empty; retained
+  only the exact private ECR digest, with the platform KMS key pending deletion.
+- Recorded sanitized evidence without changing retained jobs, public RC20, DRUFF, or support status.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json`.
+Run `jq . docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json`.
 
 ## Checks
 
-- Exact-main Python, secret, Terraform, distribution, and container jobs passed.
-- The objective JSON parses and its canonical workload hash matches `configuration_sha256`.
-- Candidate version, commit, image digest, region, timeout, run counts, and cost ceiling match the
-  protected evidence and authorization.
-- HANDOFF structure and repository diff checks pass.
+- Protected-main objective CI run `31927276568` passed all five jobs.
+- Saved create/no-drift/destroy plans were machine-checked and applied exactly: `36/0/0`, `25/0/0`,
+  then `0/0/25` and `0/0/36`; both final state counts are zero.
+- Manual `p8rc27-manual-01` and replay `p8rc27-replay-01` succeeded with exit code 0.
+- Redshift/Glue/S3/ECS and post-cleanup service inventories were checked through provider APIs.
+- All 13 qualification contract tests, evidence consistency, documentation structure, and diff
+  review pass locally.
 
 ## Decisions
 
-- Require protected review and exact-main CI for this objective before any AWS mutation.
-- Rerun the complete correctness gate; no RC26 result transfers.
-- Keep the aggregate ceiling at USD 10 and the cumulative AWS allocation at USD 3.
+- Mark AWS-native correctness passed while keeping full qualification `not_evaluated_cost_pending`.
+- Preserve least privilege after direct state-table validation was denied before any extra task ran.
+- Retain the exact private ECR digest; remove every disposable launcher and data-plane resource.
 
 ## Remaining
 
-- Merge this focused objective PR after protected CI and review.
-- Promote exact RC27 byte-identically to private ECR.
-- Apply reviewed disposable AWS plans and prove one manual run plus one success-conditional replay.
-- Collect provider cost when available and remove every owned disposable resource exactly.
-- Continue remaining Phase 8 lanes separately without colliding with DRUFF.
+- Pass protected review, merge this focused evidence PR, and verify exact-main CI.
+- Collect provider-measured AWS cost when billing data and authority are available.
+- Continue remaining benchmark/provider objectives from fresh protected-main branches.
+- Run only materially affected evidence plus the eventual final-candidate closure matrix.
+- Keep scale, soak, public release, and support claims open until their gates pass.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json`
+- `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json`
 - `docs/cloud-portability-phase8-qualification.md`
-- `docs/aws-native-profile.md`
+- `docs/cloud-portability-plan.md`

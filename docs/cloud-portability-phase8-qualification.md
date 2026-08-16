@@ -187,7 +187,18 @@ correctness gate is
 `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json`: it binds one manual
 execution and one success-conditional replay to exact RC27, `us-east-1`, paused scheduling, exact
 cleanup, the existing cumulative USD 3 allocation, and the reviewed 300-second Redshift connection
-timeout. No AWS mutation may precede this objective commit's protected review and exact-main CI.
+timeout. PR #336 merged that gate as protected main `c348122`; exact-main CI run `31927276568`
+passed all five jobs.
+
+The exact RC27 manual run and success-conditional replay then both succeeded with zero provider
+retries and the expected digest. Redshift retained three distinct canonical rows after replay,
+the replay affected zero source rows, all three assertions passed twice, Glue published the exact
+manifest and lineage, PostgreSQL state supported both terminal runs, and the owned staging prefix
+was empty. Reviewed saved-plan cleanup removed all 25 platform and 36 data-plane resources; both
+Terraform states and direct active inventories are empty, while the exact private ECR digest is
+retained. This closes the AWS-native correctness slice, not provider cost, scale, soak, public
+release, or support: Cost Explorer was unavailable to the operator role and invoice data is still
+pending. See `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json`.
 
 ## Pre-candidate release readiness
 
@@ -241,7 +252,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
-| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | RC27 packages the Serverless startup correction and passes private candidate inspection; a fresh protected exact-objective live rerun remains open |
+| `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | exact RC27 manual/replay correctness and exact cleanup passed; provider cost, scale, soak, and support remain open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
@@ -336,8 +347,9 @@ Interactive Azure and OCI authentication was subsequently restored and
 verified through provider APIs. Azure has zero Dander-named resources. OCI retains the accepted
 Phase 7 foundation and private image history with zero active Container Instances; that retained
 no-drift baseline must be preserved. Private RC27 satisfies the protected replacement-candidate
-publication gate. Its fresh RC27-bound objective is prepared for protected review and exact-main CI;
-no AWS mutation may precede those checks. Every other
+publication gate and its protected AWS objective. The exact manual/replay correctness slice passed,
+and exact cleanup left both Terraform states and active owned inventories empty. AWS invoice data
+is still pending, so the profile is not fully qualified and no support claim transfers. Every other
 provider still requires its own committed exact objective manifest and separate lane. None inherits
 a support claim. Sanitized details are in
 `docs/evidence/phase8/2026-08-14/provider-credential-blockers.json` and
@@ -397,20 +409,14 @@ not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
 ## Current exit recommendation
 
-Phase 8 remains open. The safe diagnostic gate, RC22 Kubernetes/GCP records and seven local
-PostgreSQL classes, RC22 protected audit, RC23 local preflight, RC24 corrected local crossover, and
-exact AWS cleanup evidence are complete. PR #334 merged private RC27 as protected main `d7ac61f`,
-exact-main run `31925228450` passed all five jobs, and source-free multi-platform candidate
-`sha256:bcf62d2c…4e09c` passed artifact, selector, attestation, and rootless read-only checks. PR #335
-merged its publication record as protected main `ea3e260`; exact-main run `31926577710` passed all
-five jobs. Each benchmark, provider,
-optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
-affected evidence plus the eventual final-candidate closure matrix. The RC26 300-second task
-authenticated to Redshift but stalled before its first user query; replay did not start and cleanup
-is exact. RC26 is not qualified and no result transfers. RC27 packages the focused startup
-correction and is privately published. Its fresh exact objective is prepared for protected review;
-that objective's merge and exact-main CI must precede the complete rerun.
-Remaining work includes applicable replacement-candidate evidence;
+Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
+manual/replay correctness slice: three canonical rows survived duplicate-free replay, Glue and
+PostgreSQL state paths completed, the schedule stayed disabled, and exact cleanup removed every
+owned disposable resource. Provider invoice data has not posted and the operator role cannot read
+Cost Explorer, so AWS cost remains `not_evaluated`; this is not a support promotion. Each benchmark,
+provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
+materially affected evidence plus the eventual final-candidate closure matrix.
+Remaining work includes this evidence PR and protected exact-main validation;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and
