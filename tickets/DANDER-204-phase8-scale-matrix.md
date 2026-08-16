@@ -51,7 +51,7 @@ scale report.
   TLS PostgreSQL 15.18. Both transports produced equal rows, but DIRECT lost at the first sampled
   size, so no contiguous DIRECT-winning prefix exists and the measured threshold remains disabled
   at zero. All seven objectives passed with exact cleanup and USD 0 local cost. The later AWS-native
-  corrections required private RC26, so no RC24 benchmark transfers. Applicable RC26 reruns,
+  corrections required private RC27, so no RC24 benchmark transfers. Applicable RC27 reruns,
   hosted cost, other warehouses, and every first-class launcher remain open.
 - The Kubernetes portable launcher passed normalized correctness, bulk, incremental, transform,
   and PostgreSQL-specific failure Jobs on kind 1.32.2 under its reviewed deadline, retry, CPU, and
@@ -59,6 +59,6 @@ scale report.
 - AWS access is restored. The exact RC22 AWS-native correctness objectives and USD 3 allocation are
   committed before mutation. The first disposable data-plane plan applied and cleaned up exactly,
   but read-only candidate inspection found RC22 lacks the selected AWS deployment before a Fargate
-  plan or execution. Private RC26 packages the reviewed runtime-overlay, Fargate identity, and
-  explicit Redshift staging-role grant corrections and passes local selection; the separate
-  exact-objective live result and measured cost remain open.
+  plan or execution. Private RC27 packages the reviewed runtime-overlay, Fargate identity, explicit
+  Redshift staging-role grant, and Serverless startup corrections and passes candidate inspection;
+  the separate exact-objective live result and measured cost remain open.

@@ -1306,10 +1306,11 @@ empty, and the attempt KMS key is pending deletion on 2026-09-14. This is a live
 candidate defect, so a focused connection-startup implementation PR, replacement candidate, and
 fresh protected objective must precede another AWS run. No RC24, RC25, or RC26 result transfers.
 PR #333 merged the scoped Serverless base-protocol correction as protected main `141fab6`, whose
-exact-main run `31924339366` passed all five jobs. Draft PR #334 prepares private RC27 from that
-commit and reuses the existing publication allocation without increasing the USD 10 ceiling. RC27
-is not a published candidate or live result until protected merge and separate private publication
-evidence complete; a fresh RC27-bound objective remains mandatory before AWS mutation.
+exact-main run `31924339366` passed all five jobs. PR #334 merged private RC27 as protected main
+`d7ac61f`; exact-main run `31925228450` passed all five jobs, and source-free multi-platform index
+`sha256:bcf62d2c…4e09c` passed artifact, selector, attestation, and rootless read-only checks under the
+unchanged USD 10 ceiling. The sanitized publication record must reach protected main before a fresh
+RC27-bound objective is committed; that objective remains mandatory before AWS mutation.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

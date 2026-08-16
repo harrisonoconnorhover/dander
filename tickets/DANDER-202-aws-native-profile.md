@@ -159,7 +159,9 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   empty, and the attempt KMS key is pending deletion. RC26 is not qualified; a focused
   connection-startup correction, replacement candidate, and fresh objective are required.
 - PR #333 merged the focused Redshift Serverless base-protocol correction as protected main
-  `141fab6`; exact-main run `31924339366` passed all five jobs. Draft PR #334 prepares private RC27
-  from that protected commit under the unchanged aggregate authorization. Candidate publication,
-  a fresh RC27-bound protected objective, and the complete AWS rerun remain open; RC26 results do
-  not transfer.
+  `141fab6`; exact-main run `31924339366` passed all five jobs. PR #334 merged private RC27 as
+  protected main `d7ac61f`; exact-main run `31925228450` passed all five jobs. Source-free
+  multi-platform index `sha256:bcf62d2c…4e09c` passed both-architecture, external AWS-overlay,
+  attestation, and rootless read-only checks under the unchanged aggregate authorization. Its
+  publication record, a fresh RC27-bound protected objective, and the complete AWS rerun remain
+  open; RC26 results do not transfer.
