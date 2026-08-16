@@ -1380,6 +1380,17 @@ TLS PostgreSQL 15.18, a 600-second deadline, zero candidate retries, reporter co
 owned-resource cleanup. Its USD 0.50 run ceiling is inside the retained USD 0.75 GCP soak/final
 audit allocation, and provider billing must post before the cost objective may pass. Protected
 merge and exact-main CI precede any GCP mutation.
+PR #346 merged that objective as protected main `b01bf8b`; exact-main run `31952323045` passed all
+five jobs. Execution then used main `1256213` after exact-main run `31953203115` also passed all
+five jobs, with no benchmark-script drift from exact RC27. The single candidate attempt on a
+disposable one-node GKE Standard 1.35.6 zonal cluster processed 2.7248 GB in 356.685 seconds at
+7,289.345 rows/second with 179,863,552 bytes peak RSS under the 256 MiB limit and 80% gate. TLS,
+reporter retention, zero retries/restarts, PostgreSQL cleanup, and full provider-resource rollback
+passed. One infrastructure-only runtime-path preflight failed before candidate execution and was
+corrected within the two-attempt ceiling. Provider billing is still pending, so cost and the overall
+normalized report remain `not_evaluated`; the raw report's unused `catalog=postgresql` context is
+preserved and must be corrected explicitly only in a later derived final report. Hosted Kubernetes
+cost, soak, and the remaining provider/profile cells stay open.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

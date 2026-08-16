@@ -11,10 +11,10 @@ Phase 7 evidence merge.
 |---|---|---|
 | GCP native | Exact private RC22 passed authenticated manual/replay and Scheduler execution on the retained Cloud Run/BigQuery/Dataplex/Secret Manager profile, followed by no drift | Provider-measured cost, scale reports, and the retained soak remain open |
 | Fargate to GCP | Public `0.8.0rc8` passed manual/scheduled lifecycle, replay, interruption, alerts, rollback, cleanup, and no drift | Scale qualification remains open; this is not the AWS-native profile |
-| Kubernetes portable | Exact private RC27 passed the named local kind profile plus normalized correctness/bulk/incremental/transform/failure Jobs; the accepted lifecycle evidence remains current | Hosted-provider scale/cost, remaining launcher classes, and soak remain open |
+| Kubernetes portable | Exact private RC27 passed the named local kind profile and one hosted GKE bounded-memory audit's non-cost objectives; the accepted lifecycle evidence remains current | Provider-posted GKE cost, other hosted-provider scale/cost, remaining launcher classes, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, and private RC24 passed corrected local PostgreSQL crossover | Hosted PostgreSQL cost, applicable final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC27 passed local PostgreSQL classes plus the GKE bounded-memory non-cost objectives | Hosted PostgreSQL cost, applicable final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
 | Audits | Exact RC22 passed protected CI and its historical final-candidate repeat; private RC24 publication evidence merged in PR #299 and exact-main CI run `31884123337` passed all five jobs | RC24's final-candidate repeat remains open |
 
 ## Open gates and dependency order
@@ -502,6 +502,26 @@ retries, reporter collection, and exact owned-resource cleanup. The run uses at 
 the existing USD 0.75 `retained_gcp_soak_and_final_audits` allocation; provider billing must post
 before the cost objective may pass. Protected merge and exact-main CI must precede GCP mutation.
 
+PR #346 merged that objective as protected main `b01bf8b`; exact-main CI run `31952323045` passed
+all five jobs. The later canonical-typecheck rail merged as main `1256213`; exact-main run
+`31953203115` also passed all five jobs before execution, and the accepted benchmark script was
+unchanged from exact RC27. One disposable zonal GKE Standard 1.35.6 cluster then ran the single
+approved candidate attempt on an on-demand `e2-standard-4` amd64 node against rootless TLS
+PostgreSQL 15.18. Exact RC27 processed all 2.7248 GB in 356.685 seconds at 7,289.345 rows/second
+with 179,863,552 bytes peak RSS, below the 214,748,364.8-byte ceiling. Both containers exited zero
+with no retry or restart, and PostgreSQL retained no Dander schema or staging relation.
+
+An initial Job failed before candidate code started because the immutable RC27 image exposes
+Python at `/usr/local/bin/python`, not the current-source Dockerfile path. Local image inspection
+corrected the second and final infrastructure attempt without adding a candidate retry. Exact
+cleanup removed the namespace, TLS and credentials, cluster, node, disk, GKE firewall rules,
+run-created default network, custom node service account and IAM grants; Compute Engine and GKE
+API activation returned to its disabled prestate. The raw report is preserved exactly and records
+`catalog=postgresql` although no catalog operation ran; any later derived final report must correct
+that metadata explicitly rather than rewriting the raw record. All non-cost objectives passed,
+but provider billing has not posted, so the normalized result remains `not_evaluated`. See
+`docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-attempts.json`.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
@@ -513,7 +533,7 @@ the sanitized evidence as protected main `df018e6`; exact-main CI run `319412109
 jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes the protected GKE objective and its hosted PostgreSQL scale/cost evidence;
+Remaining work includes provider-posted cost finalization for the completed GKE audit;
 remaining benchmark classes/providers and Kubernetes soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and
