@@ -201,6 +201,13 @@ jobs:
         run: docker build --tag dander-ci:${{ github.sha }} .
       - name: Verify CLI starts
         run: docker run --rm dander-ci:${{ github.sha }} --help
+      - name: Verify qualification entrypoint
+        run: |
+          docker run --rm --read-only --tmpfs /tmp \
+            --mount type=bind,source="$PWD/tests/fixtures/qualification_runner_probe.py",target=/qualification-runner-probe.py,readonly \
+            dander-ci:${{ github.sha }} qualification-run /qualification-runner-probe.py \
+            --rows 2600000 --report /tmp/result.json \
+            | grep -F '"arguments":["--rows","2600000","--report","/tmp/result.json"]'
       - name: Verify runtime contract and bundled proof assets
         run: |
           test "$(docker run --rm --entrypoint /usr/bin/id dander-ci:${{ github.sha }} -u)" = "65532"

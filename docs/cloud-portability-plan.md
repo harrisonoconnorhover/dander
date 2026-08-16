@@ -1391,6 +1391,10 @@ corrected within the two-attempt ceiling. Provider billing is still pending, so 
 normalized report remain `not_evaluated`; the raw report's unused `catalog=postgresql` context is
 preserved and must be corrected explicitly only in a later derived final report. Hosted Kubernetes
 cost, soak, and the remaining provider/profile cells stay open.
+The repeated local-kind and hosted-GKE interpreter-path preflights are tracked as DANDER-208.
+Current source exposes `dander qualification-run` as the image-owned harness boundary; future
+manifests must use it instead of an installation-layout path. RC27 evidence remains unchanged, and
+only qualification lanes materially affected after the next candidate require rerun.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

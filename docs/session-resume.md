@@ -94,6 +94,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `catalog=postgresql` context that must be corrected explicitly only in a later derived final
   report. See
   `docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-attempts.json`.
+  DANDER-208 adds `dander qualification-run` in current source so future manifests use the image's
+  installed interpreter without naming `/app/.venv/bin/python` or `/usr/local/bin/python`. RC27
+  predates the rail; accepted evidence is unchanged and only materially affected later lanes rerun.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
