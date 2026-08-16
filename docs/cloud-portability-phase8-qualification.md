@@ -11,7 +11,7 @@ Phase 7 evidence merge.
 |---|---|---|
 | GCP native | Exact private RC22 passed authenticated manual/replay and Scheduler execution on the retained Cloud Run/BigQuery/Dataplex/Secret Manager profile, followed by no drift | Provider-measured cost, scale reports, and the retained soak remain open |
 | Fargate to GCP | Public `0.8.0rc8` passed manual/scheduled lifecycle, replay, interruption, alerts, rollback, cleanup, and no drift | Scale qualification remains open; this is not the AWS-native profile |
-| Kubernetes portable | Exact private RC22 passed the local existing-cluster lifecycle plus normalized correctness/bulk/incremental/transform/failure Jobs, including alert visibility and cleanup | Hosted-provider proof, remaining launcher classes/cost, and soak remain open |
+| Kubernetes portable | Exact private RC27 passed the named local kind profile plus normalized correctness/bulk/incremental/transform/failure Jobs; the accepted lifecycle evidence remains current | Hosted-provider scale/cost, remaining launcher classes, and soak remain open |
 | Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC22 passed seven local PostgreSQL classes, and private RC24 passed corrected local PostgreSQL crossover | Hosted PostgreSQL cost, applicable final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
@@ -407,14 +407,26 @@ unchanged workload added a reporter sidecar and retained all five reports. Both 
 collection limitation are preserved in the attempts ledger. This is a local launcher-scale slice,
 not hosted-provider scale, crossover, distinct cost-class, or soak evidence.
 
-The RC27 final-candidate rerun is now bound by five exact objective files under
-`docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-*-objectives.json`. They preserve the
-accepted correctness, bulk, incremental, transform, and PostgreSQL-specific failure workloads,
-USD 0 local ceiling, kind 1.32.2 arm64 cluster, TLS PostgreSQL 15.18, 2 CPU/512 MiB Job limit,
-600-second deadline, zero launcher retries, and reporter-sidecar collection. The accepted lifecycle
-record is not repeated because the candidate changes after RC22 affect PostgreSQL/runtime behavior,
-not the Helm lifecycle contract. Protected review, merge, and exact-main CI must precede cluster
-creation; the eventual closure matrix still applies.
+PR #338 merged the five exact RC27 objective files as protected main `6ff041f`; exact-main CI run
+`31942160724` passed all five jobs before cluster creation. One named kind 1.32.2 arm64 cluster then
+ran exact private RC27 against TLS PostgreSQL 15.18 with PostgreSQL state/warehouse, catalog `none`,
+and an existing environment-projected Secret. Correctness, bulk, incremental, transform, and
+PostgreSQL-specific failure all passed under the reviewed 2 CPU/512 MiB limit, 600-second deadline,
+zero launcher retries, reporter-sidecar collection, and USD 0 local ceiling. Bulk processed 700,000
+rows in 21.730 seconds; the incremental target finished with 301,500 rows; transform passed 21
+assertions; and all four failure probes recovered as expected. All five reports bind exact RC27,
+its immutable index digest, the approved objectives, and non-estimated USD 0 cost.
+
+Two earlier cluster preflights failed closed before candidate creation: the TLS init container
+dropped the ownership capability it needed, then kind retained candidate content without the
+private registry reference. The corrected harness ran the TLS copy as PostgreSQL uid 70 and bound a
+temporary local tag to the verified exact index with `imagePullPolicy: Never`; neither failure is a
+candidate result. PostgreSQL retained zero Dander schemas and zero staging relations, the namespace
+reported zero Warning events, and the cluster, node container, namespace, in-cluster Secrets/TLS
+material, and temporary tag were deleted. See
+`docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`. This closes the
+named final-candidate local profile and five-class launcher-scale slice, not hosted Kubernetes
+scale/cost, remaining launcher classes, soak, public release, or support.
 
 ## Current exit recommendation
 
@@ -427,8 +439,8 @@ the sanitized evidence as protected main `df018e6`; exact-main CI run `319412109
 jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes the fresh RC27 Kubernetes objective's protected merge and local rerun;
-PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
+Remaining work includes PostgreSQL hosted cost; remaining benchmark classes/providers and
+Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and
 the frozen support matrix.

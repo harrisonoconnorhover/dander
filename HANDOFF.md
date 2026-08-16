@@ -2,40 +2,44 @@
 
 ## Finished
 
-- Merged RC27 AWS correctness evidence PR #337 as protected main `df018e6`.
-- Confirmed exact-main CI run `31941210969` passed all five jobs.
-- Bound five Kubernetes PostgreSQL classes to exact RC27 and the accepted deterministic workloads.
-- Preserved kind 1.32.2, TLS PostgreSQL 15.18, 2 CPU/512 MiB, a 600-second deadline, zero retries,
-  reporter-sidecar collection, and the USD 0 local ceiling.
-- Kept retained GCP, private ECR, DRUFF, public RC20, and support status unchanged.
+- Merged Kubernetes objective PR #338 as protected main `6ff041f`; exact-main run `31942160724`
+  passed all five jobs.
+- Ran exact RC27 on named kind 1.32.2 arm64 with PostgreSQL state/warehouse, catalog `none`, an
+  existing Secret projection, TLS PostgreSQL 15.18, and the reviewed Job controls.
+- Passed correctness, bulk, incremental, transform, and PostgreSQL-specific failure with zero
+  retries, exact candidate/objective identity, reporter-sidecar collection, and USD 0 local cost.
+- Verified zero Dander schemas, staging relations, and Warning events; deleted the cluster,
+  namespace, in-cluster Secrets/TLS material, node container, and temporary image tag.
+- Preserved both harness-only preflight failures without treating them as candidate results.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-correctness-objectives.json`.
+Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`.
 
 ## Checks
 
-- AWS evidence exact-main Python, secret, Terraform, distribution, and container jobs passed.
-- All five objective JSON files parse and retain the accepted workload configuration hashes.
-- Candidate version, commit, image digest, approval reference, profile, and zero-cost ceiling match.
-- HANDOFF structure, documentation status, and repository diff checks pass.
+- Objective exact-main Python, secret, Terraform, distribution, and container jobs passed.
+- All five reports parse and match their approved objective, release, commit, image, profile, and
+  configuration identity.
+- `tests/test_qualification.py`, repository diff, and handoff checks pass.
 
 ## Decisions
 
-- Require protected review and exact-main CI before creating the disposable kind cluster.
-- Rerun the five materially affected PostgreSQL/runtime classes; retain accepted lifecycle evidence.
-- Keep hosted Kubernetes scale/cost, soak, and support open.
+- Accept the exact RC27 run as the named final-candidate local Kubernetes profile and five-class
+  launcher-scale slice.
+- Retain accepted lifecycle evidence; the candidate changes did not affect the Helm lifecycle.
+- Keep hosted Kubernetes scale/cost, remaining launcher classes, soak, and support open.
 
 ## Remaining
 
-- Merge this focused objective PR after protected CI and review.
-- Run exact RC27 correctness, bulk, incremental, transform, and failure in disposable kind.
-- Retain sanitized reports through the reporter sidecar and verify exact cleanup.
-- Record the result in a separate fresh evidence branch.
+- Merge this focused evidence PR after protected CI and review, then verify exact-main CI.
+- Delete the local operator directory and TLS material after the evidence is protected.
+- Continue the next dependency-ordered Phase 8 objective from fresh protected main.
+- Complete hosted Kubernetes scale/cost, remaining benchmark/provider cells, and soak.
 - Continue remaining Phase 8 lanes without colliding with DRUFF.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-correctness-objectives.json`
+- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`
 - `docs/cloud-portability-phase8-qualification.md`
 - `tickets/DANDER-203-kubernetes-phase8-profile.md`

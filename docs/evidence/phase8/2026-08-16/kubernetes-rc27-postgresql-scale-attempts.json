@@ -1,0 +1,117 @@
+{
+  "schema": "io.dander.phase8.kubernetes-postgresql-scale-attempts/v1",
+  "qualification_date": "2026-08-16",
+  "protected_objective": {
+    "pull_request": 338,
+    "merge_commit": "6ff041fa8cc80136d059f7953f4a6faf4bc74451",
+    "exact_main_ci_run": 31942160724,
+    "all_five_jobs_passed": true
+  },
+  "cluster": {
+    "name": "kind-dander-phase8-rc27",
+    "kubernetes_version": "1.32.2",
+    "architecture": "arm64",
+    "node_image": "kindest/node@sha256:142f543559cc55d64e1ab9341df08e5ced84bd2e893736da8f51320f26f5950b",
+    "namespace": "dander-phase8-rc27",
+    "warning_events": 0,
+    "cleanup_verified": true
+  },
+  "candidate": {
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "index_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "arm64_manifest_digest": "sha256:669ab80e4fb4665d955972b71b08310b15e1227701aa49922138656618927fd1",
+    "arm64_config_digest": "sha256:ae749c1654530f8ac92c10602f0ffe4faa35a026297a1f32c8f99e2016c939ef",
+    "benchmark_script_sha256": "fb1a259e072f7bb13ee31f9460f13634df00160d386051d1786da53035b84659",
+    "local_tag_binding_verified": true,
+    "temporary_local_tag_removed": true
+  },
+  "objective_files": {
+    "bulk_throughput_sha256": "b2f36d685efd4ef21a1a9bde0c8e72ce4ca841f1b22fbd1b5f541af993cbc6cd",
+    "correctness_sha256": "cd26021ab831599ca337ad60469d501f9c4badc995788fa06c3edaece2d8ae36",
+    "failure_sha256": "03e586b533a7ee428b044189bddbc3be458adfdc2ea51097e4eb51c00bc00517",
+    "incremental_sha256": "878284b61edad68ac25b953186643b6bc5604e4a1a9a688b8a077678d541d351",
+    "transform_sha256": "a497e5d26d86100dc3e3f7cda428c8b9b8da4c5a9bd165f684d7b7377c8e5a31",
+    "configmap_hashes_match": true
+  },
+  "job_contract": {
+    "active_deadline_seconds": 600,
+    "backoff_limit": 0,
+    "cpu_limit": "2",
+    "memory_limit": "512Mi",
+    "postgresql_version": "15.18",
+    "postgresql_image": "postgres@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f",
+    "postgresql_cpu_limit": "2",
+    "postgresql_memory_limit": "1Gi",
+    "tls_required": true,
+    "service_account_token_mounted": false,
+    "read_only_root_filesystem": true,
+    "allow_privilege_escalation": false,
+    "reporter_sidecar": true
+  },
+  "attempts": [
+    {
+      "name": "cluster-preflight-01",
+      "status": "harness_preflight_failed",
+      "candidate_started": false,
+      "failure_stage": "postgresql_tls_init",
+      "observations": [
+        "Docker Desktop export lacked one PostgreSQL index blob; the same pinned digest then loaded directly into the kind node.",
+        "The TLS init container attempted chown after dropping every capability."
+      ],
+      "resolution": "Run the TLS copy directly as PostgreSQL uid 70 and recreate the owned cluster.",
+      "cleanup_verified": true,
+      "incremental_cost_usd": "0.00"
+    },
+    {
+      "name": "cluster-preflight-02",
+      "status": "harness_preflight_failed",
+      "candidate_started": false,
+      "failure_stage": "candidate_image_reference_resolution",
+      "observations": [
+        "The kind content import retained the exact index content but not the private GAR index reference, so kubelet failed closed before container creation."
+      ],
+      "resolution": "Machine-bind a temporary local tag to the exact index, load it into kind, require imagePullPolicy Never, and recreate the owned cluster.",
+      "cleanup_verified": true,
+      "incremental_cost_usd": "0.00"
+    },
+    {
+      "name": "postgresql-scale-rc27",
+      "status": "passed",
+      "candidate_started": true,
+      "provider_job_ids": [
+        "cluster:kind-dander-phase8-rc27",
+        "job:postgresql-scale-rc27"
+      ],
+      "job_started_at": "2026-08-16T10:55:15Z",
+      "job_completed_at": "2026-08-16T10:56:20Z",
+      "benchmark_started_at": "2026-08-16T10:55:16Z",
+      "benchmark_finished_at": "2026-08-16T10:55:51Z",
+      "benchmark_exit_code": 0,
+      "reporter_exit_code": 0,
+      "container_restarts": 0,
+      "reports_collected": true,
+      "report_count": 5,
+      "incremental_cost_usd": "0.00"
+    }
+  ],
+  "verification": {
+    "tls_connection": true,
+    "remaining_dander_schemas": 0,
+    "remaining_staging_relations": 0,
+    "namespace_warning_events": 0,
+    "candidate_index_bound_in_node": true,
+    "arm64_manifest_bound_to_observed_config": true,
+    "cluster_absent_after_cleanup": true,
+    "node_container_absent_after_cleanup": true
+  },
+  "reports": {
+    "bulk_throughput_sha256": "4cc0b88db5e6560bd69178dfa315c0b98e28d9542146a4f46686630b5e4d0cb8",
+    "correctness_sha256": "c0a516e6809da497c3ff34daa99b34579d1b6f14c434ec5b113ade4df27c65a7",
+    "failure_sha256": "481e704b90195703d9b42d909dd67eb45dc365cd913f124de9a0dcfc2fb2c4f6",
+    "incremental_sha256": "20e1b2c896651ae49bda627938310951c421b45a71e98c493018871098498745",
+    "transform_sha256": "0dc653b0f85a61e293f41287818bba308be075ced10559bbeb97446265fb3ef9"
+  },
+  "final_status": "passed",
+  "total_incremental_cost_usd": "0.00"
+}

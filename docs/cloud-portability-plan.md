@@ -1320,10 +1320,17 @@ cleanup removed all 25 platform and 36 data-plane resources, both Terraform stat
 inventories are empty, and the exact ECR digest remains retained. This closes AWS-native correctness;
 provider cost is still `not_evaluated`, and scale, soak, and support remain open. PR #337 merged the
 sanitized evidence as protected main `df018e6`; exact-main run `31941210969` passed all five jobs.
-The next dependency-ordered lane binds RC27 Kubernetes correctness, bulk, incremental, transform,
-and PostgreSQL-specific failure to their accepted zero-cost local workloads and reviewed Job
-controls. Its focused objective PR and exact-main CI must pass before creating the disposable kind
-cluster.
+PR #338 merged the five RC27 Kubernetes objectives as protected main `6ff041f`; exact-main run
+`31942160724` passed all five jobs before cluster creation. One named kind 1.32.2 arm64 cluster then
+ran exact RC27 with PostgreSQL state/warehouse, catalog `none`, an existing Secret projection, TLS
+PostgreSQL 15.18, a 2 CPU/512 MiB Job limit, a 600-second deadline, zero retries, and reporter-sidecar
+collection. Correctness, bulk, incremental, transform, and PostgreSQL-specific failure all passed;
+the five reports record exact candidate/objective identity and non-estimated USD 0 cost. Cleanup
+left zero Dander schemas, staging relations, namespace Warning events, kind clusters, node
+containers, or temporary image tags. This closes the final-candidate named local profile and
+five-class Kubernetes launcher-scale slice only; hosted Kubernetes scale/cost, remaining launcher
+classes, and soak remain open. See
+`docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
