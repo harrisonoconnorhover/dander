@@ -428,6 +428,16 @@ material, and temporary tag were deleted. See
 named final-candidate local profile and five-class launcher-scale slice, not hosted Kubernetes
 scale/cost, remaining launcher classes, soak, public release, or support.
 
+PR #339 merged that sanitized evidence as protected main `b73fafc`; exact-main CI run
+`31943674409` passed all five jobs. The next dependency-ordered Kubernetes class is bounded memory.
+`docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-bounded-memory-objectives.json` binds
+exact RC27 and `kubernetes_portable` to the accepted passing RC22 retry workload: 2.6 million rows,
+2.7248 GB logical input, 1,000-row batches, an externally enforced 256 MiB candidate limit, and the
+unchanged 80% peak-RSS ceiling. The disposable kind 1.32.2 arm64 Job retains 2 CPU, TLS PostgreSQL
+15.18 at 2 CPU/1 GiB, a 600-second deadline, zero retries, reporter-sidecar collection, and a USD 0
+local ceiling. Protected merge and exact-main CI must precede execution; no historical result
+transfers.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
@@ -439,8 +449,8 @@ the sanitized evidence as protected main `df018e6`; exact-main CI run `319412109
 jobs. Each benchmark,
 provider, optimization, or live-defect lane starts from fresh protected `main`; rerun only
 materially affected evidence plus the eventual final-candidate closure matrix.
-Remaining work includes PostgreSQL hosted cost; remaining benchmark classes/providers and
-Kubernetes hosted scale/soak;
+Remaining work includes the protected RC27 Kubernetes bounded-memory objective and run;
+PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and
 launcher; remaining canonical-profile evidence; release-candidate soak; profile operator docs; and
 the frozen support matrix.

@@ -47,6 +47,11 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   tags. This closes the named local profile and five-class launcher-scale slice only; hosted
   Kubernetes scale/cost, remaining launcher classes, soak, and support stay open. See
   `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`.
+  PR #339 merged that sanitized result as protected main `b73fafc`; exact-main run `31943674409`
+  passed all five jobs. The next focused gate is the committed exact-RC27 Kubernetes bounded-memory
+  objective: the accepted 2.6-million-row/256 MiB workload under 2 CPU, a 600-second deadline, zero
+  retries, reporter-sidecar collection, and USD 0 local cost. It requires protected merge and
+  exact-main CI before execution; the RC22 result does not transfer.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
