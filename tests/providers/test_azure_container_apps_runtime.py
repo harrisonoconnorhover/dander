@@ -61,6 +61,8 @@ def _request(
     image: str = _IMAGE,
     memory: str = "2Gi",
     profile_id: str = "azure_snowflake",
+    deployment_id: str | None = None,
+    platforms_config_json: str | None = None,
 ) -> ResolvedTemplateRequest:
     return ResolvedTemplateRequest(
         pipelines=_PIPELINES if pipelines is None else pipelines,
@@ -71,11 +73,13 @@ def _request(
         deadline_seconds=900,
         launcher_retry_count=1,
         batch_rows=1_000,
+        deployment_id=deployment_id,
         alert_target=(
             "/subscriptions/11111111-1111-4111-8111-111111111111/"
             "resourceGroups/dander-phase6/providers/microsoft.insights/"
             "actionGroups/dander-phase6"
         ),
+        platforms_config_json=platforms_config_json,
     )
 
 
@@ -126,6 +130,20 @@ def test_azure_factory_is_lazy_and_projects_only_non_secret_identity() -> None:
     serialized = repr(template.as_dict())
     assert "oauth-token-value" not in serialized
     assert "postgresql://" not in serialized
+
+
+def test_azure_factory_projects_resolved_platform_overlay() -> None:
+    template = _runtime().templates.build(
+        _request(
+            deployment_id="phase8_azure",
+            platforms_config_json='{"version":1}',
+        )
+    )["warehouse_fixture"]
+
+    assert dict(template.environment)["DANDER_PLATFORMS_CONFIG_JSON"] == '{"version":1}'
+    assert template.profile_id == "phase8_azure"
+    platform_index = template.command.index("--platform") + 1
+    assert template.command[platform_index] == "phase8_azure"
 
 
 def test_azure_factory_projects_keyless_google_federation_only_for_gcp_profile() -> None:

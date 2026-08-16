@@ -435,6 +435,10 @@ def test_azure_bigquery_plan_requires_explicit_gcp_project(
     assert "requires an explicit --gcp-project" in str(missing.exception)
     assert planned.exit_code == 0, planned.output
     assert captured["gcp_project"] == "unit-project"
+    assert captured["warehouse_config"] == manifest.warehouse_config
+    assert captured["state_config"] == manifest.state_config
+    assert captured["catalog_config"] == manifest.catalog_config
+    assert captured["secret_config"] == manifest.secret_config
     assert captured["apply"] is False
     assert "Azure deployment planned" in planned.output
 

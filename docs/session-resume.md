@@ -169,6 +169,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   See the Azure and OCI credential-restoration records under
   `docs/evidence/phase8/2026-08-14/`.
 
+- The next Azure scale preflight found a current-source configuration handoff gap before any cloud
+  mutation: Terraform selected the canonical Azure profile, but the immutable image did not receive
+  that external deployment. DANDER-209 projects one validated, pipeline-scoped, non-secret platform
+  overlay through the existing runtime boundary and keeps Key Vault values out of Terraform. This
+  is an implementation dependency only; Azure scale, cost, pairwise, soak, and the protected
+  qualification objective remain open.
+
 - AWS access was restored on 2026-08-14. Exact RC22 was copied byte-identically to private ECR,
   and a pre-approved 28-resource Redshift Serverless/PostgreSQL/Glue/Secrets data plane was created
   under a USD 3 allocation. Read-only image inspection then found no packaged AWS deployment, so
