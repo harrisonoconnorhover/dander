@@ -1395,6 +1395,10 @@ The repeated local-kind and hosted-GKE interpreter-path preflights are tracked a
 Current source exposes `dander qualification-run` as the image-owned harness boundary; future
 manifests must use it instead of an installation-layout path. RC27 evidence remains unchanged, and
 only qualification lanes materially affected after the next candidate require rerun.
+DANDER-209 then closed Azure's pre-live immutable-image platform handoff in PR #350 at protected
+main `1436092`; exact-main run `31960158477` passed all five jobs. Draft PR #351 prepares private
+RC28 from that main under the unchanged aggregate ceiling. RC28 remains unpublished, and Azure
+still requires a fresh protected exact-candidate objective before any resource mutation.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

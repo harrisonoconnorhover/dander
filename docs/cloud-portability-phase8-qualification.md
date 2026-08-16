@@ -71,10 +71,12 @@ Phase 7 evidence merge.
 
 The operator approved cloud mutations, conservative provider-specific SLO selection, and an
 aggregate Phase 8 ceiling of USD 10 on 2026-08-14. Private RC22 publication, the retained GCP
-diagnostic, private arm64 RC23 publication, private RC24 publication, and the combined RC25/RC26/RC27
+diagnostic, private arm64 RC23 publication, private RC24 publication, and the combined
+RC25/RC26/RC27/RC28
 replacement publications use pre-recorded USD 0.75, USD 1.25, USD 0.25, USD 0.25, and USD 0.25
-allocations. RC25, RC26, and RC27 share the final publication allocation, leaving USD 0 unallocated;
-provider-measured charges have not fully posted, so no exact cloud cost is claimed.
+allocations. RC25 through RC28 share the final publication allocation, leaving USD 0 unallocated;
+provider-measured charges have not fully posted, so no exact cloud cost is claimed. RC28 may publish
+under that cumulative allocation only after its preparation merges and exact-main CI passes.
 Each paid run must still record its objective manifest and per-run allocation before mutation,
 preserve the dependency order, and use the immutable candidate.
 
@@ -107,8 +109,15 @@ references, but never Key Vault values. `dander runtime execute` materializes it
 scratch space and selects the deployment name passed by the Container Apps Job.
 
 This current-source correction closes the pre-live configuration handoff only. It does not qualify
-Azure, transfer Phase 6 results to RC27, create resources, consume a Phase 8 objective, or authorize
-an uncommitted benchmark. Azure exact-candidate scale, cost, pairwise, and soak remain open.
+Azure, transfer Phase 6 results to a later candidate, create resources, consume a Phase 8 objective,
+or authorize an uncommitted benchmark. Azure exact-candidate scale, cost, pairwise, and soak remain
+open.
+
+Draft PR #351 prepares private `0.9.0rc28` at exact commit `130a970` with the stable entrypoint and
+Azure handoff. `docs/evidence/phase8/2026-08-16/rc28-authorization.json` extends the existing
+cumulative publication allocation without raising the USD 10 ceiling. RC28 is not a published
+candidate, provider result, cost result, public release, or support claim; publication must wait
+for protected merge and exact-main CI, then use a separate evidence lane.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
