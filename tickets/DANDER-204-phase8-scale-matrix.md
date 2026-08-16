@@ -90,3 +90,8 @@ scale report.
   reporter, zero-retry/restart/warning, database cleanup, cluster/tag cleanup, and USD 0 checks. A
   PostgreSQL storage preflight failed before the candidate Job existed and was isolated by
   recreating the owned cluster. Protected evidence review remains; crossover stays separate.
+- PR #343 merged the concurrency evidence as protected main `bd7489d`; exact-main run
+  `31948875002` passed all five jobs. The next focused objective binds Kubernetes crossover to exact
+  RC27 and the corrected RC24 1/10/100/1,000/5,000-row COPY/DIRECT workload, but transfers no RC24
+  result or threshold. It preserves five repetitions, SCD1 equality, the 1 MiB direct ceiling,
+  exact cleanup, a 2 CPU/512 MiB rootless Job, TLS PostgreSQL 15.18, and USD 0 local cost.

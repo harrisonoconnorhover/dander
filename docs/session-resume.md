@@ -65,8 +65,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   publication fence, and left no database residue. TLS, reporter collection, zero retries/restarts,
   zero Warning events, USD 0 cost, cluster cleanup, and temporary-tag cleanup passed. One
   harness-only PostgreSQL storage preflight stopped before the candidate Job existed; the corrected
-  run used a freshly recreated cluster. The sanitized concurrency evidence awaits protected review,
-  and crossover remains the next focused local Kubernetes class. No prior result transferred.
+  run used a freshly recreated cluster. PR #343 merged the sanitized concurrency evidence as
+  protected main `bd7489d`; exact-main run `31948875002` passed all five jobs, after which its
+  operator TLS package was moved to Trash. The fresh crossover objective reuses RC24's corrected
+  1/10/100/1,000/5,000-row, 128-byte, five-repetition COPY/DIRECT workload while binding exact RC27,
+  `kubernetes_portable`, canonical equality, measured threshold, cleanup, and USD 0 cost. Protected
+  merge and exact-main CI precede execution; neither RC24's result nor its zero threshold transfers.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both

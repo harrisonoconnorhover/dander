@@ -2,42 +2,40 @@
 
 ## Finished
 
-- Verified concurrency objective PR #342 as protected main `7dc51f8`; exact-main run
-  `31946605370` passed all five jobs before execution.
-- Ran exact private RC27 on kind 1.32.2 arm64 with TLS PostgreSQL 15.18 and the protected
-  2.6-million-row/256 MiB configuration.
-- Completed four independent 5,000-row pipelines in 334.55 ms at 59,781.789 rows/second and
-  rejected the stale publication fence.
-- Recorded zero retries/restarts/warnings/residue, exact reporter output, USD 0 local cost, and
-  complete cluster/node/tag cleanup.
-- Preserved one harness-only PostgreSQL storage preflight that stopped before the candidate Job.
+- Merged concurrency evidence PR #343 as protected main `bd7489d`; exact-main run
+  `31948875002` passed all five jobs.
+- Moved the protected concurrency run's isolated TLS/operator package to Trash.
+- Bound the next Kubernetes crossover class to exact private RC27 and `kubernetes_portable`.
+- Preserved the corrected 1/10/100/1,000/5,000-row COPY/DIRECT workload, five repetitions,
+  canonical equality, measured threshold, exact cleanup, and USD 0 ceiling.
+- Kept hosted scale/cost, remaining provider cells, soak, public RC20, support, and DRUFF unchanged.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-concurrency.json`.
+Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover-objectives.json`.
 
 ## Checks
 
-- Objective exact-main Python, secret, Terraform, distribution, and container jobs passed.
-- `uv run --extra dev --extra postgres pytest -q tests/test_qualification.py` passed 13 tests.
-- Candidate/report/objective identities, TLS, zero residue, zero warnings, and cleanup checks pass.
+- Concurrency evidence exact-main Python, secret, Terraform, distribution, and container jobs passed.
+- The crossover objective matches the deterministic corrected workload and exact RC27 identity.
+- Repository diff, JSON, and handoff structure checks pass.
 
 ## Decisions
 
-- Claim only concurrent completion, stale-fence rejection, throughput, cleanup, and USD 0 cost.
-- Do not transfer the coupled bounded measurement or any RC22/incidental concurrency result.
-- Keep crossover in its own fresh objective and evidence branches after this evidence is protected.
+- Measure both COPY and DIRECT without preselecting a nonzero threshold.
+- Accept zero as the measured threshold when DIRECT has no contiguous winning prefix.
+- Transfer no RC24 result; require a fresh exact-RC27 Job after protected objective CI.
 
 ## Remaining
 
-- Merge this sanitized concurrency evidence after protected CI and review, then verify exact-main CI.
-- Give Kubernetes crossover its own focused objective and evidence branches.
+- Merge this crossover objective after protected CI and review, then verify exact-main CI.
+- Run exact RC27 crossover in a disposable kind cluster and retain sanitized evidence.
 - Complete hosted Kubernetes scale/cost, remaining provider cells, and soak.
 - Run the eventual final-candidate closure matrix.
 - Freeze support only after the final-candidate closure matrix passes.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-concurrency.json`
-- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-concurrency-attempts.json`
+- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover-objectives.json`
 - `docs/cloud-portability-phase8-qualification.md`
+- `scripts/benchmarks/postgresql_crossover_phase8.py`
