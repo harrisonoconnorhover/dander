@@ -168,3 +168,9 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   success-conditional replay, the reviewed 300-second timeout, paused scheduling, exact cleanup,
   and the cumulative USD 3 allocation. Protected review and the complete live rerun remain open;
   RC26 results do not transfer.
+- PR #336 merged that exact RC27 objective as protected main `c348122`; exact-main run
+  `31927276568` passed all five jobs. The one manual run and one replay then both succeeded on the
+  exact digest with three duplicate-free Redshift rows, complete assertions, Glue publication,
+  PostgreSQL state participation, zero owned staging objects, and exact 25-plus-36-resource
+  cleanup. This closes the AWS-native correctness slice only. Provider cost remains
+  `not_evaluated`, and scale, soak, protected evidence review, and support promotion remain open.

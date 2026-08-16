@@ -1,4 +1,4 @@
-# Session Resume — 2026-08-15
+# Session Resume — 2026-08-16
 
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
@@ -18,7 +18,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 - The five retained jobs use private qualification candidate Dander `0.9.0rc22` index
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
   Private RC27 at `sha256:bcf62d2c…4e09c` is the latest published candidate but has not replaced
-  those retained jobs and is not qualified. Public RC20 remains unchanged.
+  those retained jobs. Its AWS-native correctness slice passed, but provider cost and the remaining
+  Phase 8 gates are open, so it is not fully qualified. Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -34,6 +35,17 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
+  after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
+  exited zero on the exact ECR digest with no provider retry; Redshift retained three distinct
+  canonical rows, replay affected zero source rows, all assertions passed twice, Glue published the
+  exact metadata, and the staging prefix was empty. Reviewed saved-plan cleanup destroyed all 25
+  platform and 36 data-plane resources, both Terraform states and active owned inventories are
+  empty, the platform KMS key is pending deletion, and the exact private ECR digest is retained.
+  Cost Explorer was denied to the operator role and invoice data is pending, so cost remains
+  `not_evaluated` and support was not promoted. See
+  `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json`.
 
 - Private Dander `0.9.0rc27` was built from protected-main commit
   `d7ac61f46b362f4e7e64365e9267ec6e7faf70f2` after all five jobs passed exact-main CI run
@@ -175,8 +187,9 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `31926577710` passed all five jobs. The fresh gate at
   `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json` preserves one manual run,
   one success-conditional replay, the 300-second connection timeout, paused scheduling, exact
-  cleanup, and the cumulative USD 3 allocation. Protected review, merge, and exact-main CI still
-  precede AWS mutation; no RC26 result transfers.
+  cleanup, and the cumulative USD 3 allocation. PR #336 merged it as protected main `c348122` and
+  exact-main run `31927276568` passed all five jobs. The resulting correctness run is recorded above;
+  no RC26 result transferred.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It

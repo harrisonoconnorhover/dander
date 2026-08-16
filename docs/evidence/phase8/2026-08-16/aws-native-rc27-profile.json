@@ -1,0 +1,207 @@
+{
+  "schema": "io.dander.phase8.aws-native-profile-evidence/v1",
+  "evidence_date": "2026-08-16",
+  "authorization_reference": "docs/evidence/phase8/2026-08-15/rc27-authorization.json",
+  "objective_reference": "docs/evidence/phase8/2026-08-16/aws-native-rc27-profile-objectives.json",
+  "execution_base": {
+    "protected_main_commit": "c348122f69fb3b1f5fefcc76eb4f65dcd3372957",
+    "protected_main_ci_run": 31927276568,
+    "protected_main_ci_jobs_passed": 5
+  },
+  "candidate": {
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "wheel_sha256": "db9d9030d7db62c7eab42975e0db1d0aac59aa3137b812c84195df6f73450583",
+    "source_index_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "ecr_image": "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "ecr_index_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "ecr_tag": "phase8-rc27-bcf62d2c2246",
+    "registry_copy_verified": true,
+    "source_free": true,
+    "multi_platform": true
+  },
+  "workload": {
+    "configuration_sha256": "abd9c31e610712d44dc33b3224d9e18b43fd139fd50731b86e6ab8f2bd11b2fc",
+    "project_manifest_sha256": "415ee840c128ee56a3024afc78a7857fbd972d280a45b5fb1fac2a3d821ff93d",
+    "platform_manifest_sha256": "69a493f62cfaf018fdf3e796faf147ef4518164dd0ec0d63055fc25a63ee4d3d",
+    "connector_sha256": "15d75bace5873c4a11ec1679911220f84c1f32c01062023d8030241eb0fca466",
+    "model_sha256": "a8828af07320cd2005706cbeb7920a873f205c5d038504cd8b2192d3b3fe49d7",
+    "manual_executions": 1,
+    "replay_executions": 1,
+    "schedule_paused": true,
+    "runtime_timeout_seconds": 600,
+    "runtime_max_retries": 0,
+    "redshift_connect_timeout_seconds": 300
+  },
+  "data_plane": {
+    "saved_plan_sha256": "ceb93fb915f0e6dc26a7c33453195f021f8f338bd8f206f2f6f5d95db8fead09",
+    "saved_plan": {
+      "add": 36,
+      "change": 0,
+      "destroy": 0,
+      "read": 1
+    },
+    "apply": {
+      "add": 36,
+      "change": 0,
+      "destroy": 0
+    },
+    "post_apply_plan_sha256": "e876e1f4aad4bcef9acdeb8555ec523f424d2a6b208e87edc84d25018622ce19",
+    "post_apply_drift": false,
+    "redshift_serverless_base_capacity_rpu": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 5,
+    "postgresql_instance_class": "db.t4g.micro",
+    "postgresql_storage_gib": 20
+  },
+  "platform": {
+    "saved_plan_sha256": "6605500801e7ba3764d40fa4d56d271823909064ed9a077cc55fb509731fb4d5",
+    "saved_plan": {
+      "add": 25,
+      "change": 0,
+      "destroy": 0,
+      "read": 7
+    },
+    "apply": {
+      "add": 25,
+      "change": 0,
+      "destroy": 0
+    },
+    "post_apply_plan_sha256": "68d00abe1d1c7a59bc547571030af53e09c43455282c2316a7d32097f4e535f4",
+    "verification": {
+      "exact_image_digest": true,
+      "schedule_disabled": true,
+      "state_machine_timeout_seconds": 600,
+      "task_timeout_seconds": 600,
+      "task_definition_expected": true,
+      "rootless_read_only": true,
+      "aws_native_identity": true,
+      "network_coordinates_exact": true,
+      "post_apply_drift": false
+    }
+  },
+  "executions": {
+    "manual": {
+      "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-phase8-aws-qualifica-35e4e06f:p8rc27-manual-01",
+      "task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander/d295787f3c064e67a81c242b407bccb7",
+      "run_id": "phase8_aws_qualification:2026-08-16T09:43:58Z",
+      "controller_started_at_utc": "2026-08-16T09:43:59.451Z",
+      "runtime_started_at_utc": "2026-08-16T09:44:43.156573Z",
+      "runtime_completed_at_utc": "2026-08-16T09:45:28.550588Z",
+      "controller_stopped_at_utc": "2026-08-16T09:45:53.653Z",
+      "controller_status": "succeeded",
+      "task_exit_code": 0,
+      "task_image_digest_match": true,
+      "runtime_duration_ms": 45393,
+      "provider_retry_count": 0,
+      "source_rows_extracted": 3,
+      "source_rows_affected": 3,
+      "warehouse_rows_written": 3,
+      "model_rows_affected": 3,
+      "assertions_passed": 3,
+      "redshift_query_ids": ["206180", "206274"]
+    },
+    "replay": {
+      "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-phase8-aws-qualifica-35e4e06f:p8rc27-replay-01",
+      "task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander/bbea91fdf2db49aaa081c35c0593289f",
+      "run_id": "phase8_aws_qualification:2026-08-16T09:49:05Z",
+      "controller_started_at_utc": "2026-08-16T09:49:06.222Z",
+      "runtime_started_at_utc": "2026-08-16T09:49:49.345170Z",
+      "runtime_completed_at_utc": "2026-08-16T09:50:03.719514Z",
+      "controller_stopped_at_utc": "2026-08-16T09:50:34.045Z",
+      "controller_status": "succeeded",
+      "task_exit_code": 0,
+      "task_image_digest_match": true,
+      "runtime_duration_ms": 14374,
+      "provider_retry_count": 0,
+      "source_rows_extracted": 3,
+      "source_rows_affected": 0,
+      "warehouse_rows_written": 3,
+      "model_rows_affected": 3,
+      "assertions_passed": 3,
+      "redshift_query_ids": ["206497", "206573"]
+    }
+  },
+  "readback": {
+    "redshift": {
+      "raw_rows": 3,
+      "raw_distinct_ids": 3,
+      "model_rows": 3,
+      "model_distinct_ids": 3,
+      "normalized_rows_sha256": "a56919e9883a0e498a5a8cac3b6a80066333296672aaf8761d67a72ceeeb7288",
+      "normalized_rows": [[1, "Post 1"], [2, "Post 2"], [3, "Post 3"]],
+      "raw_stage_loads": 2,
+      "raw_target_commits": 1,
+      "model_target_commits": 1,
+      "replay_duplicate_free": true
+    },
+    "glue": {
+      "database": "dander_analytics_staging",
+      "table": "stg_phase8_aws__posts",
+      "manifest_sha256": "8e9c860403bb028fb4634b55751e1829d4810031af2c5b92f0f5aedfd2f59c68",
+      "lineage": ["analytics.raw.phase8_aws_fixture_posts"],
+      "assertion_count": 3,
+      "metric_count": 1
+    },
+    "postgresql_state": {
+      "manual_terminal_history_proven_by_runtime": true,
+      "replay_terminal_history_proven_by_runtime": true,
+      "aws_secret_manager_resolution_proven": true,
+      "lease_release_error_events": 0,
+      "operator_table_readback": "not_authorized",
+      "operator_readback_mutation_started": false
+    },
+    "owned_staging_object_count": 0
+  },
+  "cleanup": {
+    "platform_destroy_plan_sha256": "1084044b38282fa7334a1920394d9c46170794ff82fb4fce290264050bb8db30",
+    "platform_destroy": {
+      "add": 0,
+      "change": 0,
+      "destroy": 25
+    },
+    "data_plane_destroy_plan_sha256": "26fe16570cdbaf0bae07f6ad57561dad3cdc95a9520a915466fd1da1b867f59e",
+    "data_plane_destroy": {
+      "add": 0,
+      "change": 0,
+      "destroy": 36
+    },
+    "platform_state_entries": 0,
+    "data_plane_state_entries": 0,
+    "direct_active_owned_resource_inventories_empty": true,
+    "ecs_cluster_status": "INACTIVE",
+    "ecs_running_tasks": 0,
+    "attempt_kms_key_id": "e9cbffda-d533-420c-9bc5-0fb96ec606a7",
+    "attempt_kms_key_status": "PendingDeletion",
+    "attempt_kms_key_deletion_at": "2026-09-15T09:54:16.768Z",
+    "exact_ecr_digest_retained": true
+  },
+  "cost": {
+    "aggregate_phase8_ceiling_usd": "10.00",
+    "aws_allocation_usd": "3.00",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "cost_explorer_result": "access_denied"
+  },
+  "operator_notes": {
+    "initial_promotion_attempt": "pre_promotion_local_proof_record_missing",
+    "registry_mutated_by_initial_attempt": false,
+    "direct_state_validator_attempt": "denied_before_task_creation",
+    "additional_validation_task_started": false
+  },
+  "objectives": {
+    "artifact_identity": "passed",
+    "aws_secret_manager_resolution": "passed",
+    "cost_ceiling": "not_evaluated",
+    "exact_cleanup": "passed",
+    "glue_publication": "passed",
+    "manual_execution": "passed",
+    "no_drift": "passed",
+    "postgresql_state": "passed",
+    "redshift_write": "passed",
+    "replay_idempotency": "passed"
+  },
+  "correctness_status": "passed",
+  "qualification_status": "not_evaluated_cost_pending",
+  "replacement_candidate_required": false,
+  "support_promoted": false
+}
