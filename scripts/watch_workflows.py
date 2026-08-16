@@ -25,6 +25,7 @@ import os
 import re
 import sys
 import time
+from typing import TypedDict
 
 HOME = os.path.expanduser("~")
 # Claude Code slugs a project's ~/.claude/projects/ dir from its absolute repo path by
@@ -66,6 +67,29 @@ _ROLE_RE = re.compile(
     r"\b(product|design|code-python|code-sql|code-terraform|pr-review|documentation)\b"
 )
 _TICKET_RE = re.compile(r"DANDER-\d+")
+
+
+class AgentSummary(TypedDict):
+    """One rendered workflow-agent row."""
+
+    role: str
+    ticket: str
+    state: str
+    summary: str
+    age: float
+
+
+class RunSummary(TypedDict):
+    """Typed data required to render one workflow run."""
+
+    id: str
+    total: int
+    done: int
+    running: int
+    active: bool
+    elapsed: float
+    idle: float
+    agents: list[AgentSummary]
 
 
 def human_age(seconds: float) -> str:
@@ -149,7 +173,7 @@ def read_journal(run_dir: str) -> tuple[set[str], dict[str, object]]:
     return started, results
 
 
-def summarize_run(run_dir: str, now: float) -> dict:
+def summarize_run(run_dir: str, now: float) -> RunSummary:
     metas = glob.glob(os.path.join(run_dir, "agent-*.meta.json"))
     transcripts = glob.glob(os.path.join(run_dir, "agent-*.jsonl"))
     started, results = read_journal(run_dir)
@@ -159,7 +183,7 @@ def summarize_run(run_dir: str, now: float) -> dict:
     first_seen = min((os.path.getmtime(m) for m in metas), default=run_mtime)
     active = (now - last_activity) < ACTIVE_WINDOW
 
-    agents = []
+    agents: list[AgentSummary] = []
     for t in sorted(transcripts, key=os.path.getmtime):
         aid = os.path.basename(t)[len("agent-") : -len(".jsonl")]
         role, ticket = label_for(t)
@@ -191,7 +215,7 @@ def summarize_run(run_dir: str, now: float) -> dict:
     }
 
 
-def render(runs: list[dict], show_all: bool) -> str:
+def render(runs: list[RunSummary], show_all: bool) -> str:
     now_str = time.strftime("%H:%M:%S")
     header = f"{C['bold']}Dander workflow monitor{C['reset']}"
     out = [f"{header}  {C['dim']}{now_str}  (Ctrl-C to exit){C['reset']}"]

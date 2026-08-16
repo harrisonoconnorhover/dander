@@ -63,7 +63,7 @@ jobs:
           uv sync --frozen --extra dev
           uv run ruff check .
           uv run ruff format --check .
-          uv run mypy src tests
+          python3 scripts/check_types.py
           uv run pytest
       - name: Terraform checks
         run: |

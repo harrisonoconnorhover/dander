@@ -2,41 +2,40 @@
 
 ## Finished
 
-- Merged crossover evidence PR #345 as protected main `366ce8a`; exact-main run `31951009601`
-  passed all five jobs.
-- Bound the next hosted Kubernetes audit to exact private RC27 and the protected bounded-memory
-  workload on one disposable zonal GKE Standard cluster.
-- Preserved the 256 MiB candidate limit, 80% peak-RSS gate, TLS PostgreSQL 15.18, and zero retries.
-- Limited the run to USD 0.50 inside the retained USD 0.75 GCP soak/final-audit allocation.
-- Required provider-posted billing before the cost objective can pass.
+- Made `python3 scripts/check_types.py` the single canonical strict type-check command locally and
+  in both workflows.
+- Centralized its explicit targets in `pyproject.toml` instead of duplicating paths in CI.
+- Classified the documented workflow watcher as maintained developer tooling and added it to the
+  strict type contract.
+- Replaced its two unparameterized dictionaries with typed run and agent summaries.
+- Documented why broad `mypy .` or recursive auxiliary-script checks are not equivalent.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-objectives.json`.
+Run `python3 scripts/check_types.py`, then `python3 scripts/watch_workflows.py --once`.
 
 ## Checks
 
-- Objective JSON parses and binds the protected RC27 identity/configuration.
-- Focused qualification and PostgreSQL benchmark contract tests pass.
-- Ruff, strict mypy, documentation structure, and diff review pass.
+- Canonical strict mypy passes for `src`, `tests`, and the workflow watcher.
+- Ruff lint/format and the watcher one-shot smoke test pass.
+- Both workflows call the same checker; documentation, handoff structure, and diff review pass.
 
 ## Decisions
 
-- Use GKE Standard so the reviewed 256 MiB limit remains enforceable without provider adjustment.
-- Charge only this final audit to the existing retained GCP allocation; do not reuse pending GCP
-  profile funds.
-- Keep hosted bounded-memory/cost separate from scheduled soak.
+- Use one small checker to select the locked environment and mypy's configured-file mechanism.
+- Include the watcher because README documents it as maintained, runnable developer tooling.
+- Add any future strict script deliberately to `[tool.mypy].files`.
 
 ## Remaining
 
-- Merge this objective after protected CI and review, then verify exact-main CI before mutation.
-- Execute once, clean every owned GKE resource, and retain sanitized result/attempt evidence.
-- Finalize the cost objective only after provider billing posts.
+- Merge this focused developer-experience fix after protected CI and review.
+- Verify all five exact-main jobs before resuming the protected GKE objective.
+- Execute and clean the hosted Kubernetes audit, then wait for provider-posted cost.
 - Complete remaining provider cells and Kubernetes soak.
 - Run the eventual final-candidate closure matrix.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-objectives.json`
-- `docs/cloud-portability-phase8-qualification.md`
-- `tickets/DANDER-204-phase8-scale-matrix.md`
+- `pyproject.toml`
+- `scripts/watch_workflows.py`
+- `.github/workflows/ci.yml`

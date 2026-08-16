@@ -120,15 +120,20 @@ All commands run through `uv run` (no need to activate the venv manually):
 ```bash
 uv run ruff check .        # lint
 uv run ruff format .       # auto-format
-uv run mypy                # strict type-check
+python3 scripts/check_types.py  # canonical strict type-check
 uv run pytest              # run the test suite
 uv run dander --help       # the CLI (init / run)
 uv run dander validate     # validate dander.yaml and every pipeline reference
 uv run dander metadata list --project my-gcp-project
 ```
 
-**Green baseline** = `ruff check`, `ruff format --check`, `mypy`, and `pytest` all pass. Keep it
-green; the `pr-review` agent enforces it on every ticket.
+`python3 scripts/check_types.py` is the canonical strict type check. It selects the locked dev and
+PostgreSQL environment, while its maintained targets live in `[tool.mypy].files` in
+`pyproject.toml`. Do not replace it with `mypy .` or recursively check every auxiliary script. Add
+a maintained script to that target list deliberately, and keep CI calling this same checker.
+
+**Green baseline** = `ruff check`, `ruff format --check`, the canonical type checker, and `pytest`
+all pass. Keep it green; the `pr-review` agent enforces it on every ticket.
 
 ## Runnable Greenhouse paths
 

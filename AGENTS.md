@@ -1,7 +1,9 @@
 # Dander Engineering Guide
 
 - Use Python 3.12+ through `uv`; keep `uv.lock` synchronized with `pyproject.toml`.
-- Run Ruff lint/format, strict mypy, focused pytest, and proportionate full checks before merge.
+- Run Ruff lint/format, the canonical `python3 scripts/check_types.py` strict check, focused pytest,
+  and proportionate full checks before merge. Its targets live in `[tool.mypy].files`; do not
+  substitute `mypy .` or recursively type-check auxiliary scripts.
 - Regenerate Control contracts with `scripts/generate_control_contracts.py` and verify drift with
   `scripts/check_control_contracts.py`; never hand-edit generated schemas or fixtures.
 - Keep provider SDK imports lazy and inside the selected provider boundary. Public Control models
