@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from collections.abc import Mapping
 from ipaddress import IPv4Address, ip_address
 from json import JSONDecodeError, dumps, loads
 from typing import TYPE_CHECKING
@@ -21,7 +22,6 @@ from dander.providers import ProviderFactoryError
 from dander.providers.gcp_launcher import GcpLauncherContext
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from pathlib import Path
 
 _LOCATION = re.compile(r"^[a-z][a-z0-9]{1,31}$")
@@ -69,6 +69,10 @@ class AzureTerraformBootstrap:
         state_key: str,
         container_image: str,
         launcher_config: Mapping[str, object],
+        warehouse_config: Mapping[str, object],
+        state_config: Mapping[str, object],
+        catalog_config: Mapping[str, object],
+        secret_config: Mapping[str, object],
         key_vault_allowed_ip_rule: str,
         runtime_cpu: int,
         runtime_memory: str,
@@ -129,6 +133,13 @@ class AzureTerraformBootstrap:
             raise AzureTerraformBootstrapError(
                 "Azure planning requires launcher.provider='azure_container_apps'"
             )
+        self._validate_platform_profile(
+            warehouse_config=warehouse_config,
+            state_config=state_config,
+            catalog_config=catalog_config,
+            secret_config=secret_config,
+            gcp_project=gcp_project,
+        )
         location = self._required(raw_launcher, "region", _LOCATION)
         resource_group_name = self._required(raw_launcher, "resource_group_name", _RESOURCE_NAME)
         environment_name = self._required(
@@ -170,11 +181,28 @@ class AzureTerraformBootstrap:
                     else None
                 ),
             )
-            projections = {
-                pipeline_id: template.as_dict()
-                for pipeline_id, template in launcher.templates.build(
+            projections: dict[str, dict[str, object]] = {}
+            for pipeline_id, pipeline in sorted(expanded_pipelines.items()):
+                scoped_pipelines = {pipeline_id: pipeline}
+                platforms_config_json = self._runtime_platforms_config(
+                    deployment_name=deployment_name,
+                    profile_id=profile_id,
+                    launcher_config=raw_launcher,
+                    warehouse_config=warehouse_config,
+                    state_config=state_config,
+                    catalog_config=catalog_config,
+                    secret_config=secret_config,
+                    runtime_cpu=runtime_cpu,
+                    runtime_memory=runtime_memory,
+                    runtime_timeout_seconds=runtime_timeout_seconds,
+                    runtime_max_retries=runtime_max_retries,
+                    runtime_batch_rows=runtime_batch_rows,
+                    require_guarded_free_tier=require_guarded_free_tier,
+                    pipelines=scoped_pipelines,
+                )
+                templates = launcher.templates.build(
                     ResolvedTemplateRequest(
-                        pipelines=expanded_pipelines,
+                        pipelines=scoped_pipelines,
                         image=container_image,
                         profile_id=profile_id,
                         cpu=runtime_cpu,
@@ -183,10 +211,12 @@ class AzureTerraformBootstrap:
                         launcher_retry_count=runtime_max_retries,
                         batch_rows=runtime_batch_rows,
                         alert_target=alert_target,
+                        deployment_id=deployment_name,
+                        platforms_config_json=platforms_config_json,
                     )
-                ).items()
-            }
-        except (ExecutionProjectionError, ProviderFactoryError) as error:
+                )
+                projections[pipeline_id] = templates[pipeline_id].as_dict()
+        except (ExecutionProjectionError, ProviderFactoryError, ValueError) as error:
             raise AzureTerraformBootstrapError(str(error)) from error
         requires_key_vault_network = _has_azure_key_vault_bindings(projections)
         if requires_key_vault_network and infrastructure_subnet_id is None:
@@ -243,6 +273,104 @@ class AzureTerraformBootstrap:
         if apply:
             self._run("terraform", "apply", "-input=false", self._plan_path.name)
         return self._plan_path
+
+    @staticmethod
+    def _validate_platform_profile(
+        *,
+        warehouse_config: Mapping[str, object],
+        state_config: Mapping[str, object],
+        catalog_config: Mapping[str, object],
+        secret_config: Mapping[str, object],
+        gcp_project: str | None,
+    ) -> None:
+        providers = (
+            warehouse_config.get("provider"),
+            state_config.get("provider"),
+            catalog_config.get("provider"),
+            secret_config.get("provider"),
+        )
+        expected = (
+            ("bigquery", "bigquery", "dataplex", "gcp_secret_manager")
+            if gcp_project is not None
+            else ("snowflake", "postgresql", "none", "azure_key_vault")
+        )
+        if providers != expected:
+            profile_name = "Azure/GCP federation" if gcp_project is not None else "Azure canonical"
+            raise AzureTerraformBootstrapError(
+                f"{profile_name} planning requires its named provider composition"
+            )
+
+    @staticmethod
+    def _runtime_platforms_config(
+        *,
+        deployment_name: str,
+        profile_id: str,
+        launcher_config: Mapping[str, object],
+        warehouse_config: Mapping[str, object],
+        state_config: Mapping[str, object],
+        catalog_config: Mapping[str, object],
+        secret_config: Mapping[str, object],
+        runtime_cpu: int,
+        runtime_memory: str,
+        runtime_timeout_seconds: int,
+        runtime_max_retries: int,
+        runtime_batch_rows: int,
+        require_guarded_free_tier: bool,
+        pipelines: Mapping[str, Mapping[str, object]],
+    ) -> str:
+        """Render one validated deployment overlay independent of image-baked coordinates."""
+        deployment_pipelines: dict[str, object] = {}
+        for pipeline_id, pipeline in sorted(pipelines.items()):
+            secret_env = pipeline["secret_env"]
+            if not isinstance(secret_env, Mapping):  # pragma: no cover - validated upstream
+                raise AzureTerraformBootstrapError("Pipeline secret bindings are invalid")
+            deployment_pipelines[pipeline_id] = {
+                "schedule": pipeline["schedule"],
+                "time_zone": pipeline["time_zone"],
+                "paused": pipeline["paused"],
+                "secret_bindings": dict(sorted(secret_env.items())),
+                "resources": {
+                    "job": pipeline["job_name"],
+                    "runtime_service_account": pipeline["runtime_service_account_id"],
+                    "scheduler_service_account": pipeline["scheduler_service_account_id"],
+                },
+            }
+        document = {
+            "version": 1,
+            "platforms": {
+                profile_id: {
+                    "warehouse": dict(warehouse_config),
+                    "state": dict(state_config),
+                    "catalog": dict(catalog_config),
+                    "secrets": dict(secret_config),
+                }
+            },
+            "deployments": {
+                deployment_name: {
+                    "platform": profile_id,
+                    "launcher": dict(launcher_config),
+                    "runtime": {
+                        "cpu": runtime_cpu,
+                        "memory": runtime_memory,
+                        "timeout_seconds": runtime_timeout_seconds,
+                        "max_retries": runtime_max_retries,
+                        "batch_rows": runtime_batch_rows,
+                    },
+                    "safety": {
+                        "require_guarded_free_tier": require_guarded_free_tier,
+                    },
+                    "pipelines": deployment_pipelines,
+                }
+            },
+        }
+        from dander.project.portable_config import DanderPlatforms
+
+        validated = DanderPlatforms.model_validate(document)
+        return dumps(
+            validated.model_dump(mode="json", by_alias=True, exclude_none=True),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
 
     def apply_saved_plan(
         self,

@@ -92,6 +92,7 @@ class AzureContainerAppsTemplateFactory:
                 expression=str(pipeline["schedule"]),
                 time_zone=str(pipeline["time_zone"]),
             )
+            deployment_id = request.deployment_id or request.profile_id
             command: tuple[str, ...] = (
                 "runtime",
                 "execute",
@@ -100,7 +101,7 @@ class AzureContainerAppsTemplateFactory:
                 "--pipeline",
                 pipeline_id,
                 "--platform",
-                request.profile_id,
+                deployment_id,
                 "--config",
                 "/app/dander.yaml",
                 "--models-dir",
@@ -127,6 +128,8 @@ class AzureContainerAppsTemplateFactory:
                 "HOME": "/tmp",
                 "TMPDIR": "/tmp",
             }
+            if request.platforms_config_json is not None:
+                environment["DANDER_PLATFORMS_CONFIG_JSON"] = request.platforms_config_json
             if self.gcp is not None:
                 assert self.config.google_application_id_uri is not None
                 assert self.config.google_workload_identity_audience is not None
@@ -148,7 +151,7 @@ class AzureContainerAppsTemplateFactory:
                 schema=EXECUTION_PROJECTION_SCHEMA,
                 contract=RUNTIME_CONTRACT,
                 pipeline_id=pipeline_id,
-                profile_id=request.profile_id,
+                profile_id=deployment_id,
                 launcher="azure_container_apps",
                 image=request.image,
                 command=command,

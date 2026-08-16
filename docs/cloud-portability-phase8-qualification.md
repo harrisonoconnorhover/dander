@@ -98,6 +98,18 @@ started. It does not rewrite or invalidate their attempt ledgers, transfer resul
 candidate, or require unaffected accepted evidence to rerun. RC27 predates the command; a later
 candidate and only materially affected qualification lanes will consume it.
 
+## Azure immutable runtime profile projection
+
+Azure qualification planning projects the exact selected deployment into the source-free image
+through the existing validated `DANDER_PLATFORMS_CONFIG_JSON` runtime boundary. The pipeline-scoped
+document contains provider coordinates, runtime limits, schedule, resource names, and secret
+references, but never Key Vault values. `dander runtime execute` materializes it in writable
+scratch space and selects the deployment name passed by the Container Apps Job.
+
+This current-source correction closes the pre-live configuration handoff only. It does not qualify
+Azure, transfer Phase 6 results to RC27, create resources, consume a Phase 8 objective, or authorize
+an uncommitted benchmark. Azure exact-candidate scale, cost, pairwise, and soak remain open.
+
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
 `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; its packaged GCP

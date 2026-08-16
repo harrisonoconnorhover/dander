@@ -62,6 +62,26 @@ def _execute(bootstrap: AzureTerraformBootstrap, **overrides: object) -> Path:
         "state_key": "dander/azure/state/terraform.tfstate",
         "container_image": ("danderphase6.azurecr.io/dander/runtime@sha256:" + "a" * 64),
         "launcher_config": _launcher(),
+        "warehouse_config": {
+            "provider": "snowflake",
+            "account": "unit-account",
+            "user": "DANDER_RUNTIME",
+            "database": "DANDER",
+            "schema": "raw",
+            "warehouse": "DANDER_WH",
+            "role": "DANDER_RUNTIME",
+            "auth": {
+                "method": "oauth",
+                "token_env": "DANDER_SNOWFLAKE_OAUTH_TOKEN",
+            },
+        },
+        "state_config": {
+            "provider": "postgresql",
+            "authority_id": "azure_snowflake",
+            "dsn_env": "DANDER_POSTGRES_DSN",
+        },
+        "catalog_config": {"provider": "none"},
+        "secret_config": {"provider": "azure_key_vault"},
         "key_vault_allowed_ip_rule": "203.0.113.10",
         "runtime_cpu": 1,
         "runtime_memory": "2Gi",
@@ -124,6 +144,26 @@ def test_azure_bootstrap_builds_manifest_projection_without_apply(
     assert projection["secret_bindings"]["DANDER_POSTGRES_DSN"] == {
         "provider": "azure_key_vault",
         "reference": ("azure-kv://https://dander-phase6-kv.vault.azure.net/secrets/postgres-dsn"),
+    }
+    projected_platforms = json.loads(projection["environment"]["DANDER_PLATFORMS_CONFIG_JSON"])
+    assert projected_platforms["platforms"]["azure_snowflake"]["warehouse"]["provider"] == (
+        "snowflake"
+    )
+    assert projected_platforms["platforms"]["azure_snowflake"]["state"]["provider"] == (
+        "postgresql"
+    )
+    assert projected_platforms["deployments"]["azure_snowflake"]["pipelines"] == {
+        "warehouse_fixture": {
+            "paused": True,
+            "resources": {
+                "job": "dander-warehouse-fixture",
+                "runtime_service_account": "dander-runtime",
+                "scheduler_service_account": "dander-scheduler",
+            },
+            "schedule": "15 4 * * *",
+            "secret_bindings": {"DANDER_POSTGRES_DSN": "postgres-dsn"},
+            "time_zone": "UTC",
+        }
     }
     assert "postgresql://" not in projection_argument
     assert f"-var=infrastructure_subnet_id={_SUBNET_ID}" in terraform_plan
@@ -235,6 +275,10 @@ def test_azure_bootstrap_projects_gcp_federation_without_credentials(
         launcher_config=launcher,
         profile_id="gcp",
         gcp_project="unit-project",
+        warehouse_config={"provider": "bigquery", "location": "US", "dataset": "raw"},
+        state_config={"provider": "bigquery"},
+        catalog_config={"provider": "dataplex"},
+        secret_config={"provider": "gcp_secret_manager"},
         pipelines={
             "warehouse_fixture": {
                 **_pipelines()["warehouse_fixture"],
@@ -268,6 +312,7 @@ def test_azure_bootstrap_projects_gcp_federation_without_credentials(
         ({"alert_target": "not-an-id"}, "alert target"),
         ({"key_vault_allowed_ip_rule": "0.0.0.0/0"}, "Key Vault allowed IP"),
         ({"infrastructure_subnet_id": None}, "infrastructure subnet"),
+        ({"warehouse_config": {"provider": "bigquery"}}, "provider composition"),
     ],
 )
 def test_azure_bootstrap_rejects_unsafe_inputs_before_terraform(

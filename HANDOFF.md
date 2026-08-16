@@ -2,37 +2,39 @@
 
 ## Finished
 
-- Added `dander qualification-run SCRIPT [ARG ...]` as the stable image-owned harness boundary.
-- Replaced interpreter-path assumptions with the installed runtime's own Python process.
-- Added focused argument/error tests and a rootless, read-only built-image CI probe.
-- Documented the future-manifest rule without changing accepted RC27 evidence or support status.
+- Added the validated external platform handoff for Azure Container Apps Jobs.
+- Kept each overlay pipeline-scoped and free of Key Vault values.
+- Made runtime selection use the deployment name when it differs from the platform name.
+- Added focused projection, Terraform-bootstrap, and CLI coverage.
 
 ## Try It
 
-Run `uv run dander qualification-run tests/fixtures/qualification_runner_probe.py --rows 10`.
+Run the focused Azure tests listed in `Checks`.
 
 ## Checks
 
-- Full pytest passed: 1,742 passed and 34 skipped.
+- `uv run pytest tests/providers/test_azure_container_apps_runtime.py tests/bootstrap/test_azure_terraform.py tests/cli/test_init_cli.py -q` passed: 40 tests.
+- Full pytest passed: 1,744 passed and 34 skipped.
 - Ruff lint/format passed on 451 files; canonical strict mypy passed on 419 files.
-- Control-contract drift, installed-command execution, image build, uid 65532, and read-only image
-  execution passed.
-- PR #349 protected run `31957072595` passed all five jobs with no review comments or threads.
+- Wheel/sdist validation, Control-contract drift, and diff whitespace validation passed.
+- PR #350 implementation head `1830765` passed all five protected jobs in run `31959446996`;
+  completion review found no remaining material defect, comment, or thread.
 
 ## Decisions
 
-- Keep qualification objectives and provider orchestration outside this narrow trusted-script runner.
-- Future Kubernetes manifests pass the command as image `args` and never name an interpreter path.
-- RC27 predates the rail; preserve its evidence and rerun only materially affected later lanes.
+- Reuse the existing validated `DANDER_PLATFORMS_CONFIG_JSON` boundary used by AWS.
+- Project only manifest coordinates and secret references; secret values remain provider-native.
+- Keep this correction separate from the Azure objective and all live mutation.
 
 ## Remaining
 
-- Build the rail into a later private candidate before a future qualification manifest consumes it.
-- Finalize the completed GKE audit when provider-posted cost is available.
-- Complete remaining provider/profile scale, cost, pairwise, soak, and closure-matrix gates.
+- Merge PR #350 after its final documentation-only head passes protected CI.
+- Cut a later candidate containing this correction.
+- Bind Azure qualification in a fresh protected-main branch before any live execution.
+- Complete Azure scale, cost, pairwise, soak, and final closure gates.
 
 ## Review First
 
-- `src/dander/cli/qualification_command.py`
-- `.github/workflows/ci.yml`
-- `docs/cloud-portability-phase8-qualification.md`
+- `src/dander/bootstrap/azure_terraform.py`
+- `src/dander/providers/azure_container_apps/runtime.py`
+- `tests/bootstrap/test_azure_terraform.py`
