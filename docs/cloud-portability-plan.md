@@ -1365,6 +1365,14 @@ five repetitions, SCD1 canonical equality, a 1 MiB direct ceiling, exact cleanup
 cost. The disposable kind 1.32.2 arm64 Job keeps 2 CPU/512 MiB, TLS PostgreSQL 15.18, a 600-second
 deadline, zero retries, reporter collection, and rootless read-only candidate execution. Protected
 review and exact-main CI precede execution; RC24's result and zero threshold do not transfer.
+PR #344 merged that objective as protected main `4166afb`; exact-main run `31949803615` passed all
+five jobs before execution. Exact RC27 then passed all seven crossover objectives in one disposable
+kind 1.32.2 arm64 Job: COPY and DIRECT were canonically equal, DIRECT tied through 10 rows and lost
+at larger samples, and the measured environment-specific recommendation was 10 rows / 1,490
+logical bytes. The Job processed 61,110 rows in 2.433 seconds at 25,117.139 rows/second with
+177,549,312 bytes peak RSS, zero retries/restarts/Warning events, no database residue, USD 0 local
+cost, and exact cluster/tag cleanup. This evidence does not change a product default. Protected
+evidence review remains; hosted Kubernetes scale/cost and soak stay open.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

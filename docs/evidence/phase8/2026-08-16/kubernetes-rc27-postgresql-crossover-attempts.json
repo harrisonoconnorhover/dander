@@ -1,0 +1,104 @@
+{
+  "schema": "io.dander.phase8.kubernetes-postgresql-crossover-attempts/v1",
+  "qualification_date": "2026-08-16",
+  "protected_objective": {
+    "pull_request": 344,
+    "merge_commit": "4166afb2c12eaa954d124c2c9ef7a98a01d27516",
+    "exact_main_ci_run": 31949803615,
+    "all_five_jobs_passed": true
+  },
+  "cluster": {
+    "name": "dander-phase8-rc27-crossover",
+    "kubernetes_version": "1.32.2",
+    "architecture": "arm64",
+    "node_image": "kindest/node@sha256:142f543559cc55d64e1ab9341df08e5ced84bd2e893736da8f51320f26f5950b",
+    "namespace": "dander-phase8-rc27-crossover",
+    "successful_generation_warning_events": 0,
+    "cleanup_verified": true
+  },
+  "candidate": {
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "index_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "arm64_manifest_digest": "sha256:669ab80e4fb4665d955972b71b08310b15e1227701aa49922138656618927fd1",
+    "arm64_config_digest": "sha256:ae749c1654530f8ac92c10602f0ffe4faa35a026297a1f32c8f99e2016c939ef",
+    "benchmark_script_sha256": "e32fe0e672f574c68f7a3142e62e2063d46880a20c72b666aa4b207516459136",
+    "local_tag_binding_verified": true,
+    "temporary_local_tag_removed": true
+  },
+  "objective": {
+    "path": "docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover-objectives.json",
+    "sha256": "6182312300869f761697af6f6ec12a4595f77384feb3b101ed4d83be8d3851d2",
+    "configuration_sha256": "86313cae9c60be3e920a9e2d6792d1f5984e106bc3b7a0b979b876a07e8ce10e"
+  },
+  "job_contract": {
+    "active_deadline_seconds": 600,
+    "backoff_limit": 0,
+    "cpu_limit": "2",
+    "memory_limit": "512Mi",
+    "postgresql_version": "15.18",
+    "postgresql_image": "postgres@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f",
+    "postgresql_cpu_limit": "2",
+    "postgresql_memory_limit": "1Gi",
+    "tls_required": true,
+    "service_account_token_mounted": false,
+    "read_only_root_filesystem": true,
+    "allow_privilege_escalation": false,
+    "reporter_sidecar": true,
+    "job_manifest_sha256": "2914faa6f2ab0eb781f094f4e1a1b62dc44c61d7fe05ab4ec6095d58878eb580",
+    "postgresql_manifest_sha256": "99697321ec3762371ab37a0a706abad5790e87f3ca690f159dbebd106b5191b7"
+  },
+  "attempts": [
+    {
+      "name": "postgresql-crossover-rc27",
+      "cluster_generation": 1,
+      "status": "passed",
+      "candidate_benchmark_started": true,
+      "provider_job_ids": [
+        "cluster:dander-phase8-rc27-crossover",
+        "job:postgresql-crossover-rc27"
+      ],
+      "provider_job_uid": "329aa5e1-728e-4530-922d-f6b3f226ff37",
+      "provider_pod": "postgresql-crossover-rc27-9tmnw",
+      "provider_pod_uid": "c5b4195b-3527-4698-b8d5-6cdde4b0c990",
+      "job_created_at": "2026-08-16T13:36:03Z",
+      "job_started_at": "2026-08-16T13:36:03Z",
+      "job_completed_at": "2026-08-16T13:36:12Z",
+      "tls_preflight_started_at": "2026-08-16T13:36:04Z",
+      "tls_preflight_finished_at": "2026-08-16T13:36:05Z",
+      "benchmark_container_started_at": "2026-08-16T13:36:05Z",
+      "benchmark_container_finished_at": "2026-08-16T13:36:09Z",
+      "reporter_container_started_at": "2026-08-16T13:36:05Z",
+      "reporter_container_finished_at": "2026-08-16T13:36:10Z",
+      "tls_preflight_exit_code": 0,
+      "benchmark_exit_code": 0,
+      "reporter_exit_code": 0,
+      "container_restarts": 0,
+      "raw_report_sha256": "afcc81783bcc74970dcf46ebee4ae2918cac760f73ed580492c97a95b8cb763d",
+      "incremental_cost_usd": "0.00"
+    }
+  ],
+  "verification": {
+    "tls_connection": true,
+    "postgresql_tls_server_enabled": true,
+    "copy_transport_observed": true,
+    "direct_transport_observed": true,
+    "canonical_output_equal": true,
+    "recommended_direct_max_rows": 10,
+    "recommended_direct_max_logical_bytes": 1490,
+    "remaining_crossover_schemas": 0,
+    "remaining_staging_relations": 0,
+    "namespace_warning_events": 0,
+    "candidate_index_bound_in_node": true,
+    "arm64_manifest_bound_to_observed_config": true,
+    "cluster_absent_after_cleanup": true,
+    "node_container_absent_after_cleanup": true,
+    "temporary_local_tag_absent_after_cleanup": true
+  },
+  "report": {
+    "path": "docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover.json",
+    "sha256": "55509fa5e5689b66b09ade425ff43ff8451d999d90e9dd209cc22edc73fb4e06"
+  },
+  "final_status": "passed",
+  "total_incremental_cost_usd": "0.00"
+}

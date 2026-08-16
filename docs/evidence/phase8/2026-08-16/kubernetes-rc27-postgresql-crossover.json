@@ -1,0 +1,282 @@
+{
+  "approved_objectives": {
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27-crossover",
+    "benchmark_class": "crossover",
+    "configuration_sha256": "86313cae9c60be3e920a9e2d6792d1f5984e106bc3b7a0b979b876a07e8ce10e",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "names": [
+      "canonical_equality",
+      "cleanup",
+      "copy_transport_observed",
+      "cost_ceiling",
+      "crossover_measured",
+      "direct_transport_observed",
+      "threshold_recorded"
+    ],
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc27"
+  },
+  "context": {
+    "benchmark_date": "2026-08-16",
+    "catalog": "none",
+    "cost_ceiling": {
+      "amount_usd": "0.00",
+      "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27-crossover"
+    },
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "launcher": "kubernetes",
+    "profile_id": "kubernetes_portable",
+    "provider_job_ids": [
+      "cluster:dander-phase8-rc27-crossover",
+      "job:postgresql-crossover-rc27"
+    ],
+    "regions": [
+      "local"
+    ],
+    "release_version": "0.9.0rc27",
+    "secret_provider": "environment_projection",
+    "service_shapes": [
+      "dander_job_2cpu_512mib",
+      "kind_1.32.2_arm64",
+      "postgresql_15.18_2cpu_1gib_tls"
+    ],
+    "state_backend": "postgresql",
+    "warehouse": "postgresql"
+  },
+  "objectives": [
+    {
+      "evidence_reference": "phase8/postgresql/crossover/canonical_equality",
+      "name": "canonical_equality",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/postgresql/crossover/cleanup",
+      "name": "cleanup",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/postgresql/crossover/copy_transport_observed",
+      "name": "copy_transport_observed",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/postgresql/crossover/cost_ceiling",
+      "name": "cost_ceiling",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/postgresql/crossover/crossover_measured",
+      "name": "crossover_measured",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/postgresql/crossover/direct_transport_observed",
+      "name": "direct_transport_observed",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/postgresql/crossover/threshold_recorded",
+      "name": "threshold_recorded",
+      "status": "passed"
+    }
+  ],
+  "performance": {
+    "costs": [
+      {
+        "amount": "0",
+        "currency": "USD",
+        "estimated": false,
+        "provider": "local",
+        "service": "postgresql"
+      }
+    ],
+    "measurements": [
+      {
+        "name": "rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "61110"
+      },
+      {
+        "name": "logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "9105390"
+      },
+      {
+        "name": "duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "2433"
+      },
+      {
+        "name": "throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "25117.139"
+      },
+      {
+        "name": "peak_rss_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "177549312"
+      },
+      {
+        "name": "retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "queue_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "load_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "2433"
+      },
+      {
+        "name": "transform_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "catalog_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "copy_1000_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "23"
+      },
+      {
+        "name": "copy_100_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "8"
+      },
+      {
+        "name": "copy_10_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "6"
+      },
+      {
+        "name": "copy_1_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "7"
+      },
+      {
+        "name": "copy_5000_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "94"
+      },
+      {
+        "name": "direct_1000_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "41"
+      },
+      {
+        "name": "direct_100_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "9"
+      },
+      {
+        "name": "direct_10_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "6"
+      },
+      {
+        "name": "direct_1_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "7"
+      },
+      {
+        "name": "direct_5000_median_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "180"
+      },
+      {
+        "name": "direct_to_copy_1000_duration_ratio",
+        "status": "measured",
+        "unit": "ratio",
+        "value": "1.783"
+      },
+      {
+        "name": "direct_to_copy_100_duration_ratio",
+        "status": "measured",
+        "unit": "ratio",
+        "value": "1.125"
+      },
+      {
+        "name": "direct_to_copy_10_duration_ratio",
+        "status": "measured",
+        "unit": "ratio",
+        "value": "1.000"
+      },
+      {
+        "name": "direct_to_copy_1_duration_ratio",
+        "status": "measured",
+        "unit": "ratio",
+        "value": "1.000"
+      },
+      {
+        "name": "direct_to_copy_5000_duration_ratio",
+        "status": "measured",
+        "unit": "ratio",
+        "value": "1.915"
+      },
+      {
+        "name": "recommended_direct_max_logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "1490"
+      },
+      {
+        "name": "recommended_direct_max_rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "10"
+      },
+      {
+        "name": "temporary_staging_relations",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      }
+    ]
+  },
+  "schema": "io.dander.qualification.report/v1",
+  "status": "passed",
+  "workload": {
+    "batch_bytes": 1048576,
+    "batch_rows": 5000,
+    "benchmark_class": "crossover",
+    "concurrency": 1,
+    "configuration_sha256": "86313cae9c60be3e920a9e2d6792d1f5984e106bc3b7a0b979b876a07e8ce10e",
+    "input_rows": 61110,
+    "logical_input_bytes": 9105390,
+    "memory_limit_bytes": null,
+    "row_width_bytes": 149,
+    "schema_depth": 1,
+    "source_rate_limit": "unlimited_local_generator",
+    "transform_complexity": "scd1_equal_transport_comparison"
+  }
+}

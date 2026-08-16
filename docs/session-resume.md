@@ -71,6 +71,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   1/10/100/1,000/5,000-row, 128-byte, five-repetition COPY/DIRECT workload while binding exact RC27,
   `kubernetes_portable`, canonical equality, measured threshold, cleanup, and USD 0 cost. Protected
   merge and exact-main CI precede execution; neither RC24's result nor its zero threshold transfers.
+  PR #344 merged that objective as protected main `4166afb`; exact-main run `31949803615` passed all
+  five jobs before execution. One disposable kind 1.32.2 arm64 Job then passed all seven objectives,
+  processing 61,110 rows in 2.433 seconds at 25,117.139 rows/second with 177,549,312 bytes peak RSS.
+  COPY and DIRECT were canonically equal; DIRECT tied through 10 rows and lost at larger sizes, so
+  this environment-specific measurement recommends 10 rows / 1,490 logical bytes without changing
+  a product default. TLS, zero retries/restarts/Warning events, database cleanup, USD 0 local cost,
+  cluster cleanup, and temporary-tag cleanup all passed. Sanitized evidence awaits protected review.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both
