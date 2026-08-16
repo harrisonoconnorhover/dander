@@ -8,10 +8,12 @@ import json
 import sys
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from types import ModuleType
 from typing import TYPE_CHECKING, Self
 
 import pytest
 
+import dander.providers.redshift.runtime as redshift_runtime_module
 from dander.concurrency import FencingToken, TargetFenceLostError
 from dander.ingestion import Endpoint, RawField, SourceConfig
 from dander.pipeline.graph import PipelineGraph
@@ -2105,3 +2107,34 @@ def test_redshift_connection_validation_errors_are_sanitized(tmp_path: Path) -> 
             },
         )
     assert "private AWS response" not in str(raised.value)
+
+
+def test_redshift_serverless_requests_base_startup_protocol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    expected_connection = object()
+
+    def fake_connector(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return expected_connection
+
+    raw = _config()
+    raw.update(
+        deployment="serverless",
+        workgroup_name="dander-test",
+    )
+    del raw["cluster_identifier"]
+    del raw["db_user"]
+    config = RedshiftWarehouseConfig.model_validate(raw)
+    fake_connector_module = ModuleType("redshift_connector")
+    fake_connector_module.connect = fake_connector  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "redshift_connector", fake_connector_module)
+
+    connection = redshift_runtime_module._sdk_connection_factory(config)()
+
+    assert connection is expected_connection
+    assert captured["client_protocol_version"] == 0
+    assert captured["is_serverless"] is True
+    assert captured["serverless_work_group"] == "dander-test"
+    assert "cluster_identifier" not in captured
