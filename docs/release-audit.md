@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Private multi-platform RC27 passed AWS-native correctness and the named local Kubernetes five-class slice; hosted cost/scale, remaining matrix cells, soak, final audit, and support freeze remain open. |
+| Phase 8 support qualification | Open | Private multi-platform RC28 is the current inspected candidate; accepted RC27 AWS-native and Kubernetes results remain preserved, while hosted cost/scale, remaining matrix cells, soak, final audit, and support freeze remain open. |
 
 ## Current release and deployment record
 
@@ -125,6 +125,13 @@ cloud path remains outside the live proof.
   architectures reported RC27, GCP/Kubernetes/external-AWS selectors and rootless read-only
   conformance passed, and no RC26 result transfers. This is private publication evidence, not a
   live-profile, cost, or support pass.
+- Private RC28 at `sha256:f8259276…f94959e` is the protected-main replacement containing the
+  stable qualification entrypoint and Azure runtime-platform handoff. Exact-main run `31961210116`
+  passed all five jobs; its exact wheel built a source-free amd64/arm64 GAR index with SPDX SBOM and
+  SLSA provenance. Both architectures passed rootless read-only conformance and the stable
+  entrypoint probe; GCP/Kubernetes/external-AWS/external-Azure selectors passed without provider
+  access. Accepted RC27 results remain preserved. This is private publication evidence, not a
+  live-profile, cost, public-release, or support pass.
 - Exact RC27 passed the protected named local Kubernetes profile and five-class launcher-scale
   slice on kind 1.32.2 arm64 against TLS PostgreSQL 15.18. Correctness, bulk, incremental,
   transform, and PostgreSQL-specific failure all passed under the reviewed Job controls with exact
@@ -185,8 +192,10 @@ grant defect. PR #326 merged corrected private RC26 at protected main `f0fe54f`;
 published and inspected. Its AWS rerun exposed the Redshift Serverless startup response defect.
 PR #334 merged corrected private RC27 at protected main `d7ac61f`; exact-main run `31925228450`
 passed and source-free multi-platform index `sha256:bcf62d2c…4e09c` is privately published and
-inspected. No historical
-result transfers. The combined final-candidate audit and
+inspected. PR #351 then merged private RC28 at protected main `7135b8c`; exact-main run
+`31961210116` passed before source-free index `sha256:f8259276…f94959e` was privately published and
+inspected with the new entrypoint and Azure selector. No historical result transfers. The combined
+final-candidate audit and
 remaining scale, cost, profile, soak,
 operator-documentation, and support-freeze gates are recorded in
 `docs/cloud-portability-phase8-qualification.md`.

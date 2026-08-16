@@ -113,11 +113,17 @@ Azure, transfer Phase 6 results to a later candidate, create resources, consume 
 or authorize an uncommitted benchmark. Azure exact-candidate scale, cost, pairwise, and soak remain
 open.
 
-Draft PR #351 prepares private `0.9.0rc28` at exact commit `130a970` with the stable entrypoint and
-Azure handoff. `docs/evidence/phase8/2026-08-16/rc28-authorization.json` extends the existing
-cumulative publication allocation without raising the USD 10 ceiling. RC28 is not a published
-candidate, provider result, cost result, public release, or support claim; publication must wait
-for protected merge and exact-main CI, then use a separate evidence lane.
+PR #351 prepared private `0.9.0rc28`; its exact protected-main commit `7135b8c` passed all five jobs
+in run `31961210116` before one source-free amd64/arm64 publication. The resulting private GAR index
+is `sha256:f825927627d3e4e996fcb885338cef50ced290284231bb7b5ed47d0f0f94959e`.
+Both architectures passed exact-wheel, rootless read-only conformance, and stable
+qualification-entrypoint probes. GCP, Kubernetes, externally projected AWS, and externally
+projected Azure selectors passed without provider access; SPDX SBOM and SLSA provenance are
+attached. The Azure selector deliberately maps deployment `azure_container_apps` to platform
+`azure_snowflake`, proving the corrected deployment-to-platform handoff. This is candidate
+publication evidence only: qualification, provider cost, public release, and support remain open,
+and a separately protected exact-candidate objective must precede Azure mutation. See
+`docs/evidence/phase8/2026-08-16/rc28-candidate.json`.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is

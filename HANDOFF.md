@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Merged Azure runtime-platform projection as PR #350 at protected main `1436092`.
-- Confirmed exact-main CI run `31960158477` passed all five jobs.
-- Prepared private `0.9.0rc28` metadata from that protected main.
-- Limited RC28 release notes to the stable qualification entrypoint and Azure platform handoff.
-- Opened draft PR #351 and bound publication to exact preparation commit `130a970`.
+- Published private source-free `0.9.0rc28` from exact protected main `7135b8c` in one attempt.
+- Recorded immutable amd64/arm64 index `sha256:f8259276…f94959e` and its four manifests.
+- Passed exact-wheel, rootless read-only conformance, and stable entrypoint probes on both arches.
+- Passed GCP, Kubernetes, AWS, and Azure selectors without provider access.
+- Recorded sanitized candidate evidence without changing public RC20 or support status.
 
 ## Try It
 
-Run `uv run pytest -q tests/test_release_metadata.py && uv run python scripts/check_release_metadata.py`.
+Review `docs/evidence/phase8/2026-08-16/rc28-candidate.json` and run the immutable image with
+`--version` after authenticating Docker to the private GAR repository.
 
 ## Checks
 
-- Exact-main run `31960158477` passed all five protected jobs.
-- Four release-metadata tests and metadata validation passed.
-- RC28 wheel and source distribution passed package inspection.
-- Ruff, canonical strict typing, contract drift, JSON, and diff checks passed; the lock is
-  synchronized.
+- Preparation PR #351 merged; exact-main run `31961210116` passed all five jobs before publication.
+- Wheel and source distribution hashes match the inspected protected-main artifacts.
+- Both runnable manifests report `0.9.0rc28`; rootless/read-only probes passed on amd64 and arm64.
+- SPDX 2.3 SBOM and SLSA provenance exist for both architectures.
+- Registry digest, source-free context, external selectors, JSON, and evidence claims passed review.
 
 ## Decisions
 
-- Publish only after preparation merges and its exact-main CI passes, within the existing
-  cumulative publication allocation and unchanged USD 10 ceiling.
-- Preserve accepted RC27 evidence; rerun materially affected lanes plus the final closure matrix.
-- Keep public RC20, support status, and all live-provider gates unchanged.
+- Preserve accepted RC27 results; rerun only materially affected lanes and the final closure matrix.
+- Treat RC28 as private candidate evidence, not live qualification, cost, public release, or support.
+- Require a fresh protected RC28-bound Azure objective before any Azure mutation.
 
 ## Remaining
 
-- Pass protected CI/review and merge the preparation.
-- Build, inspect, and privately publish source-free amd64/arm64 RC28 in a separate lane.
-- Bind Azure qualification in another fresh protected-main branch before mutation.
+- Protect this publication record and pass its exact-main CI.
+- Bind the Azure qualification objective in a fresh branch from that protected main.
+- Keep provider-measured cost pending until invoices post.
+- Complete remaining provider/profile, scale, soak, and final-candidate gates.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `pyproject.toml`
+- `docs/evidence/phase8/2026-08-16/rc28-candidate.json`
 - `tickets/DANDER-210-private-rc28-candidate.md`
+- `docs/cloud-portability-phase8-qualification.md`
