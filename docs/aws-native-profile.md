@@ -10,7 +10,10 @@ staging-role grant corrections at source-free multi-platform index
 `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives.json` was consumed by one manual
 attempt: PostgreSQL setup completed, then Redshift connection validation expired at its 120-second
 bound before any warehouse operation. Replay did not start, and exact cleanup completed. Do not
-reuse that objective; a fresh committed replacement must reach protected main before another AWS
+reuse that objective. The replacement at
+`docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json` isolates the connection
+window at 300 seconds while preserving exact RC26, the 600-second runtime deadline, the run counts,
+and the existing cumulative USD 3 allocation. It must reach protected main before another AWS
 mutation. RC26 remains private and current while the connection delay is isolated. This is not a
 public-release or support claim.
 
@@ -81,7 +84,7 @@ platforms:
       copy_role_arn: arn:aws:iam::123456789012:role/DanderRedshiftCopy
       staging_bucket: dander-aws-native-staging
       staging_prefix: dander/staging
-      connect_timeout_seconds: 120
+      connect_timeout_seconds: 300
     state:
       provider: postgresql
       authority_id: postgresql:aws-native
@@ -122,8 +125,9 @@ deployments:
           DANDER_POSTGRES_DSN: aws-sm://arn:aws:secretsmanager:us-east-1:123456789012:secret:dander/postgres-dsn-AbCdEf
 ```
 
-The 120-second connection timeout is bound only to this RC26 qualification objective and remains
-below the 600-second whole-runtime deadline. It does not change the provider's 30-second default.
+The 300-second connection timeout is bound only to the RC26 replacement qualification objective and
+remains below the 600-second whole-runtime deadline. It is the largest accepted provider setting and
+does not change the provider's 30-second default.
 
 Run `dander validate --deployment aws_fargate` before any provider mutation. Project validation
 rejects a cross-account or cross-region secret, COPY role, or Glue catalog; `init-aws-plan`

@@ -146,3 +146,8 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   36 data-plane resources, both states and direct active inventories are empty, and RC26 remains
   current. The consumed objective transfers no result; another AWS run requires a fresh protected
   objective that isolates the connection delay.
+- PR #330 merged the sanitized attempt as protected main `730de0b`; exact-main run `31920702822`
+  passed all five jobs. The replacement objective preserves exact RC26, one manual run, one
+  success-conditional replay, paused scheduling, exact cleanup, and the existing cumulative USD 3
+  allocation while binding a 300-second Redshift connection window below the unchanged 600-second
+  runtime deadline. It must reach protected main before another AWS mutation.
