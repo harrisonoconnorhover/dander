@@ -1,0 +1,81 @@
+{
+  "schema": "io.dander.phase8.provider-cost-reconciliation/v1",
+  "checked_at_utc": "2026-08-16T22:53:14Z",
+  "authorization_reference": "docs/evidence/phase8/2026-08-16/rc28-authorization.json",
+  "read_only": true,
+  "cloud_mutation_started": false,
+  "aggregate": {
+    "authorized_ceiling_usd": "10.00",
+    "allocated_ceiling_usd": "10.00",
+    "unallocated_contingency_usd": "0.00",
+    "provider_measured_cost_usd": null,
+    "remaining_authorized_headroom_usd": null,
+    "status": "not_evaluated_provider_invoice_pending"
+  },
+  "providers": {
+    "aws": {
+      "source": "AWS Cost Explorer GetCostAndUsage",
+      "usage_window_start": "2026-08-14",
+      "usage_window_end_exclusive": "2026-08-17",
+      "result": "access_denied",
+      "denied_action": "ce:GetCostAndUsage",
+      "provider_measured_cost_usd": null,
+      "cost_status": "not_evaluated"
+    },
+    "azure": {
+      "source": "Azure Cost Management ActualCost query",
+      "usage_window_start": "2026-08-14T00:00:00Z",
+      "usage_window_end": "2026-08-17T00:00:00Z",
+      "grouping": "ResourceGroupName",
+      "rows": [],
+      "next_link": null,
+      "provider_measured_cost_usd": null,
+      "cost_status": "provider_invoice_pending"
+    },
+    "gcp": {
+      "source": "Google Cloud Billing Reports UI",
+      "retained_proof_project_only": true,
+      "display_currency": "USD",
+      "display_precision": "two_decimal_places",
+      "observations": [
+        {
+          "usage_date": "2026-08-14",
+          "displayed_subtotal_usd": "0.00"
+        },
+        {
+          "usage_date": "2026-08-15",
+          "displayed_subtotal_usd": "0.24"
+        },
+        {
+          "usage_date": "2026-08-16",
+          "displayed_subtotal_usd": "0.02"
+        }
+      ],
+      "month_to_date_through_2026_08_16": {
+        "displayed_subtotal_usd": "1.31",
+        "phase8_attribution": "not_available",
+        "reason": "The month-to-date subtotal includes retained-project activity before the Phase 8 authorization window."
+      },
+      "gke_or_compute_engine_charge_visible_for_2026_08_16": false,
+      "provider_measured_cost_usd": null,
+      "cost_status": "provider_invoice_pending"
+    },
+    "oci": {
+      "phase8_live_execution_to_reconcile": false,
+      "provider_measured_cost_usd": null,
+      "cost_status": "not_evaluated"
+    }
+  },
+  "open_cost_gates": [
+    "aws_native_rc27_profile",
+    "gke_standard_rc27_bounded_memory",
+    "azure_snowflake_rc28_correctness_attempt",
+    "aggregate_phase8_ceiling"
+  ],
+  "conclusion": {
+    "cost_gate_passed": false,
+    "new_paid_objective_may_start": false,
+    "reason": "Provider-posted, attributable charges are incomplete, AWS cost read access is denied, and the authorization has no unallocated contingency. Exact remaining headroom cannot be established.",
+    "next_action": "Recheck provider-posted charges before binding any new paid objective; preserve all current cost results as not_evaluated."
+  }
+}
