@@ -77,7 +77,12 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   COPY and DIRECT were canonically equal; DIRECT tied through 10 rows and lost at larger sizes, so
   this environment-specific measurement recommends 10 rows / 1,490 logical bytes without changing
   a product default. TLS, zero retries/restarts/Warning events, database cleanup, USD 0 local cost,
-  cluster cleanup, and temporary-tag cleanup all passed. Sanitized evidence awaits protected review.
+  cluster cleanup, and temporary-tag cleanup all passed. PR #345 merged the sanitized evidence as
+  protected main `366ce8a`; exact-main run `31951009601` passed all five jobs. The next objective
+  binds exact RC27 and the protected bounded-memory workload to one disposable zonal GKE Standard
+  cluster with a USD 0.50 ceiling inside the retained USD 0.75 GCP soak/final-audit allocation.
+  Provider billing must post before the cost objective passes, and protected merge plus exact-main
+  CI must precede any GCP mutation.
 
 - Exact private RC27 passed the protected AWS-native correctness objective from main `c348122`
   after exact-main CI run `31927276568` passed all five jobs. One manual run and one replay both

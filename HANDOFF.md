@@ -2,39 +2,41 @@
 
 ## Finished
 
-- Merged crossover objective PR #344 as protected main `4166afb`; exact-main run `31949803615`
-  passed all five jobs before execution.
-- Ran exact private RC27 once in a disposable kind 1.32.2 arm64 Job against TLS PostgreSQL 15.18.
-- Passed all seven approved crossover objectives with canonical COPY/DIRECT equality and USD 0 cost.
-- Recorded a Kubernetes-specific measured DIRECT recommendation of 10 rows / 1,490 logical bytes.
-- Removed the cluster, node container, in-cluster secrets/TLS material, and temporary image tag.
+- Merged crossover evidence PR #345 as protected main `366ce8a`; exact-main run `31951009601`
+  passed all five jobs.
+- Bound the next hosted Kubernetes audit to exact private RC27 and the protected bounded-memory
+  workload on one disposable zonal GKE Standard cluster.
+- Preserved the 256 MiB candidate limit, 80% peak-RSS gate, TLS PostgreSQL 15.18, and zero retries.
+- Limited the run to USD 0.50 inside the retained USD 0.75 GCP soak/final-audit allocation.
+- Required provider-posted billing before the cost objective can pass.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover.json`.
+Run `jq . docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-objectives.json`.
 
 ## Checks
 
-- Raw report semantics reproduce SHA-256 `afcc8178…63d` exactly.
-- The Job processed 61,110 rows in 2.433 seconds at 25,117.139 rows/second.
-- TLS, zero retries/restarts/warnings, database cleanup, and exact cluster/tag cleanup passed.
+- Objective JSON parses and binds the protected RC27 identity/configuration.
+- Focused qualification and PostgreSQL benchmark contract tests pass.
+- Ruff, strict mypy, documentation structure, and diff review pass.
 
 ## Decisions
 
-- Treat 10 rows / 1,490 bytes as an environment-specific measurement, not a product default.
-- Transfer neither RC24's result nor its zero threshold.
-- Preserve hosted scale/cost and soak as separate fresh protected-main lanes.
+- Use GKE Standard so the reviewed 256 MiB limit remains enforceable without provider adjustment.
+- Charge only this final audit to the existing retained GCP allocation; do not reuse pending GCP
+  profile funds.
+- Keep hosted bounded-memory/cost separate from scheduled soak.
 
 ## Remaining
 
-- Merge this sanitized evidence after protected CI and review, then verify exact-main CI.
-- Move the isolated crossover operator TLS package to Trash after the evidence is protected.
-- Complete hosted Kubernetes scale/cost, remaining provider cells, and soak.
+- Merge this objective after protected CI and review, then verify exact-main CI before mutation.
+- Execute once, clean every owned GKE resource, and retain sanitized result/attempt evidence.
+- Finalize the cost objective only after provider billing posts.
+- Complete remaining provider cells and Kubernetes soak.
 - Run the eventual final-candidate closure matrix.
-- Freeze support only after the final-candidate closure matrix passes.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover.json`
-- `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-crossover-attempts.json`
+- `docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-objectives.json`
 - `docs/cloud-portability-phase8-qualification.md`
+- `tickets/DANDER-204-phase8-scale-matrix.md`

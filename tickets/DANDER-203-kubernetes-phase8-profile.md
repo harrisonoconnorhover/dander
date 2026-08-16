@@ -44,3 +44,7 @@ the remaining launcher classes, hosted scale/cost, and soak remain open.
   reporter-sidecar collection, and non-estimated USD 0 cost. Exact cleanup removed the cluster,
   namespace, in-cluster Secrets/TLS material, database state, and temporary image tag with zero Warning
   events. Hosted scale/cost, remaining launcher classes, and soak remain open.
+- PR #345 merged the remaining local crossover evidence as protected main `366ce8a`; exact-main
+  run `31951009601` passed all five jobs. A fresh objective now binds the protected bounded-memory
+  workload to one disposable zonal GKE Standard cluster with a USD 0.50 ceiling. This is the hosted
+  scale/cost final audit only; scheduled soak remains separate.
