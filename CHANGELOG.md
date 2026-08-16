@@ -6,6 +6,25 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc28 — 2026-08-16 (beta)
+
+### Added
+
+- Add the stable `dander qualification-run` boundary so hosted manifests can invoke mounted
+  qualification harnesses without depending on an image-internal interpreter path.
+
+### Fixed
+
+- Project each selected Azure deployment into the source-free runtime through the validated
+  non-secret platform overlay, including exact deployment selection and fail-closed profile checks.
+
+### Known limitations
+
+- RC28 is a private Phase 8 qualification candidate. RC27 evidence remains preserved and only
+  materially affected Azure and future stable-entrypoint lanes rerun before the eventual complete
+  final-candidate matrix; provider/cost/pairwise/audit/soak gates remain open, and public RC20 is
+  unchanged.
+
 ## 0.9.0rc27 — 2026-08-15 (beta)
 
 ### Fixed
