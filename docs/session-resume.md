@@ -45,7 +45,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   empty, the platform KMS key is pending deletion, and the exact private ECR digest is retained.
   Cost Explorer was denied to the operator role and invoice data is pending, so cost remains
   `not_evaluated` and support was not promoted. See
-  `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json`.
+  `docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json`. PR #337 merged that sanitized
+  evidence as protected main `df018e6`; exact-main CI run `31941210969` passed all five jobs.
 
 - Private Dander `0.9.0rc27` was built from protected-main commit
   `d7ac61f46b362f4e7e64365e9267ec6e7faf70f2` after all five jobs passed exact-main CI run
@@ -208,6 +209,10 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   first successful Job's ephemeral-volume collection limitation. Both Jobs and all namespace,
   Secret, TLS, database, cluster, and temporary-tag resources were removed with zero Warning
   events. See `docs/evidence/phase8/2026-08-14/kubernetes-postgresql-scale-attempts.json`.
+  The final-candidate rerun is now bound to exact RC27 by the five
+  `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-*-objectives.json` files. They preserve
+  the accepted workloads, USD 0 local ceiling, Job controls, TLS PostgreSQL shape, and retained
+  reporter-sidecar collection. Protected review, merge, and exact-main CI precede cluster creation.
 
 - On 2026-08-14, exact RC22 passed approved local PostgreSQL bulk and incremental classes inside
   its source-free 2 CPU/512 MiB image against disposable TLS PostgreSQL 15.18. It processed

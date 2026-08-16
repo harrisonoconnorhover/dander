@@ -1,0 +1,44 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-transform/v1",
+    "benchmark_class": "transform",
+    "batch_rows": 100000,
+    "fact_rows": 100000,
+    "dimension_rows": 100,
+    "delta_rows": 2,
+    "models": [
+      "scan",
+      "join",
+      "aggregation",
+      "incremental"
+    ],
+    "generic_tests": [
+      "accepted_values",
+      "not_null",
+      "unique"
+    ]
+  },
+  "approved_objectives": {
+    "names": [
+      "aggregation_exact",
+      "cleanup",
+      "cost_ceiling",
+      "generic_tests",
+      "incremental_merge",
+      "join_exact",
+      "scan_exact"
+    ],
+    "benchmark_class": "transform",
+    "profile_id": "kubernetes_portable",
+    "release_version": "0.9.0rc27",
+    "git_commit": "d7ac61f46b362f4e7e64365e9267ec6e7faf70f2",
+    "image_digest": "sha256:bcf62d2c22464352d2c28d40300b1e3b4f2c88e8bd0d13cd6eb5ebf62374e09c",
+    "configuration_sha256": "9085929dffd3b1bac1818abfa88ee23e0fe9c6697e6ab95c8073d9984f28e30d",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-kubernetes-rc27"
+  }
+}

@@ -61,4 +61,8 @@ scale report.
   but read-only candidate inspection found RC22 lacks the selected AWS deployment before a Fargate
   plan or execution. Private RC27 packages the reviewed runtime-overlay, Fargate identity, explicit
   Redshift staging-role grant, and Serverless startup corrections and passes candidate inspection;
-  the separate exact-objective live result and measured cost remain open.
+  the exact RC27 manual/replay correctness result now passes with duplicate-free canonical output
+  and exact cleanup. Provider-measured cost and AWS scale remain open.
+- The final-candidate Kubernetes rerun has fresh RC27-bound objective files for the five accepted
+  launcher-scale classes. Protected review and exact-main CI remain mandatory before its USD 0
+  disposable kind execution.

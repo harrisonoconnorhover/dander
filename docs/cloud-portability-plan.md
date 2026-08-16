@@ -1318,7 +1318,12 @@ succeeded with zero provider retries, three duplicate-free Redshift rows, comple
 Glue publication, PostgreSQL state participation, and an empty staging prefix. Reviewed saved-plan
 cleanup removed all 25 platform and 36 data-plane resources, both Terraform states and active owned
 inventories are empty, and the exact ECR digest remains retained. This closes AWS-native correctness;
-provider cost is still `not_evaluated`, and scale, soak, support, and the evidence PR remain open.
+provider cost is still `not_evaluated`, and scale, soak, and support remain open. PR #337 merged the
+sanitized evidence as protected main `df018e6`; exact-main run `31941210969` passed all five jobs.
+The next dependency-ordered lane binds RC27 Kubernetes correctness, bulk, incremental, transform,
+and PostgreSQL-specific failure to their accepted zero-cost local workloads and reviewed Job
+controls. Its focused objective PR and exact-main CI must pass before creating the disposable kind
+cluster.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
