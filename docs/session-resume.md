@@ -143,11 +143,18 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json` preserves exact RC26,
   one manual run, one success-conditional replay, paused scheduling, exact cleanup, and the existing
   cumulative USD 3 allocation while binding a 300-second connection window below the unchanged
-  600-second runtime deadline. It must reach protected main before another AWS mutation. Every
+  600-second runtime deadline. It reached protected main as `890853d`; exact-main run `31921459727`
+  passed all five jobs. The one manual task reached the private Redshift endpoint, authenticated as
+  the exact Fargate task role, and set `application_name=dander`, but no runtime-user query entered
+  query history before the Python driver hit the 300-second startup timeout. Replay did not start.
+  Exact saved-plan cleanup removed all 25 platform and 36 data-plane resources; both states and
+  direct active inventories are empty, and the attempt KMS key is pending deletion on 2026-09-14.
+  RC26 is not qualified; a focused connection-startup correction, replacement candidate, and fresh
+  protected objective must precede another AWS run. Every
   remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See
-  `docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-connect-attempt.json`.
+  `docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-driver-startup-attempt.json`.
 
 - Private arm64 Dander `0.9.0rc23` at commit `2455fc34d4503863060b7bac873be36319c13e4f`
   was published only to the private qualification registry at index `sha256:8bd35188…3064`. It

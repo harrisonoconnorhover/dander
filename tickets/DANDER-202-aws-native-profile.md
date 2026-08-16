@@ -151,3 +151,10 @@ bootstrap reject a non-GCP profile, so AWS-native qualification cannot begin yet
   success-conditional replay, paused scheduling, exact cleanup, and the existing cumulative USD 3
   allocation while binding a 300-second Redshift connection window below the unchanged 600-second
   runtime deadline. It must reach protected main before another AWS mutation.
+- The replacement objective reached protected main as `890853d`; exact-main run `31921459727`
+  passed all five jobs. Its manual task authenticated to the private Redshift endpoint as the exact
+  task role and set `application_name=dander`, but no runtime-user query entered query history
+  before the Python driver hit the 300-second startup timeout. Replay did not start. Exact cleanup
+  removed all 25 platform and 36 data-plane resources, both states and direct inventories are
+  empty, and the attempt KMS key is pending deletion. RC26 is not qualified; a focused
+  connection-startup correction, replacement candidate, and fresh objective are required.

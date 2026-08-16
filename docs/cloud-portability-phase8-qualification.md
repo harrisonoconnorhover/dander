@@ -159,6 +159,18 @@ the existing cumulative USD 3 allocation while isolating a 300-second Redshift c
 under the unchanged 600-second runtime deadline. No AWS mutation may precede this objective
 commit's protected review and exact-main CI.
 
+That replacement objective was consumed by one exact RC26 manual task. Redshift's connection log
+proves that the task reached the private endpoint, authenticated as the exact Fargate task role,
+and set `application_name=dander` within one second. No runtime-user query entered
+`SYS_QUERY_HISTORY`; the Python driver then waited during connection startup until the 300-second
+socket timeout. This disproves cold wake-up and VPC reachability as the cause, but the provider
+record cannot distinguish the missing startup response from a driver handling defect. Replay did
+not start. Exact saved-plan cleanup removed all 25 platform and 36 data-plane resources; both
+states and direct active inventories are empty, and the attempt KMS key is pending deletion on
+2026-09-14. RC26 is not qualified and no result transfers. A focused connection-startup defect PR,
+replacement candidate, and fresh protected objective must precede another AWS run. See
+`docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-driver-startup-attempt.json`.
+
 ## Pre-candidate release readiness
 
 Commit `2d020d15fc52` passed a local release-readiness audit on 2026-08-14: wheel and source archive
@@ -372,10 +384,10 @@ exact AWS cleanup evidence are complete. PR #326 merged private RC26 as protecte
 exact-main run `31915564765` passed all five jobs, and source-free multi-platform candidate
 `sha256:e63aef4b…d28e` passed local artifact and selector checks. Each benchmark, provider,
 optimization, or live-defect lane starts from fresh protected `main`; rerun only materially
-affected evidence plus the eventual final-candidate closure matrix. The 120-second RC25 attempt
-allowed connection and temporary-table creation, but the manual task failed before COPY could
-record an operation, replay did not start, and cleanup is exact. The fresh RC26-bound objective is
-prepared for protected review; its merge and exact-main CI must precede the complete AWS rerun.
+affected evidence plus the eventual final-candidate closure matrix. The RC26 300-second task
+authenticated to Redshift but stalled before its first user query; replay did not start and cleanup
+is exact. RC26 is not qualified. The AWS lane now requires a focused connection-startup correction,
+a replacement candidate, and a fresh protected objective before rerun.
 Remaining work includes applicable replacement-candidate evidence;
 PostgreSQL hosted cost; remaining benchmark classes/providers and Kubernetes hosted scale/soak;
 hosted-provider and pairwise live proofs; scale/cost reports for every first-class warehouse and

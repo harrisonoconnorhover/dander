@@ -1297,7 +1297,14 @@ consumed objective transfers no result. PR #330 merged the sanitized attempt as 
 `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json` preserves exact RC26,
 the run counts, paused scheduling, exact cleanup, and the existing cumulative USD 3 allocation while
 binding a 300-second Redshift connection window below the unchanged 600-second runtime deadline.
-It must reach protected main before another AWS mutation. No RC24 or RC25 result transfers.
+That objective reached protected main as `890853d`; exact-main run `31921459727` passed all five
+jobs. Its one manual task reached the private Redshift endpoint, authenticated as the exact Fargate
+task role, and set `application_name=dander`, but no runtime-user query entered query history before
+the Python driver hit the 300-second startup timeout. Replay did not start. Saved-plan cleanup
+removed all 25 platform and 36 data-plane resources; both states and direct active inventories are
+empty, and the attempt KMS key is pending deletion on 2026-09-14. This is a live-discovered
+candidate defect, so a focused connection-startup implementation PR, replacement candidate, and
+fresh protected objective must precede another AWS run. No RC24, RC25, or RC26 result transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Merged the RC26 120-second timeout attempt evidence as protected main `730de0b` via PR #330.
-- Verified exact-main CI run `31920702822` passed all five jobs.
-- Preserved exact RC26, run counts, paused scheduling, cleanup, and the cumulative USD 3 allocation.
-- Bound the replacement objective to a 300-second Redshift connection window.
-- Kept all provider mutations paused until this objective passes protected main.
+- Consumed the protected RC26 300-second AWS objective with exactly one manual execution.
+- Proved Redshift authenticated the exact task role before the Python driver stalled in startup.
+- Confirmed no runtime user query, warehouse operation, row, staging object, or replay occurred.
+- Destroyed all 25 platform and 36 data-plane resources from reviewed saved plans.
+- Recorded the sanitized failed-attempt evidence and exact roadmap status.
 
 ## Try It
 
-Run `jq '{cost_ceiling, workload, approved_objectives}' docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json`.
+Run `jq '{execution, finding, cleanup, objectives}' docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-driver-startup-attempt.json`.
 
 ## Checks
 
-- Replacement workload hash recomputes to `a0d811399e8d…d860`.
-- Objective names, RC26 identity, and cost references remain exact.
-- Provider configuration accepts 300 seconds and the runtime deadline remains 600 seconds.
-- Evidence JSON parses; focused tests and repository diff checks pass.
+- Both create stacks applied exactly and their post-apply plans had no drift.
+- Redshift connection and query history isolated the failure after authentication and before SQL.
+- Both destroy plans contained only deletes; applies completed `0/0/25` and `0/0/36`.
+- Both Terraform states and all direct active owned-resource inventories are empty.
+- Evidence JSON, 21 focused tests, Ruff lint/format, strict typing, and diff checks pass.
 
 ## Decisions
 
-- Do not reuse the consumed 120-second objective.
-- Treat the prior result as an objective-bound timeout, not a proven RC26 defect.
-- Spend the replay only after manual success.
+- Do not replay or reuse either consumed RC26 objective.
+- Treat the 300-second startup stall as a live-discovered candidate defect, not a timeout tuning gap.
+- Require a focused correction, replacement candidate, and fresh protected objective before AWS rerun.
 
 ## Remaining
 
-- Merge this replacement objective through protected CI and review.
-- Verify the exact merge commit on protected main.
-- Rerun one manual execution plus one success-conditional replay under this objective.
-- Capture no-drift, equality, delayed cost, and exact cleanup evidence.
+- Merge this failed-attempt record through protected CI and review.
+- Implement the Redshift startup correction in a fresh focused PR from protected main.
+- Cut and verify a replacement private candidate without transferring RC26 results.
+- Approve and run a fresh AWS objective after the correction merges.
 - Continue other Phase 8 lanes separately without colliding with DRUFF.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-15/aws-native-rc26-profile-objectives-v2.json`
+- `docs/evidence/phase8/2026-08-15/aws-native-rc26-redshift-driver-startup-attempt.json`
 - `docs/cloud-portability-phase8-qualification.md`
-- `docs/aws-native-profile.md`
+- `tickets/DANDER-202-aws-native-profile.md`
