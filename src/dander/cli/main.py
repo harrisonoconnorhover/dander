@@ -56,6 +56,7 @@ from dander.cli.init_command import (
 from dander.cli.kubernetes_command import register_kubernetes_commands
 from dander.cli.oci_command import register_oci_commands
 from dander.cli.provider_runtime import build_catalog_publisher, build_secret_store
+from dander.cli.qualification_command import register_qualification_command
 from dander.cli.run_command import (
     RunOptions,
     build_auth,
@@ -138,6 +139,7 @@ app.add_typer(graph_app, name="graph")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(connector_app, name="connector")
 app.add_typer(runtime_app, name="runtime")
+register_qualification_command(app)
 register_aws_commands(app)
 register_azure_commands(app)
 register_kubernetes_commands(app)

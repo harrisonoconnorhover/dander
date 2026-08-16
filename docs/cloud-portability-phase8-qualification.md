@@ -78,6 +78,26 @@ provider-measured charges have not fully posted, so no exact cloud cost is claim
 Each paid run must still record its objective manifest and per-run allocation before mutation,
 preserve the dependency order, and use the immutable candidate.
 
+## Canonical qualification harness invocation
+
+Future qualification manifests use the immutable image's normal `dander` entrypoint and pass the
+operator-mounted harness through the stable command:
+
+```text
+dander qualification-run /qualification/harness.py [HARNESS_ARGUMENTS...]
+```
+
+Kubernetes Jobs express that command as container `args`; they do not override `command` with
+`/app/.venv/bin/python`, `/usr/local/bin/python`, or another image-layout path. The command validates
+that the trusted, read-only mounted harness is a readable file, then replaces itself with the
+runtime's installed interpreter while forwarding arguments and exit status. It does not select
+objectives, grant provider access, or make an unreviewed harness trusted.
+
+This current-source rail responds to two RC27 infrastructure preflights that stopped before Python
+started. It does not rewrite or invalidate their attempt ledgers, transfer results to a later
+candidate, or require unaffected accepted evidence to rerun. RC27 predates the command; a later
+candidate and only materially affected qualification lanes will consume it.
+
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
 `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; its packaged GCP
