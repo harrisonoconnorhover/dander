@@ -1,0 +1,166 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "2.00",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-rc28-azure-correctness"
+  },
+  "budget_allocation": {
+    "authorization_path": "docs/evidence/phase8/2026-08-16/rc28-authorization.json",
+    "activity": "azure_scale_and_pairwise_profiles",
+    "activity_ceiling_usd": "2.00",
+    "run_ceiling_usd": "2.00",
+    "remaining_activity_ceiling_usd": "0.00"
+  },
+  "configuration_hash": {
+    "algorithm": "sha256",
+    "serialization": "utf8_canonical_json_sort_keys_compact_separators",
+    "scope": "configuration"
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc28",
+      "git_commit": "7135b8c24e4b9c597d608b9f031ed1e0b3d3989d",
+      "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:f825927627d3e4e996fcb885338cef50ced290284231bb7b5ed47d0f0f94959e",
+      "destination_image": "dndrp8r28az0ab464a2.azurecr.io/dander/runtime@sha256:f825927627d3e4e996fcb885338cef50ced290284231bb7b5ed47d0f0f94959e",
+      "source_free": true,
+      "registry_content_must_be_identical": true,
+      "qualification_entrypoint": "dander qualification-run"
+    },
+    "provider_coordinates": {
+      "azure_subscription_id_sha256": "0ab464a259b6404da827ff781ff05ffa0ed5cf607f3549d19f02294f447c9cf4",
+      "azure_region": "eastus",
+      "snowflake_account_sha256": "9aaa3ce72fe75f390bfea3a538a13f1a3f099bebf11c42fc1cd851ead341e7bd",
+      "snowflake_operator_user_sha256": "8e3414f2e822a73a5f4b91f095563ffcca880c0ae6fd2beea774ae890af3bad8",
+      "private_coordinates_must_match_before_mutation": true
+    },
+    "profile": {
+      "profile_id": "azure_snowflake",
+      "deployment_id": "azure_container_apps",
+      "launcher": "azure_container_apps",
+      "warehouse": "snowflake",
+      "state": "postgresql",
+      "catalog": "none",
+      "secrets": "azure_key_vault",
+      "warehouse_token_env": "DANDER_SNOWFLAKE_OAUTH_TOKEN",
+      "state_dsn_env": "DANDER_POSTGRES_DSN",
+      "state_authority_id": "postgresql:azure-phase8-rc28",
+      "secret_bindings": {
+        "DANDER_POSTGRES_DSN": "postgres-dsn",
+        "DANDER_SNOWFLAKE_OAUTH_TOKEN": "snowflake-oauth-token"
+      }
+    },
+    "azure_resources": {
+      "resource_group": "dander-p8q-r28-az-sf",
+      "state_storage_account": "dndrp8r28az0ab464a2",
+      "state_container": "tfstate",
+      "acr_name": "dndrp8r28az0ab464a2",
+      "acr_repository": "dander/runtime",
+      "managed_identity": "dander-p8q-r28-az-sf-runtime",
+      "container_apps_environment": "dander-p8q-r28-az-sf-env",
+      "vault_name": "dndr-p8-r28-0ab464a2-kv",
+      "virtual_network": "dander-p8q-r28-az-sf-vnet",
+      "container_apps_subnet": "container-apps",
+      "container_apps_subnet_cidr": "10.28.0.0/23",
+      "key_vault_service_endpoint_required": true,
+      "operator_public_ipv4_is_private_input": true,
+      "operator_public_ipv4_sha256_required_in_sanitized_evidence": true,
+      "provider_registration_allowlist": [
+        "Microsoft.App",
+        "Microsoft.ContainerRegistry",
+        "Microsoft.DBforPostgreSQL",
+        "Microsoft.Insights",
+        "Microsoft.KeyVault",
+        "Microsoft.ManagedIdentity",
+        "Microsoft.Network",
+        "Microsoft.Storage"
+      ]
+    },
+    "postgresql_state": {
+      "server": "dander-p8-r28-pg-0ab464a2",
+      "version": "15",
+      "region": "centralus",
+      "tier": "Burstable",
+      "sku": "Standard_B1ms",
+      "storage_gib": 32,
+      "backup_retention_days": 7,
+      "geo_redundant_backup": false,
+      "database": "dander_phase8",
+      "schema": "dander_meta",
+      "tls_required": true,
+      "public_network_access": true,
+      "firewall_scope": "operator_ipv4_and_azure_services_only",
+      "password_storage": "macos_keychain_then_versionless_azure_key_vault_secret",
+      "secret_name": "postgres-dsn"
+    },
+    "snowflake_warehouse": {
+      "database": "DANDER_P8_RC28_0AB464A2",
+      "schema": "RAW",
+      "warehouse": "DANDER_P8_RC28_0AB464A2_WH",
+      "role": "DANDER_P8_RC28_0AB464A2_ROLE",
+      "warehouse_size": "XSMALL",
+      "auto_suspend_seconds": 60,
+      "auto_resume": true,
+      "initially_suspended": true,
+      "oauth_scope": "session:role:DANDER_P8_RC28_0AB464A2_ROLE refresh_token",
+      "secret_name": "snowflake-oauth-token",
+      "owned_objects_removed_after_run": true
+    },
+    "workload": {
+      "schema": "io.dander.phase8.azure-snowflake-correctness/v1",
+      "benchmark_class": "correctness",
+      "pipeline": "phase8_aws_qualification",
+      "source": "phase8_aws_fixture",
+      "model": "stg_phase8_aws__posts",
+      "expected_normalized_rows": 3,
+      "expected_normalized_sha256": "a56919e9883a0e498a5a8cac3b6a80066333296672aaf8761d67a72ceeeb7288",
+      "build_models": true,
+      "schedule_paused": true,
+      "runtime_cpu": 1,
+      "runtime_memory_mib": 2048,
+      "runtime_timeout_seconds": 600,
+      "runtime_max_retries": 0,
+      "runtime_batch_rows": 1000,
+      "manual_executions": 1,
+      "replay_executions": 1,
+      "replay_only_after_manual_success": true
+    },
+    "attempt_and_cleanup": {
+      "max_infrastructure_attempts": 2,
+      "candidate_manual_attempts": 1,
+      "candidate_replay_attempts": 1,
+      "automatic_candidate_retry": false,
+      "max_resource_lifetime_minutes": 120,
+      "foundation_plan_before_secret_writes": true,
+      "canonical_preflight_before_candidate_execution": true,
+      "azure_terraform_apply_requires_saved_plan": true,
+      "postgresql_provisioning_apply_requires_saved_plan": true,
+      "snowflake_sql_limited_to_named_owned_objects": true,
+      "post_apply_no_drift_required": true,
+      "terraform_destroy_and_owned_data_removal_required": true,
+      "key_vault_purge_protected_tombstone_is_inactive_provider_residue": true,
+      "active_owned_resource_inventory_must_be_empty": true,
+      "provider_invoice_required_before_cost_pass": true
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "artifact_identity",
+      "azure_key_vault_resolution",
+      "canonical_preflight",
+      "cost_ceiling",
+      "exact_cleanup",
+      "manual_execution",
+      "no_drift",
+      "postgresql_state",
+      "replay_idempotency",
+      "snowflake_write"
+    ],
+    "benchmark_class": "correctness",
+    "profile_id": "azure_snowflake",
+    "release_version": "0.9.0rc28",
+    "git_commit": "7135b8c24e4b9c597d608b9f031ed1e0b3d3989d",
+    "image_digest": "sha256:f825927627d3e4e996fcb885338cef50ced290284231bb7b5ed47d0f0f94959e",
+    "configuration_sha256": "b3184762c6288415ae9e1d49c97ce630b9ad72d6bccaee4036d5285be22cd5e3",
+    "approval_reference": "codex-thread-01a00050-c1b0-72b0-a969-4cfa2e899ca5-2026-08-16-rc28-azure-correctness"
+  }
+}
