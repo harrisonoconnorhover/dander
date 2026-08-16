@@ -128,6 +128,18 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   begin until this sanitized record is protected and a separate exact objective is committed; see
   `docs/evidence/phase8/2026-08-16/rc28-candidate.json`.
 
+- PR #353 merged the RC28 Azure correctness objective as protected main `fdcf14d`; exact-main run
+  `31964559562` passed all five jobs before mutation. The exact ACR digest then ran one permitted
+  manual Container Apps execution. It reached Python and Snowflake, but the runtime role lacked
+  database-level `CREATE SCHEMA` authority required for owned staging schemas, so Dander failed
+  closed after 1,728 ms with zero rows and bytes. Replay was success-conditional and did not run.
+  Reviewed destroy plans removed 7 platform, 6 network/PostgreSQL, and 6 stage-zero resources; the
+  named Snowflake objects and active Azure inventories are empty, with only the inactive
+  purge-protected Key Vault tombstone. Azure Cost Management had no posted rows, so cost remains
+  `not_evaluated`. DANDER-213 must close the setup/privilege preflight before a fresh objective can
+  reuse RC28; Azure correctness and support remain open. See
+  `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json`.
+
 - Private Dander `0.9.0rc26` was built from protected-main commit
   `f0fe54f797bbbe1cc5110f9b36c4e3e6da48f496` after all five jobs passed exact-main CI run
   `31915564765`. Its exact wheel produced source-free GAR index `sha256:e63aef4b…d28e` with

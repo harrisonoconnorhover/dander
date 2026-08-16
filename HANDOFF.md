@@ -2,44 +2,42 @@
 
 ## Finished
 
-- Protected the private source-free RC28 candidate record as exact main `1cdc799`.
-- Bound one RC28 Azure canonical manual run and one success-conditional replay.
-- Fixed the immutable GAR/ACR digest, provider profile, disposable data plane, and cleanup boundary.
-- Limited infrastructure preflights to two and candidate execution to one manual run plus replay.
-- Kept private coordinates and secret values outside Git under the existing USD 2 Azure allocation.
+- Recorded the single protected RC28 Azure/Snowflake manual attempt and its proven setup failure.
+- Preserved exact candidate, objective, execution, plan, cleanup, and cost-pending identity.
+- Confirmed the failed run wrote zero rows and did not consume the success-conditional replay.
+- Removed all active Snowflake and Azure resources plus disposable local credentials.
+- Opened DANDER-213 for the focused database privilege and read-only preflight correction.
 
 ## Try It
 
-Review `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-objectives.json`; no live
-provider action is permitted until this objective is protected and exact-main CI passes.
+Review `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json`; do not rerun
+Azure until DANDER-213 and a fresh protected objective pass exact-main CI.
 
 ## Checks
 
-- Publication PR #352 and exact-main run `31962694682` passed all five jobs.
-- Objective JSON parses; its canonical configuration hash, candidate identity, and USD 2 allocation
-  are checked locally.
-- Azure account access is current; no provider mutation was made while preparing the objective.
-- The Phase 6 PostgreSQL Keychain binding exists, but its deleted host no longer resolves.
-- Central US exposes the bound PostgreSQL shape; this subscription is restricted in East US.
-- Ruff, format, strict typing, contracts, release metadata, and full pytest passed; pytest reported
-  1,744 passed and 34 skipped.
+- Objective PR #353 merged as `fdcf14d`; exact-main run `31964559562` passed all five jobs.
+- Candidate execution reached Python/Snowflake once, failed closed, wrote zero rows, and did not replay.
+- Snowflake query history proved missing `CREATE SCHEMA` authority for the exact runtime role.
+- Reviewed Terraform cleanup completed `0/0/7`, `0/0/6`, and `0/0/6`.
+- Named active inventories are empty; Cost Management returned no posted rows.
+- Release metadata, all evidence JSON parsing, attempt cross-checks, and 4 focused tests passed.
 
 ## Decisions
 
-- Reuse the accepted Azure lifecycle but transfer no Phase 6 qualification result to RC28.
-- Provision a fresh bounded PostgreSQL state server instead of reusing the stale Phase 6 endpoint.
-- Keep cost, scale, pairwise, soak, public release, and support open after correctness execution.
+- Classify the result as a consumed failed candidate attempt caused by qualification setup/preflight.
+- Preserve RC28 publication evidence; require a fresh objective, not a replacement candidate.
+- Keep cost, Azure correctness, scale, pairwise, soak, public release, and support open.
 
 ## Remaining
 
-- Protect this objective and pass its exact-main CI before provider mutation.
-- Complete read-only Azure, Snowflake OAuth, and PostgreSQL plan preflights.
-- Execute only the approved manual/replay correctness slice, then remove owned resources.
-- Keep provider-measured cost pending until invoices post.
-- Complete remaining provider/profile, scale, soak, and final-candidate gates.
+- Merge this sanitized failure record through protected review and exact-main CI.
+- Add the focused Snowflake grant and read-only authority preflight on a fresh branch.
+- Bind a new objective only after the rail passes and remaining Azure budget headroom is known.
+- Resume the approved manual/replay correctness slice without rerunning unaffected evidence.
+- Complete remaining provider/profile, scale, soak, cost, and final-candidate gates.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-objectives.json`
-- `tickets/DANDER-211-rc28-azure-correctness-objective.md`
+- `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json`
+- `tickets/DANDER-213-snowflake-create-schema-preflight.md`
 - `docs/cloud-portability-phase8-qualification.md`

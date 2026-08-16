@@ -1,7 +1,7 @@
 ---
 id: DANDER-211
 title: Bind the RC28 Azure canonical correctness objective
-status: open
+status: done
 component: infrastructure
 epic: cloud-portability-phase-8
 depends_on: [DANDER-200, DANDER-209, DANDER-210]
@@ -23,7 +23,7 @@ coordinates, disposable data plane, execution count, and cleanup boundary.
   maximum lifetime, exact cleanup, and the USD 2 ceiling are fixed before mutation.
 - [x] Private operator coordinates must match committed hashes in a read-only preflight, while
   secret values remain outside Git.
-- [ ] Protected review and exact-main CI pass before any Azure, Snowflake, or PostgreSQL mutation.
+- [x] Protected review and exact-main CI pass before any Azure, Snowflake, or PostgreSQL mutation.
 
 ## Design
 
@@ -47,3 +47,14 @@ starts; candidate code gets one manual attempt and one replay after manual succe
   permission checks remain read-only preflights and must stop the lane before mutation if absent.
 - This slice can close exact-candidate Azure correctness only. Cost remains `not_evaluated` until
   provider invoices post; Azure scale, pairwise, soak, public release, and support remain open.
+- PR #353 merged as protected main `fdcf14d`; exact-main run `31964559562` passed all five jobs
+  before any provider mutation. The objective was then consumed by one manual candidate attempt;
+  its result and exact cleanup are tracked separately in DANDER-212.
+
+## Review Log
+
+### 2026-08-16 — PASS
+
+The exact objective and sanitized coordinate hashes reached protected main and all five exact-main
+jobs passed before mutation. This closes objective binding only; it does not imply a passing Azure
+candidate result.
