@@ -2,43 +2,43 @@
 
 ## Finished
 
-- Added a read-only Snowflake staging-authority check to the Azure canonical preflight.
-- Required the active role, database, and warehouse plus the exact database-level `CREATE SCHEMA`
-  grant before any candidate job may start.
-- Sanitized success and failure output so tokens, DSNs, grant rows, and provider errors stay out.
-- Documented the narrow disposable-database grant and its pre-candidate operating order.
+- Merged the mandatory Snowflake staging-authority rail in PR #355 as protected main `4815561`.
+- Required the active runtime role, database, warehouse, and exact database-level `CREATE SCHEMA`
+  grant before any Azure candidate execution.
+- Kept the preflight read-only and sanitized: no token, DSN, grant row, or raw provider error emits.
+- Closed DANDER-213 after protected review and exact-main CI.
+- Preserved RC28 publication and failure evidence without authorizing or transferring a rerun.
 
 ## Try It
 
-Project a current token through the manifest's configured environment name, then run `dander azure
-canonical-preflight --deployment azure_snowflake --pipeline warehouse_fixture --expected-image
-ACR_IMAGE_AT_DIGEST`. A missing grant fails before any Container Apps execution.
+No provider objects currently exist. A future protected objective must project a current Snowflake
+token through the configured environment name, then run `dander azure canonical-preflight` before
+starting its one approved candidate execution.
 
 ## Checks
 
-- Ruff format and lint passed for all changed Python files.
-- Canonical strict type check passed for 421 source files.
-- Full Python suite passed: 1,748 passed and 34 skipped.
-- Control contract drift check passed for `io.dander.control.contracts/v1`.
-- `git diff --check` passed.
+- Local Ruff lint/format, strict typing, contract drift, and full suite passed: 1,748 passed,
+  34 skipped.
+- PR #355 run `31973525550` passed Python, Terraform, secret, container, and distribution jobs.
+- Exact-main run `31973943176` passed the same five jobs for `4815561`.
+- Completion review found no comments, reviews, unresolved threads, or material defect.
 
 ## Decisions
 
-- Extend the mandatory canonical preflight instead of adding an optional side command.
-- Grant only `CREATE SCHEMA` on the named disposable database; do not grant database ownership,
+- Grant only `CREATE SCHEMA` on the named disposable database; no database ownership,
   `ALL PRIVILEGES`, or account-level authority.
-- Preserve RC28 evidence; this rail does not authorize a corrective rerun or transfer a result.
+- Keep Azure correctness, support, and cost open; the rail is setup evidence, not qualification.
+- Require known remaining budget headroom and a fresh objective before any provider mutation.
 
 ## Remaining
 
-- Pass protected PR review and exact-main CI before any replacement objective or provider mutation.
-- Close DANDER-213 only after that protected evidence exists.
-- Bind a fresh Azure objective only after remaining budget headroom is known.
-- Resume the manual/replay correctness lane without rerunning unaffected publication evidence.
-- Complete remaining Phase 8 provider/profile, scale, soak, cost, and final-candidate gates.
+- Determine exact remaining headroom under the authorized USD 10 Phase 8 ceiling.
+- Bind a fresh protected Azure correctness objective only if that headroom can cover it.
+- Resume manual/replay correctness without rerunning unaffected RC28 publication evidence.
+- Complete provider/profile, scale, soak, cost, and final-candidate closure gates.
 
 ## Review First
 
-- `src/dander/providers/snowflake/preflight.py`
-- `src/dander/cli/azure_command.py`
 - `tickets/DANDER-213-snowflake-create-schema-preflight.md`
+- `docs/cloud-portability-phase8-qualification.md`
+- `docs/session-resume.md`

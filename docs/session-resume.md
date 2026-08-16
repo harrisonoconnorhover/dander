@@ -136,9 +136,11 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Reviewed destroy plans removed 7 platform, 6 network/PostgreSQL, and 6 stage-zero resources; the
   named Snowflake objects and active Azure inventories are empty, with only the inactive
   purge-protected Key Vault tombstone. Azure Cost Management had no posted rows, so cost remains
-  `not_evaluated`. DANDER-213 must close the setup/privilege preflight before a fresh objective can
-  reuse RC28; Azure correctness and support remain open. See
-  `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json`.
+  `not_evaluated`. PR #355 closed DANDER-213 as protected main `4815561`; exact-main run
+  `31973943176` passed all five jobs. The canonical preflight now requires the exact runtime role's
+  database-level `CREATE SCHEMA` grant read-only. A fresh protected objective and known budget
+  headroom remain mandatory before RC28 may run again; Azure correctness and support remain open.
+  See `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json`.
 
 - Private Dander `0.9.0rc26` was built from protected-main commit
   `f0fe54f797bbbe1cc5110f9b36c4e3e6da48f496` after all five jobs passed exact-main CI run
