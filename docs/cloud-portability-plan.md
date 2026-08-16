@@ -1403,6 +1403,15 @@ stable qualification entrypoint, exact-wheel, rootless read-only, SBOM, and prov
 credential-free GCP, Kubernetes, AWS, and Azure selectors passed. This does not transfer prior
 results or close qualification, cost, public-release, or support gates. Azure still requires a
 fresh protected exact-candidate objective before any resource mutation.
+PR #353 merged that objective as protected main `fdcf14d`; exact-main run `31964559562` passed all
+five jobs before mutation. The one permitted manual RC28 Azure execution reached Python and
+Snowflake but wrote zero rows: the runtime role lacked database-level `CREATE SCHEMA` authority for
+the writer's owned staging-schema lifecycle. No replay or corrective rerun was allowed. Exact
+saved-plan cleanup removed all 19 Azure resources across the platform, network/PostgreSQL, and
+stage-zero states; the named Snowflake objects and active Azure inventories are empty, with one
+inactive purge-protected Key Vault tombstone. Provider cost has not posted. RC28 itself failed
+closed correctly and remains reusable, but Azure correctness and support stay open until
+DANDER-213 adds the focused setup/privilege preflight and a fresh protected objective is approved.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

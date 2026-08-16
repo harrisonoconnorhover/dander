@@ -130,6 +130,19 @@ protected review and exact-main CI pass; see
 `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-objectives.json` and
 `docs/evidence/phase8/2026-08-16/rc28-candidate.json`.
 
+PR #353 merged that objective as protected main `fdcf14d`; exact-main run `31964559562` passed all
+five jobs before provider mutation. One manual execution then reached Python and Snowflake on the
+exact ACR digest, but failed closed before writing rows because the runtime role lacked
+database-level `CREATE SCHEMA`, which the writer requires for its owned staging-schema lifecycle.
+The manual allowance was consumed, so the success-conditional replay and corrective rerun did not
+start. Reviewed destroy plans removed 7 platform, 6 network/PostgreSQL, and 6 stage-zero resources;
+the named Snowflake objects and active Azure inventories are empty, with only the expected inactive
+purge-protected Key Vault tombstone remaining. Cost Management had no posted rows, so cost stays
+`not_evaluated`. RC28 publication evidence remains valid, but Azure correctness and support remain
+open. DANDER-213 requires a focused grant and read-only privilege preflight before a fresh objective
+may reuse RC28; see
+`docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json`.
+
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
 `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; its packaged GCP
@@ -306,7 +319,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
 | `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | exact RC27 manual/replay correctness and exact cleanup passed; provider cost, scale, soak, and support remain open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
-| `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | lifecycle accepted; Phase 8 open |
+| `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | RC28 manual failed closed on a setup privilege gap; replacement objective open |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
 | `fargate_gcp` | Fargate | BigQuery | BigQuery | Dataplex | GCP Secret Manager | lifecycle accepted; Phase 8 open |
 | `azure_gcp` | Azure Container Apps Jobs | BigQuery | BigQuery | Dataplex | GCP Secret Manager | identity/lifecycle accepted; Phase 8 open |
