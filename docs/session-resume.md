@@ -17,7 +17,7 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `dander/bootstrap-admin/state` in `dander-proof-harrison-20260801-dander-state`.
 - The five retained jobs use private qualification candidate Dander `0.9.0rc22` index
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
-  Private RC25 at `sha256:5a0d5520…2238` is the replacement candidate for remaining Phase 8
+  Private RC26 at `sha256:e63aef4b…d28e` is the replacement candidate for remaining Phase 8
   gates but has not replaced those retained jobs. Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
@@ -34,6 +34,15 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- Private Dander `0.9.0rc26` was built from protected-main commit
+  `f0fe54f797bbbe1cc5110f9b36c4e3e6da48f496` after all five jobs passed exact-main CI run
+  `31915564765`. Its exact wheel produced source-free GAR index `sha256:e63aef4b…d28e` with
+  amd64/arm64 manifests, SPDX SBOM, and SLSA provenance. Both architectures reported RC26; GCP,
+  Kubernetes, and externally projected AWS selectors plus rootless read-only conformance on both
+  architectures passed. No RC25 result transfers, and publication is not a live-profile, cost,
+  public-release, or support pass. See
+  `docs/evidence/phase8/2026-08-15/rc26-candidate.json`.
 
 - Private Dander `0.9.0rc25` was built from protected-main commit
   `f5935a6d263cf6734ee9944f2f0e02d025edc63e` after all five jobs passed exact-main CI run
@@ -116,10 +125,10 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   2026-09-14. Provider invoice data is pending. This live-discovered candidate defect required a
   focused implementation PR, replacement candidate, and complete objective rerun. PR #324 merged
   the failure record as protected main `804496e`, and PR #325 merged the exact staging-role grant
-  as protected main `7cea5a8`; exact-main CI run `31914830354` passed all five jobs. Private RC26
-  preparation is isolated on draft PR #326; protected publication and a fresh exact objective
-  still precede the AWS rerun. Every
-  remaining benchmark/provider objective and any
+  as protected main `7cea5a8`; exact-main CI run `31914830354` passed all five jobs. PR #326 merged
+  private RC26 as protected main `f0fe54f`; exact-main run `31915564765` passed all five jobs, and
+  its source-free multi-platform index passed local inspection. A fresh RC26-bound exact objective
+  still precedes the AWS rerun. Every remaining benchmark/provider objective and any
   live-discovered defect uses a fresh protected-main branch; rerun only materially affected evidence
   plus the eventual final closure matrix. See
   `docs/evidence/phase8/2026-08-15/aws-native-rc25-copy-assumerole-attempt.json`.
