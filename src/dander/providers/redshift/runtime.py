@@ -361,6 +361,10 @@ def _sdk_connection_factory(config: RedshiftWarehouseConfig) -> RedshiftConnecti
             )
         return connector(
             **common,
+            # Serverless qualification observed the default binary protocol stall after
+            # authentication and before ReadyForQuery. Request the base text protocol so
+            # startup does not depend on extended transfer-protocol negotiation.
+            client_protocol_version=0,
             is_serverless=True,
             serverless_work_group=config.workgroup_name,
         )

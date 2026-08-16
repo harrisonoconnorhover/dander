@@ -1929,3 +1929,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   not a global provider-default change; the original 30-second objective remains preserved.
 - **Evidence rule:** The corrected configuration reruns the complete AWS objective; no partial result
   transfers. The failed attempt and exact 25/36-resource cleanup remain separately preserved.
+
+## 2026-08-16 — Redshift Serverless requests the base startup protocol
+
+- **Observed boundary:** Exact RC26 reached the private endpoint and authenticated through the
+  official Python driver, but the default binary-protocol startup never reached the first SQL
+  statement before the 300-second socket timeout.
+- **Correction:** Serverless connections request `client_protocol_version=0`, the driver's base text
+  protocol. Provisioned Redshift keeps the driver default because this failure was not observed
+  there.
+- **Evidence rule:** This is a focused candidate correction, not live proof. AWS qualification still
+  requires a replacement immutable candidate and fresh protected objective; RC26 results do not
+  transfer.
