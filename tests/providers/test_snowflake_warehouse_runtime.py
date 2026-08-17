@@ -1172,13 +1172,15 @@ def test_snowflake_transform_coordinates_are_canonical(
         target_dialect=SqlDialect.SNOWFLAKE,
     )
     model = project.ordered(["coordinate_model"])[0]
+    compiled = project.compile(model)
 
     assert project.relation_ref_for_model(model).coordinates == (
         "DANDER-TEST",
         "analytics",
         "coordinate_model",
     )
-    assert '"DANDER-TEST"."RAW_DATA"."records"' in project.compile(model)
+    assert 'SELECT "id", "label", "updated_at"' in compiled
+    assert '"DANDER-TEST"."RAW_DATA"."records"' in compiled
     with pytest.raises(TypeError, match="graph plan has the wrong type"):
         runtime.transforms.build_transform_runner(graph_plan=object(), build_models=False)
     assert runtime.transforms.build_transform_runner(graph_plan=None, build_models=False) is None
