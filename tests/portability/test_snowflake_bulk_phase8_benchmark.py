@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -34,6 +35,18 @@ def _config(**overrides: object) -> bulk.SnowflakeBulkConfig:
     }
     values.update(overrides)
     return bulk.SnowflakeBulkConfig(**values)  # type: ignore[arg-type]
+
+
+def _incremental_config(**overrides: object) -> bulk.SnowflakeIncrementalConfig:
+    values: dict[str, object] = {
+        "account": "org-account",
+        "user": "DANDER_USER",
+        "database": "DANDER_INCREMENTAL_TEST",
+        "warehouse": "DANDER_INCREMENTAL_WH",
+        "role": "DANDER_INCREMENTAL_ROLE",
+    }
+    values.update(overrides)
+    return bulk.SnowflakeIncrementalConfig(**values)  # type: ignore[arg-type]
 
 
 def _identity() -> bulk.CandidateIdentity:
@@ -72,6 +85,29 @@ def _approval(config: bulk.SnowflakeBulkConfig) -> bulk._Approval:
     )
 
 
+def _incremental_approval(
+    config: bulk.SnowflakeIncrementalConfig,
+) -> bulk._Approval:
+    return bulk._Approval(
+        objectives=ApprovedObjectiveSet(
+            names=bulk._INCREMENTAL_OBJECTIVES,
+            benchmark_class=BenchmarkClass.INCREMENTAL,
+            profile_id="snowflake_local_scale",
+            release_version=__version__,
+            git_commit=_COMMIT,
+            image_digest=_DIGEST,
+            configuration_sha256=config.configuration_sha256(),
+            approval_reference=_REFERENCE,
+        ),
+        cost_ceiling=ApprovedCostCeiling(Decimal("0.50"), _REFERENCE),
+        account_sha256=bulk._identifier_sha256(config.account),
+        operator_user_sha256=bulk._identifier_sha256(config.user),
+        database=config.database,
+        warehouse=config.warehouse,
+        role=config.role or "",
+    )
+
+
 def _result() -> bulk._BulkResult:
     return bulk._BulkResult(
         duration_ms=2_000,
@@ -90,8 +126,49 @@ def _result() -> bulk._BulkResult:
     )
 
 
+def _incremental_result() -> bulk._IncrementalResult:
+    return bulk._IncrementalResult(
+        duration_ms=2_000,
+        peak_rss_bytes=128 * 1_024 * 1_024,
+        seed_duration_ms=1_500,
+        seed_rows=300_000,
+        seed_logical_bytes=48_000_000,
+        delta_duration_ms=500,
+        delta_rows=3_000,
+        delta_logical_bytes=480_000,
+        final_rows=301_500,
+        regression_rows_affected=0,
+        copy_operations=9,
+        query_ids=("query-one", "query-two"),
+        staging_tables=0,
+        staging_stages=0,
+        cleanup_verified=True,
+    )
+
+
 def _manifest(config: bulk.SnowflakeBulkConfig) -> dict[str, object]:
     approval = _approval(config)
+    return {
+        "schema": bulk._APPROVAL_SCHEMA,
+        "cost_ceiling": approval.cost_ceiling.to_payload(),
+        "workload": config.workload_payload(),
+        "configuration": {
+            "snowflake": {
+                "account_sha256": approval.account_sha256,
+                "operator_user_sha256": approval.operator_user_sha256,
+                "database": approval.database,
+                "warehouse": approval.warehouse,
+                "role": approval.role,
+            }
+        },
+        "approved_objectives": approval.objectives.to_payload(),
+    }
+
+
+def _incremental_manifest(
+    config: bulk.SnowflakeIncrementalConfig,
+) -> dict[str, object]:
+    approval = _incremental_approval(config)
     return {
         "schema": bulk._APPROVAL_SCHEMA,
         "cost_ceiling": approval.cost_ceiling.to_payload(),
@@ -122,6 +199,32 @@ def test_config_is_bounded_and_provider_values_store_only_secret_references() ->
     assert values["max_rows_per_file"] == 50_000
     assert "token" not in values
     assert config.workload_payload()["benchmark_class"] == "bulk_throughput"
+
+
+def test_incremental_config_binds_accepted_workload_and_secret_references() -> None:
+    config = _incremental_config(
+        auth_method="oauth",
+        token_env="DANDER_TEST_SNOWFLAKE_TOKEN",
+    )
+
+    values = bulk._provider_values(config, schema_name="DANDER_PHASE8_INCREMENTAL_TEST")
+
+    assert values["auth"] == {
+        "method": "oauth",
+        "token_env": "DANDER_TEST_SNOWFLAKE_TOKEN",
+    }
+    assert values["direct_max_rows"] == 0
+    assert values["max_rows_per_file"] == 50_000
+    assert "token" not in values
+    assert config.workload_payload() == {
+        "schema": "io.dander.phase8.snowflake-incremental/v1",
+        "benchmark_class": "incremental",
+        "seed_rows": 300_000,
+        "delta_rows": 3_000,
+        "payload_bytes": 128,
+        "copy_part_rows": 50_000,
+        "copy_part_logical_bytes": 16 * 1_024 * 1_024,
+    }
 
 
 @pytest.mark.parametrize(
@@ -162,6 +265,27 @@ def test_load_approval_binds_exact_workload_and_candidate(tmp_path: Path) -> Non
         bulk.load_approval(path, config=config)
 
 
+def test_load_incremental_approval_binds_exact_workload(tmp_path: Path) -> None:
+    config = _incremental_config()
+    path = tmp_path / "incremental-objectives.json"
+    path.write_text(json.dumps(_incremental_manifest(config)), encoding="utf-8")
+
+    approval = bulk.load_approval(path, config=config)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.INCREMENTAL
+    assert approval.objectives.names == bulk._INCREMENTAL_OBJECTIVES
+    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+
+    payload = _incremental_manifest(config)
+    objectives = payload["approved_objectives"]
+    assert isinstance(objectives, dict)
+    objectives["names"] = list(bulk._OBJECTIVES)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="required objective set"):
+        bulk.load_approval(path, config=config)
+
+
 def test_provider_coordinates_fail_closed_before_runtime() -> None:
     config = _config()
     approval = _approval(config)
@@ -183,6 +307,27 @@ def test_committed_objective_matches_harness_defaults() -> None:
     )
 
 
+def test_committed_incremental_objective_matches_harness_defaults() -> None:
+    root = Path(__file__).resolve().parents[2]
+    path = root / "docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-objectives.json"
+    config = bulk.SnowflakeIncrementalConfig(
+        account="org-account",
+        user="DANDER_USER",
+        database="DANDER_P8_RC29_INCREMENTAL_17A2026A",
+        warehouse="DANDER_P8_RC29_INCREMENTAL_17A2026A_WH",
+        role="DANDER_P8_RC29_INCREMENTAL_17A2026A_ROLE",
+    )
+
+    approval = bulk.load_approval(path, config=config)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.INCREMENTAL
+    assert approval.objectives.release_version == "0.9.0rc29"
+    assert approval.objectives.git_commit == "7a6d138a5df19ab81df202b6cb6121e134e59991"
+    assert approval.objectives.image_digest == (
+        "sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54"
+    )
+
+
 def test_records_are_streamed_with_exact_payload_width() -> None:
     rows = bulk._records(2, 4)
 
@@ -190,6 +335,21 @@ def test_records_are_streamed_with_exact_payload_width() -> None:
     assert next(rows) == {"id": "000000000001", "payload": "xxxx"}
     with pytest.raises(StopIteration):
         next(rows)
+
+
+def test_incremental_records_preserve_seed_delta_and_cursor_shape() -> None:
+    config = _incremental_config(seed_rows=4, delta_rows=2, payload_bytes=3, copy_part_rows=2)
+
+    assert list(bulk._incremental_seed_records(config)) == [
+        {"id": "000000000000", "payload": "sss", "cursor_value": 1},
+        {"id": "000000000001", "payload": "sss", "cursor_value": 1},
+        {"id": "000000000002", "payload": "sss", "cursor_value": 1},
+        {"id": "000000000003", "payload": "sss", "cursor_value": 1},
+    ]
+    assert list(bulk._incremental_delta_records(config)) == [
+        {"id": "000000000000", "payload": "ddd", "cursor_value": 2},
+        {"id": "000000000004", "payload": "ddd", "cursor_value": 2},
+    ]
 
 
 def test_report_keeps_provider_cost_pending_without_claiming_pass() -> None:
@@ -218,6 +378,52 @@ def test_report_keeps_provider_cost_pending_without_claiming_pass() -> None:
         "query-one",
         "query-two",
     )
+
+
+def test_incremental_report_preserves_functional_pass_and_pending_cost() -> None:
+    config = _incremental_config()
+
+    report = bulk._incremental_report(
+        config,
+        _identity(),
+        _incremental_approval(config),
+        _incremental_result(),
+        provider_cost_usd=None,
+    )
+
+    assert report.status is QualificationStatus.NOT_EVALUATED
+    assert report.workload.benchmark_class is BenchmarkClass.INCREMENTAL
+    assert report.workload.input_rows == 3_000
+    assert report.performance.throughput_rows_per_second.value == Decimal("6000.000")
+    metrics = {metric.name: metric.value for metric in report.performance.provider_metrics}
+    assert metrics["delta_target_ratio"] == Decimal("100")
+    assert metrics["final_target_rows"] == 301_500
+    assert metrics["regression_rows_affected"] == 0
+    statuses = {objective.name: objective.status for objective in report.objectives}
+    assert statuses["cost_ceiling"] is ObjectiveStatus.NOT_EVALUATED
+    assert all(
+        status is ObjectiveStatus.PASSED
+        for name, status in statuses.items()
+        if name != "cost_ceiling"
+    )
+
+
+def test_incremental_report_rejects_a_target_smaller_than_100x_delta() -> None:
+    config = _incremental_config(seed_rows=10_000, delta_rows=2_000, copy_part_rows=1_000)
+    result = replace(
+        _incremental_result(),
+        seed_rows=10_000,
+        delta_rows=2_000,
+    )
+
+    with pytest.raises(bulk.SnowflakeIncrementalQualificationError, match="100 times"):
+        bulk._incremental_report(
+            config,
+            _identity(),
+            _incremental_approval(config),
+            result,
+            provider_cost_usd=None,
+        )
 
 
 @pytest.mark.parametrize(
@@ -303,5 +509,69 @@ def test_cli_failure_record_never_exposes_provider_error(
     payload = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
+    assert payload["status"] == "failed"
+    assert secret not in json.dumps(payload)
+
+
+def test_incremental_cli_dispatches_and_sanitizes_provider_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = _incremental_config()
+    objectives = tmp_path / "incremental-objectives.json"
+    objectives.write_text(json.dumps(_incremental_manifest(config)), encoding="utf-8")
+    secret = "incremental-provider-secret-response"
+
+    def fail(
+        _config: bulk.SnowflakeIncrementalConfig,
+        *,
+        identity: bulk.CandidateIdentity,
+        approval: bulk._Approval,
+        provider_cost_usd: Decimal | None,
+    ) -> None:
+        del identity, approval, provider_cost_usd
+        raise bulk.SnowflakeIncrementalQualificationError(secret)
+
+    monkeypatch.setattr(bulk, "run_phase8_snowflake_incremental", fail)
+
+    exit_code = bulk.main(
+        [
+            "--benchmark-class",
+            "incremental",
+            "--account",
+            config.account,
+            "--user",
+            config.user,
+            "--database",
+            config.database,
+            "--warehouse",
+            config.warehouse,
+            "--role",
+            config.role or "",
+            "--objectives",
+            str(objectives),
+            "--candidate-version",
+            __version__,
+            "--candidate-commit",
+            _COMMIT,
+            "--image-digest",
+            _DIGEST,
+            "--approval-reference",
+            _REFERENCE,
+            "--benchmark-date",
+            "2026-08-17",
+            "--provider-job-id",
+            "container:test",
+            "--service-shape",
+            "snowflake_xsmall",
+            "--output-file",
+            str(tmp_path / "incremental-report.json"),
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert payload["benchmark_class"] == "incremental"
     assert payload["status"] == "failed"
     assert secret not in json.dumps(payload)

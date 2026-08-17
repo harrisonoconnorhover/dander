@@ -159,3 +159,9 @@ scale report.
   accepted 500,000-row narrow and 200,000-row wide workload, bounded 50,000-row/16-MiB COPY parts,
   exact readback and cleanup, and a USD 0.50 ceiling. Protected merge and exact-main CI precede
   mutation. The full bound leaves USD 3.25 unreserved and remains held until measured usage posts.
+- PR #370 merged the passing Snowflake bulk result as protected main `cb8a42c`; exact-main run
+  `32044249946` preserved one GitHub action-download failure and passed all five jobs on targeted
+  attempt 2. The next protected objective binds exact RC29 to the accepted 300,000-row seed and
+  3,000-row incremental delta with exact half-update/half-insert readback, a rejected cursor
+  regression, bounded COPY parts, exact cleanup, and a USD 0.50 ceiling. Its full reservation leaves
+  USD 2.75 unreserved; protected merge and exact-main CI precede any owned Snowflake object.

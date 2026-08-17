@@ -1,0 +1,106 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.50",
+    "approval_reference": "codex-thread-01a0004d-6d65-7280-84bc-ca5368b38821-2026-08-16-additional-phase8-10"
+  },
+  "budget_allocation": {
+    "authorization_kind": "additional_incremental_spend",
+    "additional_aggregate_ceiling_usd": "10.00",
+    "conservative_bounds_held_before_objective_usd": "6.75",
+    "run_ceiling_usd": "0.50",
+    "remaining_additional_ceiling_after_full_run_reservation_usd": "2.75",
+    "gke_provider_cost_finalized_usd": "0.05",
+    "gke_provider_cost_reference": "docs/evidence/phase8/2026-08-17/gke-standard-rc27-postgresql-bounded-memory-provider-cost.json",
+    "delayed_billing_conservative_bound": "Reserve the full USD 0.50 until attributable Snowflake warehouse cost posts.",
+    "authorization_reference": "docs/evidence/phase8/2026-08-17/rc29-authorization.json"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.snowflake-incremental/v1",
+    "benchmark_class": "incremental",
+    "seed_rows": 300000,
+    "delta_rows": 3000,
+    "payload_bytes": 128,
+    "copy_part_rows": 50000,
+    "copy_part_logical_bytes": 16777216
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc29",
+      "git_commit": "7a6d138a5df19ab81df202b6cb6121e134e59991",
+      "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54",
+      "source_free": true,
+      "qualification_entrypoint": "dander qualification-run"
+    },
+    "profile": {
+      "profile_id": "snowflake_local_scale",
+      "launcher": "docker_local",
+      "warehouse": "snowflake",
+      "state": "none",
+      "catalog": "none",
+      "secrets": "environment",
+      "runtime_cpu": 2,
+      "runtime_memory_mib": 512,
+      "runtime_timeout_seconds": 900,
+      "runtime_max_retries": 0
+    },
+    "snowflake": {
+      "account_sha256": "9aaa3ce72fe75f390bfea3a538a13f1a3f099bebf11c42fc1cd851ead341e7bd",
+      "operator_user_sha256": "8e3414f2e822a73a5f4b91f095563ffcca880c0ae6fd2beea774ae890af3bad8",
+      "database": "DANDER_P8_RC29_INCREMENTAL_17A2026A",
+      "warehouse": "DANDER_P8_RC29_INCREMENTAL_17A2026A_WH",
+      "role": "DANDER_P8_RC29_INCREMENTAL_17A2026A_ROLE",
+      "warehouse_size": "XSMALL",
+      "auto_suspend_seconds": 60,
+      "auto_resume": true,
+      "initially_suspended": true,
+      "runtime_database_grants": [
+        "USAGE",
+        "CREATE SCHEMA"
+      ],
+      "runtime_warehouse_grants": [
+        "USAGE"
+      ],
+      "oauth_scope": "refresh_token session:role:DANDER_P8_RC29_INCREMENTAL_17A2026A_ROLE"
+    },
+    "execution": {
+      "harness": "scripts/benchmarks/snowflake_bulk_phase8.py",
+      "harness_mount": "/qualification/snowflake_bulk_phase8.py",
+      "objective_mount": "/qualification/snowflake-rc29-incremental-objectives.json",
+      "container_name": "dander-rc29-snowflake-incremental-17a2026a",
+      "manual_candidate_attempts": 1,
+      "second_candidate_attempt_allowed_only_for_non_application_failure": true,
+      "automatic_candidate_retry": false,
+      "provider_cost_may_finalize_without_rerunning_workload": true
+    },
+    "preflight_and_cleanup": {
+      "interactive_auth_verified_before_owned_resources": true,
+      "provider_billing_visibility_checked_before_owned_resources": true,
+      "full_bound_used_when_exact_billing_is_delayed": true,
+      "private_coordinates_must_match_before_mutation": true,
+      "named_objects_must_be_absent_before_creation": true,
+      "max_resource_lifetime_minutes": 60,
+      "cleanup_start_deadline_minutes": 30,
+      "interactive_blocker_after_clock_action": "abort_attempt_drop_all_owned_objects_and_record_failure",
+      "drop_database_warehouse_and_role_required": true,
+      "active_owned_resource_inventory_must_be_empty": true
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "cost_ceiling",
+      "delta_target_ratio",
+      "exact_result",
+      "incremental_cursor_monotonic",
+      "incremental_throughput_measurement"
+    ],
+    "benchmark_class": "incremental",
+    "profile_id": "snowflake_local_scale",
+    "release_version": "0.9.0rc29",
+    "git_commit": "7a6d138a5df19ab81df202b6cb6121e134e59991",
+    "image_digest": "sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54",
+    "configuration_sha256": "2f5eeb5f813a0418854b40f7b8a19aeb1fda6035bef37ca510f69fac5ada6718",
+    "approval_reference": "codex-thread-01a0004d-6d65-7280-84bc-ca5368b38821-2026-08-16-additional-phase8-10"
+  }
+}

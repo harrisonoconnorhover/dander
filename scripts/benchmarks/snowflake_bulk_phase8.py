@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exact-candidate Snowflake bulk-throughput Phase 8 qualification."""
+"""Exact-candidate Snowflake bulk and incremental Phase 8 qualification."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ from dander.telemetry import (
     RunPerformance,
 )
 from dander.warehouse import RelationRef, WarehouseRuntime
-from dander.writer import SchemaEvolution, WriteField, WriteTarget, WriteTransport
+from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget, WriteTransport
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -50,7 +50,9 @@ if TYPE_CHECKING:
 
 _APPROVAL_SCHEMA = "io.dander.qualification.objective-approval/v1"
 _CONFIG_SCHEMA = "io.dander.phase8.snowflake-bulk/v1"
+_INCREMENTAL_CONFIG_SCHEMA = "io.dander.phase8.snowflake-incremental/v1"
 _AUTHORITY_ID = "snowflake:phase8-bulk"
+_INCREMENTAL_AUTHORITY_ID = "snowflake:phase8-incremental"
 _OBJECTIVES = (
     "cleanup",
     "cost_ceiling",
@@ -59,10 +61,26 @@ _OBJECTIVES = (
     "wide_copy_completion",
     "wide_throughput_measurement",
 )
+_INCREMENTAL_OBJECTIVES = (
+    "cleanup",
+    "cost_ceiling",
+    "delta_target_ratio",
+    "exact_result",
+    "incremental_cursor_monotonic",
+    "incremental_throughput_measurement",
+)
+_OBJECTIVES_BY_CLASS = {
+    BenchmarkClass.BULK_THROUGHPUT: _OBJECTIVES,
+    BenchmarkClass.INCREMENTAL: _INCREMENTAL_OBJECTIVES,
+}
 
 
 class SnowflakeBulkQualificationError(RuntimeError):
     """Raised with a sanitized Snowflake bulk-qualification summary."""
+
+
+class SnowflakeIncrementalQualificationError(SnowflakeBulkQualificationError):
+    """Raised with a sanitized Snowflake incremental-qualification summary."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +148,74 @@ class SnowflakeBulkConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class SnowflakeIncrementalConfig:
+    """Non-secret provider coordinates and the bounded incremental workload."""
+
+    account: str
+    user: str
+    database: str
+    warehouse: str
+    role: str | None = None
+    auth_method: str = "oauth"
+    token_env: str = "DANDER_SNOWFLAKE_OAUTH_TOKEN"
+    private_key_file_env: str = "DANDER_SNOWFLAKE_PRIVATE_KEY_FILE"
+    private_key_password_env: str | None = None
+    seed_rows: int = 300_000
+    delta_rows: int = 3_000
+    payload_bytes: int = 128
+    copy_part_rows: int = 50_000
+    copy_part_logical_bytes: int = 16 * 1_024 * 1_024
+
+    def __post_init__(self) -> None:
+        if self.auth_method not in {"key_pair", "oauth"}:
+            raise ValueError("auth_method must be key_pair or oauth")
+        for name in (
+            "seed_rows",
+            "delta_rows",
+            "payload_bytes",
+            "copy_part_rows",
+            "copy_part_logical_bytes",
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        if self.delta_rows % 2:
+            raise ValueError("delta_rows must be even")
+        if self.delta_rows > self.seed_rows:
+            raise ValueError("delta_rows must not exceed seed_rows")
+        if self.copy_part_rows > self.seed_rows:
+            raise ValueError("copy_part_rows must not exceed seed_rows")
+        default_provider_registry().parse(
+            ProviderKind.WAREHOUSE,
+            _provider_values(self, schema_name="DANDER_PHASE8_INCREMENTAL_CHECK"),
+        )
+
+    def workload_payload(self) -> dict[str, object]:
+        """Return the exact approval-bound incremental workload."""
+        return {
+            "schema": _INCREMENTAL_CONFIG_SCHEMA,
+            "benchmark_class": BenchmarkClass.INCREMENTAL.value,
+            "seed_rows": self.seed_rows,
+            "delta_rows": self.delta_rows,
+            "payload_bytes": self.payload_bytes,
+            "copy_part_rows": self.copy_part_rows,
+            "copy_part_logical_bytes": self.copy_part_logical_bytes,
+        }
+
+    def configuration_sha256(self) -> str:
+        """Hash the canonical workload used by objective approval."""
+        encoded = json.dumps(
+            self.workload_payload(),
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        return hashlib.sha256(encoded).hexdigest()
+
+
+SnowflakeScaleConfig = SnowflakeBulkConfig | SnowflakeIncrementalConfig
+
+
+@dataclass(frozen=True, slots=True)
 class CandidateIdentity:
     """Immutable candidate and execution coordinates for the report."""
 
@@ -173,7 +259,26 @@ class _BulkResult:
     cleanup_verified: bool
 
 
-def load_approval(path: Path, *, config: SnowflakeBulkConfig) -> _Approval:
+@dataclass(frozen=True, slots=True)
+class _IncrementalResult:
+    duration_ms: int
+    peak_rss_bytes: int
+    seed_duration_ms: int
+    seed_rows: int
+    seed_logical_bytes: int
+    delta_duration_ms: int
+    delta_rows: int
+    delta_logical_bytes: int
+    final_rows: int
+    regression_rows_affected: int
+    copy_operations: int
+    query_ids: tuple[str, ...]
+    staging_tables: int
+    staging_stages: int
+    cleanup_verified: bool
+
+
+def load_approval(path: Path, *, config: SnowflakeScaleConfig) -> _Approval:
     """Load and validate one pre-mutation objective approval manifest."""
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or payload.get("schema") != _APPROVAL_SCHEMA:
@@ -190,11 +295,15 @@ def load_approval(path: Path, *, config: SnowflakeBulkConfig) -> _Approval:
     raw_snowflake = raw_configuration.get("snowflake")
     if not isinstance(raw_snowflake, dict):
         raise ValueError("objective manifest Snowflake configuration is incomplete")
-    if tuple(raw_objectives.get("names", ())) != _OBJECTIVES:
+    benchmark_class = BenchmarkClass(str(raw_objectives.get("benchmark_class")))
+    expected_objectives = _OBJECTIVES_BY_CLASS.get(benchmark_class)
+    if expected_objectives is None:
+        raise ValueError("objective manifest benchmark class is unsupported")
+    if tuple(raw_objectives.get("names", ())) != expected_objectives:
         raise ValueError("objective manifest does not contain the required objective set")
     objectives = ApprovedObjectiveSet(
-        names=_OBJECTIVES,
-        benchmark_class=BenchmarkClass(str(raw_objectives.get("benchmark_class"))),
+        names=expected_objectives,
+        benchmark_class=benchmark_class,
         profile_id=str(raw_objectives.get("profile_id")),
         release_version=str(raw_objectives.get("release_version")),
         git_commit=str(raw_objectives.get("git_commit")),
@@ -202,8 +311,6 @@ def load_approval(path: Path, *, config: SnowflakeBulkConfig) -> _Approval:
         configuration_sha256=str(raw_objectives.get("configuration_sha256")),
         approval_reference=str(raw_objectives.get("approval_reference")),
     )
-    if objectives.benchmark_class is not BenchmarkClass.BULK_THROUGHPUT:
-        raise ValueError("objective manifest benchmark class does not match")
     if objectives.configuration_sha256 != config.configuration_sha256():
         raise ValueError("objective manifest configuration hash does not match")
     cost_ceiling = ApprovedCostCeiling(
@@ -323,18 +430,170 @@ def run_phase8_snowflake_bulk(
         wide_rows=wide_rows,
         wide_logical_bytes=wide_rows * (config.wide_payload_bytes + 24),
         copy_operations=len(operations),
-        query_ids=tuple(
-            dict.fromkeys(
-                operation.query_id
-                for operation in operations
-                if isinstance(operation.query_id, str) and operation.query_id
-            )
-        )[:100],
+        query_ids=_operation_query_ids(operations),
         staging_tables=staging_tables,
         staging_stages=staging_stages,
         cleanup_verified=cleanup,
     )
     return _bulk_report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
+
+
+def run_phase8_snowflake_incremental(
+    config: SnowflakeIncrementalConfig,
+    *,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    provider_cost_usd: Decimal | None,
+) -> QualificationReport:
+    """Run one incremental class in a disposable Snowflake schema."""
+    if __version__ != identity.release_version:
+        raise ValueError(
+            f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
+        )
+    _require_identity_match(identity, approval)
+    _require_provider_match(config, approval)
+    schema_name = f"DANDER_P8_INCREMENTAL_{uuid.uuid4().hex[:12].upper()}"
+    runtime = _warehouse_runtime(config, schema_name=schema_name)
+    try:
+        relation = RelationRef(
+            catalog=config.database,
+            namespace=schema_name,
+            name="incremental_records",
+        )
+        publication = runtime.target_fence.claim(
+            relation,
+            FencingToken(
+                lease_table=None,
+                pipeline_id="phase8_snowflake_incremental",
+                run_id="phase8-snowflake-incremental-one",
+                token=1,
+                authority_id=_INCREMENTAL_AUTHORITY_ID,
+            ),
+        )
+        writer = runtime.writers.build_ingestion_writer(
+            sandbox=False,
+            batch_rows=config.copy_part_rows,
+            schema_evolution=SchemaEvolution.STRICT,
+            mode=WriteMode.INCREMENTAL,
+            cursor_field="cursor_value",
+        )
+        if not isinstance(writer, SnowflakeStagedWriter):
+            raise SnowflakeIncrementalQualificationError(
+                "Snowflake incremental qualification did not select the staged writer"
+            )
+        target = WriteTarget(
+            relation=relation,
+            business_key=("id",),
+            schema=(
+                WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+                WriteField(name="payload", data_type="STRING"),
+                WriteField(name="cursor_value", data_type="INT64", mode="REQUIRED"),
+            ),
+            publication_fence=publication,
+        )
+    except SnowflakeBulkQualificationError:
+        _drop_schema(runtime, config.database, schema_name)
+        raise
+    except Exception as error:
+        _drop_schema(runtime, config.database, schema_name)
+        raise SnowflakeIncrementalQualificationError(
+            f"Snowflake incremental qualification could not initialize {schema_name}"
+        ) from error
+    started = time.perf_counter()
+    peak_before = _peak_rss_bytes()
+    try:
+        seed_started = time.perf_counter()
+        seed_rows = writer.write(_incremental_seed_records(config), target)
+        seed_ms = _elapsed_ms(seed_started)
+        seed_operations = writer.drain_telemetry()
+        _require_copy_operations(seed_operations, workload="incremental seed")
+        if seed_rows != config.seed_rows:
+            raise SnowflakeIncrementalQualificationError(
+                "Snowflake incremental seed affected an unexpected row count"
+            )
+
+        delta_started = time.perf_counter()
+        delta_rows = writer.write(_incremental_delta_records(config), target)
+        delta_ms = _elapsed_ms(delta_started)
+        delta_operations = writer.drain_telemetry()
+        _require_copy_operations(delta_operations, workload="incremental delta")
+        if delta_rows != config.delta_rows:
+            raise SnowflakeIncrementalQualificationError(
+                "Snowflake incremental delta affected an unexpected row count"
+            )
+
+        regression_rows = writer.write(
+            (
+                {
+                    "id": "000000000000",
+                    "payload": "must-not-regress",
+                    "cursor_value": 0,
+                },
+            ),
+            target,
+        )
+        regression_operations = writer.drain_telemetry()
+        _require_copy_operations(regression_operations, workload="cursor regression")
+        if regression_rows != 0:
+            raise SnowflakeIncrementalQualificationError(
+                "Snowflake incremental cursor regression changed the target"
+            )
+        final_rows = config.seed_rows + (config.delta_rows // 2)
+        _require_incremental_result(
+            runtime,
+            database=config.database,
+            schema=schema_name,
+            config=config,
+            expected_rows=final_rows,
+        )
+        staging_tables, staging_stages = _staging_residue(
+            runtime,
+            config.database,
+            schema_name,
+        )
+        if staging_tables or staging_stages:
+            raise SnowflakeIncrementalQualificationError(
+                "Snowflake incremental qualification left run-scoped staging objects"
+            )
+    except SnowflakeBulkQualificationError:
+        raise
+    except Exception as error:
+        raise SnowflakeIncrementalQualificationError(
+            f"Snowflake incremental qualification failed in disposable schema {schema_name}"
+        ) from error
+    finally:
+        _drop_schema(runtime, config.database, schema_name)
+    cleanup = not _schema_exists(runtime, config.database, schema_name)
+    if not cleanup:
+        raise SnowflakeIncrementalQualificationError(
+            f"Snowflake incremental qualification left disposable schema {schema_name}"
+        )
+    operations = (*seed_operations, *delta_operations, *regression_operations)
+    row_width = config.payload_bytes + 32
+    result = _IncrementalResult(
+        duration_ms=_elapsed_ms(started),
+        peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
+        seed_duration_ms=seed_ms,
+        seed_rows=seed_rows,
+        seed_logical_bytes=seed_rows * row_width,
+        delta_duration_ms=delta_ms,
+        delta_rows=delta_rows,
+        delta_logical_bytes=delta_rows * row_width,
+        final_rows=final_rows,
+        regression_rows_affected=regression_rows,
+        copy_operations=len(operations),
+        query_ids=_operation_query_ids(operations),
+        staging_tables=staging_tables,
+        staging_stages=staging_stages,
+        cleanup_verified=cleanup,
+    )
+    return _incremental_report(
         config,
         identity,
         approval,
@@ -354,7 +613,7 @@ def _require_identity_match(identity: CandidateIdentity, approval: _Approval) ->
         raise ValueError("objective approval does not match the exact candidate identity")
 
 
-def _require_provider_match(config: SnowflakeBulkConfig, approval: _Approval) -> None:
+def _require_provider_match(config: SnowflakeScaleConfig, approval: _Approval) -> None:
     if (
         _identifier_sha256(config.account) != approval.account_sha256
         or _identifier_sha256(config.user) != approval.operator_user_sha256
@@ -369,7 +628,7 @@ def _identifier_sha256(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def _warehouse_runtime(config: SnowflakeBulkConfig, *, schema_name: str) -> WarehouseRuntime:
+def _warehouse_runtime(config: SnowflakeScaleConfig, *, schema_name: str) -> WarehouseRuntime:
     registry = default_provider_registry()
     parsed = registry.parse(
         ProviderKind.WAREHOUSE,
@@ -385,7 +644,7 @@ def _warehouse_runtime(config: SnowflakeBulkConfig, *, schema_name: str) -> Ware
     return runtime
 
 
-def _provider_values(config: SnowflakeBulkConfig, *, schema_name: str) -> dict[str, object]:
+def _provider_values(config: SnowflakeScaleConfig, *, schema_name: str) -> dict[str, object]:
     auth: dict[str, object]
     if config.auth_method == "oauth":
         auth = {"method": "oauth", "token_env": config.token_env}
@@ -474,6 +733,51 @@ def _records(rows: int, payload_bytes: int) -> Iterator[dict[str, object]]:
         yield {"id": f"{index:012d}", "payload": padding}
 
 
+def _incremental_seed_records(
+    config: SnowflakeIncrementalConfig,
+) -> Iterator[dict[str, object]]:
+    padding = "s" * config.payload_bytes
+    for index in range(config.seed_rows):
+        yield {"id": f"{index:012d}", "payload": padding, "cursor_value": 1}
+
+
+def _incremental_delta_records(
+    config: SnowflakeIncrementalConfig,
+) -> Iterator[dict[str, object]]:
+    updated = config.delta_rows // 2
+    padding = "d" * config.payload_bytes
+    for index in range(updated):
+        yield {"id": f"{index:012d}", "payload": padding, "cursor_value": 2}
+    for offset in range(config.delta_rows - updated):
+        index = config.seed_rows + offset
+        yield {"id": f"{index:012d}", "payload": padding, "cursor_value": 2}
+
+
+def _require_copy_operations(
+    operations: tuple[OperationTelemetry, ...],
+    *,
+    workload: str,
+) -> None:
+    if not operations or any(
+        operation.transport is not WriteTransport.COPY for operation in operations
+    ):
+        raise SnowflakeIncrementalQualificationError(
+            f"Snowflake {workload} did not use COPY for the complete workload"
+        )
+
+
+def _operation_query_ids(
+    operations: tuple[OperationTelemetry, ...],
+) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            operation.query_id
+            for operation in operations
+            if isinstance(operation.query_id, str) and operation.query_id
+        )
+    )[:100]
+
+
 def _require_table_shape(
     runtime: WarehouseRuntime,
     *,
@@ -495,6 +799,46 @@ def _require_table_shape(
         raise SnowflakeBulkQualificationError("Snowflake bulk readback was malformed")
     if tuple(int(value) for value in result) != (rows, rows, payload_bytes, payload_bytes):
         raise SnowflakeBulkQualificationError("Snowflake bulk readback differs from the workload")
+
+
+def _require_incremental_result(
+    runtime: WarehouseRuntime,
+    *,
+    database: str,
+    schema: str,
+    config: SnowflakeIncrementalConfig,
+    expected_rows: int,
+) -> None:
+    boundary = f"{config.seed_rows:012d}"
+    expected_delta_half = config.delta_rows // 2
+    with open_connection(_connection_factory(runtime)) as connection:
+        result = execute(
+            connection,
+            f"SELECT COUNT(*), "
+            f'COUNT_IF("cursor_value" = 2 AND "id" < ?), '
+            f'COUNT_IF("cursor_value" = 2 AND "id" >= ?), '
+            f'COUNT_IF("id" = \'000000000000\' AND "cursor_value" = 2 '
+            f'AND "payload" = ?), '
+            f'MIN(IFF("cursor_value" = 2, LENGTH("payload"), NULL)), '
+            f'MAX(IFF("cursor_value" = 2, LENGTH("payload"), NULL)) '
+            f"FROM {_qualified(database, schema, 'incremental_records')}",
+            (boundary, boundary, "d" * config.payload_bytes),
+            fetch="one",
+        ).row
+    if not isinstance(result, (tuple, list)) or len(result) != 6:
+        raise SnowflakeIncrementalQualificationError("Snowflake incremental readback was malformed")
+    expected = (
+        expected_rows,
+        expected_delta_half,
+        expected_delta_half,
+        1,
+        config.payload_bytes,
+        config.payload_bytes,
+    )
+    if tuple(int(value) for value in result) != expected:
+        raise SnowflakeIncrementalQualificationError(
+            "Snowflake incremental readback differs from the accepted workload"
+        )
 
 
 def _staging_residue(
@@ -691,6 +1035,132 @@ def _bulk_report(
     )
 
 
+def _incremental_report(
+    config: SnowflakeIncrementalConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    result: _IncrementalResult,
+    *,
+    provider_cost_usd: Decimal | None,
+) -> QualificationReport:
+    ratio = Decimal(result.seed_rows) / Decimal(result.delta_rows)
+    if ratio < 100:
+        raise SnowflakeIncrementalQualificationError(
+            "Snowflake incremental target is less than 100 times its delta"
+        )
+    observed_cost = (
+        provider_cost_usd if provider_cost_usd is not None else approval.cost_ceiling.amount_usd
+    )
+    cost = CostAttribution(
+        provider="snowflake",
+        service="virtual_warehouse",
+        amount=observed_cost,
+        estimated=provider_cost_usd is None,
+    )
+    cost_status = (
+        ObjectiveStatus.NOT_EVALUATED
+        if provider_cost_usd is None
+        else (
+            ObjectiveStatus.PASSED
+            if provider_cost_usd <= approval.cost_ceiling.amount_usd
+            else ObjectiveStatus.FAILED
+        )
+    )
+    objectives = tuple(
+        ObjectiveResult(
+            name,
+            cost_status if name == "cost_ceiling" else ObjectiveStatus.PASSED,
+            f"phase8/snowflake/incremental/{name}",
+        )
+        for name in approval.objectives.names
+    )
+    status = (
+        QualificationStatus.NOT_EVALUATED
+        if cost_status is ObjectiveStatus.NOT_EVALUATED
+        else (
+            QualificationStatus.FAILED
+            if cost_status is ObjectiveStatus.FAILED
+            else QualificationStatus.PASSED
+        )
+    )
+    measurements = PerformanceMeasurement.measured
+    return QualificationReport(
+        context=QualificationContext(
+            release_version=identity.release_version,
+            git_commit=identity.git_commit,
+            image_digest=identity.image_digest,
+            benchmark_date=identity.benchmark_date,
+            profile_id=approval.objectives.profile_id,
+            launcher=identity.launcher,
+            warehouse="snowflake",
+            state_backend="none",
+            catalog="none",
+            secret_provider=identity.secret_provider,
+            regions=identity.regions,
+            service_shapes=identity.service_shapes,
+            provider_job_ids=tuple(sorted(set((*identity.provider_job_ids, *result.query_ids)))),
+            cost_ceiling=approval.cost_ceiling,
+        ),
+        workload=BenchmarkWorkload(
+            benchmark_class=BenchmarkClass.INCREMENTAL,
+            input_rows=result.delta_rows,
+            logical_input_bytes=result.delta_logical_bytes,
+            row_width_bytes=config.payload_bytes + 32,
+            schema_depth=1,
+            source_rate_limit="unlimited_local_generator",
+            transform_complexity="cursor_merge_small_delta",
+            concurrency=1,
+            batch_rows=config.copy_part_rows,
+            batch_bytes=config.copy_part_logical_bytes,
+            configuration_sha256=config.configuration_sha256(),
+        ),
+        performance=RunPerformance(
+            rows=measurements("rows", "rows", result.delta_rows),
+            logical_bytes=measurements(
+                "logical_bytes",
+                "bytes",
+                result.delta_logical_bytes,
+            ),
+            duration_ms=measurements("duration_ms", "milliseconds", result.duration_ms),
+            throughput_rows_per_second=measurements(
+                "throughput_rows_per_second",
+                "rows_per_second",
+                _throughput(result.delta_rows, result.delta_duration_ms),
+            ),
+            peak_rss_bytes=measurements("peak_rss_bytes", "bytes", result.peak_rss_bytes),
+            retries=measurements("retries", "count", 0),
+            queue_duration_ms=measurements("queue_duration_ms", "milliseconds", 0),
+            load_duration_ms=measurements(
+                "load_duration_ms",
+                "milliseconds",
+                result.seed_duration_ms + result.delta_duration_ms,
+            ),
+            transform_duration_ms=measurements("transform_duration_ms", "milliseconds", 0),
+            catalog_duration_ms=measurements("catalog_duration_ms", "milliseconds", 0),
+            provider_metrics=(
+                measurements("copy_operations", "count", result.copy_operations),
+                measurements("delta_duration_ms", "milliseconds", result.delta_duration_ms),
+                measurements("delta_target_ratio", "ratio", ratio),
+                measurements("final_target_rows", "rows", result.final_rows),
+                measurements(
+                    "regression_rows_affected",
+                    "rows",
+                    result.regression_rows_affected,
+                ),
+                measurements("seed_duration_ms", "milliseconds", result.seed_duration_ms),
+                measurements("seed_logical_bytes", "bytes", result.seed_logical_bytes),
+                measurements("seed_rows", "rows", result.seed_rows),
+                measurements("staging_stages", "count", result.staging_stages),
+                measurements("staging_tables", "count", result.staging_tables),
+            ),
+            costs=(cost,),
+        ),
+        objectives=objectives,
+        approved_objectives=approval.objectives,
+        status=status,
+    )
+
+
 def _throughput(rows: int, duration_ms: int) -> Decimal:
     return (Decimal(rows) * 1_000 / Decimal(max(duration_ms, 1))).quantize(Decimal("0.001"))
 
@@ -706,6 +1176,11 @@ def _peak_rss_bytes() -> int:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--benchmark-class",
+        choices=(BenchmarkClass.BULK_THROUGHPUT.value, BenchmarkClass.INCREMENTAL.value),
+        default=BenchmarkClass.BULK_THROUGHPUT.value,
+    )
     parser.add_argument("--account", required=True)
     parser.add_argument("--user", required=True)
     parser.add_argument("--database", required=True)
@@ -734,29 +1209,45 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--wide-payload-bytes", type=int, default=1_024)
     parser.add_argument("--copy-part-rows", type=int, default=50_000)
     parser.add_argument("--copy-part-logical-bytes", type=int, default=16 * 1_024 * 1_024)
+    parser.add_argument("--incremental-seed-rows", type=int, default=300_000)
+    parser.add_argument("--incremental-delta-rows", type=int, default=3_000)
+    parser.add_argument("--incremental-payload-bytes", type=int, default=128)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
+    benchmark_class = BenchmarkClass(arguments.benchmark_class)
     try:
-        config = SnowflakeBulkConfig(
-            account=arguments.account,
-            user=arguments.user,
-            database=arguments.database,
-            warehouse=arguments.warehouse,
-            role=arguments.role,
-            auth_method=arguments.auth_method,
-            token_env=arguments.token_env,
-            private_key_file_env=arguments.private_key_file_env,
-            private_key_password_env=arguments.private_key_password_env,
-            narrow_rows=arguments.narrow_rows,
-            narrow_payload_bytes=arguments.narrow_payload_bytes,
-            wide_rows=arguments.wide_rows,
-            wide_payload_bytes=arguments.wide_payload_bytes,
-            copy_part_rows=arguments.copy_part_rows,
-            copy_part_logical_bytes=arguments.copy_part_logical_bytes,
-        )
+        common = {
+            "account": arguments.account,
+            "user": arguments.user,
+            "database": arguments.database,
+            "warehouse": arguments.warehouse,
+            "role": arguments.role,
+            "auth_method": arguments.auth_method,
+            "token_env": arguments.token_env,
+            "private_key_file_env": arguments.private_key_file_env,
+            "private_key_password_env": arguments.private_key_password_env,
+            "copy_part_rows": arguments.copy_part_rows,
+            "copy_part_logical_bytes": arguments.copy_part_logical_bytes,
+        }
+        config: SnowflakeScaleConfig
+        if benchmark_class is BenchmarkClass.BULK_THROUGHPUT:
+            config = SnowflakeBulkConfig(
+                **common,
+                narrow_rows=arguments.narrow_rows,
+                narrow_payload_bytes=arguments.narrow_payload_bytes,
+                wide_rows=arguments.wide_rows,
+                wide_payload_bytes=arguments.wide_payload_bytes,
+            )
+        else:
+            config = SnowflakeIncrementalConfig(
+                **common,
+                seed_rows=arguments.incremental_seed_rows,
+                delta_rows=arguments.incremental_delta_rows,
+                payload_bytes=arguments.incremental_payload_bytes,
+            )
         approval = load_approval(arguments.objectives, config=config)
         identity = CandidateIdentity(
             release_version=arguments.candidate_version,
@@ -770,22 +1261,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
             service_shapes=tuple(sorted(set(arguments.service_shape))),
         )
-        report = run_phase8_snowflake_bulk(
-            config,
-            identity=identity,
-            approval=approval,
-            provider_cost_usd=arguments.provider_cost_usd,
-        )
+        if isinstance(config, SnowflakeBulkConfig):
+            report = run_phase8_snowflake_bulk(
+                config,
+                identity=identity,
+                approval=approval,
+                provider_cost_usd=arguments.provider_cost_usd,
+            )
+        else:
+            report = run_phase8_snowflake_incremental(
+                config,
+                identity=identity,
+                approval=approval,
+                provider_cost_usd=arguments.provider_cost_usd,
+            )
     except (ValueError, SnowflakeBulkQualificationError):
         print(
             json.dumps(
                 {
                     "schema": "io.dander.qualification.failure/v1",
                     "provider": "snowflake",
-                    "benchmark_class": BenchmarkClass.BULK_THROUGHPUT.value,
+                    "benchmark_class": benchmark_class.value,
                     "status": QualificationStatus.FAILED.value,
                     "summary": (
-                        "Snowflake bulk qualification failed; inspect provider logs and verify "
+                        "Snowflake scale qualification failed; inspect provider logs and verify "
                         "cleanup before any bounded rerun."
                     ),
                 },
@@ -799,7 +1298,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         json.dumps(
             {
-                "benchmark_class": BenchmarkClass.BULK_THROUGHPUT.value,
+                "benchmark_class": benchmark_class.value,
                 "cost_status": next(
                     item.status.value for item in report.objectives if item.name == "cost_ceiling"
                 ),

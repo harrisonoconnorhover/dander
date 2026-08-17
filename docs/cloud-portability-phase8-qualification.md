@@ -716,6 +716,23 @@ stays `not_evaluated` until measured usage posts, and no Snowflake object may be
 protected merge and exact-main CI. This objective covers Snowflake warehouse bulk only, not Azure
 launcher scale, other Snowflake classes, support, or release closure.
 
+PR #370 merged the Snowflake bulk result as protected main `cb8a42c`. Exact-main CI run
+`32044249946` initially failed before Terraform started because GitHub could not download the
+pinned HashiCorp setup action after three 429/502/503 responses. Targeted attempt 2 preserved that
+incident and passed all five jobs. Exact RC29 processed 700,000 rows and 237,600,000 logical bytes
+in 93.736 seconds with zero retries, passed both COPY completion and throughput measurements, and
+left zero named Snowflake or candidate-container resources. Provider cost remains `not_evaluated`
+under the held USD 0.50 bound.
+
+The next dependency-ordered warehouse class is Snowflake incremental merge.
+`snowflake-rc29-incremental-objectives.json` binds exact RC29 to the accepted 300,000-row seed and
+3,000-row delta: 1,500 updates, 1,500 inserts, a 100:1 target/delta ratio, exact readback, and one
+rejected cursor regression. COPY parts remain bounded to 50,000 rows and 16 MiB in a 2 CPU/512 MiB
+local candidate container. One disposable X-Small warehouse, database, role, and schema use a USD
+0.50 ceiling, leaving USD 2.75 unreserved. Interactive auth precedes owned resources, automatic
+retry stays disabled, and cleanup starts by minute 30 and completes by minute 60. Protected merge
+and exact-main CI must precede mutation; no PostgreSQL or Snowflake bulk result transfers.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
