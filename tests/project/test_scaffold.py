@@ -27,7 +27,9 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     assert (project / "infra" / "kubernetes" / "chart" / "dander" / "Chart.yaml").is_file()
     dockerfile = (project / "Dockerfile").read_text(encoding="utf-8")
     assert f"ARG DANDER_VERSION={__version__}" in dockerfile
-    assert "apt-get install --yes --no-install-recommends libpq5" in dockerfile
+    assert "apt-get install --yes --no-install-recommends" in dockerfile
+    assert "libpq5" in dockerfile
+    assert "util-linux" in dockerfile
     assert "dander-platform[runtime-all]==${DANDER_VERSION}" in dockerfile
     assert "require_full_runtime" in dockerfile
     assert "RUN dander plugins install --config dander.yaml" in dockerfile

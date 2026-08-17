@@ -110,6 +110,7 @@ def test_container_declares_the_oci_runtime_artifact_contract() -> None:
     assert "org.opencontainers.image.created=" in dockerfile
     assert "DANDER_BUILD_REVISION" in dockerfile
     assert "DANDER_BUILD_CREATED" in dockerfile
+    assert "util-linux" in dockerfile
     assert "USER 65532:65532" in dockerfile
 
 

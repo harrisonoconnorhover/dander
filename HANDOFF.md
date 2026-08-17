@@ -2,41 +2,40 @@
 
 ## Finished
 
-- Bound a fresh RC28 Azure correctness retry to the operator's new incremental authorization.
-- Reserved a USD 2 conservative ceiling inside the combined USD 10 cap.
-- Recorded the readable AWS baseline, empty Azure ActualCost rows, and pre-window GCP view.
-- Required the corrected Snowflake staging-authority preflight before candidate execution.
-- Limited execution to one manual run and one success-conditional replay in a new namespace.
+- Classified the new protected-CI Trivy failure as deterministic Debian CVE-2026-53615 exposure,
+  unrelated to the Phase 8 evidence and Snowflake identifier diffs.
+- Refreshed the affected util-linux package family in the root runtime Dockerfile.
+- Applied the same package floor to generated-project Dockerfiles.
+- Built and scanned the local runtime image with the fixed `2.41.5-0+deb13u1` packages.
 
 ## Try It
 
-After protected merge and exact-main CI, verify private coordinates, create only the objective's
-disposable namespace, grant `CREATE SCHEMA` on its database, and run the canonical preflight before
-the candidate allowance.
+Build the runtime with `docker build --tag dander-cve:local .`, then run
+`docker run --rm dander-cve:local --help`.
 
 ## Checks
 
-- Objective JSON, configuration hash, budget arithmetic, and Git whitespace checks passed.
-- Ruff lint and format checks passed for 453 files.
-- Canonical strict typing passed for 421 source files.
+- Runtime build, CLI startup, and qualification entrypoint passed.
+- Trivy 0.69.1 reported zero HIGH/CRITICAL findings.
+- Focused scaffold/runtime tests and full pytest passed with 34 skips and one warning.
+- Ruff lint/format and canonical strict typing passed.
 - Control contract drift check passed.
-- Full pytest passed with 34 skips and one third-party deprecation warning.
 
 ## Decisions
 
-- Treat the full USD 2 run ceiling as reserved while provider invoices lag.
-- Preserve RC28 publication evidence; the failed Azure result does not transfer.
-- Do not start the replay unless the single manual run passes.
+- Keep the pinned Python base digest and install the narrowly affected Debian packages from the
+  active security repository.
+- Repair the repository-wide container gate in its own focused PR before resuming protected Phase 8
+  integration.
 
 ## Remaining
 
-- Merge this objective and pass exact-main CI before provider mutation.
-- Execute manual and success-conditional replay, then destroy every active owned resource.
-- Record sanitized correctness, cost, and cleanup evidence in a separate focused PR.
-- Complete remaining provider/profile, scale, pairwise, soak, audit, and closure gates.
+- Complete protected review, merge, and exact-main CI for this gate repair.
+- Rebase and complete protected review for PRs #359 and #360.
+- Publish a replacement candidate only after DANDER-214 is protected.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-retry-objectives.json`
-- `docs/cloud-portability-phase8-qualification.md`
-- `tickets/DANDER-204-phase8-scale-matrix.md`
+- `Dockerfile`
+- `src/dander/templates/project/Dockerfile`
+- `tickets/DANDER-215-refresh-container-util-linux.md`
