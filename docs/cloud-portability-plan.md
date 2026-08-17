@@ -1485,6 +1485,12 @@ applied a 3,000-row half-update/half-insert delta to a 300,000-row seed in 49.59
 metering remains pending under the held USD 0.50 incremental bound, leaving USD 2.75 unreserved;
 no result transfers to Azure launcher scale or another benchmark class. See
 `docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-execution.json`.
+PR #374 merged the credential-free Snowflake concurrency harness as protected main `606e19c`;
+exact-main run `32051585864` passed all five jobs. Its next focused objective binds the unchanged
+RC29 candidate to four independent 5,000-row COPY
+targets, controlled two-claim contention, stale-publication rejection, exact readback, throughput,
+and cleanup. The USD 0.50 ceiling leaves USD 2.25 unreserved; protected objective merge and required
+exact-main CI precede any owned Snowflake resource. No earlier provider result transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
