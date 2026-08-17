@@ -175,3 +175,9 @@ scale report.
   Snowflake scale harness with four independent 5,000-row COPY pipelines plus two controlled claims
   on one target and a stale-publication rejection. It adds no objective approval, provider
   mutation, paid run, candidate change, cost claim, or support promotion.
+- PR #374 merged that concurrency harness as protected main `606e19c`; exact-main run `32051585864`
+  passed all five jobs. The next focused objective binds the unchanged RC29 candidate and protected
+  harness to the four-pipeline/5,000-row workload,
+  controlled contention, stale-publication rejection, exact readback, throughput, cleanup, and a
+  USD 0.50 ceiling. Its full reservation leaves USD 2.25 unreserved; protected objective merge and
+  required exact-main CI precede any owned Snowflake object.

@@ -746,6 +746,18 @@ functional Snowflake incremental execution, not provider cost, remaining scale c
 soak, support, release, or Phase 8. See
 `docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-execution.json`.
 
+PR #373 merged that sanitized incremental result as protected main `d7075db`; exact-main run
+`32049861930` passed all five jobs. PR #374 then merged the protected Snowflake concurrency harness
+as main `606e19c`; exact-main run `32051585864` passed all five jobs. The next objective,
+`snowflake-rc29-concurrency-objectives.json`, binds exact RC29 and that protected harness to four
+independent 5,000-row COPY targets, controlled two-claim contention, stale-publication rejection,
+exact readback, throughput, and cleanup. COPY parts are bounded to 5,000 rows and 16 MiB in a
+2 CPU/512 MiB local candidate container. One disposable X-Small warehouse, database, role, and
+schema use a USD 0.50 ceiling, leaving USD 2.25 unreserved. Interactive auth precedes owned
+resources, automatic retry stays disabled, and cleanup starts by minute 30 and completes by minute
+60. Protected objective merge and all required exact-main CI must pass before mutation; no prior
+PostgreSQL or Snowflake result transfers.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
