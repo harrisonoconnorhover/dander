@@ -2,41 +2,41 @@
 
 ## Finished
 
-- Reconciled available AWS, Azure, and GCP billing views without cloud mutation.
-- Recorded AWS Cost Explorer's operator denial and Azure Cost Management's empty actual-cost rows.
-- Recorded the retained GCP report's rounded daily/month-to-date subtotals without treating them as
-  complete Phase 8 attribution or a hosted-GKE cost result.
-- Kept AWS, hosted GKE, Azure, aggregate cost, and support gates open.
-- Preserved the USD 10 ceiling, USD 10 allocation total, and USD 0 unallocated contingency.
+- Bound a fresh RC28 Azure correctness retry to the operator's new incremental authorization.
+- Reserved a USD 2 conservative ceiling inside the combined USD 10 cap.
+- Recorded the readable AWS baseline, empty Azure ActualCost rows, and pre-window GCP view.
+- Required the corrected Snowflake staging-authority preflight before candidate execution.
+- Limited execution to one manual run and one success-conditional replay in a new namespace.
 
 ## Try It
 
-Review `docs/evidence/phase8/2026-08-16/provider-cost-reconciliation.json`. Recheck the same
-provider billing sources before binding any new paid objective; do not infer headroom from empty or
-rounded provider displays.
+After protected merge and exact-main CI, verify private coordinates, create only the objective's
+disposable namespace, grant `CREATE SCHEMA` on its database, and run the canonical preflight before
+the candidate allowance.
 
 ## Checks
 
-- Evidence JSON parse and Git whitespace checks passed.
+- Objective JSON, configuration hash, budget arithmetic, and Git whitespace checks passed.
 - Ruff lint and format checks passed for 453 files.
 - Canonical strict typing passed for 421 source files.
 - Control contract drift check passed.
-- Full tests passed: 1,748 passed, 34 skipped, one third-party deprecation warning.
+- Full pytest passed with 34 skips and one third-party deprecation warning.
 
 ## Decisions
 
-- Treat unavailable, denied, delayed, or unattributed billing data as `not_evaluated`, never zero.
-- Do not start another paid objective until exact remaining aggregate headroom is established.
-- Keep valid RC27/RC28 runtime and publication evidence; this read-only audit invalidates nothing.
+- Treat the full USD 2 run ceiling as reserved while provider invoices lag.
+- Preserve RC28 publication evidence; the failed Azure result does not transfer.
+- Do not start the replay unless the single manual run passes.
 
 ## Remaining
 
-- Recheck provider-posted charges and obtain the AWS cost read needed for exact reconciliation.
-- Bind a fresh protected Azure correctness objective only after headroom is known.
-- Complete the remaining provider/profile, scale, pairwise, soak, cost, and closure gates.
+- Merge this objective and pass exact-main CI before provider mutation.
+- Execute manual and success-conditional replay, then destroy every active owned resource.
+- Record sanitized correctness, cost, and cleanup evidence in a separate focused PR.
+- Complete remaining provider/profile, scale, pairwise, soak, audit, and closure gates.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-16/provider-cost-reconciliation.json`
+- `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-retry-objectives.json`
 - `docs/cloud-portability-phase8-qualification.md`
 - `tickets/DANDER-204-phase8-scale-matrix.md`

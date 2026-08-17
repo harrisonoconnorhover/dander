@@ -1421,6 +1421,14 @@ those rounded daily values nor the USD 1.31 month-to-date subtotal provide compl
 attribution. Exact aggregate spend and remaining headroom therefore stay unknown; no paid objective
 may start and no cost or support gate changes status. See
 `docs/evidence/phase8/2026-08-16/provider-cost-reconciliation.json`.
+The operator subsequently granted a separate USD 10 additional-spend ceiling and directed the
+Azure lane to resume. AWS Cost Explorer now passes with a posted baseline rounding to USD 0.00;
+Azure ActualCost access passes with no rows, and the latest GCP observation predates the new
+window. The fresh RC28 Azure retry reserves USD 2 as its conservative delayed-billing bound, uses
+a new disposable namespace, requires the narrow Snowflake staging grant and corrected canonical
+preflight, and allows one manual run plus one success-conditional replay. It must merge and pass
+exact-main CI before mutation. See
+`docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-retry-objectives.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
