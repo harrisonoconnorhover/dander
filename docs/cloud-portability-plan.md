@@ -1460,6 +1460,13 @@ rerun only under a fresh protected objective that front-loads interactive readin
 provider-deletion margin. ActualCost has posted USD 0.0024353794 for August 17; delayed attribution
 keeps cost pending and the full USD 2 bound held. See
 `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`.
+A fresh RC29 lifetime retry objective binds the unchanged candidate to new `r29c` names, verifies
+Snowflake interactive access before the first owned object, obtains the runtime-role token before
+Azure provisioning, and starts cleanup by minute 75. Any later interactive blocker aborts and
+cleans up rather than waiting against the 120-minute maximum. The new USD 2 bound leaves USD 3.75
+unreserved. No owned provider resource may be created until the objective passes protected review,
+merge, and exact-main CI. See
+`docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

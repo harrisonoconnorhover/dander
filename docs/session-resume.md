@@ -69,6 +69,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   under the held USD 2 bound. See
   `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`.
 
+- A fresh RC29 lifetime retry objective binds the same candidate to new `r29c` names. Snowflake
+  interactive access must pass before the first owned object, its runtime-role token must exist
+  before Azure provisioning, and cleanup starts by minute 75. Any later interactive blocker aborts
+  and cleans up immediately rather than waiting against the 120-minute maximum. The new USD 2
+  conservative bound leaves USD 3.75 unreserved. No owned provider resource may be created before
+  protected review, merge, and exact-main CI. See
+  `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`.
+
 - The operator granted a separate USD 10 additional-spend ceiling and directed Azure RC28
   qualification to resume. AWS Cost Explorer now passes with a posted baseline rounding to USD
   0.00; Azure ActualCost access passes with no rows, and the latest GCP observation predates the
