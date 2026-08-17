@@ -87,6 +87,7 @@
       "operator_public_ipv4_sha256_required_in_sanitized_evidence": true,
       "global_name_availability_checked_before_objective": [
         "acr_name",
+        "postgresql_state.server",
         "state_storage_account",
         "vault_name"
       ],
@@ -198,7 +199,7 @@
     "release_version": "0.9.0rc29",
     "git_commit": "7a6d138a5df19ab81df202b6cb6121e134e59991",
     "image_digest": "sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54",
-    "configuration_sha256": "83bed690e094ca2f0a20cb602411474d0584333c7530176dea13303b21b7e1c3",
+    "configuration_sha256": "8624cc62bd152cdae6d61efd843b0efcdcd0c5a38db62a6ff6d1c943c286b953",
     "approval_reference": "codex-thread-01a0004d-6d65-7280-84bc-ca5368b38821-2026-08-16-additional-phase8-10"
   }
 }

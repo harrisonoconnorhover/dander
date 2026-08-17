@@ -17,7 +17,7 @@ Inspect and hash `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctne
 - Candidate evidence PR #363 passed all five protected jobs before merge.
 - RC29 publication exact-main CI run `31988620430` passed all five jobs before publication.
 - Objective JSON parses and its canonical configuration hash matches the recorded SHA-256.
-- New ACR, storage-account, and Key Vault names are available; the resource group is absent.
+- New ACR, storage-account, Key Vault, and PostgreSQL names are available; the resource group is absent.
 - Azure cost access passes; delayed posting keeps conservative bounds in force.
 
 ## Decisions

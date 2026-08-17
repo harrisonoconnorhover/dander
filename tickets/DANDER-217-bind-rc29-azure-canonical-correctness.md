@@ -38,8 +38,8 @@ manual success. Automatic retries remain disabled.
 - The configuration hash covers the full candidate, provider, resource, workload, attempt, and
   cleanup object using sorted compact JSON; budget allocation remains explicit beside it.
 - Read-only Azure checks confirmed the new resource group is absent and the ACR, storage-account,
-  and Key Vault names are globally available. Central US remains the bound PostgreSQL region while
-  the Container Apps profile remains in East US.
+  Key Vault, and PostgreSQL server names are globally available. Central US remains the bound
+  PostgreSQL region while the Container Apps profile remains in East US.
 - Azure ActualCost currently shows USD 0.0052728924 for August 16. Delayed posting keeps the prior
   USD 2 bound and RC29 publication's USD 0.25 reserve held; this objective reserves another USD 2,
   leaving USD 5.75 unreserved under the additional aggregate ceiling.
