@@ -72,6 +72,9 @@ material, credentials, or non-public data is introduced.
 
 Append newest at top. Format: `- YYYY-MM-DD — decision — rationale`.
 
+- 2026-08-17 — **Snowflake bulk reuses the accepted narrow/wide workload through bounded COPY** —
+  exact RC29 can compare warehouse throughput without a new candidate; a USD 0.50 bound and
+  provider-posted cost gate keep the live slice inside the remaining Phase 8 authorization.
 - 2026-08-15 — **Fargate prepares Google identity only for a declared Google federation** — the
   AWS-native profile keeps its renewable ECS task role ambient, while Fargate-to-GCP deployments
   continue to build keyless Google credentials when their federation settings are projected.

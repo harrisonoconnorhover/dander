@@ -688,6 +688,17 @@ is unchanged. All five bounded-memory objectives now pass. See
 `docs/evidence/phase8/2026-08-17/gke-standard-rc27-postgresql-bounded-memory-provider-cost.json` and
 `docs/evidence/phase8/2026-08-17/gke-standard-rc27-postgresql-bounded-memory-final.json`.
 
+PR #368 merged that focused cost finalization as protected main `5d0afaa`; exact-main CI run
+`32036096345` passed all five jobs. The next dependency-ordered warehouse-scale objective is
+Snowflake bulk throughput. `snowflake-rc29-bulk-throughput-objectives.json` binds exact RC29 to the
+accepted 500,000-row narrow and 200,000-row wide workload through the stable qualification
+entrypoint. COPY parts are bounded to 50,000 rows and 16 MiB inside a 2 CPU/512 MiB local candidate
+container. One disposable X-Small warehouse, database, role, and schema are removed by minute 30;
+automatic retries remain disabled. The USD 0.50 bound leaves USD 3.25 unreserved. Provider cost
+stays `not_evaluated` until measured usage posts, and no Snowflake object may be created before
+protected merge and exact-main CI. This objective covers Snowflake warehouse bulk only, not Azure
+launcher scale, other Snowflake classes, support, or release closure.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native

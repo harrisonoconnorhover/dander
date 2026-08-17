@@ -154,3 +154,8 @@ scale report.
   0.00 net after credits. The USD 0.05 total passes the USD 0.50 ceiling. The raw reporter record is
   preserved, while a final derivative corrects its unused catalog context to `none`. This closes
   only the hosted GKE bounded-memory cost gate; this scale-matrix ticket remains open.
+- PR #368 merged that finalization as protected main `5d0afaa`; exact-main run `32036096345` passed
+  all five jobs. The next provider-specific slice binds exact RC29 to Snowflake bulk only: the
+  accepted 500,000-row narrow and 200,000-row wide workload, bounded 50,000-row/16-MiB COPY parts,
+  exact readback and cleanup, and a USD 0.50 ceiling. Protected merge and exact-main CI precede
+  mutation. The full bound leaves USD 3.25 unreserved and remains held until measured usage posts.
