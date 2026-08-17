@@ -165,3 +165,8 @@ scale report.
   3,000-row incremental delta with exact half-update/half-insert readback, a rejected cursor
   regression, bounded COPY parts, exact cleanup, and a USD 0.50 ceiling. Its full reservation leaves
   USD 2.75 unreserved; protected merge and exact-main CI precede any owned Snowflake object.
+- PR #372 merged that incremental objective as protected main `5bc3c6f`; exact-main run
+  `32046930482` passed all five jobs before mutation. One exact-RC29 candidate passed exact
+  half-update/half-insert readback, cursor monotonicity, COPY telemetry, throughput, and cleanup
+  with zero retries. Provider cost remains pending under the held USD 0.50 bound; this ticket stays
+  open for the remaining provider classes, posted costs, pairwise, soak, and final closure.
