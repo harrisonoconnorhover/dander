@@ -1,7 +1,7 @@
 ---
 id: DANDER-222
 title: Qualify RC29 Snowflake bulk throughput
-status: in-review
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: [DANDER-204, DANDER-216]
@@ -20,8 +20,8 @@ PostgreSQL, executed through RC29's source-free qualification entrypoint.
 - [x] Bind the exact RC29 commit and image digest to 500,000 narrow and 200,000 wide rows.
 - [x] Record exact readback, throughput, peak RSS, query identity, staging cleanup, and schema cleanup.
 - [x] Reserve no more than USD 0.50 and keep cost pending until provider-measured usage posts.
-- [ ] Merge the objective through protected review and pass exact-main CI before provider mutation.
-- [ ] Run the protected objective, clean all owned objects, and record the sanitized result.
+- [x] Merge the objective through protected review and pass exact-main CI before provider mutation.
+- [x] Run the protected objective, clean all owned objects, and record the sanitized result.
 
 ## Design
 
@@ -36,7 +36,21 @@ The writer receives a generator and emits bounded Parquet parts; direct insertio
 - One manual run is normal. A second is allowed only after a non-application failure classification;
   automatic retries remain disabled.
 - The USD 0.50 reservation leaves USD 3.25 unreserved under the additional USD 10 authorization.
+- PR #369 merged the objective as protected main `26bcedd`; exact-main run `32037495657`
+  passed all five jobs before mutation.
+- Exact RC29 processed 700,000 rows and 237,600,000 logical bytes in 93.736 seconds with zero
+  retries. All four COPY/throughput objectives and cleanup passed; provider cost remains pending.
+- Three expired interactive OAuth callbacks were classified as operator preflight incidents, not
+  candidate attempts. The only preflight with database and warehouse objects cleaned up in 19.52
+  minutes without starting Python or warehouse compute.
+- Final cleanup left zero named database, warehouse, and role rows within a 4.49-minute upper-bound
+  resource lifetime. The full USD 0.50 remains held until Snowflake metering posts.
 
 ## Review Log
 
-Pending protected review.
+### 2026-08-17 — PASS
+
+The result binds exact RC29 and protected objective `26bcedd`, records the pre-candidate interactive
+timeouts without consuming the manual allowance, preserves zero-retry throughput and query
+identity, and proves exact cleanup. The normalized report remains `not_evaluated` only for delayed
+provider cost; no support or broader Phase 8 completion claim is made.
