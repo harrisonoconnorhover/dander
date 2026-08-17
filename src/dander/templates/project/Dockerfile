@@ -21,7 +21,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends libpq5 \
+    && apt-get install --yes --no-install-recommends \
+        libpq5 \
+        bsdutils \
+        libblkid1 \
+        liblastlog2-2 \
+        libmount1 \
+        libsmartcols1 \
+        libuuid1 \
+        login \
+        mount \
+        util-linux \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir "dander-platform[runtime-all]==${DANDER_VERSION}" \
     && python -c "from dander.providers.dependencies import require_full_runtime; require_full_runtime()"
