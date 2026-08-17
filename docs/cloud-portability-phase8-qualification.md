@@ -14,7 +14,7 @@ Phase 7 evidence merge.
 | Kubernetes portable | Exact private RC27 passed the named local kind profile and one hosted GKE bounded-memory audit, including its posted USD 0.05 provider cost; the accepted lifecycle evidence remains current | Other hosted-provider scale/cost, remaining launcher classes, and soak remain open |
 | Azure canonical | Exact private RC29 passed fresh Container Apps/Snowflake/PostgreSQL/Key-Vault correctness and replay with zero retries and cleanup inside 120 minutes; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, provider-posted cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC27 passed local PostgreSQL classes plus the hosted GKE bounded-memory audit, and exact RC29 passed Snowflake bulk and incremental functionally with cost pending | Applicable final-candidate reruns, remaining exact-candidate BigQuery, Snowflake, and Redshift scale classes, provider-posted cost, pairwise, and soak remain open |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC27 passed local PostgreSQL classes plus the hosted GKE bounded-memory audit, and exact RC29 passed Snowflake bulk, incremental, and concurrency functionally with cost pending | Applicable final-candidate reruns, remaining exact-candidate BigQuery, Snowflake, and Redshift scale classes, provider-posted cost, pairwise, and soak remain open |
 | Audits | Exact RC22 passed protected CI and its historical final-candidate repeat; private RC24 publication evidence merged in PR #299 and exact-main CI run `31884123337` passed all five jobs | RC24's final-candidate repeat remains open |
 
 ## Open gates and dependency order
@@ -757,6 +757,21 @@ schema use a USD 0.50 ceiling, leaving USD 2.25 unreserved. Interactive auth pre
 resources, automatic retry stays disabled, and cleanup starts by minute 30 and completes by minute
 60. Protected objective merge and all required exact-main CI must pass before mutation; no prior
 PostgreSQL or Snowflake result transfers.
+
+PR #375 merged that objective as protected main `da1b536`; exact-main run `32052812102` passed all
+five jobs before mutation. Operator-only token-capture, orchestration, entrypoint, and interactive
+auth preflights never reached the harness and consumed no candidate attempt. The one
+resource-bearing preflight was cleaned immediately after its auth timeout, leaving zero named
+objects. The single exact-RC29 candidate then completed four 5,000-row pipelines in 39.407 seconds
+at 507.524 rows/second with zero retries and eight COPY operations. Both controlled claims ran,
+one stale publication was rejected, exact readback passed, and zero staging objects remained.
+Cleanup began 3.95 minutes after the first role was created and verified zero database, warehouse,
+role, container, or provider process by 4.29 minutes. All five non-cost objectives passed. Provider
+metering remains pending, so the normalized report and cost objective stay `not_evaluated`; the
+full USD 0.50 bound remains held, leaving USD 2.25 unreserved. This closes functional Snowflake
+concurrency only, not provider cost, transform, failure, remaining classes/providers, pairwise,
+soak, support, release, or Phase 8. See
+`docs/evidence/phase8/2026-08-17/snowflake-rc29-concurrency-execution.json`.
 
 ## Current exit recommendation
 

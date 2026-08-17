@@ -37,15 +37,17 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
-- PR #374 merged the credential-free Snowflake concurrency harness as protected main `606e19c`;
-  exact-main run `32051585864` passed all five jobs. The next focused objective binds exact RC29
-  and that protected harness to four independent
-  5,000-row COPY targets, controlled two-claim contention, stale-publication rejection, exact
-  readback, throughput, and cleanup. It reserves USD 0.50, leaving USD 2.25 unreserved. Interactive
-  auth must pass before owned resources, automatic retry stays disabled, and cleanup starts by
-  minute 30 and completes by minute 60. Protected objective merge and required exact-main CI must
-  pass before mutation. See
-  `docs/evidence/phase8/2026-08-17/snowflake-rc29-concurrency-objectives.json`.
+- PR #375 merged the Snowflake concurrency objective as protected main `da1b536`; exact-main run
+  `32052812102` passed all five jobs before mutation. Operator token-capture, orchestration,
+  entrypoint, and auth preflights never reached the harness and consumed no candidate attempt; the
+  one resource-bearing auth preflight was cleaned immediately. One exact-RC29 candidate completed
+  four 5,000-row pipelines in 39.407 seconds with zero retries, ran both controlled claims, rejected
+  one stale publication, and passed exact readback. Cleanup left zero staging objects, named
+  Snowflake resources, candidate containers, or provider processes inside 4.29 minutes. Provider
+  metering has not posted, so cost and normalized status remain `not_evaluated` under the held USD
+  0.50 bound, leaving USD 2.25 unreserved. This closes functional Snowflake concurrency only; the
+  next dependency-ordered Snowflake class is transform scale. See
+  `docs/evidence/phase8/2026-08-17/snowflake-rc29-concurrency-execution.json`.
 
 - PR #372 merged the Snowflake incremental objective as protected main `5bc3c6f`; exact-main run
   `32046930482` passed all five jobs before mutation. One exact-RC29 candidate seeded 300,000 rows,

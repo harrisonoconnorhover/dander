@@ -1491,6 +1491,14 @@ RC29 candidate to four independent 5,000-row COPY
 targets, controlled two-claim contention, stale-publication rejection, exact readback, throughput,
 and cleanup. The USD 0.50 ceiling leaves USD 2.25 unreserved; protected objective merge and required
 exact-main CI precede any owned Snowflake resource. No earlier provider result transfers.
+PR #375 merged that objective as protected main `da1b536`; exact-main run `32052812102` passed all
+five jobs before mutation. Operator-only preflights consumed no candidate attempt, and the one
+resource-bearing auth preflight was cleaned immediately. The single exact-RC29 candidate completed
+20,000 rows across four pipelines in 39.407 seconds with zero retries, passed controlled contention
+and stale-fence rejection, and left zero staging or named provider resources inside 4.29 minutes.
+Snowflake cost stays `not_evaluated` under the held USD 0.50 bound, leaving USD 2.25 unreserved.
+This closes functional Snowflake concurrency only; the next dependency-ordered Snowflake class is
+transform scale, followed separately by failure behavior.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
