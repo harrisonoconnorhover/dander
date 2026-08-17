@@ -1516,6 +1516,13 @@ cleanup, and left zero staging or named provider resources inside 125.769 second
 stays `not_evaluated` under the held USD 0.50 bound, leaving USD 1.75 unreserved. This closes
 functional Snowflake transform only; failure behavior follows separately from fresh protected
 main. See `docs/evidence/phase8/2026-08-17/snowflake-rc29-transform-execution.json`.
+PR #379 merged the transform evidence as protected main `d78b356`; exact-main run `32063148480`
+passed all five jobs. PR #380 then merged the credential-free Snowflake failure harness as
+protected main `2e45ca4`; exact-main run `32065584378` passed all five jobs. The fresh failure
+objective binds exact RC29 to closed-connection recovery, invalid OAuth rejection, stale-fence
+rejection, one-second statement-timeout rollback, and cleanup. Its USD 0.50 ceiling leaves USD 1.25
+unreserved; protected objective merge and required exact-main CI precede any owned Snowflake
+resource. Launcher, process, state, and catalog failure cases remain separate profile gates.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

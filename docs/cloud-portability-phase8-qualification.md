@@ -800,8 +800,16 @@ held, leaving USD 1.75 unreserved. This closes functional Snowflake transform on
 cost, failure behavior, remaining classes/providers, pairwise, soak, support, release, or Phase 8.
 See `docs/evidence/phase8/2026-08-17/snowflake-rc29-transform-execution.json`.
 
-The next dependency-ordered Snowflake class is failure behavior and must begin from a fresh
-protected-main branch with its own objective.
+PR #379 merged the sanitized transform evidence as protected main `d78b356`; exact-main run
+`32063148480` passed all five jobs. PR #380 then merged the credential-free Snowflake failure
+harness as protected main `2e45ca4`; exact-main run `32065584378` passed all five jobs. The fresh
+`snowflake-rc29-failure-objectives.json` objective binds exact RC29 and that protected harness to
+closed-connection recovery, invalid OAuth rejection, stale-fence rejection, statement-timeout
+rollback, and cleanup. One disposable X-Small warehouse, database, role, and UUID-scoped schema use
+a USD 0.50 ceiling, leaving USD 1.25 unreserved. Interactive auth and billing visibility precede
+owned resources, automatic retry stays disabled, cleanup starts by minute 15 and completes by
+minute 30, and protected objective merge plus exact-main CI must pass before mutation. Launcher,
+process, state, and catalog failure cases remain separate profile gates; no prior result transfers.
 
 ## Current exit recommendation
 
