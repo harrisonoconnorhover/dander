@@ -37,12 +37,17 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
-- PR #368 merged the posted GKE cost finalization as protected main `5d0afaa`; exact-main run
-  `32036096345` passed all five jobs. A fresh Snowflake-only bulk objective now binds exact RC29 to
-  500,000 narrow and 200,000 wide rows with bounded COPY parts and a USD 0.50 ceiling. The full
-  bound leaves USD 3.25 unreserved. No Snowflake object or paid execution starts before protected
-  merge and exact-main CI; cost remains pending until provider-measured usage posts. See
-  `docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-objectives.json`.
+- PR #369 merged the Snowflake bulk objective as protected main `26bcedd`; exact-main run
+  `32037495657` passed all five jobs before mutation. One exact-RC29 candidate then processed
+  500,000 narrow and 200,000 wide rows in 93.736 seconds with zero retries; both COPY completion
+  and throughput objectives passed. Interactive OAuth timeouts before launch consumed no candidate
+  attempt and were cleaned inside their rails. Final cleanup left zero named Snowflake objects or
+  candidate containers within a 4.49-minute upper-bound lifetime. Provider-measured cost is not yet
+  available in retained evidence, so cost and normalized status remain `not_evaluated` under the
+  held USD 0.50 bound, leaving USD
+  3.25 unreserved. This closes functional Snowflake bulk only, not its cost gate or other Phase 8
+  classes. See
+  `docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-execution.json`.
 
 - The exact RC27 disposable GKE bounded-memory audit now has posted provider cost. On the retained
   proof project and August 16 charge day, Compute Engine posted USD 0.05 net while Kubernetes Engine

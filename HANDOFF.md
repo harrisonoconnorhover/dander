@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Merged the GKE cost finalization as protected main `5d0afaa`; exact-main run `32036096345` passed all five jobs.
-- Added a focused normalized Snowflake bulk harness for exact RC29 with bounded streaming COPY parts.
-- Bound 500,000 narrow and 200,000 wide rows to exact digest `sha256:e016419f…aad54`.
-- Reserved USD 0.50 from the additional authorization, leaving USD 3.25 unreserved conservatively.
-- Added 12 credential-free regression tests and DANDER-222; no Snowflake object or paid run exists yet.
+- Confirmed PR #369 objective commit `26bcedd` and exact-main run `32037495657` passed all five jobs before mutation.
+- Ran one exact-RC29 Snowflake bulk candidate: 700,000 rows and 237,600,000 logical bytes in 93.736 seconds with zero retries.
+- Passed narrow/wide COPY completion and throughput at 13,829.346 and 5,054.206 rows/second; peak RSS was 303,357,952 bytes.
+- Cleaned and verified zero named databases, warehouses, roles, staging objects, and candidate containers inside a 4.49-minute final resource-lifetime upper bound.
+- Recorded the sanitized report, operator OAuth preflights, query identities, cleanup, and held USD 0.50 cost bound.
 
 ## Try It
 
-Run `pytest tests/portability/test_snowflake_bulk_phase8_benchmark.py` with the Snowflake and dev extras.
+Run `jq '{status,objectives,performance}' docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-attempt.json`.
 
 ## Checks
 
-- Exact-main CI run `32036096345` passed Python, Terraform, secret, distribution, and container jobs.
-- Focused pytest passes: 12 tests.
-- Focused Ruff and strict mypy pass for the new harness and tests.
-- Objective JSON parses and its configuration hash matches the harness.
+- Live candidate exited 0; all non-cost report objectives passed and cost alone is `not_evaluated`.
+- Snowflake `SHOW` cleanup checks returned zero database, warehouse, and role rows.
+- Focused Snowflake bulk pytest passes: 13 tests.
+- Both JSON records parse; focused identity/status assertions and `git diff --check` pass.
 
 ## Decisions
 
-- Reuse the accepted PostgreSQL narrow/wide workload so throughput stays comparable across warehouses.
-- Run RC29 locally through `dander qualification-run`; this closes Snowflake warehouse bulk only, not Azure launcher scale.
-- Keep cost `not_evaluated` under the full USD 0.50 bound until provider-measured usage posts.
+- Classify three expired OAuth callbacks as operator preflight incidents; none reached Python or consumed the candidate allowance.
+- Keep the normalized result and cost objective `not_evaluated` until provider-measured usage is available; hold the full USD 0.50 bound.
+- Close functional Snowflake bulk only; do not claim provider cost, broader scale, release, support, or Phase 8 completion.
 
 ## Remaining
 
-- Protect DANDER-222 through review, merge, and exact-main CI before any Snowflake mutation.
-- Verify billing/auth, run the bounded candidate, clean all named objects, and record sanitized evidence.
-- Continue remaining provider scale, pairwise, canonical-profile, and Kubernetes soak objectives.
+- Protect this focused result through review, merge, and exact-main CI.
+- Reconcile Snowflake provider cost when it posts without rerunning the accepted candidate.
+- Continue remaining exact-candidate provider scale, pairwise, soak, and final-closure objectives on fresh branches.
 - Finalize AWS and Azure provider costs when attributable rows are available.
-- Complete final-candidate, support-matrix, and release closure without colliding with DRUFF.
 
 ## Review First
 
-- `scripts/benchmarks/snowflake_bulk_phase8.py`
-- `docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-objectives.json`
-- `tests/portability/test_snowflake_bulk_phase8_benchmark.py`
+- `docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-execution.json`
+- `docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-attempt.json`
+- `docs/cloud-portability-phase8-qualification.md`

@@ -14,7 +14,7 @@ Phase 7 evidence merge.
 | Kubernetes portable | Exact private RC27 passed the named local kind profile and one hosted GKE bounded-memory audit, including its posted USD 0.05 provider cost; the accepted lifecycle evidence remains current | Other hosted-provider scale/cost, remaining launcher classes, and soak remain open |
 | Azure canonical | Exact private RC29 passed fresh Container Apps/Snowflake/PostgreSQL/Key-Vault correctness and replay with zero retries and cleanup inside 120 minutes; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, provider-posted cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC27 passed local PostgreSQL classes plus the GKE bounded-memory non-cost objectives | Hosted PostgreSQL cost, applicable final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC27 passed local PostgreSQL classes plus the hosted GKE bounded-memory audit, and exact RC29 passed Snowflake narrow/wide bulk functionally with cost pending | Applicable final-candidate reruns, remaining exact-candidate BigQuery, Snowflake, and Redshift scale classes, provider-posted cost, pairwise, and soak remain open |
 | Audits | Exact RC22 passed protected CI and its historical final-candidate repeat; private RC24 publication evidence merged in PR #299 and exact-main CI run `31884123337` passed all five jobs | RC24's final-candidate repeat remains open |
 
 ## Open gates and dependency order
@@ -240,6 +240,23 @@ bound remains held and exact provider cost is pending. This closes the Azure can
 and lifecycle rerun only; scale, provider-posted cost, pairwise, soak, final closure, public release,
 and support remain open. See
 `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-attempt.json`.
+
+PR #369 merged the Snowflake bulk objective as protected main `26bcedd`; exact-main run
+`32037495657` passed all five jobs before mutation. Three interactive OAuth callbacks expired
+before candidate launch; each was classified as operator preflight, automatic retry stayed off,
+and the only preflight that had created a database and initially suspended warehouse cleaned them
+up in 19.52 minutes without reaching Python or starting warehouse compute. The final fresh OAuth
+session then launched the one permitted exact-RC29 candidate through `dander qualification-run`.
+It processed 500,000 narrow and 200,000 wide rows, 237,600,000 logical bytes total, in 93.736
+seconds with 303,357,952 bytes peak RSS and zero retries. Narrow and wide COPY completion and
+throughput objectives passed at 13,829.346 and 5,054.206 rows/second. Cleanup left zero staging
+tables, stages, named databases, warehouses, roles, or candidate containers within a 4.49-minute
+upper-bound final resource lifetime. Provider-measured cost is not yet available in retained
+evidence, so the normalized report and cost objective remain `not_evaluated`; the full USD 0.50
+bound stays held, leaving USD
+3.25 unreserved. This closes the functional Snowflake bulk execution only, not provider cost,
+other scale classes, pairwise, soak, final closure, release, or support. See
+`docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-execution.json`.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
