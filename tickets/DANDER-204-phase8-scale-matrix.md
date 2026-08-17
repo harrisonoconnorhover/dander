@@ -188,3 +188,9 @@ scale report.
   generic-test results, bounded COPY,
   fencing, cleanup, and a USD 0.50 ceiling. Its full reservation leaves USD 1.75 unreserved;
   protected objective merge and required exact-main CI precede any owned Snowflake object.
+- PR #379 merged the passing transform evidence as protected main `d78b356`; exact-main run
+  `32063148480` passed all five jobs. PR #380 then merged the credential-free Snowflake failure
+  harness as protected main `2e45ca4`; exact-main run `32065584378` passed all five jobs. The next
+  objective binds unchanged RC29 to four bounded connector, session, and provider-fence probes plus
+  exact cleanup. Its full USD 0.50 reservation leaves USD 1.25 unreserved; protected objective
+  merge and required exact-main CI precede any owned Snowflake object.

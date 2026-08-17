@@ -45,5 +45,8 @@ run owns one UUID-scoped schema and always removes it.
 
 ## Review
 
-Local implementation complete. Protected review and exact-main CI remain required before a live
-objective can be created.
+### 2026-08-17 — PASS
+
+PR #380 merged the credential-free harness as protected main `2e45ca4`; exact-main CI run
+`32065584378` passed all five jobs. No live objective, provider mutation, or candidate change was
+included.

@@ -37,6 +37,15 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- PR #380 merged the credential-free Snowflake failure harness as protected main `2e45ca4`;
+  exact-main run `32065584378` passed all five jobs. The fresh objective binds exact RC29 to
+  closed-connection recovery, invalid OAuth rejection, stale-fence rejection, one-second
+  statement-timeout rollback, and cleanup. Its USD 0.50 ceiling leaves USD 1.25 unreserved.
+  Interactive auth and billing visibility must pass before owned resources, automatic retry stays
+  disabled, and cleanup starts by minute 15 and completes by minute 30. Protected objective merge
+  and required exact-main CI must pass before mutation. See
+  `docs/evidence/phase8/2026-08-17/snowflake-rc29-failure-objectives.json`.
+
 - PR #378 merged the Snowflake transform objective as protected main `bb06aa8`; exact-main run
   `32059122714` passed all five jobs before mutation. Two bounded interactive-auth preflights
   consumed no candidate attempt, and the only temporary role was removed inside 47.812 seconds.
