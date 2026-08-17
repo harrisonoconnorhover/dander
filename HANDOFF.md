@@ -2,11 +2,11 @@
 
 ## Finished
 
-- Rebased the credential-free Snowflake transform harness onto concurrency evidence merge `4a279cd`.
-- Bound 100,000 fact and 100 dimension rows to scan, join, aggregation, incremental, and generic-test models.
-- Seeded source relations through bounded COPY and separated load from transform timing.
-- Required fenced publication, exact initial/delta readback, provider query ids, staging checks, and dual-schema cleanup.
-- Added completed harness ticket DANDER-226; no live objective, credential, or provider mutation is included.
+- Merged concurrency evidence PR #376 as protected main `4a279cd`; exact-main CI passed all five jobs.
+- Merged transform harness PR #377 as protected main `5947d792` after all five protected PR checks passed.
+- Bound exact RC29 and the protected harness to the 100,000-fact/100-dimension transform workload.
+- Reserved a USD 0.50 ceiling, leaving USD 1.75 unreserved under the additional USD 10 authorization.
+- Added DANDER-227 and fresh disposable Snowflake coordinates; no provider resource or paid workload has started.
 
 ## Try It
 
@@ -14,27 +14,28 @@ Run `uv run --extra dev pytest -q tests/portability/test_snowflake_bulk_phase8_b
 
 ## Checks
 
+- Concurrency evidence exact-main CI run `32056495930` passed all five jobs.
+- Transform harness PR #377 passed all five protected jobs on exact head `18cb56a` before merge.
+- Transform harness exact-main CI run `32057603919` passed all five jobs.
 - Focused Snowflake scale pytest passed: 38 tests.
-- Full pytest passed in the locked dev/PostgreSQL CI environment.
-- Canonical typecheck passed: 422 source files.
-- Ruff lint and format passed: 455 files; whitespace and handoff checks passed.
+- Objective manifest, exact workload hash, budget arithmetic, JSON, and whitespace checks passed.
 
 ## Decisions
 
-- Reuse the accepted 100,000/100 PostgreSQL transform shape but transfer no provider result.
-- Keep the harness credential-free; bind candidate, names, budget, and runtime rails in a separate objective.
-- Count both COPY and transform temporary objects in the zero-residue check.
+- Reuse the accepted 100,000/100 transform shape but transfer no result across providers or classes.
+- Bind the operator-mounted harness to protected main `5947d792`; RC29 remains unchanged.
+- Hold the full USD 0.50 bound until provider usage posts; automatic retries remain disabled.
 
 ## Remaining
 
-- Protect, review, merge, and exact-main verify this harness.
-- Bind the protected transform harness to a fresh exact-RC29 objective and cost reservation.
-- Run live transform qualification only after that objective passes exact-main CI.
+- Protect, review, merge, and exact-main verify this objective.
+- Verify Snowflake interactive auth and billing visibility before creating owned objects.
+- Run one bounded exact-RC29 candidate, clean immediately, and record sanitized evidence separately.
 - Reconcile delayed Snowflake, AWS, and Azure costs without rerunning accepted workloads.
 - Continue failure, remaining-provider, pairwise, soak, and final closure work separately.
 
 ## Review First
 
-- `scripts/benchmarks/snowflake_bulk_phase8.py`
-- `tests/portability/test_snowflake_bulk_phase8_benchmark.py`
-- `tickets/DANDER-226-snowflake-transform-harness.md`
+- `docs/evidence/phase8/2026-08-17/snowflake-rc29-transform-objectives.json`
+- `tickets/DANDER-227-snowflake-transform.md`
+- `docs/cloud-portability-phase8-qualification.md`

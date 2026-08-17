@@ -37,6 +37,16 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- PR #377 merged the credential-free Snowflake transform harness as protected main `5947d792`;
+  exact-main run `32057603919` passed all five jobs. The next focused objective binds exact RC29 and
+  that protected harness to 100,000 fact rows, 100 dimension rows, bounded COPY seeding, scan,
+  join, aggregation, incremental merge, generic tests,
+  exact readback, fencing telemetry, and cleanup. Its USD 0.50 ceiling leaves USD 1.75 unreserved.
+  Interactive auth must pass before owned resources, automatic retry stays disabled, and cleanup
+  starts by minute 30 and completes by minute 60. Protected objective merge and required exact-main
+  CI must pass before mutation. See
+  `docs/evidence/phase8/2026-08-17/snowflake-rc29-transform-objectives.json`.
+
 - PR #375 merged the Snowflake concurrency objective as protected main `da1b536`; exact-main run
   `32052812102` passed all five jobs before mutation. Operator token-capture, orchestration,
   entrypoint, and auth preflights never reached the harness and consumed no candidate attempt; the
