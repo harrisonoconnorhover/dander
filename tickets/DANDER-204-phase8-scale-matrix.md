@@ -181,3 +181,10 @@ scale report.
   controlled contention, stale-publication rejection, exact readback, throughput, cleanup, and a
   USD 0.50 ceiling. Its full reservation leaves USD 2.25 unreserved; protected objective merge and
   required exact-main CI precede any owned Snowflake object.
+- PR #376 merged the passing concurrency evidence as protected main `4a279cd`; exact-main run
+  `32056495930` passed all five jobs. PR #377 then merged the credential-free transform harness as
+  protected main `5947d792`; exact-main run `32057603919` passed all five jobs. The next objective
+  binds unchanged RC29 to the accepted 100,000-fact/100-dimension transform shape, exact model and
+  generic-test results, bounded COPY,
+  fencing, cleanup, and a USD 0.50 ceiling. Its full reservation leaves USD 1.75 unreserved;
+  protected objective merge and required exact-main CI precede any owned Snowflake object.

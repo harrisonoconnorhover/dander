@@ -1499,6 +1499,14 @@ and stale-fence rejection, and left zero staging or named provider resources ins
 Snowflake cost stays `not_evaluated` under the held USD 0.50 bound, leaving USD 2.25 unreserved.
 This closes functional Snowflake concurrency only; the next dependency-ordered Snowflake class is
 transform scale, followed separately by failure behavior.
+PR #376 merged the concurrency evidence as protected main `4a279cd`; exact-main run `32056495930`
+passed all five jobs. PR #377 then merged the credential-free transform harness as protected main
+`5947d792`; exact-main run `32057603919` passed all five jobs. The fresh transform objective binds
+exact RC29 to the accepted 100,000-fact/100-dimension shape, bounded COPY seeding, scan, join,
+aggregation, incremental merge, generic tests, fencing,
+exact readback, and cleanup. Its USD 0.50 ceiling leaves USD 1.75 unreserved; protected objective
+merge and required exact-main CI precede any owned Snowflake resource. No earlier provider or
+benchmark-class result transfers.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

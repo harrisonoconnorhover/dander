@@ -773,6 +773,18 @@ concurrency only, not provider cost, transform, failure, remaining classes/provi
 soak, support, release, or Phase 8. See
 `docs/evidence/phase8/2026-08-17/snowflake-rc29-concurrency-execution.json`.
 
+PR #376 merged that sanitized concurrency evidence as protected main `4a279cd`; exact-main CI run
+`32056495930` passed all five jobs. PR #377 then merged the credential-free Snowflake transform
+harness as protected main `5947d792`; exact-main run `32057603919` passed all five jobs. The next
+focused objective, `snowflake-rc29-transform-objectives.json`, binds exact RC29 and that protected
+harness to 100,000 fact rows, 100 dimension rows, bounded COPY seeding, four portable models, a
+two-row incremental merge, generic tests, exact readback, fencing telemetry, and cleanup. One
+disposable X-Small warehouse, database, role, source schema, and target schema use a USD 0.50
+ceiling, leaving USD 1.75 unreserved. Interactive auth precedes owned resources, automatic retry
+stays disabled, and cleanup starts by minute 30 and completes by minute 60. Protected objective
+merge and required exact-main CI must pass before mutation; no prior provider or benchmark-class
+result transfers.
+
 ## Current exit recommendation
 
 Phase 8 remains open. Exact private RC27 passed the protected artifact gate and the AWS-native
