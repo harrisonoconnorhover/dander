@@ -1,0 +1,54 @@
+{
+  "schema": "io.dander.phase8.provider-cost-finalization/v1",
+  "checked_at_utc": "2026-08-17T13:23:21Z",
+  "read_only": true,
+  "cloud_mutation_started": false,
+  "source": "Google Cloud Billing Reports UI",
+  "display_currency": "USD",
+  "display_precision": "two_decimal_places",
+  "billing_timezone": "America/New_York",
+  "charge_period": "2026-08-16",
+  "project": "dander-proof-harrison-20260801",
+  "project_filter_selected": true,
+  "project_charge_period_subtotal_usd": "0.26",
+  "qualification_reference": "docs/evidence/phase8/2026-08-16/gke-standard-rc27-postgresql-bounded-memory-attempts.json",
+  "approved_cost_ceiling_usd": "0.50",
+  "attribution": {
+    "method": "Sum the posted net subtotals for the disposable GKE cluster's Compute Engine, Kubernetes Engine, and Networking services on its single charge day; exclude unrelated project services.",
+    "service_rows": [
+      {
+        "service": "Compute Engine",
+        "usage_cost_usd": "0.05",
+        "savings_usd": "0.00",
+        "subtotal_usd": "0.05"
+      },
+      {
+        "service": "Kubernetes Engine",
+        "usage_cost_usd": "0.04",
+        "savings_usd": "-0.04",
+        "subtotal_usd": "0.00"
+      },
+      {
+        "service": "Networking",
+        "usage_cost_usd": "0.01",
+        "savings_usd": "-0.01",
+        "subtotal_usd": "0.00"
+      }
+    ],
+    "provider_measured_cost_usd": "0.05",
+    "estimated": false,
+    "unrelated_project_services_excluded": true
+  },
+  "objective": {
+    "name": "cost_ceiling",
+    "status": "passed",
+    "observed_cost_usd": "0.05",
+    "ceiling_usd": "0.50"
+  },
+  "conclusion": {
+    "gke_bounded_memory_cost_gate_passed": true,
+    "qualification_rerun_required": false,
+    "other_phase8_cost_gates_affected": false,
+    "support_promoted": false
+  }
+}

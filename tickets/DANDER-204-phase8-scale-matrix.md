@@ -149,3 +149,8 @@ scale report.
   retries. Cleanup began at minute 26.34 and active resource absence was observed at minute 54.52.
   This closes Azure canonical correctness/lifecycle only; scale, provider-posted cost, pairwise,
   soak, final closure, and support remain open under the held USD 2 bound.
+- GCP Billing Reports later posted the exact proof project's August 16 provider rows for the
+  disposable GKE audit. Compute Engine was USD 0.05 net; Kubernetes Engine and Networking were USD
+  0.00 net after credits. The USD 0.05 total passes the USD 0.50 ceiling. The raw reporter record is
+  preserved, while a final derivative corrects its unused catalog context to `none`. This closes
+  only the hosted GKE bounded-memory cost gate; this scale-matrix ticket remains open.

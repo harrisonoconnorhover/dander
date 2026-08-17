@@ -1387,10 +1387,11 @@ disposable one-node GKE Standard 1.35.6 zonal cluster processed 2.7248 GB in 356
 7,289.345 rows/second with 179,863,552 bytes peak RSS under the 256 MiB limit and 80% gate. TLS,
 reporter retention, zero retries/restarts, PostgreSQL cleanup, and full provider-resource rollback
 passed. One infrastructure-only runtime-path preflight failed before candidate execution and was
-corrected within the two-attempt ceiling. Provider billing is still pending, so cost and the overall
-normalized report remain `not_evaluated`; the raw report's unused `catalog=postgresql` context is
-preserved and must be corrected explicitly only in a later derived final report. Hosted Kubernetes
-cost, soak, and the remaining provider/profile cells stay open.
+corrected within the two-attempt ceiling. Provider billing later posted USD 0.05 net across the
+exact project's Compute Engine, Kubernetes Engine, and Networking service rows for August 16,
+passing the USD 0.50 ceiling. The final derived report corrects the unused catalog context to
+`none` without rewriting the raw report. This closes the hosted bounded-memory cost gate; hosted
+Kubernetes soak and the remaining provider/profile cells stay open.
 The repeated local-kind and hosted-GKE interpreter-path preflights are tracked as DANDER-208.
 Current source exposes `dander qualification-run` as the image-owned harness boundary; future
 manifests must use it instead of an installation-layout path. RC27 evidence remains unchanged, and

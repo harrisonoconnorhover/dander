@@ -19,8 +19,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
   Private RC27 at `sha256:bcf62d2c…4e09c` is the latest published candidate but has not replaced
   those retained jobs. Its AWS-native correctness and named local Kubernetes five-class slices
-  passed, but provider cost and the remaining Phase 8 gates are open, so it is not fully qualified.
-  Public RC20 remains unchanged.
+  passed, and the hosted GKE bounded-memory cost gate later passed; AWS cost and the remaining
+  Phase 8 gates are open, so it is not fully qualified. Public RC20 remains unchanged.
 - Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
   12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
@@ -36,6 +36,14 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   operator-started `dander graph serve` loopback service with the exact hosted origin allowed.
 
 ## Latest operating evidence
+
+- The exact RC27 disposable GKE bounded-memory audit now has posted provider cost. On the retained
+  proof project and August 16 charge day, Compute Engine posted USD 0.05 net while Kubernetes Engine
+  and Networking each posted USD 0.00 net after credits. The USD 0.05 total passes the approved USD
+  0.50 ceiling. The raw attempt remains unchanged; a derived final report corrects its unused
+  catalog context from `postgresql` to `none`. This closes only the hosted GKE bounded-memory cost
+  gate, not other scale, soak, pairwise, or support gates. See
+  `docs/evidence/phase8/2026-08-17/gke-standard-rc27-postgresql-bounded-memory-final.json`.
 
 - PR #366 merged the unchanged-RC29 Azure lifetime retry objective as protected main `2b1597f`;
   exact-main run `32024585468` passed all five jobs before mutation. The fresh manual execution and
@@ -116,7 +124,8 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   bind exact candidate/objective identity and non-estimated USD 0 cost. Exact cleanup left zero
   Dander schemas, staging relations, Warning events, clusters, node containers, or temporary image
   tags. This closes the named local profile and five-class launcher-scale slice only; hosted
-  Kubernetes scale/cost, remaining launcher classes, soak, and support stay open. See
+  Kubernetes scale classes beyond the bounded-memory audit, remaining launcher classes, soak, and
+  support stay open. See
   `docs/evidence/phase8/2026-08-16/kubernetes-rc27-postgresql-scale-attempts.json`.
   PR #339 merged that sanitized result as protected main `b73fafc`; exact-main run `31943674409`
   passed all five jobs. PR #340 merged the exact-RC27 Kubernetes bounded-memory objective as
