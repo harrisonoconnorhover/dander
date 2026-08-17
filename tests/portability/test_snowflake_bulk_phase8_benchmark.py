@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
@@ -80,6 +81,18 @@ def _transform_config(**overrides: object) -> bulk.SnowflakeTransformConfig:
     }
     values.update(overrides)
     return bulk.SnowflakeTransformConfig(**values)  # type: ignore[arg-type]
+
+
+def _failure_config(**overrides: object) -> bulk.SnowflakeFailureConfig:
+    values: dict[str, object] = {
+        "account": "org-account",
+        "user": "DANDER_USER",
+        "database": "DANDER_FAILURE_TEST",
+        "warehouse": "DANDER_FAILURE_WH",
+        "role": "DANDER_FAILURE_ROLE",
+    }
+    values.update(overrides)
+    return bulk.SnowflakeFailureConfig(**values)  # type: ignore[arg-type]
 
 
 def _identity() -> bulk.CandidateIdentity:
@@ -187,6 +200,29 @@ def _transform_approval(
     )
 
 
+def _failure_approval(
+    config: bulk.SnowflakeFailureConfig,
+) -> bulk._Approval:
+    return bulk._Approval(
+        objectives=ApprovedObjectiveSet(
+            names=bulk._FAILURE_OBJECTIVES,
+            benchmark_class=BenchmarkClass.FAILURE,
+            profile_id="snowflake_local_scale",
+            release_version=__version__,
+            git_commit=_COMMIT,
+            image_digest=_DIGEST,
+            configuration_sha256=config.configuration_sha256(),
+            approval_reference=_REFERENCE,
+        ),
+        cost_ceiling=ApprovedCostCeiling(Decimal("0.50"), _REFERENCE),
+        account_sha256=bulk._identifier_sha256(config.account),
+        operator_user_sha256=bulk._identifier_sha256(config.user),
+        database=config.database,
+        warehouse=config.warehouse,
+        role=config.role or "",
+    )
+
+
 def _result() -> bulk._BulkResult:
     return bulk._BulkResult(
         duration_ms=2_000,
@@ -263,6 +299,22 @@ def _transform_result() -> bulk._TransformResult:
     )
 
 
+def _failure_result() -> bulk._FailureResult:
+    return bulk._FailureResult(
+        duration_ms=2_000,
+        peak_rss_bytes=128 * 1_024 * 1_024,
+        probe_count=4,
+        connection_recovery_duration_ms=25,
+        credential_rejection_duration_ms=250,
+        timeout_rollback_duration_ms=1_050,
+        stale_publications_rejected=1,
+        query_ids=("query-one", "query-two"),
+        staging_tables=0,
+        staging_stages=0,
+        cleanup_verified=True,
+    )
+
+
 def _manifest(config: bulk.SnowflakeBulkConfig) -> dict[str, object]:
     approval = _approval(config)
     return {
@@ -328,6 +380,27 @@ def _transform_manifest(
     config: bulk.SnowflakeTransformConfig,
 ) -> dict[str, object]:
     approval = _transform_approval(config)
+    return {
+        "schema": bulk._APPROVAL_SCHEMA,
+        "cost_ceiling": approval.cost_ceiling.to_payload(),
+        "workload": config.workload_payload(),
+        "configuration": {
+            "snowflake": {
+                "account_sha256": approval.account_sha256,
+                "operator_user_sha256": approval.operator_user_sha256,
+                "database": approval.database,
+                "warehouse": approval.warehouse,
+                "role": approval.role,
+            }
+        },
+        "approved_objectives": approval.objectives.to_payload(),
+    }
+
+
+def _failure_manifest(
+    config: bulk.SnowflakeFailureConfig,
+) -> dict[str, object]:
+    approval = _failure_approval(config)
     return {
         "schema": bulk._APPROVAL_SCHEMA,
         "cost_ceiling": approval.cost_ceiling.to_payload(),
@@ -438,6 +511,87 @@ def test_transform_config_binds_required_models_and_secret_references() -> None:
         "copy_part_rows": 50_000,
         "copy_part_logical_bytes": 16 * 1_024 * 1_024,
     }
+
+
+def test_failure_config_binds_bounded_probes_and_secret_references() -> None:
+    config = _failure_config(token_env="DANDER_TEST_SNOWFLAKE_TOKEN")
+
+    values = bulk._provider_values(config, schema_name="DANDER_PHASE8_FAILURE_TEST")
+
+    assert values["auth"] == {
+        "method": "oauth",
+        "token_env": "DANDER_TEST_SNOWFLAKE_TOKEN",
+    }
+    assert values["login_timeout_seconds"] == 30
+    assert "token" not in values
+    assert config.workload_payload() == {
+        "schema": "io.dander.phase8.snowflake-failure/v1",
+        "benchmark_class": "failure",
+        "probes": [
+            "closed_connection_recovery",
+            "credential_rejection",
+            "stale_fence_rejection",
+            "warehouse_timeout_rollback",
+        ],
+        "statement_timeout_seconds": 1,
+        "cancellation_wait_seconds": 30,
+        "invalid_login_timeout_seconds": 5,
+    }
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"auth_method": "key_pair"}, "requires oauth"),
+        ({"statement_timeout_seconds": 0}, "positive integer"),
+        ({"statement_timeout_seconds": 6}, "must not exceed 5"),
+        ({"cancellation_wait_seconds": 1}, "must exceed"),
+        ({"invalid_login_timeout_seconds": 11}, "must not exceed 10"),
+    ],
+)
+def test_failure_config_fails_before_provider_io(
+    overrides: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        _failure_config(**overrides)
+
+
+def test_failure_credential_probe_restores_temporary_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token_env = "DANDER_TEST_SNOWFLAKE_TOKEN"
+    rejected_env = "DANDER_SNOWFLAKE_PHASE8_REJECTED_TOKEN"
+    config = _failure_config(token_env=token_env)
+    monkeypatch.setenv(token_env, "valid-token-held-only-by-the-test-process")
+    monkeypatch.setenv(rejected_env, "existing-operator-value")
+
+    class FakeRuntime:
+        pass
+
+    class FakeRegistry:
+        def parse(self, _kind: object, values: object) -> object:
+            return values
+
+        def build(self, _kind: object, _values: object, *, context: object) -> FakeRuntime:
+            del context
+            return FakeRuntime()
+
+    def rejected_connection_factory() -> object:
+        raise RuntimeError("expected invalid credential rejection")
+
+    monkeypatch.setattr(bulk, "default_provider_registry", lambda: FakeRegistry())
+    monkeypatch.setattr(bulk, "WarehouseRuntime", FakeRuntime)
+    monkeypatch.setattr(
+        bulk,
+        "_connection_factory",
+        lambda _runtime: rejected_connection_factory,
+    )
+
+    duration_ms = bulk._probe_credential_rejection(config, schema_name="DANDER_FAILURE")
+
+    assert duration_ms >= 1
+    assert os.environ[rejected_env] == "existing-operator-value"
 
 
 @pytest.mark.parametrize(
@@ -567,6 +721,26 @@ def test_load_transform_approval_binds_exact_workload(tmp_path: Path) -> None:
     workload = payload["workload"]
     assert isinstance(workload, dict)
     workload["fact_rows"] = 1
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="workload"):
+        bulk.load_approval(path, config=config)
+
+
+def test_load_failure_approval_binds_exact_workload(tmp_path: Path) -> None:
+    config = _failure_config()
+    path = tmp_path / "failure-objectives.json"
+    path.write_text(json.dumps(_failure_manifest(config)), encoding="utf-8")
+
+    approval = bulk.load_approval(path, config=config)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
+    assert approval.objectives.names == bulk._FAILURE_OBJECTIVES
+    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
+
+    payload = _failure_manifest(config)
+    workload = payload["workload"]
+    assert isinstance(workload, dict)
+    workload["statement_timeout_seconds"] = 2
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="workload"):
         bulk.load_approval(path, config=config)
@@ -890,6 +1064,35 @@ def test_transform_report_preserves_functional_pass_and_pending_cost() -> None:
     )
 
 
+def test_failure_report_preserves_probe_passes_and_pending_cost() -> None:
+    config = _failure_config()
+
+    report = bulk._failure_report(
+        config,
+        _identity(),
+        _failure_approval(config),
+        _failure_result(),
+        provider_cost_usd=None,
+    )
+
+    assert report.status is QualificationStatus.NOT_EVALUATED
+    assert report.workload.benchmark_class is BenchmarkClass.FAILURE
+    assert report.workload.input_rows == 4
+    assert report.performance.retries.value == 0
+    metrics = {metric.name: metric.value for metric in report.performance.provider_metrics}
+    assert metrics["probe_count"] == 4
+    assert metrics["stale_publications_rejected"] == 1
+    assert metrics["staging_stages"] == 0
+    assert metrics["staging_tables"] == 0
+    statuses = {objective.name: objective.status for objective in report.objectives}
+    assert statuses["cost_ceiling"] is ObjectiveStatus.NOT_EVALUATED
+    assert all(
+        status is ObjectiveStatus.PASSED
+        for name, status in statuses.items()
+        if name != "cost_ceiling"
+    )
+
+
 def test_incremental_report_rejects_a_target_smaller_than_100x_delta() -> None:
     config = _incremental_config(seed_rows=10_000, delta_rows=2_000, copy_part_rows=1_000)
     result = replace(
@@ -1183,5 +1386,69 @@ def test_transform_cli_dispatches_and_sanitizes_provider_failure(
 
     assert exit_code == 1
     assert payload["benchmark_class"] == "transform"
+    assert payload["status"] == "failed"
+    assert secret not in json.dumps(payload)
+
+
+def test_failure_cli_dispatches_and_sanitizes_provider_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = _failure_config()
+    objectives = tmp_path / "failure-objectives.json"
+    objectives.write_text(json.dumps(_failure_manifest(config)), encoding="utf-8")
+    secret = "failure-provider-secret-response"
+
+    def fail(
+        _config: bulk.SnowflakeFailureConfig,
+        *,
+        identity: bulk.CandidateIdentity,
+        approval: bulk._Approval,
+        provider_cost_usd: Decimal | None,
+    ) -> None:
+        del identity, approval, provider_cost_usd
+        raise bulk.SnowflakeFailureQualificationError(secret)
+
+    monkeypatch.setattr(bulk, "run_phase8_snowflake_failure", fail)
+
+    exit_code = bulk.main(
+        [
+            "--benchmark-class",
+            "failure",
+            "--account",
+            config.account,
+            "--user",
+            config.user,
+            "--database",
+            config.database,
+            "--warehouse",
+            config.warehouse,
+            "--role",
+            config.role or "",
+            "--objectives",
+            str(objectives),
+            "--candidate-version",
+            __version__,
+            "--candidate-commit",
+            _COMMIT,
+            "--image-digest",
+            _DIGEST,
+            "--approval-reference",
+            _REFERENCE,
+            "--benchmark-date",
+            "2026-08-17",
+            "--provider-job-id",
+            "container:test",
+            "--service-shape",
+            "snowflake_xsmall",
+            "--output-file",
+            str(tmp_path / "failure-report.json"),
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert payload["benchmark_class"] == "failure"
     assert payload["status"] == "failed"
     assert secret not in json.dumps(payload)
