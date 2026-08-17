@@ -2,40 +2,39 @@
 
 ## Finished
 
-- Protected the failed-lifetime RC29 result in PR #365 as main `4c0d042`.
-- Kept immutable RC29 and its exact digest unchanged for one procedural rerun.
-- Bound a fresh `r29c` Azure, PostgreSQL, and Snowflake namespace.
-- Required Snowflake auth before Azure, cleanup start by minute 75, and immediate blocker teardown.
-- Reserved a new USD 2 bound, leaving USD 3.75 unreserved under the additional ceiling.
+- Ran unchanged private RC29 on fresh Azure/Snowflake/PostgreSQL resources after protected CI.
+- Passed one manual execution and one replay with three model rows, three assertions, and no retries.
+- Began cleanup at minute 26.34 and observed final Azure absence at minute 54.52.
+- Preserved the state-storage safety guard and reconciled all Terraform states to zero managed resources.
+- Recorded the passing Azure canonical correctness/lifecycle result without promoting support.
 
 ## Try It
 
-Inspect and hash `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`.
+Inspect `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-attempt.json`.
 
 ## Checks
 
-- Prior result PR #365 passed all five protected jobs before merge.
-- Objective JSON parses and its canonical configuration hash matches the recorded SHA-256.
-- Fresh ACR, storage-account, Key Vault, PostgreSQL, and resource-group names are available.
-- A signed-in Snowflake worksheet is visible; execution must reverify it immediately before mutation.
-- Git diff and handoff-format checks pass.
+- Objective exact-main run `32024585468` passed all five protected jobs before mutation.
+- Both Container Apps executions succeeded; Snowflake history retained distinct writes/assertions.
+- Resource group, ACR, storage account, PostgreSQL, Key Vault, and kind inventories are inactive/empty.
+- Result JSON parses; exact plan hashes, cleanup timings, and held-cost arithmetic reconcile.
+- Focused docs/ticket diff review and handoff-format checks pass.
 
 ## Decisions
 
-- Do not rebuild, republish, or change RC29.
-- Finish interactive Snowflake authorization before any Azure provisioning.
-- Tear down immediately if an interactive blocker appears after the resource clock starts.
+- Keep RC29 immutable; the procedural retry passed without a candidate change.
+- Treat the Key Vault IP `/32` readback difference as non-actionable provider normalization.
+- Hold the full USD 2 bound until attributable provider cost posts.
 
 ## Remaining
 
-- Protect this objective through focused review, merge, and exact-main CI.
-- Reverify Snowflake account/user and obtain the scoped runtime token before Azure.
-- Run one manual RC29 execution and its success-conditional replay.
-- Start cleanup by minute 75 and prove the 120-minute lifetime plus exact inventories.
-- Complete remaining Phase 8 provider, scale, pairwise, soak, audit, and closure gates.
+- Protect this focused result through review, merge, and exact-main CI.
+- Complete remaining Phase 8 provider scale, cost, pairwise, soak, and closure objectives.
+- Use fresh protected-main branches/worktrees and preserve accepted evidence between objectives.
+- Keep public RC20 and support claims unchanged until the final closure matrix passes.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`
-- `tickets/DANDER-219-bind-rc29-azure-lifetime-retry.md`
+- `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-attempt.json`
+- `tickets/DANDER-220-record-rc29-azure-lifetime-retry.md`
 - `docs/cloud-portability-phase8-qualification.md`

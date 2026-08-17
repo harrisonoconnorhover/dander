@@ -12,7 +12,7 @@ Phase 7 evidence merge.
 | GCP native | Exact private RC22 passed authenticated manual/replay and Scheduler execution on the retained Cloud Run/BigQuery/Dataplex/Secret Manager profile, followed by no drift | Provider-measured cost, scale reports, and the retained soak remain open |
 | Fargate to GCP | Public `0.8.0rc8` passed manual/scheduled lifecycle, replay, interruption, alerts, rollback, cleanup, and no drift | Scale qualification remains open; this is not the AWS-native profile |
 | Kubernetes portable | Exact private RC27 passed the named local kind profile and one hosted GKE bounded-memory audit's non-cost objectives; the accepted lifecycle evidence remains current | Provider-posted GKE cost, other hosted-provider scale/cost, remaining launcher classes, and soak remain open |
-| Azure canonical | The Snowflake/PostgreSQL/Key-Vault lifecycle passed; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, cost, pairwise, and soak remain open |
+| Azure canonical | Exact private RC29 passed fresh Container Apps/Snowflake/PostgreSQL/Key-Vault correctness and replay with zero retries and cleanup inside 120 minutes; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, provider-posted cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
 | Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC27 passed local PostgreSQL classes plus the GKE bounded-memory non-cost objectives | Hosted PostgreSQL cost, applicable final-candidate reruns, and all exact-candidate BigQuery, Snowflake, and Redshift scale reports remain open |
 | Audits | Exact RC22 passed protected CI and its historical final-candidate repeat; private RC24 publication evidence merged in PR #299 and exact-main CI run `31884123337` passed all five jobs | RC24's final-candidate repeat remains open |
@@ -224,6 +224,22 @@ interactive blocker aborts the attempt and starts exact cleanup immediately. The
 leaves USD 3.75 unreserved. This is an unprotected objective proposal only; no owned provider
 resource may be created before protected review, merge, and exact-main CI. See
 `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`.
+
+PR #366 merged that objective as protected main `2b1597f`; exact-main run `32024585468` passed all
+five jobs before the first owned resource. The unchanged RC29 digest then passed one fresh manual
+Container Apps execution and its success-conditional replay with distinct run identities, three
+written model rows and three successful model assertions per execution, and zero retries.
+Signed-in Snowflake query history retained the exact write and assertion identities after cleanup.
+Cleanup began 26.34 minutes after Snowflake created the first owned object; final Azure absence was
+observed at 54.52 minutes, inside both the 60-minute target and 120-minute maximum. Terraform's
+state-storage `prevent_destroy` guard remained enabled: exact targeted deletion plus disposable
+resource-group removal preserved the guard, and refresh-only reconciliation left zero managed
+stage-zero state. All active named Azure and Snowflake resources are absent; only the expected
+inactive purge-protected Key Vault tombstone remains. ActualCost returned no row, so the full USD 2
+bound remains held and exact provider cost is pending. This closes the Azure canonical correctness
+and lifecycle rerun only; scale, provider-posted cost, pairwise, soak, final closure, public release,
+and support remain open. See
+`docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-attempt.json`.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is

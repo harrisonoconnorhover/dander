@@ -1,7 +1,7 @@
 ---
 id: DANDER-219
 title: Bind the RC29 Azure lifetime retry objective
-status: in_progress
+status: done
 component: infrastructure
 epic: cloud-portability-phase-8
 depends_on: [DANDER-218]
@@ -22,7 +22,7 @@ immutable candidate needs one procedural rerun with interactive authorization co
 - [x] Require immediate teardown if any later interactive blocker appears and start cleanup by 75 minutes.
 - [x] Preserve one manual run, one success-conditional replay, zero automatic retries, exact cleanup,
   and the 120-minute maximum lifetime.
-- [ ] Protected review and exact-main CI pass before any owned provider resource is created.
+- [x] Protected review and exact-main CI pass before any owned provider resource is created.
 
 ## Design
 
@@ -40,3 +40,10 @@ minutes of provider-deletion margin.
   RC29 publication reserve remain held.
 - An Azure aggregate cost recheck was throttled; the latest attributable RC29 row is USD 0.0024353794,
   so the full conservative bounds remain in force.
+
+## Review Log
+
+### 2026-08-17 — PASS
+
+PR #366 merged the objective as protected main `2b1597f`; exact-main run `32024585468` passed all
+five jobs before the first owned Snowflake or Azure resource was created.
