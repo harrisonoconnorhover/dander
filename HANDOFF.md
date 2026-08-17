@@ -2,44 +2,43 @@
 
 ## Finished
 
-- Classified RC28 Azure execution `dander-35e4e06fda09-sme7gpt` as a deterministic Snowflake
-  portable-identifier defect after successful provider and canonical preflight.
-- Cloned Snowflake portable ASTs and quoted every validated identifier before serialization.
-- Added regression coverage for lowercase source columns, aliases, qualified joins, CTEs, and
-  unchanged BigQuery, Redshift, and PostgreSQL output.
-- Verified Snowflake transform-project compilation now preserves quoted lowercase columns.
-- Protected the repository-wide container CVE repair independently in PR #361.
+- Ran the protected RC28 Azure correctness objective after all canonical preflights passed.
+- Classified Snowflake error 904 as a deterministic portable-identifier application defect.
+- Preserved the failed execution; automatic retry and the success-conditional replay did not run.
+- Removed all active Azure, Snowflake, PostgreSQL, and disposable credential resources.
+- Protected the focused identifier fix in PR #360 as main `a2b72f8`; exact-main CI passed.
 
 ## Try It
 
-Run `uv run pytest -q tests/transform/test_dialects.py
-tests/providers/test_snowflake_warehouse_runtime.py`.
+Review the sanitized attempt record and protected fix. Do not rerun RC28; prepare and publish a
+replacement candidate from exact protected main.
 
 ## Checks
 
-- Focused transform and Snowflake provider tests passed.
-- Ruff lint/format, canonical strict typing, and Control contract drift passed.
-- Full pytest passed with 34 skips and one third-party deprecation warning.
+- Protected objective exact-main CI passed all five jobs in run `31981210288`.
+- Canonical Azure/Snowflake/PostgreSQL preflight passed before the one manual execution.
+- Exact cleanup inventory passed; no kind cluster exists and only the inactive Key Vault tombstone
+  remains.
+- Azure ActualCost returned no posted rows; the USD 2 conservative bound remains held.
+- JSON, whitespace, Ruff, strict typing, contract drift, and full pytest checks passed.
 - Container repair exact-main CI run `31986274883` passed all five jobs.
+- Snowflake correction exact-main CI run `31987252875` passed all five jobs.
 
 ## Decisions
 
-- Quote only a cloned AST for Snowflake so the same validated query remains reusable by other
-  dialect renderers.
-- Keep RC28 immutable and automatic retries disabled; no live provider work belongs in this PR.
-- Preserve unaffected accepted evidence and rerun only Azure correctness on a protected replacement
-  candidate.
+- Treat the failure as deterministic application behavior, not provider, setup, credential, or
+  operator-tooling failure.
+- Keep RC28 immutable and automatic retries disabled; publish a protected replacement candidate.
+- Preserve unaffected accepted evidence and rerun only the Azure correctness lane.
 
 ## Remaining
 
-- Complete protected review and merge this focused implementation.
-- Pass exact-main CI before publishing the replacement immutable candidate.
-- Run one bounded Azure correctness candidate and success-conditional replay under the remaining
-  combined authorization, then clean up and reconcile cost.
-- Complete the remaining Phase 8 provider, scale, soak, audit, and closure gates.
+- Complete protected review and merge this focused attempt record.
+- Publish the replacement candidate and rerun only Azure correctness within the remaining cap.
+- Complete provider scale/cost, pairwise, soak, audit, and closure gates.
 
 ## Review First
 
-- `src/dander/transform/dialects.py`
-- `tests/transform/test_dialects.py`
-- `tests/providers/test_snowflake_warehouse_runtime.py`
+- `docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`
+- `tickets/DANDER-214-snowflake-portable-identifiers.md`
+- `docs/cloud-portability-phase8-qualification.md`

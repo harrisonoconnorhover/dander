@@ -1429,6 +1429,20 @@ a new disposable namespace, requires the narrow Snowflake staging grant and corr
 preflight, and allows one manual run plus one success-conditional replay. It must merge and pass
 exact-main CI before mutation. See
 `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-retry-objectives.json`.
+PR #358 merged that retry objective as protected main `c4ad281`; exact-main run `31981210288`
+passed all five jobs. The disposable profile then passed PostgreSQL TLS, corrected Snowflake grant,
+exact-image, secret-binding, zero-retry, and canonical preflight checks. One manual RC28 execution
+reached Python and Snowflake but failed non-retryably before publication because the portable
+Snowflake renderer emitted logical columns and aliases unquoted while Dander's canonical source
+columns are quoted lowercase. Snowflake resolved `id` as uppercase `ID` and returned error 904.
+Automatic retry remained off and replay remained success-conditional. Exact cleanup removed all
+active Azure and named Snowflake objects; a transient subnet dependency required one exact
+two-resource recovery plan after Azure completed its scheduled environment deletion. ActualCost
+still has no posted row, so the full USD 2 bound remains reserved. PR #360 merged DANDER-214 as
+protected main `a2b72f8`; exact-main run `31987252875` passed all five jobs. RC28 is immutable and
+must not rerun. A replacement candidate and only the materially affected Azure correctness lane
+follow. See
+`docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
