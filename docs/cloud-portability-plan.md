@@ -1507,6 +1507,15 @@ aggregation, incremental merge, generic tests, fencing,
 exact readback, and cleanup. Its USD 0.50 ceiling leaves USD 1.75 unreserved; protected objective
 merge and required exact-main CI precede any owned Snowflake resource. No earlier provider or
 benchmark-class result transfers.
+PR #378 merged that objective as protected main `bb06aa8`; exact-main run `32059122714` passed all
+five jobs before mutation. Two interactive-auth preflights consumed no candidate attempt; the only
+owned object was the minimum runtime role, removed and verified absent inside 47.812 seconds. One
+exact-RC29 candidate then completed the 100,000-fact/100-dimension transform shape in 98.301
+seconds with zero retries, passed scan, join, aggregation, incremental merge, generic tests, and
+cleanup, and left zero staging or named provider resources inside 125.769 seconds. Snowflake cost
+stays `not_evaluated` under the held USD 0.50 bound, leaving USD 1.75 unreserved. This closes
+functional Snowflake transform only; failure behavior follows separately from fresh protected
+main. See `docs/evidence/phase8/2026-08-17/snowflake-rc29-transform-execution.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

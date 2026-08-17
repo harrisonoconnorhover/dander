@@ -14,7 +14,7 @@ Phase 7 evidence merge.
 | Kubernetes portable | Exact private RC27 passed the named local kind profile and one hosted GKE bounded-memory audit, including its posted USD 0.05 provider cost; the accepted lifecycle evidence remains current | Other hosted-provider scale/cost, remaining launcher classes, and soak remain open |
 | Azure canonical | Exact private RC29 passed fresh Container Apps/Snowflake/PostgreSQL/Key-Vault correctness and replay with zero retries and cleanup inside 120 minutes; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, provider-posted cost, pairwise, and soak remain open |
 | OCI canonical | Public `0.9.0rc17` passed the complete PostgreSQL/OCI-Vault lifecycle on one digest | Exact-candidate scale, cost, pairwise, and soak remain open |
-| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC27 passed local PostgreSQL classes plus the hosted GKE bounded-memory audit, and exact RC29 passed Snowflake bulk, incremental, and concurrency functionally with cost pending | Applicable final-candidate reruns, remaining exact-candidate BigQuery, Snowflake, and Redshift scale classes, provider-posted cost, pairwise, and soak remain open |
+| Warehouses | BigQuery, PostgreSQL, Snowflake, and Redshift produced equal normalized common-scalar rows; exact RC27 passed local PostgreSQL classes plus the hosted GKE bounded-memory audit, and exact RC29 passed Snowflake bulk, incremental, concurrency, and transform functionally with cost pending | Applicable final-candidate reruns, remaining exact-candidate BigQuery, Snowflake, and Redshift scale classes, provider-posted cost, pairwise, and soak remain open |
 | Audits | Exact RC22 passed protected CI and its historical final-candidate repeat; private RC24 publication evidence merged in PR #299 and exact-main CI run `31884123337` passed all five jobs | RC24's final-candidate repeat remains open |
 
 ## Open gates and dependency order
@@ -784,6 +784,24 @@ ceiling, leaving USD 1.75 unreserved. Interactive auth precedes owned resources,
 stays disabled, and cleanup starts by minute 30 and completes by minute 60. Protected objective
 merge and required exact-main CI must pass before mutation; no prior provider or benchmark-class
 result transfers.
+
+PR #378 merged that objective as protected main `bb06aa8`; exact-main run `32059122714` passed all
+five jobs before mutation. Two bounded interactive OAuth preflights never reached the candidate and
+consumed no candidate attempt. The first created only the minimum runtime role, then removed it and
+verified all approved names absent inside 47.812 seconds; the second timed out before any owned
+resource existed. One exact-RC29 candidate then scanned 100,000 facts, joined 100 dimensions,
+aggregated ten categories, applied the two-row incremental merge, and passed 21 generic and exact
+assertions. It completed 100,001 result rows in 98.301 seconds at 1,017.294 rows/second with zero
+retries, five COPY operations, four models, and zero staging residue. Cleanup started 123.425
+seconds after the first role and verified zero database, warehouse, role, container, or provider
+process by 125.769 seconds. All six non-cost objectives passed. Provider metering remains pending,
+so the normalized report and cost objective stay `not_evaluated`; the full USD 0.50 bound remains
+held, leaving USD 1.75 unreserved. This closes functional Snowflake transform only, not provider
+cost, failure behavior, remaining classes/providers, pairwise, soak, support, release, or Phase 8.
+See `docs/evidence/phase8/2026-08-17/snowflake-rc29-transform-execution.json`.
+
+The next dependency-ordered Snowflake class is failure behavior and must begin from a fresh
+protected-main branch with its own objective.
 
 ## Current exit recommendation
 
