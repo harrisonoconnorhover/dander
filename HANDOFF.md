@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Protected the RC29 Azure objective in PR #364 and exact-main run `31991302574`.
-- Ran one manual RC29 candidate and one success-conditional replay; both exited zero without retry.
-- Matched the approved normalized Snowflake hash with three distinct raw and model rows after replay.
-- Removed all active named Snowflake and Azure resources plus disposable local credentials/artifacts.
-- Classified the 431-minute resource lifetime against the 120-minute limit as an orchestration failure.
+- Protected the failed-lifetime RC29 result in PR #365 as main `4c0d042`.
+- Kept immutable RC29 and its exact digest unchanged for one procedural rerun.
+- Bound a fresh `r29c` Azure, PostgreSQL, and Snowflake namespace.
+- Required Snowflake auth before Azure, cleanup start by minute 75, and immediate blocker teardown.
+- Reserved a new USD 2 bound, leaving USD 3.75 unreserved under the additional ceiling.
 
 ## Try It
 
-Inspect `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`.
+Inspect and hash `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`.
 
 ## Checks
 
-- Objective exact-main CI run `31991302574` passed all five jobs before provider mutation.
-- Manual and replay executions passed with zero candidate retries and exact readback.
-- Snowflake database, warehouse, and role are absent; Azure active owned inventory is empty.
-- Evidence JSON/diff checks pass; Terraform states and disposable local credential/artifact checks are empty.
-- ActualCost posted USD 0.0024353794; delayed attribution keeps the USD 2 bound held.
+- Prior result PR #365 passed all five protected jobs before merge.
+- Objective JSON parses and its canonical configuration hash matches the recorded SHA-256.
+- Fresh ACR, storage-account, Key Vault, PostgreSQL, and resource-group names are available.
+- A signed-in Snowflake worksheet is visible; execution must reverify it immediately before mutation.
+- Git diff and handoff-format checks pass.
 
 ## Decisions
 
-- Fail qualification because the fixed maximum resource lifetime did not pass.
-- Preserve RC29 as immutable and require a fresh objective, not a replacement candidate.
-- Front-load interactive readiness and reserve deletion margin before the next mutation window.
+- Do not rebuild, republish, or change RC29.
+- Finish interactive Snowflake authorization before any Azure provisioning.
+- Tear down immediately if an interactive blocker appears after the resource clock starts.
 
 ## Remaining
 
-- Protect this sanitized result through focused review, merge, and exact-main CI.
-- Bind a fresh RC29 retry objective to a new disposable namespace and cleanup deadline.
-- Rerun only Azure canonical correctness within the remaining additional-spend ceiling.
-- Reconcile delayed provider cost without treating partial posting as a cost pass.
+- Protect this objective through focused review, merge, and exact-main CI.
+- Reverify Snowflake account/user and obtain the scoped runtime token before Azure.
+- Run one manual RC29 execution and its success-conditional replay.
+- Start cleanup by minute 75 and prove the 120-minute lifetime plus exact inventories.
 - Complete remaining Phase 8 provider, scale, pairwise, soak, audit, and closure gates.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`
-- `tickets/DANDER-218-record-rc29-azure-correctness-attempt.md`
+- `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`
+- `tickets/DANDER-219-bind-rc29-azure-lifetime-retry.md`
 - `docs/cloud-portability-phase8-qualification.md`

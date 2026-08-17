@@ -111,6 +111,18 @@ started. It does not rewrite or invalidate their attempt ledgers, transfer resul
 candidate, or require unaffected accepted evidence to rerun. RC27 predates the command; a later
 candidate and only materially affected qualification lanes will consume it.
 
+## Interactive preflight and resource lifetime
+
+Every user-interactive provider session and account-selection check must pass before the first
+owned disposable resource starts the objective's lifetime clock. If role-scoped authorization
+requires named setup, create only that minimum setup, obtain the authorization, and do not begin
+the remaining paid infrastructure until it is available.
+
+After the lifetime clock starts, an interactive-user blocker ends the attempt: preserve the
+preflight state, start exact cleanup, and record the failure. Do not leave paid disposable
+infrastructure running while waiting for input. Every such objective must set a cleanup-start
+deadline early enough to leave explicit provider-deletion margin inside its maximum lifetime.
+
 ## Azure immutable runtime profile projection
 
 Azure qualification planning projects the exact selected deployment into the source-free image
@@ -203,6 +215,15 @@ defect, but no result transfers: a fresh objective must front-load interactive r
 an earlier cleanup deadline. ActualCost has posted USD 0.0024353794 for August 17, but delayed
 attribution keeps cost `not_evaluated` and the USD 2 conservative bound held. See
 `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`.
+
+A fresh RC29 lifetime retry objective now binds the unchanged digest to new `r29c` Azure,
+PostgreSQL, and Snowflake names. It verifies Snowflake's interactive session before the first owned
+object, obtains the runtime-role token before Azure provisioning, and starts cleanup by minute 75
+to preserve 45 minutes of deletion margin inside the unchanged 120-minute maximum. Any later
+interactive blocker aborts the attempt and starts exact cleanup immediately. The new USD 2 bound
+leaves USD 3.75 unreserved. This is an unprotected objective proposal only; no owned provider
+resource may be created before protected review, merge, and exact-main CI. See
+`docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is

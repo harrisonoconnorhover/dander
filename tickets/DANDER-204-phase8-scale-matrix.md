@@ -138,3 +138,8 @@ scale report.
   still failed because the disposable resource group lived about 431 minutes against the committed
   120-minute maximum. RC29 needs a fresh orchestration-corrected objective, not a new candidate;
   provider cost remains pending under the held USD 2 bound.
+- The fresh RC29 lifetime retry objective uses new `r29c` provider names and the same immutable
+  digest. It requires Snowflake interactive verification before the resource clock, the scoped
+  token before Azure provisioning, cleanup start by minute 75, and immediate teardown on any later
+  interactive blocker. Its new USD 2 bound leaves USD 3.75 unreserved; protected merge and
+  exact-main CI precede any owned provider resource.

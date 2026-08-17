@@ -1953,3 +1953,12 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Evidence rule:** This is a focused candidate correction, not live proof. AWS qualification still
   requires a replacement immutable candidate and fresh protected objective; RC26 results do not
   transfer.
+
+## 2026-08-17 — Interactive qualification gates precede disposable resources
+
+- **Readiness:** Verify every user-interactive provider session and account selection before the
+  first owned disposable resource starts the qualification lifetime clock.
+- **Blockers:** Once the clock starts, an interactive-user blocker ends the attempt and triggers
+  exact cleanup; paid disposable infrastructure never waits for user input.
+- **Deletion margin:** Each objective sets a cleanup-start deadline that leaves explicit
+  provider-deletion margin inside its maximum resource lifetime.
