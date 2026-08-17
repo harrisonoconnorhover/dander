@@ -168,6 +168,22 @@ failure results do not transfer. No mutation may begin until this objective pass
 and exact-main CI; see
 `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-retry-objectives.json`.
 
+PR #358 merged the retry objective as protected main `c4ad281`; exact-main run `31981210288`
+passed all five jobs before mutation. The new namespace passed PostgreSQL TLS, narrow Snowflake
+grant, exact-image, secret-binding, zero-retry, and canonical preflight checks. Its one manual RC28
+execution reached Python and Snowflake, then failed non-retryably with Snowflake error 904 before
+any row write. Source metadata proves quoted lowercase `id` and `title` exist while uppercase `ID`
+does not: RC28 renders portable logical columns and aliases unquoted, so Snowflake uppercases them.
+This is a deterministic application defect, not a provider, credential, setup, or operator-tooling
+failure. Automatic retry stayed disabled and the success-conditional replay did not run. Exact
+cleanup removed all 19 active Azure resources and the named Snowflake objects; one subnet deletion
+waited for Azure's scheduled environment deletion, then the exact two-resource recovery plan
+finished. Only the expected inactive Key Vault tombstone remains. ActualCost still has no posted
+row, so the full USD 2 conservative bound remains held and cost is `not_evaluated`. PR #360 merged
+the focused correction as protected main `a2b72f8`; exact-main run `31987252875` passed all five
+jobs. RC28 must not rerun; a replacement immutable candidate is next. See
+`docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`.
+
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
 `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; its packaged GCP
@@ -344,7 +360,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 | `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
 | `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | exact RC27 manual/replay correctness and exact cleanup passed; provider cost, scale, soak, and support remain open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | local lifecycle accepted; Phase 8 live proof open |
-| `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | RC28 manual failed closed; setup/preflight rail corrected; replacement objective open |
+| `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | RC28 retry exposed a deterministic portable-identifier defect after preflight passed; replacement candidate required |
 | `oci_native` | OCI Container Instances | PostgreSQL | PostgreSQL | none | OCI Vault | lifecycle accepted; Phase 8 open |
 | `fargate_gcp` | Fargate | BigQuery | BigQuery | Dataplex | GCP Secret Manager | lifecycle accepted; Phase 8 open |
 | `azure_gcp` | Azure Container Apps Jobs | BigQuery | BigQuery | Dataplex | GCP Secret Manager | identity/lifecycle accepted; Phase 8 open |

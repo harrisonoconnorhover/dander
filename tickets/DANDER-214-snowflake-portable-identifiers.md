@@ -1,7 +1,7 @@
 ---
 id: DANDER-214
 title: Preserve portable identifiers in Snowflake rendering
-status: in-review
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: [DANDER-212, DANDER-213]
@@ -21,8 +21,8 @@ uppercased those references and rejected the lowercase source column before publ
   authored provider-neutral subset or the other warehouse dialects.
 - [x] Focused tests cover lowercase source columns, aliases, qualified columns, joins, and CTEs.
 - [x] Existing transform, strict typing, lint, contract-drift, and proportionate full checks pass.
-- [ ] Protected review and exact-main CI pass before publishing a replacement immutable candidate.
-- [ ] Accepted unaffected evidence remains valid; only the materially affected Azure correctness
+- [x] Protected review and exact-main CI pass before publishing a replacement immutable candidate.
+- [x] Accepted unaffected evidence remains valid; only the materially affected Azure correctness
   lane reruns on the replacement candidate.
 
 ## Design
@@ -42,3 +42,6 @@ provider operation to the correction PR.
   BigQuery, Redshift, and PostgreSQL rendering.
 
 ## Review Log
+
+- 2026-08-17 — PASS: PR #360 merged as protected main `a2b72f8`; exact-main CI run
+  `31987252875` passed all five jobs with no unresolved review thread.

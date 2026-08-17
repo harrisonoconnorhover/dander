@@ -125,3 +125,10 @@ scale report.
   baseline, and requires the corrected Snowflake staging-authority preflight before its one manual
   run and success-conditional replay. It does not transfer the failed attempt or qualify Azure
   scale/pairwise classes.
+- PR #358 merged that retry objective as protected main `c4ad281`; exact-main run `31981210288`
+  passed before mutation. All provider and canonical preflights passed, but the one manual RC28 run
+  failed deterministically before publication because Snowflake uppercased unquoted portable
+  logical identifiers against Dander's quoted lowercase source columns. Replay and automatic retry
+  did not run. Exact cleanup passed and provider cost remains pending under the full USD 2 bound.
+  PR #360 protected DANDER-214 at main `a2b72f8`; exact-main run `31987252875` passed all five
+  jobs, so a replacement candidate now precedes the materially affected Azure rerun.

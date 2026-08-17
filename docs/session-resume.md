@@ -37,6 +37,19 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- PR #358 merged the second RC28 Azure correctness objective as protected main `c4ad281`;
+  exact-main run `31981210288` passed all five jobs before mutation. PostgreSQL TLS, narrow
+  Snowflake staging authority, exact-image, secret-binding, zero-retry, and canonical preflight
+  checks passed. The one manual execution reached Python and Snowflake but failed non-retryably
+  before publication because RC28 renders portable logical identifiers unquoted against Dander's
+  quoted lowercase Snowflake columns. Automatic retry stayed disabled and the success-conditional
+  replay did not run. Exact cleanup removed all active Azure and named Snowflake resources; only
+  the inactive purge-protected Key Vault tombstone remains. ActualCost has no posted row, so the
+  full USD 2 conservative bound remains held. PR #360 merged the focused fix as protected main
+  `a2b72f8`; exact-main run `31987252875` passed all five jobs. RC28 must not rerun, and only the
+  Azure correctness lane reruns on a replacement candidate. See
+  `docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`.
+
 - The operator granted a separate USD 10 additional-spend ceiling and directed Azure RC28
   qualification to resume. AWS Cost Explorer now passes with a posted baseline rounding to USD
   0.00; Azure ActualCost access passes with no rows, and the latest GCP observation predates the
