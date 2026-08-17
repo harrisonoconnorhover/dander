@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Protected private RC29 candidate evidence in PR #363 as main `5ed786d`.
-- Bound exact RC29 and digest `sha256:e016419f…aad54` to a fresh Azure correctness objective.
-- Fixed one manual run, one success-conditional replay, zero automatic retries, and exact cleanup.
-- Confirmed fresh Azure global names and recorded the current USD 0.0052728924 ActualCost row.
-- Reserved a new USD 2 conservative bound without starting a provider mutation.
+- Protected the RC29 Azure objective in PR #364 and exact-main run `31991302574`.
+- Ran one manual RC29 candidate and one success-conditional replay; both exited zero without retry.
+- Matched the approved normalized Snowflake hash with three distinct raw and model rows after replay.
+- Removed all active named Snowflake and Azure resources plus disposable local credentials/artifacts.
+- Classified the 431-minute resource lifetime against the 120-minute limit as an orchestration failure.
 
 ## Try It
 
-Inspect and hash `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-objectives.json`.
+Inspect `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`.
 
 ## Checks
 
-- Candidate evidence PR #363 passed all five protected jobs before merge.
-- RC29 publication exact-main CI run `31988620430` passed all five jobs before publication.
-- Objective JSON parses and its canonical configuration hash matches the recorded SHA-256.
-- New ACR, storage-account, Key Vault, and PostgreSQL names are available; the resource group is absent.
-- Azure cost access passes; delayed posting keeps conservative bounds in force.
+- Objective exact-main CI run `31991302574` passed all five jobs before provider mutation.
+- Manual and replay executions passed with zero candidate retries and exact readback.
+- Snowflake database, warehouse, and role are absent; Azure active owned inventory is empty.
+- Evidence JSON/diff checks pass; Terraform states and disposable local credential/artifact checks are empty.
+- ActualCost posted USD 0.0024353794; delayed attribution keeps the USD 2 bound held.
 
 ## Decisions
 
-- Use a new RC29 namespace; do not reuse RC28's destroyed data plane or rerun RC28.
-- Hold prior USD 2, candidate USD 0.25, and new USD 2 bounds, leaving USD 5.75 unreserved.
-- Allow one manual RC29 run and only its success-conditional replay; keep automatic retries off.
+- Fail qualification because the fixed maximum resource lifetime did not pass.
+- Preserve RC29 as immutable and require a fresh objective, not a replacement candidate.
+- Front-load interactive readiness and reserve deletion margin before the next mutation window.
 
 ## Remaining
 
-- Finish candidate-evidence exact-main CI independently.
-- Protect this RC29 objective through focused review, merge, and exact-main CI.
-- Recheck private coordinates, billing, credentials, and exact image before mutation.
-- Run one manual candidate and only its success-conditional replay, then clean up exactly.
+- Protect this sanitized result through focused review, merge, and exact-main CI.
+- Bind a fresh RC29 retry objective to a new disposable namespace and cleanup deadline.
+- Rerun only Azure canonical correctness within the remaining additional-spend ceiling.
+- Reconcile delayed provider cost without treating partial posting as a cost pass.
 - Complete remaining Phase 8 provider, scale, pairwise, soak, audit, and closure gates.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-objectives.json`
-- `tickets/DANDER-217-bind-rc29-azure-canonical-correctness.md`
+- `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`
+- `tickets/DANDER-218-record-rc29-azure-correctness-attempt.md`
 - `docs/cloud-portability-phase8-qualification.md`

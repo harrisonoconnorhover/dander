@@ -1,7 +1,7 @@
 ---
 id: DANDER-217
 title: Bind the RC29 Azure canonical correctness objective
-status: in_progress
+status: done
 component: infrastructure
 epic: cloud-portability-phase-8
 depends_on: [DANDER-214, DANDER-216]
@@ -23,7 +23,7 @@ the materially affected Azure correctness lane may rerun.
   lifetime, exact cleanup, and a USD 2 ceiling are fixed before mutation.
 - [x] Private coordinates must match committed hashes in a read-only preflight, while secret values
   remain outside Git and prior failed evidence remains unchanged.
-- [ ] Protected review and exact-main CI pass before any Azure, Snowflake, or PostgreSQL mutation.
+- [x] Protected review and exact-main CI pass before any Azure, Snowflake, or PostgreSQL mutation.
 
 ## Design
 
@@ -45,3 +45,5 @@ manual success. Automatic retries remain disabled.
   leaving USD 5.75 unreserved under the additional aggregate ceiling.
 - This branch performs no provider mutation. Exact RC29 publication evidence is protected at
   `5ed786d`; its exact-main CI and this objective's protected gates must pass before mutation.
+- PR #364 merged the objective as protected main `46199fe`; exact-main run `31991302574` passed all
+  five jobs before mutation. The resulting attempt is recorded separately under DANDER-218.
