@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exact-candidate Snowflake bulk, incremental, and concurrency qualification."""
+"""Exact-candidate Snowflake bulk, incremental, concurrency, and transform qualification."""
 
 from __future__ import annotations
 
@@ -16,12 +16,14 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, cast
 
 from dander import __version__
 from dander.concurrency import FencingToken, TargetFenceLostError
 from dander.providers import ProviderKind, default_provider_registry
 from dander.providers.snowflake.session import execute, open_connection
+from dander.providers.snowflake.transform import SnowflakeTransformRunner
 from dander.providers.snowflake.writer import SnowflakeStagedWriter
 from dander.qualification import (
     ApprovedCostCeiling,
@@ -54,9 +56,11 @@ _APPROVAL_SCHEMA = "io.dander.qualification.objective-approval/v1"
 _CONFIG_SCHEMA = "io.dander.phase8.snowflake-bulk/v1"
 _INCREMENTAL_CONFIG_SCHEMA = "io.dander.phase8.snowflake-incremental/v1"
 _CONCURRENCY_CONFIG_SCHEMA = "io.dander.phase8.snowflake-concurrency/v1"
+_TRANSFORM_CONFIG_SCHEMA = "io.dander.phase8.snowflake-transform/v1"
 _AUTHORITY_ID = "snowflake:phase8-bulk"
 _INCREMENTAL_AUTHORITY_ID = "snowflake:phase8-incremental"
 _CONCURRENCY_AUTHORITY_ID = "snowflake:phase8-concurrency"
+_TRANSFORM_AUTHORITY_ID = "snowflake:phase8-transform"
 _OBJECTIVES = (
     "cleanup",
     "cost_ceiling",
@@ -81,10 +85,20 @@ _CONCURRENCY_OBJECTIVES = (
     "stale_fence_rejection",
     "throughput_measurement",
 )
+_TRANSFORM_OBJECTIVES = (
+    "aggregation_exact",
+    "cleanup",
+    "cost_ceiling",
+    "generic_tests",
+    "incremental_merge",
+    "join_exact",
+    "scan_exact",
+)
 _OBJECTIVES_BY_CLASS = {
     BenchmarkClass.BULK_THROUGHPUT: _OBJECTIVES,
     BenchmarkClass.INCREMENTAL: _INCREMENTAL_OBJECTIVES,
     BenchmarkClass.CONCURRENT_PIPELINES: _CONCURRENCY_OBJECTIVES,
+    BenchmarkClass.TRANSFORM: _TRANSFORM_OBJECTIVES,
 }
 
 
@@ -98,6 +112,10 @@ class SnowflakeIncrementalQualificationError(SnowflakeBulkQualificationError):
 
 class SnowflakeConcurrencyQualificationError(SnowflakeBulkQualificationError):
     """Raised with a sanitized Snowflake concurrency-qualification summary."""
+
+
+class SnowflakeTransformQualificationError(SnowflakeBulkQualificationError):
+    """Raised with a sanitized Snowflake transform-qualification summary."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,7 +310,75 @@ class SnowflakeConcurrencyConfig:
         return hashlib.sha256(encoded).hexdigest()
 
 
-SnowflakeScaleConfig = SnowflakeBulkConfig | SnowflakeIncrementalConfig | SnowflakeConcurrencyConfig
+@dataclass(frozen=True, slots=True)
+class SnowflakeTransformConfig:
+    """Non-secret provider coordinates and bounded transform workload."""
+
+    account: str
+    user: str
+    database: str
+    warehouse: str
+    role: str | None = None
+    auth_method: str = "oauth"
+    token_env: str = "DANDER_SNOWFLAKE_OAUTH_TOKEN"
+    private_key_file_env: str = "DANDER_SNOWFLAKE_PRIVATE_KEY_FILE"
+    private_key_password_env: str | None = None
+    fact_rows: int = 100_000
+    dimension_rows: int = 100
+    copy_part_rows: int = 50_000
+    copy_part_logical_bytes: int = 16 * 1_024 * 1_024
+
+    def __post_init__(self) -> None:
+        if self.auth_method not in {"key_pair", "oauth"}:
+            raise ValueError("auth_method must be key_pair or oauth")
+        for name in (
+            "fact_rows",
+            "dimension_rows",
+            "copy_part_rows",
+            "copy_part_logical_bytes",
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        if self.fact_rows < self.dimension_rows:
+            raise ValueError("fact_rows must not be smaller than dimension_rows")
+        if self.copy_part_rows > self.fact_rows:
+            raise ValueError("copy_part_rows must not exceed fact_rows")
+        default_provider_registry().parse(
+            ProviderKind.WAREHOUSE,
+            _provider_values(self, schema_name="DANDER_PHASE8_TRANSFORM_CHECK"),
+        )
+
+    def workload_payload(self) -> dict[str, object]:
+        """Return the exact approval-bound transform workload."""
+        return {
+            "schema": _TRANSFORM_CONFIG_SCHEMA,
+            "benchmark_class": BenchmarkClass.TRANSFORM.value,
+            "fact_rows": self.fact_rows,
+            "dimension_rows": self.dimension_rows,
+            "delta_rows": 2,
+            "models": ["scan", "join", "aggregation", "incremental"],
+            "generic_tests": ["accepted_values", "not_null", "unique"],
+            "copy_part_rows": self.copy_part_rows,
+            "copy_part_logical_bytes": self.copy_part_logical_bytes,
+        }
+
+    def configuration_sha256(self) -> str:
+        """Hash the canonical workload used by objective approval."""
+        encoded = json.dumps(
+            self.workload_payload(),
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        return hashlib.sha256(encoded).hexdigest()
+
+
+SnowflakeScaleConfig = (
+    SnowflakeBulkConfig
+    | SnowflakeIncrementalConfig
+    | SnowflakeConcurrencyConfig
+    | SnowflakeTransformConfig
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,6 +454,35 @@ class _ConcurrencyResult:
     logical_input_bytes: int
     concurrent_claim_attempts: int
     stale_publications_rejected: int
+    copy_operations: int
+    query_ids: tuple[str, ...]
+    staging_tables: int
+    staging_stages: int
+    cleanup_verified: bool
+
+
+@dataclass(slots=True)
+class _Ownership:
+    fence: FencingToken
+    verifications: int = 0
+
+    def verify(self) -> None:
+        """Record each ownership guard verification made by the transform runner."""
+        self.verifications += 1
+
+
+@dataclass(frozen=True, slots=True)
+class _TransformResult:
+    duration_ms: int
+    peak_rss_bytes: int
+    load_duration_ms: int
+    transform_duration_ms: int
+    input_rows: int
+    logical_input_bytes: int
+    output_rows: int
+    model_count: int
+    assertion_count: int
+    ownership_verifications: int
     copy_operations: int
     query_ids: tuple[str, ...]
     staging_tables: int
@@ -776,6 +891,167 @@ def run_phase8_snowflake_concurrency(
     )
 
 
+def run_phase8_snowflake_transform(
+    config: SnowflakeTransformConfig,
+    *,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    provider_cost_usd: Decimal | None,
+) -> QualificationReport:
+    """Run scan, join, aggregation, incremental, and generic-test models."""
+    if __version__ != identity.release_version:
+        raise ValueError(
+            f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
+        )
+    _require_identity_match(identity, approval)
+    _require_provider_match(config, approval)
+    suffix = uuid.uuid4().hex[:12].upper()
+    source_schema = f"DANDER_P8_TRANSFORM_SOURCE_{suffix}"
+    target_schema = f"DANDER_P8_TRANSFORM_TARGET_{suffix}"
+    runtime = _warehouse_runtime(config, schema_name=source_schema)
+    started = time.perf_counter()
+    peak_before = _peak_rss_bytes()
+    try:
+        load_started = time.perf_counter()
+        seed_operations = _seed_transform_sources(
+            runtime,
+            source_schema=source_schema,
+            config=config,
+        )
+        load_duration_ms = _elapsed_ms(load_started)
+        runner = runtime.transforms.build_transform_runner(
+            graph_plan=None,
+            build_models=True,
+            raw_namespace=source_schema,
+        )
+        if not isinstance(runner, SnowflakeTransformRunner):
+            raise SnowflakeTransformQualificationError(
+                "Snowflake transform qualification did not select its native runner"
+            )
+    except SnowflakeBulkQualificationError:
+        _drop_schema(runtime, config.database, target_schema)
+        _drop_schema(runtime, config.database, source_schema)
+        raise
+    except Exception as error:
+        _drop_schema(runtime, config.database, target_schema)
+        _drop_schema(runtime, config.database, source_schema)
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform qualification could not initialize its disposable schemas"
+        ) from error
+
+    first_ownership = _transform_ownership(config.database, run_id="transform-one", token=1)
+    second_ownership = _transform_ownership(config.database, run_id="transform-two", token=2)
+    transform_started = time.perf_counter()
+    try:
+        with TemporaryDirectory(prefix="dander-phase8-snowflake-transform-") as temporary:
+            models = Path(temporary)
+            _write_transform_models(models, target_schema=target_schema)
+            initial = runner.build(
+                models,
+                selected=("aggregate_records", "incremental_records"),
+                ownership=first_ownership,
+            )
+            initial_query_ids = _require_transform_initial(
+                runtime,
+                target_schema=target_schema,
+                config=config,
+            )
+            mutation_query_ids = _mutate_transform_sources(
+                runtime,
+                source_schema=source_schema,
+                config=config,
+            )
+            replay = runner.build(
+                models,
+                selected=("incremental_records",),
+                ownership=second_ownership,
+            )
+            incremental_query_ids = _require_transform_incremental(
+                runtime,
+                database=config.database,
+                target_schema=target_schema,
+                expected_rows=config.fact_rows + 1,
+            )
+            tested = runner.test(
+                models,
+                selected=("aggregate_records", "incremental_records"),
+            )
+            assertion_count = initial.assertions + replay.assertions + tested.assertions
+            model_count = len(initial.models)
+        transform_duration_ms = _elapsed_ms(transform_started)
+        source_tables, source_stages = _staging_residue(
+            runtime,
+            config.database,
+            source_schema,
+        )
+        target_tables, target_stages = _staging_residue(
+            runtime,
+            config.database,
+            target_schema,
+        )
+        staging_tables = source_tables + target_tables
+        staging_stages = source_stages + target_stages
+        if staging_tables or staging_stages:
+            raise SnowflakeTransformQualificationError(
+                "Snowflake transform qualification left run-scoped staging objects"
+            )
+    except SnowflakeBulkQualificationError:
+        raise
+    except Exception as error:
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform qualification failed in its disposable schemas"
+        ) from error
+    finally:
+        _drop_schema(runtime, config.database, target_schema)
+        _drop_schema(runtime, config.database, source_schema)
+    cleanup = not _schema_exists(
+        runtime,
+        config.database,
+        target_schema,
+    ) and not _schema_exists(runtime, config.database, source_schema)
+    if not cleanup:
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform qualification left a disposable schema"
+        )
+    transform_operations = (*initial.telemetry, *replay.telemetry, *tested.telemetry)
+    operation_query_ids = _operation_query_ids((*seed_operations, *transform_operations))
+    query_ids = tuple(
+        dict.fromkeys(
+            (
+                *operation_query_ids,
+                *initial_query_ids,
+                *mutation_query_ids,
+                *incremental_query_ids,
+            )
+        )
+    )[:100]
+    input_rows = config.fact_rows + config.dimension_rows
+    result = _TransformResult(
+        duration_ms=_elapsed_ms(started),
+        peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
+        load_duration_ms=load_duration_ms,
+        transform_duration_ms=transform_duration_ms,
+        input_rows=input_rows,
+        logical_input_bytes=(config.fact_rows * 32) + (config.dimension_rows * 24),
+        output_rows=config.fact_rows + 1,
+        model_count=model_count,
+        assertion_count=assertion_count,
+        ownership_verifications=(first_ownership.verifications + second_ownership.verifications),
+        copy_operations=len(seed_operations),
+        query_ids=query_ids,
+        staging_tables=staging_tables,
+        staging_stages=staging_stages,
+        cleanup_verified=cleanup,
+    )
+    return _transform_report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
+
+
 def _require_identity_match(identity: CandidateIdentity, approval: _Approval) -> None:
     objectives = approval.objectives
     if (
@@ -943,6 +1219,309 @@ def _write_concurrent_targets(
     return tuple(operations)
 
 
+def _transform_ownership(database: str, *, run_id: str, token: int) -> _Ownership:
+    return _Ownership(
+        FencingToken(
+            lease_table=None,
+            pipeline_id="phase8_snowflake_transform",
+            run_id=run_id,
+            token=token,
+            authority_id=f"{_TRANSFORM_AUTHORITY_ID}:{database}",
+        )
+    )
+
+
+def _seed_transform_sources(
+    runtime: WarehouseRuntime,
+    *,
+    source_schema: str,
+    config: SnowflakeTransformConfig,
+) -> tuple[OperationTelemetry, ...]:
+    dimensions = _write_transform_source(
+        runtime,
+        config=config,
+        source_schema=source_schema,
+        table="dimensions",
+        pipeline_id="phase8_snowflake_transform_dimensions",
+        business_key=("dimension_id",),
+        fields=(
+            WriteField(name="dimension_id", data_type="INT64", mode="REQUIRED"),
+            WriteField(name="category", data_type="STRING", mode="REQUIRED"),
+        ),
+        records=_transform_dimension_records(config),
+        expected_rows=config.dimension_rows,
+    )
+    facts = _write_transform_source(
+        runtime,
+        config=config,
+        source_schema=source_schema,
+        table="facts",
+        pipeline_id="phase8_snowflake_transform_facts",
+        business_key=("id",),
+        fields=(
+            WriteField(name="id", data_type="INT64", mode="REQUIRED"),
+            WriteField(name="dimension_id", data_type="INT64", mode="REQUIRED"),
+            WriteField(name="amount", data_type="INT64", mode="REQUIRED"),
+            WriteField(name="updated_at", data_type="INT64", mode="REQUIRED"),
+        ),
+        records=_transform_fact_records(config),
+        expected_rows=config.fact_rows,
+    )
+    return (*dimensions, *facts)
+
+
+def _write_transform_source(
+    runtime: WarehouseRuntime,
+    *,
+    config: SnowflakeTransformConfig,
+    source_schema: str,
+    table: str,
+    pipeline_id: str,
+    business_key: tuple[str, ...],
+    fields: tuple[WriteField, ...],
+    records: Iterator[dict[str, object]],
+    expected_rows: int,
+) -> tuple[OperationTelemetry, ...]:
+    relation = RelationRef(catalog=config.database, namespace=source_schema, name=table)
+    publication = runtime.target_fence.claim(
+        relation,
+        FencingToken(
+            lease_table=None,
+            pipeline_id=pipeline_id,
+            run_id=f"{pipeline_id}-one",
+            token=1,
+            authority_id=_TRANSFORM_AUTHORITY_ID,
+        ),
+    )
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=config.copy_part_rows,
+        schema_evolution=SchemaEvolution.STRICT,
+    )
+    if not isinstance(writer, SnowflakeStagedWriter):
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform source seed did not select the staged writer"
+        )
+    target = WriteTarget(
+        relation=relation,
+        business_key=business_key,
+        schema=fields,
+        publication_fence=publication,
+    )
+    affected = writer.write(records, target)
+    operations = writer.drain_telemetry()
+    if not operations or any(
+        operation.transport is not WriteTransport.COPY for operation in operations
+    ):
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform source seed did not use COPY for the complete workload"
+        )
+    if affected != expected_rows:
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform source seed affected an unexpected row count"
+        )
+    return operations
+
+
+def _transform_dimension_records(
+    config: SnowflakeTransformConfig,
+) -> Iterator[dict[str, object]]:
+    for index in range(config.dimension_rows):
+        yield {"dimension_id": index, "category": f"category_{index % 10}"}
+
+
+def _transform_fact_records(
+    config: SnowflakeTransformConfig,
+) -> Iterator[dict[str, object]]:
+    for index in range(1, config.fact_rows + 1):
+        yield {
+            "id": index,
+            "dimension_id": index % config.dimension_rows,
+            "amount": index % 17,
+            "updated_at": 1,
+        }
+
+
+def _write_transform_models(root: Path, *, target_schema: str) -> None:
+    models = {
+        "scan_records": (
+            "SELECT id, dimension_id, amount, updated_at FROM {{ ref('raw_facts') }}",
+            "table",
+            (
+                ("id", "INT64"),
+                ("dimension_id", "INT64"),
+                ("amount", "INT64"),
+                ("updated_at", "INT64"),
+            ),
+            "  - column: id\n    not_null: true\n    unique: true\n",
+            "",
+        ),
+        "joined_records": (
+            "SELECT facts.id, dimensions.category, facts.amount, facts.updated_at "
+            "FROM {{ ref('scan_records') }} AS facts "
+            "JOIN {{ ref('raw_dimensions') }} AS dimensions "
+            "ON facts.dimension_id = dimensions.dimension_id",
+            "table",
+            (
+                ("id", "INT64"),
+                ("category", "STRING"),
+                ("amount", "INT64"),
+                ("updated_at", "INT64"),
+            ),
+            "  - column: category\n"
+            "    accepted_values: [category_0, category_1, category_2, category_3, "
+            "category_4, category_5, category_6, category_7, category_8, category_9]\n",
+            "",
+        ),
+        "aggregate_records": (
+            "SELECT category, SUM(amount) AS total_amount, COUNT(*) AS row_count "
+            "FROM {{ ref('joined_records') }} GROUP BY category",
+            "table",
+            (("category", "STRING"), ("total_amount", "INT64"), ("row_count", "INT64")),
+            "  - column: category\n    not_null: true\n    unique: true\n"
+            "  - column: row_count\n    not_null: true\n",
+            "",
+        ),
+        "incremental_records": (
+            "SELECT id, category, amount, updated_at FROM {{ ref('joined_records') }}",
+            "incremental",
+            (
+                ("id", "INT64"),
+                ("category", "STRING"),
+                ("amount", "INT64"),
+                ("updated_at", "INT64"),
+            ),
+            "  - column: id\n    not_null: true\n    unique: true\n",
+            "unique_key: [id]\nincremental_cursor: updated_at\n",
+        ),
+    }
+    for name, (query, materialization, columns, tests, incremental) in models.items():
+        (root / f"{name}.sql").write_text(query, encoding="utf-8")
+        column_yaml = "".join(
+            f"  - name: {column}\n    type: {data_type}\n    description: Phase 8 {column}.\n"
+            for column, data_type in columns
+        )
+        (root / f"{name}.yml").write_text(
+            f"model: {name}\n"
+            "description: Phase 8 Snowflake transform qualification.\n"
+            "owner: data-eng\n"
+            "dialect: portable\n"
+            f"materialization: {materialization}\n"
+            f"dataset: {target_schema}\n"
+            "source_system: phase8_fixture\n"
+            "sensitivity: public\n"
+            f"{incremental}"
+            f"columns:\n{column_yaml}"
+            f"tests:\n{tests}",
+            encoding="utf-8",
+        )
+
+
+def _mutate_transform_sources(
+    runtime: WarehouseRuntime,
+    *,
+    source_schema: str,
+    config: SnowflakeTransformConfig,
+) -> tuple[str, ...]:
+    with open_connection(_connection_factory(runtime)) as connection:
+        updated = execute(
+            connection,
+            f"UPDATE {_qualified(config.database, source_schema, 'facts')} "
+            'SET "amount" = 999, "updated_at" = 2 WHERE "id" = 1',
+        )
+        inserted = execute(
+            connection,
+            f"INSERT INTO {_qualified(config.database, source_schema, 'facts')} "
+            '("id", "dimension_id", "amount", "updated_at") VALUES (?, 1, 5, 2)',
+            (config.fact_rows + 1,),
+        )
+        connection.commit()
+    if updated.rowcount != 1 or inserted.rowcount != 1:
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform delta affected an unexpected row count"
+        )
+    return _statement_query_ids(updated.query_id, inserted.query_id)
+
+
+def _require_transform_initial(
+    runtime: WarehouseRuntime,
+    *,
+    target_schema: str,
+    config: SnowflakeTransformConfig,
+) -> tuple[str, ...]:
+    with open_connection(_connection_factory(runtime)) as connection:
+        scan = execute(
+            connection,
+            f"SELECT COUNT(*) FROM {_qualified(config.database, target_schema, 'scan_records')}",
+            fetch="one",
+        )
+        joined = execute(
+            connection,
+            'SELECT COUNT(*), COUNT(DISTINCT "category") FROM '
+            f"{_qualified(config.database, target_schema, 'joined_records')}",
+            fetch="one",
+        )
+        aggregate = execute(
+            connection,
+            'SELECT COUNT(*), SUM("row_count"), SUM("total_amount") FROM '
+            f"{_qualified(config.database, target_schema, 'aggregate_records')}",
+            fetch="one",
+        )
+        incremental = execute(
+            connection,
+            f"SELECT COUNT(*) FROM "
+            f"{_qualified(config.database, target_schema, 'incremental_records')}",
+            fetch="one",
+        )
+    expected_amount = sum(value % 17 for value in range(1, config.fact_rows + 1))
+    if _integer_row(scan.row, 1) != (config.fact_rows,):
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform scan produced unexpected rows"
+        )
+    if _integer_row(joined.row, 2) != (config.fact_rows, 10):
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform join produced unexpected rows"
+        )
+    if _integer_row(aggregate.row, 3) != (10, config.fact_rows, expected_amount):
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform aggregation produced unexpected rows"
+        )
+    if _integer_row(incremental.row, 1) != (config.fact_rows,):
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform incremental seed produced unexpected rows"
+        )
+    return _statement_query_ids(
+        scan.query_id,
+        joined.query_id,
+        aggregate.query_id,
+        incremental.query_id,
+    )
+
+
+def _require_transform_incremental(
+    runtime: WarehouseRuntime,
+    *,
+    database: str,
+    target_schema: str,
+    expected_rows: int,
+) -> tuple[str, ...]:
+    with open_connection(_connection_factory(runtime)) as connection:
+        result = execute(
+            connection,
+            "SELECT COUNT(*), "
+            'COUNT_IF("id" = 1 AND "amount" = 999 AND "updated_at" = 2), '
+            'COUNT_IF("id" = ? AND "amount" = 5 AND "updated_at" = 2) FROM '
+            f"{_qualified(database, target_schema, 'incremental_records')}",
+            (expected_rows,),
+            fetch="one",
+        )
+    if _integer_row(result.row, 3) != (expected_rows, 1, 1):
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform incremental merge produced unexpected rows"
+        )
+    return _statement_query_ids(result.query_id)
+
+
 def _reject_stale_publication(
     runtime: WarehouseRuntime,
     *,
@@ -1056,6 +1635,23 @@ def _operation_query_ids(
     )[:100]
 
 
+def _statement_query_ids(*query_ids: str | None) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(query_id for query_id in query_ids if isinstance(query_id, str) and query_id)
+    )
+
+
+def _integer_row(row: object, expected_columns: int) -> tuple[int, ...]:
+    if not isinstance(row, (tuple, list)) or len(row) != expected_columns:
+        raise SnowflakeTransformQualificationError("Snowflake transform readback was malformed")
+    try:
+        return tuple(int(value) for value in row)
+    except (TypeError, ValueError) as error:
+        raise SnowflakeTransformQualificationError(
+            "Snowflake transform readback returned a non-integer"
+        ) from error
+
+
 def _require_table_shape(
     runtime: WarehouseRuntime,
     *,
@@ -1142,7 +1738,7 @@ def _staging_residue(
             connection,
             f"SELECT COUNT(*) FROM {_qualified(database, 'INFORMATION_SCHEMA', 'TABLES')} "
             "WHERE TABLE_SCHEMA = ? "
-            "AND REGEXP_LIKE(TABLE_NAME, '^dander_stage_[0-9a-f]{20}$')",
+            "AND REGEXP_LIKE(TABLE_NAME, '^dander_(stage|model)_[0-9a-f]{20}$')",
             (schema_name,),
             fetch="one",
         ).row
@@ -1574,6 +2170,127 @@ def _concurrency_report(
     )
 
 
+def _transform_report(
+    config: SnowflakeTransformConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    result: _TransformResult,
+    *,
+    provider_cost_usd: Decimal | None,
+) -> QualificationReport:
+    observed_cost = (
+        provider_cost_usd if provider_cost_usd is not None else approval.cost_ceiling.amount_usd
+    )
+    cost = CostAttribution(
+        provider="snowflake",
+        service="virtual_warehouse",
+        amount=observed_cost,
+        estimated=provider_cost_usd is None,
+    )
+    cost_status = (
+        ObjectiveStatus.NOT_EVALUATED
+        if provider_cost_usd is None
+        else (
+            ObjectiveStatus.PASSED
+            if provider_cost_usd <= approval.cost_ceiling.amount_usd
+            else ObjectiveStatus.FAILED
+        )
+    )
+    objectives = tuple(
+        ObjectiveResult(
+            name,
+            cost_status if name == "cost_ceiling" else ObjectiveStatus.PASSED,
+            f"phase8/snowflake/transform/{name}",
+        )
+        for name in approval.objectives.names
+    )
+    status = (
+        QualificationStatus.NOT_EVALUATED
+        if cost_status is ObjectiveStatus.NOT_EVALUATED
+        else (
+            QualificationStatus.FAILED
+            if cost_status is ObjectiveStatus.FAILED
+            else QualificationStatus.PASSED
+        )
+    )
+    measurements = PerformanceMeasurement.measured
+    return QualificationReport(
+        context=QualificationContext(
+            release_version=identity.release_version,
+            git_commit=identity.git_commit,
+            image_digest=identity.image_digest,
+            benchmark_date=identity.benchmark_date,
+            profile_id=approval.objectives.profile_id,
+            launcher=identity.launcher,
+            warehouse="snowflake",
+            state_backend="none",
+            catalog="none",
+            secret_provider=identity.secret_provider,
+            regions=identity.regions,
+            service_shapes=identity.service_shapes,
+            provider_job_ids=tuple(sorted(set((*identity.provider_job_ids, *result.query_ids)))),
+            cost_ceiling=approval.cost_ceiling,
+        ),
+        workload=BenchmarkWorkload(
+            benchmark_class=BenchmarkClass.TRANSFORM,
+            input_rows=result.input_rows,
+            logical_input_bytes=result.logical_input_bytes,
+            row_width_bytes=32,
+            schema_depth=4,
+            source_rate_limit="unlimited_local_fixture",
+            transform_complexity="scan_join_aggregate_incremental_tests",
+            concurrency=1,
+            batch_rows=config.copy_part_rows,
+            batch_bytes=config.copy_part_logical_bytes,
+            configuration_sha256=config.configuration_sha256(),
+        ),
+        performance=RunPerformance(
+            rows=measurements("rows", "rows", result.output_rows),
+            logical_bytes=measurements(
+                "logical_bytes",
+                "bytes",
+                result.logical_input_bytes,
+            ),
+            duration_ms=measurements("duration_ms", "milliseconds", result.duration_ms),
+            throughput_rows_per_second=measurements(
+                "throughput_rows_per_second",
+                "rows_per_second",
+                _throughput(result.output_rows, result.duration_ms),
+            ),
+            peak_rss_bytes=measurements("peak_rss_bytes", "bytes", result.peak_rss_bytes),
+            retries=measurements("retries", "count", 0),
+            queue_duration_ms=measurements("queue_duration_ms", "milliseconds", 0),
+            load_duration_ms=measurements(
+                "load_duration_ms",
+                "milliseconds",
+                result.load_duration_ms,
+            ),
+            transform_duration_ms=measurements(
+                "transform_duration_ms",
+                "milliseconds",
+                result.transform_duration_ms,
+            ),
+            catalog_duration_ms=measurements("catalog_duration_ms", "milliseconds", 0),
+            provider_metrics=(
+                measurements("assertion_count", "count", result.assertion_count),
+                measurements("copy_operations", "count", result.copy_operations),
+                measurements("model_count", "count", result.model_count),
+                measurements(
+                    "ownership_verifications",
+                    "count",
+                    result.ownership_verifications,
+                ),
+                measurements("staging_stages", "count", result.staging_stages),
+                measurements("staging_tables", "count", result.staging_tables),
+            ),
+            costs=(cost,),
+        ),
+        objectives=objectives,
+        approved_objectives=approval.objectives,
+        status=status,
+    )
+
+
 def _throughput(rows: int, duration_ms: int) -> Decimal:
     return (Decimal(rows) * 1_000 / Decimal(max(duration_ms, 1))).quantize(Decimal("0.001"))
 
@@ -1595,6 +2312,7 @@ def _parser() -> argparse.ArgumentParser:
             BenchmarkClass.BULK_THROUGHPUT.value,
             BenchmarkClass.INCREMENTAL.value,
             BenchmarkClass.CONCURRENT_PIPELINES.value,
+            BenchmarkClass.TRANSFORM.value,
         ),
         default=BenchmarkClass.BULK_THROUGHPUT.value,
     )
@@ -1633,6 +2351,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--concurrent-rows-per-pipeline", type=int, default=5_000)
     parser.add_argument("--concurrent-payload-bytes", type=int, default=128)
     parser.add_argument("--concurrent-copy-part-rows", type=int, default=5_000)
+    parser.add_argument("--transform-fact-rows", type=int, default=100_000)
+    parser.add_argument("--transform-dimension-rows", type=int, default=100)
     return parser
 
 
@@ -1671,13 +2391,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 copy_part_rows=arguments.copy_part_rows,
                 copy_part_logical_bytes=arguments.copy_part_logical_bytes,
             )
-        else:
+        elif benchmark_class is BenchmarkClass.CONCURRENT_PIPELINES:
             config = SnowflakeConcurrencyConfig(
                 **common,
                 concurrent_pipelines=arguments.concurrent_pipelines,
                 rows_per_pipeline=arguments.concurrent_rows_per_pipeline,
                 payload_bytes=arguments.concurrent_payload_bytes,
                 copy_part_rows=arguments.concurrent_copy_part_rows,
+                copy_part_logical_bytes=arguments.copy_part_logical_bytes,
+            )
+        else:
+            config = SnowflakeTransformConfig(
+                **common,
+                fact_rows=arguments.transform_fact_rows,
+                dimension_rows=arguments.transform_dimension_rows,
+                copy_part_rows=arguments.copy_part_rows,
                 copy_part_logical_bytes=arguments.copy_part_logical_bytes,
             )
         approval = load_approval(arguments.objectives, config=config)
@@ -1707,8 +2435,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 approval=approval,
                 provider_cost_usd=arguments.provider_cost_usd,
             )
-        else:
+        elif isinstance(config, SnowflakeConcurrencyConfig):
             report = run_phase8_snowflake_concurrency(
+                config,
+                identity=identity,
+                approval=approval,
+                provider_cost_usd=arguments.provider_cost_usd,
+            )
+        else:
+            report = run_phase8_snowflake_transform(
                 config,
                 identity=identity,
                 approval=approval,
