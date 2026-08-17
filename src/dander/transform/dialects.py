@@ -178,7 +178,14 @@ def render_portable_query(expression: exp.Query, *, target: SqlDialect | str) ->
         raise PortableSqlError(f"unsupported SQL target dialect: {target}") from error
     if dialect not in _TARGET_DIALECTS:
         raise PortableSqlError("portable is an authored contract, not a render target")
-    return expression.sql(dialect=dialect.value)
+    rendered_expression = expression
+    if dialect is SqlDialect.SNOWFLAKE:
+        # Snowflake folds unquoted names to uppercase, while Dander persists canonical columns as
+        # quoted lowercase identifiers. Quote a clone so later renders of the same AST stay exact.
+        rendered_expression = expression.copy()
+        for identifier in rendered_expression.find_all(exp.Identifier):
+            identifier.set("quoted", True)
+    return rendered_expression.sql(dialect=dialect.value)
 
 
 def _validate_identifiers(expression: exp.Query) -> None:

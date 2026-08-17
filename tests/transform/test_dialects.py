@@ -56,6 +56,43 @@ def test_portable_union_all_and_deterministic_window() -> None:
     assert "ROW_NUMBER" in render_portable_query(query, target="snowflake")
 
 
+def test_snowflake_quotes_lowercase_columns_aliases_joins_and_ctes() -> None:
+    query = parse_portable_query(
+        """
+        WITH filtered_contacts AS (
+          SELECT contact.id AS contact_id, contact.title AS contact_title
+          FROM `portable.raw.contacts` AS contact
+          WHERE contact.id IS NOT NULL
+        )
+        SELECT filtered_contacts.contact_id AS id, account.title AS account_title
+        FROM filtered_contacts
+        JOIN `portable.raw.accounts` AS account
+          ON filtered_contacts.contact_id = account.id
+        """
+    )
+
+    rendered = render_portable_query(query, target="snowflake")
+
+    assert 'WITH "filtered_contacts" AS' in rendered
+    assert 'SELECT "contact"."id" AS "contact_id"' in rendered
+    assert 'FROM "portable"."raw"."contacts" AS "contact"' in rendered
+    assert 'SELECT "filtered_contacts"."contact_id" AS "id"' in rendered
+    assert 'JOIN "portable"."raw"."accounts" AS "account"' in rendered
+    assert '"filtered_contacts"."contact_id" = "account"."id"' in rendered
+
+
+@pytest.mark.parametrize("target", ["bigquery", "redshift", "postgres"])
+def test_snowflake_identifier_quoting_does_not_change_other_targets(target: str) -> None:
+    query = parse_portable_query(
+        "SELECT contact.id AS contact_id FROM `portable.raw.contacts` AS contact"
+    )
+
+    render_portable_query(query, target="snowflake")
+    rendered = render_portable_query(query, target=target)
+
+    assert "contact.id AS contact_id" in rendered
+
+
 @pytest.mark.parametrize(
     ("sql", "message"),
     [

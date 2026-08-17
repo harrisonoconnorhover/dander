@@ -1,7 +1,7 @@
 ---
 id: DANDER-215
 title: Refresh vulnerable container utility packages
-status: in-review
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: []
@@ -21,7 +21,7 @@ version `2.41-5`, while Debian publishes the fixed `2.41.5-0+deb13u1` packages.
 - [x] The runtime container starts, its qualification entrypoint passes, and Trivy reports no HIGH
   or CRITICAL fixed vulnerability.
 - [x] Focused scaffold/runtime tests and proportionate repository checks pass.
-- [ ] Protected review and exact-main CI pass before the Phase 8 evidence and implementation lanes
+- [x] Protected review and exact-main CI pass before the Phase 8 evidence and implementation lanes
   resume protected integration.
 
 ## Design
@@ -38,3 +38,6 @@ Dockerfiles so new projects do not inherit the known vulnerability.
   HIGH/CRITICAL findings after the targeted refresh.
 
 ## Review Log
+
+- 2026-08-17 — PASS: PR #361 merged as protected main `8d6719c`; exact-main CI run
+  `31986274883` passed all five jobs.

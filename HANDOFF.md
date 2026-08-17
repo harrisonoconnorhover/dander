@@ -2,40 +2,44 @@
 
 ## Finished
 
-- Classified the new protected-CI Trivy failure as deterministic Debian CVE-2026-53615 exposure,
-  unrelated to the Phase 8 evidence and Snowflake identifier diffs.
-- Refreshed the affected util-linux package family in the root runtime Dockerfile.
-- Applied the same package floor to generated-project Dockerfiles.
-- Built and scanned the local runtime image with the fixed `2.41.5-0+deb13u1` packages.
+- Classified RC28 Azure execution `dander-35e4e06fda09-sme7gpt` as a deterministic Snowflake
+  portable-identifier defect after successful provider and canonical preflight.
+- Cloned Snowflake portable ASTs and quoted every validated identifier before serialization.
+- Added regression coverage for lowercase source columns, aliases, qualified joins, CTEs, and
+  unchanged BigQuery, Redshift, and PostgreSQL output.
+- Verified Snowflake transform-project compilation now preserves quoted lowercase columns.
+- Protected the repository-wide container CVE repair independently in PR #361.
 
 ## Try It
 
-Build the runtime with `docker build --tag dander-cve:local .`, then run
-`docker run --rm dander-cve:local --help`.
+Run `uv run pytest -q tests/transform/test_dialects.py
+tests/providers/test_snowflake_warehouse_runtime.py`.
 
 ## Checks
 
-- Runtime build, CLI startup, and qualification entrypoint passed.
-- Trivy 0.69.1 reported zero HIGH/CRITICAL findings.
-- Focused scaffold/runtime tests and full pytest passed with 34 skips and one warning.
-- Ruff lint/format and canonical strict typing passed.
-- Control contract drift check passed.
+- Focused transform and Snowflake provider tests passed.
+- Ruff lint/format, canonical strict typing, and Control contract drift passed.
+- Full pytest passed with 34 skips and one third-party deprecation warning.
+- Container repair exact-main CI run `31986274883` passed all five jobs.
 
 ## Decisions
 
-- Keep the pinned Python base digest and install the narrowly affected Debian packages from the
-  active security repository.
-- Repair the repository-wide container gate in its own focused PR before resuming protected Phase 8
-  integration.
+- Quote only a cloned AST for Snowflake so the same validated query remains reusable by other
+  dialect renderers.
+- Keep RC28 immutable and automatic retries disabled; no live provider work belongs in this PR.
+- Preserve unaffected accepted evidence and rerun only Azure correctness on a protected replacement
+  candidate.
 
 ## Remaining
 
-- Complete protected review, merge, and exact-main CI for this gate repair.
-- Rebase and complete protected review for PRs #359 and #360.
-- Publish a replacement candidate only after DANDER-214 is protected.
+- Complete protected review and merge this focused implementation.
+- Pass exact-main CI before publishing the replacement immutable candidate.
+- Run one bounded Azure correctness candidate and success-conditional replay under the remaining
+  combined authorization, then clean up and reconcile cost.
+- Complete the remaining Phase 8 provider, scale, soak, audit, and closure gates.
 
 ## Review First
 
-- `Dockerfile`
-- `src/dander/templates/project/Dockerfile`
-- `tickets/DANDER-215-refresh-container-util-linux.md`
+- `src/dander/transform/dialects.py`
+- `tests/transform/test_dialects.py`
+- `tests/providers/test_snowflake_warehouse_runtime.py`
