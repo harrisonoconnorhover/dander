@@ -37,6 +37,15 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- The operator granted a separate USD 10 additional-spend ceiling and directed Azure RC28
+  qualification to resume. AWS Cost Explorer now passes with a posted baseline rounding to USD
+  0.00; Azure ActualCost access passes with no rows, and the latest GCP observation predates the
+  new window. The fresh Azure retry objective reserves USD 2 as its conservative delayed-billing
+  bound, uses a new disposable namespace, requires the corrected staging-authority preflight, and
+  permits one manual run plus one success-conditional replay after protected merge and exact-main
+  CI. See
+  `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-retry-objectives.json`.
+
 - A read-only provider-cost reconciliation on 2026-08-16 made no cloud mutation. AWS Cost Explorer
   still denied `ce:GetCostAndUsage`, Azure Cost Management returned no rows for August 14 through
   16, and the retained GCP billing report showed no GKE or Compute Engine charge for the hosted

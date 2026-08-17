@@ -156,6 +156,18 @@ database-level `CREATE SCHEMA` grant without creating a schema or exposing grant
 protected objective and known budget headroom remain mandatory before RC28 may run again; see
 `docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json`.
 
+The operator later granted a separate USD 10 additional-spend ceiling for the remaining Phase 8
+work and directed the Azure lane to resume. AWS Cost Explorer access now passes with a posted
+baseline that rounds to USD 0.00; Azure ActualCost access passes but still returns no rows; the
+latest retained GCP billing observation predates the incremental authorization. The fresh RC28
+Azure retry objective reserves its full USD 2 ceiling as the conservative bound while invoices
+lag, leaving at least USD 8 for later objectives. It uses a new disposable provider namespace,
+requires the narrow database-level `CREATE SCHEMA` grant before token issue, and requires the
+corrected canonical preflight before its one manual run and success-conditional replay. Prior
+failure results do not transfer. No mutation may begin until this objective passes protected review
+and exact-main CI; see
+`docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-retry-objectives.json`.
+
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
 `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`; its packaged GCP

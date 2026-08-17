@@ -120,3 +120,8 @@ scale report.
   report. Rounded GCP daily subtotals cannot establish Phase 8 attribution. Exact aggregate spend
   and remaining headroom remain unknown with USD 0 unallocated, so all affected cost gates stay
   `not_evaluated` and no new paid objective may start.
+- A later operator authorization adds a separate USD 10 incremental ceiling. The fresh RC28 Azure
+  correctness retry reserves USD 2, records the newly readable AWS and still-empty Azure billing
+  baseline, and requires the corrected Snowflake staging-authority preflight before its one manual
+  run and success-conditional replay. It does not transfer the failed attempt or qualify Azure
+  scale/pairwise classes.
