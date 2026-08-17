@@ -2,39 +2,37 @@
 
 ## Finished
 
-- Merged bulk result PR #370 as `cb8a42c` and isolated-typecheck PR #371 as protected main `f92e120`.
-- Extended the protected Snowflake scale harness with the accepted 300,000-row seed and 3,000-row incremental delta.
-- Added exact update/insert readback, 100:1 target/delta, cursor-regression rejection, COPY telemetry, cleanup, and delayed-cost reporting.
-- Bound exact RC29 and fresh disposable Snowflake coordinates to a USD 0.50 ceiling, leaving USD 2.75 unreserved.
-- Added DANDER-223 and the pre-mutation objective record; no provider resource or paid workload has started.
+- Merged the Snowflake incremental objective as protected main `5bc3c6f`; exact-main run `32046930482` passed all five jobs before mutation.
+- Ran one exact-RC29 candidate: a 3,000-row half-update/half-insert delta against a 300,000-row seed in 49.596 seconds with zero retries.
+- Passed exact 301,500-row readback, the 100:1 target/delta ratio, cursor monotonicity, COPY telemetry, throughput, and in-harness cleanup.
+- Removed and verified zero named databases, warehouses, roles, staging objects, and candidate containers inside a 5.19-minute lifetime upper bound.
+- Recorded sanitized report, query identities, rounded `$398 of $400` credit visibility, and the held USD 0.50 cost bound.
 
 ## Try It
 
-Run `uv run --extra snowflake --extra dev pytest -q tests/portability/test_snowflake_bulk_phase8_benchmark.py`.
+Run `jq '{status,objectives,performance}' docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-attempt.json`.
 
 ## Checks
 
-- Focused Snowflake scale pytest passes: 20 tests.
-- Ruff lint and format checks pass for the harness and focused tests.
-- Canonical isolated strict typing passes for all 422 configured source files.
-- The objective manifest loads through the harness and binds exact RC29 defaults.
+- Live candidate exited 0; all non-cost report objectives passed and cost alone is `not_evaluated`.
+- Snowflake cleanup `SHOW` checks returned zero database, warehouse, and role rows.
+- Focused Snowflake scale pytest, evidence assertions, JSON parsing, and `git diff --check` pass.
 
 ## Decisions
 
-- Reuse the accepted PostgreSQL incremental shape but transfer no result across providers.
-- Keep bulk behavior unchanged and select incremental explicitly through the same stable harness.
-- Hold the full new USD 0.50 bound until provider usage posts; do not infer cost or support.
+- Close functional Snowflake incremental only; do not claim provider cost, support, release, or Phase 8 completion.
+- Keep the full USD 0.50 conservative bound until provider metering posts, leaving USD 2.75 unreserved.
+- Preserve one manual candidate and zero automatic retries; no rerun is needed for cost finalization.
 
 ## Remaining
 
-- Verify #371 exact-main while protecting the incremental objective through review and CI.
-- Verify interactive Snowflake auth and billing visibility before creating owned objects.
-- Run one bounded exact-RC29 candidate, clean immediately, and record sanitized evidence separately.
-- Reconcile delayed Snowflake, AWS, and Azure costs without rerunning accepted workloads.
-- Continue remaining provider scale, pairwise, soak, and final closure on fresh branches.
+- Protect this focused result through review, merge, and exact-main CI.
+- Reconcile Snowflake provider cost when it posts without rerunning the accepted candidate.
+- Continue remaining warehouse classes, providers, pairwise, soak, and final closure on fresh branches.
+- Finalize AWS and Azure provider costs when attributable rows are available.
 
 ## Review First
 
-- `scripts/benchmarks/snowflake_bulk_phase8.py`
-- `tests/portability/test_snowflake_bulk_phase8_benchmark.py`
-- `docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-objectives.json`
+- `docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-execution.json`
+- `docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-attempt.json`
+- `docs/cloud-portability-phase8-qualification.md`

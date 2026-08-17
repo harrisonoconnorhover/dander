@@ -1479,13 +1479,12 @@ scale, provider-posted cost, pairwise, soak, final closure, public release, and 
 See `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-attempt.json`.
 PR #367 merged that sanitized result as protected main `fe6854e`; exact-main run `32034410545`
 passed all five jobs. PR #368 then merged the posted GKE cost finalization as protected main
-`5d0afaa`; exact-main run `32036096345` passed all five jobs. The next focused scale objective
-binds exact RC29 to Snowflake bulk throughput only: 500,000 narrow rows, 200,000 wide rows, bounded
-COPY parts, exact readback and cleanup, and a USD 0.50 ceiling. It leaves USD 3.25 unreserved under
-the additional authorization and keeps cost pending until provider-measured usage posts. Protected
-merge and exact-main CI precede any Snowflake mutation; no result transfers to Azure launcher
-scale or another benchmark class. See
-`docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-objectives.json`.
+`5d0afaa`; exact-main run `32036096345` passed all five jobs. Exact RC29 has since passed the
+Snowflake bulk and incremental classes functionally with zero retries and exact cleanup. Incremental
+applied a 3,000-row half-update/half-insert delta to a 300,000-row seed in 49.596 seconds. Snowflake
+metering remains pending under the held USD 0.50 incremental bound, leaving USD 2.75 unreserved;
+no result transfers to Azure launcher scale or another benchmark class. See
+`docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-execution.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

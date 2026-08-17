@@ -37,13 +37,16 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
-- PR #370 merged the passing exact-RC29 Snowflake bulk result as protected main `cb8a42c`.
-  Exact-main run `32044249946` preserved a first-attempt GitHub action-download failure and passed
-  all five jobs on targeted attempt 2. The next fresh objective is Snowflake incremental merge:
-  a 300,000-row seed, 3,000-row delta, exact half-update/half-insert readback, cursor-regression
-  rejection, bounded COPY parts, exact cleanup, and a USD 0.50 ceiling. Its full reservation leaves
-  USD 2.75 unreserved. No owned Snowflake resource may exist before protected merge and exact-main
-  CI. See `docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-objectives.json`.
+- PR #372 merged the Snowflake incremental objective as protected main `5bc3c6f`; exact-main run
+  `32046930482` passed all five jobs before mutation. One exact-RC29 candidate seeded 300,000 rows,
+  then applied 1,500 updates and 1,500 inserts in 49.596 seconds with zero retries. Exact readback,
+  the 100:1 target/delta ratio, cursor-regression rejection, COPY telemetry, and cleanup passed.
+  Zero named Snowflake objects or candidate containers remained inside a 5.19-minute upper-bound
+  lifetime. The rounded trial display remained `$398 of $400` left, but provider metering has not
+  posted, so cost and normalized status remain `not_evaluated` under the held USD 0.50 bound,
+  leaving USD 2.75 unreserved. This closes functional Snowflake incremental only, not provider
+  cost or remaining Phase 8 classes. See
+  `docs/evidence/phase8/2026-08-17/snowflake-rc29-incremental-execution.json`.
 
 - PR #369 merged the Snowflake bulk objective as protected main `26bcedd`; exact-main run
   `32037495657` passed all five jobs before mutation. One exact-RC29 candidate then processed
