@@ -1450,11 +1450,16 @@ PR #362 then merged private RC29 preparation as protected main `7a6d138`; exact-
 qualification-entrypoint, SPDX SBOM, and SLSA provenance checks. The USD 0.25 reserve and held USD
 2 Azure bound leave at least USD 7.75 unreserved. This is candidate publication evidence, not live
 qualification or a support claim. See `docs/evidence/phase8/2026-08-17/rc29-candidate.json`.
-A fresh RC29 Azure correctness objective proposes a new disposable namespace, one manual
-execution, one success-conditional replay, zero automatic retries, and exact cleanup. Its new USD
-2 conservative bound leaves USD 5.75 unreserved after the prior Azure and candidate reserves. This
-proposal must pass review, merge, and exact-main CI before any provider mutation. See
-`docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-objectives.json`.
+PR #364 merged the RC29 Azure correctness objective as protected main `46199fe`; exact-main run
+`31991302574` passed all five jobs before mutation. The one manual execution and success-conditional
+replay both passed, with exact normalized Snowflake readback, duplicate-free targets, zero retries,
+and no staging-schema residue. Active named Snowflake and Azure cleanup passed, but the resource
+group existed for about 431 minutes before deletion began against the fixed 120-minute maximum.
+Qualification therefore failed on the orchestration safety rail, not candidate behavior. RC29 may
+rerun only under a fresh protected objective that front-loads interactive readiness and reserves
+provider-deletion margin. ActualCost has posted USD 0.0024353794 for August 17; delayed attribution
+keeps cost pending and the full USD 2 bound held. See
+`docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

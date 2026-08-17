@@ -192,13 +192,17 @@ existing USD 2 delayed-billing bound leaves at least USD 7.75 unreserved. This i
 publication evidence only, not live qualification, provider cost, public release, or support
 evidence. See `docs/evidence/phase8/2026-08-17/rc29-candidate.json`.
 
-A fresh RC29 Azure correctness objective now proposes a new disposable Azure, PostgreSQL, and
-Snowflake namespace, one manual execution, one success-conditional replay, zero automatic retries,
-and exact cleanup. It holds a new USD 2 conservative bound; together with the prior USD 2 bound and
-USD 0.25 candidate reserve, USD 5.75 remains unreserved under the additional ceiling. This is an
-unprotected objective proposal only: no provider mutation may begin before review, merge, and
-exact-main CI. See
-`docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-objectives.json`.
+PR #364 merged the RC29 Azure correctness objective as protected main `46199fe`; exact-main run
+`31991302574` passed all five jobs before mutation. One manual execution and its success-conditional
+replay both passed with no retry. OAuth-role readback matched the approved normalized hash, left
+three distinct raw and model rows, and proved one target commit after replay. Reviewed cleanup
+removed all active named Snowflake and Azure resources; only the expected inactive Key Vault
+tombstone remains. Qualification nevertheless failed because resource-group deletion began about
+431 minutes after creation, beyond the committed 120-minute maximum. RC29 has no application
+defect, but no result transfers: a fresh objective must front-load interactive readiness and enforce
+an earlier cleanup deadline. ActualCost has posted USD 0.0024353794 for August 17, but delayed
+attribution keeps cost `not_evaluated` and the USD 2 conservative bound held. See
+`docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is

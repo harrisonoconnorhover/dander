@@ -55,15 +55,19 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   index is `sha256:e016419f…aad54`; exact-wheel, dual-architecture rootless read-only, stable
   qualification-entrypoint, SPDX SBOM, and SLSA provenance checks passed. The USD 0.25 reserve and
   existing USD 2 delayed-billing bound leave at least USD 7.75 unreserved. No live provider ran,
-  public RC20 remains unchanged, and Azure correctness still requires a separately protected RC29
-  objective. See `docs/evidence/phase8/2026-08-17/rc29-candidate.json`.
+  public RC20 remains unchanged. This remains publication evidence only; the separately protected
+  Azure result is recorded below. See `docs/evidence/phase8/2026-08-17/rc29-candidate.json`.
 
-- A fresh RC29 Azure correctness objective proposes a new disposable Azure, PostgreSQL, and
-  Snowflake namespace, one manual execution, one success-conditional replay, zero automatic
-  retries, and exact cleanup. The new USD 2 conservative bound leaves USD 5.75 unreserved after the
-  held prior Azure and candidate-publication reserves. No provider mutation may begin before this
-  objective passes protected review, merge, and exact-main CI. See
-  `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-objectives.json`.
+- PR #364 merged the RC29 Azure objective as protected main `46199fe`; exact-main run
+  `31991302574` passed all five jobs before mutation. The manual execution and success-conditional
+  replay both passed exact normalized Snowflake readback with no retries, duplicate rows, or
+  staging-schema residue. Active named Snowflake and Azure cleanup completed, but resource-group
+  deletion began about 431 minutes after creation, beyond the objective's 120-minute maximum.
+  Qualification therefore failed on operator orchestration, not RC29 application behavior. No
+  result transfers; a fresh protected objective must front-load interactive readiness and reserve
+  cleanup margin. ActualCost has posted USD 0.0024353794, but delayed attribution keeps cost pending
+  under the held USD 2 bound. See
+  `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json`.
 
 - The operator granted a separate USD 10 additional-spend ceiling and directed Azure RC28
   qualification to resume. AWS Cost Explorer now passes with a posted baseline rounding to USD

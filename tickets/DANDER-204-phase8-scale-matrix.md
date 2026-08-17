@@ -132,3 +132,9 @@ scale report.
   did not run. Exact cleanup passed and provider cost remains pending under the full USD 2 bound.
   PR #360 protected DANDER-214 at main `a2b72f8`; exact-main run `31987252875` passed all five
   jobs, so a replacement candidate now precedes the materially affected Azure rerun.
+- PR #364 merged the RC29 Azure objective as protected main `46199fe`; exact-main run `31991302574`
+  passed all five jobs before mutation. The manual execution and replay passed exact normalized
+  Snowflake readback with no retries, and active Azure/Snowflake cleanup completed. Qualification
+  still failed because the disposable resource group lived about 431 minutes against the committed
+  120-minute maximum. RC29 needs a fresh orchestration-corrected objective, not a new candidate;
+  provider cost remains pending under the held USD 2 bound.
