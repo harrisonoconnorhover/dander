@@ -25,9 +25,11 @@ docker run --rm dander-ci:local --help
 ```
 
 `python3 scripts/check_types.py` is the only canonical strict type-check command. It selects the
-locked dev and PostgreSQL environment; the explicit target list lives in `[tool.mypy].files` in
-`pyproject.toml`. Do not substitute `mypy .` or recursively type-check auxiliary scripts. Add a
-maintained script there deliberately so local verification and protected CI expand together.
+locked dev and PostgreSQL environment in a temporary isolated environment, so optional SDKs from
+earlier focused checks cannot change mypy's result. The explicit target list lives in
+`[tool.mypy].files` in `pyproject.toml`. Do not substitute `mypy .` or recursively type-check
+auxiliary scripts. Add a maintained script there deliberately so local verification and protected
+CI expand together.
 
 This core sequence is intentionally shorter than the complete workflow. Before merging, use
 `.github/workflows/ci.yml` as the authoritative list for distribution installation, every AWS,

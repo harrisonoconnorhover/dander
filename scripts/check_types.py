@@ -9,6 +9,7 @@ import sys
 _MYPY_COMMAND = (
     "uv",
     "run",
+    "--isolated",
     "--frozen",
     "--extra",
     "dev",
