@@ -1,0 +1,38 @@
+{
+  "schema": "io.dander.qualification.authorization/v1",
+  "approval_reference": "codex-thread-01a0004d-6d65-7280-84bc-ca5368b38821-2026-08-16-additional-phase8-10",
+  "approved_on": "2026-08-16",
+  "release_version": "0.9.0rc29",
+  "release_preparation_commit": "c86b64e4aff69340ac737ae0f89bd5673ad501ae",
+  "release_preparation_pull_request": 362,
+  "additional_aggregate_ceiling_usd": "10.00",
+  "provider_measured_cost_usd": null,
+  "cost_status": "provider_invoice_pending",
+  "billing_baseline": {
+    "aws": "cost_explorer_access_passed_posted_baseline_rounded_to_0.00_usd",
+    "azure": "actual_cost_access_passed_no_rows_posted",
+    "gcp": "latest_retained_observation_predates_incremental_authorization",
+    "conservative_bound_held_before_rc29_usd": "2.00",
+    "conservative_headroom_before_rc29_usd": "8.00"
+  },
+  "allocations": [
+    {
+      "activity": "azure_rc28_correctness_retry",
+      "ceiling_usd": "2.00",
+      "status": "held_pending_provider_invoice"
+    },
+    {
+      "activity": "rc29_private_source_free_publication",
+      "ceiling_usd": "0.25",
+      "status": "approved_after_protected_preparation"
+    }
+  ],
+  "constraints": {
+    "candidate_must_be_published_from_tested_protected_main": true,
+    "exact_candidate_objective_manifest_required_before_live_rerun": true,
+    "automatic_live_retry_enabled": false,
+    "public_release_authorized": false,
+    "provider_measured_cost_must_remain_below_additional_aggregate_ceiling": true,
+    "conservative_unreserved_headroom_after_rc29_usd": "7.75"
+  }
+}
