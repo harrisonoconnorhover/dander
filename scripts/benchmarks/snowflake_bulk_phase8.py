@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Exact-candidate Snowflake bulk, incremental, concurrency, and transform qualification."""
+"""Exact-candidate Snowflake scale and provider-failure qualification."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import resource
 import sys
 import time
@@ -57,10 +58,12 @@ _CONFIG_SCHEMA = "io.dander.phase8.snowflake-bulk/v1"
 _INCREMENTAL_CONFIG_SCHEMA = "io.dander.phase8.snowflake-incremental/v1"
 _CONCURRENCY_CONFIG_SCHEMA = "io.dander.phase8.snowflake-concurrency/v1"
 _TRANSFORM_CONFIG_SCHEMA = "io.dander.phase8.snowflake-transform/v1"
+_FAILURE_CONFIG_SCHEMA = "io.dander.phase8.snowflake-failure/v1"
 _AUTHORITY_ID = "snowflake:phase8-bulk"
 _INCREMENTAL_AUTHORITY_ID = "snowflake:phase8-incremental"
 _CONCURRENCY_AUTHORITY_ID = "snowflake:phase8-concurrency"
 _TRANSFORM_AUTHORITY_ID = "snowflake:phase8-transform"
+_FAILURE_AUTHORITY_ID = "snowflake:phase8-failure"
 _OBJECTIVES = (
     "cleanup",
     "cost_ceiling",
@@ -94,11 +97,20 @@ _TRANSFORM_OBJECTIVES = (
     "join_exact",
     "scan_exact",
 )
+_FAILURE_OBJECTIVES = (
+    "cleanup",
+    "closed_connection_recovery",
+    "cost_ceiling",
+    "credential_rejection",
+    "stale_fence_rejection",
+    "warehouse_timeout_rollback",
+)
 _OBJECTIVES_BY_CLASS = {
     BenchmarkClass.BULK_THROUGHPUT: _OBJECTIVES,
     BenchmarkClass.INCREMENTAL: _INCREMENTAL_OBJECTIVES,
     BenchmarkClass.CONCURRENT_PIPELINES: _CONCURRENCY_OBJECTIVES,
     BenchmarkClass.TRANSFORM: _TRANSFORM_OBJECTIVES,
+    BenchmarkClass.FAILURE: _FAILURE_OBJECTIVES,
 }
 
 
@@ -116,6 +128,10 @@ class SnowflakeConcurrencyQualificationError(SnowflakeBulkQualificationError):
 
 class SnowflakeTransformQualificationError(SnowflakeBulkQualificationError):
     """Raised with a sanitized Snowflake transform-qualification summary."""
+
+
+class SnowflakeFailureQualificationError(SnowflakeBulkQualificationError):
+    """Raised with a sanitized Snowflake failure-qualification summary."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -373,11 +389,81 @@ class SnowflakeTransformConfig:
         return hashlib.sha256(encoded).hexdigest()
 
 
+@dataclass(frozen=True, slots=True)
+class SnowflakeFailureConfig:
+    """Non-secret provider coordinates and bounded failure probes."""
+
+    account: str
+    user: str
+    database: str
+    warehouse: str
+    role: str | None = None
+    auth_method: str = "oauth"
+    token_env: str = "DANDER_SNOWFLAKE_OAUTH_TOKEN"
+    private_key_file_env: str = "DANDER_SNOWFLAKE_PRIVATE_KEY_FILE"
+    private_key_password_env: str | None = None
+    statement_timeout_seconds: int = 1
+    cancellation_wait_seconds: int = 30
+    invalid_login_timeout_seconds: int = 5
+    copy_part_rows: int = 1
+    copy_part_logical_bytes: int = 1_024
+
+    def __post_init__(self) -> None:
+        if self.auth_method != "oauth":
+            raise ValueError("Snowflake failure qualification requires oauth")
+        for name in (
+            "statement_timeout_seconds",
+            "cancellation_wait_seconds",
+            "invalid_login_timeout_seconds",
+            "copy_part_rows",
+            "copy_part_logical_bytes",
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        if self.cancellation_wait_seconds <= self.statement_timeout_seconds:
+            raise ValueError("cancellation_wait_seconds must exceed statement_timeout_seconds")
+        if self.statement_timeout_seconds > 5:
+            raise ValueError("statement_timeout_seconds must not exceed 5")
+        if self.invalid_login_timeout_seconds > 10:
+            raise ValueError("invalid_login_timeout_seconds must not exceed 10")
+        default_provider_registry().parse(
+            ProviderKind.WAREHOUSE,
+            _provider_values(self, schema_name="DANDER_PHASE8_FAILURE_CHECK"),
+        )
+
+    def workload_payload(self) -> dict[str, object]:
+        """Return the exact approval-bound failure workload."""
+        return {
+            "schema": _FAILURE_CONFIG_SCHEMA,
+            "benchmark_class": BenchmarkClass.FAILURE.value,
+            "probes": [
+                "closed_connection_recovery",
+                "credential_rejection",
+                "stale_fence_rejection",
+                "warehouse_timeout_rollback",
+            ],
+            "statement_timeout_seconds": self.statement_timeout_seconds,
+            "cancellation_wait_seconds": self.cancellation_wait_seconds,
+            "invalid_login_timeout_seconds": self.invalid_login_timeout_seconds,
+        }
+
+    def configuration_sha256(self) -> str:
+        """Hash the canonical workload used by objective approval."""
+        encoded = json.dumps(
+            self.workload_payload(),
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        return hashlib.sha256(encoded).hexdigest()
+
+
 SnowflakeScaleConfig = (
     SnowflakeBulkConfig
     | SnowflakeIncrementalConfig
     | SnowflakeConcurrencyConfig
     | SnowflakeTransformConfig
+    | SnowflakeFailureConfig
 )
 
 
@@ -484,6 +570,21 @@ class _TransformResult:
     assertion_count: int
     ownership_verifications: int
     copy_operations: int
+    query_ids: tuple[str, ...]
+    staging_tables: int
+    staging_stages: int
+    cleanup_verified: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _FailureResult:
+    duration_ms: int
+    peak_rss_bytes: int
+    probe_count: int
+    connection_recovery_duration_ms: int
+    credential_rejection_duration_ms: int
+    timeout_rollback_duration_ms: int
+    stale_publications_rejected: int
     query_ids: tuple[str, ...]
     staging_tables: int
     staging_stages: int
@@ -1052,6 +1153,291 @@ def run_phase8_snowflake_transform(
     )
 
 
+def run_phase8_snowflake_failure(
+    config: SnowflakeFailureConfig,
+    *,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    provider_cost_usd: Decimal | None,
+) -> QualificationReport:
+    """Run bounded provider-specific connection, auth, fence, and timeout probes."""
+    if __version__ != identity.release_version:
+        raise ValueError(
+            f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
+        )
+    _require_identity_match(identity, approval)
+    _require_provider_match(config, approval)
+    schema_name = f"DANDER_P8_FAILURE_{uuid.uuid4().hex[:12].upper()}"
+    runtime = _warehouse_runtime(config, schema_name=schema_name)
+    started = time.perf_counter()
+    peak_before = _peak_rss_bytes()
+    try:
+        setup_query_ids = _initialize_failure_schema(
+            runtime,
+            database=config.database,
+            schema=schema_name,
+        )
+        connection_ms, connection_query_ids = _probe_closed_connection_recovery(runtime)
+        credential_ms = _probe_credential_rejection(config, schema_name=schema_name)
+        stale_rejected = _probe_stale_fence_rejection(
+            runtime,
+            database=config.database,
+            schema=schema_name,
+        )
+        timeout_ms, timeout_query_ids = _probe_warehouse_timeout_rollback(
+            runtime,
+            database=config.database,
+            schema=schema_name,
+            statement_timeout_seconds=config.statement_timeout_seconds,
+            cancellation_wait_seconds=config.cancellation_wait_seconds,
+        )
+        staging_tables, staging_stages = _staging_residue(
+            runtime,
+            config.database,
+            schema_name,
+        )
+        if staging_tables or staging_stages:
+            raise SnowflakeFailureQualificationError(
+                "Snowflake failure qualification left run-scoped staging objects"
+            )
+    except SnowflakeBulkQualificationError:
+        raise
+    except Exception as error:
+        raise SnowflakeFailureQualificationError(
+            f"Snowflake failure qualification failed in disposable schema {schema_name}"
+        ) from error
+    finally:
+        _drop_schema(runtime, config.database, schema_name)
+    cleanup = not _schema_exists(runtime, config.database, schema_name)
+    if not cleanup:
+        raise SnowflakeFailureQualificationError(
+            f"Snowflake failure qualification left disposable schema {schema_name}"
+        )
+    query_ids = tuple(dict.fromkeys((*setup_query_ids, *connection_query_ids, *timeout_query_ids)))[
+        :100
+    ]
+    result = _FailureResult(
+        duration_ms=_elapsed_ms(started),
+        peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
+        probe_count=4,
+        connection_recovery_duration_ms=connection_ms,
+        credential_rejection_duration_ms=credential_ms,
+        timeout_rollback_duration_ms=timeout_ms,
+        stale_publications_rejected=1 if stale_rejected else 0,
+        query_ids=query_ids,
+        staging_tables=staging_tables,
+        staging_stages=staging_stages,
+        cleanup_verified=cleanup,
+    )
+    return _failure_report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
+
+
+def _initialize_failure_schema(
+    runtime: WarehouseRuntime,
+    *,
+    database: str,
+    schema: str,
+) -> tuple[str, ...]:
+    with open_connection(_connection_factory(runtime)) as connection:
+        created_schema = execute(
+            connection,
+            f"CREATE SCHEMA IF NOT EXISTS {_qualified(database, schema)}",
+        )
+        created_table = execute(
+            connection,
+            f"CREATE TABLE {_qualified(database, schema, 'failure_records')} "
+            '("id" NUMBER(38,0) NOT NULL, "value" NUMBER(38,0) NOT NULL)',
+        )
+        inserted = execute(
+            connection,
+            f"INSERT INTO {_qualified(database, schema, 'failure_records')} "
+            '("id", "value") VALUES (?, ?)',
+            (1, 1),
+        )
+        connection.commit()
+    return _statement_query_ids(
+        created_schema.query_id,
+        created_table.query_id,
+        inserted.query_id,
+    )
+
+
+def _probe_closed_connection_recovery(
+    runtime: WarehouseRuntime,
+) -> tuple[int, tuple[str, ...]]:
+    started = time.perf_counter()
+    factory = _connection_factory(runtime)
+    connection = factory()
+    try:
+        initial = execute(connection, "SELECT 1", fetch="one")
+    finally:
+        connection.close()
+    closed_failure_observed = False
+    try:
+        execute(connection, "SELECT 1", fetch="one")
+    except Exception:
+        closed_failure_observed = True
+    if not closed_failure_observed:
+        raise SnowflakeFailureQualificationError(
+            "Snowflake failure qualification did not observe its closed connection"
+        )
+    with open_connection(factory) as replacement:
+        recovered = execute(replacement, "SELECT 1", fetch="one")
+    if _count(recovered.row) != 1:
+        raise SnowflakeFailureQualificationError(
+            "Snowflake failure qualification did not recover on a replacement connection"
+        )
+    return _elapsed_ms(started), _statement_query_ids(initial.query_id, recovered.query_id)
+
+
+def _probe_credential_rejection(
+    config: SnowflakeFailureConfig,
+    *,
+    schema_name: str,
+) -> int:
+    valid_token = os.environ.get(config.token_env)
+    if not valid_token:
+        raise SnowflakeFailureQualificationError(
+            "Snowflake failure qualification requires its projected OAuth token"
+        )
+    invalid_env = "DANDER_SNOWFLAKE_PHASE8_REJECTED_TOKEN"
+    previous_invalid_token = os.environ.get(invalid_env)
+    os.environ[invalid_env] = hashlib.sha256(valid_token.encode()).hexdigest()
+    started = time.perf_counter()
+    try:
+        invalid_config = SnowflakeFailureConfig(
+            account=config.account,
+            user=config.user,
+            database=config.database,
+            warehouse=config.warehouse,
+            role=config.role,
+            token_env=invalid_env,
+            statement_timeout_seconds=config.statement_timeout_seconds,
+            cancellation_wait_seconds=config.cancellation_wait_seconds,
+            invalid_login_timeout_seconds=config.invalid_login_timeout_seconds,
+        )
+        values = _provider_values(invalid_config, schema_name=schema_name)
+        values["login_timeout_seconds"] = config.invalid_login_timeout_seconds
+        values["network_timeout_seconds"] = config.invalid_login_timeout_seconds
+        registry = default_provider_registry()
+        parsed = registry.parse(ProviderKind.WAREHOUSE, values)
+        invalid_runtime = registry.build(
+            ProviderKind.WAREHOUSE,
+            parsed,
+            context={"catalog": config.database},
+        )
+        if not isinstance(invalid_runtime, WarehouseRuntime):
+            raise SnowflakeFailureQualificationError(
+                "Snowflake failure qualification built an invalid warehouse runtime"
+            )
+        rejected = False
+        try:
+            with open_connection(_connection_factory(invalid_runtime)) as connection:
+                execute(connection, "SELECT 1", fetch="one")
+        except Exception:
+            rejected = True
+        if not rejected:
+            raise SnowflakeFailureQualificationError(
+                "Snowflake failure qualification accepted a rejected credential"
+            )
+    finally:
+        if previous_invalid_token is None:
+            os.environ.pop(invalid_env, None)
+        else:
+            os.environ[invalid_env] = previous_invalid_token
+    return _elapsed_ms(started)
+
+
+def _probe_stale_fence_rejection(
+    runtime: WarehouseRuntime,
+    *,
+    database: str,
+    schema: str,
+) -> bool:
+    relation = RelationRef(catalog=database, namespace=schema, name="failure_records")
+    accepted = FencingToken(
+        lease_table=None,
+        pipeline_id="phase8_snowflake_failure",
+        run_id="phase8-snowflake-failure-newer",
+        token=2,
+        authority_id=_FAILURE_AUTHORITY_ID,
+    )
+    runtime.target_fence.claim(relation, accepted)
+    try:
+        runtime.target_fence.claim(
+            relation,
+            FencingToken(
+                lease_table=None,
+                pipeline_id=accepted.pipeline_id,
+                run_id="phase8-snowflake-failure-stale",
+                token=1,
+                authority_id=_FAILURE_AUTHORITY_ID,
+            ),
+        )
+    except TargetFenceLostError:
+        return True
+    raise SnowflakeFailureQualificationError(
+        "Snowflake failure qualification accepted a stale publication"
+    )
+
+
+def _probe_warehouse_timeout_rollback(
+    runtime: WarehouseRuntime,
+    *,
+    database: str,
+    schema: str,
+    statement_timeout_seconds: int,
+    cancellation_wait_seconds: int,
+) -> tuple[int, tuple[str, ...]]:
+    started = time.perf_counter()
+    with open_connection(_connection_factory(runtime)) as connection:
+        configured = execute(
+            connection,
+            f"ALTER SESSION SET STATEMENT_TIMEOUT_IN_SECONDS = {statement_timeout_seconds}",
+        )
+        execute(connection, "BEGIN TRANSACTION")
+        updated = execute(
+            connection,
+            f"UPDATE {_qualified(database, schema, 'failure_records')} "
+            'SET "value" = 2 WHERE "id" = 1',
+        )
+        timed_out = False
+        try:
+            execute(
+                connection,
+                f"CALL SYSTEM$WAIT({cancellation_wait_seconds}, 'SECONDS')",
+            )
+        except Exception:
+            timed_out = True
+        finally:
+            connection.rollback()
+    if not timed_out:
+        raise SnowflakeFailureQualificationError(
+            "Snowflake failure qualification did not observe its statement timeout"
+        )
+    with open_connection(_connection_factory(runtime)) as connection:
+        verified = execute(
+            connection,
+            f'SELECT "value" FROM {_qualified(database, schema, "failure_records")} WHERE "id" = 1',
+            fetch="one",
+        )
+    if _count(verified.row) != 1:
+        raise SnowflakeFailureQualificationError(
+            "Snowflake failure qualification did not roll back its timed-out transaction"
+        )
+    return _elapsed_ms(started), _statement_query_ids(
+        configured.query_id,
+        updated.query_id,
+        verified.query_id,
+    )
+
+
 def _require_identity_match(identity: CandidateIdentity, approval: _Approval) -> None:
     objectives = approval.objectives
     if (
@@ -1114,6 +1500,7 @@ def _provider_values(config: SnowflakeScaleConfig, *, schema_name: str) -> dict[
         "warehouse": config.warehouse,
         "role": config.role,
         "auth": auth,
+        "login_timeout_seconds": 30,
         "max_rows_per_file": config.copy_part_rows,
         "max_logical_bytes_per_file": config.copy_part_logical_bytes,
         "direct_max_rows": 0,
@@ -2291,6 +2678,140 @@ def _transform_report(
     )
 
 
+def _failure_report(
+    config: SnowflakeFailureConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    result: _FailureResult,
+    *,
+    provider_cost_usd: Decimal | None,
+) -> QualificationReport:
+    observed_cost = (
+        provider_cost_usd if provider_cost_usd is not None else approval.cost_ceiling.amount_usd
+    )
+    cost = CostAttribution(
+        provider="snowflake",
+        service="virtual_warehouse",
+        amount=observed_cost,
+        estimated=provider_cost_usd is None,
+    )
+    cost_status = (
+        ObjectiveStatus.NOT_EVALUATED
+        if provider_cost_usd is None
+        else (
+            ObjectiveStatus.PASSED
+            if provider_cost_usd <= approval.cost_ceiling.amount_usd
+            else ObjectiveStatus.FAILED
+        )
+    )
+    objectives = tuple(
+        ObjectiveResult(
+            name,
+            cost_status if name == "cost_ceiling" else ObjectiveStatus.PASSED,
+            f"phase8/snowflake/failure/{name}",
+        )
+        for name in approval.objectives.names
+    )
+    status = (
+        QualificationStatus.NOT_EVALUATED
+        if cost_status is ObjectiveStatus.NOT_EVALUATED
+        else (
+            QualificationStatus.FAILED
+            if cost_status is ObjectiveStatus.FAILED
+            else QualificationStatus.PASSED
+        )
+    )
+    measurements = PerformanceMeasurement.measured
+    return QualificationReport(
+        context=QualificationContext(
+            release_version=identity.release_version,
+            git_commit=identity.git_commit,
+            image_digest=identity.image_digest,
+            benchmark_date=identity.benchmark_date,
+            profile_id=approval.objectives.profile_id,
+            launcher=identity.launcher,
+            warehouse="snowflake",
+            state_backend="none",
+            catalog="none",
+            secret_provider=identity.secret_provider,
+            regions=identity.regions,
+            service_shapes=identity.service_shapes,
+            provider_job_ids=tuple(sorted(set((*identity.provider_job_ids, *result.query_ids)))),
+            cost_ceiling=approval.cost_ceiling,
+        ),
+        workload=BenchmarkWorkload(
+            benchmark_class=BenchmarkClass.FAILURE,
+            input_rows=result.probe_count,
+            logical_input_bytes=result.probe_count,
+            row_width_bytes=1,
+            schema_depth=1,
+            source_rate_limit="controlled_provider_failure_injection",
+            transform_complexity="connection_auth_fence_and_warehouse_timeout",
+            concurrency=1,
+            batch_rows=1,
+            batch_bytes=1,
+            configuration_sha256=config.configuration_sha256(),
+        ),
+        performance=RunPerformance(
+            rows=measurements("rows", "rows", result.probe_count),
+            logical_bytes=measurements(
+                "logical_bytes",
+                "bytes",
+                result.probe_count,
+            ),
+            duration_ms=measurements("duration_ms", "milliseconds", result.duration_ms),
+            throughput_rows_per_second=measurements(
+                "throughput_rows_per_second",
+                "rows_per_second",
+                _throughput(result.probe_count, result.duration_ms),
+            ),
+            peak_rss_bytes=measurements("peak_rss_bytes", "bytes", result.peak_rss_bytes),
+            retries=measurements("retries", "count", 0),
+            queue_duration_ms=measurements("queue_duration_ms", "milliseconds", 0),
+            load_duration_ms=measurements("load_duration_ms", "milliseconds", 0),
+            transform_duration_ms=measurements("transform_duration_ms", "milliseconds", 0),
+            catalog_duration_ms=measurements("catalog_duration_ms", "milliseconds", 0),
+            provider_metrics=(
+                measurements(
+                    "connection_recovery_duration_ms",
+                    "milliseconds",
+                    result.connection_recovery_duration_ms,
+                ),
+                measurements(
+                    "credential_rejection_duration_ms",
+                    "milliseconds",
+                    result.credential_rejection_duration_ms,
+                ),
+                measurements("probe_count", "count", result.probe_count),
+                measurements(
+                    "staging_stages",
+                    "count",
+                    result.staging_stages,
+                ),
+                measurements(
+                    "staging_tables",
+                    "count",
+                    result.staging_tables,
+                ),
+                measurements(
+                    "stale_publications_rejected",
+                    "count",
+                    result.stale_publications_rejected,
+                ),
+                measurements(
+                    "timeout_rollback_duration_ms",
+                    "milliseconds",
+                    result.timeout_rollback_duration_ms,
+                ),
+            ),
+            costs=(cost,),
+        ),
+        objectives=objectives,
+        approved_objectives=approval.objectives,
+        status=status,
+    )
+
+
 def _throughput(rows: int, duration_ms: int) -> Decimal:
     return (Decimal(rows) * 1_000 / Decimal(max(duration_ms, 1))).quantize(Decimal("0.001"))
 
@@ -2313,6 +2834,7 @@ def _parser() -> argparse.ArgumentParser:
             BenchmarkClass.INCREMENTAL.value,
             BenchmarkClass.CONCURRENT_PIPELINES.value,
             BenchmarkClass.TRANSFORM.value,
+            BenchmarkClass.FAILURE.value,
         ),
         default=BenchmarkClass.BULK_THROUGHPUT.value,
     )
@@ -2353,6 +2875,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--concurrent-copy-part-rows", type=int, default=5_000)
     parser.add_argument("--transform-fact-rows", type=int, default=100_000)
     parser.add_argument("--transform-dimension-rows", type=int, default=100)
+    parser.add_argument("--failure-statement-timeout-seconds", type=int, default=1)
+    parser.add_argument("--failure-cancellation-wait-seconds", type=int, default=30)
+    parser.add_argument("--failure-invalid-login-timeout-seconds", type=int, default=5)
     return parser
 
 
@@ -2400,13 +2925,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 copy_part_rows=arguments.concurrent_copy_part_rows,
                 copy_part_logical_bytes=arguments.copy_part_logical_bytes,
             )
-        else:
+        elif benchmark_class is BenchmarkClass.TRANSFORM:
             config = SnowflakeTransformConfig(
                 **common,
                 fact_rows=arguments.transform_fact_rows,
                 dimension_rows=arguments.transform_dimension_rows,
                 copy_part_rows=arguments.copy_part_rows,
                 copy_part_logical_bytes=arguments.copy_part_logical_bytes,
+            )
+        else:
+            config = SnowflakeFailureConfig(
+                **common,
+                statement_timeout_seconds=arguments.failure_statement_timeout_seconds,
+                cancellation_wait_seconds=arguments.failure_cancellation_wait_seconds,
+                invalid_login_timeout_seconds=arguments.failure_invalid_login_timeout_seconds,
             )
         approval = load_approval(arguments.objectives, config=config)
         identity = CandidateIdentity(
@@ -2442,8 +2974,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 approval=approval,
                 provider_cost_usd=arguments.provider_cost_usd,
             )
-        else:
+        elif isinstance(config, SnowflakeTransformConfig):
             report = run_phase8_snowflake_transform(
+                config,
+                identity=identity,
+                approval=approval,
+                provider_cost_usd=arguments.provider_cost_usd,
+            )
+        else:
+            report = run_phase8_snowflake_failure(
                 config,
                 identity=identity,
                 approval=approval,
