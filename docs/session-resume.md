@@ -58,6 +58,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   public RC20 remains unchanged, and Azure correctness still requires a separately protected RC29
   objective. See `docs/evidence/phase8/2026-08-17/rc29-candidate.json`.
 
+- A fresh RC29 Azure correctness objective proposes a new disposable Azure, PostgreSQL, and
+  Snowflake namespace, one manual execution, one success-conditional replay, zero automatic
+  retries, and exact cleanup. The new USD 2 conservative bound leaves USD 5.75 unreserved after the
+  held prior Azure and candidate-publication reserves. No provider mutation may begin before this
+  objective passes protected review, merge, and exact-main CI. See
+  `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-objectives.json`.
+
 - The operator granted a separate USD 10 additional-spend ceiling and directed Azure RC28
   qualification to resume. AWS Cost Explorer now passes with a posted baseline rounding to USD
   0.00; Azure ActualCost access passes with no rows, and the latest GCP observation predates the
