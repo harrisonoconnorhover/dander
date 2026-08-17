@@ -6,6 +6,22 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc29 — 2026-08-17 (beta)
+
+### Fixed
+
+- Preserve Dander's quoted lowercase canonical columns by quoting every validated portable
+  identifier only in a cloned Snowflake syntax tree, without changing other warehouse renderings.
+- Refresh the runtime and generated-project Debian util-linux package family to the fixed security
+  update used by protected container scans.
+
+### Known limitations
+
+- RC29 is a private Phase 8 qualification candidate. Accepted unaffected evidence remains valid;
+  only the materially affected Azure correctness lane reruns before the eventual final-candidate
+  matrix. Provider-cost, pairwise, audit, soak, and support gates remain open, and public RC20 is
+  unchanged.
+
 ## 0.9.0rc28 — 2026-08-16 (beta)
 
 ### Added

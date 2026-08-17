@@ -2,43 +2,42 @@
 
 ## Finished
 
-- Ran the protected RC28 Azure correctness objective after all canonical preflights passed.
-- Classified Snowflake error 904 as a deterministic portable-identifier application defect.
-- Preserved the failed execution; automatic retry and the success-conditional replay did not run.
-- Removed all active Azure, Snowflake, PostgreSQL, and disposable credential resources.
-- Protected the focused identifier fix in PR #360 as main `a2b72f8`; exact-main CI passed.
+- Protected the Snowflake identifier correction in PR #360 as main `a2b72f8`; exact-main passed.
+- Merged the preserved RC28 failure evidence in PR #359 as protected main `dbd719b`.
+- Prepared private `0.9.0rc29` package and lock metadata without changing public RC20.
+- Limited RC29 notes to the Snowflake correction and protected container security refresh.
+- Added DANDER-216 to bind source-free replacement publication to exact protected main.
 
 ## Try It
 
-Review the sanitized attempt record and protected fix. Do not rerun RC28; prepare and publish a
-replacement candidate from exact protected main.
+Run `uv run pytest -q tests/test_release_metadata.py && uv run python
+scripts/check_release_metadata.py`.
 
 ## Checks
 
-- Protected objective exact-main CI passed all five jobs in run `31981210288`.
-- Canonical Azure/Snowflake/PostgreSQL preflight passed before the one manual execution.
-- Exact cleanup inventory passed; no kind cluster exists and only the inactive Key Vault tombstone
-  remains.
-- Azure ActualCost returned no posted rows; the USD 2 conservative bound remains held.
-- JSON, whitespace, Ruff, strict typing, contract drift, and full pytest checks passed.
-- Container repair exact-main CI run `31986274883` passed all five jobs.
 - Snowflake correction exact-main CI run `31987252875` passed all five jobs.
+- Evidence PR #359 passed all five protected jobs before merge.
+- RC29 release-metadata tests, metadata validation, and lock synchronization passed.
+- RC29 wheel and source distribution built and passed package-content inspection.
+- Ruff lint/format and canonical strict typing passed.
 
 ## Decisions
 
-- Treat the failure as deterministic application behavior, not provider, setup, credential, or
-  operator-tooling failure.
-- Keep RC28 immutable and automatic retries disabled; publish a protected replacement candidate.
-- Preserve unaffected accepted evidence and rerun only the Azure correctness lane.
+- Use RC29 as the immutable replacement; RC28 remains preserved and must not rerun.
+- Reserve at most USD 0.25 from the additional authorization for one private source-free
+  publication after protected gates pass.
+- Preserve unaffected evidence and rerun only Azure correctness before the final closure matrix.
 
 ## Remaining
 
-- Complete protected review and merge this focused attempt record.
-- Publish the replacement candidate and rerun only Azure correctness within the remaining cap.
-- Complete provider scale/cost, pairwise, soak, audit, and closure gates.
+- Bind the authorization record to the rebased preparation commit and PR.
+- Pass protected review, merge, and exact-main CI before any private publication.
+- Publish and inspect one source-free amd64/arm64 candidate in a separate lane.
+- Bind and run the replacement Azure correctness objective within the remaining combined cap.
+- Complete the remaining Phase 8 provider, scale, pairwise, soak, audit, and closure gates.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`
-- `tickets/DANDER-214-snowflake-portable-identifiers.md`
-- `docs/cloud-portability-phase8-qualification.md`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `tickets/DANDER-216-private-rc29-candidate.md`
