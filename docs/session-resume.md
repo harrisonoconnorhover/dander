@@ -50,12 +50,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Azure correctness lane reruns on a replacement candidate. See
   `docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`.
 
-- PR #360 merged the Snowflake portable-identifier correction as protected main `a2b72f8`;
-  exact-main run `31987252875` passed all five jobs. Draft PR #362 prepares private RC29 from that
-  base without registry or provider mutation. Its proposed one-time source-free publication holds
-  USD 0.25 from the incremental authorization, leaving at least USD 7.75 unreserved after the
-  existing USD 2 delayed-billing bound. Publication still waits for protected preparation and its
-  exact-main CI. See `docs/evidence/phase8/2026-08-17/rc29-authorization.json`.
+- PR #362 merged private RC29 preparation as protected main `7a6d138`; exact-main run
+  `31988620430` passed all five jobs before one source-free publication. The resulting private GAR
+  index is `sha256:e016419f…aad54`; exact-wheel, dual-architecture rootless read-only, stable
+  qualification-entrypoint, SPDX SBOM, and SLSA provenance checks passed. The USD 0.25 reserve and
+  existing USD 2 delayed-billing bound leave at least USD 7.75 unreserved. No live provider ran,
+  public RC20 remains unchanged, and Azure correctness still requires a separately protected RC29
+  objective. See `docs/evidence/phase8/2026-08-17/rc29-candidate.json`.
 
 - The operator granted a separate USD 10 additional-spend ceiling and directed Azure RC28
   qualification to resume. AWS Cost Explorer now passes with a posted baseline rounding to USD

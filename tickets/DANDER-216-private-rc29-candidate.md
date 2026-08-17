@@ -1,7 +1,7 @@
 ---
 id: DANDER-216
 title: Prepare the private RC29 Phase 8 candidate
-status: in_progress
+status: complete
 component: release
 epic: cloud-portability-phase-8
 depends_on: [DANDER-214, DANDER-215]
@@ -19,11 +19,11 @@ correctness lane needs one replacement source-free candidate; immutable RC28 mus
 - [x] Package and lock metadata prepare private `0.9.0rc29` without changing public RC20.
 - [x] Release notes name only the Snowflake identifier correction and container security refresh
   while keeping qualification and support gates open.
-- [ ] A protected authorization record binds publication to the exact preparation commit and PR,
+- [x] A protected authorization record binds publication to the exact preparation commit and PR,
   with a conservative incremental publication reserve no greater than USD 0.25.
-- [ ] Wheel, source distribution, amd64/arm64 image, SBOM, provenance, and source-free inspection
+- [x] Wheel, source distribution, amd64/arm64 image, SBOM, provenance, and source-free inspection
   pass before candidate evidence is accepted.
-- [ ] Protected CI and review pass before preparation merge; exact-main CI passes before
+- [x] Protected CI and review pass before preparation merge; exact-main CI passes before
   publication.
 
 ## Design
@@ -38,8 +38,11 @@ amd64/arm64 GAR index in a separate publication lane, then record sanitized evid
   run `31987252875` passed all five jobs before this preparation.
 - Preserve accepted RC27/RC28 and other unaffected evidence. Only Azure correctness reruns before
   the eventual final-candidate closure matrix.
-- Automatic provider retry remains disabled. This preparation performs no registry or live-provider
-  mutation and makes no cost, qualification, public-release, or support claim.
-- Draft PR #362 proposes the protected publication record bound to preparation commit `c86b64e`.
-  It holds at most USD 0.25, leaving at least USD 7.75 unreserved under conservative delayed-billing
-  bounds; publication remains blocked on protected merge and exact-main CI.
+- PR #362 merged as protected main `7a6d138`; exact-main run `31988620430` passed all five jobs
+  before publication. The protected authorization binds preparation commit `c86b64e` and a USD
+  0.25 publication reserve, leaving at least USD 7.75 unreserved under conservative bounds.
+- That exact main produced one source-free amd64/arm64 GAR index at `sha256:e016419f…aad54` in one
+  attempt. Both architectures passed RC29 version, rootless read-only conformance, the stable
+  qualification entrypoint, and source-free inspection; SPDX SBOM and SLSA provenance are attached.
+- Automatic provider retry remains disabled. This completes private candidate preparation only;
+  it is not a live-provider, qualification, public-release, cost-pass, or support claim.

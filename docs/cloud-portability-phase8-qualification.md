@@ -184,13 +184,13 @@ the focused correction as protected main `a2b72f8`; exact-main run `31987252875`
 jobs. RC28 must not rerun; a replacement immutable candidate is next. See
 `docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`.
 
-PR #360 merged the Snowflake portable-identifier correction as protected main `a2b72f8`;
-exact-main run `31987252875` passed all five jobs. Draft PR #362 prepares private RC29 from that
-base and proposes one source-free amd64/arm64 publication only after protected merge and its own
-exact-main CI. The publication holds a conservative USD 0.25 from the incremental authorization;
-together with the existing USD 2 delayed-billing bound, at least USD 7.75 remains unreserved. This
-preparation is not candidate publication, live qualification, provider cost, public release, or
-support evidence. See `docs/evidence/phase8/2026-08-17/rc29-authorization.json`.
+PR #362 merged private RC29 preparation as protected main `7a6d138`; exact-main run `31988620430`
+passed all five jobs before one source-free amd64/arm64 publication. Private GAR index
+`sha256:e016419f…aad54` passed exact-wheel, dual-architecture rootless read-only, stable
+qualification-entrypoint, SPDX SBOM, and SLSA provenance checks. The USD 0.25 reserve plus the
+existing USD 2 delayed-billing bound leaves at least USD 7.75 unreserved. This is candidate
+publication evidence only, not live qualification, provider cost, public release, or support
+evidence. See `docs/evidence/phase8/2026-08-17/rc29-candidate.json`.
 
 Private `0.9.0rc22` at protected main `aebecade458e85c5d3b077c1f2a96ccd6ee825aa` remains the
 protected exact candidate for its existing qualification records. Its source-free multi-platform index is
