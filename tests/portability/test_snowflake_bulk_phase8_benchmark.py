@@ -22,6 +22,7 @@ from dander.qualification import (
     ObjectiveStatus,
     QualificationStatus,
 )
+from dander.transform import SqlDialect, TransformProject
 
 if TYPE_CHECKING:
     from dander.concurrency import FencingToken
@@ -67,6 +68,18 @@ def _concurrency_config(**overrides: object) -> bulk.SnowflakeConcurrencyConfig:
     }
     values.update(overrides)
     return bulk.SnowflakeConcurrencyConfig(**values)  # type: ignore[arg-type]
+
+
+def _transform_config(**overrides: object) -> bulk.SnowflakeTransformConfig:
+    values: dict[str, object] = {
+        "account": "org-account",
+        "user": "DANDER_USER",
+        "database": "DANDER_TRANSFORM_TEST",
+        "warehouse": "DANDER_TRANSFORM_WH",
+        "role": "DANDER_TRANSFORM_ROLE",
+    }
+    values.update(overrides)
+    return bulk.SnowflakeTransformConfig(**values)  # type: ignore[arg-type]
 
 
 def _identity() -> bulk.CandidateIdentity:
@@ -151,6 +164,29 @@ def _concurrency_approval(
     )
 
 
+def _transform_approval(
+    config: bulk.SnowflakeTransformConfig,
+) -> bulk._Approval:
+    return bulk._Approval(
+        objectives=ApprovedObjectiveSet(
+            names=bulk._TRANSFORM_OBJECTIVES,
+            benchmark_class=BenchmarkClass.TRANSFORM,
+            profile_id="snowflake_local_scale",
+            release_version=__version__,
+            git_commit=_COMMIT,
+            image_digest=_DIGEST,
+            configuration_sha256=config.configuration_sha256(),
+            approval_reference=_REFERENCE,
+        ),
+        cost_ceiling=ApprovedCostCeiling(Decimal("0.50"), _REFERENCE),
+        account_sha256=bulk._identifier_sha256(config.account),
+        operator_user_sha256=bulk._identifier_sha256(config.user),
+        database=config.database,
+        warehouse=config.warehouse,
+        role=config.role or "",
+    )
+
+
 def _result() -> bulk._BulkResult:
     return bulk._BulkResult(
         duration_ms=2_000,
@@ -207,6 +243,26 @@ def _concurrency_result() -> bulk._ConcurrencyResult:
     )
 
 
+def _transform_result() -> bulk._TransformResult:
+    return bulk._TransformResult(
+        duration_ms=2_500,
+        peak_rss_bytes=128 * 1_024 * 1_024,
+        load_duration_ms=1_000,
+        transform_duration_ms=1_500,
+        input_rows=100_100,
+        logical_input_bytes=3_202_400,
+        output_rows=100_001,
+        model_count=4,
+        assertion_count=21,
+        ownership_verifications=27,
+        copy_operations=3,
+        query_ids=("query-one", "query-two"),
+        staging_tables=0,
+        staging_stages=0,
+        cleanup_verified=True,
+    )
+
+
 def _manifest(config: bulk.SnowflakeBulkConfig) -> dict[str, object]:
     approval = _approval(config)
     return {
@@ -251,6 +307,27 @@ def _concurrency_manifest(
     config: bulk.SnowflakeConcurrencyConfig,
 ) -> dict[str, object]:
     approval = _concurrency_approval(config)
+    return {
+        "schema": bulk._APPROVAL_SCHEMA,
+        "cost_ceiling": approval.cost_ceiling.to_payload(),
+        "workload": config.workload_payload(),
+        "configuration": {
+            "snowflake": {
+                "account_sha256": approval.account_sha256,
+                "operator_user_sha256": approval.operator_user_sha256,
+                "database": approval.database,
+                "warehouse": approval.warehouse,
+                "role": approval.role,
+            }
+        },
+        "approved_objectives": approval.objectives.to_payload(),
+    }
+
+
+def _transform_manifest(
+    config: bulk.SnowflakeTransformConfig,
+) -> dict[str, object]:
+    approval = _transform_approval(config)
     return {
         "schema": bulk._APPROVAL_SCHEMA,
         "cost_ceiling": approval.cost_ceiling.to_payload(),
@@ -333,6 +410,50 @@ def test_concurrency_config_binds_four_pipeline_workload_and_secret_references()
         "copy_part_rows": 5_000,
         "copy_part_logical_bytes": 16 * 1_024 * 1_024,
     }
+
+
+def test_transform_config_binds_required_models_and_secret_references() -> None:
+    config = _transform_config(
+        auth_method="oauth",
+        token_env="DANDER_TEST_SNOWFLAKE_TOKEN",
+    )
+
+    values = bulk._provider_values(config, schema_name="DANDER_PHASE8_TRANSFORM_TEST")
+
+    assert values["auth"] == {
+        "method": "oauth",
+        "token_env": "DANDER_TEST_SNOWFLAKE_TOKEN",
+    }
+    assert values["direct_max_rows"] == 0
+    assert values["max_rows_per_file"] == 50_000
+    assert "token" not in values
+    assert config.workload_payload() == {
+        "schema": "io.dander.phase8.snowflake-transform/v1",
+        "benchmark_class": "transform",
+        "fact_rows": 100_000,
+        "dimension_rows": 100,
+        "delta_rows": 2,
+        "models": ["scan", "join", "aggregation", "incremental"],
+        "generic_tests": ["accepted_values", "not_null", "unique"],
+        "copy_part_rows": 50_000,
+        "copy_part_logical_bytes": 16 * 1_024 * 1_024,
+    }
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"fact_rows": 99, "dimension_rows": 100}, "smaller than"),
+        ({"dimension_rows": 0}, "dimension_rows"),
+        ({"copy_part_rows": 100_001}, "fact_rows"),
+    ],
+)
+def test_transform_config_fails_before_provider_io(
+    overrides: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        _transform_config(**overrides)
 
 
 @pytest.mark.parametrize(
@@ -431,6 +552,26 @@ def test_load_concurrency_approval_binds_exact_workload(tmp_path: Path) -> None:
         bulk.load_approval(path, config=config)
 
 
+def test_load_transform_approval_binds_exact_workload(tmp_path: Path) -> None:
+    config = _transform_config()
+    path = tmp_path / "transform-objectives.json"
+    path.write_text(json.dumps(_transform_manifest(config)), encoding="utf-8")
+
+    approval = bulk.load_approval(path, config=config)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.TRANSFORM
+    assert approval.objectives.names == bulk._TRANSFORM_OBJECTIVES
+    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
+
+    payload = _transform_manifest(config)
+    workload = payload["workload"]
+    assert isinstance(workload, dict)
+    workload["fact_rows"] = 1
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="workload"):
+        bulk.load_approval(path, config=config)
+
+
 def test_provider_coordinates_fail_closed_before_runtime() -> None:
     config = _config()
     approval = _approval(config)
@@ -494,6 +635,42 @@ def test_incremental_records_preserve_seed_delta_and_cursor_shape() -> None:
     assert list(bulk._incremental_delta_records(config)) == [
         {"id": "000000000000", "payload": "ddd", "cursor_value": 2},
         {"id": "000000000004", "payload": "ddd", "cursor_value": 2},
+    ]
+
+
+def test_transform_fixture_compiles_all_required_snowflake_models(tmp_path: Path) -> None:
+    config = _transform_config(fact_rows=4, dimension_rows=2, copy_part_rows=2)
+    bulk._write_transform_models(tmp_path, target_schema="DANDER_PHASE8_MODELS")
+
+    project = TransformProject.load(
+        tmp_path,
+        catalog=config.database,
+        raw_namespace="DANDER_PHASE8_RAW",
+        target_dialect=SqlDialect.SNOWFLAKE,
+    )
+
+    assert tuple(project.models) == (
+        "aggregate_records",
+        "incremental_records",
+        "joined_records",
+        "scan_records",
+    )
+    assert tuple(model.name for model in project.ordered()) == (
+        "scan_records",
+        "joined_records",
+        "aggregate_records",
+        "incremental_records",
+    )
+    assert all(project.compile(model) for model in project.ordered())
+    assert list(bulk._transform_dimension_records(config)) == [
+        {"dimension_id": 0, "category": "category_0"},
+        {"dimension_id": 1, "category": "category_1"},
+    ]
+    assert list(bulk._transform_fact_records(config)) == [
+        {"id": 1, "dimension_id": 1, "amount": 1, "updated_at": 1},
+        {"id": 2, "dimension_id": 0, "amount": 2, "updated_at": 1},
+        {"id": 3, "dimension_id": 1, "amount": 3, "updated_at": 1},
+        {"id": 4, "dimension_id": 0, "amount": 4, "updated_at": 1},
     ]
 
 
@@ -674,6 +851,36 @@ def test_concurrency_report_preserves_functional_pass_and_pending_cost() -> None
     assert metrics["rows_per_pipeline"] == 5_000
     assert metrics["concurrent_claim_attempts"] == 2
     assert metrics["stale_publications_rejected"] == 1
+    statuses = {objective.name: objective.status for objective in report.objectives}
+    assert statuses["cost_ceiling"] is ObjectiveStatus.NOT_EVALUATED
+    assert all(
+        status is ObjectiveStatus.PASSED
+        for name, status in statuses.items()
+        if name != "cost_ceiling"
+    )
+
+
+def test_transform_report_preserves_functional_pass_and_pending_cost() -> None:
+    config = _transform_config()
+
+    report = bulk._transform_report(
+        config,
+        _identity(),
+        _transform_approval(config),
+        _transform_result(),
+        provider_cost_usd=None,
+    )
+
+    assert report.status is QualificationStatus.NOT_EVALUATED
+    assert report.workload.benchmark_class is BenchmarkClass.TRANSFORM
+    assert report.workload.input_rows == 100_100
+    assert report.performance.load_duration_ms.value == 1_000
+    assert report.performance.transform_duration_ms.value == 1_500
+    metrics = {metric.name: metric.value for metric in report.performance.provider_metrics}
+    assert metrics["assertion_count"] == 21
+    assert metrics["model_count"] == 4
+    assert metrics["ownership_verifications"] == 27
+    assert metrics["copy_operations"] == 3
     statuses = {objective.name: objective.status for objective in report.objectives}
     assert statuses["cost_ceiling"] is ObjectiveStatus.NOT_EVALUATED
     assert all(
@@ -912,5 +1119,69 @@ def test_concurrency_cli_dispatches_and_sanitizes_provider_failure(
 
     assert exit_code == 1
     assert payload["benchmark_class"] == "concurrent_pipelines"
+    assert payload["status"] == "failed"
+    assert secret not in json.dumps(payload)
+
+
+def test_transform_cli_dispatches_and_sanitizes_provider_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = _transform_config()
+    objectives = tmp_path / "transform-objectives.json"
+    objectives.write_text(json.dumps(_transform_manifest(config)), encoding="utf-8")
+    secret = "transform-provider-secret-response"
+
+    def fail(
+        _config: bulk.SnowflakeTransformConfig,
+        *,
+        identity: bulk.CandidateIdentity,
+        approval: bulk._Approval,
+        provider_cost_usd: Decimal | None,
+    ) -> None:
+        del identity, approval, provider_cost_usd
+        raise bulk.SnowflakeTransformQualificationError(secret)
+
+    monkeypatch.setattr(bulk, "run_phase8_snowflake_transform", fail)
+
+    exit_code = bulk.main(
+        [
+            "--benchmark-class",
+            "transform",
+            "--account",
+            config.account,
+            "--user",
+            config.user,
+            "--database",
+            config.database,
+            "--warehouse",
+            config.warehouse,
+            "--role",
+            config.role or "",
+            "--objectives",
+            str(objectives),
+            "--candidate-version",
+            __version__,
+            "--candidate-commit",
+            _COMMIT,
+            "--image-digest",
+            _DIGEST,
+            "--approval-reference",
+            _REFERENCE,
+            "--benchmark-date",
+            "2026-08-17",
+            "--provider-job-id",
+            "container:test",
+            "--service-shape",
+            "snowflake_xsmall",
+            "--output-file",
+            str(tmp_path / "transform-report.json"),
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert payload["benchmark_class"] == "transform"
     assert payload["status"] == "failed"
     assert secret not in json.dumps(payload)
