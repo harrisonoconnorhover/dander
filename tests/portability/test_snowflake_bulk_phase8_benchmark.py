@@ -1,4 +1,4 @@
-"""Credential-free checks for the Phase 8 Snowflake bulk harness."""
+"""Credential-free checks for the Phase 8 Snowflake scale harness."""
 
 from __future__ import annotations
 
@@ -7,11 +7,14 @@ from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from scripts.benchmarks import snowflake_bulk_phase8 as bulk
 
 from dander import __version__
+from dander.concurrency import TargetFenceLostError
 from dander.qualification import (
     ApprovedCostCeiling,
     ApprovedObjectiveSet,
@@ -19,6 +22,11 @@ from dander.qualification import (
     ObjectiveStatus,
     QualificationStatus,
 )
+
+if TYPE_CHECKING:
+    from dander.concurrency import FencingToken
+    from dander.telemetry import OperationTelemetry
+    from dander.warehouse import RelationRef, WarehouseRuntime
 
 _COMMIT = "b" * 40
 _DIGEST = f"sha256:{'a' * 64}"
@@ -47,6 +55,18 @@ def _incremental_config(**overrides: object) -> bulk.SnowflakeIncrementalConfig:
     }
     values.update(overrides)
     return bulk.SnowflakeIncrementalConfig(**values)  # type: ignore[arg-type]
+
+
+def _concurrency_config(**overrides: object) -> bulk.SnowflakeConcurrencyConfig:
+    values: dict[str, object] = {
+        "account": "org-account",
+        "user": "DANDER_USER",
+        "database": "DANDER_CONCURRENCY_TEST",
+        "warehouse": "DANDER_CONCURRENCY_WH",
+        "role": "DANDER_CONCURRENCY_ROLE",
+    }
+    values.update(overrides)
+    return bulk.SnowflakeConcurrencyConfig(**values)  # type: ignore[arg-type]
 
 
 def _identity() -> bulk.CandidateIdentity:
@@ -108,6 +128,29 @@ def _incremental_approval(
     )
 
 
+def _concurrency_approval(
+    config: bulk.SnowflakeConcurrencyConfig,
+) -> bulk._Approval:
+    return bulk._Approval(
+        objectives=ApprovedObjectiveSet(
+            names=bulk._CONCURRENCY_OBJECTIVES,
+            benchmark_class=BenchmarkClass.CONCURRENT_PIPELINES,
+            profile_id="snowflake_local_scale",
+            release_version=__version__,
+            git_commit=_COMMIT,
+            image_digest=_DIGEST,
+            configuration_sha256=config.configuration_sha256(),
+            approval_reference=_REFERENCE,
+        ),
+        cost_ceiling=ApprovedCostCeiling(Decimal("0.50"), _REFERENCE),
+        account_sha256=bulk._identifier_sha256(config.account),
+        operator_user_sha256=bulk._identifier_sha256(config.user),
+        database=config.database,
+        warehouse=config.warehouse,
+        role=config.role or "",
+    )
+
+
 def _result() -> bulk._BulkResult:
     return bulk._BulkResult(
         duration_ms=2_000,
@@ -146,6 +189,24 @@ def _incremental_result() -> bulk._IncrementalResult:
     )
 
 
+def _concurrency_result() -> bulk._ConcurrencyResult:
+    return bulk._ConcurrencyResult(
+        duration_ms=1_000,
+        peak_rss_bytes=128 * 1_024 * 1_024,
+        pipeline_count=4,
+        rows_per_pipeline=5_000,
+        total_rows=20_000,
+        logical_input_bytes=3_040_000,
+        concurrent_claim_attempts=2,
+        stale_publications_rejected=1,
+        copy_operations=4,
+        query_ids=("query-one", "query-two"),
+        staging_tables=0,
+        staging_stages=0,
+        cleanup_verified=True,
+    )
+
+
 def _manifest(config: bulk.SnowflakeBulkConfig) -> dict[str, object]:
     approval = _approval(config)
     return {
@@ -169,6 +230,27 @@ def _incremental_manifest(
     config: bulk.SnowflakeIncrementalConfig,
 ) -> dict[str, object]:
     approval = _incremental_approval(config)
+    return {
+        "schema": bulk._APPROVAL_SCHEMA,
+        "cost_ceiling": approval.cost_ceiling.to_payload(),
+        "workload": config.workload_payload(),
+        "configuration": {
+            "snowflake": {
+                "account_sha256": approval.account_sha256,
+                "operator_user_sha256": approval.operator_user_sha256,
+                "database": approval.database,
+                "warehouse": approval.warehouse,
+                "role": approval.role,
+            }
+        },
+        "approved_objectives": approval.objectives.to_payload(),
+    }
+
+
+def _concurrency_manifest(
+    config: bulk.SnowflakeConcurrencyConfig,
+) -> dict[str, object]:
+    approval = _concurrency_approval(config)
     return {
         "schema": bulk._APPROVAL_SCHEMA,
         "cost_ceiling": approval.cost_ceiling.to_payload(),
@@ -227,6 +309,32 @@ def test_incremental_config_binds_accepted_workload_and_secret_references() -> N
     }
 
 
+def test_concurrency_config_binds_four_pipeline_workload_and_secret_references() -> None:
+    config = _concurrency_config(
+        auth_method="oauth",
+        token_env="DANDER_TEST_SNOWFLAKE_TOKEN",
+    )
+
+    values = bulk._provider_values(config, schema_name="DANDER_PHASE8_CONCURRENCY_TEST")
+
+    assert values["auth"] == {
+        "method": "oauth",
+        "token_env": "DANDER_TEST_SNOWFLAKE_TOKEN",
+    }
+    assert values["direct_max_rows"] == 0
+    assert values["max_rows_per_file"] == 5_000
+    assert "token" not in values
+    assert config.workload_payload() == {
+        "schema": "io.dander.phase8.snowflake-concurrency/v1",
+        "benchmark_class": "concurrent_pipelines",
+        "concurrent_pipelines": 4,
+        "rows_per_pipeline": 5_000,
+        "payload_bytes": 128,
+        "copy_part_rows": 5_000,
+        "copy_part_logical_bytes": 16 * 1_024 * 1_024,
+    }
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [
@@ -242,6 +350,23 @@ def test_config_fails_before_provider_io(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         _config(**overrides)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"concurrent_pipelines": 1}, "between 2 and 32"),
+        ({"concurrent_pipelines": 33}, "between 2 and 32"),
+        ({"rows_per_pipeline": 0}, "rows_per_pipeline"),
+        ({"copy_part_rows": 5_001}, "rows_per_pipeline"),
+    ],
+)
+def test_concurrency_config_fails_before_provider_io(
+    overrides: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        _concurrency_config(**overrides)
 
 
 def test_load_approval_binds_exact_workload_and_candidate(tmp_path: Path) -> None:
@@ -283,6 +408,26 @@ def test_load_incremental_approval_binds_exact_workload(tmp_path: Path) -> None:
     objectives["names"] = list(bulk._OBJECTIVES)
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="required objective set"):
+        bulk.load_approval(path, config=config)
+
+
+def test_load_concurrency_approval_binds_exact_workload(tmp_path: Path) -> None:
+    config = _concurrency_config()
+    path = tmp_path / "concurrency-objectives.json"
+    path.write_text(json.dumps(_concurrency_manifest(config)), encoding="utf-8")
+
+    approval = bulk.load_approval(path, config=config)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.CONCURRENT_PIPELINES
+    assert approval.objectives.names == bulk._CONCURRENCY_OBJECTIVES
+    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
+
+    payload = _concurrency_manifest(config)
+    workload = payload["workload"]
+    assert isinstance(workload, dict)
+    workload["concurrent_pipelines"] = 3
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="workload"):
         bulk.load_approval(path, config=config)
 
 
@@ -352,6 +497,106 @@ def test_incremental_records_preserve_seed_delta_and_cursor_shape() -> None:
     ]
 
 
+def test_concurrency_runner_uses_distinct_independent_targets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _concurrency_config(rows_per_pipeline=2, copy_part_rows=2)
+    writes: list[tuple[str, str, str]] = []
+    readbacks: list[str] = []
+
+    def write_table(
+        _runtime: WarehouseRuntime,
+        *,
+        database: str,
+        schema: str,
+        table: str,
+        pipeline_id: str,
+        rows: int,
+        payload_bytes: int,
+        copy_part_rows: int,
+        authority_id: str,
+    ) -> tuple[int, int, tuple[OperationTelemetry, ...]]:
+        del database, schema, payload_bytes, copy_part_rows
+        writes.append((table, pipeline_id, authority_id))
+        return rows, 1, ()
+
+    def require_shape(
+        _runtime: WarehouseRuntime,
+        *,
+        database: str,
+        schema: str,
+        table: str,
+        rows: int,
+        payload_bytes: int,
+    ) -> None:
+        del database, schema, rows, payload_bytes
+        readbacks.append(table)
+
+    monkeypatch.setattr(bulk, "_write_table", write_table)
+    monkeypatch.setattr(bulk, "_require_table_shape", require_shape)
+
+    operations = bulk._write_concurrent_targets(
+        cast("WarehouseRuntime", object()),
+        config=config,
+        schema="DANDER_CONCURRENCY",
+    )
+
+    assert operations == ()
+    expected_tables = [f"pipeline_{index:02d}_records" for index in range(4)]
+    assert sorted(table for table, _, _ in writes) == expected_tables
+    assert sorted(readbacks) == expected_tables
+    assert {authority for _, _, authority in writes} == {bulk._CONCURRENCY_AUTHORITY_ID}
+
+
+def test_concurrency_contention_rejects_the_stale_publication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Fence:
+        def __init__(self) -> None:
+            self.claims: list[FencingToken] = []
+
+        def claim(self, _relation: RelationRef, fence: FencingToken) -> object:
+            self.claims.append(fence)
+            return object()
+
+    class Writer:
+        def write(self, _rows: object, _target: object) -> int:
+            raise TargetFenceLostError("stale")
+
+    class Writers:
+        def build_ingestion_writer(self, **_values: object) -> Writer:
+            return Writer()
+
+    fence = Fence()
+    runtime = cast(
+        "WarehouseRuntime",
+        SimpleNamespace(target_fence=fence, writers=Writers()),
+    )
+    checked: list[tuple[str, int]] = []
+
+    def require_count(
+        _runtime: WarehouseRuntime,
+        relation: RelationRef,
+        *,
+        expected: int,
+    ) -> None:
+        checked.append((relation.name, expected))
+
+    monkeypatch.setattr(bulk, "_require_count", require_count)
+
+    stale_rejected, attempts = bulk._reject_stale_publication(
+        runtime,
+        database="DANDER_CONCURRENCY_TEST",
+        schema="DANDER_CONCURRENCY",
+        copy_part_rows=5_000,
+    )
+
+    assert stale_rejected is True
+    assert attempts == 2
+    assert checked == [("contention_records", 0)]
+    assert {claim.token for claim in fence.claims} == {20, 21}
+
+
 def test_report_keeps_provider_cost_pending_without_claiming_pass() -> None:
     config = _config()
 
@@ -399,6 +644,36 @@ def test_incremental_report_preserves_functional_pass_and_pending_cost() -> None
     assert metrics["delta_target_ratio"] == Decimal("100")
     assert metrics["final_target_rows"] == 301_500
     assert metrics["regression_rows_affected"] == 0
+    statuses = {objective.name: objective.status for objective in report.objectives}
+    assert statuses["cost_ceiling"] is ObjectiveStatus.NOT_EVALUATED
+    assert all(
+        status is ObjectiveStatus.PASSED
+        for name, status in statuses.items()
+        if name != "cost_ceiling"
+    )
+
+
+def test_concurrency_report_preserves_functional_pass_and_pending_cost() -> None:
+    config = _concurrency_config()
+
+    report = bulk._concurrency_report(
+        config,
+        _identity(),
+        _concurrency_approval(config),
+        _concurrency_result(),
+        provider_cost_usd=None,
+    )
+
+    assert report.status is QualificationStatus.NOT_EVALUATED
+    assert report.workload.benchmark_class is BenchmarkClass.CONCURRENT_PIPELINES
+    assert report.workload.input_rows == 20_000
+    assert report.workload.concurrency == 4
+    assert report.performance.throughput_rows_per_second.value == Decimal("20000.000")
+    metrics = {metric.name: metric.value for metric in report.performance.provider_metrics}
+    assert metrics["pipeline_count"] == 4
+    assert metrics["rows_per_pipeline"] == 5_000
+    assert metrics["concurrent_claim_attempts"] == 2
+    assert metrics["stale_publications_rejected"] == 1
     statuses = {objective.name: objective.status for objective in report.objectives}
     assert statuses["cost_ceiling"] is ObjectiveStatus.NOT_EVALUATED
     assert all(
@@ -573,5 +848,69 @@ def test_incremental_cli_dispatches_and_sanitizes_provider_failure(
 
     assert exit_code == 1
     assert payload["benchmark_class"] == "incremental"
+    assert payload["status"] == "failed"
+    assert secret not in json.dumps(payload)
+
+
+def test_concurrency_cli_dispatches_and_sanitizes_provider_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = _concurrency_config()
+    objectives = tmp_path / "concurrency-objectives.json"
+    objectives.write_text(json.dumps(_concurrency_manifest(config)), encoding="utf-8")
+    secret = "concurrency-provider-secret-response"
+
+    def fail(
+        _config: bulk.SnowflakeConcurrencyConfig,
+        *,
+        identity: bulk.CandidateIdentity,
+        approval: bulk._Approval,
+        provider_cost_usd: Decimal | None,
+    ) -> None:
+        del identity, approval, provider_cost_usd
+        raise bulk.SnowflakeConcurrencyQualificationError(secret)
+
+    monkeypatch.setattr(bulk, "run_phase8_snowflake_concurrency", fail)
+
+    exit_code = bulk.main(
+        [
+            "--benchmark-class",
+            "concurrent_pipelines",
+            "--account",
+            config.account,
+            "--user",
+            config.user,
+            "--database",
+            config.database,
+            "--warehouse",
+            config.warehouse,
+            "--role",
+            config.role or "",
+            "--objectives",
+            str(objectives),
+            "--candidate-version",
+            __version__,
+            "--candidate-commit",
+            _COMMIT,
+            "--image-digest",
+            _DIGEST,
+            "--approval-reference",
+            _REFERENCE,
+            "--benchmark-date",
+            "2026-08-17",
+            "--provider-job-id",
+            "container:test",
+            "--service-shape",
+            "snowflake_xsmall",
+            "--output-file",
+            str(tmp_path / "concurrency-report.json"),
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert payload["benchmark_class"] == "concurrent_pipelines"
     assert payload["status"] == "failed"
     assert secret not in json.dumps(payload)

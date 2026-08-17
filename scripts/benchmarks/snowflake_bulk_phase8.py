@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exact-candidate Snowflake bulk and incremental Phase 8 qualification."""
+"""Exact-candidate Snowflake bulk, incremental, and concurrency qualification."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ import resource
 import sys
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -17,7 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from dander import __version__
-from dander.concurrency import FencingToken
+from dander.concurrency import FencingToken, TargetFenceLostError
 from dander.providers import ProviderKind, default_provider_registry
 from dander.providers.snowflake.session import execute, open_connection
 from dander.providers.snowflake.writer import SnowflakeStagedWriter
@@ -51,8 +53,10 @@ if TYPE_CHECKING:
 _APPROVAL_SCHEMA = "io.dander.qualification.objective-approval/v1"
 _CONFIG_SCHEMA = "io.dander.phase8.snowflake-bulk/v1"
 _INCREMENTAL_CONFIG_SCHEMA = "io.dander.phase8.snowflake-incremental/v1"
+_CONCURRENCY_CONFIG_SCHEMA = "io.dander.phase8.snowflake-concurrency/v1"
 _AUTHORITY_ID = "snowflake:phase8-bulk"
 _INCREMENTAL_AUTHORITY_ID = "snowflake:phase8-incremental"
+_CONCURRENCY_AUTHORITY_ID = "snowflake:phase8-concurrency"
 _OBJECTIVES = (
     "cleanup",
     "cost_ceiling",
@@ -69,9 +73,18 @@ _INCREMENTAL_OBJECTIVES = (
     "incremental_cursor_monotonic",
     "incremental_throughput_measurement",
 )
+_CONCURRENCY_OBJECTIVES = (
+    "cleanup",
+    "concurrent_pipeline_completion",
+    "controlled_contention",
+    "cost_ceiling",
+    "stale_fence_rejection",
+    "throughput_measurement",
+)
 _OBJECTIVES_BY_CLASS = {
     BenchmarkClass.BULK_THROUGHPUT: _OBJECTIVES,
     BenchmarkClass.INCREMENTAL: _INCREMENTAL_OBJECTIVES,
+    BenchmarkClass.CONCURRENT_PIPELINES: _CONCURRENCY_OBJECTIVES,
 }
 
 
@@ -81,6 +94,10 @@ class SnowflakeBulkQualificationError(RuntimeError):
 
 class SnowflakeIncrementalQualificationError(SnowflakeBulkQualificationError):
     """Raised with a sanitized Snowflake incremental-qualification summary."""
+
+
+class SnowflakeConcurrencyQualificationError(SnowflakeBulkQualificationError):
+    """Raised with a sanitized Snowflake concurrency-qualification summary."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,7 +229,70 @@ class SnowflakeIncrementalConfig:
         return hashlib.sha256(encoded).hexdigest()
 
 
-SnowflakeScaleConfig = SnowflakeBulkConfig | SnowflakeIncrementalConfig
+@dataclass(frozen=True, slots=True)
+class SnowflakeConcurrencyConfig:
+    """Non-secret provider coordinates and bounded concurrent workload."""
+
+    account: str
+    user: str
+    database: str
+    warehouse: str
+    role: str | None = None
+    auth_method: str = "oauth"
+    token_env: str = "DANDER_SNOWFLAKE_OAUTH_TOKEN"
+    private_key_file_env: str = "DANDER_SNOWFLAKE_PRIVATE_KEY_FILE"
+    private_key_password_env: str | None = None
+    concurrent_pipelines: int = 4
+    rows_per_pipeline: int = 5_000
+    payload_bytes: int = 128
+    copy_part_rows: int = 5_000
+    copy_part_logical_bytes: int = 16 * 1_024 * 1_024
+
+    def __post_init__(self) -> None:
+        if self.auth_method not in {"key_pair", "oauth"}:
+            raise ValueError("auth_method must be key_pair or oauth")
+        for name in (
+            "concurrent_pipelines",
+            "rows_per_pipeline",
+            "payload_bytes",
+            "copy_part_rows",
+            "copy_part_logical_bytes",
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        if self.concurrent_pipelines < 2 or self.concurrent_pipelines > 32:
+            raise ValueError("concurrent_pipelines must be between 2 and 32")
+        if self.copy_part_rows > self.rows_per_pipeline:
+            raise ValueError("copy_part_rows must not exceed rows_per_pipeline")
+        default_provider_registry().parse(
+            ProviderKind.WAREHOUSE,
+            _provider_values(self, schema_name="DANDER_PHASE8_CONCURRENCY_CHECK"),
+        )
+
+    def workload_payload(self) -> dict[str, object]:
+        """Return the exact approval-bound concurrent workload."""
+        return {
+            "schema": _CONCURRENCY_CONFIG_SCHEMA,
+            "benchmark_class": BenchmarkClass.CONCURRENT_PIPELINES.value,
+            "concurrent_pipelines": self.concurrent_pipelines,
+            "rows_per_pipeline": self.rows_per_pipeline,
+            "payload_bytes": self.payload_bytes,
+            "copy_part_rows": self.copy_part_rows,
+            "copy_part_logical_bytes": self.copy_part_logical_bytes,
+        }
+
+    def configuration_sha256(self) -> str:
+        """Hash the canonical workload used by objective approval."""
+        encoded = json.dumps(
+            self.workload_payload(),
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        return hashlib.sha256(encoded).hexdigest()
+
+
+SnowflakeScaleConfig = SnowflakeBulkConfig | SnowflakeIncrementalConfig | SnowflakeConcurrencyConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,6 +351,23 @@ class _IncrementalResult:
     delta_logical_bytes: int
     final_rows: int
     regression_rows_affected: int
+    copy_operations: int
+    query_ids: tuple[str, ...]
+    staging_tables: int
+    staging_stages: int
+    cleanup_verified: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _ConcurrencyResult:
+    duration_ms: int
+    peak_rss_bytes: int
+    pipeline_count: int
+    rows_per_pipeline: int
+    total_rows: int
+    logical_input_bytes: int
+    concurrent_claim_attempts: int
+    stale_publications_rejected: int
     copy_operations: int
     query_ids: tuple[str, ...]
     staging_tables: int
@@ -602,6 +699,83 @@ def run_phase8_snowflake_incremental(
     )
 
 
+def run_phase8_snowflake_concurrency(
+    config: SnowflakeConcurrencyConfig,
+    *,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    provider_cost_usd: Decimal | None,
+) -> QualificationReport:
+    """Run independent pipelines and one controlled target-fence contention."""
+    if __version__ != identity.release_version:
+        raise ValueError(
+            f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
+        )
+    _require_identity_match(identity, approval)
+    _require_provider_match(config, approval)
+    schema_name = f"DANDER_P8_CONCURRENCY_{uuid.uuid4().hex[:12].upper()}"
+    runtime = _warehouse_runtime(config, schema_name=schema_name)
+    started = time.perf_counter()
+    peak_before = _peak_rss_bytes()
+    try:
+        operations = _write_concurrent_targets(runtime, config=config, schema=schema_name)
+        stale_rejected, claim_attempts = _reject_stale_publication(
+            runtime,
+            database=config.database,
+            schema=schema_name,
+            copy_part_rows=config.copy_part_rows,
+        )
+        if not stale_rejected:
+            raise SnowflakeConcurrencyQualificationError(
+                "Snowflake concurrency qualification accepted a stale publication"
+            )
+        staging_tables, staging_stages = _staging_residue(
+            runtime,
+            config.database,
+            schema_name,
+        )
+        if staging_tables or staging_stages:
+            raise SnowflakeConcurrencyQualificationError(
+                "Snowflake concurrency qualification left run-scoped staging objects"
+            )
+    except SnowflakeBulkQualificationError:
+        raise
+    except Exception as error:
+        raise SnowflakeConcurrencyQualificationError(
+            f"Snowflake concurrency qualification failed in disposable schema {schema_name}"
+        ) from error
+    finally:
+        _drop_schema(runtime, config.database, schema_name)
+    cleanup = not _schema_exists(runtime, config.database, schema_name)
+    if not cleanup:
+        raise SnowflakeConcurrencyQualificationError(
+            f"Snowflake concurrency qualification left disposable schema {schema_name}"
+        )
+    total_rows = config.concurrent_pipelines * config.rows_per_pipeline
+    result = _ConcurrencyResult(
+        duration_ms=_elapsed_ms(started),
+        peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
+        pipeline_count=config.concurrent_pipelines,
+        rows_per_pipeline=config.rows_per_pipeline,
+        total_rows=total_rows,
+        logical_input_bytes=total_rows * (config.payload_bytes + 24),
+        concurrent_claim_attempts=claim_attempts,
+        stale_publications_rejected=1,
+        copy_operations=len(operations),
+        query_ids=_operation_query_ids(operations),
+        staging_tables=staging_tables,
+        staging_stages=staging_stages,
+        cleanup_verified=cleanup,
+    )
+    return _concurrency_report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
+
+
 def _require_identity_match(identity: CandidateIdentity, approval: _Approval) -> None:
     objectives = approval.objectives
     if (
@@ -681,6 +855,7 @@ def _write_table(
     rows: int,
     payload_bytes: int,
     copy_part_rows: int,
+    authority_id: str = _AUTHORITY_ID,
 ) -> tuple[int, int, tuple[OperationTelemetry, ...]]:
     relation = RelationRef(catalog=database, namespace=schema, name=table)
     publication = runtime.target_fence.claim(
@@ -690,7 +865,7 @@ def _write_table(
             pipeline_id=pipeline_id,
             run_id=f"{pipeline_id}-one",
             token=1,
-            authority_id=_AUTHORITY_ID,
+            authority_id=authority_id,
         ),
     )
     writer = runtime.writers.build_ingestion_writer(
@@ -725,6 +900,109 @@ def _write_table(
             "Snowflake bulk write affected an unexpected row count"
         )
     return affected, _elapsed_ms(started), operations
+
+
+def _write_concurrent_targets(
+    runtime: WarehouseRuntime,
+    *,
+    config: SnowflakeConcurrencyConfig,
+    schema: str,
+) -> tuple[OperationTelemetry, ...]:
+    operations: list[OperationTelemetry] = []
+    with ThreadPoolExecutor(max_workers=config.concurrent_pipelines) as executor:
+        futures = tuple(
+            executor.submit(
+                _write_table,
+                runtime,
+                database=config.database,
+                schema=schema,
+                table=f"pipeline_{index:02d}_records",
+                pipeline_id=f"phase8_snowflake_concurrency_{index:02d}",
+                rows=config.rows_per_pipeline,
+                payload_bytes=config.payload_bytes,
+                copy_part_rows=config.copy_part_rows,
+                authority_id=_CONCURRENCY_AUTHORITY_ID,
+            )
+            for index in range(config.concurrent_pipelines)
+        )
+        for index, future in enumerate(futures):
+            affected, _duration_ms, pipeline_operations = future.result()
+            if affected != config.rows_per_pipeline:
+                raise SnowflakeConcurrencyQualificationError(
+                    "Snowflake concurrent pipeline affected an unexpected row count"
+                )
+            _require_table_shape(
+                runtime,
+                database=config.database,
+                schema=schema,
+                table=f"pipeline_{index:02d}_records",
+                rows=config.rows_per_pipeline,
+                payload_bytes=config.payload_bytes,
+            )
+            operations.extend(pipeline_operations)
+    return tuple(operations)
+
+
+def _reject_stale_publication(
+    runtime: WarehouseRuntime,
+    *,
+    database: str,
+    schema: str,
+    copy_part_rows: int,
+) -> tuple[bool, int]:
+    target_fence = cast("SnowflakeTargetFence", runtime.target_fence)
+    relation = RelationRef(
+        catalog=database,
+        namespace=schema,
+        name="contention_records",
+    )
+    old_token = FencingToken(
+        lease_table=None,
+        pipeline_id="phase8_snowflake_concurrency_contention",
+        run_id="contention-old",
+        token=20,
+        authority_id=_CONCURRENCY_AUTHORITY_ID,
+    )
+    old_publication = target_fence.claim(relation, old_token)
+    newer_token = FencingToken(
+        lease_table=None,
+        pipeline_id=old_token.pipeline_id,
+        run_id="contention-new",
+        token=21,
+        authority_id=old_token.authority_id,
+    )
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = (
+            executor.submit(target_fence.claim, relation, old_token),
+            executor.submit(target_fence.claim, relation, newer_token),
+        )
+        for future in futures:
+            with suppress(TargetFenceLostError):
+                future.result()
+    target_fence.claim(relation, newer_token)
+    writer = runtime.writers.build_ingestion_writer(
+        sandbox=False,
+        batch_rows=copy_part_rows,
+        schema_evolution=SchemaEvolution.STRICT,
+        mode=WriteMode.SCD1,
+    )
+    target = WriteTarget(
+        relation=relation,
+        business_key=("id",),
+        schema=(
+            WriteField(name="id", data_type="STRING", mode="REQUIRED"),
+            WriteField(name="payload", data_type="STRING"),
+        ),
+        publication_fence=old_publication,
+    )
+    try:
+        writer.write(({"id": "stale", "payload": "must-not-publish"},), target)
+    except TargetFenceLostError:
+        _require_count(runtime, relation, expected=0)
+        return True, len(futures)
+    raise SnowflakeConcurrencyQualificationError(
+        "Snowflake concurrency qualification accepted a stale publication"
+    )
 
 
 def _records(rows: int, payload_bytes: int) -> Iterator[dict[str, object]]:
@@ -799,6 +1077,19 @@ def _require_table_shape(
         raise SnowflakeBulkQualificationError("Snowflake bulk readback was malformed")
     if tuple(int(value) for value in result) != (rows, rows, payload_bytes, payload_bytes):
         raise SnowflakeBulkQualificationError("Snowflake bulk readback differs from the workload")
+
+
+def _require_count(runtime: WarehouseRuntime, relation: RelationRef, *, expected: int) -> None:
+    with open_connection(_connection_factory(runtime)) as connection:
+        row = execute(
+            connection,
+            f"SELECT COUNT(*) FROM {_qualified(*relation.coordinates)}",
+            fetch="one",
+        ).row
+    if _count(row) != expected:
+        raise SnowflakeConcurrencyQualificationError(
+            "Snowflake stale publication changed its contended target"
+        )
 
 
 def _require_incremental_result(
@@ -1161,6 +1452,128 @@ def _incremental_report(
     )
 
 
+def _concurrency_report(
+    config: SnowflakeConcurrencyConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    result: _ConcurrencyResult,
+    *,
+    provider_cost_usd: Decimal | None,
+) -> QualificationReport:
+    observed_cost = (
+        provider_cost_usd if provider_cost_usd is not None else approval.cost_ceiling.amount_usd
+    )
+    cost = CostAttribution(
+        provider="snowflake",
+        service="virtual_warehouse",
+        amount=observed_cost,
+        estimated=provider_cost_usd is None,
+    )
+    cost_status = (
+        ObjectiveStatus.NOT_EVALUATED
+        if provider_cost_usd is None
+        else (
+            ObjectiveStatus.PASSED
+            if provider_cost_usd <= approval.cost_ceiling.amount_usd
+            else ObjectiveStatus.FAILED
+        )
+    )
+    objectives = tuple(
+        ObjectiveResult(
+            name,
+            cost_status if name == "cost_ceiling" else ObjectiveStatus.PASSED,
+            f"phase8/snowflake/concurrency/{name}",
+        )
+        for name in approval.objectives.names
+    )
+    status = (
+        QualificationStatus.NOT_EVALUATED
+        if cost_status is ObjectiveStatus.NOT_EVALUATED
+        else (
+            QualificationStatus.FAILED
+            if cost_status is ObjectiveStatus.FAILED
+            else QualificationStatus.PASSED
+        )
+    )
+    measurements = PerformanceMeasurement.measured
+    return QualificationReport(
+        context=QualificationContext(
+            release_version=identity.release_version,
+            git_commit=identity.git_commit,
+            image_digest=identity.image_digest,
+            benchmark_date=identity.benchmark_date,
+            profile_id=approval.objectives.profile_id,
+            launcher=identity.launcher,
+            warehouse="snowflake",
+            state_backend="none",
+            catalog="none",
+            secret_provider=identity.secret_provider,
+            regions=identity.regions,
+            service_shapes=identity.service_shapes,
+            provider_job_ids=tuple(sorted(set((*identity.provider_job_ids, *result.query_ids)))),
+            cost_ceiling=approval.cost_ceiling,
+        ),
+        workload=BenchmarkWorkload(
+            benchmark_class=BenchmarkClass.CONCURRENT_PIPELINES,
+            input_rows=result.total_rows,
+            logical_input_bytes=result.logical_input_bytes,
+            row_width_bytes=config.payload_bytes + 24,
+            schema_depth=1,
+            source_rate_limit="unlimited_local_generator",
+            transform_complexity="independent_targets_and_contended_fence",
+            concurrency=result.pipeline_count,
+            batch_rows=config.copy_part_rows,
+            batch_bytes=config.copy_part_logical_bytes,
+            configuration_sha256=config.configuration_sha256(),
+        ),
+        performance=RunPerformance(
+            rows=measurements("rows", "rows", result.total_rows),
+            logical_bytes=measurements(
+                "logical_bytes",
+                "bytes",
+                result.logical_input_bytes,
+            ),
+            duration_ms=measurements("duration_ms", "milliseconds", result.duration_ms),
+            throughput_rows_per_second=measurements(
+                "throughput_rows_per_second",
+                "rows_per_second",
+                _throughput(result.total_rows, result.duration_ms),
+            ),
+            peak_rss_bytes=measurements("peak_rss_bytes", "bytes", result.peak_rss_bytes),
+            retries=measurements("retries", "count", 0),
+            queue_duration_ms=measurements("queue_duration_ms", "milliseconds", 0),
+            load_duration_ms=measurements(
+                "load_duration_ms",
+                "milliseconds",
+                result.duration_ms,
+            ),
+            transform_duration_ms=measurements("transform_duration_ms", "milliseconds", 0),
+            catalog_duration_ms=measurements("catalog_duration_ms", "milliseconds", 0),
+            provider_metrics=(
+                measurements(
+                    "concurrent_claim_attempts",
+                    "count",
+                    result.concurrent_claim_attempts,
+                ),
+                measurements("copy_operations", "count", result.copy_operations),
+                measurements("pipeline_count", "count", result.pipeline_count),
+                measurements("rows_per_pipeline", "rows", result.rows_per_pipeline),
+                measurements("staging_stages", "count", result.staging_stages),
+                measurements("staging_tables", "count", result.staging_tables),
+                measurements(
+                    "stale_publications_rejected",
+                    "count",
+                    result.stale_publications_rejected,
+                ),
+            ),
+            costs=(cost,),
+        ),
+        objectives=objectives,
+        approved_objectives=approval.objectives,
+        status=status,
+    )
+
+
 def _throughput(rows: int, duration_ms: int) -> Decimal:
     return (Decimal(rows) * 1_000 / Decimal(max(duration_ms, 1))).quantize(Decimal("0.001"))
 
@@ -1178,7 +1591,11 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--benchmark-class",
-        choices=(BenchmarkClass.BULK_THROUGHPUT.value, BenchmarkClass.INCREMENTAL.value),
+        choices=(
+            BenchmarkClass.BULK_THROUGHPUT.value,
+            BenchmarkClass.INCREMENTAL.value,
+            BenchmarkClass.CONCURRENT_PIPELINES.value,
+        ),
         default=BenchmarkClass.BULK_THROUGHPUT.value,
     )
     parser.add_argument("--account", required=True)
@@ -1212,6 +1629,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--incremental-seed-rows", type=int, default=300_000)
     parser.add_argument("--incremental-delta-rows", type=int, default=3_000)
     parser.add_argument("--incremental-payload-bytes", type=int, default=128)
+    parser.add_argument("--concurrent-pipelines", type=int, default=4)
+    parser.add_argument("--concurrent-rows-per-pipeline", type=int, default=5_000)
+    parser.add_argument("--concurrent-payload-bytes", type=int, default=128)
+    parser.add_argument("--concurrent-copy-part-rows", type=int, default=5_000)
     return parser
 
 
@@ -1229,8 +1650,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             "token_env": arguments.token_env,
             "private_key_file_env": arguments.private_key_file_env,
             "private_key_password_env": arguments.private_key_password_env,
-            "copy_part_rows": arguments.copy_part_rows,
-            "copy_part_logical_bytes": arguments.copy_part_logical_bytes,
         }
         config: SnowflakeScaleConfig
         if benchmark_class is BenchmarkClass.BULK_THROUGHPUT:
@@ -1240,13 +1659,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 narrow_payload_bytes=arguments.narrow_payload_bytes,
                 wide_rows=arguments.wide_rows,
                 wide_payload_bytes=arguments.wide_payload_bytes,
+                copy_part_rows=arguments.copy_part_rows,
+                copy_part_logical_bytes=arguments.copy_part_logical_bytes,
             )
-        else:
+        elif benchmark_class is BenchmarkClass.INCREMENTAL:
             config = SnowflakeIncrementalConfig(
                 **common,
                 seed_rows=arguments.incremental_seed_rows,
                 delta_rows=arguments.incremental_delta_rows,
                 payload_bytes=arguments.incremental_payload_bytes,
+                copy_part_rows=arguments.copy_part_rows,
+                copy_part_logical_bytes=arguments.copy_part_logical_bytes,
+            )
+        else:
+            config = SnowflakeConcurrencyConfig(
+                **common,
+                concurrent_pipelines=arguments.concurrent_pipelines,
+                rows_per_pipeline=arguments.concurrent_rows_per_pipeline,
+                payload_bytes=arguments.concurrent_payload_bytes,
+                copy_part_rows=arguments.concurrent_copy_part_rows,
+                copy_part_logical_bytes=arguments.copy_part_logical_bytes,
             )
         approval = load_approval(arguments.objectives, config=config)
         identity = CandidateIdentity(
@@ -1268,8 +1700,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 approval=approval,
                 provider_cost_usd=arguments.provider_cost_usd,
             )
-        else:
+        elif isinstance(config, SnowflakeIncrementalConfig):
             report = run_phase8_snowflake_incremental(
+                config,
+                identity=identity,
+                approval=approval,
+                provider_cost_usd=arguments.provider_cost_usd,
+            )
+        else:
+            report = run_phase8_snowflake_concurrency(
                 config,
                 identity=identity,
                 approval=approval,

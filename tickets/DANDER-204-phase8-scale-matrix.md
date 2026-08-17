@@ -170,3 +170,8 @@ scale report.
   half-update/half-insert readback, cursor monotonicity, COPY telemetry, throughput, and cleanup
   with zero retries. Provider cost remains pending under the held USD 0.50 bound; this ticket stays
   open for the remaining provider classes, posted costs, pairwise, soak, and final closure.
+- PR #373 merged the sanitized incremental result as protected main `d7075db`; exact-main run
+  `32049861930` passed all five jobs. The next focused implementation extends the protected
+  Snowflake scale harness with four independent 5,000-row COPY pipelines plus two controlled claims
+  on one target and a stale-publication rejection. It adds no objective approval, provider
+  mutation, paid run, candidate change, cost claim, or support promotion.
