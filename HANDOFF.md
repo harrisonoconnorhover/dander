@@ -2,43 +2,40 @@
 
 ## Finished
 
-- Protected the Snowflake identifier correction in PR #360 as main `a2b72f8`; exact-main passed.
-- Merged the preserved RC28 failure evidence in PR #359 as protected main `dbd719b`.
-- Prepared private `0.9.0rc29` package and lock metadata without changing public RC20.
-- Limited RC29 notes to the Snowflake correction and protected container security refresh.
-- Added DANDER-216 to bind source-free replacement publication to exact protected main.
-- Opened draft PR #362 with a USD 0.25 publication reserve; no registry/provider operation ran.
+- Protected the Snowflake identifier correction in PR #360 and preserved the failed RC28 evidence.
+- Merged private RC29 preparation in PR #362 as exact main `7a6d138`; all five main jobs passed.
+- Published one private source-free amd64/arm64 RC29 GAR index at `sha256:e016419f…aad54`.
+- Verified exact wheel, rootless read-only runtime, stable qualification entrypoint, SBOM, and provenance.
+- Recorded the sanitized candidate and cost preflight without starting a live provider execution.
 
 ## Try It
 
-Run `uv run pytest -q tests/test_release_metadata.py && uv run python
-scripts/check_release_metadata.py`.
+Inspect `docs/evidence/phase8/2026-08-17/rc29-candidate.json` and compare its digest with GAR.
 
 ## Checks
 
-- Snowflake correction exact-main CI run `31987252875` passed all five jobs.
-- Evidence PR #359 passed all five protected jobs before merge.
-- RC29 release-metadata tests, metadata validation, and lock synchronization passed.
-- RC29 wheel and source distribution built and passed package-content inspection.
-- Ruff lint/format and canonical strict typing passed.
+- Protected exact-main CI run `31988620430` passed all five jobs before publication.
+- RC29 wheel and source distribution passed `scripts/check_distribution.py`.
+- Both image architectures reported RC29 as UID 65532 and passed read-only conformance.
+- Both architectures passed the mounted `dander qualification-run` probe.
+- Both attestations expose SPDX 2.3 SBOM and SLSA provenance for the exact context revision.
 
 ## Decisions
 
-- Use RC29 as the immutable replacement; RC28 remains preserved and must not rerun.
-- Reserve at most USD 0.25 from the additional authorization for one private source-free
-  publication after protected gates pass.
-- Preserve unaffected evidence and rerun only Azure correctness before the final closure matrix.
+- Preserve RC28 and unaffected evidence; only materially affected Azure correctness reruns now.
+- Keep automatic retries disabled and require a protected exact RC29 objective before live execution.
+- Hold the USD 2 delayed-billing bound and USD 0.25 publication reserve, leaving USD 7.75 unreserved.
 
 ## Remaining
 
-- Complete protected review for the exact preparation and authorization record.
-- Pass protected review, merge, and exact-main CI before any private publication.
-- Publish and inspect one source-free amd64/arm64 candidate in a separate lane.
-- Bind and run the replacement Azure correctness objective within the remaining combined cap.
-- Complete the remaining Phase 8 provider, scale, pairwise, soak, audit, and closure gates.
+- Protect this candidate-publication evidence through focused review and exact-main CI.
+- Bind a fresh RC29 Azure/Snowflake correctness objective from the next protected main.
+- Run one manual candidate and only its success-conditional replay, then clean up exactly.
+- Record qualification, replay, cost, and cleanup evidence in a separate small PR.
+- Complete remaining Phase 8 provider, scale, pairwise, soak, audit, and closure gates.
 
 ## Review First
 
-- `CHANGELOG.md`
-- `docs/evidence/phase8/2026-08-17/rc29-authorization.json`
+- `docs/evidence/phase8/2026-08-17/rc29-candidate.json`
 - `tickets/DANDER-216-private-rc29-candidate.md`
+- `docs/cloud-portability-phase8-qualification.md`
