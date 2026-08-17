@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Merged RC29C Azure evidence as protected main `fe6854e`; exact-main run `32034410545` passed all five jobs.
-- Read the posted GCP billing report for the exact proof project and August 16 charge day.
-- Finalized the GKE bounded-memory cost at USD 0.05 against its approved USD 0.50 ceiling.
-- Preserved the raw report and added a final derivative with the unused catalog context corrected to `none`.
-- Closed DANDER-221 without rerunning the benchmark, mutating cloud resources, or promoting support.
+- Merged the GKE cost finalization as protected main `5d0afaa`; exact-main run `32036096345` passed all five jobs.
+- Added a focused normalized Snowflake bulk harness for exact RC29 with bounded streaming COPY parts.
+- Bound 500,000 narrow and 200,000 wide rows to exact digest `sha256:e016419f…aad54`.
+- Reserved USD 0.50 from the additional authorization, leaving USD 3.25 unreserved conservatively.
+- Added 12 credential-free regression tests and DANDER-222; no Snowflake object or paid run exists yet.
 
 ## Try It
 
-Inspect `docs/evidence/phase8/2026-08-17/gke-standard-rc27-postgresql-bounded-memory-final.json`.
+Run `pytest tests/portability/test_snowflake_bulk_phase8_benchmark.py` with the Snowflake and dev extras.
 
 ## Checks
 
-- Exact-main CI run `32034410545` passed Python, Terraform, secret, distribution, and container jobs.
-- All Phase 8 JSON parses, final-report invariants pass, and accepted measurements match the provisional report.
-- `pytest tests/test_qualification.py` passes: 13 tests.
-- Ruff passes, and canonical strict typing passes across 421 source files.
-- `git diff --check` passes.
+- Exact-main CI run `32036096345` passed Python, Terraform, secret, distribution, and container jobs.
+- Focused pytest passes: 12 tests.
+- Focused Ruff and strict mypy pass for the new harness and tests.
+- Objective JSON parses and its configuration hash matches the harness.
 
 ## Decisions
 
-- Attribute only the posted Compute Engine, Kubernetes Engine, and Networking rows to the disposable GKE audit.
-- Exclude unrelated project services from the benchmark cost while retaining the USD 0.26 project/day subtotal.
-- Preserve accepted raw evidence; correct reporter metadata only in the final derivative.
+- Reuse the accepted PostgreSQL narrow/wide workload so throughput stays comparable across warehouses.
+- Run RC29 locally through `dander qualification-run`; this closes Snowflake warehouse bulk only, not Azure launcher scale.
+- Keep cost `not_evaluated` under the full USD 0.50 bound until provider-measured usage posts.
 
 ## Remaining
 
-- Protect this focused GKE cost result through review, merge, and exact-main CI.
+- Protect DANDER-222 through review, merge, and exact-main CI before any Snowflake mutation.
+- Verify billing/auth, run the bounded candidate, clean all named objects, and record sanitized evidence.
 - Continue remaining provider scale, pairwise, canonical-profile, and Kubernetes soak objectives.
 - Finalize AWS and Azure provider costs when attributable rows are available.
-- Complete the final-candidate audit, support matrix, and release closure without colliding with DRUFF.
+- Complete final-candidate, support-matrix, and release closure without colliding with DRUFF.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-17/gke-standard-rc27-postgresql-bounded-memory-provider-cost.json`
-- `docs/evidence/phase8/2026-08-17/gke-standard-rc27-postgresql-bounded-memory-final.json`
-- `tickets/DANDER-221-finalize-gke-bounded-memory-cost.md`
+- `scripts/benchmarks/snowflake_bulk_phase8.py`
+- `docs/evidence/phase8/2026-08-17/snowflake-rc29-bulk-throughput-objectives.json`
+- `tests/portability/test_snowflake_bulk_phase8_benchmark.py`
