@@ -37,6 +37,18 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 
 ## Latest operating evidence
 
+- PR #366 merged the unchanged-RC29 Azure lifetime retry objective as protected main `2b1597f`;
+  exact-main run `32024585468` passed all five jobs before mutation. The fresh manual execution and
+  success-conditional replay both succeeded with distinct Snowflake run ids, three written model
+  rows, three passing assertions per run, and zero retries. Cleanup began 26.34 minutes after the
+  first owned object and final Azure absence was observed at 54.52 minutes, inside the committed
+  120-minute maximum. Active named Azure and Snowflake resources are absent, only the inactive
+  purge-protected Key Vault tombstone remains, and zero managed stage-zero state remains without
+  weakening its `prevent_destroy` guard. ActualCost returned no attributable row, so the full USD 2
+  bound remains held and exact cost is pending. This closes Azure canonical correctness/lifecycle,
+  not Azure scale, provider-posted cost, pairwise, soak, public release, or support. See
+  `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-attempt.json`.
+
 - PR #358 merged the second RC28 Azure correctness objective as protected main `c4ad281`;
   exact-main run `31981210288` passed all five jobs before mutation. PostgreSQL TLS, narrow
   Snowflake staging authority, exact-image, secret-binding, zero-retry, and canonical preflight

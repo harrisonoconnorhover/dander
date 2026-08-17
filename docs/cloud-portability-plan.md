@@ -1467,6 +1467,15 @@ cleans up rather than waiting against the 120-minute maximum. The new USD 2 boun
 unreserved. No owned provider resource may be created until the objective passes protected review,
 merge, and exact-main CI. See
 `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-objectives.json`.
+PR #366 merged that objective as protected main `2b1597f`; exact-main run `32024585468` passed all
+five jobs before mutation. One fresh manual RC29 execution and its success-conditional replay both
+succeeded with distinct run ids, three model rows, three passing assertions per run, and zero
+retries. Cleanup began at minute 26.34 and final Azure absence was observed at minute 54.52. All
+active named Azure and Snowflake resources are absent, zero managed stage-zero state remains, and
+the existing state-storage `prevent_destroy` rail stayed enabled. ActualCost has not posted a row,
+so the full USD 2 bound remains held. Azure canonical correctness and lifecycle now pass; Azure
+scale, provider-posted cost, pairwise, soak, final closure, public release, and support remain open.
+See `docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-attempt.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected

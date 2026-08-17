@@ -143,3 +143,9 @@ scale report.
   token before Azure provisioning, cleanup start by minute 75, and immediate teardown on any later
   interactive blocker. Its new USD 2 bound leaves USD 3.75 unreserved; protected merge and
   exact-main CI precede any owned provider resource.
+- PR #366 merged the retry objective as protected main `2b1597f`; exact-main run `32024585468`
+  passed all five jobs before mutation. The unchanged RC29 candidate and success-conditional replay
+  both succeeded with distinct run ids, three written model rows, three passing assertions, and zero
+  retries. Cleanup began at minute 26.34 and active resource absence was observed at minute 54.52.
+  This closes Azure canonical correctness/lifecycle only; scale, provider-posted cost, pairwise,
+  soak, final closure, and support remain open under the held USD 2 bound.
