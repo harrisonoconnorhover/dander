@@ -50,6 +50,13 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   Azure correctness lane reruns on a replacement candidate. See
   `docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`.
 
+- PR #360 merged the Snowflake portable-identifier correction as protected main `a2b72f8`;
+  exact-main run `31987252875` passed all five jobs. Draft PR #362 prepares private RC29 from that
+  base without registry or provider mutation. Its proposed one-time source-free publication holds
+  USD 0.25 from the incremental authorization, leaving at least USD 7.75 unreserved after the
+  existing USD 2 delayed-billing bound. Publication still waits for protected preparation and its
+  exact-main CI. See `docs/evidence/phase8/2026-08-17/rc29-authorization.json`.
+
 - The operator granted a separate USD 10 additional-spend ceiling and directed Azure RC28
   qualification to resume. AWS Cost Explorer now passes with a posted baseline rounding to USD
   0.00; Azure ActualCost access passes with no rows, and the latest GCP observation predates the

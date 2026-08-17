@@ -7,6 +7,7 @@
 - Prepared private `0.9.0rc29` package and lock metadata without changing public RC20.
 - Limited RC29 notes to the Snowflake correction and protected container security refresh.
 - Added DANDER-216 to bind source-free replacement publication to exact protected main.
+- Opened draft PR #362 with a USD 0.25 publication reserve; no registry/provider operation ran.
 
 ## Try It
 
@@ -30,7 +31,7 @@ scripts/check_release_metadata.py`.
 
 ## Remaining
 
-- Bind the authorization record to the rebased preparation commit and PR.
+- Complete protected review for the exact preparation and authorization record.
 - Pass protected review, merge, and exact-main CI before any private publication.
 - Publish and inspect one source-free amd64/arm64 candidate in a separate lane.
 - Bind and run the replacement Azure correctness objective within the remaining combined cap.
@@ -39,5 +40,5 @@ scripts/check_release_metadata.py`.
 ## Review First
 
 - `CHANGELOG.md`
-- `pyproject.toml`
+- `docs/evidence/phase8/2026-08-17/rc29-authorization.json`
 - `tickets/DANDER-216-private-rc29-candidate.md`

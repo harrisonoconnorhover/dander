@@ -40,3 +40,6 @@ amd64/arm64 GAR index in a separate publication lane, then record sanitized evid
   the eventual final-candidate closure matrix.
 - Automatic provider retry remains disabled. This preparation performs no registry or live-provider
   mutation and makes no cost, qualification, public-release, or support claim.
+- Draft PR #362 proposes the protected publication record bound to preparation commit `c86b64e`.
+  It holds at most USD 0.25, leaving at least USD 7.75 unreserved under conservative delayed-billing
+  bounds; publication remains blocked on protected merge and exact-main CI.

@@ -1443,6 +1443,13 @@ protected main `a2b72f8`; exact-main run `31987252875` passed all five jobs. RC2
 must not rerun. A replacement candidate and only the materially affected Azure correctness lane
 follow. See
 `docs/evidence/phase8/2026-08-17/azure-snowflake-rc28-correctness-retry-attempt.json`.
+
+PR #360 then merged the Snowflake portable-identifier correction as protected main `a2b72f8`;
+exact-main run `31987252875` passed all five jobs. Draft PR #362 prepares private RC29 from that
+tested base. Its proposed one-time source-free publication reserves USD 0.25, leaving at least USD
+7.75 unreserved after the held USD 2 Azure bound. Publication still requires protected preparation
+and exact-main CI; it is not live qualification or a support claim. See
+`docs/evidence/phase8/2026-08-17/rc29-authorization.json`.
 Other exact-objective classes and
 final-candidate reruns remain. Each objective continues
 from a fresh protected-main branch; only materially affected
