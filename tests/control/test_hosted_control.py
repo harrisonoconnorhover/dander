@@ -194,6 +194,23 @@ def test_run_start_rejects_a_body_before_operation_dispatch(client: TestClient) 
         assert response.json()["error"]["code"] == "request_invalid"
 
 
+def test_graph_delete_rejects_a_body_before_mutation(client: TestClient) -> None:
+    with client:
+        created = _create(client, "alpha-graph")
+        response = client.request(
+            "DELETE",
+            "/v1/projects/demo-project/graphs/alpha-graph",
+            content=b'{"ignored":"payload"}',
+            headers={
+                "If-Match": created.headers["etag"],
+                "Idempotency-Key": "delete-key-0001",
+            },
+        )
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "request_invalid"
+        assert client.get("/v1/projects/demo-project/graphs/alpha-graph").status_code == 200
+
+
 def test_etag_round_trips_arbitrary_opaque_revision_without_header_injection() -> None:
     revision = 'provider/"native\nrevision?=yes'
     etag = encode_revision_etag(revision)
@@ -296,6 +313,27 @@ def test_normalized_lifecycle_receives_decoded_revision_and_explicit_idempotency
             ("replay", "replay-key-0001"),
         ]
     assert lifecycle.closed is True
+
+
+@pytest.mark.parametrize("operation", ["cancel", "replay"])
+def test_run_mutations_reject_a_body_before_operation_dispatch(operation: str) -> None:
+    lifecycle = _Lifecycle()
+    application = ControlApplication(
+        InMemoryGraphStore(),
+        lifecycle=cast("RunLifecyclePort", lifecycle),
+    )
+    client = TestClient(create_control_app(application))
+
+    with client:
+        response = client.post(
+            f"/v1/runs/run-one/{operation}",
+            content=b'{"ignored":"payload"}',
+            headers={"Idempotency-Key": f"{operation}-key-0001"},
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "request_invalid"
+        assert lifecycle.mutations == []
 
 
 def test_health_readiness_and_generic_failure_never_echo_exception_text() -> None:
