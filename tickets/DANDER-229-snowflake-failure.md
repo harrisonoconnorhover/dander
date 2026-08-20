@@ -1,7 +1,7 @@
 ---
 id: DANDER-229
 title: Qualify RC29 Snowflake failure behavior
-status: in_progress
+status: done
 component: python
 epic: cloud-portability-phase-8
 depends_on: [DANDER-204, DANDER-214, DANDER-228]
@@ -36,6 +36,8 @@ timeout followed by explicit rollback and fresh-connection readback.
 
 - Harness PR #380 merged as protected main `2e45ca4`; exact-main run `32065584378` passed all five
   jobs. No application or candidate change transfers.
+- Harness-correction PR #386 merged as protected main `6bd496d`; exact-main run `32389095161`
+  passed all five jobs and covers invalid OAuth rejection at both construction and connection.
 - One manual run is normal. A second is allowed only for a classified non-application failure;
   automatic retry remains disabled.
 - Interactive auth must pass before owned resources. Cleanup starts by minute 15 and completes by
@@ -45,7 +47,7 @@ timeout followed by explicit rollback and fresh-connection readback.
 
 ## Review
 
-### 2026-08-20 — BLOCKED BY PROTECTED HARNESS GAP
+### 2026-08-20 — HISTORICAL PROTECTED HARNESS GAP
 
 PR #381 merged the objective as `8550ef1`; exact-main run `32067021084` passed all five jobs. The
 one permitted exact-RC29 candidate then reached Snowflake, created its disposable schema, passed
@@ -59,5 +61,21 @@ No retry ran. Cleanup began 33.94 seconds after the first owned resource and com
 database, warehouse, role, disposable schema, and candidate container absent after 36.278 seconds.
 The full USD 0.50 bound remains held pending delayed provider metering. Exact evidence is recorded
 in `docs/evidence/phase8/2026-08-20/snowflake-rc29-failure-execution.json`. RC29 failed closed and
-requires no product or candidate change; DANDER-229 remains open because the protected harness did
-not complete the final two probes.
+requires no product or candidate change. At that point DANDER-229 remained open because the
+protected harness had not completed the final two probes.
+
+### 2026-08-20 — PASSED ON CLASSIFIED NON-APPLICATION RERUN
+
+PR #386 corrected only the protected harness rejection boundary; RC29, its digest, objective,
+provider configuration, retry policy, and resource bounds remained unchanged. Exact-main run
+`32389095161` passed all five protected jobs before the one allowed classified rerun. Interactive
+ACCOUNTADMIN and restricted-role OAuth both passed with the approved private coordinates, and
+Snowflake account-usage metering was visible before the disposable database and warehouse existed.
+
+The source-free RC29 container exited zero after all four probes passed: closed-connection recovery,
+invalid-credential fail-closed rejection, stale-fence rejection, and rollback/readback after the
+one-second warehouse timeout. No retry ran. Cleanup began 275.118 seconds after the first owned
+role, Snowflake inventories were empty after 279.275 seconds, and the container and temporary OAuth
+tokens were absent after 290.759 seconds. The USD 0.50 conservative bound remains held pending
+delayed provider billing; reconciling that cost does not require another workload run. Sanitized
+evidence is in `docs/evidence/phase8/2026-08-20/snowflake-rc29-failure-execution.json`.
