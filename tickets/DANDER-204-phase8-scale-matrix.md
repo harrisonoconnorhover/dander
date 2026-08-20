@@ -207,3 +207,10 @@ scale report.
   from August 14 through 20 is a conservative USD 1.1666027027 upper bound, below the USD 3 AWS
   ceiling even before credits or Phase 8 attribution. Recheck the final AWS invoice without
   rerunning a workload; the concrete scale and launcher cells remain open.
+- PR #390 corrected only the BigQuery verification alias after failed harness job
+  `d96a56ec-a51b-427f-8521-35eb7e620a4e`; exact-main run `32405100365` passed all five jobs before
+  the one authorized corrective execution. Unchanged RC29 then passed the accepted 500,000-row
+  narrow and 200,000-row wide BigQuery bulk workload at 2,823.790 and 2,062.642 rows/second,
+  respectively, with zero retries, 223,346,688 provider-billed bytes, USD 0.001269578934 gross
+  analysis cost, zero reservation or staging records, and exact dataset cleanup. This closes only
+  the exact-candidate BigQuery bulk-throughput cell; every other open matrix cell remains open.

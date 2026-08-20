@@ -1,0 +1,335 @@
+{
+  "approved_objectives": {
+    "approval_reference": "codex-user-message-2026-08-20-dander-204-bigquery-bulk-corrective-usd-0.25",
+    "benchmark_class": "bulk_throughput",
+    "configuration_sha256": "b6980d22bb797da817d07fe668258e3978147182f8723d224e5db8dc565940a2",
+    "git_commit": "7a6d138a5df19ab81df202b6cb6121e134e59991",
+    "image_digest": "sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54",
+    "names": [
+      "cleanup",
+      "cost_ceiling",
+      "narrow_copy_completion",
+      "narrow_throughput_measurement",
+      "wide_copy_completion",
+      "wide_throughput_measurement"
+    ],
+    "profile_id": "bigquery_local_scale",
+    "release_version": "0.9.0rc29"
+  },
+  "context": {
+    "benchmark_date": "2026-08-20",
+    "catalog": "none",
+    "cost_ceiling": {
+      "amount_usd": "0.25",
+      "approval_reference": "codex-user-message-2026-08-20-dander-204-bigquery-bulk-corrective-usd-0.25"
+    },
+    "git_commit": "7a6d138a5df19ab81df202b6cb6121e134e59991",
+    "image_digest": "sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54",
+    "launcher": "docker_local",
+    "profile_id": "bigquery_local_scale",
+    "provider_job_ids": [
+      "00465d25-c03e-4bd1-9d25-3b1b04230146",
+      "0209385a-656a-4531-9eba-4c47c1853ece",
+      "06fe5750-643e-47e1-afc0-f662ffc807e8",
+      "0a4a64ed-e656-42ef-b0be-d868df60402e",
+      "14e69fb8-27c7-429f-a3e8-17575924d653",
+      "17b7ee83-7de8-40a2-845b-57ed022bb9a5",
+      "3538abca-cf52-4f2b-99c0-6ecd4910e134",
+      "36fbe52e-9da4-4caf-800d-69ec4d9da6d7",
+      "3723a1b1-d28d-4003-a5f9-b8cd05c4ee5b",
+      "38571d2b-eee6-4143-9731-72b4a1b60397",
+      "3bddd0a0-1437-4d79-9546-7b702c8b4d65",
+      "40e575d2-f273-4077-a14f-b0848ce2104b",
+      "41bad7d2-34c3-4ba8-b4a4-c2f81879b4b7",
+      "43f252dd-06ca-4481-9cf6-e307e4a821d0",
+      "4ae541b8-e0dc-4f45-8dd1-273e1aa114b8",
+      "4cf408db-b67b-4ccd-8f97-7ef414d350b2",
+      "4f9c5e16-213e-48a7-a86b-1569124e0ed7",
+      "58f06adb-9fc8-4dc1-b326-290cd542b76c",
+      "5981bc9f-d3d8-495e-8217-609dacbec5aa",
+      "5bb4cfc7-1bf8-485a-ac2e-79be7e2f9290",
+      "5cfa848a-0428-4cc1-83d4-ef0299f9084a",
+      "5de0a415-33df-4896-8c36-2f03790c2235",
+      "5e058454-95c8-4af1-ab1f-ff4029c9a373",
+      "6a152638-d390-482d-8fd1-e54bfe8ed7b1",
+      "6b268ec7-a9b3-44ea-bdc3-73a9efc83dc0",
+      "702021f5-21b4-4682-929a-a6ca3174629d",
+      "71a82ac2-12da-4629-ad79-8072d6c368fd",
+      "78408a81-0bfd-4e73-bcb9-a9775d8e1222",
+      "7921bee2-2d4b-4942-a4f4-18b2aca9bd1c",
+      "7d9dd672-03a7-47d7-aa0d-422900229888",
+      "88004444-3733-466e-944d-d56f5159d7b6",
+      "882ee855-d076-43cc-adae-eba22394a0ab",
+      "8b5c4873-8816-4545-8f62-8defdad304ff",
+      "8dbc3bb1-2a4b-4a88-9e4c-8f8f064b462f",
+      "90e16971-3204-4b06-8c2b-a0e65826f464",
+      "95137407-b48a-4160-ad47-9adb8abee57a",
+      "97811817-f161-4433-89cd-ec276f2c4051",
+      "9787e087-248e-4d4d-a6e4-02c894a2606b",
+      "97e36f86-ee6e-4d39-883d-2c0f8ef0fd22",
+      "99c5ceb7-0845-40a7-98f2-a70cd382ab52",
+      "9a6b29d6-1311-4eac-aecf-9cbb6dab4e98",
+      "9d48f8f0-9b59-4288-af10-e31878660f23",
+      "9ee26058-1c9e-4596-a0ef-4381024e41b3",
+      "a419de5e-286b-43c3-abcb-1a21b928d88d",
+      "a6c0121a-5060-439e-be9c-6aa81a9703ee",
+      "a89c689b-91b1-4b88-a04b-264381ad1b61",
+      "a92c02fc-f207-4234-a41c-ef5949f82554",
+      "aa18f492-6a42-4f9e-8961-d564a122c7aa",
+      "aeb45f86-bdf3-4a3e-b8c7-b2d66882484e",
+      "aeb4aae0-a9f3-41f3-93a9-551545aeea8b",
+      "b7affc7d-4b05-4525-a08e-55885cb9af85",
+      "bb9bfd5b-d142-497a-bcb1-0519f37a00d5",
+      "bd85cf12-55e5-416d-b88c-f8791de581a3",
+      "bf81cacd-50f8-4429-8d76-bf4967399d5a",
+      "c252dc2e-213f-4674-8343-5025c2ea1ba7",
+      "c2889f1c-7df3-4964-b108-6b204dab0248",
+      "c9a8020e-a4ef-46a1-ac8c-cfdc7eaf5d37",
+      "ccbd947f-7c86-44c5-aee0-cfb1f1586e20",
+      "cd9cffbf-6435-4ac6-8a57-ec35de8671f1",
+      "ce890f35-10fd-4e37-a8a8-72c38503b08d",
+      "d3baa88f-d7a7-4bd4-9ff4-70710772dcfe",
+      "d4675730-b626-4ace-805f-d290ee38e090",
+      "dad6a64a-5e3e-4800-b9f4-c903f902162d",
+      "de4b1c4a-d550-4cd2-94c1-30e08972106c",
+      "de9710c8-1fba-4913-ab57-08952ec7d780",
+      "e1f6a977-b999-4e5d-aeef-4d95875bbb7f",
+      "e384a315-424e-4a06-a9c0-cab1d0c6d5ae",
+      "e3d403fa-74de-4c6b-9c83-b6334b2a8f4f",
+      "e510b6df-69a9-49a9-8a26-d2e03a7782e9",
+      "f0880124-75b2-44c8-81df-31dca6ccc078",
+      "f9e85f0f-6f59-4a74-bd2e-e34c2f76ea80",
+      "fa1ee2cc-84a7-4ced-935a-2dc232860a55",
+      "fd48262d-96e5-4958-acb9-fab41b4f802a",
+      "fdb36989-c7b5-441a-9724-2015b24cd06d"
+    ],
+    "regions": [
+      "us"
+    ],
+    "release_version": "0.9.0rc29",
+    "secret_provider": "ephemeral_access_token",
+    "service_shapes": [
+      "bigquery_on_demand",
+      "dander_2cpu_512mib"
+    ],
+    "state_backend": "none",
+    "warehouse": "bigquery"
+  },
+  "objectives": [
+    {
+      "evidence_reference": "phase8/bigquery/bulk/cleanup",
+      "name": "cleanup",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/bigquery/bulk/cost_ceiling",
+      "name": "cost_ceiling",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/bigquery/bulk/narrow_copy_completion",
+      "name": "narrow_copy_completion",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/bigquery/bulk/narrow_throughput_measurement",
+      "name": "narrow_throughput_measurement",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/bigquery/bulk/wide_copy_completion",
+      "name": "wide_copy_completion",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/bigquery/bulk/wide_throughput_measurement",
+      "name": "wide_throughput_measurement",
+      "status": "passed"
+    }
+  ],
+  "performance": {
+    "costs": [
+      {
+        "amount": "0.001269578934",
+        "currency": "USD",
+        "estimated": false,
+        "provider": "gcp",
+        "service": "bigquery_on_demand_analysis_gross"
+      }
+    ],
+    "measurements": [
+      {
+        "name": "rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "700000"
+      },
+      {
+        "name": "logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "237600000"
+      },
+      {
+        "name": "duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "278099"
+      },
+      {
+        "name": "throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "2517.089"
+      },
+      {
+        "name": "peak_rss_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "205746176"
+      },
+      {
+        "name": "retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "queue_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "load_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "274030"
+      },
+      {
+        "name": "transform_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "catalog_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "bigquery_bytes_billed",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "223346688"
+      },
+      {
+        "name": "bigquery_bytes_processed",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "222200000"
+      },
+      {
+        "name": "bigquery_copy_jobs",
+        "status": "measured",
+        "unit": "count",
+        "value": "2"
+      },
+      {
+        "name": "bigquery_load_jobs",
+        "status": "measured",
+        "unit": "count",
+        "value": "70"
+      },
+      {
+        "name": "bigquery_query_jobs",
+        "status": "measured",
+        "unit": "count",
+        "value": "2"
+      },
+      {
+        "name": "bigquery_reservation_usage_records",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "bigquery_slot_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "409"
+      },
+      {
+        "name": "narrow_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "177067"
+      },
+      {
+        "name": "narrow_logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "28000000"
+      },
+      {
+        "name": "narrow_rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "500000"
+      },
+      {
+        "name": "narrow_throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "2823.790"
+      },
+      {
+        "name": "temporary_staging_relations",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "wide_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "96963"
+      },
+      {
+        "name": "wide_logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "209600000"
+      },
+      {
+        "name": "wide_rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "200000"
+      },
+      {
+        "name": "wide_throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "2062.642"
+      }
+    ]
+  },
+  "schema": "io.dander.qualification.report/v1",
+  "status": "passed",
+  "workload": {
+    "batch_bytes": 10480000,
+    "batch_rows": 10000,
+    "benchmark_class": "bulk_throughput",
+    "concurrency": 1,
+    "configuration_sha256": "b6980d22bb797da817d07fe668258e3978147182f8723d224e5db8dc565940a2",
+    "input_rows": 700000,
+    "logical_input_bytes": 237600000,
+    "memory_limit_bytes": null,
+    "row_width_bytes": 1048,
+    "schema_depth": 1,
+    "source_rate_limit": "unlimited_local_generator",
+    "transform_complexity": "none_wide_and_narrow"
+  }
+}

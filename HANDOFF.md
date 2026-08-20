@@ -2,12 +2,10 @@
 
 ## Finished
 
-- Added one credential-free BigQuery bulk harness for the accepted 500,000-row narrow and
-  200,000-row wide workload.
-- Reused `BigQueryReplaceWriter` with 10,000-row bounded load batches and explicit zero provider
-  operation retries.
-- Added one RC29-bound objective with a USD 0.25 ceiling, one execution, and exact dataset cleanup.
-- Verified billing is enabled, no US reservation assignment exists, and the owned dataset is absent.
+- Closed the exact-RC29 BigQuery bulk-throughput cell with 500,000 narrow and 200,000 wide rows.
+- Preserved failed harness job `d96a56ec-a51b-427f-8521-35eb7e620a4e` and its zero-billed result.
+- Corrected only the reserved verification alias and consumed the one authorized corrective run.
+- Recorded the normalized report, both attempts, provider-measured cost, and exact cleanup.
 
 ## Try It
 
@@ -15,29 +13,24 @@ Run `uv run pytest -q tests/portability/test_bigquery_bulk_phase8_benchmark.py`.
 
 ## Checks
 
-- Ruff lint/format, strict typing, control contracts, the full test suite, and `pip-audit` pass.
-- The objective JSON loads against the exact RC29 identity, workload hash, provider coordinates,
-  and protected-harness hash.
-- Exact RC29 starts the mounted harness through `dander qualification-run` under the approved
-  CPU, memory, read-only, and network-disabled preflight bounds.
-- No BigQuery workload or provider mutation has run; protected merge and exact-main CI come first.
+- Focused tests, Ruff, strict typing, control contracts, and the full 1,823-test suite pass.
+- PR #390 and corrected exact main passed all five protected jobs before the corrective execution.
+- The normalized report passed all six objectives with zero retries and zero staging relations.
+- The disposable dataset and candidate container are absent after cleanup.
 
 ## Decisions
 
-- Measure conservative gross analysis cost from completed-job `total_bytes_billed` at the published
-  USD 6.25/TiB rate; apply no free-tier or credit reduction.
-- Use one disposable US dataset with one-hour table expiration as a fallback, then delete and verify
-  the dataset immediately after the run.
-- Keep this branch limited to the BigQuery bulk cell; no other matrix result transfers.
+- Retained the exact RC29 image, workload, dataset, provider configuration, and zero-retry policy.
+- Used provider-billed bytes at USD 6.25/TiB without applying free-tier or credit reductions.
+- Closed only BigQuery bulk throughput; no result transfers to another matrix cell.
 
 ## Remaining
 
-- Protect the harness and objective through the five CI jobs and exact-main CI.
-- Execute RC29 exactly once with zero automatic retries.
-- Record the normalized sanitized report, verify provider-metered cost, and prove exact cleanup.
+- No work remains in this BigQuery bulk-throughput cell.
+- Other DANDER-204 cells remain open and out of scope.
 
 ## Review First
 
-- `scripts/benchmarks/bigquery_bulk_phase8.py`
-- `tests/portability/test_bigquery_bulk_phase8_benchmark.py`
-- `docs/evidence/phase8/2026-08-20/bigquery-rc29-bulk-throughput-objectives.json`
+- `docs/evidence/phase8/2026-08-20/bigquery-rc29-bulk-throughput-execution.json`
+- `docs/evidence/phase8/2026-08-20/bigquery-rc29-bulk-throughput.json`
+- `tickets/DANDER-204-phase8-scale-matrix.md`
