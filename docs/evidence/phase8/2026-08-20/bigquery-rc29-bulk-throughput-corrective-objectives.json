@@ -1,0 +1,99 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.25",
+    "approval_reference": "codex-user-message-2026-08-20-dander-204-bigquery-bulk-corrective-usd-0.25"
+  },
+  "budget_allocation": {
+    "authorization_kind": "corrective_incremental_spend",
+    "run_ceiling_usd": "0.25",
+    "authorization_reference": "codex-user-message-2026-08-20-dander-204-bigquery-bulk-corrective-usd-0.25"
+  },
+  "corrective_attempt": {
+    "original_objective_reference": "docs/evidence/phase8/2026-08-20/bigquery-rc29-bulk-throughput-objectives.json",
+    "prior_failed_provider_job_id": "d96a56ec-a51b-427f-8521-35eb7e620a4e",
+    "prior_attempt_result": "failed_protected_harness_verification_alias",
+    "prior_attempt_consumed": true,
+    "additional_manual_candidate_executions": 1,
+    "automatic_candidate_retry": false
+  },
+  "workload": {
+    "schema": "io.dander.phase8.bigquery-bulk/v1",
+    "benchmark_class": "bulk_throughput",
+    "narrow_rows": 500000,
+    "narrow_payload_bytes": 32,
+    "wide_rows": 200000,
+    "wide_payload_bytes": 1024,
+    "batch_rows": 10000,
+    "verification_maximum_bytes_billed": 536870912
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc29",
+      "git_commit": "7a6d138a5df19ab81df202b6cb6121e134e59991",
+      "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54",
+      "source_free": true,
+      "qualification_entrypoint": "dander qualification-run"
+    },
+    "profile": {
+      "profile_id": "bigquery_local_scale",
+      "launcher": "docker_local",
+      "warehouse": "bigquery",
+      "state": "none",
+      "catalog": "none",
+      "secrets": "ephemeral_access_token",
+      "runtime_cpu": 2,
+      "runtime_memory_mib": 512,
+      "runtime_timeout_seconds": 900,
+      "runtime_max_retries": 0
+    },
+    "bigquery": {
+      "project_sha256": "58ccff8c8ef042336a037fae0e0ce57e6a16480025cd4da3e7eef9d86f102cd6",
+      "dataset": "dander_p8_rc29_bigquery_bulk_0ab464a2",
+      "location": "US",
+      "billing_model": "on_demand",
+      "on_demand_rate_usd_per_tib": "6.25",
+      "pricing_reference": "https://cloud.google.com/bigquery/pricing",
+      "batch_load_cost": "provider_documented_free_operation",
+      "table_copy_cost": "provider_documented_free_operation",
+      "verification_query_cache": false,
+      "verification_query_maximum_bytes_billed": 536870912
+    },
+    "execution": {
+      "harness": "scripts/benchmarks/bigquery_bulk_phase8.py",
+      "harness_sha256": "4ac7d456102a2e65e140e94257b78b6de8e9604ed49df7f0233200c033b653ed",
+      "manual_candidate_executions": 1,
+      "automatic_candidate_retry": false,
+      "provider_operation_retries": 0,
+      "provider_measured_cost_method": "completed_job_total_bytes_billed_times_published_on_demand_rate",
+      "free_tier_or_credit_reduction_applied": false
+    },
+    "preflight_and_cleanup": {
+      "billing_enabled_must_pass_before_mutation": true,
+      "on_demand_assignment_must_pass_before_mutation": true,
+      "owned_dataset_must_be_absent_before_creation": true,
+      "cleanup_starts_immediately_after_execution": true,
+      "max_resource_lifetime_minutes": 30,
+      "drop_owned_dataset_and_all_tables_required": true,
+      "owned_dataset_absence_must_be_verified": true,
+      "automatic_table_expiration_minutes": 60
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "cost_ceiling",
+      "narrow_copy_completion",
+      "narrow_throughput_measurement",
+      "wide_copy_completion",
+      "wide_throughput_measurement"
+    ],
+    "benchmark_class": "bulk_throughput",
+    "profile_id": "bigquery_local_scale",
+    "release_version": "0.9.0rc29",
+    "git_commit": "7a6d138a5df19ab81df202b6cb6121e134e59991",
+    "image_digest": "sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54",
+    "configuration_sha256": "b6980d22bb797da817d07fe668258e3978147182f8723d224e5db8dc565940a2",
+    "approval_reference": "codex-user-message-2026-08-20-dander-204-bigquery-bulk-corrective-usd-0.25"
+  }
+}
