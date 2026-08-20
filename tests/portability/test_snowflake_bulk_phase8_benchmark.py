@@ -16,6 +16,7 @@ from scripts.benchmarks import snowflake_bulk_phase8 as bulk
 
 from dander import __version__
 from dander.concurrency import TargetFenceLostError
+from dander.providers import ProviderFactoryError
 from dander.qualification import (
     ApprovedCostCeiling,
     ApprovedObjectiveSet,
@@ -592,6 +593,31 @@ def test_failure_credential_probe_restores_temporary_environment(
 
     assert duration_ms >= 1
     assert os.environ[rejected_env] == "existing-operator-value"
+
+
+def test_failure_credential_probe_accepts_runtime_construction_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token_env = "DANDER_TEST_SNOWFLAKE_TOKEN"
+    rejected_env = "DANDER_SNOWFLAKE_PHASE8_REJECTED_TOKEN"
+    config = _failure_config(token_env=token_env)
+    monkeypatch.setenv(token_env, "valid-token-held-only-by-the-test-process")
+    monkeypatch.delenv(rejected_env, raising=False)
+
+    class FakeRegistry:
+        def parse(self, _kind: object, values: object) -> object:
+            return values
+
+        def build(self, _kind: object, _values: object, *, context: object) -> object:
+            del context
+            raise ProviderFactoryError("Snowflake connection validation failed")
+
+    monkeypatch.setattr(bulk, "default_provider_registry", lambda: FakeRegistry())
+
+    duration_ms = bulk._probe_credential_rejection(config, schema_name="DANDER_FAILURE")
+
+    assert duration_ms >= 1
+    assert rejected_env not in os.environ
 
 
 @pytest.mark.parametrize(
