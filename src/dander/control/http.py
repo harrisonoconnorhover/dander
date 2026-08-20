@@ -512,9 +512,11 @@ def create_control_app(
     async def delete_graph(
         project: str,
         graph: str,
+        request: Request,
         if_match: _IF_MATCH_HEADER,
         idempotency_key: _IDEMPOTENCY_HEADER,
     ) -> Response:
+        await _require_empty_body(request)
         application.require_project(project)
         application.graph_store.delete(
             project,
@@ -585,11 +587,17 @@ def create_control_app(
         return application.get_logs(RunAddress(run_id), cursor=cursor, limit=limit)
 
     @app.post("/v1/runs/{run_id}/cancel", dependencies=auth_dependencies(ControlCapability.RUN))
-    async def cancel_run(run_id: str, idempotency_key: _IDEMPOTENCY_HEADER) -> object:
+    async def cancel_run(
+        run_id: str, request: Request, idempotency_key: _IDEMPOTENCY_HEADER
+    ) -> object:
+        await _require_empty_body(request)
         return application.cancel_run(RunAddress(run_id), idempotency_key=idempotency_key)
 
     @app.post("/v1/runs/{run_id}/replay", dependencies=auth_dependencies(ControlCapability.RUN))
-    async def replay_run(run_id: str, idempotency_key: _IDEMPOTENCY_HEADER) -> object:
+    async def replay_run(
+        run_id: str, request: Request, idempotency_key: _IDEMPOTENCY_HEADER
+    ) -> object:
+        await _require_empty_body(request)
         return application.replay_run(RunAddress(run_id), idempotency_key=idempotency_key)
 
     return app
