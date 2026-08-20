@@ -57,6 +57,7 @@ class _FakeClient:
         self.datasets: set[str] = set()
         self.rows: dict[str, list[dict[str, Any]]] = {}
         self.jobs: list[_FakeJob] = []
+        self.queries: list[str] = []
         self.fail_verification = fail_verification
 
     def create_dataset(self, dataset: bigquery.Dataset) -> bigquery.Dataset:
@@ -122,11 +123,17 @@ class _FakeClient:
         job_config: bigquery.QueryJobConfig | None = None,
     ) -> _FakeJob:
         assert job_config is not None
+        self.queries.append(query)
         if self.fail_verification:
             raise RuntimeError("synthetic provider failure")
         table = query.split("FROM `", 1)[1].split("`", 1)[0]
         rows = self.rows[table]
-        result = [{"rows": len(rows), "payload_bytes": sum(len(row["payload"]) for row in rows)}]
+        result = [
+            {
+                "row_count": len(rows),
+                "payload_bytes": sum(len(row["payload"]) for row in rows),
+            }
+        ]
         return self._job(
             "query",
             result=result,
@@ -259,6 +266,28 @@ def test_bulk_run_cleans_owned_dataset_after_provider_failure() -> None:
 
     assert not client.datasets
     assert not client.rows
+
+
+def test_verification_query_uses_non_reserved_row_count_alias() -> None:
+    config = _config()
+    client = _FakeClient()
+    table = f"{config.project}.{config.dataset}.narrow_records"
+    client.rows[table] = [{"id": "000000000000", "payload": "x" * 32}]
+
+    bulk._require_table_shape(
+        client,  # type: ignore[arg-type]
+        config=config,
+        table="narrow_records",
+        rows=1,
+        payload_bytes=32,
+    )
+
+    assert client.queries == [
+        "SELECT COUNT(*) AS row_count, "
+        "COALESCE(SUM(BYTE_LENGTH(payload)), 0) AS payload_bytes "
+        "FROM `valid-project-123.dander_p8_bulk_test.narrow_records`"
+    ]
+    assert " AS rows" not in client.queries[0]
 
 
 def test_no_retry_client_disables_provider_operation_retries() -> None:

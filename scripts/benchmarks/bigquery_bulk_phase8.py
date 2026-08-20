@@ -474,7 +474,8 @@ def _require_table_shape(
     payload_bytes: int,
 ) -> None:
     query = (
-        "SELECT COUNT(*) AS rows, COALESCE(SUM(BYTE_LENGTH(payload)), 0) AS payload_bytes "
+        "SELECT COUNT(*) AS row_count, "
+        "COALESCE(SUM(BYTE_LENGTH(payload)), 0) AS payload_bytes "
         f"FROM `{config.project}.{config.dataset}.{table}`"
     )
     query_config = bigquery.QueryJobConfig(
@@ -485,7 +486,7 @@ def _require_table_shape(
     if len(values) != 1:
         raise BigQueryBulkQualificationError("BigQuery verification returned an invalid row count")
     row = values[0]
-    observed_rows = int(cast("Any", row)["rows"])
+    observed_rows = int(cast("Any", row)["row_count"])
     observed_payload_bytes = int(cast("Any", row)["payload_bytes"])
     if observed_rows != rows or observed_payload_bytes != rows * payload_bytes:
         raise BigQueryBulkQualificationError("BigQuery bulk table shape differs from approval")
