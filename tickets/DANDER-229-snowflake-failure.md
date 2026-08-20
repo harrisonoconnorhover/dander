@@ -22,8 +22,8 @@ the native Snowflake connector, session, and target-fence boundaries.
   rollback after a warehouse statement timeout.
 - [x] Bound runtime resources, automatic retries, provider objects, and resource lifetime.
 - [x] Reserve no more than USD 0.50 and keep cost pending until provider-measured usage posts.
-- [ ] Merge the objective through protected review and pass exact-main CI before provider mutation.
-- [ ] Run the protected objective, clean all owned objects, and record the sanitized result.
+- [x] Merge the objective through protected review and pass exact-main CI before provider mutation.
+- [x] Run the protected objective, clean all owned objects, and record the sanitized result.
 
 ## Design
 
@@ -45,4 +45,19 @@ timeout followed by explicit rollback and fresh-connection readback.
 
 ## Review
 
-Pending protected objective and live evidence.
+### 2026-08-20 — BLOCKED BY PROTECTED HARNESS GAP
+
+PR #381 merged the objective as `8550ef1`; exact-main run `32067021084` passed all five jobs. The
+one permitted exact-RC29 candidate then reached Snowflake, created its disposable schema, passed
+closed-connection recovery, and proved that the invalid in-memory OAuth credential failed closed.
+Snowflake rejected that credential while the provider registry was constructing the runtime, but
+the protected harness catches rejection only after construction returns. The intended rejection
+therefore escaped and the candidate produced its sanitized failure record before the stale-fence
+and timeout probes.
+
+No retry ran. Cleanup began 33.94 seconds after the first owned resource and completed with the
+database, warehouse, role, disposable schema, and candidate container absent after 36.278 seconds.
+The full USD 0.50 bound remains held pending delayed provider metering. Exact evidence is recorded
+in `docs/evidence/phase8/2026-08-20/snowflake-rc29-failure-execution.json`. RC29 failed closed and
+requires no product or candidate change; DANDER-229 remains open because the protected harness did
+not complete the final two probes.
