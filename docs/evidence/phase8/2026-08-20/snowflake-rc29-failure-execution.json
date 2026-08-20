@@ -1,0 +1,141 @@
+{
+  "schema": "io.dander.phase8.snowflake-failure-execution/v1",
+  "attempt_date": "2026-08-20",
+  "authorization_reference": "codex-thread-01a0004d-6d65-7280-84bc-ca5368b38821-2026-08-16-additional-phase8-10",
+  "objective_reference": "docs/evidence/phase8/2026-08-17/snowflake-rc29-failure-objectives.json",
+  "execution_base": {
+    "objective_pull_request": 381,
+    "objective_merge_commit": "8550ef1164f70cc1576c6657235edb06989911f8",
+    "objective_exact_main_ci_run": 32067021084,
+    "protected_main_commit": "d1605147190ac76ae6eb504c1bb92f9dc9233e46",
+    "protected_main_ci_run": 32316797344,
+    "protected_main_ci_jobs_passed": 5,
+    "harness_protected_main_commit": "2e45ca4b124061eb807b3c3df8f7e3e2fb4674cb"
+  },
+  "candidate": {
+    "release_version": "0.9.0rc29",
+    "git_commit": "7a6d138a5df19ab81df202b6cb6121e134e59991",
+    "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54",
+    "source_free": true,
+    "rebuilt_or_republished": false,
+    "qualification_entrypoint": "dander qualification-run"
+  },
+  "objective": {
+    "configuration_sha256": "7f88ce2fb26d3dd93cf432f0bfcae8c5bc68805f38a0bc99b1ba7f0a0a8cd5db",
+    "profile_id": "snowflake_local_scale",
+    "benchmark_class": "failure",
+    "manual_candidate_executions_allowed": 1,
+    "manual_candidate_executions_consumed": 1,
+    "classified_non_application_rerun_available": true,
+    "automatic_candidate_retry": false,
+    "cleanup_start_deadline_minutes": 15,
+    "max_resource_lifetime_minutes": 30
+  },
+  "operator_preflight": {
+    "billing_visibility": "snowflake_trial_credit_display_visible",
+    "billing_display_before_execution": "398_of_400_usd_trial_credits_remaining_rounded_display",
+    "objective_conservative_bound_usd": "0.50",
+    "oauth_callback_timeout_seconds": 1200,
+    "accountadmin_session_verified_before_owned_resources": true,
+    "private_coordinates_match": true,
+    "approved_names_absent_before_creation": true,
+    "runtime_role_oauth_verified_before_database_or_warehouse": true,
+    "runtime_user_match": true,
+    "runtime_role_match": true,
+    "oauth_token_persisted_locally": false,
+    "candidate_container_absent_before_launch": true,
+    "harness_unchanged_from_protected_commit": true
+  },
+  "provisioning": {
+    "first_owned_resource_utc": "2026-08-20T12:09:15.566510Z",
+    "role_create_query_id": "01c683f9-0001-bce8-0003-c0870006d0ae",
+    "role_grant_query_id": "01c683f9-0001-bce8-0003-c0870006d0b2",
+    "database_create_query_id": "01c683f9-0001-bce8-0003-c0870006d0b6",
+    "warehouse_create_query_id": "01c683f9-0001-bce8-0003-c0870006d0ba",
+    "database_usage_grant_query_id": "01c683f9-0001-bcd2-0003-c0870006e24a",
+    "database_create_schema_grant_query_id": "01c683f9-0001-bcd2-0003-c0870006e24e",
+    "warehouse_usage_grant_query_id": "01c683f9-0001-bce8-0003-c0870006d0be",
+    "warehouse_size": "XSMALL",
+    "warehouse_initially_suspended": true,
+    "warehouse_auto_suspend_seconds": 60
+  },
+  "execution": {
+    "launcher": "docker_local",
+    "candidate_started_utc": "2026-08-20T12:09:23.174367Z",
+    "candidate_completed_utc": "2026-08-20T12:09:49.506759Z",
+    "duration_seconds": 26.332,
+    "container_exit_code": 1,
+    "candidate_status": "failed_harness_classification_gap",
+    "runtime_reached_python": true,
+    "runtime_reached_snowflake": true,
+    "retry_count": 0,
+    "automatic_retry_attempted": false,
+    "setup_query_ids": [
+      "01c683f9-0001-bce8-0003-c0870006d0c6",
+      "01c683f9-0001-bce8-0003-c0870006d0ca",
+      "01c683f9-0001-bcd2-0003-c0870006e252"
+    ],
+    "closed_connection_recovery_query_ids": [
+      "01c683f9-0001-bcd2-0003-c0870006e256",
+      "01c683f9-0001-bce8-0003-c0870006d0d2"
+    ],
+    "closed_connection_recovery": "passed",
+    "invalid_credential_rejection": "provider_rejected_before_registry_build_return",
+    "stale_fence_rejection": "not_reached",
+    "warehouse_timeout_rollback": "not_reached",
+    "candidate_application_defect": false,
+    "qualification_harness_defect": true,
+    "failure_classification": "non_application_protected_harness_rejection_boundary_gap",
+    "sanitized_failure_record": {
+      "schema": "io.dander.qualification.failure/v1",
+      "provider": "snowflake",
+      "benchmark_class": "failure",
+      "status": "failed"
+    }
+  },
+  "diagnosis": {
+    "observed_boundary": "invalid Snowflake OAuth was rejected while the provider registry built and validated the runtime",
+    "harness_gap": "the credential probe catches rejection only after registry build returns",
+    "local_reproduction": "a build-time rejection escapes _probe_credential_rejection",
+    "product_failed_closed": true,
+    "product_change_required": false,
+    "automatic_or_manual_rerun_performed": false
+  },
+  "cleanup": {
+    "cleanup_started_at_utc": "2026-08-20T12:09:49.506898Z",
+    "cleanup_started_after_first_owned_resource_seconds": 33.94,
+    "schema_drop_query_id": "01c683f9-0001-bcd2-0003-c0870006e25a",
+    "role_revoke_query_id": "01c683f9-0001-bce8-0003-c0870006d0d6",
+    "database_drop_query_id": "01c683f9-0001-bce8-0003-c0870006d0da",
+    "warehouse_drop_query_id": "01c683f9-0001-bcd2-0003-c0870006e262",
+    "role_drop_query_id": "01c683f9-0001-bcd2-0003-c0870006e266",
+    "database_absence_query_id": "01c683f9-0001-bcd2-0003-c0870006e26a",
+    "warehouse_absence_query_id": "01c683f9-0001-bce8-0003-c0870006d0de",
+    "role_absence_query_id": "01c683f9-0001-bce8-0003-c0870006d0e6",
+    "cleanup_verified_at_utc": "2026-08-20T12:09:51.539742Z",
+    "database_inventory_rows": 0,
+    "warehouse_inventory_rows": 0,
+    "role_inventory_rows": 0,
+    "candidate_container_running": false,
+    "active_owned_resource_inventories_empty": true,
+    "resource_lifetime_observed_seconds": 36.278,
+    "cleanup_start_deadline_satisfied": true,
+    "maximum_resource_lifetime_satisfied": true,
+    "cleanup_errors": []
+  },
+  "cost": {
+    "additional_aggregate_ceiling_usd": "10.00",
+    "additional_conservative_bounds_before_objective_usd": "8.25",
+    "objective_conservative_bound_usd": "0.50",
+    "additional_conservative_bounds_after_objective_usd": "8.75",
+    "remaining_additional_ceiling_after_full_objective_reservation_usd": "1.25",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "conservative_bound_held": true,
+    "candidate_rerun_required_for_cost_finalization": false
+  },
+  "qualification_status": "failed_non_application_harness_gap",
+  "replacement_candidate_required": false,
+  "application_correction_required": false,
+  "support_promoted": false
+}
