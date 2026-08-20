@@ -2,35 +2,35 @@
 
 ## Finished
 
-- Closed the exact-RC29 BigQuery bulk-throughput cell with 500,000 narrow and 200,000 wide rows.
-- Preserved failed harness job `d96a56ec-a51b-427f-8521-35eb7e620a4e` and its zero-billed result.
-- Corrected only the reserved verification alias and consumed the one authorized corrective run.
-- Recorded the normalized report, both attempts, provider-measured cost, and exact cleanup.
+- Added the minimal exact-RC29 BigQuery incremental harness.
+- Bound one approved execution to 300,000 seed rows and a 3,000-row half-update/half-insert delta.
+- Added focused checks for exact readback, cursor regression rejection, zero retries, cost, and cleanup.
+- Committed the USD 0.25 execution objective for use only after protected merge and exact-main CI.
 
 ## Try It
 
-Run `uv run pytest -q tests/portability/test_bigquery_bulk_phase8_benchmark.py`.
+Run `uv run pytest -q tests/portability/test_bigquery_incremental_phase8_benchmark.py`.
 
 ## Checks
 
-- Focused tests, Ruff, strict typing, control contracts, and the full 1,823-test suite pass.
-- PR #390 and corrected exact main passed all five protected jobs before the corrective execution.
-- The normalized report passed all six objectives with zero retries and zero staging relations.
-- The disposable dataset and candidate container are absent after cleanup.
+- Local focused tests, Ruff, strict typing, control contracts, and the full suite pass.
+- Protected CI and exact-main CI must pass before the authorized provider mutation.
+- No BigQuery incremental execution has run from this objective branch.
 
 ## Decisions
 
-- Retained the exact RC29 image, workload, dataset, provider configuration, and zero-retry policy.
+- Reused `BigQueryIncrementalWriter` and the BigQuery bulk harness/report structure.
+- Reject cursor regression in the harness before any provider mutation.
 - Used provider-billed bytes at USD 6.25/TiB without applying free-tier or credit reductions.
-- Closed only BigQuery bulk throughput; no result transfers to another matrix cell.
 
 ## Remaining
 
-- No work remains in this BigQuery bulk-throughput cell.
-- Other DANDER-204 cells remain open and out of scope.
+- Merge the focused objective/harness PR after all five protected jobs pass.
+- Confirm all five exact-main jobs pass, then run the authorized execution exactly once.
+- Record sanitized evidence and exact cleanup for this cell only.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-20/bigquery-rc29-bulk-throughput-execution.json`
-- `docs/evidence/phase8/2026-08-20/bigquery-rc29-bulk-throughput.json`
-- `tickets/DANDER-204-phase8-scale-matrix.md`
+- `scripts/benchmarks/bigquery_incremental_phase8.py`
+- `tests/portability/test_bigquery_incremental_phase8_benchmark.py`
+- `docs/evidence/phase8/2026-08-20/bigquery-rc29-incremental-objectives.json`
