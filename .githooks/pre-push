@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+remote_url=${2:-}
+if [ -z "$remote_url" ]; then
+  echo "Repository target rejected: Git did not provide a push URL." >&2
+  exit 1
+fi
+
+repository_root=$(git rev-parse --show-toplevel)
+exec python3 "$repository_root/scripts/verify_repository_target.py" --url "$remote_url"
