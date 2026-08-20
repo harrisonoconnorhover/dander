@@ -214,3 +214,10 @@ scale report.
   respectively, with zero retries, 223,346,688 provider-billed bytes, USD 0.001269578934 gross
   analysis cost, zero reservation or staging records, and exact dataset cleanup. This closes only
   the exact-candidate BigQuery bulk-throughput cell; every other open matrix cell remains open.
+- PR #392 merged the exact-RC29 BigQuery incremental harness and USD 0.25 objective as protected
+  main `41eace2`; exact-main run `32412152282` passed all five jobs before the only authorized
+  execution. The accepted 300,000-row seed and 3,000-row half-update/half-insert delta produced
+  exact 301,500-row readback at 334.523 delta rows/second, rejected one cursor regression before
+  provider mutation, used zero retries, billed 138,412,032 provider bytes for USD 0.000786781311,
+  left zero reservation or staging records, and removed the dataset exactly. This closes only the
+  exact-candidate BigQuery incremental cell; every other open matrix cell remains open.
