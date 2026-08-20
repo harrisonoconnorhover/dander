@@ -1,0 +1,203 @@
+{
+  "schema": "io.dander.phase8.provider-cost-reconciliation/v2",
+  "checked_at_utc": "2026-08-20T17:16:08Z",
+  "read_only": true,
+  "cloud_mutation_started": false,
+  "accepted_workload_reruns": 0,
+  "aggregate": {
+    "provider_measured_cost_or_conservative_upper_bound_usd": "1.9849049157",
+    "composition": [
+      "aws_whole_account_gross_usage_upper_bound_usd=1.1666027027",
+      "azure_exact_resource_group_cost_usd=0.0735022130",
+      "snowflake_exact_dander_warehouse_cost_usd=0.6948000000",
+      "gcp_exact_gke_cost_usd=0.0500000000"
+    ],
+    "status": "below_combined_original_and_incremental_authorizations",
+    "qualification_effect": "Only the named cost gates close. Behavioral, scale, pairwise, soak, support, and release gates do not transfer."
+  },
+  "providers": {
+    "aws": {
+      "source": "AWS Cost Explorer GetCostAndUsage",
+      "profile": "dander-operator",
+      "usage_window_start": "2026-08-14",
+      "usage_window_end_exclusive": "2026-08-21",
+      "currency": "USD",
+      "cost_allocation_tags_active": false,
+      "attribution_method": "Use every Usage record in the account as a conservative gross upper bound; the Dander subset cannot exceed the account-wide amount.",
+      "whole_account_gross_usage_upper_bound_usd": "1.1666027027",
+      "whole_account_net_cost_after_credits_usd": "-0.0000002288",
+      "provider_data_estimated": true,
+      "next_page_token_present": false,
+      "approved_ceiling_usd": "3.00",
+      "objective_status": "passed_conservative_provider_upper_bound",
+      "final_invoice_recheck_required": true,
+      "qualification_reference": "docs/evidence/phase8/2026-08-16/aws-native-rc27-profile.json"
+    },
+    "azure": {
+      "source": "Azure Cost Management ActualCost query",
+      "api_version": "2025-03-01",
+      "usage_window_start": "2026-08-16T00:00:00Z",
+      "usage_window_end": "2026-08-21T00:00:00Z",
+      "grouping": "ResourceGroupName",
+      "currency": "USD",
+      "next_link_present": false,
+      "resource_groups": [
+        {
+          "resource_group": "dander-p8q-r28-az-sf",
+          "azure_actual_cost_usd": "0.0112489004",
+          "snowflake_warehouse_cost_usd": "0.0423828000",
+          "combined_provider_cost_usd": "0.0536317004",
+          "approved_ceiling_usd": "2.00",
+          "cost_status": "passed",
+          "qualification_reference": "docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-attempt.json"
+        },
+        {
+          "resource_group": "dander-p8q-r28b-az-sf",
+          "azure_actual_cost_usd": "0.0066501420",
+          "snowflake_warehouse_cost_usd": "0.0479412000",
+          "combined_provider_cost_usd": "0.0545913420",
+          "approved_ceiling_usd": "2.00",
+          "cost_status": "passed",
+          "qualification_reference": "docs/evidence/phase8/2026-08-16/azure-snowflake-rc28-correctness-retry-objectives.json",
+          "result_reference": "tickets/DANDER-214-snowflake-portable-identifiers.md"
+        },
+        {
+          "resource_group": "dander-p8q-r29-az-sf",
+          "azure_actual_cost_usd": "0.0498939336",
+          "snowflake_warehouse_cost_usd": "0.1618884000",
+          "combined_provider_cost_usd": "0.2117823336",
+          "approved_ceiling_usd": "2.00",
+          "cost_status": "passed",
+          "qualification_reference": "docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-attempt.json"
+        },
+        {
+          "resource_group": "dander-p8q-r29c-az-sf",
+          "azure_actual_cost_usd": "0.0057092370",
+          "snowflake_warehouse_cost_usd": "0.1049148000",
+          "combined_provider_cost_usd": "0.1106240370",
+          "approved_ceiling_usd": "2.00",
+          "cost_status": "passed",
+          "qualification_reference": "docs/evidence/phase8/2026-08-17/azure-snowflake-rc29-correctness-lifetime-retry-attempt.json"
+        }
+      ],
+      "azure_actual_cost_total_usd": "0.0735022130",
+      "objective_status": "passed_for_all_four_owned_resource_groups"
+    },
+    "gcp": {
+      "source": "Google Cloud Billing Reports UI",
+      "billing_timezone": "America/New_York",
+      "charge_period": "2026-08-16",
+      "project_filter_selected": true,
+      "display_currency": "USD",
+      "display_precision": "two_decimal_places",
+      "project_charge_period_subtotal_usd": "0.27",
+      "attributable_service_rows": [
+        {
+          "service": "Compute Engine",
+          "subtotal_usd": "0.05"
+        },
+        {
+          "service": "Kubernetes Engine",
+          "subtotal_usd": "0.00"
+        },
+        {
+          "service": "Networking",
+          "subtotal_usd": "0.00"
+        }
+      ],
+      "provider_measured_gke_cost_usd": "0.05",
+      "approved_ceiling_usd": "0.50",
+      "objective_status": "passed",
+      "qualification_reference": "docs/evidence/phase8/2026-08-17/gke-standard-rc27-postgresql-bounded-memory-provider-cost.json",
+      "recheck_conclusion": "The exact protected GKE finalization remains unchanged; unrelated project services remain excluded."
+    },
+    "snowflake": {
+      "sources": [
+        "SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY",
+        "SNOWFLAKE.ACCOUNT_USAGE.METERING_DAILY_HISTORY",
+        "SNOWFLAKE.ORGANIZATION_USAGE.RATE_SHEET_DAILY",
+        "SNOWFLAKE.ORGANIZATION_USAGE.USAGE_IN_CURRENCY_DAILY"
+      ],
+      "usage_window_start": "2026-08-16",
+      "usage_window_end_inclusive": "2026-08-20",
+      "currency": "USD",
+      "effective_rate_per_compute_credit_usd": "2.00",
+      "balance_source": "Free Usage",
+      "cloud_services_fully_adjusted_from_billed_credits": true,
+      "temporary_accountadmin_tokens_cleared": true,
+      "warehouse_costs": [
+        {
+          "warehouse": "DANDER_P8_RC28_0AB464A2_WH",
+          "compute_credits": "0.021191400",
+          "cost_usd": "0.0423828000",
+          "cost_status": "passed_as_part_of_azure_combined_gate"
+        },
+        {
+          "warehouse": "DANDER_P8_RC28B_0AB464A2_WH",
+          "compute_credits": "0.023970600",
+          "cost_usd": "0.0479412000",
+          "cost_status": "passed_as_part_of_azure_combined_gate"
+        },
+        {
+          "warehouse": "DANDER_P8_RC29_0AB464A2_WH",
+          "compute_credits": "0.080944200",
+          "cost_usd": "0.1618884000",
+          "cost_status": "passed_as_part_of_azure_combined_gate"
+        },
+        {
+          "warehouse": "DANDER_P8_RC29C_0AB464A2_WH",
+          "compute_credits": "0.052457400",
+          "cost_usd": "0.1049148000",
+          "cost_status": "passed_as_part_of_azure_combined_gate"
+        },
+        {
+          "warehouse": "DANDER_P8_RC29_BULK_0AB464A2_WH",
+          "compute_credits": "0.036824400",
+          "cost_usd": "0.0736488000",
+          "approved_ceiling_usd": "0.50",
+          "cost_status": "passed"
+        },
+        {
+          "warehouse": "DANDER_P8_RC29_INCREMENTAL_17A2026A_WH",
+          "compute_credits": "0.029529000",
+          "cost_usd": "0.0590580000",
+          "approved_ceiling_usd": "0.50",
+          "cost_status": "passed"
+        },
+        {
+          "warehouse": "DANDER_P8_RC29_CONCURRENCY_17A2026C_WH",
+          "compute_credits": "0.022233600",
+          "cost_usd": "0.0444672000",
+          "approved_ceiling_usd": "0.50",
+          "cost_status": "passed"
+        },
+        {
+          "warehouse": "DANDER_P8_RC29_TRANSFORM_17A2026T_WH",
+          "compute_credits": "0.034392600",
+          "cost_usd": "0.0687852000",
+          "approved_ceiling_usd": "0.50",
+          "cost_status": "passed"
+        },
+        {
+          "warehouse": "DANDER_P8_RC29_FAILURE_17A2026F_WH",
+          "metered_attempts": 2,
+          "compute_credits": "0.045856800",
+          "cost_usd": "0.0917136000",
+          "approved_combined_ceiling_usd": "0.50",
+          "cost_status": "passed",
+          "qualification_reference": "docs/evidence/phase8/2026-08-20/snowflake-rc29-failure-execution.json"
+        }
+      ],
+      "dander_compute_credits_total": "0.347400000",
+      "dander_warehouse_cost_total_usd": "0.6948000000",
+      "objective_status": "passed_for_all_named_warehouse_cost_gates"
+    }
+  },
+  "conclusion": {
+    "cost_reconciliation_status": "passed",
+    "qualification_rerun_required": false,
+    "new_candidate_required": false,
+    "support_promoted": false,
+    "remaining_cost_follow_up": "Recheck AWS after invoice finalization because Cost Explorer marks the current-period rows estimated; do not rerun any workload for that check."
+  }
+}

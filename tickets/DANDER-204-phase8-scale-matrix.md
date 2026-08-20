@@ -194,3 +194,16 @@ scale report.
   objective binds unchanged RC29 to four bounded connector, session, and provider-fence probes plus
   exact cleanup. Its full USD 0.50 reservation leaves USD 1.25 unreserved; protected objective
   merge and required exact-main CI precede any owned Snowflake object.
+- PR #387 merged the classified Snowflake failure rerun evidence as protected main `252075f`; all
+  four failure probes passed, cleanup completed in 291 seconds, and exact-main run `32393144903`
+  passed all five jobs. DANDER-229 is behaviorally closed without changing RC29.
+- The 2026-08-20 read-only cost reconciliation used no workload reruns. Azure ActualCost posted
+  USD 0.073502213 across the four exact resource groups; their combined Azure and Snowflake costs
+  each pass the committed USD 2 ceiling. Snowflake metering and the USD 2.00 effective rate put all
+  named Dander warehouse usage at USD 0.6948; bulk, incremental, concurrency, transform, and both
+  failure attempts pass their USD 0.50 gates. Temporary Snowflake billing tokens were removed.
+- GCP's exact August 16 project/service report still attributes USD 0.05 to the disposable GKE run.
+  AWS Cost Explorer marks the current period estimated, but the entire account's gross Usage cost
+  from August 14 through 20 is a conservative USD 1.1666027027 upper bound, below the USD 3 AWS
+  ceiling even before credits or Phase 8 attribution. Recheck the final AWS invoice without
+  rerunning a workload; the concrete scale and launcher cells remain open.
