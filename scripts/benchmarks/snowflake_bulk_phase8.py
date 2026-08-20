@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, cast
 
 from dander import __version__
 from dander.concurrency import FencingToken, TargetFenceLostError
-from dander.providers import ProviderKind, default_provider_registry
+from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
 from dander.providers.snowflake.session import execute, open_connection
 from dander.providers.snowflake.transform import SnowflakeTransformRunner
 from dander.providers.snowflake.writer import SnowflakeStagedWriter
@@ -1327,21 +1327,25 @@ def _probe_credential_rejection(
         values["network_timeout_seconds"] = config.invalid_login_timeout_seconds
         registry = default_provider_registry()
         parsed = registry.parse(ProviderKind.WAREHOUSE, values)
-        invalid_runtime = registry.build(
-            ProviderKind.WAREHOUSE,
-            parsed,
-            context={"catalog": config.database},
-        )
-        if not isinstance(invalid_runtime, WarehouseRuntime):
-            raise SnowflakeFailureQualificationError(
-                "Snowflake failure qualification built an invalid warehouse runtime"
-            )
         rejected = False
         try:
-            with open_connection(_connection_factory(invalid_runtime)) as connection:
-                execute(connection, "SELECT 1", fetch="one")
-        except Exception:
+            invalid_runtime = registry.build(
+                ProviderKind.WAREHOUSE,
+                parsed,
+                context={"catalog": config.database},
+            )
+        except ProviderFactoryError:
             rejected = True
+        else:
+            if not isinstance(invalid_runtime, WarehouseRuntime):
+                raise SnowflakeFailureQualificationError(
+                    "Snowflake failure qualification built an invalid warehouse runtime"
+                )
+            try:
+                with open_connection(_connection_factory(invalid_runtime)) as connection:
+                    execute(connection, "SELECT 1", fetch="one")
+            except Exception:
+                rejected = True
         if not rejected:
             raise SnowflakeFailureQualificationError(
                 "Snowflake failure qualification accepted a rejected credential"
