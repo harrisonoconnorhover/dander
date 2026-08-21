@@ -36,6 +36,7 @@ class _FakeJob:
         result: object | None = None,
         affected_rows: int | None = None,
         error: Exception | None = None,
+        expose_error_result: bool = True,
         bytes_processed: int = 0,
         bytes_billed: int = 0,
         slot_ms: int = 0,
@@ -47,7 +48,9 @@ class _FakeJob:
         self.slot_millis = slot_ms
         self.reservation_usage: list[object] = []
         self.num_dml_affected_rows = affected_rows
-        self.error_result = {"reason": "synthetic"} if error is not None else None
+        self.error_result = (
+            {"reason": "synthetic"} if error is not None and expose_error_result else None
+        )
         self._result = self if result is None else result
         self._error = error
 
@@ -184,6 +187,7 @@ class _FakeClient:
             return self._job(
                 "query",
                 error=BadRequest("Dander destination fence lost"),  # type: ignore[no-untyped-call]
+                expose_error_result=False,
             )
         raise AssertionError(f"unexpected query: {query}")
 
@@ -207,6 +211,7 @@ class _FakeClient:
         result: object | None = None,
         affected_rows: int | None = None,
         error: Exception | None = None,
+        expose_error_result: bool = True,
         bytes_processed: int = 0,
         bytes_billed: int = 0,
         slot_ms: int = 0,
@@ -217,6 +222,7 @@ class _FakeClient:
             result=result,
             affected_rows=affected_rows,
             error=error,
+            expose_error_result=expose_error_result,
             bytes_processed=bytes_processed,
             bytes_billed=bytes_billed,
             slot_ms=slot_ms,
@@ -317,6 +323,7 @@ def test_failure_run_rejects_bounded_failures_recovers_and_cleans() -> None:
     assert result.copy_jobs == 1
     assert result.query_jobs == 7
     assert result.provider_job_errors == 2
+    assert sum(job.error_result is not None for job in client.jobs) == 1
     assert result.stale_publications_rejected == 1
     assert result.provider_operation_retries == 0
     assert result.temporary_staging_relations == 0
@@ -421,7 +428,7 @@ def test_report_rejects_missing_failed_provider_job() -> None:
         failure._report(config, _identity(), _approval(config), result)
 
 
-def test_failure_objective_binds_exact_candidate_harness_and_dependency() -> None:
+def test_corrective_objective_binds_exact_candidate_harness_and_dependency() -> None:
     reference = "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-bigquery-usd-0.25"
     config = failure.BigQueryFailureConfig(
         project="dander-proof-harrison-20260801",
@@ -435,7 +442,7 @@ def test_failure_objective_binds_exact_candidate_harness_and_dependency() -> Non
     )
 
     approval = failure._load_approval(
-        Path("docs/evidence/phase8/2026-08-21/bigquery-rc30-failure-objectives.json"),
+        Path("docs/evidence/phase8/2026-08-21/bigquery-rc30-failure-corrective-objectives.json"),
         config=config,
         identity=identity,
     )
