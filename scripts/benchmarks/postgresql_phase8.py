@@ -357,12 +357,25 @@ def load_approval(
         raise ValueError("objective manifest benchmark class does not match")
     if objectives.configuration_sha256 != config.configuration_sha256(benchmark_class):
         raise ValueError("objective manifest configuration hash does not match")
+    hosted_gke = objectives.profile_id == "gke_standard_postgresql"
+    if hosted_gke:
+        configuration = _mapping(payload.get("configuration"), "configuration")
+        execution = _mapping(configuration.get("execution"), "execution configuration")
+        if execution.get("harness_sha256") != _file_sha256(Path(__file__)):
+            raise ValueError("objective manifest does not match the protected PostgreSQL harness")
+        if execution.get("manual_candidate_executions") != 1:
+            raise ValueError("objective manifest must allow exactly one candidate execution")
+        if execution.get("automatic_candidate_retry") is not False:
+            raise ValueError("objective manifest must disable automatic candidate retry")
+        if execution.get("provider_operation_retries") != 0:
+            raise ValueError("objective manifest must disable provider-operation retries")
     cost_ceiling = ApprovedCostCeiling(
         amount_usd=Decimal(str(raw_cost.get("amount_usd"))),
         approval_reference=str(raw_cost.get("approval_reference")),
     )
-    if cost_ceiling.amount_usd != 0:
-        raise ValueError("local PostgreSQL qualification requires a zero-dollar ceiling")
+    expected_cost_ceiling = Decimal("0.50") if hosted_gke else Decimal(0)
+    if cost_ceiling.amount_usd != expected_cost_ceiling:
+        raise ValueError("PostgreSQL cost ceiling does not match its selected profile")
     if cost_ceiling.approval_reference != objectives.approval_reference:
         raise ValueError("cost and objective approvals must use the same reference")
     return _Approval(objectives=objectives, cost_ceiling=cost_ceiling)
@@ -430,6 +443,56 @@ def run_phase8_postgresql_qualification(
         )
     finally:
         pool.close()
+
+
+def run_postgresql_correctness_qualification(
+    dsn: str,
+    *,
+    config: Phase8PostgreSQLConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    provider_cost_usd: Decimal | None = None,
+) -> QualificationReport:
+    """Run only the accepted PostgreSQL correctness cell and emit one normalized report."""
+    if not dsn:
+        raise ValueError("PostgreSQL correctness qualification requires a non-empty DSN")
+    if __version__ != identity.release_version:
+        raise ValueError(
+            f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
+        )
+    _require_identity_match(identity, approval)
+    pool = cast(
+        "PostgreSQLPool",
+        ConnectionPool(
+            conninfo=dsn,
+            min_size=1,
+            max_size=5,
+            timeout=10,
+            kwargs={"row_factory": dict_row},
+            open=True,
+        ),
+    )
+    pool.wait(timeout=10)
+    try:
+        with pool.connection() as connection:
+            row = connection.execute("SELECT current_database() AS database").fetchone()
+        if row is None or not isinstance(row["database"], str):
+            raise RuntimeError("PostgreSQL correctness could not read the database name")
+        database = row["database"]
+        result = _run_correctness(
+            pool,
+            _warehouse_runtime(pool, database),
+            database=database,
+        )
+    finally:
+        pool.close()
+    return _correctness_report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
 
 
 def _require_identity_match(identity: CandidateIdentity, approval: _Approval) -> None:
@@ -1354,16 +1417,38 @@ def _correctness_report(
     identity: CandidateIdentity,
     approval: _Approval,
     result: _CorrectnessResult,
+    *,
+    provider_cost_usd: Decimal | None = None,
 ) -> QualificationReport:
+    hosted_gke = approval.objectives.profile_id == "gke_standard_postgresql"
+    if result.temporary_staging_relations or not result.cleanup_verified:
+        raise ValueError("PostgreSQL correctness cleanup is incomplete")
+    if provider_cost_usd is not None and (
+        provider_cost_usd < 0 or provider_cost_usd > approval.cost_ceiling.amount_usd
+    ):
+        raise ValueError("provider-measured correctness cost is outside its approved ceiling")
+    if not hosted_gke and provider_cost_usd not in (None, Decimal(0)):
+        raise ValueError("local PostgreSQL correctness cost must remain zero")
+    observed_cost = (
+        provider_cost_usd
+        if provider_cost_usd is not None
+        else (approval.cost_ceiling.amount_usd if hosted_gke else Decimal(0))
+    )
+    cost_pending = hosted_gke and provider_cost_usd is None
     row_width = max(result.logical_input_bytes // result.input_rows, 1)
     objectives = tuple(
         ObjectiveResult(
             name,
-            ObjectiveStatus.PASSED,
             (
-                f"phase8/postgresql/correctness/sha256:{result.normalized_sha256}"
+                ObjectiveStatus.NOT_EVALUATED
+                if name == "cost_ceiling" and cost_pending
+                else ObjectiveStatus.PASSED
+            ),
+            (
+                f"phase8/{'gcp/gke' if hosted_gke else 'postgresql'}/correctness/"
+                f"sha256:{result.normalized_sha256}"
                 if name == "exact_normalized_output"
-                else f"phase8/postgresql/correctness/{name}"
+                else f"phase8/{'gcp/gke' if hosted_gke else 'postgresql'}/correctness/{name}"
             ),
         )
         for name in approval.objectives.names
@@ -1376,7 +1461,9 @@ def _correctness_report(
             logical_input_bytes=result.logical_input_bytes,
             row_width_bytes=row_width,
             schema_depth=1,
-            source_rate_limit="unlimited_local_fixture",
+            source_rate_limit=(
+                "unlimited_in_cluster_fixture" if hosted_gke else "unlimited_local_fixture"
+            ),
             transform_complexity="scd1_replay_normalization",
             concurrency=1,
             batch_rows=3,
@@ -1389,18 +1476,39 @@ def _correctness_report(
             duration_ms=result.duration_ms,
             peak_rss_bytes=result.peak_rss_bytes,
             load_duration_ms=result.duration_ms,
-            provider_metrics=(
-                _measured("normalized_output_rows", "rows", result.output_rows),
-                _measured(
-                    "temporary_staging_relations",
-                    "count",
-                    result.temporary_staging_relations,
+            provider_metrics=tuple(
+                sorted(
+                    (
+                        _measured("normalized_output_rows", "rows", result.output_rows),
+                        _measured(
+                            "temporary_staging_relations",
+                            "count",
+                            result.temporary_staging_relations,
+                        ),
+                        *(
+                            (
+                                _measured("kubernetes_job_retries", "count", 0),
+                                _measured("provider_operation_retries", "count", 0),
+                            )
+                            if hosted_gke
+                            else ()
+                        ),
+                    ),
+                    key=lambda metric: metric.name,
+                )
+            ),
+            costs=(
+                CostAttribution(
+                    "gcp" if hosted_gke else "local",
+                    "gke_standard_zonal" if hosted_gke else "postgresql",
+                    observed_cost,
+                    estimated=cost_pending,
                 ),
             ),
         ),
         objectives=objectives,
         approved_objectives=approval.objectives,
-        status=QualificationStatus.PASSED,
+        status=(QualificationStatus.NOT_EVALUATED if cost_pending else QualificationStatus.PASSED),
     )
 
 
@@ -1643,6 +1751,7 @@ def _performance(
     provider_metrics: tuple[PerformanceMeasurement, ...],
     throughput_duration_ms: int | None = None,
     transform_duration_ms: int = 0,
+    costs: tuple[CostAttribution, ...] | None = None,
 ) -> RunPerformance:
     measured = PerformanceMeasurement.measured
     return RunPerformance(
@@ -1663,7 +1772,11 @@ def _performance(
         ),
         catalog_duration_ms=measured("catalog_duration_ms", "milliseconds", 0),
         provider_metrics=provider_metrics,
-        costs=(CostAttribution("local", "postgresql", Decimal(0), estimated=False),),
+        costs=(
+            costs
+            if costs is not None
+            else (CostAttribution("local", "postgresql", Decimal(0), estimated=False),)
+        ),
     )
 
 
@@ -1684,6 +1797,16 @@ def _measured(name: str, unit: str, value: int | Decimal) -> PerformanceMeasurem
 
 def _throughput(rows: int, duration_ms: int) -> Decimal:
     return (Decimal(rows) * 1_000 / Decimal(max(duration_ms, 1))).quantize(Decimal("0.001"))
+
+
+def _mapping(value: object, label: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError(f"objective manifest {label} is incomplete")
+    return cast("dict[str, object]", value)
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _temporary_staging_count(pool: PostgreSQLPool) -> int:
@@ -1723,11 +1846,12 @@ def _peak_rss_bytes() -> int:
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsn-env", default="DANDER_PHASE8_POSTGRES_DSN")
+    parser.add_argument("--benchmark-class", choices=("all", "correctness"), default="all")
     parser.add_argument("--correctness-objectives", type=Path, required=True)
-    parser.add_argument("--bulk-objectives", type=Path, required=True)
-    parser.add_argument("--incremental-objectives", type=Path, required=True)
-    parser.add_argument("--transform-objectives", type=Path, required=True)
-    parser.add_argument("--failure-objectives", type=Path, required=True)
+    parser.add_argument("--bulk-objectives", type=Path)
+    parser.add_argument("--incremental-objectives", type=Path)
+    parser.add_argument("--transform-objectives", type=Path)
+    parser.add_argument("--failure-objectives", type=Path)
     parser.add_argument("--candidate-version", required=True)
     parser.add_argument("--candidate-commit", required=True)
     parser.add_argument("--image-digest", required=True)
@@ -1749,6 +1873,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--transform-fact-rows", type=int, default=100_000)
     parser.add_argument("--transform-dimension-rows", type=int, default=100)
     parser.add_argument("--batch-rows", type=int, default=1_000)
+    parser.add_argument("--provider-cost-usd", type=Decimal)
     return parser.parse_args()
 
 
@@ -1774,6 +1899,53 @@ def main() -> None:
         config=config,
         benchmark_class=BenchmarkClass.CORRECTNESS,
     )
+    identity = CandidateIdentity(
+        release_version=arguments.candidate_version,
+        git_commit=arguments.candidate_commit,
+        image_digest=arguments.image_digest,
+        approval_reference=arguments.approval_reference,
+        benchmark_date=arguments.benchmark_date,
+        launcher=arguments.launcher,
+        regions=tuple(sorted(set(arguments.region or ("local",)))),
+        secret_provider=arguments.secret_provider,
+        provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
+        service_shapes=tuple(sorted(set(arguments.service_shape))),
+    )
+    if arguments.benchmark_class == "correctness":
+        correctness = run_postgresql_correctness_qualification(
+            dsn,
+            config=config,
+            identity=identity,
+            approval=correctness_approval,
+            provider_cost_usd=arguments.provider_cost_usd,
+        )
+        arguments.output_directory.mkdir(parents=True, exist_ok=True)
+        (arguments.output_directory / "postgresql-correctness.json").write_text(
+            correctness.to_json() + "\n",
+            encoding="utf-8",
+        )
+        print(
+            json.dumps(
+                {
+                    "correctness_status": correctness.status.value,
+                    "python_version": platform.python_version(),
+                    "release_version": __version__,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+        return
+    objective_paths = (
+        arguments.bulk_objectives,
+        arguments.incremental_objectives,
+        arguments.transform_objectives,
+        arguments.failure_objectives,
+    )
+    if any(path is None for path in objective_paths):
+        raise SystemExit("all-class qualification requires every objective manifest")
+    if arguments.provider_cost_usd not in (None, Decimal(0)):
+        raise SystemExit("all-class local qualification requires zero provider cost")
     bulk_approval = load_approval(
         arguments.bulk_objectives,
         config=config,
@@ -1793,18 +1965,6 @@ def main() -> None:
         arguments.failure_objectives,
         config=config,
         benchmark_class=BenchmarkClass.FAILURE,
-    )
-    identity = CandidateIdentity(
-        release_version=arguments.candidate_version,
-        git_commit=arguments.candidate_commit,
-        image_digest=arguments.image_digest,
-        approval_reference=arguments.approval_reference,
-        benchmark_date=arguments.benchmark_date,
-        launcher=arguments.launcher,
-        regions=tuple(sorted(set(arguments.region or ("local",)))),
-        secret_provider=arguments.secret_provider,
-        provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
-        service_shapes=tuple(sorted(set(arguments.service_shape))),
     )
     correctness, bulk, incremental, transform, failure = run_phase8_postgresql_qualification(
         dsn,
