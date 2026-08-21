@@ -6,6 +6,19 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc31 — 2026-08-21 (beta)
+
+### Fixed
+
+- Serialize first PostgreSQL destination-fence claims that share a fresh schema so concurrent
+  pipelines cannot race on the schema catalog insertion.
+
+### Known limitations
+
+- RC31 is a private corrective candidate for the GKE PostgreSQL concurrency cell. Other Phase 8
+  cells, provider-cost reconciliation, pairwise, audit, soak, and support gates remain open, and
+  public RC20 is unchanged.
+
 ## 0.9.0rc30 — 2026-08-20 (beta)
 
 ### Fixed
