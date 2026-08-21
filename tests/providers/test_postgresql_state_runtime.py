@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -12,7 +13,7 @@ from psycopg import Connection, OperationalError, connect, sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool, PoolTimeout
 
-from dander.concurrency import FencingToken, TargetFenceLostError
+from dander.concurrency import FencingToken, TargetFence, TargetFenceLostError
 from dander.providers import ProviderKind, default_provider_registry
 from dander.providers.postgresql.fence import PostgreSQLTargetFence
 from dander.providers.postgresql.state import (
@@ -347,6 +348,57 @@ def test_postgresql_destination_fence_rejects_stale_publication(
         ).fetchone()
     assert row == {"label": "published"}
     assert commit == {"status": "committed", "run_id": "run-two", "fencing_token": 2}
+
+
+def test_postgresql_destination_fence_serializes_new_schema_claims(
+    postgresql_runtime: tuple[StateRuntime, PostgreSQLPool, str],
+) -> None:
+    _runtime, pool, _state_schema = postgresql_runtime
+    with pool.connection() as connection:
+        database_row = connection.execute("SELECT current_database() AS name").fetchone()
+        assert database_row is not None
+        catalog = cast("str", database_row["name"])
+    capability = PostgreSQLTargetFence(pool=pool, catalog=catalog)
+    schema_name = f"dander_fence_concurrent_{uuid.uuid4().hex}"
+    barrier = Barrier(4)
+
+    def claim(index: int) -> TargetFence:
+        barrier.wait()
+        relation = RelationRef(
+            catalog=catalog,
+            namespace=schema_name,
+            name=f"records_{index}",
+        )
+        return capability.claim(
+            relation,
+            FencingToken(
+                lease_table=None,
+                pipeline_id=f"pipeline-{index}",
+                run_id=f"run-{index}",
+                token=1,
+                authority_id="postgresql:test-state",
+            ),
+        )
+
+    try:
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            claims = list(executor.map(claim, range(4)))
+
+        assert {claim.target_id for claim in claims} == {
+            f"{catalog}.{schema_name}.records_{index}" for index in range(4)
+        }
+        with pool.connection() as connection:
+            row = connection.execute(
+                sql.SQL("SELECT count(*) AS count FROM {}").format(
+                    sql.Identifier(schema_name, "dander_target_commits")
+                )
+            ).fetchone()
+        assert row == {"count": 4}
+    finally:
+        with pool.connection() as connection:
+            connection.execute(
+                sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(schema_name))
+            )
 
 
 def test_postgresql_failed_migration_records_no_version(
