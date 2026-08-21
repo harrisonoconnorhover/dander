@@ -1,0 +1,124 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "corrective_basis": {
+    "classification": "direct_product_defect",
+    "failed_candidate": "0.9.0rc30",
+    "failed_image_digest": "sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+    "failed_job_uid": "31da4174-faec-4e5c-a475-7b91fc48e737",
+    "failed_candidate_executions": 1,
+    "failed_candidate_retries": 0,
+    "failure": "concurrent first claims raced while creating one fresh PostgreSQL target schema",
+    "postgresql_owned_schemas_after_cleanup": 0,
+    "postgresql_staging_relations_after_cleanup": 0,
+    "active_provider_resources_after_cleanup": 0,
+    "provider_measured_cost_usd": null,
+    "product_fix_pull_request": 412,
+    "product_fix_protected_commit": "989ab931be7b1688a106a692bb5439d0f02d5b02",
+    "replacement_candidate_pull_request": 413,
+    "final_evidence_must_record_both_attempts": true
+  },
+  "cost_ceiling": {
+    "amount_usd": "0.50",
+    "scope": "combined_rc30_failed_and_rc31_corrective_attempts",
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-gke-usd-0.50"
+  },
+  "budget_allocation": {
+    "authorization_kind": "existing_gke_per_cell_ceiling_and_corrective_product_fix_authority",
+    "run_ceiling_usd": "0.25",
+    "aggregate_ceiling_usd": "10.00",
+    "provider_measured_or_reserved_before_this_objective_usd": "3.016419762794",
+    "remaining_aggregate_ceiling_after_full_run_reservation_usd": "6.983580237206",
+    "authorization_reference": "docs/evidence/phase8/2026-08-15/rc27-authorization.json"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-concurrency/v1",
+    "benchmark_class": "concurrent_pipelines",
+    "concurrent_pipelines": 4,
+    "rows_per_pipeline": 5000,
+    "payload_bytes": 128,
+    "batch_rows": 1000,
+    "memory_limit_mib": 256
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc31",
+      "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+      "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+      "source_free": true,
+      "qualification_entrypoint": "dander qualification-run"
+    },
+    "deployment": {
+      "provider": "gcp",
+      "project": "dander-proof-harrison-20260801",
+      "zone": "us-central1-a",
+      "launcher": "gke_standard_zonal",
+      "release_channel": "regular",
+      "minimum_kubernetes_version": "1.32",
+      "resource_prefix": "dander-p8q-rc31-gke-cx",
+      "node_count": 1,
+      "node_machine_type": "e2-standard-4",
+      "node_provisioning_model": "standard",
+      "node_disk_type": "pd-standard",
+      "node_disk_size_gib": 30,
+      "max_cluster_lifetime_minutes": 60,
+      "infrastructure_attempts": 1,
+      "candidate_attempts": 1,
+      "billing_confirmation_required_before_pass": true,
+      "restore_preexisting_api_activation": true,
+      "remove_owned_iam_grants": true,
+      "delete_owned_cluster_network_namespace_secrets_tls_and_data": true,
+      "provider_managed_service_identities_are_provider_owned": true
+    },
+    "runtime": {
+      "candidate_cpu_limit": 2,
+      "candidate_memory_limit_mib": 256,
+      "postgresql_version": "15.18",
+      "postgresql_image": "postgres@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f",
+      "postgresql_cpu_limit": 2,
+      "postgresql_memory_limit_mib": 1024,
+      "tls_required": true,
+      "rootless": true,
+      "read_only_root_filesystem": true,
+      "active_deadline_seconds": 600,
+      "backoff_limit": 0,
+      "reporter_sidecar": true
+    },
+    "execution": {
+      "harness": "scripts/benchmarks/postgresql_concurrency_phase8.py",
+      "harness_sha256": "8adce7dcfd09da0525982e592e8acdb3143dbafba74b0ea04451fddf6b920e9a",
+      "benchmark_dependency": "scripts/benchmarks/postgresql.py",
+      "benchmark_dependency_sha256": "3fe54cd17d91db1e5f9ee0501c37c7ec23870a8ae34a92ffdf58f82a41a8dc2a",
+      "manual_candidate_executions": 1,
+      "automatic_candidate_retry": false,
+      "provider_operation_retries": 0,
+      "provider_measured_cost_method": "exact_gcp_billing_export_project_and_service_rows",
+      "provider_cost_may_finalize_without_rerunning_workload": true
+    },
+    "preflight_and_cleanup": {
+      "billing_enabled_must_pass_before_mutation": true,
+      "owned_resources_must_be_absent_before_creation": true,
+      "candidate_digest_must_match_on_node": true,
+      "cleanup_starts_immediately_after_execution": true,
+      "cleanup_start_deadline_minutes": 30,
+      "delete_cluster_network_service_account_and_owned_iam_required": true,
+      "active_owned_resource_inventory_must_be_empty": true,
+      "restore_api_activation_to_preflight_state": true
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "concurrent_pipeline_completion",
+      "cost_ceiling",
+      "stale_fence_rejection",
+      "throughput_measurement"
+    ],
+    "benchmark_class": "concurrent_pipelines",
+    "profile_id": "gke_standard_postgresql",
+    "release_version": "0.9.0rc31",
+    "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+    "image_digest": "sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+    "configuration_sha256": "2fe38e699722d8e12451b7d1f0cfae8c6045450fe24b82aea6d3fc690e154eec",
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-gke-usd-0.50"
+  }
+}

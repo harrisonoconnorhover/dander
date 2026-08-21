@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
@@ -184,3 +185,31 @@ def test_gke_concurrency_objective_binds_candidate_harness_and_dependency() -> N
 
     assert approval.objectives.benchmark_class is BenchmarkClass.CONCURRENT_PIPELINES
     assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+
+
+def test_corrective_gke_concurrency_objective_binds_rc31_without_changing_workload() -> None:
+    reference = "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-gke-usd-0.50"
+    config = concurrency.PostgreSQLConcurrencyConfig()
+    identity = replace(
+        _identity(),
+        release_version="0.9.0rc31",
+        git_commit="3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+        image_digest=("sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9"),
+        approval_reference=reference,
+    )
+    objective_path = Path(
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-concurrency-objectives.json"
+    )
+    approval = concurrency._load_approval(
+        objective_path,
+        config=config,
+        identity=identity,
+    )
+    objective = json.loads(objective_path.read_text(encoding="utf-8"))
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.CONCURRENT_PIPELINES
+    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    assert objective["budget_allocation"]["run_ceiling_usd"] == "0.25"
+    assert objective["corrective_basis"]["failed_candidate_executions"] == 1
+    assert objective["corrective_basis"]["final_evidence_must_record_both_attempts"] is True
