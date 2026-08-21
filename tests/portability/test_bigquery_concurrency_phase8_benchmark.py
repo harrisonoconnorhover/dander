@@ -437,6 +437,7 @@ def test_objective_loader_rejects_harness_or_workload_drift(tmp_path: Path) -> N
     )
     identity = replace(
         _identity(),
+        release_version="0.9.0rc29",
         git_commit="7a6d138a5df19ab81df202b6cb6121e134e59991",
         image_digest=("sha256:e016419fda113a5288d82fdf37d23785d39d943750cb9e19be047edab6eaad54"),
     )
