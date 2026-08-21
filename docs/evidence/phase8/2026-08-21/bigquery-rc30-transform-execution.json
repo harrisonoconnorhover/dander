@@ -1,0 +1,163 @@
+{
+  "schema": "io.dander.phase8.bigquery-transform-execution/v1",
+  "attempt_date": "2026-08-21",
+  "cell": {
+    "ticket": "DANDER-204",
+    "provider": "gcp",
+    "warehouse": "bigquery",
+    "launcher": "docker_local",
+    "benchmark_class": "transform",
+    "profile_id": "bigquery_local_scale"
+  },
+  "execution_base": {
+    "objective_reference": "docs/evidence/phase8/2026-08-21/bigquery-rc30-transform-objectives.json",
+    "objective_pull_request": 399,
+    "protected_main_commit": "233a05e2af74b77a8ceffd2dcec159e897f64a9c",
+    "exact_main_ci_run": 32470393235,
+    "exact_main_ci_jobs_passed": 5,
+    "harness_sha256": "c4bfddfbfdc702f9985a394364c866e9d9a6aa9824a3135fc5794688aa92ff6c"
+  },
+  "candidate": {
+    "release_version": "0.9.0rc30",
+    "git_commit": "d27dd880fc7676c15969bff76aaabb64c22be7c2",
+    "image_digest": "sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+    "identity_reference": "docs/evidence/phase8/2026-08-20/rc30-candidate.json",
+    "rebuilt_or_republished": false,
+    "qualification_entrypoint": "dander qualification-run"
+  },
+  "objective": {
+    "authorization_reference": "codex-user-message-2026-08-21-dander-204-bigquery-transform-rc30-usd-0.25",
+    "configuration_sha256": "69a74064c640943c129927be8c1397b1935bd748c4fc2e9b90017ab499d6d67d",
+    "manual_candidate_executions_allowed": 1,
+    "manual_candidate_executions_consumed": 1,
+    "automatic_candidate_retry": false,
+    "provider_operation_retries": 0,
+    "run_cost_ceiling_usd": "0.25",
+    "maximum_resource_lifetime_minutes": 30
+  },
+  "workload": {
+    "fact_rows": 100000,
+    "dimension_rows": 100,
+    "delta_rows": 2,
+    "models": [
+      "scan",
+      "join",
+      "aggregation",
+      "incremental_merge"
+    ],
+    "generic_assertions": 21,
+    "batch_rows": 10000,
+    "logical_input_bytes": 3202400,
+    "changed_from_accepted_shape": false
+  },
+  "operator_preflight": {
+    "protected_worktree_clean": true,
+    "candidate_digest_verified": true,
+    "billing_enabled": true,
+    "reservation_assignments": 0,
+    "billing_model": "on_demand",
+    "owned_dataset_absent": true,
+    "candidate_container_absent": true,
+    "runtime_cpu": 2,
+    "runtime_memory_mib": 512,
+    "runtime_timeout_seconds": 900
+  },
+  "execution": {
+    "candidate_started_utc": "2026-08-21T10:06:54Z",
+    "first_provider_job_created_utc": "2026-08-21T10:06:58.778Z",
+    "last_provider_job_completed_utc": "2026-08-21T10:09:24.219Z",
+    "candidate_completed_utc": "2026-08-21T10:09:25Z",
+    "container_duration_seconds": 151,
+    "container_exit_code": 0,
+    "status": "passed",
+    "harness_duration_ms": 146679,
+    "load_duration_ms": 66190,
+    "transform_duration_ms": 75118,
+    "throughput_rows_per_second": "1331.252",
+    "peak_rss_bytes": 209465344,
+    "provider_jobs": 53,
+    "provider_jobs_completed": 53,
+    "provider_job_errors": 0,
+    "provider_job_set_matches_report": true,
+    "load_jobs": 11,
+    "query_jobs": 42,
+    "provider_total_bytes_processed": 53607396,
+    "provider_total_bytes_billed": 482344960,
+    "provider_slot_ms": 245224,
+    "reservation_usage_records": 0,
+    "automatic_retry_attempted": false,
+    "provider_operation_retries": 0
+  },
+  "normalized_output": {
+    "scan": {
+      "row_count": 100000,
+      "distinct_ids": 100000,
+      "minimum_id": 1,
+      "maximum_id": 100000,
+      "total_amount": 799973,
+      "exact": true
+    },
+    "join": {
+      "row_count": 100000,
+      "distinct_ids": 100000,
+      "category_count": 10,
+      "total_amount": 799973,
+      "exact": true
+    },
+    "aggregation": {
+      "category_rows": 10,
+      "row_count_sum": 100000,
+      "total_amount_sum": 799973,
+      "ordered_rows_compared_exactly": true
+    },
+    "incremental_merge": {
+      "row_count": 100001,
+      "distinct_ids": 100001,
+      "updated_rows": 1,
+      "inserted_rows": 1,
+      "total_amount": 800976,
+      "exact": true
+    },
+    "model_count": 4,
+    "generic_assertions_passed": 21,
+    "fenced_publications": 4,
+    "ownership_verifications": 22
+  },
+  "cost": {
+    "pricing_reference": "https://cloud.google.com/bigquery/pricing",
+    "on_demand_rate_usd_per_tib": "6.25",
+    "method": "completed_job_total_bytes_billed_times_published_on_demand_rate",
+    "provider_measured_analysis_cost_usd": "0.002741813660",
+    "ceiling_usd": "0.25",
+    "ceiling_passed": true,
+    "estimated": false,
+    "free_tier_or_credit_reduction_applied": false
+  },
+  "cleanup": {
+    "cleanup_started_by_harness_on_exit_path": true,
+    "owned_dataset_deleted_by_harness": true,
+    "owned_dataset_absence_verified": true,
+    "temporary_staging_relations": 0,
+    "candidate_container_running": false,
+    "candidate_container_present": false,
+    "maximum_observed_resource_lifetime_seconds": 151,
+    "maximum_resource_lifetime_satisfied": true,
+    "cleanup_errors": []
+  },
+  "report": {
+    "normalized_report_reference": "docs/evidence/phase8/2026-08-21/bigquery-rc30-transform.json",
+    "normalized_report_sha256": "b0481e966301b1110ed6f7d2758e9435345ae9b71a4d9c48f530e453fe3a4446",
+    "all_approved_objectives_passed": true
+  },
+  "sanitization": {
+    "credentials_present": false,
+    "access_tokens_present": false,
+    "business_rows_present": false,
+    "private_project_identifier_present": false,
+    "provider_job_ids_only": true
+  },
+  "qualification_status": "passed",
+  "dander_204_cell_closed": true,
+  "other_matrix_cells_changed": false,
+  "support_promoted": false
+}
