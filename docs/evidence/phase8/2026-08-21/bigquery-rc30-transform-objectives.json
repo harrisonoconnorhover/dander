@@ -1,0 +1,102 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.25",
+    "approval_reference": "codex-user-message-2026-08-21-dander-204-bigquery-transform-rc30-usd-0.25"
+  },
+  "budget_allocation": {
+    "authorization_kind": "single_bigquery_transform_execution",
+    "run_ceiling_usd": "0.25",
+    "authorization_reference": "codex-user-message-2026-08-21-dander-204-bigquery-transform-rc30-usd-0.25"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.bigquery-transform/v1",
+    "benchmark_class": "transform",
+    "fact_rows": 100000,
+    "dimension_rows": 100,
+    "delta_rows": 2,
+    "models": [
+      "scan",
+      "join",
+      "aggregation",
+      "incremental_merge"
+    ],
+    "generic_tests": [
+      "accepted_values",
+      "not_null",
+      "unique"
+    ],
+    "generic_assertions": 21,
+    "batch_rows": 10000,
+    "verification_maximum_bytes_billed": 536870912
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc30",
+      "git_commit": "d27dd880fc7676c15969bff76aaabb64c22be7c2",
+      "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+      "source_free": true,
+      "qualification_entrypoint": "dander qualification-run"
+    },
+    "profile": {
+      "profile_id": "bigquery_local_scale",
+      "launcher": "docker_local",
+      "warehouse": "bigquery",
+      "state": "none",
+      "catalog": "none",
+      "secrets": "ephemeral_access_token",
+      "runtime_cpu": 2,
+      "runtime_memory_mib": 512,
+      "runtime_timeout_seconds": 900,
+      "runtime_max_retries": 0
+    },
+    "bigquery": {
+      "project_sha256": "58ccff8c8ef042336a037fae0e0ce57e6a16480025cd4da3e7eef9d86f102cd6",
+      "dataset": "dander_p8_rc30_bigquery_transform_355c096f",
+      "location": "US",
+      "billing_model": "on_demand",
+      "on_demand_rate_usd_per_tib": "6.25",
+      "pricing_reference": "https://cloud.google.com/bigquery/pricing",
+      "batch_load_cost": "provider_documented_free_operation",
+      "query_cache": false,
+      "query_maximum_bytes_billed": 536870912
+    },
+    "execution": {
+      "harness": "scripts/benchmarks/bigquery_transform_phase8.py",
+      "harness_sha256": "c4bfddfbfdc702f9985a394364c866e9d9a6aa9824a3135fc5794688aa92ff6c",
+      "manual_candidate_executions": 1,
+      "automatic_candidate_retry": false,
+      "provider_operation_retries": 0,
+      "provider_measured_cost_method": "completed_job_total_bytes_billed_times_published_on_demand_rate",
+      "free_tier_or_credit_reduction_applied": false
+    },
+    "preflight_and_cleanup": {
+      "billing_enabled_must_pass_before_mutation": true,
+      "on_demand_assignment_must_pass_before_mutation": true,
+      "owned_dataset_must_be_absent_before_creation": true,
+      "cleanup_starts_immediately_after_execution": true,
+      "max_resource_lifetime_minutes": 30,
+      "drop_owned_dataset_and_all_tables_required": true,
+      "owned_dataset_absence_must_be_verified": true,
+      "automatic_table_expiration_minutes": 60
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "aggregation_exact",
+      "cleanup",
+      "cost_ceiling",
+      "generic_tests",
+      "incremental_merge",
+      "join_exact",
+      "scan_exact"
+    ],
+    "benchmark_class": "transform",
+    "profile_id": "bigquery_local_scale",
+    "release_version": "0.9.0rc30",
+    "git_commit": "d27dd880fc7676c15969bff76aaabb64c22be7c2",
+    "image_digest": "sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+    "configuration_sha256": "69a74064c640943c129927be8c1397b1935bd748c4fc2e9b90017ab499d6d67d",
+    "approval_reference": "codex-user-message-2026-08-21-dander-204-bigquery-transform-rc30-usd-0.25"
+  }
+}
