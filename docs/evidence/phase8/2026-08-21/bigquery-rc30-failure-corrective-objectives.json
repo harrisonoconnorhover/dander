@@ -1,0 +1,105 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.25",
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-bigquery-usd-0.25"
+  },
+  "budget_allocation": {
+    "authorization_kind": "existing_bigquery_corrective_per_cell_ceiling",
+    "run_ceiling_usd": "0.25",
+    "aggregate_ceiling_usd": "10.00",
+    "provider_measured_or_conservative_spend_before_reservation_usd": "2.006541446016",
+    "authorization_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-bigquery-usd-0.25"
+  },
+  "correction": {
+    "classification": "qualification_harness_defect",
+    "original_objective": "docs/evidence/phase8/2026-08-21/bigquery-rc30-failure-objectives.json",
+    "failed_candidate_started_utc": "2026-08-21T14:54:20Z",
+    "failed_candidate_exit_code": 2,
+    "failed_candidate_retries": 0,
+    "provider_behavior_passed": true,
+    "cleanup_verified": true,
+    "defect": "failed provider operations were inferred from eventually consistent SDK job metadata instead of the observed rejection boundaries"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.bigquery-failure/v1",
+    "benchmark_class": "failure",
+    "probes": [
+      "credential_rejection",
+      "failed_load_cleanup",
+      "provider_operation_recovery",
+      "stale_publication_rejection"
+    ],
+    "verification_maximum_bytes_billed": 67108864
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc30",
+      "git_commit": "d27dd880fc7676c15969bff76aaabb64c22be7c2",
+      "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+      "source_free": true,
+      "qualification_entrypoint": "dander qualification-run"
+    },
+    "profile": {
+      "profile_id": "bigquery_local_scale",
+      "launcher": "docker_local",
+      "warehouse": "bigquery",
+      "state": "none",
+      "catalog": "none",
+      "secrets": "ephemeral_access_token",
+      "runtime_cpu": 2,
+      "runtime_memory_mib": 512,
+      "runtime_timeout_seconds": 300,
+      "runtime_max_retries": 0
+    },
+    "bigquery": {
+      "project_sha256": "58ccff8c8ef042336a037fae0e0ce57e6a16480025cd4da3e7eef9d86f102cd6",
+      "dataset": "dander_p8_rc30_bigquery_failure_355c096f",
+      "location": "US",
+      "billing_model": "on_demand",
+      "on_demand_rate_usd_per_tib": "6.25",
+      "pricing_reference": "https://cloud.google.com/bigquery/pricing",
+      "batch_load_cost": "provider_documented_free_operation",
+      "query_cache": false,
+      "query_maximum_bytes_billed": 67108864
+    },
+    "execution": {
+      "harness": "scripts/benchmarks/bigquery_failure_phase8.py",
+      "harness_sha256": "accafb5dc95b5c951ca77b31843bab667a31f94549eaa66641e59f849a7429ca",
+      "bulk_harness": "scripts/benchmarks/bigquery_bulk_phase8.py",
+      "bulk_harness_sha256": "4ac7d456102a2e65e140e94257b78b6de8e9604ed49df7f0233200c033b653ed",
+      "manual_candidate_executions": 1,
+      "automatic_candidate_retry": false,
+      "provider_operation_retries": 0,
+      "provider_measured_cost_method": "completed_job_total_bytes_billed_times_published_on_demand_rate",
+      "free_tier_or_credit_reduction_applied": false
+    },
+    "preflight_and_cleanup": {
+      "billing_enabled_must_pass_before_mutation": true,
+      "on_demand_assignment_must_pass_before_mutation": true,
+      "owned_dataset_must_be_absent_before_creation": true,
+      "cleanup_starts_immediately_after_execution": true,
+      "max_resource_lifetime_minutes": 30,
+      "drop_owned_dataset_and_all_tables_required": true,
+      "owned_dataset_absence_must_be_verified": true,
+      "automatic_table_expiration_minutes": 60
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "cost_ceiling",
+      "credential_rejection",
+      "failed_load_cleanup",
+      "provider_operation_recovery",
+      "stale_publication_rejection"
+    ],
+    "benchmark_class": "failure",
+    "profile_id": "bigquery_local_scale",
+    "release_version": "0.9.0rc30",
+    "git_commit": "d27dd880fc7676c15969bff76aaabb64c22be7c2",
+    "image_digest": "sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+    "configuration_sha256": "5982d5f4288726e5314363d92d5f6256916196247e7710e1ba9b3a8441092999",
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-bigquery-usd-0.25"
+  }
+}

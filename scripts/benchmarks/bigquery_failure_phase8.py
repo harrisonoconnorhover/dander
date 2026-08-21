@@ -308,9 +308,7 @@ def _run_failure(
             load_jobs=bulk._job_count(client.jobs, "load"),
             copy_jobs=bulk._job_count(client.jobs, "copy"),
             query_jobs=bulk._job_count(client.jobs, "query"),
-            provider_job_errors=sum(
-                1 for job in client.jobs if getattr(job, "error_result", None) is not None
-            ),
+            provider_job_errors=1 + int(stale_rejected),
             bytes_processed=bulk._job_total(client.jobs, "total_bytes_processed"),
             bytes_billed=bulk._job_total(client.jobs, "total_bytes_billed"),
             slot_ms=bulk._job_total(client.jobs, "slot_millis"),
