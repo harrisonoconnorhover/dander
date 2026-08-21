@@ -193,9 +193,30 @@ def test_bigquery_target_fence_claims_before_preparing_publication() -> None:
         "CREATE TABLE IF NOT EXISTS `unit-project.raw._dander_target_commits`"
     )
     claim_sql, claim_config = client.queries[1]
-    assert claim_sql.startswith("MERGE `unit-project.raw._dander_target_commits`")
-    assert "incoming.fencing_token > current.fencing_token" in claim_sql
-    assert "incoming.run_id = current.run_id" in claim_sql
+    assert claim_sql == (
+        "MERGE `unit-project.raw._dander_target_commits` AS target_row\n"
+        "USING (SELECT @dander_target_id AS target_id, "
+        "@dander_pipeline_id AS pipeline_id, @dander_authority_id AS authority_id, "
+        "@dander_authority_epoch AS authority_epoch, @dander_run_id AS run_id, "
+        "@dander_fencing_token AS fencing_token) AS incoming\n"
+        "ON target_row.target_id = incoming.target_id "
+        "AND target_row.pipeline_id = incoming.pipeline_id\n"
+        "WHEN MATCHED AND target_row.authority_id = incoming.authority_id "
+        "AND target_row.authority_epoch = incoming.authority_epoch "
+        "AND (incoming.fencing_token > target_row.fencing_token OR "
+        "(incoming.fencing_token = target_row.fencing_token "
+        "AND incoming.run_id = target_row.run_id)) THEN\n"
+        "  UPDATE SET run_id = incoming.run_id, fencing_token = incoming.fencing_token, "
+        "status = 'claimed', claimed_at = CURRENT_TIMESTAMP(), committed_at = NULL\n"
+        "WHEN NOT MATCHED THEN\n"
+        "  INSERT (target_id, pipeline_id, authority_id, authority_epoch, run_id, "
+        "fencing_token, status, claimed_at, committed_at)\n"
+        "  VALUES (incoming.target_id, incoming.pipeline_id, incoming.authority_id, "
+        "incoming.authority_epoch, incoming.run_id, incoming.fencing_token, 'claimed', "
+        "CURRENT_TIMESTAMP(), NULL)"
+    )
+    assert "AS target_row" in claim_sql
+    assert "AS current" not in claim_sql
     assert claim_config is not None
     parameters = {parameter.name: parameter.value for parameter in claim_config.query_parameters}
     assert parameters == {
