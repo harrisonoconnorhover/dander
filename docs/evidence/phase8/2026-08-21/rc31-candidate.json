@@ -1,0 +1,62 @@
+{
+  "schema": "io.dander.phase8.candidate-evidence/v1",
+  "status": "candidate",
+  "release_version": "0.9.0rc31",
+  "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+  "pull_request": 413,
+  "protected_main_ci_run": 32517882193,
+  "wheel_sha256": "4c8ee86d95fbc769a1eaeee295b8d3554927aef49695f1728676257dc349b08c",
+  "sdist_sha256": "b21fcc88b3667d05dd5b416e0a60a39332b28fb75ddc33ee8747d680267a8931",
+  "logical_config_sha256": "84f9f0de2a3faa19438543f965fcc3e7bb0639fe1f553116ddeaaf8e618a83bf",
+  "platform_config_sha256": "e02d6539326d878ae5c3bfed1b36fcb0c7f575a7b84fb20ac682fee2de9c8241",
+  "source_free_dockerfile_sha256": "8e5ffac364b89a2b1f8d9dc4ffe5411cde3b1d7a75a9a0902b9a92e1e6841ba9",
+  "source_free_dockerignore_sha256": "1f181aa147e553a766e860ea8ee9dac0d143cee2be594024a87770d365727a6a",
+  "build_context_revision": "1081e868e3d7f40c3a378d468b240b52feb783ebec2ae7f9be386889f00533a2",
+  "image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+  "tag": "rc31-1081e868e3d7",
+  "platform_manifests": {
+    "linux/amd64": "sha256:10928f79dfdb1eb86c3484697872ab4b01b237546b341e49f87d41809498fe34",
+    "linux/arm64": "sha256:46537eb81e9d867161ef2b6e11eced56b63ce62938c42c21d4b8dadd94a37371"
+  },
+  "attestation_manifests": {
+    "linux/amd64": "sha256:f5d7dfd82bf70ccc7226e5d073113299ff8ea4b6e447a3e0044fbbad39c8fc41",
+    "linux/arm64": "sha256:dae7fe127440d67a39f5d893c39d420bf2be31e833bc22eee6de9ac818be82da"
+  },
+  "sbom_attached": true,
+  "sbom_format": "SPDX-2.3",
+  "provenance_attached": true,
+  "provenance_build_type": "https://github.com/moby/buildkit/blob/master/docs/attestations/slsa-definitions.md",
+  "provenance_build_revision": "1081e868e3d7f40c3a378d468b240b52feb783ebec2ae7f9be386889f00533a2",
+  "protected_source_binding": {
+    "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+    "wheel_sha256": "4c8ee86d95fbc769a1eaeee295b8d3554927aef49695f1728676257dc349b08c",
+    "method": "exact wheel built from the protected commit and embedded in the source-free context"
+  },
+  "source_free": true,
+  "exact_wheel_embedded": true,
+  "runtime_inspection": {
+    "gcp_cloud_run_selector_passed": true,
+    "amd64_version_passed": true,
+    "arm64_version_passed": true,
+    "amd64_rootless_passed": true,
+    "arm64_rootless_passed": true,
+    "amd64_read_only_conformance_passed": true,
+    "arm64_read_only_conformance_passed": true,
+    "amd64_qualification_entrypoint_passed": true,
+    "arm64_qualification_entrypoint_passed": true,
+    "source_tree_absent_from_both_platforms": true,
+    "wheel_file_absent_from_both_platforms_after_install": true
+  },
+  "publication": {
+    "attempts": 1,
+    "pre_push_failures": 0,
+    "registry_mutated_by_failed_attempt": false,
+    "build_created_at": "2026-08-21T19:28:44.361334Z",
+    "published_at": "2026-08-21T19:31:31.497119Z"
+  },
+  "qualification_status": "not_evaluated",
+  "live_provider_execution_started": false,
+  "public_release": false,
+  "automatic_live_retry_enabled": false,
+  "provider_measured_cost_usd": null
+}
