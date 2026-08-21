@@ -221,3 +221,14 @@ scale report.
   provider mutation, used zero retries, billed 138,412,032 provider bytes for USD 0.000786781311,
   left zero reservation or staging records, and removed the dataset exactly. This closes only the
   exact-candidate BigQuery incremental cell; every other open matrix cell remains open.
+- PR #411 protected one exact-RC30 GKE Standard/PostgreSQL concurrency objective; exact-main run
+  `32511415983` passed before its only candidate execution. RC30 failed on a concurrent first-claim
+  schema-creation race with zero retries, then removed all owned PostgreSQL and provider resources.
+- PR #412 protected the scoped transaction-advisory-lock correction, and PR #413 published private
+  RC31 index `sha256:26dac10d6cd8…3c387c9`; both exact-main runs passed all five jobs.
+- PR #414 protected the one corrective RC31 objective as main `f092334`; exact-main run
+  `32520375521` passed before mutation. The unchanged four-by-5,000 workload then produced exact
+  20,000-row readback, one stale-publication rejection, 12,674.271 rows/second, zero retries or
+  Warning events, zero staging residue, and exact cluster/network/IAM/API-state cleanup.
+- The combined RC30/RC31 provider cost has not posted, so the concurrency functional gate passes
+  but this cell remains `not_evaluated` until the exact cost is reconciled without rerunning it.
