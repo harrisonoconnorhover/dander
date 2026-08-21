@@ -14,6 +14,7 @@ from unittest.mock import Mock
 import pytest
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
+from scripts.benchmarks import bigquery_bounded_memory_phase8 as bounded
 from scripts.benchmarks import bigquery_bulk_phase8 as bulk
 
 from dander import __version__
@@ -220,6 +221,39 @@ def _approval(config: bulk.BigQueryBulkConfig) -> bulk._Approval:
     )
 
 
+def _bounded_config(**overrides: object) -> bounded.BigQueryBoundedMemoryConfig:
+    values: dict[str, object] = {
+        "project": "valid-project-123",
+        "dataset": "dander_p8_bounded_test",
+        "rows": 4,
+        "payload_bytes": 32,
+        "batch_rows": 2,
+        "memory_limit_mib": 1,
+    }
+    values.update(overrides)
+    return bounded.BigQueryBoundedMemoryConfig(**values)  # type: ignore[arg-type]
+
+
+def _bounded_approval(config: bounded.BigQueryBoundedMemoryConfig) -> bulk._Approval:
+    return bulk._Approval(
+        objectives=ApprovedObjectiveSet(
+            names=bounded._OBJECTIVES,
+            benchmark_class=BenchmarkClass.BOUNDED_MEMORY,
+            profile_id="bigquery_local_scale",
+            release_version=__version__,
+            git_commit=_COMMIT,
+            image_digest=_DIGEST,
+            configuration_sha256=config.configuration_sha256(),
+            approval_reference=_REFERENCE,
+        ),
+        cost_ceiling=ApprovedCostCeiling(Decimal("0.25"), _REFERENCE),
+        project_sha256=bulk._identifier_sha256(config.project),
+        dataset=config.dataset,
+        location=config.location,
+        on_demand_rate_usd_per_tib=Decimal("6.25"),
+    )
+
+
 def test_bulk_run_uses_accepted_shapes_reports_measured_cost_and_cleans() -> None:
     config = _config()
     client = _FakeClient()
@@ -266,6 +300,112 @@ def test_bulk_run_cleans_owned_dataset_after_provider_failure() -> None:
 
     assert not client.datasets
     assert not client.rows
+
+
+def test_bounded_memory_run_reuses_streaming_writer_and_cleans() -> None:
+    config = _bounded_config()
+    client = _FakeClient()
+
+    result = bounded._run_bounded_memory(config, client)  # type: ignore[arg-type]
+
+    assert result.rows == 4
+    assert result.load_jobs == 2
+    assert result.copy_jobs == 1
+    assert result.query_jobs == 1
+    assert result.temporary_staging_relations == 0
+    assert result.cleanup_verified
+    assert not client.datasets
+    assert not client.rows
+
+
+def test_bounded_memory_report_enforces_ratio_rss_jobs_cost_and_zero_retries() -> None:
+    config = _bounded_config(rows=20_000, payload_bytes=512, batch_rows=1_000)
+    result = bounded._BoundedMemoryResult(
+        duration_ms=2_000,
+        peak_rss_bytes=800_000,
+        rows=config.rows,
+        logical_input_bytes=config.logical_input_bytes,
+        load_jobs=20,
+        copy_jobs=1,
+        query_jobs=1,
+        bytes_processed=10 * 1_024 * 1_024,
+        bytes_billed=10 * 1_024 * 1_024,
+        slot_ms=5,
+        reservation_usage_records=0,
+        job_ids=("copy-job", "load-job", "query-job"),
+        temporary_staging_relations=0,
+        cleanup_verified=True,
+    )
+
+    report = bounded._report(config, _identity(), _bounded_approval(config), result)
+    payload = report.to_payload()
+    performance = cast("dict[str, Any]", payload["performance"])
+    workload = cast("dict[str, Any]", payload["workload"])
+    measurements = cast("list[dict[str, Any]]", performance["measurements"])
+
+    assert payload["status"] == "passed"
+    assert workload["memory_limit_bytes"] == 1_048_576
+    assert {item["name"]: item["value"] for item in measurements}["retries"] == "0"
+    assert {item["name"]: item["value"] for item in measurements}[
+        "bigquery_provider_operation_retries"
+    ] == "0"
+
+    with pytest.raises(
+        bounded.BigQueryBoundedMemoryQualificationError,
+        match="peak RSS exceeds eighty percent",
+    ):
+        bounded._report(
+            config,
+            _identity(),
+            _bounded_approval(config),
+            replace(result, peak_rss_bytes=900_000),
+        )
+
+
+def test_bounded_memory_requires_the_approved_container_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _bounded_config()
+    monkeypatch.setattr(
+        bounded,
+        "_container_memory_limit_bytes",
+        lambda: config.memory_limit_bytes,
+    )
+    bounded._require_container_memory_limit(config)
+
+    monkeypatch.setattr(
+        bounded,
+        "_container_memory_limit_bytes",
+        lambda: config.memory_limit_bytes * 2,
+    )
+    with pytest.raises(
+        bounded.BigQueryBoundedMemoryQualificationError,
+        match="container memory limit",
+    ):
+        bounded._require_container_memory_limit(config)
+
+
+def test_bounded_memory_objective_binds_exact_candidate_harness_and_dependency() -> None:
+    reference = "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-bigquery-usd-0.25"
+    config = bounded.BigQueryBoundedMemoryConfig(
+        project="dander-proof-harrison-20260801",
+        dataset="dander_p8_rc30_bigquery_bounded_355c096f",
+    )
+    identity = replace(
+        _identity(),
+        git_commit="d27dd880fc7676c15969bff76aaabb64c22be7c2",
+        image_digest=("sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315"),
+        approval_reference=reference,
+    )
+
+    approval = bounded._load_approval(
+        Path("docs/evidence/phase8/2026-08-21/bigquery-rc30-bounded-memory-objectives.json"),
+        config=config,
+        identity=identity,
+    )
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.BOUNDED_MEMORY
+    assert approval.cost_ceiling.amount_usd == Decimal("0.25")
 
 
 def test_verification_query_uses_non_reserved_row_count_alias() -> None:
