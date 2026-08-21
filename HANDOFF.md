@@ -2,34 +2,36 @@
 
 ## Finished
 
-- Closed the exact-RC29 BigQuery incremental cell with one protected execution.
-- Verified the 300,000-row seed and 3,000-row half-update/half-insert delta exactly.
-- Recorded throughput, monotonic cursor handling, provider-measured cost, zero retries, and cleanup.
-- Changed no other DANDER-204 matrix cell.
+- Preserved the failed RC30 GKE concurrency attempt and its direct PostgreSQL schema-claim defect.
+- Protected the focused fix, published one private RC31 candidate, and protected one corrective objective.
+- RC31 passed exact 20,000-row readback, fencing, throughput, TLS, and zero-retry checks.
+- Removed the namespace, cluster, network, IAM, credentials, and run-enabled APIs exactly.
+- Changed no other DANDER-204 cell.
 
 ## Try It
 
-Run `uv run pytest -q tests/portability/test_bigquery_incremental_phase8_benchmark.py`.
+Run `uv run pytest -q tests/portability/test_postgresql_concurrency_phase8_benchmark.py`.
 
 ## Checks
 
-- Local focused tests, Ruff, strict typing, control contracts, and the full suite pass.
-- PR #392 and exact-main run `32412152282` passed all five protected jobs before mutation.
-- All six normalized objectives passed; the dataset, staging relations, and container are absent.
+- Local Ruff, strict typing, control contracts, focused tests, and the full suite passed.
+- PRs #412-#414 and their exact-main runs passed all five protected jobs before mutation.
+- All non-cost objectives passed; final owned-resource and credential inventories are empty.
 
 ## Decisions
 
-- Reused `BigQueryIncrementalWriter` and the BigQuery bulk harness/report structure.
-- Rejected cursor regression in the operator harness before provider mutation.
-- Used provider-billed bytes at USD 6.25/TiB without applying free-tier or credit reductions.
+- Reused the existing GKE/PostgreSQL concurrency harness and exact four-by-5,000 workload.
+- Classified the RC30 schema race as a product defect and reran only this affected cell on RC31.
+- Kept the combined USD 0.50 cost gate open pending provider-posted billing.
 
 ## Remaining
 
-- No work remains in this BigQuery incremental cell.
-- Other DANDER-204 cells remain open and out of scope.
+- Reconcile RC30 and RC31 GKE cost without rerunning either workload.
+- Continue the next ready Phase 8 gate while this cost is delayed.
+- Snowflake bounded-memory remains blocked on role-scoped interactive authorization.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-20/bigquery-rc29-incremental-execution.json`
-- `docs/evidence/phase8/2026-08-20/bigquery-rc29-incremental.json`
+- `docs/evidence/phase8/2026-08-21/gke-standard-rc30-rc31-postgresql-concurrency-attempts.json`
+- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-concurrency.json`
 - `tickets/DANDER-204-phase8-scale-matrix.md`
