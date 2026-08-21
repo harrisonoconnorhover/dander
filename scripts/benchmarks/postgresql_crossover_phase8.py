@@ -223,12 +223,25 @@ def load_approval(
         raise ValueError("objective manifest benchmark class does not match crossover")
     if objectives.configuration_sha256 != config.configuration_sha256():
         raise ValueError("objective manifest configuration hash does not match crossover")
+    hosted_gke = objectives.profile_id == "gke_standard_postgresql"
+    if hosted_gke:
+        configuration = _mapping(payload.get("configuration"), "configuration")
+        execution = _mapping(configuration.get("execution"), "execution configuration")
+        if execution.get("harness_sha256") != _file_sha256(Path(__file__)):
+            raise ValueError("objective manifest does not match the protected crossover harness")
+        if execution.get("manual_candidate_executions") != 1:
+            raise ValueError("objective manifest must allow exactly one candidate execution")
+        if execution.get("automatic_candidate_retry") is not False:
+            raise ValueError("objective manifest must disable automatic candidate retry")
+        if execution.get("provider_operation_retries") != 0:
+            raise ValueError("objective manifest must disable provider-operation retries")
     cost_ceiling = ApprovedCostCeiling(
         amount_usd=Decimal(str(raw_cost.get("amount_usd"))),
         approval_reference=str(raw_cost.get("approval_reference")),
     )
-    if cost_ceiling.amount_usd != 0:
-        raise ValueError("local PostgreSQL crossover requires a zero-dollar ceiling")
+    expected_cost_ceiling = Decimal("0.50") if hosted_gke else Decimal(0)
+    if cost_ceiling.amount_usd != expected_cost_ceiling:
+        raise ValueError("crossover cost ceiling does not match its selected profile")
     if cost_ceiling.approval_reference != objectives.approval_reference:
         raise ValueError("cost and objective approvals must use the same reference")
     return _Approval(objectives=objectives, cost_ceiling=cost_ceiling)
@@ -240,6 +253,7 @@ def run_postgresql_crossover_qualification(
     config: PostgreSQLCrossoverConfig,
     identity: CandidateIdentity,
     approval: _Approval,
+    provider_cost_usd: Decimal | None = None,
 ) -> QualificationReport:
     """Measure both transports against equal targets and emit one normalized report."""
     if not dsn:
@@ -276,7 +290,13 @@ def run_postgresql_crossover_qualification(
         result = _run_crossover(pool, database=row["database"], config=config)
     finally:
         pool.close()
-    return _report(config, identity, approval, result)
+    return _report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
 
 
 def _run_crossover(
@@ -491,7 +511,24 @@ def _report(
     identity: CandidateIdentity,
     approval: _Approval,
     result: _CrossoverResult,
+    *,
+    provider_cost_usd: Decimal | None = None,
 ) -> QualificationReport:
+    hosted_gke = approval.objectives.profile_id == "gke_standard_postgresql"
+    if result.temporary_staging_relations or not result.cleanup_verified:
+        raise ValueError("PostgreSQL crossover cleanup is incomplete")
+    if provider_cost_usd is not None and (
+        provider_cost_usd < 0 or provider_cost_usd > approval.cost_ceiling.amount_usd
+    ):
+        raise ValueError("provider-measured crossover cost is outside its approved ceiling")
+    if not hosted_gke and provider_cost_usd not in (None, Decimal(0)):
+        raise ValueError("local PostgreSQL crossover cost must remain zero")
+    observed_cost = (
+        provider_cost_usd
+        if provider_cost_usd is not None
+        else (approval.cost_ceiling.amount_usd if hosted_gke else Decimal(0))
+    )
+    cost_pending = hosted_gke and provider_cost_usd is None
     total_rows = sum(config.row_counts) * config.repetitions * 2
     logical_bytes = (
         sum(_workload_logical_bytes(rows, config.payload_bytes) for rows in config.row_counts)
@@ -514,6 +551,8 @@ def _report(
             "count",
             result.temporary_staging_relations,
         ),
+        _measured("kubernetes_job_retries", "count", 0),
+        _measured("provider_operation_retries", "count", 0),
     ]
     for rows in config.row_counts:
         copy_ms = result.medians[WriteTransport.COPY][rows]
@@ -547,7 +586,14 @@ def _report(
         transform_duration_ms=_measured("transform_duration_ms", "milliseconds", 0),
         catalog_duration_ms=_measured("catalog_duration_ms", "milliseconds", 0),
         provider_metrics=tuple(sorted(metrics, key=lambda metric: metric.name)),
-        costs=(CostAttribution("local", "postgresql", Decimal(0), estimated=False),),
+        costs=(
+            CostAttribution(
+                "gcp" if hosted_gke else "local",
+                "gke_standard_zonal" if hosted_gke else "postgresql",
+                observed_cost,
+                estimated=cost_pending,
+            ),
+        ),
     )
     return QualificationReport(
         context=QualificationContext(
@@ -572,7 +618,9 @@ def _report(
             logical_input_bytes=logical_bytes,
             row_width_bytes=config.row_width_bytes,
             schema_depth=1,
-            source_rate_limit="unlimited_local_generator",
+            source_rate_limit=(
+                "unlimited_in_cluster_generator" if hosted_gke else "unlimited_local_generator"
+            ),
             transform_complexity="scd1_equal_transport_comparison",
             concurrency=1,
             batch_rows=config.row_counts[-1],
@@ -583,18 +631,32 @@ def _report(
         objectives=tuple(
             ObjectiveResult(
                 name,
-                ObjectiveStatus.PASSED,
-                f"phase8/postgresql/crossover/{name}",
+                (
+                    ObjectiveStatus.NOT_EVALUATED
+                    if name == "cost_ceiling" and cost_pending
+                    else ObjectiveStatus.PASSED
+                ),
+                f"phase8/{'gcp/gke' if hosted_gke else 'postgresql'}/crossover/{name}",
             )
             for name in approval.objectives.names
         ),
         approved_objectives=approval.objectives,
-        status=QualificationStatus.PASSED,
+        status=(QualificationStatus.NOT_EVALUATED if cost_pending else QualificationStatus.PASSED),
     )
 
 
 def _measured(name: str, unit: str, value: int | Decimal) -> PerformanceMeasurement:
     return PerformanceMeasurement.measured(name, unit, value)
+
+
+def _mapping(value: object, label: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError(f"objective manifest {label} is incomplete")
+    return cast("dict[str, object]", value)
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _temporary_staging_count(pool: PostgreSQLPool) -> int:
@@ -650,6 +712,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--payload-bytes", type=int, default=128)
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--direct-max-logical-bytes", type=int, default=1_024 * 1_024)
+    parser.add_argument("--provider-cost-usd", type=Decimal)
     return parser.parse_args()
 
 
@@ -681,6 +744,7 @@ def main() -> None:
             service_shapes=tuple(sorted(set(arguments.service_shape))),
         ),
         approval=approval,
+        provider_cost_usd=arguments.provider_cost_usd,
     )
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(report.to_json() + "\n", encoding="utf-8")
