@@ -168,6 +168,7 @@ def test_gke_concurrency_objective_binds_candidate_harness_and_dependency() -> N
     config = concurrency.PostgreSQLConcurrencyConfig()
     identity = replace(
         _identity(),
+        release_version="0.9.0rc30",
         git_commit="d27dd880fc7676c15969bff76aaabb64c22be7c2",
         image_digest=("sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315"),
         approval_reference=reference,
