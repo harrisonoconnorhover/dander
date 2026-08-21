@@ -3,20 +3,24 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, cast
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
+from typing import cast
 
 import pytest
+from scripts.benchmarks import postgresql_phase8 as harness
 from scripts.benchmarks.postgresql_phase8 import (
+    CandidateIdentity,
     Phase8PostgreSQLConfig,
+    _correctness_report,
+    _CorrectnessResult,
     _write_transform_models,
     load_approval,
 )
 
 from dander.qualification import BenchmarkClass
 from dander.transform import SqlDialect, TransformProject
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def test_phase8_postgresql_config_hashes_each_class_deterministically() -> None:
@@ -72,6 +76,106 @@ def test_load_approval_rejects_workload_or_objective_drift(tmp_path: Path) -> No
             config=config,
             benchmark_class=BenchmarkClass.BULK_THROUGHPUT,
         )
+
+
+def test_gke_correctness_approval_binds_protected_harness_and_retry_policy(
+    tmp_path: Path,
+) -> None:
+    config = Phase8PostgreSQLConfig()
+    path = tmp_path / "objectives.json"
+    payload = _gke_correctness_manifest(config)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    approval = load_approval(
+        path,
+        config=config,
+        benchmark_class=BenchmarkClass.CORRECTNESS,
+    )
+
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    execution = cast(
+        "dict[str, object]",
+        cast("dict[str, object]", payload["configuration"])["execution"],
+    )
+    execution["harness_sha256"] = "0" * 64
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="protected PostgreSQL harness"):
+        load_approval(
+            path,
+            config=config,
+            benchmark_class=BenchmarkClass.CORRECTNESS,
+        )
+
+
+def test_gke_correctness_report_keeps_only_provider_cost_pending(tmp_path: Path) -> None:
+    config = Phase8PostgreSQLConfig()
+    path = tmp_path / "objectives.json"
+    path.write_text(json.dumps(_gke_correctness_manifest(config)), encoding="utf-8")
+    approval = load_approval(
+        path,
+        config=config,
+        benchmark_class=BenchmarkClass.CORRECTNESS,
+    )
+    identity = CandidateIdentity(
+        release_version="0.9.0rc31",
+        git_commit="a" * 40,
+        image_digest=f"sha256:{'b' * 64}",
+        approval_reference="codex-goal-gke-correctness",
+        benchmark_date=date(2026, 8, 21),
+        launcher="gke_standard_zonal",
+        regions=("gcp:us-central1-a",),
+        secret_provider="kubernetes",
+        provider_job_ids=("cluster:test", "job:test"),
+        service_shapes=("dander_job_2cpu_512mib",),
+    )
+    result = _CorrectnessResult(
+        duration_ms=125,
+        peak_rss_bytes=128_000_000,
+        input_rows=7,
+        output_rows=3,
+        logical_input_bytes=317,
+        normalized_sha256="82886fc4c0bc5cfb248df1196b9d29763cad4fac60cf248a91084a185d78c2ee",
+        temporary_staging_relations=0,
+        cleanup_verified=True,
+    )
+
+    pending = json.loads(_correctness_report(config, identity, approval, result).to_json())
+
+    assert pending["status"] == "not_evaluated"
+    assert {objective["name"]: objective["status"] for objective in pending["objectives"]} == {
+        "cleanup": "passed",
+        "cost_ceiling": "not_evaluated",
+        "exact_normalized_output": "passed",
+        "replay_equal": "passed",
+        "scd1_copy_completion": "passed",
+    }
+    assert pending["performance"]["costs"] == [
+        {
+            "amount": "0.50",
+            "currency": "USD",
+            "estimated": True,
+            "provider": "gcp",
+            "service": "gke_standard_zonal",
+        }
+    ]
+    metrics = {
+        measurement["name"]: measurement["value"]
+        for measurement in pending["performance"]["measurements"]
+    }
+    assert metrics["kubernetes_job_retries"] == "0"
+    assert metrics["provider_operation_retries"] == "0"
+
+    posted = json.loads(
+        _correctness_report(
+            config,
+            identity,
+            approval,
+            result,
+            provider_cost_usd=Decimal("0.25"),
+        ).to_json()
+    )
+    assert posted["status"] == "passed"
+    assert posted["performance"]["costs"][0]["estimated"] is False
     payload = _manifest(config)
     approved = cast("dict[str, object]", payload["approved_objectives"])
     names = cast("list[str]", approved["names"])
@@ -125,6 +229,39 @@ def _manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]:
             "git_commit": "a" * 40,
             "image_digest": f"sha256:{'b' * 64}",
             "configuration_sha256": config.configuration_sha256(BenchmarkClass.BULK_THROUGHPUT),
+            "approval_reference": approval,
+        },
+    }
+
+
+def _gke_correctness_manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]:
+    approval = "codex-goal-gke-correctness"
+    return {
+        "schema": "io.dander.qualification.objective-approval/v1",
+        "cost_ceiling": {"amount_usd": "0.50", "approval_reference": approval},
+        "workload": config.workload_payload(BenchmarkClass.CORRECTNESS),
+        "configuration": {
+            "execution": {
+                "harness_sha256": harness._file_sha256(Path(harness.__file__)),
+                "manual_candidate_executions": 1,
+                "automatic_candidate_retry": False,
+                "provider_operation_retries": 0,
+            }
+        },
+        "approved_objectives": {
+            "names": [
+                "cleanup",
+                "cost_ceiling",
+                "exact_normalized_output",
+                "replay_equal",
+                "scd1_copy_completion",
+            ],
+            "benchmark_class": "correctness",
+            "profile_id": "gke_standard_postgresql",
+            "release_version": "0.9.0rc31",
+            "git_commit": "a" * 40,
+            "image_digest": f"sha256:{'b' * 64}",
+            "configuration_sha256": config.configuration_sha256(BenchmarkClass.CORRECTNESS),
             "approval_reference": approval,
         },
     }

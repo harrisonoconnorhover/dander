@@ -241,3 +241,7 @@ scale report.
   Warning events; left zero staging relations or Dander schemas; and removed its namespace,
   cluster, network, IAM grants, credentials, and temporarily enabled APIs exactly. Provider cost
   has not posted, so this cell remains `not_evaluated` without rerunning the workload.
+- The next focused objective binds the accepted seven-input/three-output SCD1 correctness fixture
+  to exact RC31 on one disposable zonal GKE Standard cluster. It runs correctness only, requires
+  the protected harness hash, exact normalized output and replay equality, zero candidate or
+  provider-operation retries, exact cleanup, and provider-posted cost under USD 0.50.
