@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import date
-from typing import TYPE_CHECKING, cast
+from decimal import Decimal
+from pathlib import Path
+from typing import cast
 
 import pytest
 from scripts.benchmarks.postgresql_crossover_phase8 import (
@@ -24,9 +27,6 @@ from scripts.benchmarks.postgresql_crossover_phase8 import (
 from dander.providers.postgresql.writer import _select_direct_batch
 from dander.qualification import BenchmarkClass
 from dander.writer import WriteTransport
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def test_crossover_config_is_deterministic_and_bounded() -> None:
@@ -168,6 +168,74 @@ def test_crossover_report_sorts_provider_metrics(tmp_path: Path) -> None:
 
     names = [metric.name for metric in report.performance.provider_metrics]
     assert names == sorted(names)
+
+
+def test_gke_crossover_objective_binds_rc31_and_keeps_delayed_cost_open() -> None:
+    config = PostgreSQLCrossoverConfig()
+    objective_path = Path(
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-crossover-objectives.json"
+    )
+    approval = load_approval(objective_path, config=config)
+    reference = "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-gke-usd-0.50"
+    identity = CandidateIdentity(
+        release_version="0.9.0rc31",
+        git_commit="3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+        image_digest=("sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9"),
+        approval_reference=reference,
+        benchmark_date=date(2026, 8, 21),
+        launcher="kubernetes",
+        regions=("gcp:us-central1-a",),
+        secret_provider="kubernetes",
+        provider_job_ids=("cluster:test", "job:test"),
+        service_shapes=("dander_job_2cpu_512mib", "gke_standard_e2_standard_4"),
+    )
+    result = _CrossoverResult(
+        duration_ms=100,
+        peak_rss_bytes=1,
+        samples=(),
+        medians={
+            transport: dict.fromkeys(config.row_counts, 1)
+            for transport in (WriteTransport.COPY, WriteTransport.DIRECT)
+        },
+        recommended_direct_max_rows=config.row_counts[-1],
+        recommended_direct_max_logical_bytes=config.direct_max_logical_bytes,
+        temporary_staging_relations=0,
+        cleanup_verified=True,
+    )
+
+    pending = _report(config, identity, approval, result)
+    passed = _report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=Decimal("0.05"),
+    )
+    measured = {item.name: item.value for item in pending.performance.provider_metrics}
+
+    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    assert pending.status.value == "not_evaluated"
+    assert pending.performance.costs[0].provider == "gcp"
+    assert pending.performance.costs[0].estimated is True
+    assert measured["kubernetes_job_retries"] == Decimal(0)
+    assert measured["provider_operation_retries"] == Decimal(0)
+    assert passed.status.value == "passed"
+    with pytest.raises(ValueError, match="cost"):
+        _report(
+            config,
+            identity,
+            approval,
+            result,
+            provider_cost_usd=Decimal("0.51"),
+        )
+    with pytest.raises(ValueError, match="cleanup"):
+        _report(
+            config,
+            identity,
+            approval,
+            replace(result, cleanup_verified=False),
+        )
 
 
 def _manifest(config: PostgreSQLCrossoverConfig) -> dict[str, object]:
