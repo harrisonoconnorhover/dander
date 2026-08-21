@@ -232,3 +232,12 @@ scale report.
   Warning events, zero staging residue, and exact cluster/network/IAM/API-state cleanup.
 - The combined RC30/RC31 provider cost has not posted, so the concurrency functional gate passes
   but this cell remains `not_evaluated` until the exact cost is reconciled without rerunning it.
+- PR #416 protected one exact-RC31 GKE Standard/PostgreSQL crossover objective as main `21da4d4`;
+  exact-main run `32532555063` passed all five jobs before mutation. Its only candidate execution
+  preserved COPY/DIRECT canonical equality across five repetitions of 1, 10, 100, 1,000, and
+  5,000 rows, measured 61,110 rows in 7.932 seconds at 7,704.236 rows/second, and recorded an
+  environment-specific 10-row/1,490-byte direct threshold without changing a product default.
+- The crossover run used zero candidate, Kubernetes Job, or provider-operation retries; emitted no
+  Warning events; left zero staging relations or Dander schemas; and removed its namespace,
+  cluster, network, IAM grants, credentials, and temporarily enabled APIs exactly. Provider cost
+  has not posted, so this cell remains `not_evaluated` without rerunning the workload.
