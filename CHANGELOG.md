@@ -6,6 +6,19 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc30 — 2026-08-20 (beta)
+
+### Fixed
+
+- Use a non-reserved BigQuery target-fence alias so destination claims retain their existing
+  idempotent, newer-token, and stale-token behavior.
+
+### Known limitations
+
+- RC30 is a private corrective candidate for the BigQuery concurrency cell. Other Phase 8 cells,
+  provider-cost reconciliation, pairwise, audit, soak, and support gates remain open, and public
+  RC20 is unchanged.
+
 ## 0.9.0rc29 — 2026-08-17 (beta)
 
 ### Fixed
