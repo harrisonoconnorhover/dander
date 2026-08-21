@@ -43,6 +43,10 @@ class PostgreSQLTargetFence:
         target_id = ".".join(target.coordinates)
         with self.pool.connection() as connection, connection.transaction():
             connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtext(%s))",
+                (f"dander-target-schema:{target.namespace}",),
+            )
+            connection.execute(
                 sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(target.namespace))
             )
             connection.execute(_postgresql_target_fence_table_sql(table))
