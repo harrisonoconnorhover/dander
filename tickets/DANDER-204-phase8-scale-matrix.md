@@ -328,3 +328,18 @@ scale report.
   the exact RC31 ECR index remains retained. The corrective objective changes only task memory to
   the smallest compatible 4 GiB, binds that shape in the protected harness, and reserves the one
   authorized corrective candidate execution under the unchanged combined USD 0.50 ceiling.
+- PR #429 protected the corrected Fargate shape as main `4d6151b`; exact-main run `32568141092`
+  passed all five jobs. Its one RC31 candidate execution, `rc31-redshift-bulk-corrective-20260822`,
+  reached Redshift connection validation and timed out after the configured 300 seconds before
+  schema creation or workload rows. The transient task role omitted the globally scoped
+  `tag:GetResources` and `tag:GetTagKeys` reads required to resolve its `RedshiftDbRoles` tag, so
+  the result is a blocked operator-IAM qualification attempt, not a product result. It used zero
+  retries, retained the full accepted workload unexecuted, and exact cleanup removed the task,
+  schema/staging scope, data plane, roles, logs, state machine, and remote state. No further bulk
+  execution is authorized.
+- The next focused objective binds the accepted 300,000-row seed and 3,000-row half-update/
+  half-insert incremental workload to exact RC31 on one disposable 8-RPU Redshift Serverless data
+  plane. It requires exact 301,500-row readback, monotonic cursor advancement, one regression
+  rejected before provider mutation, COPY-only throughput, provider-measured cost, zero retries,
+  and exact schema, staging, harness, and data-plane cleanup under USD 0.50. Its fail-closed
+  approval also binds the complete Serverless task-role tag and global tag-read requirements.
