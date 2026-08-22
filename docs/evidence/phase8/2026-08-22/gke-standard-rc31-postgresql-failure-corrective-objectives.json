@@ -1,0 +1,140 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.50",
+    "scope": "combined_rc31_gke_standard_postgresql_failure_cell",
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-gke-failure-corrective"
+  },
+  "budget_allocation": {
+    "authorization_kind": "ongoing_phase8_corrective_execution",
+    "combined_cell_ceiling_usd": "0.50",
+    "aggregate_ceiling_usd": "10.00",
+    "provider_measured_or_reserved_before_corrective_usd": "6.016419762794",
+    "remaining_aggregate_ceiling_after_full_corrective_reservation_usd": "3.483580237206",
+    "failed_attempt_cost_status": "provider_invoice_pending",
+    "authorization_reference": "docs/evidence/phase8/2026-08-15/rc27-authorization.json"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.postgresql-failure/v1",
+    "benchmark_class": "failure",
+    "batch_rows": 1,
+    "probes": [
+      "bounded_pool_timeout",
+      "dropped_connection_recovery",
+      "state_operation_recovery",
+      "warehouse_cancellation_rollback"
+    ],
+    "pool_timeout_ms": 100,
+    "cancellation_sleep_seconds": 30
+  },
+  "failed_attempt": {
+    "protected_main": "cef3fc8fc40098ad75ffb0a5ca1f976c3829d1e8",
+    "exact_main_ci_run": 32551541344,
+    "cluster_create_operation": "operation-1787373337857-10977990-5e83-4323-9e3d-195bd66a2479",
+    "provider_job_uid": "4c6db228-bde8-403c-a078-a382c29479d7",
+    "provider_pod_uid": "227c9541-bdea-4ac8-960d-b56dbc58262e",
+    "candidate_exit_code": 127,
+    "candidate_error": "/app/.venv/bin/dander: not found",
+    "immutable_image_entrypoint": "dander",
+    "immutable_image_entrypoint_resolution": "/usr/local/bin/dander",
+    "candidate_code_reached": false,
+    "normalized_report_emitted": false,
+    "automatic_candidate_retries": 0,
+    "kubernetes_job_retries": 0,
+    "provider_operation_retries": 0,
+    "remaining_dander_schemas": 0,
+    "temporary_staging_relations": 0,
+    "cleanup_completed_at": "2026-08-22T04:50:32Z",
+    "exact_cleanup_verified": true
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc31",
+      "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+      "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+      "source_free": true,
+      "qualification_entrypoint": "dander qualification-run"
+    },
+    "deployment": {
+      "provider": "gcp",
+      "project": "dander-proof-harrison-20260801",
+      "zone": "us-central1-a",
+      "launcher": "gke_standard_zonal",
+      "release_channel": "regular",
+      "minimum_kubernetes_version": "1.32",
+      "resource_prefix": "dander-p8q-rc31-gke-fl",
+      "node_count": 1,
+      "node_machine_type": "e2-standard-4",
+      "node_provisioning_model": "standard",
+      "node_disk_type": "pd-standard",
+      "node_disk_size_gib": 30,
+      "max_cluster_lifetime_minutes": 60,
+      "infrastructure_attempts": 1,
+      "candidate_attempts": 1,
+      "billing_confirmation_required_before_pass": true,
+      "restore_preexisting_api_activation": true,
+      "remove_owned_iam_grants": true,
+      "delete_owned_cluster_network_namespace_secrets_tls_and_data": true,
+      "provider_managed_service_identities_are_provider_owned": true
+    },
+    "runtime": {
+      "candidate_cpu_limit": 2,
+      "candidate_memory_limit_mib": 512,
+      "candidate_container_command_override": false,
+      "candidate_container_args_prefix": [
+        "qualification-run",
+        "/harness/postgresql_phase8.py"
+      ],
+      "candidate_dsn_from_kubernetes_secret_env": true,
+      "forbidden_candidate_executable": "/app/.venv/bin/dander",
+      "postgresql_version": "15.18",
+      "postgresql_image": "postgres@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f",
+      "postgresql_readiness_executable": "/usr/local/bin/pg_isready",
+      "postgresql_cpu_limit": 2,
+      "postgresql_memory_limit_mib": 1024,
+      "tls_required": true,
+      "rootless": true,
+      "read_only_root_filesystem": true,
+      "active_deadline_seconds": 900,
+      "backoff_limit": 0,
+      "reporter_sidecar": true
+    },
+    "execution": {
+      "harness": "scripts/benchmarks/postgresql_phase8.py",
+      "harness_sha256": "e5a4fe154869741a5780d729902f97fbf3cd963dc22f0c19e2ad04379d07fcb5",
+      "prior_failed_candidate_executions": 1,
+      "manual_candidate_executions": 1,
+      "automatic_candidate_retry": false,
+      "provider_operation_retries": 0,
+      "provider_measured_cost_method": "exact_gcp_billing_export_project_and_service_rows",
+      "provider_cost_may_finalize_without_rerunning_workload": true
+    },
+    "preflight_and_cleanup": {
+      "billing_enabled_must_pass_before_mutation": true,
+      "owned_resources_must_be_absent_before_creation": true,
+      "candidate_digest_must_match_on_node": true,
+      "cleanup_starts_immediately_after_execution": true,
+      "cleanup_start_deadline_minutes": 30,
+      "delete_cluster_network_service_account_and_owned_iam_required": true,
+      "active_owned_resource_inventory_must_be_empty": true,
+      "restore_api_activation_to_preflight_state": true
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "bounded_pool_timeout",
+      "cleanup",
+      "cost_ceiling",
+      "dropped_connection_recovery",
+      "state_operation_recovery",
+      "warehouse_cancellation_rollback"
+    ],
+    "benchmark_class": "failure",
+    "profile_id": "gke_standard_postgresql",
+    "release_version": "0.9.0rc31",
+    "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+    "image_digest": "sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+    "configuration_sha256": "d7d4a0036efd91076037dec1e02b14982591205e2caec3a63eee4a5d148b3f35",
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-gke-failure-corrective"
+  }
+}
