@@ -273,3 +273,15 @@ scale report.
   incremental only, requires the protected harness hash, exact readback, monotonic cursor and
   rejected-regression checks, zero candidate or provider-operation retries, exact cleanup, and
   provider-posted cost under USD 0.50.
+- PR #422 protected that objective as main `ef2ab62`; exact-main run `32545149448` passed all five
+  jobs before mutation. Its only candidate execution produced exact 301,500-row readback from the
+  300,000-row seed and 3,000-row half-update/half-insert delta, preserved cursor monotonicity,
+  rejected the cursor regression with zero affected rows, and measured 13,392.857 delta rows per
+  second.
+- The candidate, Kubernetes Job, and provider cluster operation each ran without retry or restart.
+  One readiness-probe Warning preceded PostgreSQL readiness; the candidate emitted no Warning
+  event and completed successfully through the required TLS connection.
+- Cleanup began 43 seconds after Job completion and removed every owned PostgreSQL schema, staging
+  relation, namespace, cluster, network, IAM grant, local credential, and temporarily enabled API.
+  Provider cost has not posted, so incremental functionally passes but remains `not_evaluated`
+  without rerunning the workload.
