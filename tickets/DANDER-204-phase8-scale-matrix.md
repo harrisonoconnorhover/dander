@@ -253,3 +253,7 @@ scale report.
   relation, namespace, cluster, network, IAM grant, local credential, and temporarily enabled API.
   Provider cost has not posted, so correctness functionally passes but remains `not_evaluated`
   without rerunning the workload.
+- The next focused objective binds the accepted 500,000-row narrow and 200,000-row wide PostgreSQL
+  bulk workload to exact RC31 on one disposable zonal GKE Standard cluster. It runs bulk only,
+  requires the protected harness hash, COPY completion and throughput for both shapes, zero
+  candidate or provider-operation retries, exact cleanup, and provider-posted cost under USD 0.50.
