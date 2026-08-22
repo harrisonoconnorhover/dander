@@ -356,3 +356,11 @@ scale report.
   candidate or provider-operation retries, and exact schema, staging, harness, and data-plane
   cleanup under the existing USD 0.50 cell ceiling. The protected launcher is ARM64 and retains
   terminal output only in the owned staging prefix until immediate cleanup.
+- The initial protected concurrency execution
+  `rc31-redshift-concurrency-20260822` ran the exact ARM64 RC31 digest once with zero retries and
+  exited 2 before producing a report. Its sanitized diagnostic reported a pre-report failure and
+  successful run-scoped cleanup; external cleanup then removed all transient launcher resources,
+  all 37 data-plane resources, and every remote-state version while retaining only the immutable
+  candidate. The corrective objective keeps the candidate, workload, provider shape, and cleanup
+  contract unchanged and initializes the shared fence table before independent pipeline claims
+  enter worker threads, removing concurrent first-use DDL from the one remaining execution.

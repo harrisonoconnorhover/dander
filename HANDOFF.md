@@ -2,11 +2,11 @@
 
 ## Finished
 
-- Added one exact-RC31 Redshift concurrency harness for four independent 5,000-row pipelines.
-- Reused the Redshift staged writer, provider runtime, and controlled fencing implementation.
-- Bound exact 20,000-row readback, two claims, stale-publication rejection, and zero retries.
-- Bound the existing disposable 8-RPU Serverless data plane and ARM64 Fargate launcher.
-- Reserved one execution under the existing USD 0.50 cell ceiling with exact cleanup.
+- Preserved the failed initial RC31 concurrency execution without rerunning it.
+- Initialized the shared Redshift fence table before four pipeline claims enter worker threads.
+- Kept the four-by-5,000 workload, two controlled claims, stale rejection, and zero retries intact.
+- Added one corrective objective bound to the corrected harness and retained RC31 digest.
+- Verified the failed attempt left no report, staging residue, launcher resource, data plane, or state.
 
 ## Try It
 
@@ -14,26 +14,25 @@ Run `uv run pytest -q tests/portability/test_redshift_concurrency_phase8_benchma
 
 ## Checks
 
-- Ruff lint and formatting pass for the focused harness and tests.
-- All nine focused Redshift concurrency harness tests pass.
-- Strict typing passes for 435 source files, and Control contract drift is clean.
-- The full suite passes with 1,907 tests and 35 skips.
+- Eleven focused Redshift concurrency harness tests pass.
+- Ruff lint and formatting pass for all 483 files.
+- Strict typing passes for 435 source files; Control contract drift is clean.
+- The full suite passes with 1,909 tests and 35 skips.
 - The locked runtime dependency audit reports no known vulnerabilities.
 
 ## Decisions
 
-- Reuse the existing Redshift bulk runtime helpers instead of adding another provider abstraction.
-- Keep candidate diagnostics transient and delete them during exact harness cleanup.
+- Remove concurrent first-use fence DDL as a qualification-harness variable.
+- Keep the exact candidate, workload, provider shape, and cleanup contract unchanged.
 
 ## Remaining
 
-- Protect and merge the concurrency objective, then verify exact-main CI.
-- Run exactly one candidate task and begin cleanup immediately at terminal state.
-- Record only sanitized successful evidence; retain failures in the combined cell record.
-- Continue the next eligible Phase 8 cell after the evidence merge.
+- Protect and merge the corrective objective, then verify exact-main CI.
+- Run exactly one corrective candidate task and begin cleanup immediately at terminal state.
+- Record both attempts together if the corrective execution passes.
 
 ## Review First
 
 - `scripts/benchmarks/redshift_concurrency_phase8.py`
 - `tests/portability/test_redshift_concurrency_phase8_benchmark.py`
-- `docs/evidence/phase8/2026-08-22/aws-native-rc31-redshift-concurrency-objectives.json`
+- `docs/evidence/phase8/2026-08-22/aws-native-rc31-redshift-concurrency-corrective-objectives.json`
