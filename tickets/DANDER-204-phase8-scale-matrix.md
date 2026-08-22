@@ -285,3 +285,8 @@ scale report.
   relation, namespace, cluster, network, IAM grant, local credential, and temporarily enabled API.
   Provider cost has not posted, so incremental functionally passes but remains `not_evaluated`
   without rerunning the workload.
+- The next focused objective binds the accepted 100,000-fact/100-dimension PostgreSQL transform
+  shape to exact RC31 on one disposable zonal GKE Standard cluster. It runs scan, join,
+  aggregation, and incremental-merge models with the existing 21 generic assertions, fenced
+  publication, transform-duration measurement, zero candidate or provider-operation retries,
+  exact cleanup, and provider-posted cost under USD 0.50.
