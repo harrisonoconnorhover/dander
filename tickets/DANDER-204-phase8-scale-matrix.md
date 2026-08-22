@@ -316,3 +316,9 @@ scale report.
   USD 0.50 ceiling, and zero-retry policy unchanged. It binds Kubernetes args to the immutable
   `dander` entrypoint, injects the DSN from an owned Secret, and fixes only the PostgreSQL
   readiness executable before the one allowed corrective execution.
+- The next AWS-focused objective binds the accepted 500,000-row narrow and 200,000-row wide
+  Redshift bulk workload to exact RC31. It uses the existing disposable 8-RPU Serverless data
+  plane and one transient Fargate harness task, requires COPY-only completion and exact readback,
+  derives provider cost from `SYS_SERVERLESS_USAGE.charged_seconds`, disables every automatic and
+  provider-operation retry, and requires exact schema, staging, harness, and data-plane cleanup
+  under a USD 0.50 cell ceiling inside the existing USD 3 AWS allocation.
