@@ -2,38 +2,38 @@
 
 ## Finished
 
-- Added a correctness-only mode to the existing PostgreSQL Phase 8 harness.
-- Preserved the existing all-class local behavior and zero-cost contract.
-- Bound exact RC31 and the accepted seven-input/three-output fixture to one GKE objective.
-- Enforced one candidate execution, zero automatic/provider retries, and exact cleanup.
-- Kept provider-posted cost as the only post-execution delayed gate.
+- Ran the single protected RC31 GKE Standard/PostgreSQL correctness execution.
+- Matched the exact three-row normalized output and replayed it equally through SCD1 COPY.
+- Recorded 70 ms duration, 42.857 rows/second, and 204,316,672-byte peak RSS.
+- Verified zero candidate, Kubernetes Job, or provider-operation retries and no Warning events.
+- Removed every owned provider resource, database artifact, local credential, and temporary API.
 
 ## Try It
 
-Run `uv run pytest -q tests/portability/test_postgresql_phase8_benchmark.py`.
+Inspect the normalized report and sanitized execution record under
+`docs/evidence/phase8/2026-08-21/`.
 
 ## Checks
 
-- Focused harness tests cover GKE objective binding and pending/posted cost behavior.
-- The harness rejects hash drift, extra execution attempts, automatic retry, and provider retry.
-- Provider mutation remains blocked until this objective merges and exact-main CI passes.
+- PR #418 protected CI run `32536463201` passed all five jobs.
+- Exact-main CI run `32536928917` passed all five jobs before provider mutation.
+- Direct provider inventories and API-state verification confirmed exact cleanup.
 
 ## Decisions
 
-- Reused the existing PostgreSQL runtime, COPY writer, fence, and correctness fixture.
-- Added no new benchmark abstraction or candidate.
-- Reserved the existing USD 0.50 GKE per-cell ceiling.
+- Kept the functional result separate from delayed provider billing.
+- Preserved RC31 and all completed BigQuery cells without reruns.
+- Recorded setup command corrections without classifying them as workload retries.
 
 ## Remaining
 
-- Merge the focused objective after all five protected jobs pass.
-- Run exactly one RC31 GKE correctness execution and clean every owned resource.
-- Record sanitized evidence; reconcile delayed provider cost without rerunning.
+- Merge this focused evidence after protected checks pass and verify exact-main CI.
+- Reconcile the GKE correctness, concurrency, and crossover costs after billing posts; do not rerun.
+- Continue the smallest eligible Phase 8 gate from protected main.
 - Snowflake bounded-memory remains blocked on role-scoped interactive authorization.
 
 ## Review First
 
-- `scripts/benchmarks/postgresql_phase8.py`
-- `tests/portability/test_postgresql_phase8_benchmark.py`
-- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-correctness-objectives.json`
+- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-correctness-execution.json`
+- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-correctness.json`
 - `tickets/DANDER-204-phase8-scale-matrix.md`
