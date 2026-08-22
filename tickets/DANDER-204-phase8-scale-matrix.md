@@ -301,3 +301,8 @@ scale report.
   relation, namespace, cluster, network, IAM grant, active local credential path, and temporarily
   enabled API. Provider cost has not posted, so transform functionally passes but remains
   `not_evaluated` without rerunning the workload.
+- The next focused objective binds the four accepted PostgreSQL failure probes to exact RC31 on
+  one disposable zonal GKE Standard cluster: bounded pool exhaustion, dropped-connection
+  observation, recovered state operations, and cancellation rollback. It runs failure only with
+  zero candidate or provider-operation retries, exact cleanup, and provider-posted cost under
+  USD 0.50.
