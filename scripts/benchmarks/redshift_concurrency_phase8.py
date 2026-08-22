@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from dander import __version__
+from dander.concurrency import FencingToken
 from dander.providers.redshift.session import execute, open_connection
 from dander.qualification import (
     ApprovedCostCeiling,
@@ -38,6 +39,7 @@ from dander.telemetry import (
     RunPerformance,
     TelemetryOperation,
 )
+from dander.warehouse import RelationRef
 from scripts.benchmarks import redshift as shared
 from scripts.benchmarks import redshift_bulk_phase8 as bulk
 
@@ -427,6 +429,7 @@ def _write_independent_pipelines(
     config: RedshiftConcurrencyConfig,
     schema: str,
 ) -> tuple[int, tuple[OperationTelemetry, ...]]:
+    _initialize_pipeline_fences(runtime, config=config, schema=schema)
     with ThreadPoolExecutor(max_workers=config.concurrent_pipelines) as executor:
         futures = tuple(
             executor.submit(
@@ -448,6 +451,31 @@ def _write_independent_pipelines(
             "Redshift concurrent pipeline affected an unexpected row count"
         )
     return sum(affected), tuple(operation for value in values for operation in value[2])
+
+
+def _initialize_pipeline_fences(
+    runtime: WarehouseRuntime,
+    *,
+    config: RedshiftConcurrencyConfig,
+    schema: str,
+) -> None:
+    """Create the shared fence table before independent claims enter worker threads."""
+    for index in range(config.concurrent_pipelines):
+        pipeline_id = f"phase8_redshift_concurrency_{index:02d}"
+        runtime.target_fence.claim(
+            RelationRef(
+                catalog=config.database,
+                namespace=schema,
+                name=f"pipeline_{index:02d}_records",
+            ),
+            FencingToken(
+                lease_table=None,
+                pipeline_id=pipeline_id,
+                run_id=f"{pipeline_id}-one",
+                token=1,
+                authority_id=bulk._AUTHORITY_ID,  # noqa: SLF001
+            ),
+        )
 
 
 def _require_independent_readback(

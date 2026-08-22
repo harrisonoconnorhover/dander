@@ -22,7 +22,8 @@ from dander.qualification import ApprovedCostCeiling, ApprovedObjectiveSet, Benc
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dander.warehouse import WarehouseRuntime
+    from dander.concurrency import FencingToken
+    from dander.warehouse import RelationRef, WarehouseRuntime
 
 
 _COMMIT = "b" * 40
@@ -257,12 +258,98 @@ def test_readback_rejects_any_pipeline_count_mismatch(
         )
 
 
+def test_independent_pipeline_fences_exist_before_threaded_writes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config()
+    claims: list[tuple[RelationRef, FencingToken]] = []
+    writes: list[tuple[str, str]] = []
+
+    class FakeFence:
+        def claim(self, relation: RelationRef, token: FencingToken) -> object:
+            claims.append((relation, token))
+            return object()
+
+    def fake_write_table(
+        _runtime: object,
+        *,
+        config: object,
+        schema: str,
+        table: str,
+        pipeline_id: str,
+        rows: int,
+        payload_bytes: int,
+    ) -> tuple[int, int, tuple[object, ...]]:
+        del config, payload_bytes
+        assert len(claims) == 4
+        writes.append((schema, table))
+        return rows, 1, ()
+
+    runtime = SimpleNamespace(target_fence=FakeFence())
+    monkeypatch.setattr(bulk, "_write_table", fake_write_table)
+
+    rows, operations = concurrency._write_independent_pipelines(
+        cast("WarehouseRuntime", runtime), config=config, schema="owned_schema"
+    )
+
+    assert rows == 20_000
+    assert operations == ()
+    assert [relation.name for relation, _token in claims] == [
+        f"pipeline_{index:02d}_records" for index in range(4)
+    ]
+    assert [token.pipeline_id for _relation, token in claims] == [
+        f"phase8_redshift_concurrency_{index:02d}" for index in range(4)
+    ]
+    assert sorted(writes) == [
+        ("owned_schema", f"pipeline_{index:02d}_records") for index in range(4)
+    ]
+
+
 def test_approval_binds_task_role_launcher_harness_and_zero_retries(tmp_path: Path) -> None:
     config = _config()
     path = tmp_path / "objective.json"
     path.write_text(json.dumps(_manifest(config)), encoding="utf-8")
 
     approval = concurrency._load_approval(path, config=config, identity=_identity())
+
+    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+
+
+def test_corrective_objective_binds_corrected_harness_and_same_rc31_workload() -> None:
+    config = concurrency.RedshiftConcurrencyConfig(
+        account_id="184463061564",
+        host="dander-p8q-rc31-rs-conc.184463061564.us-east-1.redshift-serverless.amazonaws.com",
+        database="analytics",
+        region="us-east-1",
+        workgroup_name="dander-p8q-rc31-rs-conc",
+        copy_role_arn=("arn:aws:iam::184463061564:role/dander-p8q-rc31-rs-conc-redshift-copy"),
+        staging_bucket="dander-p8q-rc31-rs-conc-184463061564-staging",
+        staging_prefix="phase8/0.9.0rc31/staging",
+    )
+    identity = concurrency.CandidateIdentity(
+        release_version=__version__,
+        git_commit="3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+        image_digest=("sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9"),
+        approval_reference=(
+            "codex-goal-02043c37-096e-416a-875c-b405c4af0594-"
+            "aws-redshift-concurrency-corrective-usd-0.50"
+        ),
+        benchmark_date=date(2026, 8, 22),
+        launcher="aws_step_functions_fargate",
+        secret_provider="aws_task_role",
+        service_shapes=("redshift_serverless_8_rpu", "dander_2cpu_4gib"),
+        provider_job_ids=("namespace:pending", "workgroup:pending"),
+    )
+
+    approval = concurrency._load_approval(
+        Path(
+            "docs/evidence/phase8/2026-08-22/"
+            "aws-native-rc31-redshift-concurrency-corrective-objectives.json"
+        ),
+        config=config,
+        identity=identity,
+    )
 
     assert approval.objectives.configuration_sha256 == config.configuration_sha256()
     assert approval.cost_ceiling.amount_usd == Decimal("0.50")
