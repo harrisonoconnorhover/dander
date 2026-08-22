@@ -268,3 +268,8 @@ scale report.
   staging relation, namespace, cluster, network, IAM grant, local credential, and temporarily
   enabled API. Provider cost has not posted, so bulk functionally passes but remains
   `not_evaluated` without rerunning the workload.
+- The next focused objective binds the accepted 300,000-row seed and 3,000-row delta PostgreSQL
+  incremental workload to exact RC31 on one disposable zonal GKE Standard cluster. It runs
+  incremental only, requires the protected harness hash, exact readback, monotonic cursor and
+  rejected-regression checks, zero candidate or provider-operation retries, exact cleanup, and
+  provider-posted cost under USD 0.50.

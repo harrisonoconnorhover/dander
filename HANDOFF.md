@@ -2,37 +2,37 @@
 
 ## Finished
 
-- Ran exact RC31 once for the accepted GKE Standard/PostgreSQL bulk cell.
-- Completed exact 500,000-row narrow and 200,000-row wide COPY readback.
-- Recorded both throughput measurements with zero candidate or provider retries.
-- Removed all owned database, Kubernetes, GCP, IAM, API-state, and local-secret residue.
-- Preserved the operator setup corrections that occurred before candidate code started.
+- Added the smallest PostgreSQL harness path for one incremental-only qualification.
+- Bound the accepted 300,000-row seed and 3,000-row delta workload to exact RC31.
+- Reserved one GKE Standard execution under the existing USD 0.50 per-cell ceiling.
+- Kept automatic candidate and provider-operation retries at zero.
 
 ## Try It
 
-Run `python3 -m json.tool docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-throughput-execution.json`.
+Run `python3 -m json.tool docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-incremental-objectives.json`.
 
 ## Checks
 
-- Narrow COPY: 10,356.041 rows/second; wide COPY: 8,773.084 rows/second.
-- Final Job: zero retries, restarts, or Warning events; zero database residue.
-- Direct provider inventories were empty and Compute, Container, and Filestore APIs were restored disabled.
+- Focused PostgreSQL harness tests pass.
+- Ruff format and lint pass for the changed harness and tests.
+- Objective loading rejects harness, workload, candidate, and retry-policy drift.
 
 ## Decisions
 
-- Kept the candidate unchanged and classified pre-execution Pod scheduling/setup failures as operator infrastructure corrections.
-- Kept provider cost `not_evaluated` until exact billing posts; no workload rerun is needed.
-- Changed no product, provider, harness, workload, or support behavior.
+- Reused the existing PostgreSQL incremental runner and normalized report contract.
+- Kept exact provider cost pending until billing posts; no rerun will be needed to reconcile it.
+- Changed no candidate, provider implementation, workload, or support behavior.
 
 ## Remaining
 
-- Protect and merge this focused sanitized evidence.
+- Protect and merge this focused objective.
+- Run the exact RC31 incremental cell once, then clean every owned resource.
+- Record sanitized functional and cleanup evidence.
 - Reconcile provider-posted GKE cost without rerunning accepted workloads.
-- Continue the smallest eligible GKE/PostgreSQL matrix cell from protected main.
 - Snowflake bounded-memory remains blocked on role-scoped interactive authorization.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-throughput.json`
-- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-throughput-execution.json`
+- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-incremental-objectives.json`
+- `scripts/benchmarks/postgresql_phase8.py`
 - `tickets/DANDER-204-phase8-scale-matrix.md`

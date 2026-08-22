@@ -546,6 +546,59 @@ def run_postgresql_bulk_qualification(
     )
 
 
+def run_postgresql_incremental_qualification(
+    dsn: str,
+    *,
+    config: Phase8PostgreSQLConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    provider_cost_usd: Decimal | None = None,
+) -> QualificationReport:
+    """Run only the accepted PostgreSQL incremental cell."""
+    if not dsn:
+        raise ValueError("PostgreSQL incremental qualification requires a non-empty DSN")
+    if __version__ != identity.release_version:
+        raise ValueError(
+            f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
+        )
+    _require_identity_match(identity, approval)
+    pool = cast(
+        "PostgreSQLPool",
+        ConnectionPool(
+            conninfo=dsn,
+            min_size=1,
+            max_size=5,
+            timeout=10,
+            kwargs={"row_factory": dict_row},
+            open=True,
+        ),
+    )
+    pool.wait(timeout=10)
+    try:
+        with pool.connection() as connection:
+            row = connection.execute("SELECT current_database() AS database").fetchone()
+        if row is None or not isinstance(row["database"], str):
+            raise RuntimeError(
+                "PostgreSQL incremental qualification could not read the database name"
+            )
+        database = row["database"]
+        result = _run_incremental(
+            pool,
+            _warehouse_runtime(pool, database),
+            database=database,
+            config=config,
+        )
+    finally:
+        pool.close()
+    return _incremental_report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
+
+
 def _require_identity_match(identity: CandidateIdentity, approval: _Approval) -> None:
     objectives = approval.objectives
     if (
@@ -1665,18 +1718,49 @@ def _incremental_report(
     identity: CandidateIdentity,
     approval: _Approval,
     result: _IncrementalResult,
+    *,
+    provider_cost_usd: Decimal | None = None,
 ) -> QualificationReport:
+    hosted_gke = approval.objectives.profile_id == "gke_standard_postgresql"
+    if result.temporary_staging_relations or not result.cleanup_verified:
+        raise ValueError("PostgreSQL incremental cleanup is incomplete")
+    if provider_cost_usd is not None and (
+        provider_cost_usd < 0 or provider_cost_usd > approval.cost_ceiling.amount_usd
+    ):
+        raise ValueError("provider-measured incremental cost is outside its approved ceiling")
+    if not hosted_gke and provider_cost_usd not in (None, Decimal(0)):
+        raise ValueError("local PostgreSQL incremental cost must remain zero")
+    observed_cost = (
+        provider_cost_usd
+        if provider_cost_usd is not None
+        else (approval.cost_ceiling.amount_usd if hosted_gke else Decimal(0))
+    )
+    cost_pending = hosted_gke and provider_cost_usd is None
     ratio = Decimal(result.seed_rows) / Decimal(result.delta_rows)
     if ratio < 100:
         raise RuntimeError("PostgreSQL incremental target is less than 100 times its delta")
     metrics = (
         _measured("delta_target_ratio", "ratio", ratio),
         _measured("final_target_rows", "rows", result.final_rows),
+        *((_measured("kubernetes_job_retries", "count", 0),) if hosted_gke else ()),
+        *((_measured("provider_operation_retries", "count", 0),) if hosted_gke else ()),
         _measured("regression_rows_affected", "rows", result.regression_rows_affected),
         _measured("seed_duration_ms", "milliseconds", result.seed_duration_ms),
         _measured("seed_logical_bytes", "bytes", result.seed_logical_bytes),
         _measured("seed_rows", "rows", result.seed_rows),
         _measured("temporary_staging_relations", "count", result.temporary_staging_relations),
+    )
+    objectives = tuple(
+        ObjectiveResult(
+            name,
+            (
+                ObjectiveStatus.NOT_EVALUATED
+                if name == "cost_ceiling" and cost_pending
+                else ObjectiveStatus.PASSED
+            ),
+            f"phase8/{'gcp/gke' if hosted_gke else 'postgresql'}/incremental/{name}",
+        )
+        for name in approval.objectives.names
     )
     return QualificationReport(
         context=_context(identity, approval),
@@ -1686,7 +1770,9 @@ def _incremental_report(
             logical_input_bytes=result.delta_logical_bytes,
             row_width_bytes=config.incremental_payload_bytes + 32,
             schema_depth=1,
-            source_rate_limit="unlimited_local_generator",
+            source_rate_limit=(
+                "unlimited_in_cluster_generator" if hosted_gke else "unlimited_local_generator"
+            ),
             transform_complexity="cursor_merge_small_delta",
             concurrency=1,
             batch_rows=config.batch_rows,
@@ -1701,10 +1787,18 @@ def _incremental_report(
             load_duration_ms=result.seed_duration_ms + result.delta_duration_ms,
             provider_metrics=metrics,
             throughput_duration_ms=result.delta_duration_ms,
+            costs=(
+                CostAttribution(
+                    "gcp" if hosted_gke else "local",
+                    "gke_standard_zonal" if hosted_gke else "postgresql",
+                    observed_cost,
+                    estimated=cost_pending,
+                ),
+            ),
         ),
-        objectives=_passed_objectives(approval.objectives.names, "incremental"),
+        objectives=objectives,
         approved_objectives=approval.objectives,
-        status=QualificationStatus.PASSED,
+        status=(QualificationStatus.NOT_EVALUATED if cost_pending else QualificationStatus.PASSED),
     )
 
 
@@ -1938,7 +2032,11 @@ def _peak_rss_bytes() -> int:
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsn-env", default="DANDER_PHASE8_POSTGRES_DSN")
-    parser.add_argument("--benchmark-class", choices=("all", "bulk", "correctness"), default="all")
+    parser.add_argument(
+        "--benchmark-class",
+        choices=("all", "bulk", "correctness", "incremental"),
+        default="all",
+    )
     parser.add_argument("--correctness-objectives", type=Path)
     parser.add_argument("--bulk-objectives", type=Path)
     parser.add_argument("--incremental-objectives", type=Path)
@@ -2054,6 +2152,38 @@ def main() -> None:
             json.dumps(
                 {
                     "bulk_status": bulk.status.value,
+                    "python_version": platform.python_version(),
+                    "release_version": __version__,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+        return
+    if arguments.benchmark_class == "incremental":
+        if arguments.incremental_objectives is None:
+            raise SystemExit("incremental qualification requires its objective manifest")
+        incremental_approval = load_approval(
+            arguments.incremental_objectives,
+            config=config,
+            benchmark_class=BenchmarkClass.INCREMENTAL,
+        )
+        incremental = run_postgresql_incremental_qualification(
+            dsn,
+            config=config,
+            identity=identity,
+            approval=incremental_approval,
+            provider_cost_usd=arguments.provider_cost_usd,
+        )
+        arguments.output_directory.mkdir(parents=True, exist_ok=True)
+        (arguments.output_directory / "postgresql-incremental.json").write_text(
+            incremental.to_json() + "\n",
+            encoding="utf-8",
+        )
+        print(
+            json.dumps(
+                {
+                    "incremental_status": incremental.status.value,
                     "python_version": platform.python_version(),
                     "release_version": __version__,
                 },
