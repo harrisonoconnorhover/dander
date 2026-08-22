@@ -231,6 +231,22 @@ def _load_approval(
         raise ValueError("objective approval must disable provider-operation retries")
     if execution.get("cost_observation_delay_seconds") != config.cost_observation_delay_seconds:
         raise ValueError("objective approval changed the provider cost observation")
+    fargate = _mapping(configuration.get("fargate_harness"), "Fargate harness configuration")
+    expected_fargate = {
+        "task_cpu_units": 2_048,
+        "task_memory_mib": 4_096,
+        "task_timeout_seconds": 900,
+        "cluster_executions": 1,
+        "state_machine_executions": 1,
+        "state_machine_retry_states": 0,
+        "ecs_task_retries": 0,
+        "container_restarts": 0,
+        "automatic_retry": False,
+    }
+    if any(fargate.get(name) != value for name, value in expected_fargate.items()):
+        raise ValueError(
+            "objective approval must use the exact zero-retry Fargate 2-vCPU/4-GiB shape"
+        )
     objective_payload = _mapping(payload.get("approved_objectives"), "approved objectives")
     names = objective_payload.get("names")
     if not isinstance(names, list) or any(not isinstance(name, str) for name in names):
