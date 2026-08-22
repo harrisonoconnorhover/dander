@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -19,6 +21,8 @@ from scripts.benchmarks.postgresql_phase8 import (
     _CorrectnessResult,
     _incremental_report,
     _IncrementalResult,
+    _transform_report,
+    _TransformResult,
     _write_transform_models,
     load_approval,
 )
@@ -343,6 +347,130 @@ def test_gke_incremental_report_keeps_only_provider_cost_pending(tmp_path: Path)
     assert posted["performance"]["costs"][0]["estimated"] is False
 
 
+def test_gke_transform_report_keeps_only_provider_cost_pending(tmp_path: Path) -> None:
+    config = Phase8PostgreSQLConfig()
+    path = tmp_path / "objectives.json"
+    path.write_text(json.dumps(_gke_transform_manifest(config)), encoding="utf-8")
+    approval = load_approval(
+        path,
+        config=config,
+        benchmark_class=BenchmarkClass.TRANSFORM,
+    )
+    identity = CandidateIdentity(
+        release_version="0.9.0rc31",
+        git_commit="a" * 40,
+        image_digest=f"sha256:{'b' * 64}",
+        approval_reference="codex-goal-gke-transform",
+        benchmark_date=date(2026, 8, 21),
+        launcher="gke_standard_zonal",
+        regions=("gcp:us-central1-a",),
+        secret_provider="kubernetes",
+        provider_job_ids=("cluster:test", "job:test"),
+        service_shapes=("dander_job_2cpu_512mib",),
+    )
+    result = _transform_result()
+
+    pending = json.loads(_transform_report(config, identity, approval, result).to_json())
+
+    assert pending["status"] == "not_evaluated"
+    assert {objective["name"]: objective["status"] for objective in pending["objectives"]} == {
+        "aggregation_exact": "passed",
+        "cleanup": "passed",
+        "cost_ceiling": "not_evaluated",
+        "generic_tests": "passed",
+        "incremental_merge": "passed",
+        "join_exact": "passed",
+        "scan_exact": "passed",
+    }
+    assert pending["performance"]["costs"] == [
+        {
+            "amount": "0.50",
+            "currency": "USD",
+            "estimated": True,
+            "provider": "gcp",
+            "service": "gke_standard_zonal",
+        }
+    ]
+    metrics = {
+        measurement["name"]: measurement["value"]
+        for measurement in pending["performance"]["measurements"]
+    }
+    assert metrics["assertion_count"] == "21"
+    assert metrics["kubernetes_job_retries"] == "0"
+    assert metrics["provider_operation_retries"] == "0"
+
+    posted = json.loads(
+        _transform_report(
+            config,
+            identity,
+            approval,
+            result,
+            provider_cost_usd=Decimal("0.25"),
+        ).to_json()
+    )
+    assert posted["status"] == "passed"
+    assert posted["performance"]["costs"][0]["estimated"] is False
+
+    with pytest.raises(ValueError, match="accepted assertion count"):
+        _transform_report(config, identity, approval, replace(result, assertion_count=20))
+
+
+def test_transform_only_cli_writes_one_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = Phase8PostgreSQLConfig()
+    objectives = tmp_path / "objectives.json"
+    objectives.write_text(json.dumps(_gke_transform_manifest(config)), encoding="utf-8")
+    output = tmp_path / "reports"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "postgresql_phase8.py",
+            "--benchmark-class",
+            "transform",
+            "--transform-objectives",
+            str(objectives),
+            "--candidate-version",
+            "0.9.0rc31",
+            "--candidate-commit",
+            "a" * 40,
+            "--image-digest",
+            f"sha256:{'b' * 64}",
+            "--approval-reference",
+            "codex-goal-gke-transform",
+            "--benchmark-date",
+            "2026-08-21",
+            "--provider-job-id",
+            "job:test",
+            "--service-shape",
+            "dander_job_2cpu_512mib",
+            "--output-directory",
+            str(output),
+        ],
+    )
+    monkeypatch.setenv("DANDER_PHASE8_POSTGRES_DSN", "postgresql://unused")
+    monkeypatch.setattr(
+        harness,
+        "run_postgresql_transform_qualification",
+        lambda _dsn, *, config, identity, approval, provider_cost_usd: _transform_report(
+            config,
+            identity,
+            approval,
+            _transform_result(),
+            provider_cost_usd=provider_cost_usd,
+        ),
+    )
+
+    harness.main()
+
+    assert tuple(path.name for path in output.iterdir()) == ("postgresql-transform.json",)
+    assert json.loads((output / "postgresql-transform.json").read_text())["status"] == (
+        "not_evaluated"
+    )
+
+
 def test_transform_fixture_compiles_all_required_models(tmp_path: Path) -> None:
     _write_transform_models(tmp_path, target_schema="phase8_models")
 
@@ -360,6 +488,21 @@ def test_transform_fixture_compiles_all_required_models(tmp_path: Path) -> None:
         "incremental_records",
     )
     assert all(project.compile(model) for model in project.ordered())
+
+
+def _transform_result() -> _TransformResult:
+    return _TransformResult(
+        duration_ms=12_000,
+        peak_rss_bytes=200_000_000,
+        input_rows=100_100,
+        logical_input_bytes=3_202_400,
+        output_rows=100_001,
+        model_count=4,
+        assertion_count=21,
+        ownership_verifications=2,
+        temporary_staging_relations=0,
+        cleanup_verified=True,
+    )
 
 
 def _manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]:
@@ -484,6 +627,41 @@ def _gke_incremental_manifest(config: Phase8PostgreSQLConfig) -> dict[str, objec
             "git_commit": "a" * 40,
             "image_digest": f"sha256:{'b' * 64}",
             "configuration_sha256": config.configuration_sha256(BenchmarkClass.INCREMENTAL),
+            "approval_reference": approval,
+        },
+    }
+
+
+def _gke_transform_manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]:
+    approval = "codex-goal-gke-transform"
+    return {
+        "schema": "io.dander.qualification.objective-approval/v1",
+        "cost_ceiling": {"amount_usd": "0.50", "approval_reference": approval},
+        "workload": config.workload_payload(BenchmarkClass.TRANSFORM),
+        "configuration": {
+            "execution": {
+                "harness_sha256": harness._file_sha256(Path(harness.__file__)),
+                "manual_candidate_executions": 1,
+                "automatic_candidate_retry": False,
+                "provider_operation_retries": 0,
+            }
+        },
+        "approved_objectives": {
+            "names": [
+                "aggregation_exact",
+                "cleanup",
+                "cost_ceiling",
+                "generic_tests",
+                "incremental_merge",
+                "join_exact",
+                "scan_exact",
+            ],
+            "benchmark_class": "transform",
+            "profile_id": "gke_standard_postgresql",
+            "release_version": "0.9.0rc31",
+            "git_commit": "a" * 40,
+            "image_digest": f"sha256:{'b' * 64}",
+            "configuration_sha256": config.configuration_sha256(BenchmarkClass.TRANSFORM),
             "approval_reference": approval,
         },
     }

@@ -90,6 +90,7 @@ _TRANSFORM_OBJECTIVES = (
     "join_exact",
     "scan_exact",
 )
+_TRANSFORM_ASSERTIONS = 21
 _FAILURE_OBJECTIVES = (
     "bounded_pool_timeout",
     "cleanup",
@@ -186,6 +187,7 @@ class Phase8PostgreSQLConfig:
                 "delta_rows": 2,
                 "models": ["scan", "join", "aggregation", "incremental"],
                 "generic_tests": ["accepted_values", "not_null", "unique"],
+                "generic_assertions": _TRANSFORM_ASSERTIONS,
             }
         if benchmark_class is BenchmarkClass.FAILURE:
             return {
@@ -591,6 +593,59 @@ def run_postgresql_incremental_qualification(
     finally:
         pool.close()
     return _incremental_report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
+
+
+def run_postgresql_transform_qualification(
+    dsn: str,
+    *,
+    config: Phase8PostgreSQLConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    provider_cost_usd: Decimal | None = None,
+) -> QualificationReport:
+    """Run only the accepted PostgreSQL transform cell."""
+    if not dsn:
+        raise ValueError("PostgreSQL transform qualification requires a non-empty DSN")
+    if __version__ != identity.release_version:
+        raise ValueError(
+            f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
+        )
+    _require_identity_match(identity, approval)
+    pool = cast(
+        "PostgreSQLPool",
+        ConnectionPool(
+            conninfo=dsn,
+            min_size=1,
+            max_size=5,
+            timeout=10,
+            kwargs={"row_factory": dict_row},
+            open=True,
+        ),
+    )
+    pool.wait(timeout=10)
+    try:
+        with pool.connection() as connection:
+            row = connection.execute("SELECT current_database() AS database").fetchone()
+        if row is None or not isinstance(row["database"], str):
+            raise RuntimeError(
+                "PostgreSQL transform qualification could not read the database name"
+            )
+        database = row["database"]
+        result = _run_transform(
+            pool,
+            _warehouse_runtime(pool, database),
+            database=database,
+            config=config,
+        )
+    finally:
+        pool.close()
+    return _transform_report(
         config,
         identity,
         approval,
@@ -1807,7 +1862,46 @@ def _transform_report(
     identity: CandidateIdentity,
     approval: _Approval,
     result: _TransformResult,
+    *,
+    provider_cost_usd: Decimal | None = None,
 ) -> QualificationReport:
+    hosted_gke = approval.objectives.profile_id == "gke_standard_postgresql"
+    if result.temporary_staging_relations or not result.cleanup_verified:
+        raise ValueError("PostgreSQL transform cleanup is incomplete")
+    if result.assertion_count != _TRANSFORM_ASSERTIONS:
+        raise ValueError("PostgreSQL transform did not run the accepted assertion count")
+    if provider_cost_usd is not None and (
+        provider_cost_usd < 0 or provider_cost_usd > approval.cost_ceiling.amount_usd
+    ):
+        raise ValueError("provider-measured transform cost is outside its approved ceiling")
+    if not hosted_gke and provider_cost_usd not in (None, Decimal(0)):
+        raise ValueError("local PostgreSQL transform cost must remain zero")
+    observed_cost = (
+        provider_cost_usd
+        if provider_cost_usd is not None
+        else (approval.cost_ceiling.amount_usd if hosted_gke else Decimal(0))
+    )
+    cost_pending = hosted_gke and provider_cost_usd is None
+    metrics = (
+        _measured("assertion_count", "count", result.assertion_count),
+        *((_measured("kubernetes_job_retries", "count", 0),) if hosted_gke else ()),
+        _measured("model_count", "count", result.model_count),
+        _measured("ownership_verifications", "count", result.ownership_verifications),
+        *((_measured("provider_operation_retries", "count", 0),) if hosted_gke else ()),
+        _measured("temporary_staging_relations", "count", result.temporary_staging_relations),
+    )
+    objectives = tuple(
+        ObjectiveResult(
+            name,
+            (
+                ObjectiveStatus.NOT_EVALUATED
+                if name == "cost_ceiling" and cost_pending
+                else ObjectiveStatus.PASSED
+            ),
+            f"phase8/{'gcp/gke' if hosted_gke else 'postgresql'}/transform/{name}",
+        )
+        for name in approval.objectives.names
+    )
     return QualificationReport(
         context=_context(identity, approval),
         workload=BenchmarkWorkload(
@@ -1816,7 +1910,9 @@ def _transform_report(
             logical_input_bytes=result.logical_input_bytes,
             row_width_bytes=32,
             schema_depth=4,
-            source_rate_limit="unlimited_local_fixture",
+            source_rate_limit=(
+                "unlimited_in_cluster_fixture" if hosted_gke else "unlimited_local_fixture"
+            ),
             transform_complexity="scan_join_aggregate_incremental_tests",
             concurrency=1,
             batch_rows=config.transform_fact_rows,
@@ -1829,25 +1925,20 @@ def _transform_report(
             duration_ms=result.duration_ms,
             peak_rss_bytes=result.peak_rss_bytes,
             load_duration_ms=0,
-            provider_metrics=(
-                _measured("assertion_count", "count", result.assertion_count),
-                _measured("model_count", "count", result.model_count),
-                _measured(
-                    "ownership_verifications",
-                    "count",
-                    result.ownership_verifications,
-                ),
-                _measured(
-                    "temporary_staging_relations",
-                    "count",
-                    result.temporary_staging_relations,
+            provider_metrics=metrics,
+            costs=(
+                CostAttribution(
+                    "gcp" if hosted_gke else "local",
+                    "gke_standard_zonal" if hosted_gke else "postgresql",
+                    observed_cost,
+                    estimated=cost_pending,
                 ),
             ),
             transform_duration_ms=result.duration_ms,
         ),
-        objectives=_passed_objectives(approval.objectives.names, "transform"),
+        objectives=objectives,
         approved_objectives=approval.objectives,
-        status=QualificationStatus.PASSED,
+        status=(QualificationStatus.NOT_EVALUATED if cost_pending else QualificationStatus.PASSED),
     )
 
 
@@ -2034,7 +2125,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--dsn-env", default="DANDER_PHASE8_POSTGRES_DSN")
     parser.add_argument(
         "--benchmark-class",
-        choices=("all", "bulk", "correctness", "incremental"),
+        choices=("all", "bulk", "correctness", "incremental", "transform"),
         default="all",
     )
     parser.add_argument("--correctness-objectives", type=Path)
@@ -2186,6 +2277,38 @@ def main() -> None:
                     "incremental_status": incremental.status.value,
                     "python_version": platform.python_version(),
                     "release_version": __version__,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+        return
+    if arguments.benchmark_class == "transform":
+        if arguments.transform_objectives is None:
+            raise SystemExit("transform qualification requires its objective manifest")
+        transform_approval = load_approval(
+            arguments.transform_objectives,
+            config=config,
+            benchmark_class=BenchmarkClass.TRANSFORM,
+        )
+        transform = run_postgresql_transform_qualification(
+            dsn,
+            config=config,
+            identity=identity,
+            approval=transform_approval,
+            provider_cost_usd=arguments.provider_cost_usd,
+        )
+        arguments.output_directory.mkdir(parents=True, exist_ok=True)
+        (arguments.output_directory / "postgresql-transform.json").write_text(
+            transform.to_json() + "\n",
+            encoding="utf-8",
+        )
+        print(
+            json.dumps(
+                {
+                    "python_version": platform.python_version(),
+                    "release_version": __version__,
+                    "transform_status": transform.status.value,
                 },
                 separators=(",", ":"),
                 sort_keys=True,
