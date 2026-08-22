@@ -306,3 +306,13 @@ scale report.
   observation, recovered state operations, and cancellation rollback. It runs failure only with
   zero candidate or provider-operation retries, exact cleanup, and provider-posted cost under
   USD 0.50.
+- PR #426 protected the failure-only harness and objective as main `cef3fc8`; exact-main run
+  `32551541344` passed all five jobs. The first provider Job preserved as UID
+  `4c6db228-bde8-403c-a078-a382c29479d7` exited 127 before Dander code because its operator
+  manifest overrode the immutable image's `dander` entrypoint with the absent path
+  `/app/.venv/bin/dander`. It emitted no report, used zero retries, changed no database state,
+  and cleanup removed every owned provider and local resource.
+- The corrective objective keeps RC31, the four probes, provider shape, runtime bounds, combined
+  USD 0.50 ceiling, and zero-retry policy unchanged. It binds Kubernetes args to the immutable
+  `dander` entrypoint, injects the DSN from an owned Secret, and fixes only the PostgreSQL
+  readiness executable before the one allowed corrective execution.
