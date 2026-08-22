@@ -1,0 +1,211 @@
+{
+  "approved_objectives": {
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-gke-usd-0.50",
+    "benchmark_class": "transform",
+    "configuration_sha256": "2f9210dee6b01ea366101a1fb036c5815583f8acf067dabcbd57a03834e2b47c",
+    "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+    "image_digest": "sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+    "names": [
+      "aggregation_exact",
+      "cleanup",
+      "cost_ceiling",
+      "generic_tests",
+      "incremental_merge",
+      "join_exact",
+      "scan_exact"
+    ],
+    "profile_id": "gke_standard_postgresql",
+    "release_version": "0.9.0rc31"
+  },
+  "context": {
+    "benchmark_date": "2026-08-21",
+    "catalog": "none",
+    "cost_ceiling": {
+      "amount_usd": "0.50",
+      "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-gke-usd-0.50"
+    },
+    "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+    "image_digest": "sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+    "launcher": "gke_standard_zonal",
+    "profile_id": "gke_standard_postgresql",
+    "provider_job_ids": [
+      "cluster:dander-p8q-rc31-gke-tf",
+      "job:postgresql-transform-rc31-gke"
+    ],
+    "regions": [
+      "gcp:us-central1-a"
+    ],
+    "release_version": "0.9.0rc31",
+    "secret_provider": "kubernetes",
+    "service_shapes": [
+      "dander_job_2cpu_512mib",
+      "gke_standard_e2_standard_4",
+      "postgresql_15.18_2cpu_1gib_tls"
+    ],
+    "state_backend": "postgresql",
+    "warehouse": "postgresql"
+  },
+  "objectives": [
+    {
+      "evidence_reference": "phase8/gcp/gke/transform/aggregation_exact",
+      "name": "aggregation_exact",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/gcp/gke/transform/cleanup",
+      "name": "cleanup",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/gcp/gke/transform/cost_ceiling",
+      "name": "cost_ceiling",
+      "status": "not_evaluated"
+    },
+    {
+      "evidence_reference": "phase8/gcp/gke/transform/generic_tests",
+      "name": "generic_tests",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/gcp/gke/transform/incremental_merge",
+      "name": "incremental_merge",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/gcp/gke/transform/join_exact",
+      "name": "join_exact",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/gcp/gke/transform/scan_exact",
+      "name": "scan_exact",
+      "status": "passed"
+    }
+  ],
+  "performance": {
+    "costs": [
+      {
+        "amount": "0.50",
+        "currency": "USD",
+        "estimated": true,
+        "provider": "gcp",
+        "service": "gke_standard_zonal"
+      }
+    ],
+    "measurements": [
+      {
+        "name": "rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "100001"
+      },
+      {
+        "name": "logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "3202400"
+      },
+      {
+        "name": "duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "13845"
+      },
+      {
+        "name": "throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "7222.896"
+      },
+      {
+        "name": "peak_rss_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "205660160"
+      },
+      {
+        "name": "retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "queue_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "load_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "transform_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "13845"
+      },
+      {
+        "name": "catalog_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "assertion_count",
+        "status": "measured",
+        "unit": "count",
+        "value": "21"
+      },
+      {
+        "name": "kubernetes_job_retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "model_count",
+        "status": "measured",
+        "unit": "count",
+        "value": "4"
+      },
+      {
+        "name": "ownership_verifications",
+        "status": "measured",
+        "unit": "count",
+        "value": "20"
+      },
+      {
+        "name": "provider_operation_retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "temporary_staging_relations",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      }
+    ]
+  },
+  "schema": "io.dander.qualification.report/v1",
+  "status": "not_evaluated",
+  "workload": {
+    "batch_bytes": 3200000,
+    "batch_rows": 100000,
+    "benchmark_class": "transform",
+    "concurrency": 1,
+    "configuration_sha256": "2f9210dee6b01ea366101a1fb036c5815583f8acf067dabcbd57a03834e2b47c",
+    "input_rows": 100100,
+    "logical_input_bytes": 3202400,
+    "memory_limit_bytes": null,
+    "row_width_bytes": 32,
+    "schema_depth": 4,
+    "source_rate_limit": "unlimited_in_cluster_fixture",
+    "transform_complexity": "scan_join_aggregate_incremental_tests"
+  }
+}
+
