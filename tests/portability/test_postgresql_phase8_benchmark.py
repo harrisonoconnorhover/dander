@@ -19,6 +19,8 @@ from scripts.benchmarks.postgresql_phase8 import (
     _BulkResult,
     _correctness_report,
     _CorrectnessResult,
+    _failure_report,
+    _FailureResult,
     _incremental_report,
     _IncrementalResult,
     _transform_report,
@@ -471,6 +473,129 @@ def test_transform_only_cli_writes_one_report(
     )
 
 
+def test_gke_failure_report_keeps_only_provider_cost_pending(tmp_path: Path) -> None:
+    config = Phase8PostgreSQLConfig()
+    path = tmp_path / "objectives.json"
+    path.write_text(json.dumps(_gke_failure_manifest(config)), encoding="utf-8")
+    approval = load_approval(
+        path,
+        config=config,
+        benchmark_class=BenchmarkClass.FAILURE,
+    )
+    identity = CandidateIdentity(
+        release_version="0.9.0rc31",
+        git_commit="a" * 40,
+        image_digest=f"sha256:{'b' * 64}",
+        approval_reference="codex-goal-gke-failure",
+        benchmark_date=date(2026, 8, 22),
+        launcher="gke_standard_zonal",
+        regions=("gcp:us-central1-a",),
+        secret_provider="kubernetes",
+        provider_job_ids=("cluster:test", "job:test"),
+        service_shapes=("dander_job_2cpu_512mib",),
+    )
+    result = _failure_result()
+
+    pending = json.loads(_failure_report(config, identity, approval, result).to_json())
+
+    assert pending["status"] == "not_evaluated"
+    assert {objective["name"]: objective["status"] for objective in pending["objectives"]} == {
+        "bounded_pool_timeout": "passed",
+        "cleanup": "passed",
+        "cost_ceiling": "not_evaluated",
+        "dropped_connection_recovery": "passed",
+        "state_operation_recovery": "passed",
+        "warehouse_cancellation_rollback": "passed",
+    }
+    assert pending["performance"]["costs"] == [
+        {
+            "amount": "0.50",
+            "currency": "USD",
+            "estimated": True,
+            "provider": "gcp",
+            "service": "gke_standard_zonal",
+        }
+    ]
+    metrics = {
+        measurement["name"]: measurement["value"]
+        for measurement in pending["performance"]["measurements"]
+    }
+    assert metrics["kubernetes_job_retries"] == "0"
+    assert metrics["provider_operation_retries"] == "0"
+    assert metrics["probe_count"] == "4"
+
+    posted = json.loads(
+        _failure_report(
+            config,
+            identity,
+            approval,
+            result,
+            provider_cost_usd=Decimal("0.25"),
+        ).to_json()
+    )
+    assert posted["status"] == "passed"
+    assert posted["performance"]["costs"][0]["estimated"] is False
+
+    with pytest.raises(ValueError, match="cleanup is incomplete"):
+        _failure_report(config, identity, approval, replace(result, cleanup_verified=False))
+
+
+def test_failure_only_cli_writes_one_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = Phase8PostgreSQLConfig()
+    objectives = tmp_path / "objectives.json"
+    objectives.write_text(json.dumps(_gke_failure_manifest(config)), encoding="utf-8")
+    output = tmp_path / "reports"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "postgresql_phase8.py",
+            "--benchmark-class",
+            "failure",
+            "--failure-objectives",
+            str(objectives),
+            "--candidate-version",
+            "0.9.0rc31",
+            "--candidate-commit",
+            "a" * 40,
+            "--image-digest",
+            f"sha256:{'b' * 64}",
+            "--approval-reference",
+            "codex-goal-gke-failure",
+            "--benchmark-date",
+            "2026-08-22",
+            "--provider-job-id",
+            "job:test",
+            "--service-shape",
+            "dander_job_2cpu_512mib",
+            "--output-directory",
+            str(output),
+        ],
+    )
+    monkeypatch.setenv("DANDER_PHASE8_POSTGRES_DSN", "postgresql://unused")
+    monkeypatch.setattr(
+        harness,
+        "run_postgresql_failure_qualification",
+        lambda _dsn, *, config, identity, approval, provider_cost_usd: _failure_report(
+            config,
+            identity,
+            approval,
+            _failure_result(),
+            provider_cost_usd=provider_cost_usd,
+        ),
+    )
+
+    harness.main()
+
+    assert tuple(path.name for path in output.iterdir()) == ("postgresql-failure.json",)
+    assert json.loads((output / "postgresql-failure.json").read_text())["status"] == (
+        "not_evaluated"
+    )
+
+
 def test_transform_fixture_compiles_all_required_models(tmp_path: Path) -> None:
     _write_transform_models(tmp_path, target_schema="phase8_models")
 
@@ -500,6 +625,19 @@ def _transform_result() -> _TransformResult:
         model_count=4,
         assertion_count=21,
         ownership_verifications=2,
+        temporary_staging_relations=0,
+        cleanup_verified=True,
+    )
+
+
+def _failure_result() -> _FailureResult:
+    return _FailureResult(
+        duration_ms=750,
+        peak_rss_bytes=200_000_000,
+        probe_count=4,
+        pool_timeout_duration_ms=100,
+        connection_recovery_duration_ms=250,
+        cancellation_duration_ms=400,
         temporary_staging_relations=0,
         cleanup_verified=True,
     )
@@ -662,6 +800,40 @@ def _gke_transform_manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]
             "git_commit": "a" * 40,
             "image_digest": f"sha256:{'b' * 64}",
             "configuration_sha256": config.configuration_sha256(BenchmarkClass.TRANSFORM),
+            "approval_reference": approval,
+        },
+    }
+
+
+def _gke_failure_manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]:
+    approval = "codex-goal-gke-failure"
+    return {
+        "schema": "io.dander.qualification.objective-approval/v1",
+        "cost_ceiling": {"amount_usd": "0.50", "approval_reference": approval},
+        "workload": config.workload_payload(BenchmarkClass.FAILURE),
+        "configuration": {
+            "execution": {
+                "harness_sha256": harness._file_sha256(Path(harness.__file__)),
+                "manual_candidate_executions": 1,
+                "automatic_candidate_retry": False,
+                "provider_operation_retries": 0,
+            }
+        },
+        "approved_objectives": {
+            "names": [
+                "bounded_pool_timeout",
+                "cleanup",
+                "cost_ceiling",
+                "dropped_connection_recovery",
+                "state_operation_recovery",
+                "warehouse_cancellation_rollback",
+            ],
+            "benchmark_class": "failure",
+            "profile_id": "gke_standard_postgresql",
+            "release_version": "0.9.0rc31",
+            "git_commit": "a" * 40,
+            "image_digest": f"sha256:{'b' * 64}",
+            "configuration_sha256": config.configuration_sha256(BenchmarkClass.FAILURE),
             "approval_reference": approval,
         },
     }

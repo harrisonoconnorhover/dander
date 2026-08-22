@@ -654,6 +654,52 @@ def run_postgresql_transform_qualification(
     )
 
 
+def run_postgresql_failure_qualification(
+    dsn: str,
+    *,
+    config: Phase8PostgreSQLConfig,
+    identity: CandidateIdentity,
+    approval: _Approval,
+    provider_cost_usd: Decimal | None = None,
+) -> QualificationReport:
+    """Run only the accepted PostgreSQL failure cell."""
+    if not dsn:
+        raise ValueError("PostgreSQL failure qualification requires a non-empty DSN")
+    if __version__ != identity.release_version:
+        raise ValueError(
+            f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
+        )
+    _require_identity_match(identity, approval)
+    pool = cast(
+        "PostgreSQLPool",
+        ConnectionPool(
+            conninfo=dsn,
+            min_size=1,
+            max_size=5,
+            timeout=10,
+            kwargs={"row_factory": dict_row},
+            open=True,
+        ),
+    )
+    pool.wait(timeout=10)
+    try:
+        with pool.connection() as connection:
+            row = connection.execute("SELECT current_database() AS database").fetchone()
+        if row is None or not isinstance(row["database"], str):
+            raise RuntimeError("PostgreSQL failure qualification could not read the database name")
+        database = row["database"]
+        result = _run_failure(dsn, pool, database=database)
+    finally:
+        pool.close()
+    return _failure_report(
+        config,
+        identity,
+        approval,
+        result,
+        provider_cost_usd=provider_cost_usd,
+    )
+
+
 def _require_identity_match(identity: CandidateIdentity, approval: _Approval) -> None:
     objectives = approval.objectives
     if (
@@ -1947,7 +1993,61 @@ def _failure_report(
     identity: CandidateIdentity,
     approval: _Approval,
     result: _FailureResult,
+    *,
+    provider_cost_usd: Decimal | None = None,
 ) -> QualificationReport:
+    hosted_gke = approval.objectives.profile_id == "gke_standard_postgresql"
+    if result.temporary_staging_relations or not result.cleanup_verified:
+        raise ValueError("PostgreSQL failure cleanup is incomplete")
+    if provider_cost_usd is not None and (
+        provider_cost_usd < 0 or provider_cost_usd > approval.cost_ceiling.amount_usd
+    ):
+        raise ValueError("provider-measured failure cost is outside its approved ceiling")
+    if not hosted_gke and provider_cost_usd not in (None, Decimal(0)):
+        raise ValueError("local PostgreSQL failure cost must remain zero")
+    observed_cost = (
+        provider_cost_usd
+        if provider_cost_usd is not None
+        else (approval.cost_ceiling.amount_usd if hosted_gke else Decimal(0))
+    )
+    cost_pending = hosted_gke and provider_cost_usd is None
+    metrics = (
+        _measured(
+            "cancellation_duration_ms",
+            "milliseconds",
+            result.cancellation_duration_ms,
+        ),
+        _measured(
+            "connection_recovery_duration_ms",
+            "milliseconds",
+            result.connection_recovery_duration_ms,
+        ),
+        *((_measured("kubernetes_job_retries", "count", 0),) if hosted_gke else ()),
+        _measured(
+            "pool_timeout_duration_ms",
+            "milliseconds",
+            result.pool_timeout_duration_ms,
+        ),
+        _measured("probe_count", "count", result.probe_count),
+        *((_measured("provider_operation_retries", "count", 0),) if hosted_gke else ()),
+        _measured(
+            "temporary_staging_relations",
+            "count",
+            result.temporary_staging_relations,
+        ),
+    )
+    objectives = tuple(
+        ObjectiveResult(
+            name,
+            (
+                ObjectiveStatus.NOT_EVALUATED
+                if name == "cost_ceiling" and cost_pending
+                else ObjectiveStatus.PASSED
+            ),
+            f"phase8/{'gcp/gke' if hosted_gke else 'postgresql'}/failure/{name}",
+        )
+        for name in approval.objectives.names
+    )
     return QualificationReport(
         context=_context(identity, approval),
         workload=BenchmarkWorkload(
@@ -1956,7 +2056,11 @@ def _failure_report(
             logical_input_bytes=result.probe_count,
             row_width_bytes=1,
             schema_depth=1,
-            source_rate_limit="controlled_local_failure_injection",
+            source_rate_limit=(
+                "controlled_in_cluster_failure_injection"
+                if hosted_gke
+                else "controlled_local_failure_injection"
+            ),
             transform_complexity="state_pool_connection_and_cancellation",
             concurrency=2,
             batch_rows=1,
@@ -1969,33 +2073,19 @@ def _failure_report(
             duration_ms=result.duration_ms,
             peak_rss_bytes=result.peak_rss_bytes,
             load_duration_ms=0,
-            provider_metrics=(
-                _measured(
-                    "cancellation_duration_ms",
-                    "milliseconds",
-                    result.cancellation_duration_ms,
-                ),
-                _measured(
-                    "connection_recovery_duration_ms",
-                    "milliseconds",
-                    result.connection_recovery_duration_ms,
-                ),
-                _measured(
-                    "pool_timeout_duration_ms",
-                    "milliseconds",
-                    result.pool_timeout_duration_ms,
-                ),
-                _measured("probe_count", "count", result.probe_count),
-                _measured(
-                    "temporary_staging_relations",
-                    "count",
-                    result.temporary_staging_relations,
+            provider_metrics=metrics,
+            costs=(
+                CostAttribution(
+                    "gcp" if hosted_gke else "local",
+                    "gke_standard_zonal" if hosted_gke else "postgresql",
+                    observed_cost,
+                    estimated=cost_pending,
                 ),
             ),
         ),
-        objectives=_passed_objectives(approval.objectives.names, "failure"),
+        objectives=objectives,
         approved_objectives=approval.objectives,
-        status=QualificationStatus.PASSED,
+        status=(QualificationStatus.NOT_EVALUATED if cost_pending else QualificationStatus.PASSED),
     )
 
 
@@ -2125,7 +2215,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--dsn-env", default="DANDER_PHASE8_POSTGRES_DSN")
     parser.add_argument(
         "--benchmark-class",
-        choices=("all", "bulk", "correctness", "incremental", "transform"),
+        choices=("all", "bulk", "correctness", "failure", "incremental", "transform"),
         default="all",
     )
     parser.add_argument("--correctness-objectives", type=Path)
@@ -2309,6 +2399,38 @@ def main() -> None:
                     "python_version": platform.python_version(),
                     "release_version": __version__,
                     "transform_status": transform.status.value,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+        return
+    if arguments.benchmark_class == "failure":
+        if arguments.failure_objectives is None:
+            raise SystemExit("failure qualification requires its objective manifest")
+        failure_approval = load_approval(
+            arguments.failure_objectives,
+            config=config,
+            benchmark_class=BenchmarkClass.FAILURE,
+        )
+        failure = run_postgresql_failure_qualification(
+            dsn,
+            config=config,
+            identity=identity,
+            approval=failure_approval,
+            provider_cost_usd=arguments.provider_cost_usd,
+        )
+        arguments.output_directory.mkdir(parents=True, exist_ok=True)
+        (arguments.output_directory / "postgresql-failure.json").write_text(
+            failure.to_json() + "\n",
+            encoding="utf-8",
+        )
+        print(
+            json.dumps(
+                {
+                    "failure_status": failure.status.value,
+                    "python_version": platform.python_version(),
+                    "release_version": __version__,
                 },
                 separators=(",", ":"),
                 sort_keys=True,
