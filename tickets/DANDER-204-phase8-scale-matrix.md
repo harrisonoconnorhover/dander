@@ -322,3 +322,9 @@ scale report.
   derives provider cost from `SYS_SERVERLESS_USAGE.charged_seconds`, disables every automatic and
   provider-operation retry, and requires exact schema, staging, harness, and data-plane cleanup
   under a USD 0.50 cell ceiling inside the existing USD 3 AWS allocation.
+- The initial Redshift bulk setup started no candidate task: ECS rejected the objective's invalid
+  2-vCPU/2-GiB Fargate pair during task-definition registration. It used zero retries and cleanup
+  removed the harness object, transient roles and logs, data plane, and every remote-state version;
+  the exact RC31 ECR index remains retained. The corrective objective changes only task memory to
+  the smallest compatible 4 GiB, binds that shape in the protected harness, and reserves the one
+  authorized corrective candidate execution under the unchanged combined USD 0.50 ceiling.

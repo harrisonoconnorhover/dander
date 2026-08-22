@@ -123,6 +123,17 @@ def _manifest(config: bulk.RedshiftBulkConfig) -> dict[str, object]:
         },
         "workload": config.workload_payload(),
         "configuration": {
+            "fargate_harness": {
+                "task_cpu_units": 2_048,
+                "task_memory_mib": 4_096,
+                "task_timeout_seconds": 900,
+                "cluster_executions": 1,
+                "state_machine_executions": 1,
+                "state_machine_retry_states": 0,
+                "ecs_task_retries": 0,
+                "container_restarts": 0,
+                "automatic_retry": False,
+            },
             "redshift": {
                 "account_id": config.account_id,
                 "region": config.region,
@@ -230,6 +241,21 @@ def test_retry_environment_is_exact(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_MAX_ATTEMPTS", "2")
     with pytest.raises(bulk.RedshiftBulkQualificationError, match="exactly 1"):
         bulk._require_no_provider_retries()
+
+
+def test_approval_rejects_invalid_two_vcpu_fargate_memory(tmp_path: Path) -> None:
+    config = _config()
+    manifest = _manifest(config)
+    fargate = cast(
+        "dict[str, object]",
+        cast("dict[str, object]", manifest["configuration"])["fargate_harness"],
+    )
+    fargate["task_memory_mib"] = 2_048
+    path = tmp_path / "objective.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="2-vCPU/4-GiB"):
+        bulk._load_approval(path, config=config, identity=_identity())
 
 
 def test_copy_telemetry_rejects_provider_operation_retry() -> None:
