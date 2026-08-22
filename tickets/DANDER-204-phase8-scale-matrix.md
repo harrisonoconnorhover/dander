@@ -364,3 +364,16 @@ scale report.
   candidate. The corrective objective keeps the candidate, workload, provider shape, and cleanup
   contract unchanged and initializes the shared fence table before independent pipeline claims
   enter worker threads, removing concurrent first-use DDL from the one remaining execution.
+- PR #433 protected the corrective concurrency harness as main `1015a2d`; exact-main run
+  `32577343621` passed all five jobs. Its only corrective execution
+  `rc31-redshift-concurrency-corrective-20260822` ran the same exact RC31 digest with zero retries
+  and exited 2 after the 300-second Redshift connection-validation bound, producing no report.
+  Immediate cleanup removed the disposable schema, staging and diagnostics, every transient
+  launcher resource, all 37 data-plane resources, and every remote-state version while retaining
+  only the immutable candidate. No further concurrency execution is authorized.
+- The next focused objective binds the accepted 100,000-fact/100-dimension transform workload to
+  exact RC31 on one disposable 8-RPU Redshift Serverless data plane. It runs scan, join,
+  aggregation, and incremental-merge models with the existing 21 generic assertions, requires
+  exact readback and fenced publication, derives provider cost from `SYS_SERVERLESS_USAGE`, uses
+  zero candidate or provider-operation retries, and requires exact source/target schema, staging,
+  harness, and data-plane cleanup under USD 0.50.
