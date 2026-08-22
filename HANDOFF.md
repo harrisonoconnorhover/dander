@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Preserved the failed RC31 Redshift incremental task, which exited 127 before Dander or data mutation.
-- Verified exact cleanup of all 37 data-plane resources, transient harness resources, and remote state.
-- Bound the corrective Fargate task to the exact ARM64 image and PATH-resolved Python and Dander executables.
-- Kept the candidate, accepted 300,000/3,000 workload, provider shape, and zero-retry policy unchanged.
-- Reserved the one corrective execution under the original combined USD 0.50 cell ceiling.
+- Added one exact-RC31 Redshift concurrency harness for four independent 5,000-row pipelines.
+- Reused the Redshift staged writer, provider runtime, and controlled fencing implementation.
+- Bound exact 20,000-row readback, two claims, stale-publication rejection, and zero retries.
+- Bound the existing disposable 8-RPU Serverless data plane and ARM64 Fargate launcher.
+- Reserved one execution under the existing USD 0.50 cell ceiling with exact cleanup.
 
 ## Try It
 
-Run `uv run pytest -q tests/portability/test_redshift_incremental_phase8_benchmark.py`.
+Run `uv run pytest -q tests/portability/test_redshift_concurrency_phase8_benchmark.py`.
 
 ## Checks
 
 - Ruff lint and formatting pass for the focused harness and tests.
-- All nine focused Redshift incremental harness tests pass.
-- Strict typing and Control contract drift checks pass.
-- The full pytest suite passes after installing the supported runtime extras.
-- The failed task and exact cleanup were verified directly in AWS.
+- All nine focused Redshift concurrency harness tests pass.
+- Strict typing passes for 435 source files, and Control contract drift is clean.
+- The full suite passes with 1,907 tests and 35 skips.
+- The locked runtime dependency audit reports no known vulnerabilities.
 
 ## Decisions
 
-- Classify the absent `/app/.venv/bin` paths as an operator-launcher defect, not a Dander product defect.
-- Use Fargate ARM64 because the retained immutable RC31 image is ARM64.
-- Reserve USD 0.375 for the failed setup and cap the corrective execution at USD 0.125.
+- Reuse the existing Redshift bulk runtime helpers instead of adding another provider abstraction.
+- Keep candidate diagnostics transient and delete them during exact harness cleanup.
 
 ## Remaining
 
-- Protect and merge the corrective objective, then verify exact-main CI.
-- Run exactly one corrective task and begin cleanup immediately at terminal state.
-- Record both attempts together in the final sanitized evidence.
+- Protect and merge the concurrency objective, then verify exact-main CI.
+- Run exactly one candidate task and begin cleanup immediately at terminal state.
+- Record only sanitized successful evidence; retain failures in the combined cell record.
 - Continue the next eligible Phase 8 cell after the evidence merge.
 
 ## Review First
 
-- `scripts/benchmarks/redshift_incremental_phase8.py`
-- `tests/portability/test_redshift_incremental_phase8_benchmark.py`
-- `docs/evidence/phase8/2026-08-22/aws-native-rc31-redshift-incremental-corrective-objectives.json`
+- `scripts/benchmarks/redshift_concurrency_phase8.py`
+- `tests/portability/test_redshift_concurrency_phase8_benchmark.py`
+- `docs/evidence/phase8/2026-08-22/aws-native-rc31-redshift-concurrency-objectives.json`

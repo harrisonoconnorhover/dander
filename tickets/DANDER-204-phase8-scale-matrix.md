@@ -350,3 +350,9 @@ scale report.
   The corrective objective keeps the candidate, workload, provider shape, and combined USD 0.50
   ceiling unchanged, binds ARM64 plus the image's PATH-resolved `python` and `dander` executables,
   and authorizes only the one remaining corrective execution.
+- The next focused objective binds four independent 5,000-row Redshift pipelines and two
+  controlled claims to exact RC31 on one disposable 8-RPU Serverless data plane. It requires exact
+  20,000-row readback, stale-publication rejection, throughput, provider-measured cost, zero
+  candidate or provider-operation retries, and exact schema, staging, harness, and data-plane
+  cleanup under the existing USD 0.50 cell ceiling. The protected launcher is ARM64 and retains
+  terminal output only in the owned staging prefix until immediate cleanup.
