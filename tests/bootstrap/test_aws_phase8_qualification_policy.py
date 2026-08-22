@@ -169,8 +169,16 @@ def test_qualification_serializes_redshift_assumerole_lockdown_before_copy_grant
     )[1].split('resource "aws_redshiftdata_statement" "runtime_copy"', 1)[0]
     copy_grant = qualification.split('resource "aws_redshiftdata_statement" "runtime_copy"', 1)[
         1
-    ].split('resource "aws_redshiftserverless_usage_limit" "compute"', 1)[0]
+    ].split('resource "aws_redshiftdata_statement" "runtime_serverless_usage"', 1)[0]
+    usage_grant = qualification.split(
+        'resource "aws_redshiftdata_statement" "runtime_serverless_usage"', 1
+    )[1].split('resource "aws_redshiftserverless_usage_limit" "compute"', 1)[0]
 
     assert 'sql            = "REVOKE ASSUMEROLE ON ALL FROM PUBLIC FOR ALL"' in lockdown
     assert "depends_on = [aws_redshiftdata_statement.runtime_ddl]" in lockdown
     assert "depends_on = [aws_redshiftdata_statement.runtime_assumerole_lockdown]" in copy_grant
+    assert (
+        'sql            = "GRANT SELECT ON TABLE sys_serverless_usage TO ROLE '
+        '${local.runtime_database_role}"' in usage_grant
+    )
+    assert "depends_on = [aws_redshiftdata_statement.runtime_copy]" in usage_grant

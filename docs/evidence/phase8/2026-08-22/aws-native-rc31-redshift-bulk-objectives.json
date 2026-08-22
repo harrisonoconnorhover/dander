@@ -1,0 +1,130 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.50",
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-aws-redshift-usd-0.50"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.redshift-bulk/v1",
+    "benchmark_class": "bulk_throughput",
+    "narrow_rows": 500000,
+    "narrow_payload_bytes": 32,
+    "wide_rows": 200000,
+    "wide_payload_bytes": 1024,
+    "copy_part_rows": 50000,
+    "copy_part_logical_bytes": 67108864
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc31",
+      "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+      "source_image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+      "target_image": "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+      "registry_copy_attempts": 1,
+      "rebuild": false,
+      "mutable_tag_selection": false
+    },
+    "redshift": {
+      "account_id": "184463061564",
+      "region": "us-east-1",
+      "workgroup_name": "dander-p8q-rc31-rs-bk",
+      "copy_role_arn": "arn:aws:iam::184463061564:role/dander-p8q-rc31-rs-bk-redshift-copy",
+      "staging_bucket": "dander-p8q-rc31-rs-bk-184463061564-staging",
+      "staging_prefix": "phase8/0.9.0rc31/staging",
+      "on_demand_rate_usd_per_rpu_hour": "0.375"
+    },
+    "data_plane": {
+      "terraform_root": "infra/qualification/aws-native",
+      "resource_name": "dander-p8q-rc31-rs-bk",
+      "state_key": "dander/d7/control-plane/phase8-qualification/rc31-redshift-bulk.tfstate",
+      "aws_profile": "dander-deploy",
+      "redshift_serverless_base_capacity_rpu": 8,
+      "redshift_serverless_daily_usage_limit_rpu_hours": 1,
+      "postgresql_instance_class": "db.t4g.micro",
+      "postgresql_storage_gib": 20,
+      "schedule_created": false,
+      "terraform_provider_operation_retries": 0,
+      "runtime_serverless_usage_select_granted": true,
+      "post_apply_no_drift_required": true
+    },
+    "fargate_harness": {
+      "resource_prefix": "dander-p8q-rc31-rs-bk",
+      "cluster_executions": 1,
+      "task_cpu_units": 2048,
+      "task_memory_mib": 2048,
+      "task_timeout_seconds": 900,
+      "task_read_only_root": true,
+      "task_user": "65532:65532",
+      "task_tmpfs_path": "/tmp",
+      "task_entrypoint": [
+        "/bin/sh",
+        "-c"
+      ],
+      "harness_bundle_key": "phase8/0.9.0rc31/staging/harness/redshift-bulk-1e39e468688a.zip",
+      "harness_bundle_contains": [
+        "docs/evidence/phase8/2026-08-22/aws-native-rc31-redshift-bulk-objectives.json",
+        "scripts/benchmarks/redshift.py",
+        "scripts/benchmarks/redshift_bulk_phase8.py"
+      ],
+      "harness_download_attempts": 1,
+      "state_machine_executions": 1,
+      "state_machine_retry_states": 0,
+      "ecs_task_retries": 0,
+      "container_restarts": 0,
+      "automatic_retry": false,
+      "cleanup": "delete exact harness object, deregister exact task definition, remove exact log group, state machine, roles and cluster"
+    },
+    "execution": {
+      "harness_sha256": "1e39e468688a6c82fdbf39db6b7d7419feed48a50246d9e13de9b05bdcd10d74",
+      "shared_harness_sha256": "40f59a7a33491e94089f06d1d4f269fc14ecc0c79fffad3832a568d76166f28a",
+      "manual_candidate_executions": 1,
+      "automatic_candidate_retry": false,
+      "provider_operation_retries": 0,
+      "cost_observation_delay_seconds": 70,
+      "aws_max_attempts": 1,
+      "aws_retry_mode": "standard",
+      "candidate_command": "qualification-run /tmp/harness/scripts/benchmarks/redshift_bulk_phase8.py",
+      "candidate_exit_codes_accepted": [
+        0
+      ]
+    },
+    "cost_attribution": {
+      "source": "SYS_SERVERLESS_USAGE",
+      "provider_measurement": "charged_seconds",
+      "formula": "charged_seconds / 3600 * 0.375 USD per RPU-hour",
+      "provider_interval_seconds": 60,
+      "estimated": false,
+      "preflight_checked_at_utc": "2026-08-22T09:33:56Z",
+      "aws_whole_account_gross_usage_upper_bound_usd": "1.4337199522",
+      "existing_aws_allocation_usd": "3.00",
+      "cell_ceiling_within_remaining_allocation": true
+    },
+    "cleanup": {
+      "begin_immediately_after_terminal_task": true,
+      "require_zero_disposable_schema": true,
+      "require_zero_staging_tables": true,
+      "require_zero_staging_objects": true,
+      "destroy_fargate_harness_before_data_plane": true,
+      "terraform_state_entries_after_destroy": 0,
+      "direct_owned_resource_inventories_empty": true,
+      "retained_stage_zero_and_ecr_excluded": true
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "cost_ceiling",
+      "narrow_copy_completion",
+      "narrow_throughput_measurement",
+      "wide_copy_completion",
+      "wide_throughput_measurement"
+    ],
+    "benchmark_class": "bulk_throughput",
+    "profile_id": "aws_native_redshift",
+    "release_version": "0.9.0rc31",
+    "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+    "image_digest": "sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+    "configuration_sha256": "6c913aba77ec3b49a7a769269ed19eff7768ed4cd85f0959a49d8648bcba1ffd",
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-aws-redshift-usd-0.50"
+  }
+}

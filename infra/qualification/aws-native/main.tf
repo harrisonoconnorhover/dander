@@ -342,6 +342,14 @@ resource "aws_redshiftdata_statement" "runtime_copy" {
   depends_on = [aws_redshiftdata_statement.runtime_assumerole_lockdown]
 }
 
+resource "aws_redshiftdata_statement" "runtime_serverless_usage" {
+  workgroup_name = aws_redshiftserverless_workgroup.profile.workgroup_name
+  database       = aws_redshiftserverless_namespace.profile.db_name
+  sql            = "GRANT SELECT ON TABLE sys_serverless_usage TO ROLE ${local.runtime_database_role}"
+
+  depends_on = [aws_redshiftdata_statement.runtime_copy]
+}
+
 resource "aws_redshiftserverless_usage_limit" "compute" {
   resource_arn  = aws_redshiftserverless_workgroup.profile.arn
   usage_type    = "serverless-compute"

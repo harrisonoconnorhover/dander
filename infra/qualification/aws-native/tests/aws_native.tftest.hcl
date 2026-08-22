@@ -131,7 +131,8 @@ run "bounded_disposable_data_plane" {
       aws_redshiftdata_statement.runtime_role.sql == "CREATE ROLE dander_runtime" &&
       aws_redshiftdata_statement.runtime_ddl.sql == "GRANT CREATE SCHEMA, CREATE TABLE, ALTER TABLE, DROP TABLE TO ROLE dander_runtime" &&
       aws_redshiftdata_statement.runtime_assumerole_lockdown.sql == "REVOKE ASSUMEROLE ON ALL FROM PUBLIC FOR ALL" &&
-      aws_redshiftdata_statement.runtime_copy.sql == "GRANT ASSUMEROLE ON 'arn:aws:iam::123456789012:role/dander-p8q-rc24-redshift-copy' TO ROLE dander_runtime FOR COPY"
+      aws_redshiftdata_statement.runtime_copy.sql == "GRANT ASSUMEROLE ON 'arn:aws:iam::123456789012:role/dander-p8q-rc24-redshift-copy' TO ROLE dander_runtime FOR COPY" &&
+      aws_redshiftdata_statement.runtime_serverless_usage.sql == "GRANT SELECT ON TABLE sys_serverless_usage TO ROLE dander_runtime"
     )
     error_message = "The disposable namespace must provision the exact database role required by the Fargate runtime."
   }
