@@ -2,39 +2,37 @@
 
 ## Finished
 
-- Added a bulk-only mode to the existing PostgreSQL Phase 8 harness.
-- Preserved the existing all-class and correctness-only behavior.
-- Bound exact RC31 to the accepted 500,000-row narrow and 200,000-row wide workload.
-- Enforced one candidate execution, zero automatic/provider retries, and exact cleanup.
-- Kept provider-posted cost as the only delayed gate after functional success.
+- Ran exact RC31 once for the accepted GKE Standard/PostgreSQL bulk cell.
+- Completed exact 500,000-row narrow and 200,000-row wide COPY readback.
+- Recorded both throughput measurements with zero candidate or provider retries.
+- Removed all owned database, Kubernetes, GCP, IAM, API-state, and local-secret residue.
+- Preserved the operator setup corrections that occurred before candidate code started.
 
 ## Try It
 
-Run `uv run pytest -q tests/portability/test_postgresql_phase8_benchmark.py`.
+Run `python3 -m json.tool docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-throughput-execution.json`.
 
 ## Checks
 
-- Focused harness tests cover the hosted-GKE bulk cost-pending and posted-cost states.
-- The harness rejects objective, hash, retry-policy, and cost-ceiling drift.
-- Provider mutation remains blocked until this objective merges and exact-main CI passes.
+- Narrow COPY: 10,356.041 rows/second; wide COPY: 8,773.084 rows/second.
+- Final Job: zero retries, restarts, or Warning events; zero database residue.
+- Direct provider inventories were empty and Compute, Container, and Filestore APIs were restored disabled.
 
 ## Decisions
 
-- Reused the PostgreSQL runtime, COPY writer, and existing bulk fixture.
-- Added no new benchmark abstraction or candidate.
-- Reserved the existing USD 0.50 GKE per-cell ceiling.
+- Kept the candidate unchanged and classified pre-execution Pod scheduling/setup failures as operator infrastructure corrections.
+- Kept provider cost `not_evaluated` until exact billing posts; no workload rerun is needed.
+- Changed no product, provider, harness, workload, or support behavior.
 
 ## Remaining
 
-- Merge the focused objective after all five protected jobs pass.
-- Run exactly one RC31 GKE bulk execution and clean every owned resource.
-- Record sanitized evidence; reconcile delayed provider cost without rerunning.
-- Continue the smallest eligible Phase 8 gate from protected main.
+- Protect and merge this focused sanitized evidence.
+- Reconcile provider-posted GKE cost without rerunning accepted workloads.
+- Continue the smallest eligible GKE/PostgreSQL matrix cell from protected main.
 - Snowflake bounded-memory remains blocked on role-scoped interactive authorization.
 
 ## Review First
 
-- `scripts/benchmarks/postgresql_phase8.py`
-- `tests/portability/test_postgresql_phase8_benchmark.py`
-- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-objectives.json`
+- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-throughput.json`
+- `docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-throughput-execution.json`
 - `tickets/DANDER-204-phase8-scale-matrix.md`

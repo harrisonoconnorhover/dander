@@ -257,3 +257,14 @@ scale report.
   bulk workload to exact RC31 on one disposable zonal GKE Standard cluster. It runs bulk only,
   requires the protected harness hash, COPY completion and throughput for both shapes, zero
   candidate or provider-operation retries, exact cleanup, and provider-posted cost under USD 0.50.
+- PR #420 protected that objective as main `6ac1da7`; exact-main run `32540729024` passed all five
+  jobs before mutation. Its only candidate execution completed exact 500,000-row narrow and
+  200,000-row wide COPY workloads at 10,356.041 and 8,773.084 rows/second, respectively, with zero
+  candidate, Kubernetes Job, or provider-operation retries and no Warning events on the final Job.
+- Three PostgreSQL setup Pods and two unscheduled Job objects were corrected before any candidate
+  container started. The final Job preserved the 2 CPU limit with a schedulable 1 CPU request and
+  ran once; these infrastructure corrections did not retry candidate code or a provider operation.
+- Cleanup started 83 seconds after Job completion and removed every owned PostgreSQL schema,
+  staging relation, namespace, cluster, network, IAM grant, local credential, and temporarily
+  enabled API. Provider cost has not posted, so bulk functionally passes but remains
+  `not_evaluated` without rerunning the workload.
