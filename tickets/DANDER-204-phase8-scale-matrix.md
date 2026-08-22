@@ -290,3 +290,14 @@ scale report.
   aggregation, and incremental-merge models with the existing 21 generic assertions, fenced
   publication, transform-duration measurement, zero candidate or provider-operation retries,
   exact cleanup, and provider-posted cost under USD 0.50.
+- PR #424 protected that objective as main `94c7816`; exact-main run `32548481891` passed all five
+  jobs before mutation. Its only candidate execution produced exact 100,000-row scan and join
+  output, ten-category aggregation across 100,000 rows, and a 100,001-row incremental result with
+  one update and one insert. All 21 accepted assertions passed through fenced publication.
+- The transform completed in 13.845 seconds at 7,222.896 output rows/second with zero candidate,
+  Kubernetes Job, or provider cluster operation retries. One readiness-probe Warning preceded
+  PostgreSQL readiness; the candidate emitted no Warning event.
+- Cleanup began 68 seconds after Job completion and removed every owned PostgreSQL schema, staging
+  relation, namespace, cluster, network, IAM grant, active local credential path, and temporarily
+  enabled API. Provider cost has not posted, so transform functionally passes but remains
+  `not_evaluated` without rerunning the workload.
