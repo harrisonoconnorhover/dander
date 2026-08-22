@@ -66,6 +66,17 @@ _TASK_ROLE_REQUIREMENTS: dict[str, object] = {
     "redshift_auth_action": "redshift-serverless:GetCredentials",
     "redshift_auth_resource_binding": "exact_owned_workgroup_arn_after_apply",
 }
+_FARGATE_LAUNCHER_REQUIREMENTS: dict[str, object] = {
+    "runtime_cpu_architecture": "ARM64",
+    "candidate_image_architecture": "arm64",
+    "task_entrypoint": ["/bin/sh", "-c"],
+    "candidate_python_executable": "python",
+    "candidate_cli_executable": "dander",
+    "forbidden_candidate_executable_prefix": "/app/.venv/bin/",
+}
+_CANDIDATE_COMMAND = (
+    "dander qualification-run /tmp/harness/scripts/benchmarks/redshift_incremental_phase8.py"
+)
 
 
 class RedshiftIncrementalQualificationError(RuntimeError):
@@ -231,14 +242,20 @@ def _load_approval(
         raise ValueError("objective approval does not match the shared Redshift harness")
     if execution.get("bulk_harness_sha256") != _file_sha256(Path(bulk.__file__)):
         raise ValueError("objective approval does not match the reused Redshift runtime helpers")
-    if execution.get("manual_candidate_executions") != 1:
-        raise ValueError("objective approval must allow exactly one candidate execution")
+    if (
+        execution.get("prior_failed_candidate_executions") != 1
+        or execution.get("manual_candidate_executions") != 1
+        or execution.get("corrective_candidate_executions") != 1
+    ):
+        raise ValueError("objective approval must allow exactly one corrective candidate execution")
     if execution.get("automatic_candidate_retry") is not False:
         raise ValueError("objective approval must disable automatic candidate retry")
     if execution.get("provider_operation_retries") != 0:
         raise ValueError("objective approval must disable provider-operation retries")
     if execution.get("cost_observation_delay_seconds") != config.cost_observation_delay_seconds:
         raise ValueError("objective approval changed the provider cost observation")
+    if execution.get("candidate_command") != _CANDIDATE_COMMAND:
+        raise ValueError("objective approval does not bind the corrected candidate command")
     fargate = _mapping(configuration.get("fargate_harness"), "Fargate harness configuration")
     expected_fargate = {
         "task_cpu_units": 2_048,
@@ -250,6 +267,7 @@ def _load_approval(
         "ecs_task_retries": 0,
         "container_restarts": 0,
         "automatic_retry": False,
+        **_FARGATE_LAUNCHER_REQUIREMENTS,
     }
     if any(fargate.get(name) != value for name, value in expected_fargate.items()):
         raise ValueError(

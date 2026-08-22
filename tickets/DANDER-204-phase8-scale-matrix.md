@@ -343,3 +343,10 @@ scale report.
   rejected before provider mutation, COPY-only throughput, provider-measured cost, zero retries,
   and exact schema, staging, harness, and data-plane cleanup under USD 0.50. Its fail-closed
   approval also binds the complete Serverless task-role tag and global tag-read requirements.
+- The initial incremental task exited 127 before Dander because its operator launcher addressed
+  absent `/app/.venv/bin` executables and requested X86_64 for the retained ARM64 RC31 image. It
+  emitted no report, performed no workload mutation, and used zero retries. Exact cleanup removed
+  all transient harness resources, all 37 data-plane resources, and every remote-state version.
+  The corrective objective keeps the candidate, workload, provider shape, and combined USD 0.50
+  ceiling unchanged, binds ARM64 plus the image's PATH-resolved `python` and `dander` executables,
+  and authorizes only the one remaining corrective execution.

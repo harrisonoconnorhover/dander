@@ -142,6 +142,7 @@ def _manifest(config: incremental.RedshiftIncrementalConfig) -> dict[str, object
                 "ecs_task_retries": 0,
                 "container_restarts": 0,
                 "automatic_retry": False,
+                **copy.deepcopy(incremental._FARGATE_LAUNCHER_REQUIREMENTS),
             },
             "redshift": {
                 "account_id": config.account_id,
@@ -157,10 +158,13 @@ def _manifest(config: incremental.RedshiftIncrementalConfig) -> dict[str, object
                 "harness_sha256": incremental._file_sha256(Path(incremental.__file__)),
                 "shared_harness_sha256": incremental._file_sha256(Path(shared.__file__)),
                 "bulk_harness_sha256": incremental._file_sha256(Path(bulk.__file__)),
+                "prior_failed_candidate_executions": 1,
                 "manual_candidate_executions": 1,
+                "corrective_candidate_executions": 1,
                 "automatic_candidate_retry": False,
                 "provider_operation_retries": 0,
                 "cost_observation_delay_seconds": config.cost_observation_delay_seconds,
+                "candidate_command": incremental._CANDIDATE_COMMAND,
             },
         },
         "approved_objectives": {
@@ -283,6 +287,30 @@ def test_approval_rejects_missing_global_tag_read(tmp_path: Path) -> None:
     path.write_text(json.dumps(manifest), encoding="utf-8")
 
     with pytest.raises(ValueError, match="task-role access"):
+        incremental._load_approval(path, config=config, identity=_identity())
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("runtime_cpu_architecture", "X86_64"),
+        ("candidate_cli_executable", "/app/.venv/bin/dander"),
+    ],
+)
+def test_approval_rejects_uncorrected_candidate_launcher(
+    tmp_path: Path,
+    field: str,
+    invalid_value: str,
+) -> None:
+    config = _config()
+    manifest = _manifest(config)
+    configuration = cast("dict[str, object]", manifest["configuration"])
+    fargate = cast("dict[str, object]", configuration["fargate_harness"])
+    fargate[field] = invalid_value
+    path = tmp_path / "objective.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="exact zero-retry Fargate"):
         incremental._load_approval(path, config=config, identity=_identity())
 
 
