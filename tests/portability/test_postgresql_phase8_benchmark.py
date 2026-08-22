@@ -13,6 +13,8 @@ from scripts.benchmarks import postgresql_phase8 as harness
 from scripts.benchmarks.postgresql_phase8 import (
     CandidateIdentity,
     Phase8PostgreSQLConfig,
+    _bulk_report,
+    _BulkResult,
     _correctness_report,
     _CorrectnessResult,
     _write_transform_models,
@@ -189,6 +191,80 @@ def test_gke_correctness_report_keeps_only_provider_cost_pending(tmp_path: Path)
         )
 
 
+def test_gke_bulk_report_keeps_only_provider_cost_pending(tmp_path: Path) -> None:
+    config = Phase8PostgreSQLConfig()
+    path = tmp_path / "objectives.json"
+    path.write_text(json.dumps(_gke_bulk_manifest(config)), encoding="utf-8")
+    approval = load_approval(
+        path,
+        config=config,
+        benchmark_class=BenchmarkClass.BULK_THROUGHPUT,
+    )
+    identity = CandidateIdentity(
+        release_version="0.9.0rc31",
+        git_commit="a" * 40,
+        image_digest=f"sha256:{'b' * 64}",
+        approval_reference="codex-goal-gke-bulk",
+        benchmark_date=date(2026, 8, 21),
+        launcher="gke_standard_zonal",
+        regions=("gcp:us-central1-a",),
+        secret_provider="kubernetes",
+        provider_job_ids=("cluster:test", "job:test"),
+        service_shapes=("dander_job_2cpu_512mib",),
+    )
+    result = _BulkResult(
+        duration_ms=30_000,
+        peak_rss_bytes=200_000_000,
+        narrow_duration_ms=12_000,
+        narrow_rows=500_000,
+        narrow_logical_bytes=28_000_000,
+        wide_duration_ms=18_000,
+        wide_rows=200_000,
+        wide_logical_bytes=209_600_000,
+        temporary_staging_relations=0,
+        cleanup_verified=True,
+    )
+
+    pending = json.loads(_bulk_report(config, identity, approval, result).to_json())
+
+    assert pending["status"] == "not_evaluated"
+    assert {objective["name"]: objective["status"] for objective in pending["objectives"]} == {
+        "cleanup": "passed",
+        "cost_ceiling": "not_evaluated",
+        "narrow_copy_completion": "passed",
+        "narrow_throughput_measurement": "passed",
+        "wide_copy_completion": "passed",
+        "wide_throughput_measurement": "passed",
+    }
+    assert pending["performance"]["costs"] == [
+        {
+            "amount": "0.50",
+            "currency": "USD",
+            "estimated": True,
+            "provider": "gcp",
+            "service": "gke_standard_zonal",
+        }
+    ]
+    metrics = {
+        measurement["name"]: measurement["value"]
+        for measurement in pending["performance"]["measurements"]
+    }
+    assert metrics["kubernetes_job_retries"] == "0"
+    assert metrics["provider_operation_retries"] == "0"
+
+    posted = json.loads(
+        _bulk_report(
+            config,
+            identity,
+            approval,
+            result,
+            provider_cost_usd=Decimal("0.25"),
+        ).to_json()
+    )
+    assert posted["status"] == "passed"
+    assert posted["performance"]["costs"][0]["estimated"] is False
+
+
 def test_transform_fixture_compiles_all_required_models(tmp_path: Path) -> None:
     _write_transform_models(tmp_path, target_schema="phase8_models")
 
@@ -262,6 +338,40 @@ def _gke_correctness_manifest(config: Phase8PostgreSQLConfig) -> dict[str, objec
             "git_commit": "a" * 40,
             "image_digest": f"sha256:{'b' * 64}",
             "configuration_sha256": config.configuration_sha256(BenchmarkClass.CORRECTNESS),
+            "approval_reference": approval,
+        },
+    }
+
+
+def _gke_bulk_manifest(config: Phase8PostgreSQLConfig) -> dict[str, object]:
+    approval = "codex-goal-gke-bulk"
+    return {
+        "schema": "io.dander.qualification.objective-approval/v1",
+        "cost_ceiling": {"amount_usd": "0.50", "approval_reference": approval},
+        "workload": config.workload_payload(BenchmarkClass.BULK_THROUGHPUT),
+        "configuration": {
+            "execution": {
+                "harness_sha256": harness._file_sha256(Path(harness.__file__)),
+                "manual_candidate_executions": 1,
+                "automatic_candidate_retry": False,
+                "provider_operation_retries": 0,
+            }
+        },
+        "approved_objectives": {
+            "names": [
+                "cleanup",
+                "cost_ceiling",
+                "narrow_copy_completion",
+                "narrow_throughput_measurement",
+                "wide_copy_completion",
+                "wide_throughput_measurement",
+            ],
+            "benchmark_class": "bulk_throughput",
+            "profile_id": "gke_standard_postgresql",
+            "release_version": "0.9.0rc31",
+            "git_commit": "a" * 40,
+            "image_digest": f"sha256:{'b' * 64}",
+            "configuration_sha256": config.configuration_sha256(BenchmarkClass.BULK_THROUGHPUT),
             "approval_reference": approval,
         },
     }
