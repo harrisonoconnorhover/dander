@@ -21,8 +21,10 @@ Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
   those retained jobs. Its AWS-native correctness and named local Kubernetes five-class slices
   passed, and the hosted GKE bounded-memory cost gate later passed; AWS cost and the remaining
   Phase 8 gates are open, so it is not fully qualified. Public RC20 remains unchanged.
-- Greenhouse, HubSpot, Salesforce, and ServiceNow are enabled daily at 09:00, 10:00, 11:00, and
-  12:00 America/New_York. The executable Greenhouse graph remains paused at 13:00.
+- Greenhouse, HubSpot, and Salesforce are enabled daily at 09:00, 10:00, and 11:00
+  America/New_York. ServiceNow was paused at 12:00 on 2026-08-23 after its external PDI became
+  unavailable; its job, alerts, secrets, data, and historical evidence remain. The executable
+  Greenhouse graph remains paused at 13:00.
 - The simulation-only managed cost guard, alerts, secrets, datasets, cursors, leases, and retained
   proof data remain in place.
 

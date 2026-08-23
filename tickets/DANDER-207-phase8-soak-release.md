@@ -10,7 +10,7 @@ created: 2026-08-13
 
 ## Context
 
-The GCP operator trial remains open through 2026-09-01, two failures are not yet diagnosable, and
+The GCP operator trial remains open through 2026-09-01. Its ServiceNow PDI became unavailable, and
 other canonical profiles have not completed an exact-candidate scheduled soak.
 
 ## Acceptance Criteria
@@ -27,6 +27,10 @@ other canonical profiles have not completed an exact-candidate scheduled soak.
 - Exact private RC22 is installed on all five retained GCP jobs. One authenticated Salesforce
   manual/replay pair and one Scheduler-created Greenhouse execution passed with equal replay
   counts, clean leases/staging, and a final 113-resource no-drift plan.
-- The four daily schedules remain enabled and the graph schedule remains intentionally paused.
-  This begins exact-candidate observation; it does not satisfy the 30-day or final seven-clean-day
-  criteria, and provider-measured cost is still pending.
+- Greenhouse, HubSpot, and Salesforce remain enabled daily; ServiceNow and the graph schedule are
+  paused. The 2026-08-23 review covered every Aug. 20–23 execution, retained all four ServiceNow
+  failures and their existing external OAuth-path diagnosis, and found no new Dander defect.
+- The ServiceNow schedule was paused through an exact one-change retained-manifest Terraform plan.
+  Its job, alerts, secrets, data, and historical evidence remain, and the post-apply plan reported
+  no changes. The original 2026-08-02 through 2026-09-01 window is unchanged; the final seven clean
+  days evaluate the three remaining enabled schedules. See the sanitized review in issue #26.
