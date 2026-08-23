@@ -388,3 +388,14 @@ scale report.
   resources, all 13 remote-state versions, and exact lock metadata; a later read-only check again
   found every owned resource absent. The USD 0.50 conservative bound remains held pending the
   provider invoice.
+- PR #410 protected the exact-RC30 Snowflake bounded-memory objective. Exact-main run
+  `32580133652` passed all five jobs before its one execution. The unchanged 2.6-million-row,
+  2.7248-GB workload completed all 260 COPY operations and exact 2.6-million-row readback with zero
+  retries, no failed provider query, no staging residue, and exact database, warehouse, role, and
+  container cleanup.
+- The committed 256 MiB profile failed its 80% peak-RSS objective: every retained external sample
+  exceeded the 204.8 MiB limit and the maximum observed Docker sample was 226.3 MiB. The
+  fail-closed candidate path therefore emitted no normalized timing report, so throughput remains
+  `not_evaluated`. Snowflake metered 0.233800200 compute credits, or USD 0.467600400 at the verified
+  USD 2.00 effective rate, within the USD 0.50 ceiling. This closes the cell as a failed unsupported
+  profile without a product correction, replacement candidate, or rerun.

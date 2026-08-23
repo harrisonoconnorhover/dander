@@ -1,0 +1,245 @@
+{
+  "approved_objectives": {
+    "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-snowflake-usd-0.50",
+    "benchmark_class": "bounded_memory",
+    "configuration_sha256": "ca2a8368b531c721a9e2204dbad43416405a39bcd5a3ccc1e8c1daccdd7021d8",
+    "git_commit": "d27dd880fc7676c15969bff76aaabb64c22be7c2",
+    "image_digest": "sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+    "names": [
+      "bounded_input_ratio",
+      "cleanup",
+      "cost_ceiling",
+      "peak_rss",
+      "throughput_measurement"
+    ],
+    "profile_id": "snowflake_local_scale",
+    "release_version": "0.9.0rc30"
+  },
+  "context": {
+    "benchmark_date": "2026-08-22",
+    "catalog": "none",
+    "cost_ceiling": {
+      "amount_usd": "0.50",
+      "approval_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-snowflake-usd-0.50"
+    },
+    "git_commit": "d27dd880fc7676c15969bff76aaabb64c22be7c2",
+    "image_digest": "sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+    "launcher": "docker_local",
+    "profile_id": "snowflake_local_scale",
+    "provider_job_ids": [
+      "container:dander-rc30-snowflake-bounded-21a2026m",
+      "query:01c69262-0001-bcd2-0003-c0870007c02e"
+    ],
+    "regions": [
+      "snowflake:azure_eastus2"
+    ],
+    "release_version": "0.9.0rc30",
+    "secret_provider": "environment",
+    "service_shapes": [
+      "dander_2cpu_256mib",
+      "snowflake_xsmall"
+    ],
+    "state_backend": "none",
+    "warehouse": "snowflake"
+  },
+  "objectives": [
+    {
+      "evidence_reference": "phase8/snowflake/bounded-memory/bounded_input_ratio",
+      "name": "bounded_input_ratio",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/snowflake/bounded-memory/cleanup",
+      "name": "cleanup",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/snowflake/bounded-memory/cost_ceiling",
+      "name": "cost_ceiling",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/snowflake/bounded-memory/peak_rss",
+      "name": "peak_rss",
+      "status": "failed"
+    },
+    {
+      "evidence_reference": "phase8/snowflake/bounded-memory/throughput_measurement",
+      "name": "throughput_measurement",
+      "status": "not_evaluated"
+    }
+  ],
+  "performance": {
+    "costs": [
+      {
+        "amount": "0.467600400",
+        "currency": "USD",
+        "estimated": false,
+        "provider": "snowflake",
+        "service": "virtual_warehouse"
+      }
+    ],
+    "measurements": [
+      {
+        "name": "rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "2600000"
+      },
+      {
+        "name": "logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "2724800000"
+      },
+      {
+        "name": "duration_ms",
+        "reason": "The failed peak-RSS gate prevented the candidate from serializing its internal workload timer.",
+        "status": "unavailable",
+        "unit": "milliseconds"
+      },
+      {
+        "name": "throughput_rows_per_second",
+        "reason": "The failed peak-RSS gate prevented the candidate from serializing its internal workload timer.",
+        "status": "unavailable",
+        "unit": "rows_per_second"
+      },
+      {
+        "name": "peak_rss_bytes",
+        "reason": "The failed peak-RSS gate prevented the candidate from serializing its exact in-process peak.",
+        "status": "unavailable",
+        "unit": "bytes"
+      },
+      {
+        "name": "retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "queue_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "load_duration_ms",
+        "reason": "The failed peak-RSS gate prevented the candidate from serializing its internal workload timer.",
+        "status": "unavailable",
+        "unit": "milliseconds"
+      },
+      {
+        "name": "transform_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "catalog_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "candidate_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "697094"
+      },
+      {
+        "name": "copy_operations",
+        "status": "measured",
+        "unit": "count",
+        "value": "260"
+      },
+      {
+        "name": "exact_readback_distinct_rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "2600000"
+      },
+      {
+        "name": "exact_readback_max_payload_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "1024"
+      },
+      {
+        "name": "exact_readback_min_payload_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "1024"
+      },
+      {
+        "name": "maximum_observed_container_memory_mib",
+        "status": "measured",
+        "unit": "mebibytes",
+        "value": "226.3"
+      },
+      {
+        "name": "memory_limit_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "268435456"
+      },
+      {
+        "name": "provider_operation_retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "query_count",
+        "status": "measured",
+        "unit": "count",
+        "value": "1067"
+      },
+      {
+        "name": "query_failures",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "spill_bytes_local",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "14388741"
+      },
+      {
+        "name": "spill_bytes_remote",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "0"
+      },
+      {
+        "name": "staging_stages",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "staging_tables",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      }
+    ]
+  },
+  "schema": "io.dander.qualification.report/v1",
+  "status": "failed",
+  "workload": {
+    "batch_bytes": 10480000,
+    "batch_rows": 10000,
+    "benchmark_class": "bounded_memory",
+    "concurrency": 1,
+    "configuration_sha256": "ca2a8368b531c721a9e2204dbad43416405a39bcd5a3ccc1e8c1daccdd7021d8",
+    "input_rows": 2600000,
+    "logical_input_bytes": 2724800000,
+    "memory_limit_bytes": 268435456,
+    "row_width_bytes": 1048,
+    "schema_depth": 1,
+    "source_rate_limit": "unlimited_local_generator",
+    "transform_complexity": "none"
+  }
+}
