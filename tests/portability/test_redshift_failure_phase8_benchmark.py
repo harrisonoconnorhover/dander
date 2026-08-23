@@ -120,12 +120,22 @@ def test_config_binds_only_the_four_failure_probes() -> None:
 def test_run_rejects_failures_recovers_and_cleans(monkeypatch: pytest.MonkeyPatch) -> None:
     config = _config()
     runtime = object()
+    calls: list[str] = []
     dropped: list[str] = []
     deleted: list[str] = []
 
     monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
     monkeypatch.setenv("AWS_RETRY_MODE", "standard")
-    monkeypatch.setattr(bulk, "_warehouse_runtime", lambda *_args, **_kwargs: runtime)
+
+    def build_runtime(*_args: object, **_kwargs: object) -> object:
+        calls.append("runtime")
+        return runtime
+
+    def probe_credentials(_config: failure.RedshiftFailureConfig) -> int:
+        calls.append("credential")
+        return 5
+
+    monkeypatch.setattr(bulk, "_warehouse_runtime", build_runtime)
     monkeypatch.setattr(
         failure,
         "_probe_failed_copy_cleanup_and_recovery",
@@ -146,7 +156,7 @@ def test_run_rejects_failures_recovers_and_cleans(monkeypatch: pytest.MonkeyPatc
         config,
         identity=_identity(),
         approval=_approval(config),
-        credential_probe=lambda _config: 5,
+        credential_probe=probe_credentials,
     )
     payload = cast("dict[str, Any]", json.loads(report.to_json()))
     metrics = {
@@ -158,10 +168,48 @@ def test_run_rejects_failures_recovers_and_cleans(monkeypatch: pytest.MonkeyPatc
     assert metrics["probe_count"] == "4"
     assert metrics["provider_operation_retries"] == "0"
     assert metrics["stale_publications_rejected"] == "1"
+    assert calls == ["credential", "runtime"]
     assert dropped and deleted
 
 
-def test_run_cleans_owned_scope_after_unexpected_probe_failure(
+def test_run_classifies_runtime_failure_after_credential_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config()
+    calls: list[str] = []
+    deleted: list[str] = []
+
+    monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
+    monkeypatch.setenv("AWS_RETRY_MODE", "standard")
+
+    def probe_credentials(_config: failure.RedshiftFailureConfig) -> int:
+        calls.append("credential")
+        return 5
+
+    def fail_runtime(*_args: object, **_kwargs: object) -> object:
+        calls.append("runtime")
+        raise RuntimeError("sensitive driver startup detail")
+
+    monkeypatch.setattr(bulk, "_warehouse_runtime", fail_runtime)
+    monkeypatch.setattr(shared, "_delete_prefix", lambda _config, prefix: deleted.append(prefix))
+
+    with pytest.raises(
+        failure.RedshiftFailureQualificationError,
+        match="runtime construction failed after credential-rejection probe passed",
+    ) as caught:
+        failure.run_phase8_redshift_failure(
+            config,
+            identity=_identity(),
+            approval=_approval(config),
+            credential_probe=probe_credentials,
+        )
+
+    assert "sensitive driver startup detail" not in str(caught.value)
+    assert calls == ["credential", "runtime"]
+    assert deleted
+
+
+def test_run_sanitizes_credential_probe_failure_before_owned_mutation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _config()
@@ -181,8 +229,8 @@ def test_run_cleans_owned_scope_after_unexpected_probe_failure(
 
     with pytest.raises(
         failure.RedshiftFailureQualificationError,
-        match="failed before report completion; cleanup passed",
-    ):
+        match="credential-rejection probe failed before owned mutation",
+    ) as caught:
         failure.run_phase8_redshift_failure(
             config,
             identity=_identity(),
@@ -190,7 +238,8 @@ def test_run_cleans_owned_scope_after_unexpected_probe_failure(
             credential_probe=fail_probe,
         )
 
-    assert dropped and deleted
+    assert "sensitive provider detail" not in str(caught.value)
+    assert not dropped and not deleted
 
 
 def test_credential_probe_uses_rejected_password_and_zero_retry_client(
@@ -315,7 +364,7 @@ def test_protected_objective_binds_harness_and_zero_retry_launcher(tmp_path: Pat
         approval_reference=reference,
     )
     source = Path(
-        "docs/evidence/phase8/2026-08-22/aws-native-rc31-redshift-failure-objectives.json"
+        "docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-failure-rebound-objectives.json"
     )
     payload = cast("dict[str, Any]", json.loads(source.read_text()))
     manifest = tmp_path / "objectives.json"

@@ -283,15 +283,33 @@ def run_phase8_redshift_failure(
     suffix = uuid.uuid4().hex[:12]
     schema_name = f"dander_p8_failure_{suffix}"
     staging_prefix = f"{config.staging_prefix}/failure/{suffix}"
-    runtime = bulk._warehouse_runtime(  # noqa: SLF001
-        _bulk_config(config), schema_name=schema_name, staging_prefix=staging_prefix
-    )
     started = time.perf_counter()
     peak_before = _peak_rss_bytes()
+    try:
+        rejection_ms = (credential_probe or _probe_credential_rejection)(config)
+    except RedshiftFailureQualificationError:
+        raise
+    except Exception as error:
+        raise RedshiftFailureQualificationError(
+            "Redshift credential-rejection probe failed before owned mutation"
+        ) from error
+    try:
+        runtime = bulk._warehouse_runtime(  # noqa: SLF001
+            _bulk_config(config), schema_name=schema_name, staging_prefix=staging_prefix
+        )
+    except Exception as error:
+        try:
+            shared._delete_prefix(_shared_config(config), staging_prefix)  # noqa: SLF001
+        except Exception as prefix_cleanup_error:
+            raise RedshiftFailureQualificationError(
+                "Redshift failure qualification could not remove all owned resources"
+            ) from prefix_cleanup_error
+        raise RedshiftFailureQualificationError(
+            "Redshift runtime construction failed after credential-rejection probe passed"
+        ) from error
     result: _FailureResult | None = None
     failure: Exception | None = None
     try:
-        rejection_ms = (credential_probe or _probe_credential_rejection)(config)
         failed_copy_ms, recovery_ms, operations = _probe_failed_copy_cleanup_and_recovery(
             config, runtime, schema_name=schema_name, staging_prefix=staging_prefix
         )
@@ -377,11 +395,16 @@ def _probe_credential_rejection(config: RedshiftFailureConfig) -> int:
         "_RedshiftServerlessClient",
         _aws_client("redshift-serverless", region=config.region),
     )
-    credentials = client.get_credentials(
-        workgroupName=config.workgroup_name,
-        dbName=config.database,
-        durationSeconds=900,
-    )
+    try:
+        credentials = client.get_credentials(
+            workgroupName=config.workgroup_name,
+            dbName=config.database,
+            durationSeconds=900,
+        )
+    except Exception as error:
+        raise RedshiftFailureQualificationError(
+            "Redshift failure qualification could not obtain ephemeral credentials"
+        ) from error
     username = credentials.get("dbUser")
     password = credentials.get("dbPassword")
     if (
