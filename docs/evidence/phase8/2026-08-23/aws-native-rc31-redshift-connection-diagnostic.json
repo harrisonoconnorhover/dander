@@ -1,0 +1,90 @@
+{
+  "schema": "io.dander.phase8.redshift-connection-diagnostic/v1",
+  "attempt_date": "2026-08-23",
+  "objective_reference": "docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-diagnostic-objective.json",
+  "protection": {
+    "objective_pull_request": 438,
+    "objective_merge_commit": "3975718c34f81d4ad7cd8d9266fbb6ba879e6c5e",
+    "objective_pull_request_ci_run": 32650688695,
+    "objective_exact_main_ci_run": 32651060162,
+    "objective_exact_main_ci_jobs_passed": 5
+  },
+  "candidate": {
+    "release_version": "0.9.0rc31",
+    "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+    "image_digest": "sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+    "replacement_published": false
+  },
+  "execution": {
+    "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc31-rs-connect-diag:rc31-redshift-connection-diagnostic-20260823",
+    "started_at_utc": "2026-08-23T16:34:02.011Z",
+    "completed_at_utc": "2026-08-23T16:35:00.652Z",
+    "status": "succeeded",
+    "manual_executions": 1,
+    "automatic_retries": 0,
+    "provider_operation_retries": 0,
+    "connect_timeout_seconds": 300,
+    "ssl": true,
+    "sslmode": "verify-full",
+    "client_protocol_version": 0,
+    "stages": [
+      {
+        "stage": "get_credentials",
+        "elapsed_ms": 94,
+        "exception_class": null
+      },
+      {
+        "stage": "explicit_credentials_connector",
+        "elapsed_ms": 123,
+        "exception_class": null,
+        "integrated_iam": false
+      },
+      {
+        "stage": "dander_iam_connector",
+        "elapsed_ms": 243,
+        "exception_class": null,
+        "integrated_iam": true
+      }
+    ],
+    "schemas_created": 0,
+    "queries_executed": 0,
+    "copy_operations": 0,
+    "benchmark_cells_executed": 0
+  },
+  "classification": {
+    "result": "unexpected_both_connector_paths_succeeded",
+    "explicit_temporary_credentials_succeeded": true,
+    "unchanged_dander_iam_factory_succeeded": true,
+    "smallest_product_correction_selected": null,
+    "product_change_made": false,
+    "replacement_candidate_required": false,
+    "redshift_cell_rerun_authorized": false,
+    "conclusion": "The protected diagnostic did not reproduce the prior connection stall. The requested decision tree has no correction branch for this result."
+  },
+  "cleanup": {
+    "launcher_inactive_before_destroy": true,
+    "active_tasks_before_destroy": 0,
+    "diagnostic_objects_removed": 3,
+    "terraform_destroy_plan_sha256": "5d4bdc70a1f2f068a478e674d86019dd009ac70f85988a244b3f6bc0a039a510",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 13,
+    "remote_state_versions_after_cleanup": 0,
+    "remote_state_delete_markers_after_cleanup": 0,
+    "lock_metadata_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "cleanup_reverified_at_utc": "2026-08-23T22:46:05Z"
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.50",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "conservative_bound_held": true,
+    "workload_rerun_required_for_cost_finalization": false
+  },
+  "qualification_effect": {
+    "redshift_scale_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false
+  }
+}

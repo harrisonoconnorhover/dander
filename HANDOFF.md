@@ -2,37 +2,34 @@
 
 ## Finished
 
-- Bound one AWS-native Redshift failure cell to retained immutable RC31.
-- Added four bounded credential, failed-COPY, recovery, and stale-publication probes.
-- Reused the native writer, fencing, provider-cost, and exact-cleanup paths.
-- Preserved one candidate execution and zero automatic or provider-operation retries.
+- Recorded the one protected RC31 Redshift connection diagnostic.
+- Serverless credential acquisition and both explicit-credential and Dander IAM connectors passed.
+- Classified the result as the approved unexpected branch without changing Dander or RC31.
+- Reverified exact absence of every owned AWS resource after cleanup.
 
 ## Try It
 
-Run `uv run pytest -q tests/portability/test_redshift_failure_phase8_benchmark.py`.
+Review `docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-diagnostic.json`.
 
 ## Checks
 
-- Seven focused failure-harness tests pass.
-- Ruff lint and formatting pass for all 489 files.
-- Strict typing passes for 438 source files; control contract drift is clean.
-- The full suite passes: 1,928 passed and 35 skipped.
-- The locked runtime dependency audit reports no known vulnerabilities.
+- PR #438 and exact-main run `32651060162` passed all five protected jobs.
+- The one diagnostic execution succeeded with zero retries and only sanitized output.
+- Terraform destroyed 37 resources; 13 state versions and lock metadata were removed.
+- A fresh read-only AWS inventory check found every owned resource absent.
 
 ## Decisions
 
-- Use one deliberately invalid Parquet COPY followed by exact object/table cleanup and a valid
-  native COPY recovery.
-- Keep the valid 2-vCPU/4-GiB Fargate task shape and USD 0.50 cell ceiling.
+- Do not make a product correction or publish a replacement candidate from a passing diagnostic.
+- Do not rerun or close a Redshift scale cell from this non-benchmark result.
 
 ## Remaining
 
-- Protect and merge the objective, then verify exact-main CI.
-- Run exactly one candidate task and begin cleanup immediately at terminal state.
-- Commit sanitized evidence only if the execution passes every gate.
+- Merge this sanitized diagnostic evidence after protected checks.
+- Reconcile delayed provider costs without rerunning accepted workloads.
+- Continue another eligible Phase 8 lane; Redshift material cells remain blocked.
 
 ## Review First
 
-- `scripts/benchmarks/redshift_failure_phase8.py`
-- `tests/portability/test_redshift_failure_phase8_benchmark.py`
-- `docs/evidence/phase8/2026-08-22/aws-native-rc31-redshift-failure-objectives.json`
+- `docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-diagnostic.json`
+- `tickets/DANDER-204-phase8-scale-matrix.md`

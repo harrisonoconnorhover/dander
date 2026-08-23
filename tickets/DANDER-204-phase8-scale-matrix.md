@@ -377,3 +377,14 @@ scale report.
   exact readback and fenced publication, derives provider cost from `SYS_SERVERLESS_USAGE`, uses
   zero candidate or provider-operation retries, and requires exact source/target schema, staging,
   harness, and data-plane cleanup under USD 0.50.
+- PR #438 protected the bounded Redshift connection diagnostic as main `3975718`; exact-main run
+  `32651060162` passed all five jobs before its one execution. Serverless `GetCredentials` completed
+  in 94 ms, the explicit-temporary-credential connector completed in 123 ms, and the unchanged
+  Dander `iam=True` connection factory completed in 243 ms, all without an exception.
+- Both connector paths succeeding is the unexpected branch of the approved diagnostic. It does not
+  establish a product correction, authorize a replacement candidate, or close or rerun any
+  Redshift scale cell. The diagnostic executed no schema, query, COPY, or benchmark operation and
+  used zero retries. Cleanup removed the launcher, three diagnostic objects, 37 Terraform
+  resources, all 13 remote-state versions, and exact lock metadata; a later read-only check again
+  found every owned resource absent. The USD 0.50 conservative bound remains held pending the
+  provider invoice.
