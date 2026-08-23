@@ -1,0 +1,163 @@
+{
+  "schema": "io.dander.phase8.snowflake-bounded-memory-execution/v1",
+  "attempt_date": "2026-08-23",
+  "cell": {
+    "ticket": "DANDER-204",
+    "provider": "snowflake",
+    "warehouse": "snowflake",
+    "launcher": "docker_local",
+    "benchmark_class": "bounded_memory",
+    "profile_id": "snowflake_local_scale"
+  },
+  "execution_base": {
+    "objective_reference": "docs/evidence/phase8/2026-08-21/snowflake-rc30-bounded-memory-objectives.json",
+    "objective_pull_request": 410,
+    "objective_merge_commit": "317fa7bfae24b1b18002a2b0318cde0131fb37be",
+    "protected_main_commit": "e76d961bbc36f10d9a10a831f241533863dc02b5",
+    "exact_main_ci_run": 32580133652,
+    "exact_main_ci_jobs_passed": 5,
+    "harness_sha256": "cb311f32b36e989d7c194f7ff385a388c8bb991bf8767e4e82b5564a61ca2c24",
+    "bulk_harness_sha256": "d0ef59855344aa90364576f92c4cf13cfe3d771e0e0deb2e7f2050211f8f6d8"
+  },
+  "candidate": {
+    "release_version": "0.9.0rc30",
+    "git_commit": "d27dd880fc7676c15969bff76aaabb64c22be7c2",
+    "image_digest": "sha256:355c096f03cb8352b14d3afce00f5065b88d7477e9ceaaf436e79668941ad315",
+    "identity_reference": "docs/evidence/phase8/2026-08-20/rc30-candidate.json",
+    "rebuilt_or_republished": false,
+    "qualification_entrypoint": "dander qualification-run"
+  },
+  "objective": {
+    "authorization_reference": "codex-goal-02043c37-096e-416a-875c-b405c4af0594-existing-snowflake-usd-0.50",
+    "configuration_sha256": "ca2a8368b531c721a9e2204dbad43416405a39bcd5a3ccc1e8c1daccdd7021d8",
+    "manual_candidate_executions_allowed": 1,
+    "manual_candidate_executions_consumed": 1,
+    "automatic_candidate_retry": false,
+    "provider_operation_retries": 0,
+    "run_cost_ceiling_usd": "0.50",
+    "maximum_peak_rss_fraction": "0.80",
+    "cleanup_start_deadline_minutes": 30,
+    "maximum_resource_lifetime_minutes": 60
+  },
+  "workload": {
+    "rows": 2600000,
+    "payload_bytes": 1024,
+    "row_width_bytes": 1048,
+    "copy_part_rows": 10000,
+    "logical_input_bytes": 2724800000,
+    "input_to_memory_ratio": "10.150671005249",
+    "minimum_input_to_memory_ratio": "10",
+    "changed_from_accepted_shape": false
+  },
+  "operator_preflight": {
+    "protected_worktree_clean": true,
+    "candidate_digest_verified": true,
+    "billing_visibility_verified_before_owned_resources": true,
+    "named_objects_absent_before_creation": true,
+    "runtime_cpu": 2,
+    "runtime_memory_mib": 256,
+    "runtime_timeout_seconds": 1500,
+    "oauth_callback_timeout_seconds": 1200,
+    "oauth_callback_default_persisted_in_source": false,
+    "account_identity_match": true,
+    "runtime_role_identity_match": true
+  },
+  "execution": {
+    "first_owned_resource_utc": "2026-08-23T01:26:50.936045Z",
+    "candidate_started_utc": "2026-08-23T01:26:57.583706Z",
+    "candidate_completed_utc": "2026-08-23T01:38:34.678014Z",
+    "candidate_duration_ms": 697094,
+    "container_exit_code": 1,
+    "candidate_stdout_sha256": "db31e7de4621d4c7eb727c9ab07bb849fea02ac4670361784c067c00bdc85a1f",
+    "candidate_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "automatic_retry_attempted": false,
+    "provider_operation_retries": 0,
+    "provider_query_count": 1067,
+    "provider_query_successes": 1067,
+    "provider_query_failures": 0,
+    "copy_operations": 260,
+    "exact_readback": {
+      "query_id": "01c69262-0001-bcd2-0003-c0870007c02e",
+      "row_count": 2600000,
+      "distinct_row_count": 2600000,
+      "minimum_payload_bytes": 1024,
+      "maximum_payload_bytes": 1024,
+      "query_elapsed_ms": 374
+    },
+    "spill_bytes_local": 14388741,
+    "spill_bytes_remote": 0,
+    "staging_tables": 0,
+    "staging_stages": 0,
+    "normalized_report_emitted_by_candidate": false,
+    "failure_output_schema": "io.dander.qualification.failure/v1"
+  },
+  "memory_gate": {
+    "container_limit_mib": "256.0",
+    "maximum_allowed_mib": "204.8",
+    "maximum_observed_docker_stats_mib": "226.3",
+    "maximum_observed_fraction": "0.883984375",
+    "docker_stats_display_precision_mib": "0.1",
+    "samples": [
+      {"elapsed_label": "24_seconds", "memory_mib": "225.7"},
+      {"elapsed_label": "about_1_minute", "memory_mib": "225.4"},
+      {"elapsed_label": "2_minutes", "memory_mib": "225.7"},
+      {"elapsed_label": "5_minutes", "memory_mib": "226.3"},
+      {"elapsed_label": "7_minutes", "memory_mib": "226.2"},
+      {"elapsed_label": "9_minutes", "memory_mib": "226.0"}
+    ],
+    "exact_in_process_peak_rss_bytes_available": false,
+    "failure_conclusion": "Every retained external sample exceeded the committed 204.8 MiB limit; the 226.3 MiB maximum observed sample is sufficient to fail the peak-RSS objective."
+  },
+  "cost": {
+    "provider_source": "SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY",
+    "warehouse_compute_credits": "0.233800200",
+    "effective_rate_per_compute_credit_usd": "2.00",
+    "rate_reference": "docs/evidence/phase8/2026-08-20/provider-cost-reconciliation.json",
+    "provider_measured_cost_usd": "0.467600400",
+    "ceiling_usd": "0.50",
+    "ceiling_passed": true,
+    "estimated": false,
+    "workload_rerun_required_for_cost_finalization": false
+  },
+  "cleanup": {
+    "cleanup_started_utc": "2026-08-23T01:38:34.709335Z",
+    "cleanup_started_after_first_owned_resource_seconds": "703.774",
+    "cleanup_start_deadline_satisfied": true,
+    "cleanup_completed_utc": "2026-08-23T01:38:37.681435Z",
+    "resource_lifetime_seconds": "706.746",
+    "maximum_resource_lifetime_satisfied": true,
+    "database_inventory_rows": 0,
+    "warehouse_inventory_rows": 0,
+    "role_inventory_rows": 0,
+    "container_running": false,
+    "container_present": false,
+    "active_owned_resource_inventories_empty": true,
+    "cleanup_errors": []
+  },
+  "report": {
+    "normalized_report_reference": "docs/evidence/phase8/2026-08-23/snowflake-rc30-bounded-memory.json",
+    "normalized_report_sha256": "62c0512198c9668967adf84beccf3f2024003b1d4a5cf27d992ea21d7dd7c9b6",
+    "candidate_report_unavailable_reason": "The fail-closed candidate path emitted only its sanitized failure summary after the peak-RSS objective failed.",
+    "post_execution_report_basis": "retained_operator_provider_and_external_memory_evidence"
+  },
+  "classification": {
+    "qualification_status": "failed",
+    "failed_objective": "peak_rss",
+    "throughput_objective_status": "not_evaluated",
+    "candidate_product_defect": false,
+    "qualification_harness_defect": false,
+    "replacement_candidate_required": false,
+    "rerun_authorized": false,
+    "cell_disposition": "closed_failed_unsupported_profile",
+    "support_disposition": "exclude_snowflake_local_scale_256mib_bounded_memory"
+  },
+  "sanitization": {
+    "credentials_present": false,
+    "oauth_codes_present": false,
+    "access_tokens_present": false,
+    "business_rows_present": false,
+    "private_account_identifier_present": false
+  },
+  "other_matrix_cells_changed": false,
+  "support_promoted": false
+}
