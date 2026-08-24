@@ -32,6 +32,10 @@ _DIGEST = f"sha256:{'a' * 64}"
 _REFERENCE = "codex-goal-phase8-redshift-failure"
 
 
+class _RedshiftDatabaseError(Exception):
+    """Test double for redshift_connector.error.DatabaseError."""
+
+
 def _config(**overrides: object) -> failure.RedshiftFailureConfig:
     values: dict[str, object] = {
         "account_id": "123456789012",
@@ -284,8 +288,13 @@ def test_credential_probe_does_not_misclassify_connection_failure(
         failure._probe_credential_rejection(_config())
 
 
+@pytest.mark.parametrize(
+    "database_error",
+    (psycopg.DatabaseError, _RedshiftDatabaseError),
+)
 def test_failed_copy_probe_uses_exact_sql_then_recovers(
     monkeypatch: pytest.MonkeyPatch,
+    database_error: type[Exception],
 ) -> None:
     config = _config()
     statements: list[str] = []
@@ -319,10 +328,11 @@ def test_failed_copy_probe_uses_exact_sql_then_recovers(
     ) -> object:
         statements.append(statement)
         if statement.startswith("COPY "):
-            raise psycopg.DatabaseError("invalid parquet")
+            raise database_error("invalid parquet")
         return SimpleNamespace(row=(0,))
 
     monkeypatch.setattr(failure, "_aws_client", lambda *_args, **_kwargs: FakeS3())
+    monkeypatch.setattr(failure, "_redshift_database_error", lambda: _RedshiftDatabaseError)
     monkeypatch.setattr(failure, "open_connection", fake_open_connection)
     monkeypatch.setattr(failure, "execute", fake_execute)
     monkeypatch.setattr(bulk, "_connection_factory", lambda _runtime: object())
@@ -344,7 +354,7 @@ def test_failed_copy_probe_uses_exact_sql_then_recovers(
     assert [name for name, _kwargs in calls] == ["put", "rollback", "commit", "delete"]
 
 
-def test_protected_objective_binds_harness_and_zero_retry_launcher(tmp_path: Path) -> None:
+def test_historical_rc31_objective_preserves_old_harness_binding(tmp_path: Path) -> None:
     reference = "codex-goal-02043c37-096e-416a-875c-b405c4af0594-aws-redshift-failure-usd-0.50"
     config = failure.RedshiftFailureConfig(
         account_id="184463061564",
@@ -370,14 +380,16 @@ def test_protected_objective_binds_harness_and_zero_retry_launcher(tmp_path: Pat
     manifest = tmp_path / "objectives.json"
     manifest.write_text(json.dumps(payload), encoding="utf-8")
 
-    approval = failure._load_approval(manifest, config=config, identity=identity)
+    with pytest.raises(ValueError, match="protected harness"):
+        failure._load_approval(manifest, config=config, identity=identity)
 
-    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
-    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    assert payload["configuration"]["execution"]["harness_sha256"] == (
+        "25ecf4691b4e1e2e5a71e34b2bed7de73f888721dc98b1b4a25fd27e3cda6e1a"
+    )
     assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0
 
 
-def test_rc32_corrective_objective_binds_candidate_budget_and_zero_retries(
+def test_historical_rc32_objective_preserves_failed_harness_binding(
     tmp_path: Path,
 ) -> None:
     reference = "codex-user-2026-08-24-additional-phase8-usd-10-redshift-failure-usd-0.50"
@@ -401,6 +413,50 @@ def test_rc32_corrective_objective_binds_candidate_budget_and_zero_retries(
     source = Path(
         "docs/evidence/phase8/2026-08-24/"
         "aws-native-rc32-redshift-failure-corrective-objectives.json"
+    )
+    payload = cast("dict[str, Any]", json.loads(source.read_text()))
+    manifest = tmp_path / "objectives.json"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="protected harness"):
+        failure._load_approval(manifest, config=config, identity=identity)
+
+    assert payload["configuration"]["execution"]["harness_sha256"] == (
+        "25ecf4691b4e1e2e5a71e34b2bed7de73f888721dc98b1b4a25fd27e3cda6e1a"
+    )
+    assert payload["budget_allocation"]["aggregate_ceiling_usd"] == "20.00"
+    assert payload["configuration"]["execution"]["corrective_candidate_executions"] == 1
+    assert payload["configuration"]["execution"]["provider_operation_retries"] == 0
+    assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0
+
+
+def test_rc32_harness_corrective_objective_binds_candidate_budget_and_zero_retries(
+    tmp_path: Path,
+) -> None:
+    reference = (
+        "codex-user-2026-08-24-additional-phase8-usd-10-"
+        "redshift-failure-harness-corrective-usd-0.50"
+    )
+    config = failure.RedshiftFailureConfig(
+        account_id="184463061564",
+        host="private-host",
+        database="analytics",
+        region="us-east-1",
+        workgroup_name="dander-p8q-rc32-rs-fail-c2",
+        copy_role_arn=("arn:aws:iam::184463061564:role/dander-p8q-rc32-rs-fail-c2-redshift-copy"),
+        staging_bucket="dander-p8q-rc32-rs-fail-c2-184463061564-staging",
+        staging_prefix="phase8/0.9.0rc32/staging",
+    )
+    identity = replace(
+        _identity(),
+        release_version="0.9.0rc32",
+        git_commit="0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+        image_digest=("sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63"),
+        approval_reference=reference,
+    )
+    source = Path(
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-failure-harness-corrective-objectives.json"
     )
     payload = cast("dict[str, Any]", json.loads(source.read_text()))
     manifest = tmp_path / "objectives.json"

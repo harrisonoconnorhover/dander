@@ -69,6 +69,17 @@ class RedshiftFailureQualificationError(RuntimeError):
     """Raised with a credential-free Redshift failure-path summary."""
 
 
+def _redshift_database_error() -> type[Exception]:
+    """Load the selected Redshift driver's database-error boundary lazily."""
+    error_module = importlib.import_module("redshift_connector.error")
+    database_error = getattr(error_module, "DatabaseError", None)
+    if not isinstance(database_error, type) or not issubclass(database_error, Exception):
+        raise RedshiftFailureQualificationError(
+            "Redshift connector database-error boundary is unavailable"
+        )
+    return database_error
+
+
 @dataclass(frozen=True, slots=True)
 class RedshiftFailureConfig:
     """Owned provider coordinates and the accepted bounded failure probes."""
@@ -458,6 +469,7 @@ def _probe_failed_copy_cleanup_and_recovery(
         ServerSideEncryption="AES256",
     )
     failed_started = time.perf_counter()
+    redshift_database_error = _redshift_database_error()
     try:
         with open_connection(bulk._connection_factory(runtime)) as connection:  # noqa: SLF001
             execute(
@@ -472,7 +484,7 @@ def _probe_failed_copy_cleanup_and_recovery(
                     f"FROM 's3://{config.staging_bucket}/{invalid_key}' "
                     f"IAM_ROLE '{config.copy_role_arn}' FORMAT AS PARQUET",
                 )
-            except psycopg.DatabaseError:
+            except (psycopg.DatabaseError, redshift_database_error):
                 failed_ms = _elapsed_ms(failed_started)
                 connection.rollback()
             else:
