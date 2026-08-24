@@ -2109,15 +2109,26 @@ def test_redshift_connection_validation_errors_are_sanitized(tmp_path: Path) -> 
     assert "private AWS response" not in str(raised.value)
 
 
-def test_redshift_serverless_requests_base_startup_protocol(
+def test_redshift_serverless_uses_explicit_temporary_credentials_and_base_protocol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
+    credential_requests: list[dict[str, object]] = []
     expected_connection = object()
 
     def fake_connector(**kwargs: object) -> object:
         captured.update(kwargs)
         return expected_connection
+
+    class _FakeServerlessClient:
+        def get_credentials(self, **kwargs: object) -> dict[str, object]:
+            credential_requests.append(kwargs)
+            return {"dbUser": "temporary-user", "dbPassword": "temporary-password"}
+
+    def fake_boto3_client(service_name: str, *, region_name: str) -> object:
+        assert service_name == "redshift-serverless"
+        assert region_name == "us-east-1"
+        return _FakeServerlessClient()
 
     raw = _config()
     raw.update(
@@ -2129,12 +2140,55 @@ def test_redshift_serverless_requests_base_startup_protocol(
     config = RedshiftWarehouseConfig.model_validate(raw)
     fake_connector_module = ModuleType("redshift_connector")
     fake_connector_module.connect = fake_connector  # type: ignore[attr-defined]
+    fake_boto3_module = ModuleType("boto3")
+    fake_boto3_module.client = fake_boto3_client  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "redshift_connector", fake_connector_module)
+    monkeypatch.setitem(sys.modules, "boto3", fake_boto3_module)
 
     connection = redshift_runtime_module._sdk_connection_factory(config)()
 
     assert connection is expected_connection
+    assert credential_requests == [
+        {
+            "workgroupName": "dander-test",
+            "dbName": "analytics",
+            "durationSeconds": 900,
+        }
+    ]
+    assert captured["user"] == "temporary-user"
+    assert captured["password"] == "temporary-password"
+    assert captured["iam"] is False
+    assert captured["ssl"] is True
+    assert captured["sslmode"] == "verify-full"
+    assert captured["timeout"] == config.connect_timeout_seconds
     assert captured["client_protocol_version"] == 0
     assert captured["is_serverless"] is True
     assert captured["serverless_work_group"] == "dander-test"
     assert "cluster_identifier" not in captured
+
+
+def test_redshift_serverless_rejects_incomplete_temporary_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FakeServerlessClient:
+        def get_credentials(self, **_kwargs: object) -> dict[str, object]:
+            return {"dbUser": "temporary-user"}
+
+    raw = _config()
+    raw.update(deployment="serverless", workgroup_name="dander-test")
+    del raw["cluster_identifier"]
+    del raw["db_user"]
+    config = RedshiftWarehouseConfig.model_validate(raw)
+    fake_boto3_module = ModuleType("boto3")
+    fake_boto3_module.client = (  # type: ignore[attr-defined]
+        lambda *_args, **_kwargs: _FakeServerlessClient()
+    )
+    fake_connector_module = ModuleType("redshift_connector")
+    fake_connector_module.connect = (  # type: ignore[attr-defined]
+        lambda **_kwargs: pytest.fail("connector must not receive incomplete credentials")
+    )
+    monkeypatch.setitem(sys.modules, "boto3", fake_boto3_module)
+    monkeypatch.setitem(sys.modules, "redshift_connector", fake_connector_module)
+
+    with pytest.raises(ProviderFactoryError, match="invalid temporary credentials"):
+        redshift_runtime_module._sdk_connection_factory(config)()
