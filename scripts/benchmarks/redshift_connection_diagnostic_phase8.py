@@ -17,17 +17,23 @@ from typing import TYPE_CHECKING, Protocol, cast
 from dander import __version__
 from dander.providers.redshift import runtime as redshift_runtime
 from dander.providers.redshift.config import RedshiftWarehouseConfig
+from dander.providers.redshift.session import execute
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
+    from dander.providers.redshift.session import RedshiftConnection
 
-_APPROVAL_SCHEMA = "io.dander.phase8.redshift-connection-diagnostic-approval/v1"
+
+_APPROVAL_SCHEMA = "io.dander.phase8.redshift-connection-diagnostic-approval/v2"
 _DIAGNOSTIC_STAGES = (
+    "dander_iam_connector",
+    "dander_validation_query",
     "get_credentials",
     "explicit_credentials_connector",
-    "dander_iam_connector",
+    "explicit_credentials_validation_query",
 )
+_MAXIMUM_MANUAL_EXECUTIONS = 20
 
 
 class _RedshiftServerlessClient(Protocol):
@@ -89,12 +95,26 @@ def run_diagnostic(
     serverless_client: _RedshiftServerlessClient | None = None,
     connector: Callable[..., object] | None = None,
 ) -> dict[str, object]:
-    """Compare explicit temporary credentials with Dander's current IAM path."""
+    """Compare Dander's cold IAM path with explicit temporary credentials."""
     _require_no_provider_retries()
     stages: list[dict[str, object]] = []
+
+    dander_connection = _record_stage(
+        stages,
+        "dander_iam_connector",
+        redshift_runtime._sdk_connection_factory(config.warehouse_config()),  # noqa: SLF001
+    )
+    try:
+        _record_stage(
+            stages,
+            "dander_validation_query",
+            lambda: _validate_connection(dander_connection, config.database),
+        )
+    finally:
+        _close_connection(dander_connection)
+
     client = serverless_client or _serverless_client(config.region)
     explicit_connector = connector or _connector()
-
     credentials = _record_stage(
         stages,
         "get_credentials",
@@ -105,7 +125,7 @@ def run_diagnostic(
         ),
     )
 
-    def connect_explicitly() -> None:
+    def connect_explicitly() -> object:
         if not isinstance(credentials, Mapping):
             raise DiagnosticPrerequisiteError
         username = credentials.get("dbUser")
@@ -114,38 +134,61 @@ def run_diagnostic(
             raise DiagnosticPrerequisiteError
         if not isinstance(password, str) or not password:
             raise DiagnosticPrerequisiteError
-        connection = cast(
-            "_Connection",
-            explicit_connector(
-                user=username,
-                password=password,
-                iam=False,
-                ssl=True,
-                sslmode="verify-full",
-                host=config.host,
-                port=config.port,
-                database=config.database,
-                region=config.region,
-                timeout=config.connect_timeout_seconds,
-                application_name="dander",
-                client_protocol_version=0,
-                is_serverless=True,
-                serverless_work_group=config.workgroup_name,
-            ),
+        return explicit_connector(
+            user=username,
+            password=password,
+            iam=False,
+            ssl=True,
+            sslmode="verify-full",
+            host=config.host,
+            port=config.port,
+            database=config.database,
+            region=config.region,
+            timeout=config.connect_timeout_seconds,
+            application_name="dander",
+            client_protocol_version=0,
+            is_serverless=True,
+            serverless_work_group=config.workgroup_name,
         )
-        connection.close()
 
-    _record_stage(stages, "explicit_credentials_connector", connect_explicitly)
-
-    def connect_with_dander() -> None:
-        connection = cast(
-            "_Connection",
-            redshift_runtime._sdk_connection_factory(config.warehouse_config())(),  # noqa: SLF001
+    explicit_connection = _record_stage(
+        stages,
+        "explicit_credentials_connector",
+        connect_explicitly,
+    )
+    try:
+        _record_stage(
+            stages,
+            "explicit_credentials_validation_query",
+            lambda: _validate_connection(explicit_connection, config.database),
         )
-        connection.close()
+    finally:
+        _close_connection(explicit_connection)
 
-    _record_stage(stages, "dander_iam_connector", connect_with_dander)
     return {"stages": stages}
+
+
+def _validate_connection(connection: object | None, database: str) -> None:
+    if connection is None:
+        raise DiagnosticPrerequisiteError
+    current = execute(
+        cast("RedshiftConnection", connection),
+        "SELECT current_database(), current_user",
+        fetch="one",
+    ).row
+    if (
+        not isinstance(current, (tuple, list))
+        or len(current) < 2
+        or current[0] != database
+        or not isinstance(current[1], str)
+        or not current[1]
+    ):
+        raise DiagnosticPrerequisiteError
+
+
+def _close_connection(connection: object | None) -> None:
+    if connection is not None:
+        cast("_Connection", connection).close()
 
 
 def _record_stage(
@@ -175,6 +218,7 @@ def _load_approval(
     *,
     config: DiagnosticConfig,
     identity: CandidateIdentity,
+    execution_number: int,
 ) -> None:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("schema") != _APPROVAL_SCHEMA:
@@ -204,7 +248,7 @@ def _load_approval(
     expected_execution = {
         "approval_reference": identity.approval_reference,
         "harness_sha256": _file_sha256(Path(__file__)),
-        "manual_executions": 1,
+        "maximum_manual_executions": _MAXIMUM_MANUAL_EXECUTIONS,
         "automatic_retry": False,
         "provider_operation_retries": 0,
         "connect_timeout_seconds": config.connect_timeout_seconds,
@@ -212,10 +256,13 @@ def _load_approval(
         "sslmode": "verify-full",
         "client_protocol_version": 0,
         "integrated_iam_for_explicit_credentials": False,
-        "schemas_or_queries_allowed": False,
+        "read_only_validation_query": "SELECT current_database(), current_user",
+        "schema_or_workload_mutation_allowed": False,
     }
     if execution != expected_execution:
         raise ValueError("diagnostic approval does not match the protected execution")
+    if execution_number < 1 or execution_number > _MAXIMUM_MANUAL_EXECUTIONS:
+        raise ValueError("diagnostic execution number exceeds the protected maximum")
 
 
 def _require_no_provider_retries() -> None:
@@ -261,6 +308,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--git-commit", required=True)
     parser.add_argument("--image-digest", required=True)
     parser.add_argument("--approval-reference", required=True)
+    parser.add_argument("--execution-number", type=int, required=True)
     parser.add_argument("--port", type=int, default=5439)
     parser.add_argument("--connect-timeout-seconds", type=int, default=300)
     return parser
@@ -288,7 +336,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if __version__ != identity.release_version:
         raise ValueError("installed Dander version does not match the diagnostic candidate")
-    _load_approval(arguments.approval_manifest, config=config, identity=identity)
+    _load_approval(
+        arguments.approval_manifest,
+        config=config,
+        identity=identity,
+        execution_number=arguments.execution_number,
+    )
     print(json.dumps(run_diagnostic(config), separators=(",", ":"), sort_keys=True))
     return 0
 

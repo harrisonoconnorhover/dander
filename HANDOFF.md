@@ -2,34 +2,35 @@
 
 ## Finished
 
-- Reconciled the terminal dispositions of the remaining DANDER-204 attempts without provider mutation.
-- Preserved Snowflake's tested 256 MiB profile as unsupported.
-- Preserved six GKE functional passes with provider cost still `not_evaluated`.
-- Preserved the GKE failure attempt and six Redshift cells without claiming qualification.
+- Extended the existing sanitized Redshift connection diagnostic to exercise Dander's IAM path first.
+- Split connector startup from the exact read-only runtime-validation query on both credential paths.
+- Bound at most 20 manual diagnostics to unchanged RC31, zero retries, and the remaining USD 0.35 ceiling.
+- Preserved every prior Redshift attempt and all DANDER-204 terminal classifications.
 
 ## Try It
 
-Review `docs/evidence/phase8/2026-08-23/dander-204-terminal-dispositions.json` against the referenced execution records.
+Run `uv run pytest -q tests/portability/test_redshift_connection_diagnostic_phase8.py`.
 
 ## Checks
 
-- JSON parsing and release-metadata checks pass.
-- No workload, candidate, provider resource, or accepted result changed.
+- Focused diagnostic tests, Ruff lint, Ruff formatting, strict typing, JSON parsing, and diff checks pass.
+- No provider resource, benchmark cell, schema, COPY operation, or candidate changed.
 
 ## Decisions
 
-- A terminal attempt is not a passing normalized report.
-- The successful connection diagnostic does not transfer a result to any Redshift scale cell.
-- DANDER-204 stays open and DANDER-205 remains dependency-blocked.
+- The Dander IAM path must run before explicit credential acquisition so the comparison cannot warm it first.
+- The only allowed query is the existing read-only `current_database()` and `current_user` validation.
+- Execution stops on a diagnostic distinction, an unexpected result, the run cap, or the cost cap.
 
 ## Remaining
 
-- Protect and execute the separately authorized Redshift diagnosis.
-- Reconcile GKE costs after Google's billing-delay incident clears.
-- Recheck the final AWS invoice without rerunning accepted workloads.
-- Continue the retained soak through its September 1 gate.
+- Protect the harness and objective, then require exact-main CI.
+- Run only as many diagnostics as needed, up to 20 and within USD 0.35.
+- Clean every owned AWS resource and record sanitized terminal evidence.
+- Make a product correction only if the protected diagnostic proves one.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-23/dander-204-terminal-dispositions.json`
-- `tickets/DANDER-204-phase8-scale-matrix.md`
+- `scripts/benchmarks/redshift_connection_diagnostic_phase8.py`
+- `tests/portability/test_redshift_connection_diagnostic_phase8.py`
+- `docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-reproduction-objective.json`

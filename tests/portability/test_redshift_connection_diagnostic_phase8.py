@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -23,7 +23,8 @@ _REFERENCE = "codex-goal-redshift-connection-diagnostic"
 
 
 class _Connection:
-    def __init__(self) -> None:
+    def __init__(self, *, iam: bool) -> None:
+        self.iam = iam
         self.closed = False
 
     def close(self) -> None:
@@ -31,11 +32,19 @@ class _Connection:
 
 
 class _ServerlessClient:
-    def __init__(self, *, failure: Exception | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        failure: Exception | None = None,
+        events: list[str] | None = None,
+    ) -> None:
         self.failure = failure
+        self.events = events
         self.calls: list[dict[str, object]] = []
 
     def get_credentials(self, **kwargs: object) -> Mapping[str, object]:
+        if self.events is not None:
+            self.events.append("get_credentials")
         self.calls.append(kwargs)
         if self.failure is not None:
             raise self.failure
@@ -70,13 +79,17 @@ def _install_connector(
     *,
     fail_explicit: Exception | None = None,
     fail_iam: Exception | None = None,
+    events: list[str] | None = None,
 ) -> None:
     def connect(**kwargs: object) -> object:
         calls.append(kwargs)
-        failure = fail_iam if kwargs.get("iam") is True else fail_explicit
+        iam = kwargs.get("iam") is True
+        if events is not None:
+            events.append("iam_connect" if iam else "explicit_connect")
+        failure = fail_iam if iam else fail_explicit
         if failure is not None:
             raise failure
-        return _Connection()
+        return _Connection(iam=iam)
 
     module = ModuleType("redshift_connector")
     module.connect = connect  # type: ignore[attr-defined]
@@ -88,16 +101,35 @@ def test_diagnostic_compares_explicit_credentials_with_current_dander_iam(
 ) -> None:
     monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
     monkeypatch.setenv("AWS_RETRY_MODE", "standard")
-    client = _ServerlessClient()
+    events: list[str] = []
+    client = _ServerlessClient(events=events)
     calls: list[dict[str, object]] = []
-    _install_connector(monkeypatch, calls)
+    _install_connector(monkeypatch, calls, events=events)
+
+    def execute(connection: object, statement: str, *, fetch: str) -> object:
+        current = cast("_Connection", connection)
+        events.append("iam_query" if current.iam else "explicit_query")
+        assert statement == "SELECT current_database(), current_user"
+        assert fetch == "one"
+        return SimpleNamespace(row=("analytics", "IAMR:dander_runtime"))
+
+    monkeypatch.setattr(diagnostic, "execute", execute)
 
     result = diagnostic.run_diagnostic(_config(), serverless_client=client)
 
     assert [stage["stage"] for stage in cast("list[dict[str, object]]", result["stages"])] == [
+        "dander_iam_connector",
+        "dander_validation_query",
         "get_credentials",
         "explicit_credentials_connector",
-        "dander_iam_connector",
+        "explicit_credentials_validation_query",
+    ]
+    assert events == [
+        "iam_connect",
+        "iam_query",
+        "get_credentials",
+        "explicit_connect",
+        "explicit_query",
     ]
     assert all(
         stage["exception_class"] is None
@@ -111,7 +143,7 @@ def test_diagnostic_compares_explicit_credentials_with_current_dander_iam(
         }
     ]
     assert len(calls) == 2
-    explicit, current = calls
+    current, explicit = calls
     assert explicit["iam"] is False
     assert explicit["user"] == "temporary-user"
     assert explicit["password"] == "temporary-password"
@@ -142,9 +174,11 @@ def test_diagnostic_emits_only_sanitized_stage_metadata(
     stages = cast("list[dict[str, object]]", result["stages"])
 
     assert [stage["exception_class"] for stage in stages] == [
+        "RuntimeError",
+        "DiagnosticPrerequisiteError",
         None,
         "TimeoutError",
-        "RuntimeError",
+        "DiagnosticPrerequisiteError",
     ]
     assert all(set(stage) == {"stage", "elapsed_ms", "exception_class"} for stage in stages)
     assert "temporary-password" not in encoded
@@ -159,6 +193,11 @@ def test_diagnostic_records_missing_credentials_and_still_compares_current_path(
     monkeypatch.setenv("AWS_RETRY_MODE", "standard")
     calls: list[dict[str, object]] = []
     _install_connector(monkeypatch, calls)
+    monkeypatch.setattr(
+        diagnostic,
+        "execute",
+        lambda *_args, **_kwargs: SimpleNamespace(row=("analytics", "IAMR:dander_runtime")),
+    )
 
     result = diagnostic.run_diagnostic(
         _config(),
@@ -167,9 +206,11 @@ def test_diagnostic_records_missing_credentials_and_still_compares_current_path(
     stages = cast("list[dict[str, object]]", result["stages"])
 
     assert [stage["exception_class"] for stage in stages] == [
+        None,
+        None,
         "PermissionError",
         "DiagnosticPrerequisiteError",
-        None,
+        "DiagnosticPrerequisiteError",
     ]
     assert len(calls) == 1
     assert calls[0]["iam"] is True
@@ -197,7 +238,7 @@ def test_approval_binds_tls_timeout_protocol_and_exact_harness(tmp_path: Path) -
         "execution": {
             "approval_reference": identity.approval_reference,
             "harness_sha256": diagnostic._file_sha256(Path(diagnostic.__file__)),
-            "manual_executions": 1,
+            "maximum_manual_executions": 20,
             "automatic_retry": False,
             "provider_operation_retries": 0,
             "connect_timeout_seconds": config.connect_timeout_seconds,
@@ -205,17 +246,52 @@ def test_approval_binds_tls_timeout_protocol_and_exact_harness(tmp_path: Path) -
             "sslmode": "verify-full",
             "client_protocol_version": 0,
             "integrated_iam_for_explicit_credentials": False,
-            "schemas_or_queries_allowed": False,
+            "read_only_validation_query": "SELECT current_database(), current_user",
+            "schema_or_workload_mutation_allowed": False,
         },
     }
     approval = tmp_path / "approval.json"
     approval.write_text(json.dumps(payload), encoding="utf-8")
 
-    diagnostic._load_approval(approval, config=config, identity=identity)
+    diagnostic._load_approval(approval, config=config, identity=identity, execution_number=20)
+    with pytest.raises(ValueError, match="execution number"):
+        diagnostic._load_approval(approval, config=config, identity=identity, execution_number=21)
     cast("dict[str, object]", payload["execution"])["sslmode"] = "disable"
     approval.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="protected execution"):
-        diagnostic._load_approval(approval, config=config, identity=identity)
+        diagnostic._load_approval(approval, config=config, identity=identity, execution_number=1)
+
+
+def test_tracked_objective_matches_exact_harness_and_twenty_run_bound() -> None:
+    root = Path(__file__).parents[2]
+    approval = (
+        root / "docs/evidence/phase8/2026-08-23/"
+        "aws-native-rc31-redshift-connection-reproduction-objective.json"
+    )
+    payload = json.loads(approval.read_text(encoding="utf-8"))
+    provider = cast("dict[str, object]", payload["provider"])
+    candidate = cast("dict[str, object]", payload["candidate"])
+    execution = cast("dict[str, object]", payload["execution"])
+    config = diagnostic.DiagnosticConfig(
+        account_id=cast("str", provider["account_id"]),
+        host=cast("str", provider["host"]),
+        database=cast("str", provider["database"]),
+        region=cast("str", provider["region"]),
+        workgroup_name=cast("str", provider["workgroup_name"]),
+        copy_role_arn="arn:aws:iam::184463061564:role/dander-redshift-copy",
+        staging_bucket="dander-redshift-staging",
+        staging_prefix="phase8/0.9.0rc31/staging",
+        port=cast("int", provider["port"]),
+    )
+    identity = diagnostic.CandidateIdentity(
+        release_version=cast("str", candidate["release_version"]),
+        git_commit=cast("str", candidate["git_commit"]),
+        image_digest=cast("str", candidate["image_digest"]),
+        approval_reference=cast("str", execution["approval_reference"]),
+    )
+
+    diagnostic._load_approval(approval, config=config, identity=identity, execution_number=1)
+    diagnostic._load_approval(approval, config=config, identity=identity, execution_number=20)
 
 
 def test_diagnostic_requires_zero_provider_retries(monkeypatch: pytest.MonkeyPatch) -> None:
