@@ -1,0 +1,211 @@
+{
+  "schema": "io.dander.qualification.objective-approval/v1",
+  "cost_ceiling": {
+    "amount_usd": "0.50",
+    "approval_reference": "codex-user-2026-08-24-redshift-diagnosis-runs-redshift-failure-launcher-corrective-usd-0.50"
+  },
+  "budget_allocation": {
+    "authorization_reference": "codex-user-2026-08-24-redshift-diagnosis-runs-and-additional-usd-10",
+    "aggregate_ceiling_usd": "20.00",
+    "provider_measured_or_conservative_before_objective_usd": "6.991419762794",
+    "existing_reserved_before_objective_usd": "4.00",
+    "objective_reservation_usd": "0.50",
+    "remaining_aggregate_ceiling_after_full_objective_reservation_usd": "8.508580237206"
+  },
+  "workload": {
+    "schema": "io.dander.phase8.redshift-failure/v1",
+    "benchmark_class": "failure",
+    "probes": [
+      "credential_rejection",
+      "failed_copy_cleanup",
+      "provider_operation_recovery",
+      "stale_publication_rejection"
+    ],
+    "recovery_rows": 1,
+    "copy_part_rows": 1,
+    "copy_part_logical_bytes": 16777216
+  },
+  "configuration": {
+    "candidate": {
+      "release_version": "0.9.0rc32",
+      "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+      "target_image": "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+      "retained_target_already_verified": true,
+      "rebuild": false,
+      "registry_copy_attempts": 1,
+      "mutable_tag_selection": false
+    },
+    "redshift": {
+      "account_id": "184463061564",
+      "region": "us-east-1",
+      "workgroup_name": "dander-p8q-rc32-rs-fail-c3",
+      "copy_role_arn": "arn:aws:iam::184463061564:role/dander-p8q-rc32-rs-fail-c3-redshift-copy",
+      "staging_bucket": "dander-p8q-rc32-rs-fail-c3-184463061564-staging",
+      "staging_prefix": "phase8/0.9.0rc32/staging",
+      "on_demand_rate_usd_per_rpu_hour": "0.375"
+    },
+    "data_plane": {
+      "terraform_root": "infra/qualification/aws-native",
+      "resource_name": "dander-p8q-rc32-rs-fail-c3",
+      "state_key": "dander/d7/control-plane/phase8-qualification/rc32-redshift-failure-launcher-c3.tfstate",
+      "aws_profile": "dander-deploy",
+      "redshift_serverless_base_capacity_rpu": 8,
+      "redshift_serverless_daily_usage_limit_rpu_hours": 1,
+      "postgresql_instance_class": "db.t4g.micro",
+      "postgresql_storage_gib": 20,
+      "schedule_created": false,
+      "terraform_provider_operation_retries": 0,
+      "runtime_serverless_usage_select_granted": true,
+      "post_apply_no_drift_required": true
+    },
+    "task_role": {
+      "redshift_db_roles_tag": {
+        "key": "RedshiftDbRoles",
+        "value": "dander_runtime"
+      },
+      "required_global_actions": [
+        "tag:GetResources",
+        "tag:GetTagKeys"
+      ],
+      "required_global_resource": "*",
+      "redshift_auth_action": "redshift-serverless:GetCredentials",
+      "redshift_auth_resource_binding": "exact_owned_workgroup_arn_after_apply"
+    },
+    "fargate_harness": {
+      "resource_prefix": "dander-p8q-rc32-rs-fail-c3",
+      "cluster_executions": 1,
+      "task_cpu_units": 2048,
+      "task_memory_mib": 4096,
+      "task_timeout_seconds": 900,
+      "state_machine_executions": 1,
+      "state_machine_retry_states": 0,
+      "ecs_task_retries": 0,
+      "container_restarts": 0,
+      "automatic_retry": false,
+      "runtime_cpu_architecture": "ARM64",
+      "candidate_image_architecture": "arm64",
+      "task_entrypoint": [
+        "/bin/sh",
+        "-c"
+      ],
+      "candidate_python_executable": "python",
+      "candidate_cli_executable": "dander",
+      "forbidden_candidate_executable_prefix": "/app/.venv/bin/",
+      "task_read_only_root": true,
+      "task_user": "65532:65532",
+      "task_tmpfs_path": "/tmp",
+      "harness_working_directory": "/tmp/harness",
+      "harness_import_root": "/tmp/harness",
+      "harness_bundle_key": "phase8/0.9.0rc32/staging/harness/redshift-failure-5e0eadd77f64.zip",
+      "harness_bundle_contains": [
+        "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-launcher-corrective-objectives.json",
+        "scripts/benchmarks/redshift.py",
+        "scripts/benchmarks/redshift_bulk_phase8.py",
+        "scripts/benchmarks/redshift_failure_phase8.py"
+      ],
+      "harness_download_attempts": 1,
+      "transient_candidate_stdout_key": "phase8/0.9.0rc32/staging/diagnostics/failure/stdout.txt",
+      "transient_candidate_stderr_key": "phase8/0.9.0rc32/staging/diagnostics/failure/stderr.txt",
+      "transient_diagnostics_delete_before_cleanup": true,
+      "cleanup": "delete exact harness and transient diagnostic objects, deregister exact task definition, remove exact log group, state machine, roles and cluster"
+    },
+    "execution": {
+      "harness_sha256": "5e0eadd77f64c0b3bf94370127ce8fef7f98187184ed9bd1bd44d290842a4c8d",
+      "shared_harness_sha256": "40f59a7a33491e94089f06d1d4f269fc14ecc0c79fffad3832a568d76166f28a",
+      "bulk_harness_sha256": "55dfda207d33b8f70f4dd19d19d0a2da70759d8c00345a60aac1cf6bedb041a7",
+      "manual_candidate_executions": 1,
+      "corrective_candidate_executions": 1,
+      "automatic_candidate_retry": false,
+      "provider_operation_retries": 0,
+      "cost_observation_delay_seconds": 70,
+      "aws_max_attempts": 1,
+      "aws_retry_mode": "standard",
+      "candidate_command": "cd /tmp/harness && dander qualification-run scripts/benchmarks/redshift_failure_phase8.py",
+      "candidate_exit_codes_accepted": [
+        0
+      ]
+    },
+    "prior_rc31_attempt": {
+      "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc31-rs-failure:rc31-redshift-failure-20260823",
+      "candidate_executions": 1,
+      "automatic_retries": 0,
+      "provider_operation_retries": 0,
+      "failure_boundary": "shared_serverless_connection_validation",
+      "normalized_report_emitted": false,
+      "workload_schema_created": false,
+      "staging_objects_created": false,
+      "exact_cleanup_passed": true,
+      "result_transfers_to_rc32": false
+    },
+    "prior_rc32_harness_attempt": {
+      "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-failure:rc32-redshift-failure-20260824",
+      "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-failure/080ce26746b04acbab6e215226131e90",
+      "candidate_executions": 1,
+      "automatic_retries": 0,
+      "provider_operation_retries": 0,
+      "failure_boundary": "invalid_copy_exception_classification",
+      "normalized_report_emitted": false,
+      "exact_cleanup_passed": true,
+      "provider_cost_report_available": false,
+      "conservative_cost_usd": "0.50",
+      "result_transfers_to_corrective_execution": false
+    },
+    "prior_rc32_launcher_attempt": {
+      "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c2:rc32-redshift-failure-c2-20260824",
+      "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-fail-c2/da4eb0cc480d42ac88258330946c3fee",
+      "candidate_executions": 1,
+      "automatic_retries": 0,
+      "provider_operation_retries": 0,
+      "failure_boundary": "launcher_harness_import_root",
+      "exception_class": "ModuleNotFoundError",
+      "normalized_report_emitted": false,
+      "dander_runtime_constructed": false,
+      "workload_schema_created": false,
+      "workload_staging_objects_created": false,
+      "exact_cleanup_passed": true,
+      "terraform_create_plan_sha256": "28733c6395d3ec287a11f88672a3d6ba83de27ca6ce3788c5a539a00a192d8ed",
+      "terraform_no_drift_plan_sha256": "6b90cd49f3f030fd886c24d061da56d76939051d10e817cfa53b88c5c8b294ad",
+      "terraform_destroy_plan_sha256": "f30773be86a1836b59057cc4a9d302bdee58470b3479e9d08b79e075972498b1",
+      "terraform_resources_destroyed": 37,
+      "remote_state_versions_deleted": 13,
+      "provider_cost_report_available": false,
+      "conservative_cost_usd": "0.50",
+      "result_transfers_to_corrective_execution": false
+    },
+    "cost_attribution": {
+      "source": "SYS_SERVERLESS_USAGE",
+      "provider_measurement": "charged_seconds",
+      "formula": "charged_seconds / 3600 * 0.375 USD per RPU-hour",
+      "provider_interval_seconds": 60,
+      "estimated": false,
+      "cell_ceiling_within_remaining_allocation": true
+    },
+    "cleanup": {
+      "begin_immediately_after_terminal_task": true,
+      "require_zero_disposable_schemas": true,
+      "require_zero_staging_tables": true,
+      "require_zero_staging_objects": true,
+      "destroy_fargate_harness_before_data_plane": true,
+      "terraform_state_entries_after_destroy": 0,
+      "direct_owned_resource_inventories_empty": true,
+      "retained_stage_zero_and_ecr_excluded": true
+    }
+  },
+  "approved_objectives": {
+    "names": [
+      "cleanup",
+      "cost_ceiling",
+      "credential_rejection",
+      "failed_copy_cleanup",
+      "provider_operation_recovery",
+      "stale_publication_rejection"
+    ],
+    "benchmark_class": "failure",
+    "profile_id": "aws_native_redshift",
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "configuration_sha256": "c3fadcf44163177e7b102f432a984f2bd8bb1d34c5f56b791b9a6a45503ec217",
+    "approval_reference": "codex-user-2026-08-24-redshift-diagnosis-runs-redshift-failure-launcher-corrective-usd-0.50"
+  }
+}

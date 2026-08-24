@@ -430,21 +430,43 @@ def test_historical_rc32_objective_preserves_failed_harness_binding(
     assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0
 
 
-def test_rc32_harness_corrective_objective_binds_candidate_budget_and_zero_retries(
-    tmp_path: Path,
-) -> None:
+def test_historical_rc32_harness_corrective_objective_preserves_launcher_boundary() -> None:
     reference = (
         "codex-user-2026-08-24-additional-phase8-usd-10-"
         "redshift-failure-harness-corrective-usd-0.50"
+    )
+    source = Path(
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-failure-harness-corrective-objectives.json"
+    )
+    payload = cast("dict[str, Any]", json.loads(source.read_text()))
+
+    assert payload["cost_ceiling"]["approval_reference"] == reference
+    assert payload["budget_allocation"]["aggregate_ceiling_usd"] == "20.00"
+    assert payload["configuration"]["execution"]["corrective_candidate_executions"] == 1
+    assert payload["configuration"]["execution"]["provider_operation_retries"] == 0
+    assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0
+    assert payload["configuration"]["execution"]["candidate_command"] == (
+        "dander qualification-run /tmp/harness/scripts/benchmarks/redshift_failure_phase8.py"
+    )
+    assert "harness_working_directory" not in payload["configuration"]["fargate_harness"]
+
+
+def test_rc32_launcher_corrective_objective_binds_import_root_and_zero_retries(
+    tmp_path: Path,
+) -> None:
+    reference = (
+        "codex-user-2026-08-24-redshift-diagnosis-runs-"
+        "redshift-failure-launcher-corrective-usd-0.50"
     )
     config = failure.RedshiftFailureConfig(
         account_id="184463061564",
         host="private-host",
         database="analytics",
         region="us-east-1",
-        workgroup_name="dander-p8q-rc32-rs-fail-c2",
-        copy_role_arn=("arn:aws:iam::184463061564:role/dander-p8q-rc32-rs-fail-c2-redshift-copy"),
-        staging_bucket="dander-p8q-rc32-rs-fail-c2-184463061564-staging",
+        workgroup_name="dander-p8q-rc32-rs-fail-c3",
+        copy_role_arn=("arn:aws:iam::184463061564:role/dander-p8q-rc32-rs-fail-c3-redshift-copy"),
+        staging_bucket="dander-p8q-rc32-rs-fail-c3-184463061564-staging",
         staging_prefix="phase8/0.9.0rc32/staging",
     )
     identity = replace(
@@ -456,7 +478,7 @@ def test_rc32_harness_corrective_objective_binds_candidate_budget_and_zero_retri
     )
     source = Path(
         "docs/evidence/phase8/2026-08-24/"
-        "aws-native-rc32-redshift-failure-harness-corrective-objectives.json"
+        "aws-native-rc32-redshift-failure-launcher-corrective-objectives.json"
     )
     payload = cast("dict[str, Any]", json.loads(source.read_text()))
     manifest = tmp_path / "objectives.json"
@@ -469,4 +491,10 @@ def test_rc32_harness_corrective_objective_binds_candidate_budget_and_zero_retri
     assert payload["budget_allocation"]["aggregate_ceiling_usd"] == "20.00"
     assert payload["configuration"]["execution"]["corrective_candidate_executions"] == 1
     assert payload["configuration"]["execution"]["provider_operation_retries"] == 0
-    assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0
+    harness = payload["configuration"]["fargate_harness"]
+    assert harness["state_machine_retry_states"] == 0
+    assert harness["harness_working_directory"] == "/tmp/harness"
+    assert harness["harness_import_root"] == "/tmp/harness"
+    assert payload["configuration"]["execution"]["candidate_command"] == (
+        "cd /tmp/harness && dander qualification-run scripts/benchmarks/redshift_failure_phase8.py"
+    )
