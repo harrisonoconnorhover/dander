@@ -1,0 +1,120 @@
+{
+  "schema": "io.dander.phase8.redshift-connection-diagnostic/v3",
+  "attempt_date": "2026-08-24",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-connection-diagnostic-objective.json",
+  "protection": {
+    "objective_pull_request": 454,
+    "objective_merge_commit": "af765ce324a41ae48c53be10241af86c38823d0f",
+    "objective_pull_request_ci_run": 32722343534,
+    "objective_exact_main_ci_run": 32722951001,
+    "usage_limit_correction_pull_request": 455,
+    "usage_limit_correction_merge_commit": "b3da55e5b3ac4e04f5f15ad3a9ecee262aee3d15",
+    "usage_limit_correction_pull_request_ci_run": 32723716776,
+    "usage_limit_correction_exact_main_ci_run": 32724439543,
+    "protected_ci_jobs_passed_per_run": 5
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "replacement_published": false
+  },
+  "execution": {
+    "manual_executions": 2,
+    "automatic_retries": 0,
+    "provider_operation_retries": 0,
+    "connect_timeout_seconds": 300,
+    "ssl": true,
+    "sslmode": "verify-full",
+    "client_protocol_version": 0,
+    "schema_mutations": 0,
+    "copy_operations": 0,
+    "benchmark_cells_executed": 0,
+    "read_only_validation_queries_attempted": 4,
+    "read_only_validation_queries_succeeded": 3,
+    "executions": [
+      {
+        "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-diag-c8:rc32-redshift-connection-diag-c8-01-20260824",
+        "started_at_utc": "2026-08-24T12:17:50.882Z",
+        "completed_at_utc": "2026-08-24T12:24:03.223Z",
+        "status": "succeeded",
+        "sanitized_output_sha256": "5223b35ece897410d3a93e4b1a0f1b2433d34354b553d5e0e9ed1788419f1584",
+        "stages": [
+          {"stage": "get_credentials", "elapsed_ms": 86, "exception_class": null},
+          {"stage": "explicit_credentials_connector", "elapsed_ms": 104, "exception_class": null},
+          {"stage": "explicit_credentials_validation_query", "elapsed_ms": 300100, "exception_class": "TimeoutError"},
+          {"stage": "dander_current_connector", "elapsed_ms": 492, "exception_class": null},
+          {"stage": "dander_current_validation_query", "elapsed_ms": 12, "exception_class": null}
+        ]
+      },
+      {
+        "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-diag-c8:rc32-redshift-connection-diag-c8-02-20260824",
+        "started_at_utc": "2026-08-24T12:26:04.573Z",
+        "completed_at_utc": "2026-08-24T12:27:11.211Z",
+        "status": "succeeded",
+        "sanitized_output_sha256": "8efd3ae3a7bf7e349b15661957698f2e016787c445cc1a31b7630cdecf469b62",
+        "stages": [
+          {"stage": "get_credentials", "elapsed_ms": 83, "exception_class": null},
+          {"stage": "explicit_credentials_connector", "elapsed_ms": 127, "exception_class": null},
+          {"stage": "explicit_credentials_validation_query", "elapsed_ms": 9, "exception_class": null},
+          {"stage": "dander_current_connector", "elapsed_ms": 118, "exception_class": null},
+          {"stage": "dander_current_validation_query", "elapsed_ms": 8, "exception_class": null}
+        ]
+      }
+    ]
+  },
+  "classification": {
+    "result": "first_validation_query_timeout_not_connector_path_specific",
+    "rc31_opposite_order_reference": "docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-reproduction.json",
+    "observed_rc31_first_path": "dander_validation_query_timeout_then_explicit_validation_success",
+    "observed_rc32_first_execution": "explicit_validation_query_timeout_then_dander_validation_success",
+    "observed_rc32_second_execution": "both_validation_queries_succeeded",
+    "rc32_dander_current_connector_succeeded": true,
+    "rc32_dander_current_validation_query_succeeded": true,
+    "smallest_product_correction_selected": null,
+    "additional_product_change_required": false,
+    "tls_or_protocol_change_required": false,
+    "conclusion": "The timeout followed the first validation query in opposite-order protected runs rather than one connector path. RC32's protected explicit-credential Dander factory completed both of its validation queries, and the second RC32 execution completed both paths. No additional product correction is supported by this result."
+  },
+  "infrastructure": {
+    "terraform_create_plan_sha256": "9bb02e49450235fc664612aa55bc9c0b1b020d07b44ba13e1bc5fc9ed35e1ba3",
+    "terraform_create_actions": 37,
+    "terraform_post_apply_no_drift_plan_sha256": "105e5a7a400b8a0a5cf41dfd1d189db3dc64da7d2d3ae20a8b52b9d1322e528b",
+    "terraform_post_apply_changes": 0,
+    "task_definition_revisions": 2,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "diagnostic_and_harness_objects_removed": 3,
+    "terraform_destroy_plan_sha256": "3a58708cf676b78e76add328dc0ee48e7e355741026dc52005220845c310f393",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 13,
+    "remote_state_versions_after_cleanup": 0,
+    "remote_state_delete_markers_after_cleanup": 0,
+    "lock_metadata_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "candidate_digest_retained": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "4.00",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "conservative_bound_usd": "4.00",
+    "conservative_bound_basis": "The provider invoice is pending, so the full protected diagnostic objective ceiling remains counted.",
+    "aggregate_authorized_ceiling_usd": "20.00",
+    "aggregate_conservative_bound_after_objective_usd": "13.491419762794",
+    "workload_rerun_required_for_cost_finalization": false
+  },
+  "qualification_effect": {
+    "redshift_scale_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "connection_diagnostic_complete": true,
+    "next_scope": "Only exact-RC32 Redshift cells materially blocked by the shared connection boundary."
+  }
+}
