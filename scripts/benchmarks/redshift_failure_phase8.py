@@ -482,9 +482,14 @@ def _probe_failed_copy_cleanup_and_recovery(
         with open_connection(bulk._connection_factory(runtime)) as connection:  # noqa: SLF001
             execute(
                 connection,
+                f"CREATE SCHEMA IF NOT EXISTS {bulk._qualified(schema_name)}",  # noqa: SLF001
+            )
+            execute(
+                connection,
                 f"CREATE TABLE {bulk._qualified(schema_name, 'failed_copy_records')} "  # noqa: SLF001
                 '("id" VARCHAR(32) NOT NULL, "payload" VARCHAR(64) NOT NULL)',
             )
+            connection.commit()
             try:
                 execute(
                     connection,
