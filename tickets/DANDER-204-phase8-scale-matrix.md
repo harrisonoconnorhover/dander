@@ -388,6 +388,16 @@ scale report.
   resources, all 13 remote-state versions, and exact lock metadata; a later read-only check again
   found every owned resource absent. The USD 0.50 conservative bound remains held pending the
   provider invoice.
+- PR #443 protected a cold-order reproduction that timed connector startup separately from the
+  existing read-only validation query. Exact RC31 connected through Dander's integrated-IAM path
+  in 380 ms, but its first validation query reached the unchanged 300-second timeout. The same task
+  then obtained Serverless temporary credentials in 91 ms, connected with integrated IAM disabled
+  in 383 ms, and completed the validation query in 11 ms. It used one manual execution and zero
+  retries; the candidate produced no schema, COPY, or benchmark mutation. Cleanup removed the
+  launcher, three retained objects, all 37 data-plane resources, 14 remote-state versions, and the
+  exact lock record. This selects the bounded product correction: Dander must acquire Serverless
+  credentials explicitly while leaving provisioned Redshift unchanged. See
+  `docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-reproduction.json`.
 - PR #410 protected the exact-RC30 Snowflake bounded-memory objective. Exact-main run
   `32580133652` passed all five jobs before its one execution. The unchanged 2.6-million-row,
   2.7248-GB workload completed all 260 COPY operations and exact 2.6-million-row readback with zero

@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from dander.providers.redshift.config import RedshiftWarehouseConfig, validate_redshift_relation
 from dander.providers.redshift.fence import RedshiftTargetFence
@@ -44,6 +44,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
     from pydantic import BaseModel
+
+
+class _RedshiftServerlessClient(Protocol):
+    def get_credentials(self, **kwargs: object) -> Mapping[str, object]: ...
 
 
 REDSHIFT_SCHEMA_SUPPORT = WarehouseSchemaSupport(
@@ -342,7 +346,6 @@ def _sdk_connection_factory(config: RedshiftWarehouseConfig) -> RedshiftConnecti
             ) from error
         connector = cast("Callable[..., object]", redshift_connector.connect)
         common: dict[str, object] = {
-            "iam": True,
             "ssl": True,
             "sslmode": "verify-full",
             "host": config.host,
@@ -356,11 +359,25 @@ def _sdk_connection_factory(config: RedshiftWarehouseConfig) -> RedshiftConnecti
             assert config.db_user is not None
             return connector(
                 **common,
+                iam=True,
                 cluster_identifier=config.cluster_identifier,
                 db_user=config.db_user,
             )
+        client = _sdk_serverless_client(config.region)
+        credentials = client.get_credentials(
+            workgroupName=config.workgroup_name,
+            dbName=config.database,
+            durationSeconds=900,
+        )
+        user = credentials.get("dbUser")
+        password = credentials.get("dbPassword")
+        if not isinstance(user, str) or not user or not isinstance(password, str) or not password:
+            raise ProviderFactoryError("Redshift Serverless returned invalid temporary credentials")
         return connector(
             **common,
+            user=user,
+            password=password,
+            iam=False,
             # Serverless qualification observed the default binary protocol stall after
             # authentication and before ReadyForQuery. Request the base text protocol so
             # startup does not depend on extended transfer-protocol negotiation.
@@ -370,6 +387,19 @@ def _sdk_connection_factory(config: RedshiftWarehouseConfig) -> RedshiftConnecti
         )
 
     return cast("RedshiftConnectionFactory", connect)
+
+
+def _sdk_serverless_client(region: str) -> _RedshiftServerlessClient:
+    try:
+        boto3 = importlib.import_module("boto3")
+    except ModuleNotFoundError as error:
+        raise ProviderFactoryError(
+            "Redshift warehouse requires the dander-platform[redshift] extra"
+        ) from error
+    return cast(
+        "_RedshiftServerlessClient",
+        boto3.client("redshift-serverless", region_name=region),
+    )
 
 
 def _sdk_s3_client(region: str) -> RedshiftS3Client:

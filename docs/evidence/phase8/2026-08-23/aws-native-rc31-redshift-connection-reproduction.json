@@ -1,0 +1,106 @@
+{
+  "schema": "io.dander.phase8.redshift-connection-diagnostic/v2",
+  "attempt_date": "2026-08-23",
+  "objective_reference": "docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-reproduction-objective.json",
+  "protection": {
+    "objective_pull_request": 443,
+    "objective_merge_commit": "a91ed5c56306d632c207f08e22a91cca383815d3",
+    "objective_pull_request_ci_run": 32681490669,
+    "objective_exact_main_ci_run": 32681900498,
+    "objective_exact_main_ci_jobs_passed": 5
+  },
+  "candidate": {
+    "release_version": "0.9.0rc31",
+    "git_commit": "3d6a59484737bf1192f0389b8f93a3a24c780fc4",
+    "image_digest": "sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9",
+    "replacement_published": false
+  },
+  "execution": {
+    "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc31-rs-repro:diagnostic-01",
+    "task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc31-rs-repro/341bac881db2450fbc8a3dec29458766",
+    "started_at_utc": "2026-08-24T02:27:39.467Z",
+    "candidate_started_at_utc": "2026-08-24T02:28:09.379Z",
+    "candidate_output_persisted_at_utc": "2026-08-24T02:33:14Z",
+    "orchestrator_timed_out_at_utc": "2026-08-24T02:33:39.467Z",
+    "candidate_stopped_at_utc": "2026-08-24T02:33:47.074Z",
+    "orchestrator_status": "timed_out_after_candidate_output_persisted",
+    "candidate_exit_code": 0,
+    "manual_executions": 1,
+    "automatic_retries": 0,
+    "provider_operation_retries": 0,
+    "connect_timeout_seconds": 300,
+    "ssl": true,
+    "sslmode": "verify-full",
+    "client_protocol_version": 0,
+    "sanitized_output_sha256": "c56011e6935644bd35f16e0a4d277137929978677aebe8932d52116f64262374",
+    "stages": [
+      {
+        "stage": "dander_iam_connector",
+        "elapsed_ms": 380,
+        "exception_class": null
+      },
+      {
+        "stage": "dander_validation_query",
+        "elapsed_ms": 300074,
+        "exception_class": "TimeoutError"
+      },
+      {
+        "stage": "get_credentials",
+        "elapsed_ms": 91,
+        "exception_class": null
+      },
+      {
+        "stage": "explicit_credentials_connector",
+        "elapsed_ms": 383,
+        "exception_class": null,
+        "integrated_iam": false
+      },
+      {
+        "stage": "explicit_credentials_validation_query",
+        "elapsed_ms": 11,
+        "exception_class": null
+      }
+    ],
+    "candidate_schema_mutations": 0,
+    "candidate_copy_operations": 0,
+    "benchmark_cells_executed": 0,
+    "read_only_validation_queries_attempted": 2
+  },
+  "classification": {
+    "result": "explicit_credentials_succeeded_after_dander_validation_timeout",
+    "dander_integrated_iam_connector_completed": true,
+    "dander_validation_query_succeeded": false,
+    "explicit_get_credentials_succeeded": true,
+    "explicit_connector_succeeded": true,
+    "explicit_validation_query_succeeded": true,
+    "smallest_product_correction_selected": "Acquire Redshift Serverless temporary credentials in Dander and connect with integrated IAM disabled.",
+    "provisioned_redshift_behavior_changes": false,
+    "replacement_candidate_required": true,
+    "redshift_cell_rerun_scope": "only cells materially blocked by the shared Serverless connection boundary"
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "diagnostic_and_harness_objects_removed": 3,
+    "terraform_destroy_plan_sha256": "3ddce1a6dd83389a8571ec7e478ca37e7db4fa977e2bdcf9dc73a5ff1dd66a32",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 14,
+    "remote_state_versions_after_cleanup": 0,
+    "remote_state_delete_markers_after_cleanup": 0,
+    "lock_metadata_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.35",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "conservative_bound_held": true,
+    "workload_rerun_required_for_cost_finalization": false
+  },
+  "qualification_effect": {
+    "redshift_scale_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false
+  }
+}

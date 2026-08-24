@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, cast
 import pytest
 from scripts.benchmarks import redshift_connection_diagnostic_phase8 as diagnostic
 
+import dander.providers.redshift.runtime as redshift_runtime_module
 from dander import __version__
 
 if TYPE_CHECKING:
@@ -95,8 +96,31 @@ def _install_connector(
     module.connect = connect  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "redshift_connector", module)
 
+    def protected_rc31_connection_factory(config: object) -> object:
+        current = cast("diagnostic.DiagnosticConfig", config)
+        return lambda: connect(
+            iam=True,
+            ssl=True,
+            sslmode="verify-full",
+            host=current.host,
+            port=current.port,
+            database=current.database,
+            region=current.region,
+            timeout=current.connect_timeout_seconds,
+            application_name="dander",
+            client_protocol_version=0,
+            is_serverless=True,
+            serverless_work_group=current.workgroup_name,
+        )
 
-def test_diagnostic_compares_explicit_credentials_with_current_dander_iam(
+    monkeypatch.setattr(
+        redshift_runtime_module,
+        "_sdk_connection_factory",
+        protected_rc31_connection_factory,
+    )
+
+
+def test_diagnostic_compares_explicit_credentials_with_protected_rc31_iam(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
@@ -186,7 +210,7 @@ def test_diagnostic_emits_only_sanitized_stage_metadata(
     assert "private AWS response" not in encoded
 
 
-def test_diagnostic_records_missing_credentials_and_still_compares_current_path(
+def test_diagnostic_records_missing_credentials_and_still_compares_rc31_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
