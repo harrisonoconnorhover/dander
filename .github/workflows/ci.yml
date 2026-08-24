@@ -14,9 +14,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  scope:
+    name: CI scope
+    runs-on: ubuntu-latest
+    outputs:
+      lane: ${{ steps.classify.outputs.lane }}
+      base_sha: ${{ steps.classify.outputs.base_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: classify
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE_SHA="$PR_BASE_SHA"
+          elif [ "$EVENT_NAME" = "push" ]; then
+            BASE_SHA="$PUSH_BASE_SHA"
+          else
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+          mapfile -t CHANGED_PATHS < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA"
+          )
+          LANE="$(python3 scripts/validate_redshift_objective.py \
+            --ci-scope "${CHANGED_PATHS[@]}")"
+          printf 'base_sha=%s\nlane=%s\n' "$BASE_SHA" "$LANE" >> "$GITHUB_OUTPUT"
+
   python-quality:
     name: Python quality
     runs-on: ubuntu-latest
+    needs: [scope]
     env:
       DANDER_TEST_POSTGRES_DSN: postgresql://postgres:dander_test@127.0.0.1:5432/dander_test
     services:
@@ -34,49 +68,105 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
       - name: Install locked environment
+        if: needs.scope.outputs.lane != 'objective'
         run: uv sync --frozen --extra dev --extra postgres
       - name: Ruff lint
+        if: needs.scope.outputs.lane == 'full'
         run: uv run ruff check .
       - name: Ruff format
+        if: needs.scope.outputs.lane == 'full'
         run: uv run ruff format --check .
       - name: Strict typing
+        if: needs.scope.outputs.lane == 'full'
         run: python3 scripts/check_types.py
       - name: Control contract drift
+        if: needs.scope.outputs.lane == 'full'
         run: uv run python scripts/check_control_contracts.py
       - name: Tests
+        if: needs.scope.outputs.lane == 'full'
         run: uv run pytest
       - name: Dependency audit
+        if: needs.scope.outputs.lane == 'full'
         run: |
           uv export --frozen --extra runtime-all --format requirements.txt --no-dev --no-emit-project \
             --output-file /tmp/dander-requirements.txt
           uv run --with pip-audit pip-audit --strict -r /tmp/dander-requirements.txt
+      - name: Benchmark and harness checks
+        if: needs.scope.outputs.lane == 'benchmark'
+        env:
+          BASE_SHA: ${{ needs.scope.outputs.base_sha }}
+        run: |
+          uv run ruff check scripts/benchmarks tests/portability \
+            scripts/validate_redshift_objective.py tests/test_validate_redshift_objective.py
+          uv run ruff format --check scripts/benchmarks tests/portability \
+            scripts/validate_redshift_objective.py tests/test_validate_redshift_objective.py
+          python3 scripts/check_types.py
+          uv run pytest tests/portability tests/test_validate_redshift_objective.py -q
+          mapfile -t OBJECTIVES < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" \
+              | grep -E 'docs/evidence/phase8/.+rc32-redshift.+objectives?\.json$' || true
+          )
+          if [ "${#OBJECTIVES[@]}" -gt 0 ]; then
+            python3 scripts/validate_redshift_objective.py "${OBJECTIVES[@]}"
+          fi
+      - name: Objective and evidence checks
+        if: needs.scope.outputs.lane == 'objective'
+        env:
+          BASE_SHA: ${{ needs.scope.outputs.base_sha }}
+        run: |
+          python3 scripts/verify_repository_target.py --remote origin --push
+          mapfile -t JSON_FILES < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" \
+              | grep -E '^docs/evidence/phase8/.+\.json$' || true
+          )
+          for FILE in "${JSON_FILES[@]}"; do
+            python3 -m json.tool "$FILE" >/dev/null
+          done
+          mapfile -t OBJECTIVES < <(
+            printf '%s\n' "${JSON_FILES[@]}" \
+              | grep -E 'rc32-redshift.+objectives?\.json$' || true
+          )
+          if [ "${#OBJECTIVES[@]}" -gt 0 ]; then
+            python3 scripts/validate_redshift_objective.py "${OBJECTIVES[@]}"
+          fi
+          uv run --isolated --frozen --extra dev --extra postgres \
+            pytest tests/test_validate_redshift_objective.py tests/test_repository_safety.py -q
 
   terraform-quality:
     name: Terraform quality
     runs-on: ubuntu-latest
+    needs: [scope]
     defaults:
       run:
         working-directory: infra
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        if: needs.scope.outputs.lane != 'objective'
         with:
           terraform_version: 1.15.8
       - name: Format
+        if: needs.scope.outputs.lane == 'full'
         run: terraform fmt -check -recursive
       - name: Initialize without a backend
+        if: needs.scope.outputs.lane == 'full'
         run: terraform init -backend=false -input=false
       - name: Validate
+        if: needs.scope.outputs.lane == 'full'
         run: terraform validate
       - name: Validate stage-zero module
+        if: needs.scope.outputs.lane == 'full'
         run: |
           terraform -chdir=bootstrap-admin init -backend=false -input=false
           terraform -chdir=bootstrap-admin validate
       - name: Validate AWS Terraform stacks
+        if: needs.scope.outputs.lane == 'full'
         run: |
           terraform -chdir=aws/bootstrap-admin init -backend=false -input=false
           terraform -chdir=aws/bootstrap-admin validate
@@ -92,6 +182,7 @@ jobs:
           terraform -chdir=qualification/aws-native validate
           terraform -chdir=qualification/aws-native test
       - name: Validate Azure Terraform stacks
+        if: needs.scope.outputs.lane == 'full'
         run: |
           terraform -chdir=azure/bootstrap-admin init -backend=false -input=false
           terraform -chdir=azure/bootstrap-admin validate
@@ -102,6 +193,7 @@ jobs:
           terraform -chdir=azure/modules/container-apps-jobs init -backend=false -input=false
           terraform -chdir=azure/modules/container-apps-jobs test
       - name: Validate OCI Terraform stacks
+        if: needs.scope.outputs.lane == 'full'
         run: |
           terraform -chdir=oci/bootstrap-admin init -backend=false -input=false
           terraform -chdir=oci/bootstrap-admin validate
@@ -110,11 +202,13 @@ jobs:
           terraform -chdir=oci validate
           terraform -chdir=oci test
       - name: Validate GCP Control Terraform stack
+        if: needs.scope.outputs.lane == 'full'
         run: |
           terraform -chdir=gcp-control init -backend=false -input=false
           terraform -chdir=gcp-control validate
           terraform -chdir=gcp-control test
       - name: Validate Kubernetes Helm chart
+        if: needs.scope.outputs.lane == 'full'
         run: |
           helm lint kubernetes/chart/dander --values ../tests/fixtures/kubernetes-values.yaml
           helm template dander kubernetes/chart/dander \
@@ -127,6 +221,7 @@ jobs:
             --values ../tests/fixtures/kubernetes-control-values.yaml \
             >/tmp/dander-control-kubernetes.yaml
       - name: Validate cross-cloud feasibility roots
+        if: needs.scope.outputs.lane == 'full'
         run: |
           terraform fmt -check -recursive ../acceptance/cloud-portability/phase1b
           terraform -chdir=../acceptance/cloud-portability/phase1b/ecr init -backend=false -input=false
@@ -138,6 +233,7 @@ jobs:
           terraform -chdir=../acceptance/cloud-portability/phase6/azure-google-federation validate
           terraform -chdir=../acceptance/cloud-portability/phase6/azure-google-federation test
       - name: Static security analysis
+        if: needs.scope.outputs.lane == 'full'
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: config
@@ -145,23 +241,38 @@ jobs:
           format: table
           exit-code: 1
           severity: HIGH,CRITICAL
+      - name: Validate AWS-native qualification Terraform
+        if: needs.scope.outputs.lane == 'benchmark'
+        run: |
+          terraform fmt -check -recursive qualification/aws-native
+          terraform -chdir=qualification/aws-native init -backend=false -input=false
+          terraform -chdir=qualification/aws-native validate
+          terraform -chdir=qualification/aws-native test
+      - name: Confirm objective lane has no Terraform blast radius
+        if: needs.scope.outputs.lane == 'objective'
+        working-directory: .
+        run: test "${{ needs.scope.outputs.lane }}" = "objective"
 
   distribution:
     name: Distribution install
     runs-on: ubuntu-latest
-    needs: [python-quality, terraform-quality]
+    needs: [scope, python-quality, terraform-quality]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        if: needs.scope.outputs.lane == 'full'
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        if: needs.scope.outputs.lane == 'full'
         with:
           terraform_version: 1.15.8
       - name: Build and inspect artifacts
+        if: needs.scope.outputs.lane == 'full'
         run: |
           python3 scripts/check_release_metadata.py
           uv build
           python scripts/check_distribution.py dist/*.whl dist/*.tar.gz
       - name: Install and run outside the checkout
+        if: needs.scope.outputs.lane == 'full'
         run: |
           TEMP_DIR="$(mktemp -d)"
           VERSION="$(uv version --short)"
@@ -189,19 +300,26 @@ jobs:
             'from dander.providers.dependencies import require_full_runtime; require_full_runtime()'
           terraform -chdir="$TEMP_DIR/project-0/infra" init -backend=false -input=false
           terraform -chdir="$TEMP_DIR/project-0/infra" validate
+      - name: Confirm distribution is outside this lane
+        if: needs.scope.outputs.lane != 'full'
+        run: test "${{ needs.scope.outputs.lane }}" != "full"
 
   container:
     name: Container build and scan
     runs-on: ubuntu-latest
-    needs: [python-quality, terraform-quality]
+    needs: [scope, python-quality, terraform-quality]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        if: needs.scope.outputs.lane == 'full'
       - name: Build immutable-check image
+        if: needs.scope.outputs.lane == 'full'
         run: docker build --tag dander-ci:${{ github.sha }} .
       - name: Verify CLI starts
+        if: needs.scope.outputs.lane == 'full'
         run: docker run --rm dander-ci:${{ github.sha }} --help
       - name: Verify qualification entrypoint
+        if: needs.scope.outputs.lane == 'full'
         run: |
           docker run --rm --read-only --tmpfs /tmp \
             --mount type=bind,source="$PWD/tests/fixtures/qualification_runner_probe.py",target=/qualification-runner-probe.py,readonly \
@@ -209,6 +327,7 @@ jobs:
             --rows 2600000 --report /tmp/result.json \
             | grep -F '"arguments":["--rows","2600000","--report","/tmp/result.json"]'
       - name: Verify runtime contract and bundled proof assets
+        if: needs.scope.outputs.lane == 'full'
         run: |
           test "$(docker run --rm --entrypoint /usr/bin/id dander-ci:${{ github.sha }} -u)" = "65532"
           docker run --rm --read-only --tmpfs /tmp dander-ci:${{ github.sha }} runtime conformance \
@@ -216,6 +335,7 @@ jobs:
           docker run --rm --entrypoint /usr/bin/test dander-ci:${{ github.sha }} -f /app/connectors/hubspot_test.yaml
           docker run --rm --entrypoint /usr/bin/test dander-ci:${{ github.sha }} -f /app/models/staging/stg_hubspot__companies.yml
       - name: Scan image
+        if: needs.scope.outputs.lane == 'full'
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: dander-ci:${{ github.sha }}
@@ -224,6 +344,7 @@ jobs:
           ignore-unfixed: true
           severity: CRITICAL,HIGH
       - name: Build OCI lifecycle controller
+        if: needs.scope.outputs.lane == 'full'
         run: |
           uv build --wheel
           VERSION="$(uv version --short)"
@@ -232,6 +353,7 @@ jobs:
             --build-arg DANDER_WHEEL="dist/dander_platform-${VERSION}-py3-none-any.whl" \
             --tag dander-oci-controller:${{ github.sha }} .
       - name: Verify OCI lifecycle controller contract
+        if: needs.scope.outputs.lane == 'full'
         run: |
           test "$(docker image inspect dander-oci-controller:${{ github.sha }} --format '{{.Architecture}}')" = "amd64"
           test "$(docker run --rm --platform linux/amd64 --entrypoint /usr/bin/id dander-oci-controller:${{ github.sha }} -u)" = "1000"
@@ -239,6 +361,7 @@ jobs:
             --entrypoint /usr/bin/python3.12 dander-oci-controller:${{ github.sha }} \
             -c 'import dander, func, oci; assert callable(func.handler)'
       - name: Scan OCI lifecycle controller
+        if: needs.scope.outputs.lane == 'full'
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: dander-oci-controller:${{ github.sha }}
@@ -246,6 +369,9 @@ jobs:
           exit-code: 1
           ignore-unfixed: true
           severity: CRITICAL,HIGH
+      - name: Confirm container builds are outside this lane
+        if: needs.scope.outputs.lane != 'full'
+        run: test "${{ needs.scope.outputs.lane }}" != "full"
 
   secrets:
     name: Secret scan

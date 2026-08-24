@@ -23,6 +23,8 @@ from scripts.verify_repository_target import (  # noqa: E402
     verify_remote,
 )
 
+REDSHIFT_OBJECTIVE_VALIDATOR = ROOT / "scripts/validate_redshift_objective.py"
+
 
 def create_command(
     *,
@@ -96,6 +98,96 @@ def _created_pull_number(output: str) -> int:
     return int(matches[-1].group("number"))
 
 
+def changed_rc32_redshift_objectives(
+    repository_root: Path,
+    *,
+    base: str,
+    head: str,
+) -> tuple[Path, ...]:
+    """Return new or changed RC32 Redshift objectives in the proposed PR."""
+    base_ref = _resolve_ref(repository_root, f"refs/remotes/origin/{base}", base)
+    head_ref = _resolve_ref(repository_root, f"refs/heads/{head}", head)
+    changed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository_root),
+            "diff",
+            "--name-only",
+            "--diff-filter=ACMR",
+            f"{base_ref}...{head_ref}",
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    if changed.returncode != 0:
+        raise SystemExit(
+            changed.stderr.strip() or "Could not inspect the proposed pull-request diff."
+        )
+    return tuple(
+        repository_root / line
+        for line in changed.stdout.splitlines()
+        if _is_rc32_redshift_objective(line)
+    )
+
+
+def run_redshift_objective_preflight(
+    repository_root: Path,
+    *,
+    base: str,
+    head: str,
+    smoke_image: str | None,
+) -> None:
+    """Fail before GitHub when a new RC32 objective misses static or image preflight."""
+    validator = repository_root / REDSHIFT_OBJECTIVE_VALIDATOR.relative_to(ROOT)
+    if not validator.is_file():
+        return
+    objectives = changed_rc32_redshift_objectives(repository_root, base=base, head=head)
+    if not objectives:
+        return
+    if not smoke_image:
+        raise SystemExit(
+            "New RC32 Redshift objectives require --redshift-smoke-image so the exact candidate "
+            "command is tested before opening the pull request."
+        )
+    command = [
+        sys.executable,
+        str(validator),
+        "--repository-root",
+        str(repository_root),
+        "--smoke-image",
+        smoke_image,
+        *(str(path) for path in objectives),
+    ]
+    validated = subprocess.run(command, capture_output=True, check=False, text=True)
+    if validated.returncode != 0:
+        raise SystemExit(validated.stderr.strip() or validated.stdout.strip())
+
+
+def _resolve_ref(repository_root: Path, preferred: str, fallback: str) -> str:
+    for candidate in (preferred, fallback):
+        resolved = subprocess.run(
+            ["git", "-C", str(repository_root), "rev-parse", "--verify", candidate],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        if resolved.returncode == 0:
+            return candidate
+    raise SystemExit(f"Could not resolve Git ref {fallback!r} for objective preflight.")
+
+
+def _is_rc32_redshift_objective(path: str) -> bool:
+    name = Path(path).name
+    return (
+        path.startswith("docs/evidence/phase8/")
+        and "rc32-redshift" in name
+        and "objective" in name
+        and name.endswith(".json")
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", required=True, help="Explicit base branch.")
@@ -106,6 +198,13 @@ def main() -> None:
     body.add_argument("--body-file", type=Path)
     parser.add_argument("--draft", action="store_true")
     parser.add_argument("--repository-root", type=Path, default=ROOT)
+    parser.add_argument(
+        "--redshift-smoke-image",
+        help=(
+            "Local immutable RC32 image reference required when the diff adds an RC32 "
+            "Redshift objective."
+        ),
+    )
     arguments = parser.parse_args()
 
     if ":" in arguments.base or ":" in arguments.head:
@@ -114,6 +213,12 @@ def main() -> None:
     repository_root = arguments.repository_root.resolve()
     verify_remote(repository_root, "origin")
     verify_remote(repository_root, "origin", push=True)
+    run_redshift_objective_preflight(
+        repository_root,
+        base=arguments.base,
+        head=arguments.head,
+        smoke_image=arguments.redshift_smoke_image,
+    )
 
     created = subprocess.run(
         create_command(
