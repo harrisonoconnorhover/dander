@@ -16,7 +16,10 @@ from typing import Any
 RC32_VERSION = "0.9.0rc32"
 RC32_GIT_COMMIT = "0d648a622fa2b0240a3b7b5fb8b7151445591bca"
 RC32_DIGEST = "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63"
-RC32_IMAGE = f"184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@{RC32_DIGEST}"
+RC32_ARM64_MANIFEST_DIGEST = (
+    "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53"
+)
+RC32_IMAGE = f"184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@{RC32_ARM64_MANIFEST_DIGEST}"
 
 BENCHMARK_DEPENDENCIES = {
     "scripts.benchmarks.redshift_bulk_phase8": (),
@@ -36,6 +39,7 @@ BENCHMARK_DEPENDENCIES = {
 PROFILE_FIELDS: tuple[tuple[tuple[str, ...], object], ...] = (
     (("configuration", "candidate", "release_version"), RC32_VERSION),
     (("configuration", "candidate", "git_commit"), RC32_GIT_COMMIT),
+    (("configuration", "candidate", "image_index_digest"), RC32_DIGEST),
     (("configuration", "candidate", "target_image"), RC32_IMAGE),
     (("configuration", "candidate", "mutable_tag_selection"), False),
     (("configuration", "data_plane", "terraform_root"), "infra/qualification/aws-native"),
@@ -113,7 +117,11 @@ def canonical_launcher_contract(benchmark_module: str) -> dict[str, object]:
     return {
         "schema": "io.dander.phase8.aws-native-redshift-launcher/v1",
         "benchmark_module": benchmark_module,
-        "image_manifest": {"digest": RC32_DIGEST, "architecture": "arm64"},
+        "image_manifest": {
+            "digest": RC32_ARM64_MANIFEST_DIGEST,
+            "architecture": "arm64",
+            "parent_index_digest": RC32_DIGEST,
+        },
         "iam_readiness": {
             "required_before_candidate": True,
             "maximum_checks": 5,
@@ -147,6 +155,10 @@ def validate_objective(path: Path, *, repository_root: Path) -> dict[str, object
     for field_path, expected in PROFILE_FIELDS:
         _require(_at(payload, field_path) == expected, f"{field_path[-1]} is not canonical")
     configuration = _mapping(payload.get("configuration"), "configuration")
+    approved = _mapping(payload.get("approved_objectives"), "approved_objectives")
+    _require(approved.get("release_version") == RC32_VERSION, "approved version is not RC32")
+    _require(approved.get("git_commit") == RC32_GIT_COMMIT, "approved commit is not RC32")
+    _require(approved.get("image_digest") == RC32_DIGEST, "approved digest is not RC32")
     contract = _mapping(configuration.get("launcher_contract"), "launcher_contract")
     module = str(contract.get("benchmark_module", ""))
     _require(contract == canonical_launcher_contract(module), "launcher contract is not canonical")
@@ -379,7 +391,9 @@ def _image_has_rc32_digest(image: str) -> bool:
         text=True,
     )
     return (
-        result.returncode == 0 and f"@{RC32_DIGEST}" in result.stdout and " arm64" in result.stdout
+        result.returncode == 0
+        and f"@{RC32_ARM64_MANIFEST_DIGEST}" in result.stdout
+        and " arm64" in result.stdout
     )
 
 
@@ -482,10 +496,10 @@ def main() -> None:
         _require(bool(paths or arguments.smoke_module), "objective or smoke module required")
     except ObjectiveValidationError as error:
         raise SystemExit(f"RC32 Redshift objective rejected: {error}") from error
-    print(
-        f"Validated {len(paths)} objective(s); "
-        f"smoked {len(arguments.smoke_module)} generated command(s)."
-    )
+    smoke_count = len(arguments.smoke_module)
+    if arguments.smoke_image:
+        smoke_count += len(paths)
+    print(f"Validated {len(paths)} objective(s); smoked {smoke_count} generated command(s).")
 
 
 if __name__ == "__main__":
