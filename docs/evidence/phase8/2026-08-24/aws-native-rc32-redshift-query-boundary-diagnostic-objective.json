@@ -1,0 +1,129 @@
+{
+  "schema": "io.dander.phase8.redshift-query-boundary-diagnostic-approval/v1",
+  "stages": [
+    "get_credentials",
+    "verified_postgres_tls_handshake",
+    "psycopg_connector",
+    "psycopg_validation_query",
+    "redshift_connector",
+    "redshift_validation_query"
+  ],
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63"
+  },
+  "provider": {
+    "account_id": "184463061564",
+    "region": "us-east-1",
+    "workgroup_name": "dander-p8q-rc32-rs-query-c13",
+    "host": "dander-p8q-rc32-rs-query-c13.184463061564.us-east-1.redshift-serverless.amazonaws.com",
+    "database": "analytics",
+    "port": 5439
+  },
+  "execution": {
+    "approval_reference": "codex-user-2026-08-24-full-approval-redshift-query-boundary-diagnostic-usd-0.50",
+    "harness_sha256": "88b93a7345d195510f659bb3649ac7414649ae7dbb17ee005541c6d40900d8f1",
+    "maximum_manual_executions": 1,
+    "automatic_retry": false,
+    "provider_operation_retries": 0,
+    "connect_timeout_seconds": 300,
+    "ssl": true,
+    "sslmode": "verify-full",
+    "client_protocol_version": 0,
+    "integrated_iam": false,
+    "verified_postgres_tls_handshake": true,
+    "comparison_driver": "psycopg",
+    "redshift_connector_matches_current_product_configuration": true,
+    "read_only_validation_query": "SELECT 1",
+    "schema_or_workload_mutation_allowed": false
+  },
+  "diagnostic_boundaries": {
+    "psycopg_path_runs_before_redshift_connector_path": true,
+    "connector_and_validation_query_stages_are_timed_separately": true,
+    "sanitized_output_fields": [
+      "stage",
+      "elapsed_ms",
+      "exception_class"
+    ],
+    "provider_exception_messages_retained": false,
+    "no_candidate_or_benchmark_command": true
+  },
+  "infrastructure": {
+    "data_plane": "infra/qualification/aws-native",
+    "resource_name": "dander-p8q-rc32-rs-query-c13",
+    "state_key": "dander/d7/control-plane/phase8-qualification/rc32-redshift-query-boundary-c13.tfstate",
+    "staging_bucket": "dander-p8q-rc32-rs-query-c13-184463061564-staging",
+    "redshift_serverless_base_capacity_rpu": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 1,
+    "postgresql_instance_class": "db.t4g.micro",
+    "task_role_tag": "RedshiftDbRoles=dander_runtime",
+    "task_role_global_actions": [
+      "tag:GetResources",
+      "tag:GetTagKeys"
+    ],
+    "task_role_scoped_actions": [
+      "redshift-serverless:GetCredentials",
+      "s3:GetObject",
+      "s3:PutObject"
+    ],
+    "task_cpu_units": 2048,
+    "task_memory_mib": 4096,
+    "task_cpu_architecture": "ARM64",
+    "task_read_only_root": true,
+    "task_user": "65532:65532",
+    "task_tmpfs_path": "/tmp",
+    "harness_working_directory": "/tmp/harness",
+    "harness_environment": {
+      "PYTHONPATH": "/tmp/harness"
+    },
+    "harness_bundle_key": "phase8/0.9.0rc32/staging/harness/redshift-query-boundary-88b93a7345d1-c13.zip",
+    "harness_bundle_contains": [
+      "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-query-boundary-diagnostic-objective.json",
+      "scripts/__init__.py",
+      "scripts/benchmarks/__init__.py",
+      "scripts/benchmarks/redshift_query_boundary_diagnostic_phase8.py"
+    ],
+    "sanitized_output_key": "phase8/0.9.0rc32/staging/diagnostics/query-boundary.json",
+    "task_timeout_seconds": 900,
+    "maximum_state_machine_executions": 1,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0,
+    "automatic_retry": false,
+    "provider_operation_retries": 0,
+    "schedule_created": false,
+    "post_apply_no_drift_required": true
+  },
+  "protection": {
+    "protected_base_commit": "06cf6900660fc2d729c7c128f887c31d0a5c70f0",
+    "exact_main_ci_required_before_execution": true,
+    "immutable_image_reference": "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander:0.9.0rc32",
+    "image_manifest_architecture": "arm64",
+    "image_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "image_tag_mutability": "IMMUTABLE"
+  },
+  "budget_allocation": {
+    "authorization_reference": "codex-user-2026-08-24-redshift-diagnosis-runs-additional-usd-10-and-full-approval",
+    "aggregate_ceiling_usd": "20.00",
+    "provider_measured_or_conservative_before_objective_usd": "15.141419762794",
+    "existing_reserved_before_objective_usd": "0.00",
+    "objective_reservation_usd": "0.50",
+    "remaining_aggregate_ceiling_after_full_objective_reservation_usd": "4.358580237206"
+  },
+  "cost_ceiling": {
+    "amount_usd": "0.50",
+    "approval_reference": "codex-user-2026-08-24-full-approval-redshift-query-boundary-diagnostic-usd-0.50"
+  },
+  "cleanup": {
+    "begin_immediately_after_terminal_diagnosis": true,
+    "no_schema_copy_or_benchmark_mutation": true,
+    "delete_exact_harness_and_sanitized_output": true,
+    "deregister_exact_task_definition": true,
+    "remove_exact_log_group_state_machine_roles_and_cluster": true,
+    "destroy_launcher_before_data_plane": true,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_after_destroy": 0,
+    "direct_owned_resource_inventories_empty": true
+  }
+}
