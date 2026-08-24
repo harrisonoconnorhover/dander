@@ -2,12 +2,14 @@
 
 The 30-day soak began after `0.1.0` became public and continues on the newest supported release. It
 gathers operating evidence; it is not a retroactive release gate. Authenticated HubSpot is the
-primary pipeline, public Greenhouse is the daily control, and Salesforce and ServiceNow exercise
-additional authenticated enterprise paths.
+primary pipeline, public Greenhouse is the daily control, and available enterprise sandboxes add
+authenticated provider paths.
 
 ## Operating cadence
 
-- Keep all four retained schedules enabled and review Dander run history once each week.
+- Keep every available retained schedule enabled and review Dander run history once each week.
+- If an external sandbox becomes unavailable, pause only its schedule through reviewed Terraform,
+  preserve its job and evidence, and record the reduced live scope without restarting the window.
 - Investigate every alert. Wait for any active execution to finish, follow the published upgrade
   and rerun guide, and perform at most one documented rerun for the incident.
 - During the soak, perform one planned manual rerun of each enabled pipeline.
