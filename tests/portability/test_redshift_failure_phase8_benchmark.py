@@ -387,9 +387,20 @@ def test_failed_copy_probe_uses_exact_sql_then_recovers(
 
     assert failed_ms >= 1 and recovery_ms >= 1
     assert operations == (_operation(),)
+    assert statements[:2] == [
+        'CREATE SCHEMA IF NOT EXISTS "owned_schema"',
+        'CREATE TABLE "owned_schema"."failed_copy_records" '
+        '("id" VARCHAR(32) NOT NULL, "payload" VARCHAR(64) NOT NULL)',
+    ]
     assert any("FORMAT AS PARQUET" in statement for statement in statements)
     assert any(statement.startswith("DROP TABLE IF EXISTS") for statement in statements)
-    assert [name for name, _kwargs in calls] == ["put", "rollback", "commit", "delete"]
+    assert [name for name, _kwargs in calls] == [
+        "put",
+        "commit",
+        "rollback",
+        "commit",
+        "delete",
+    ]
 
 
 def test_historical_rc31_objective_preserves_old_harness_binding(tmp_path: Path) -> None:
@@ -594,7 +605,7 @@ def test_historical_rc32_pythonpath_objective_preserves_import_environment(
     )
 
 
-def test_rc32_stage_diagnostic_objective_binds_corrected_harness_and_zero_retries(
+def test_historical_rc32_stage_diagnostic_objective_preserves_previous_harness_binding(
     tmp_path: Path,
 ) -> None:
     reference = (
@@ -626,10 +637,12 @@ def test_rc32_stage_diagnostic_objective_binds_corrected_harness_and_zero_retrie
     manifest = tmp_path / "objectives.json"
     manifest.write_text(json.dumps(payload), encoding="utf-8")
 
-    approval = failure._load_approval(manifest, config=config, identity=identity)
+    with pytest.raises(ValueError, match="protected harness"):
+        failure._load_approval(manifest, config=config, identity=identity)
 
-    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
-    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    assert payload["configuration"]["execution"]["harness_sha256"] == (
+        "6a55fac4b4e6ba7519347918e997e634e7d4bfe3fd97a3dfbc5a88f27a297cf6"
+    )
     assert payload["budget_allocation"]["aggregate_ceiling_usd"] == "20.00"
     execution = payload["configuration"]["execution"]
     assert execution["corrective_candidate_executions"] == 1
@@ -642,3 +655,61 @@ def test_rc32_stage_diagnostic_objective_binds_corrected_harness_and_zero_retrie
     harness = payload["configuration"]["fargate_harness"]
     assert harness["state_machine_retry_states"] == 0
     assert harness["harness_environment"] == {"PYTHONPATH": "/tmp/harness"}
+
+
+def test_rc32_schema_corrective_objective_binds_schema_ready_harness_and_zero_retries(
+    tmp_path: Path,
+) -> None:
+    reference = (
+        "codex-user-2026-08-24-redshift-diagnosis-runs-redshift-failure-schema-corrective-usd-0.50"
+    )
+    config = failure.RedshiftFailureConfig(
+        account_id="184463061564",
+        host="private-host",
+        database="analytics",
+        region="us-east-1",
+        workgroup_name="dander-p8q-rc32-rs-fail-c6",
+        copy_role_arn=("arn:aws:iam::184463061564:role/dander-p8q-rc32-rs-fail-c6-redshift-copy"),
+        staging_bucket="dander-p8q-rc32-rs-fail-c6-184463061564-staging",
+        staging_prefix="phase8/0.9.0rc32/staging",
+    )
+    identity = replace(
+        _identity(),
+        release_version="0.9.0rc32",
+        git_commit="0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+        image_digest=("sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63"),
+        approval_reference=reference,
+    )
+    source = Path(
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-failure-schema-corrective-objectives.json"
+    )
+    payload = cast("dict[str, Any]", json.loads(source.read_text()))
+    manifest = tmp_path / "objectives.json"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    approval = failure._load_approval(manifest, config=config, identity=identity)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    assert payload["budget_allocation"] == {
+        "authorization_reference": (
+            "codex-user-2026-08-24-redshift-diagnosis-runs-and-additional-usd-10"
+        ),
+        "aggregate_ceiling_usd": "20.00",
+        "provider_measured_or_conservative_before_objective_usd": "8.491419762794",
+        "existing_reserved_before_objective_usd": "4.00",
+        "objective_reservation_usd": "0.50",
+        "remaining_aggregate_ceiling_after_full_objective_reservation_usd": "7.008580237206",
+    }
+    execution = payload["configuration"]["execution"]
+    assert execution["harness_sha256"] == (
+        "cfd473736e171f7ee6a2a7de986f13b78c570af562c7ca5fb2a92579eeac3def"
+    )
+    assert execution["corrective_candidate_executions"] == 1
+    assert execution["provider_operation_retries"] == 0
+    assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0
+    prior = payload["configuration"]["prior_rc32_stage_diagnostic_attempt"]
+    assert prior["sanitized_stage"] == "failed_copy_cleanup_and_recovery"
+    assert prior["exception_class"] == "ProgrammingError"
+    assert prior["owned_workload_cleanup_passed"] is True
