@@ -452,7 +452,7 @@ def test_historical_rc32_harness_corrective_objective_preserves_launcher_boundar
     assert "harness_working_directory" not in payload["configuration"]["fargate_harness"]
 
 
-def test_rc32_launcher_corrective_objective_binds_import_root_and_zero_retries(
+def test_historical_rc32_launcher_corrective_objective_preserves_missing_pythonpath(
     tmp_path: Path,
 ) -> None:
     reference = (
@@ -495,6 +495,58 @@ def test_rc32_launcher_corrective_objective_binds_import_root_and_zero_retries(
     assert harness["state_machine_retry_states"] == 0
     assert harness["harness_working_directory"] == "/tmp/harness"
     assert harness["harness_import_root"] == "/tmp/harness"
+    assert "harness_environment" not in harness
     assert payload["configuration"]["execution"]["candidate_command"] == (
         "cd /tmp/harness && dander qualification-run scripts/benchmarks/redshift_failure_phase8.py"
+    )
+    assert "PYTHONPATH" not in payload["configuration"]["execution"]["candidate_command"]
+
+
+def test_rc32_pythonpath_corrective_objective_binds_import_environment_and_zero_retries(
+    tmp_path: Path,
+) -> None:
+    reference = (
+        "codex-user-2026-08-24-redshift-diagnosis-runs-"
+        "redshift-failure-pythonpath-corrective-usd-0.50"
+    )
+    config = failure.RedshiftFailureConfig(
+        account_id="184463061564",
+        host="private-host",
+        database="analytics",
+        region="us-east-1",
+        workgroup_name="dander-p8q-rc32-rs-fail-c4",
+        copy_role_arn=("arn:aws:iam::184463061564:role/dander-p8q-rc32-rs-fail-c4-redshift-copy"),
+        staging_bucket="dander-p8q-rc32-rs-fail-c4-184463061564-staging",
+        staging_prefix="phase8/0.9.0rc32/staging",
+    )
+    identity = replace(
+        _identity(),
+        release_version="0.9.0rc32",
+        git_commit="0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+        image_digest=("sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63"),
+        approval_reference=reference,
+    )
+    source = Path(
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-failure-pythonpath-corrective-objectives.json"
+    )
+    payload = cast("dict[str, Any]", json.loads(source.read_text()))
+    manifest = tmp_path / "objectives.json"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    approval = failure._load_approval(manifest, config=config, identity=identity)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    assert payload["budget_allocation"]["aggregate_ceiling_usd"] == "20.00"
+    assert payload["configuration"]["execution"]["corrective_candidate_executions"] == 1
+    assert payload["configuration"]["execution"]["provider_operation_retries"] == 0
+    harness = payload["configuration"]["fargate_harness"]
+    assert harness["state_machine_retry_states"] == 0
+    assert harness["harness_working_directory"] == "/tmp/harness"
+    assert harness["harness_import_root"] == "/tmp/harness"
+    assert harness["harness_environment"] == {"PYTHONPATH": "/tmp/harness"}
+    assert payload["configuration"]["execution"]["candidate_command"] == (
+        "cd /tmp/harness && PYTHONPATH=/tmp/harness dander qualification-run "
+        "scripts/benchmarks/redshift_failure_phase8.py"
     )
