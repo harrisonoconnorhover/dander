@@ -1,0 +1,66 @@
+{
+  "schema": "io.dander.phase8.candidate-evidence/v1",
+  "status": "candidate",
+  "release_version": "0.9.0rc32",
+  "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+  "pull_request": 445,
+  "protected_main_ci_run": 32686206013,
+  "wheel_sha256": "99e82983a72a7d209620e428727d24ba2007dbb982bb844e4dd5d29bf454b706",
+  "sdist_sha256": "e4b988d75cf0e48ca84a6ce7b290ac288ee5f6e070289c20cc0e0254efbe8f66",
+  "logical_config_sha256": "84f9f0de2a3faa19438543f965fcc3e7bb0639fe1f553116ddeaaf8e618a83bf",
+  "platform_config_sha256": "e02d6539326d878ae5c3bfed1b36fcb0c7f575a7b84fb20ac682fee2de9c8241",
+  "source_free_dockerfile_sha256": "74d7521472f7c67c9582cfa9ca492fa46ef94574f64d1efebc82be8e31fc9ddb",
+  "source_free_dockerignore_sha256": "8fe30033e21c14c7e24d0212994515499c02ba39cc0b3d58484f56ff2e71c54b",
+  "build_context_revision": "ce8f07eb8de5bfe6ec0f29dcbe11a93354aaa6553e708b21461560f5c11679b9",
+  "image": "us-central1-docker.pkg.dev/dander-proof-harrison-20260801/dander/dander@sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+  "tag": "rc32-ce8f07eb8de5",
+  "aws_ecr_image": "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+  "aws_ecr_tag": "0.9.0rc32",
+  "platform_manifests": {
+    "linux/amd64": "sha256:b381711ea2ede5aea86d4373daa42e3d03edee9984a78aff4d4ef09ddff9056b",
+    "linux/arm64": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53"
+  },
+  "attestation_manifests": {
+    "linux/amd64": "sha256:332bb06cd710e17f9ae269be548875f69883f803f15cfe67c886b1623dfa2ebb",
+    "linux/arm64": "sha256:aef0e3f6631dde28438ef05ff65112e6f6723e13f19699500611c7b323ef6e6f"
+  },
+  "sbom_attached": true,
+  "sbom_format": "SPDX-2.3",
+  "provenance_attached": true,
+  "provenance_build_type": "https://github.com/moby/buildkit/blob/master/docs/attestations/slsa-definitions.md",
+  "provenance_build_revision": "ce8f07eb8de5bfe6ec0f29dcbe11a93354aaa6553e708b21461560f5c11679b9",
+  "protected_source_binding": {
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "wheel_sha256": "99e82983a72a7d209620e428727d24ba2007dbb982bb844e4dd5d29bf454b706",
+    "method": "exact wheel built from the protected commit and embedded in the source-free context"
+  },
+  "source_free": true,
+  "exact_wheel_embedded": true,
+  "runtime_inspection": {
+    "gcp_cloud_run_selector_passed": true,
+    "amd64_version_passed": true,
+    "arm64_version_passed": true,
+    "amd64_rootless_passed": true,
+    "arm64_rootless_passed": true,
+    "amd64_read_only_conformance_passed": true,
+    "arm64_read_only_conformance_passed": true,
+    "amd64_qualification_entrypoint_passed": true,
+    "arm64_qualification_entrypoint_passed": true,
+    "source_tree_absent_from_both_platforms": true,
+    "wheel_file_absent_from_both_platforms_after_install": true
+  },
+  "publication": {
+    "attempts": 1,
+    "pre_push_failures": 0,
+    "registry_mutated_by_failed_attempt": false,
+    "build_created_at": "2026-08-24T03:31:57.677631Z",
+    "published_at": "2026-08-24T03:34:56.823551Z",
+    "aws_ecr_copy_attempts": 1,
+    "aws_ecr_digest_preserved": true
+  },
+  "qualification_status": "not_evaluated",
+  "live_provider_execution_started": false,
+  "public_release": false,
+  "automatic_live_retry_enabled": false,
+  "provider_measured_cost_usd": null
+}
