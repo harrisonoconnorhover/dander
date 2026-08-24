@@ -56,6 +56,13 @@ def test_runtime_target_uses_the_immutable_rc32_tag_with_exact_digest_resolution
         "verify_resolution_before_task_registration": True,
         "verify_resolution_after_task_stop": True,
     }
+    assert payload["configuration"]["launcher_contract"]["preflight"] == {  # type: ignore[index]
+        "script": validator.LAUNCHER_PREFLIGHT,
+        "read_only": True,
+        "artifact_on_success": True,
+        "artifact_on_failure": True,
+        "artifact_fields": ["stage", "elapsed_ms", "exception_class"],
+    }
     assert approved["image_digest"] == validator.RC32_DIGEST
 
 
@@ -124,6 +131,16 @@ def test_runtime_target_uses_the_immutable_rc32_tag_with_exact_digest_resolution
             ("configuration", "diagnostics", "provider_exception_messages"),
             True,
             "diagnostics",
+        ),
+        (
+            ("configuration", "redshift", "host"),
+            "wrong-workgroup.example.invalid",
+            "Redshift host",
+        ),
+        (
+            ("configuration", "fargate_harness", "transient_launcher_preflight_key"),
+            "outside-owned-prefix.json",
+            "artifact key",
         ),
         (
             (
@@ -226,6 +243,7 @@ def test_local_rc32_image_smoke_uses_exact_bundle_and_fail_closed_container(
     assert container[container.index("--user") + 1] == "65532:65532"
     shell = container[-1]
     assert "import scripts.benchmarks.redshift_transform_phase8" in shell
+    assert "redshift_launcher_preflight.py --help" in shell
     assert (
         "dander qualification-run scripts/benchmarks/redshift_transform_phase8.py --help" in shell
     )
@@ -284,6 +302,7 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
         "scripts/__init__.py",
         "scripts/benchmarks/__init__.py",
         "scripts/benchmarks/redshift.py",
+        validator.LAUNCHER_PREFLIGHT,
         script,
         *dependencies,
     }
@@ -303,6 +322,7 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
     execution: dict[str, object] = {
         "harness_sha256": _sha256(repository / script),
         "shared_harness_sha256": _sha256(repository / "scripts/benchmarks/redshift.py"),
+        "launcher_preflight_sha256": _sha256(repository / validator.LAUNCHER_PREFLIGHT),
         "manual_candidate_executions": 1,
         "automatic_candidate_retry": False,
         "provider_operation_retries": 0,
@@ -322,6 +342,7 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
     }
     fargate.update(
         {
+            "resource_prefix": "dander-p8q-rc32-rs-test",
             "cluster_executions": 1,
             "state_machine_executions": 1,
             "state_machine_retry_states": 0,
@@ -332,6 +353,12 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
             "harness_bundle_contains": bundle,
             "selected_benchmark_module": module,
             "module_import_smoke": f"python -c 'import {module}'",
+            "launcher_preflight_command": (
+                f"python {validator.LAUNCHER_PREFLIGHT} --objective {relative_objective.as_posix()}"
+            ),
+            "transient_launcher_preflight_key": (
+                "phase8/0.9.0rc32/staging/diagnostics/launcher-preflight.json"
+            ),
         }
     )
     payload = {
@@ -356,9 +383,25 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
             },
             "data_plane": {
                 "terraform_root": "infra/qualification/aws-native",
+                "resource_name": "dander-p8q-rc32-rs-test",
                 "redshift_serverless_base_capacity_rpu": 8,
                 "redshift_serverless_daily_usage_limit_rpu_hours": 5,
                 "terraform_provider_operation_retries": 0,
+            },
+            "redshift": {
+                "account_id": "123456789012",
+                "region": "us-east-1",
+                "workgroup_name": "dander-p8q-rc32-rs-test",
+                "host": (
+                    "dander-p8q-rc32-rs-test.123456789012.us-east-1."
+                    "redshift-serverless.amazonaws.com"
+                ),
+                "database": "analytics",
+                "copy_role_arn": (
+                    "arn:aws:iam::123456789012:role/dander-p8q-rc32-rs-test-redshift-copy"
+                ),
+                "staging_bucket": "dander-p8q-rc32-rs-test-123456789012-staging",
+                "staging_prefix": "phase8/0.9.0rc32/staging",
             },
             "task_role": deepcopy(validator.TASK_ROLE),
             "fargate_harness": fargate,

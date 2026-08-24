@@ -20,6 +20,7 @@ RC32_ARM64_MANIFEST_DIGEST = (
     "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53"
 )
 RC32_IMAGE = "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander:0.9.0rc32"
+LAUNCHER_PREFLIGHT = "scripts/benchmarks/redshift_launcher_preflight.py"
 
 BENCHMARK_DEPENDENCIES = {
     "scripts.benchmarks.redshift_bulk_phase8": (),
@@ -97,6 +98,12 @@ DIAGNOSTICS = {
     "sanitized_fields": ["stage", "elapsed_ms", "exception_class"],
     "provider_exception_messages": False,
     "exact_owned_stdout_and_stderr_keys": True,
+    "launcher_preflight_artifact": {
+        "schema": "io.dander.phase8.aws-native-redshift-launcher-preflight/v1",
+        "write_on_success": True,
+        "write_on_failure": True,
+        "server_side_encryption": "AES256",
+    },
 }
 
 CLEANUP = {
@@ -152,6 +159,13 @@ def canonical_launcher_contract(benchmark_module: str) -> dict[str, object]:
             "must_succeed_before_candidate_command": True,
             "schema_or_workload_mutation_allowed": False,
         },
+        "preflight": {
+            "script": LAUNCHER_PREFLIGHT,
+            "read_only": True,
+            "artifact_on_success": True,
+            "artifact_on_failure": True,
+            "artifact_fields": ["stage", "elapsed_ms", "exception_class"],
+        },
     }
 
 
@@ -172,6 +186,7 @@ def validate_objective(path: Path, *, repository_root: Path) -> dict[str, object
     _require(configuration.get("diagnostics") == DIAGNOSTICS, "diagnostics are not exact")
     _require(configuration.get("cleanup") == CLEANUP, "cleanup is not exact")
     _validate_usage_limit(configuration)
+    _validate_runtime_bindings(configuration)
     _validate_bundle_and_hashes(path, configuration, module, repository_root)
     _validate_execution_authority(configuration, module)
     _validate_budget(payload)
@@ -194,6 +209,30 @@ def _validate_usage_limit(configuration: dict[str, object]) -> None:
     )
 
 
+def _validate_runtime_bindings(configuration: dict[str, object]) -> None:
+    redshift = _mapping(configuration.get("redshift"), "redshift")
+    data_plane = _mapping(configuration.get("data_plane"), "data_plane")
+    fargate = _mapping(configuration.get("fargate_harness"), "fargate_harness")
+    account = str(redshift.get("account_id", ""))
+    region = str(redshift.get("region", ""))
+    workgroup = str(redshift.get("workgroup_name", ""))
+    expected_host = f"{workgroup}.{account}.{region}.redshift-serverless.amazonaws.com"
+    expected_bucket = f"{workgroup}-{account}-staging"
+    expected_role = f"arn:aws:iam::{account}:role/{workgroup}-redshift-copy"
+    _require(len(account) == 12 and account.isdigit(), "Redshift account is not exact")
+    _require(region == "us-east-1", "Redshift region is not exact")
+    _require(redshift.get("host") == expected_host, "Redshift host is not exact")
+    _require(redshift.get("database") == "analytics", "Redshift database is not exact")
+    _require(redshift.get("staging_bucket") == expected_bucket, "staging bucket is not exact")
+    _require(redshift.get("copy_role_arn") == expected_role, "copy role is not exact")
+    _require(
+        redshift.get("staging_prefix") == f"phase8/{RC32_VERSION}/staging",
+        "staging prefix is not exact",
+    )
+    _require(data_plane.get("resource_name") == workgroup, "data-plane resource name drifted")
+    _require(fargate.get("resource_prefix") == workgroup, "Fargate resource prefix drifted")
+
+
 def _validate_bundle_and_hashes(
     objective_path: Path,
     configuration: dict[str, object],
@@ -208,6 +247,7 @@ def _validate_bundle_and_hashes(
         "scripts/__init__.py",
         "scripts/benchmarks/__init__.py",
         "scripts/benchmarks/redshift.py",
+        LAUNCHER_PREFLIGHT,
         script,
         *BENCHMARK_DEPENDENCIES[module],
     }
@@ -220,10 +260,22 @@ def _validate_bundle_and_hashes(
         fargate.get("module_import_smoke") == f"python -c 'import {module}'",
         "benchmark import smoke is not exact",
     )
+    expected_preflight = f"python {LAUNCHER_PREFLIGHT} --objective {relative_objective}"
+    _require(
+        fargate.get("launcher_preflight_command") == expected_preflight,
+        "launcher preflight command is not exact",
+    )
+    staging_prefix = str(_mapping(configuration.get("redshift"), "redshift").get("staging_prefix"))
+    _require(
+        fargate.get("transient_launcher_preflight_key")
+        == f"{staging_prefix}/diagnostics/launcher-preflight.json",
+        "launcher preflight artifact key is not exact",
+    )
     execution = _mapping(configuration.get("execution"), "execution")
     hashes = {
         "harness_sha256": repository_root / script,
         "shared_harness_sha256": repository_root / "scripts/benchmarks/redshift.py",
+        "launcher_preflight_sha256": repository_root / LAUNCHER_PREFLIGHT,
     }
     if BENCHMARK_DEPENDENCIES[module]:
         hashes["bulk_harness_sha256"] = (
@@ -330,6 +382,7 @@ def smoke_benchmark_modules(
             "scripts/__init__.py",
             "scripts/benchmarks/__init__.py",
             "scripts/benchmarks/redshift.py",
+            LAUNCHER_PREFLIGHT,
             script,
             *BENCHMARK_DEPENDENCIES[module],
         ]
@@ -353,6 +406,7 @@ def _smoke_bundle(
             'case "$(command -v python)" in /app/.venv/bin/*) exit 91;; esac; '
             'case "$(command -v dander)" in /app/.venv/bin/*) exit 92;; esac; '
             "cd /tmp/harness; export PYTHONPATH=/tmp/harness; "
+            f"python {LAUNCHER_PREFLIGHT} --help >/tmp/preflight-help.txt; "
             f"python -c 'import {module}'; {_candidate_command(module)} --help >/tmp/help.txt"
         )
         result = subprocess.run(
