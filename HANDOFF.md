@@ -2,35 +2,36 @@
 
 ## Finished
 
-- Bound one corrective Redshift failure execution to immutable RC32.
-- Preserved the four accepted probes, 2-vCPU/4-GiB Fargate shape, and exact cleanup contract.
-- Recorded the additional USD 10 aggregate authorization without changing the USD 0.50 cell ceiling.
-- Added focused protection for candidate identity, budget, harness hashes, and zero retries.
+- Preserved the failed RC32 Redshift attempt and classified its exact harness boundary.
+- Fixed invalid-COPY recovery for the real `redshift_connector` exception hierarchy.
+- Added regression coverage for both supported Redshift database-error families.
+- Bound one corrective execution to the corrected harness and immutable RC32 candidate.
 
 ## Try It
 
-Run `uv run pytest tests/portability/test_redshift_failure_phase8_benchmark.py -q`.
+Run `uv run --extra dev --extra redshift --extra postgres pytest tests/portability/test_redshift_failure_phase8_benchmark.py -q`.
 
 ## Checks
 
-- Focused Redshift failure tests pass.
-- Ruff lint and format checks pass for the changed test.
+- All 11 focused Redshift failure tests pass.
+- Ruff lint and format checks pass for the changed Python files.
 - Objective JSON parsing and Git whitespace checks pass.
 
 ## Decisions
 
-- Failure is the smallest Redshift cell exercising the corrected shared Serverless boundary.
-- The prior RC31 attempt remains failed and transfers no result.
-- Automatic and provider-operation retries remain disabled.
+- RC32 remains unchanged because the live failure was in the external qualification harness.
+- Historical objectives remain immutable and are rejected by the corrected harness.
+- The USD 0.50 cell ceiling and zero-retry contract remain unchanged.
 
 ## Remaining
 
-- Protect and merge this objective.
+- Protect and merge the harness correction and objective.
 - Verify exact-main CI before the one paid execution.
-- Run once, clean every owned resource, and record RC31 plus RC32 evidence together.
+- Run once, clean every owned resource, and record both RC32 attempts together.
 - Continue only the materially blocked Redshift cells.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-corrective-objectives.json`
+- `scripts/benchmarks/redshift_failure_phase8.py`
+- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-harness-corrective-objectives.json`
 - `tests/portability/test_redshift_failure_phase8_benchmark.py`
