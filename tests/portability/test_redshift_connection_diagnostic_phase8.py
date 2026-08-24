@@ -24,8 +24,8 @@ _REFERENCE = "codex-goal-redshift-connection-diagnostic"
 
 
 class _Connection:
-    def __init__(self, *, iam: bool) -> None:
-        self.iam = iam
+    def __init__(self, *, path: str) -> None:
+        self.path = path
         self.closed = False
 
     def close(self) -> None:
@@ -38,18 +38,24 @@ class _ServerlessClient:
         *,
         failure: Exception | None = None,
         events: list[str] | None = None,
+        event_name: str = "get_credentials",
+        username: str = "temporary-user",
+        password: str = "temporary-password",
     ) -> None:
         self.failure = failure
         self.events = events
+        self.event_name = event_name
+        self.username = username
+        self.password = password
         self.calls: list[dict[str, object]] = []
 
     def get_credentials(self, **kwargs: object) -> Mapping[str, object]:
         if self.events is not None:
-            self.events.append("get_credentials")
+            self.events.append(self.event_name)
         self.calls.append(kwargs)
         if self.failure is not None:
             raise self.failure
-        return {"dbUser": "temporary-user", "dbPassword": "temporary-password"}
+        return {"dbUser": self.username, "dbPassword": self.password}
 
 
 def _config() -> diagnostic.DiagnosticConfig:
@@ -58,10 +64,10 @@ def _config() -> diagnostic.DiagnosticConfig:
         host="workgroup.123456789012.us-east-1.redshift-serverless.amazonaws.com",
         database="analytics",
         region="us-east-1",
-        workgroup_name="dander-p8q-rc31-rs-connect-diag",
+        workgroup_name="dander-p8q-rc32-rs-connect-diag",
         copy_role_arn="arn:aws:iam::123456789012:role/dander-redshift-copy",
         staging_bucket="dander-redshift-staging",
-        staging_prefix="phase8/0.9.0rc31/staging",
+        staging_prefix="phase8/0.9.0rc32/staging",
     )
 
 
@@ -79,48 +85,38 @@ def _install_connector(
     calls: list[dict[str, object]],
     *,
     fail_explicit: Exception | None = None,
-    fail_iam: Exception | None = None,
+    fail_current: Exception | None = None,
     events: list[str] | None = None,
-) -> None:
-    def connect(**kwargs: object) -> object:
-        calls.append(kwargs)
-        iam = kwargs.get("iam") is True
-        if events is not None:
-            events.append("iam_connect" if iam else "explicit_connect")
-        failure = fail_iam if iam else fail_explicit
-        if failure is not None:
-            raise failure
-        return _Connection(iam=iam)
-
-    module = ModuleType("redshift_connector")
-    module.connect = connect  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "redshift_connector", module)
-
-    def protected_rc31_connection_factory(config: object) -> object:
-        current = cast("diagnostic.DiagnosticConfig", config)
-        return lambda: connect(
-            iam=True,
-            ssl=True,
-            sslmode="verify-full",
-            host=current.host,
-            port=current.port,
-            database=current.database,
-            region=current.region,
-            timeout=current.connect_timeout_seconds,
-            application_name="dander",
-            client_protocol_version=0,
-            is_serverless=True,
-            serverless_work_group=current.workgroup_name,
-        )
-
-    monkeypatch.setattr(
-        redshift_runtime_module,
-        "_sdk_connection_factory",
-        protected_rc31_connection_factory,
+) -> _ServerlessClient:
+    current_client = _ServerlessClient(
+        events=events,
+        event_name="dander_get_credentials",
+        username="dander-temporary-user",
+        password="dander-temporary-password",
     )
 
+    def explicit_connect(**kwargs: object) -> object:
+        calls.append(kwargs)
+        is_current = kwargs.get("user") == "dander-temporary-user"
+        if events is not None:
+            events.append("dander_connect" if is_current else "explicit_connect")
+        failure = fail_current if is_current else fail_explicit
+        if failure is not None:
+            raise failure
+        return _Connection(path="dander" if is_current else "explicit")
 
-def test_diagnostic_compares_explicit_credentials_with_protected_rc31_iam(
+    module = ModuleType("redshift_connector")
+    module.connect = explicit_connect  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "redshift_connector", module)
+    monkeypatch.setattr(
+        redshift_runtime_module,
+        "_sdk_serverless_client",
+        lambda _region: current_client,
+    )
+    return current_client
+
+
+def test_diagnostic_compares_explicit_credentials_with_current_rc32_factory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
@@ -128,11 +124,11 @@ def test_diagnostic_compares_explicit_credentials_with_protected_rc31_iam(
     events: list[str] = []
     client = _ServerlessClient(events=events)
     calls: list[dict[str, object]] = []
-    _install_connector(monkeypatch, calls, events=events)
+    current_client = _install_connector(monkeypatch, calls, events=events)
 
     def execute(connection: object, statement: str, *, fetch: str) -> object:
         current = cast("_Connection", connection)
-        events.append("iam_query" if current.iam else "explicit_query")
+        events.append(f"{current.path}_query")
         assert statement == "SELECT current_database(), current_user"
         assert fetch == "one"
         return SimpleNamespace(row=("analytics", "IAMR:dander_runtime"))
@@ -142,18 +138,19 @@ def test_diagnostic_compares_explicit_credentials_with_protected_rc31_iam(
     result = diagnostic.run_diagnostic(_config(), serverless_client=client)
 
     assert [stage["stage"] for stage in cast("list[dict[str, object]]", result["stages"])] == [
-        "dander_iam_connector",
-        "dander_validation_query",
         "get_credentials",
         "explicit_credentials_connector",
         "explicit_credentials_validation_query",
+        "dander_current_connector",
+        "dander_current_validation_query",
     ]
     assert events == [
-        "iam_connect",
-        "iam_query",
         "get_credentials",
         "explicit_connect",
         "explicit_query",
+        "dander_get_credentials",
+        "dander_connect",
+        "dander_query",
     ]
     assert all(
         stage["exception_class"] is None
@@ -161,19 +158,20 @@ def test_diagnostic_compares_explicit_credentials_with_protected_rc31_iam(
     )
     assert client.calls == [
         {
-            "workgroupName": "dander-p8q-rc31-rs-connect-diag",
+            "workgroupName": "dander-p8q-rc32-rs-connect-diag",
             "dbName": "analytics",
             "durationSeconds": 900,
         }
     ]
+    assert current_client.calls == client.calls
     assert len(calls) == 2
-    current, explicit = calls
-    assert explicit["iam"] is False
+    explicit, current = calls
     assert explicit["user"] == "temporary-user"
     assert explicit["password"] == "temporary-password"
-    assert current["iam"] is True
-    assert "user" not in current and "password" not in current
+    assert current["user"] == "dander-temporary-user"
+    assert current["password"] == "dander-temporary-password"
     for call in calls:
+        assert call["iam"] is False
         assert call["ssl"] is True
         assert call["sslmode"] == "verify-full"
         assert call["timeout"] == 300
@@ -190,7 +188,7 @@ def test_diagnostic_emits_only_sanitized_stage_metadata(
         monkeypatch,
         calls,
         fail_explicit=TimeoutError("temporary-password private endpoint"),
-        fail_iam=RuntimeError("private AWS response"),
+        fail_current=RuntimeError("private AWS response"),
     )
 
     result = diagnostic.run_diagnostic(_config(), serverless_client=_ServerlessClient())
@@ -198,10 +196,10 @@ def test_diagnostic_emits_only_sanitized_stage_metadata(
     stages = cast("list[dict[str, object]]", result["stages"])
 
     assert [stage["exception_class"] for stage in stages] == [
-        "RuntimeError",
-        "DiagnosticPrerequisiteError",
         None,
         "TimeoutError",
+        "DiagnosticPrerequisiteError",
+        "RuntimeError",
         "DiagnosticPrerequisiteError",
     ]
     assert all(set(stage) == {"stage", "elapsed_ms", "exception_class"} for stage in stages)
@@ -210,7 +208,7 @@ def test_diagnostic_emits_only_sanitized_stage_metadata(
     assert "private AWS response" not in encoded
 
 
-def test_diagnostic_records_missing_credentials_and_still_compares_rc31_path(
+def test_diagnostic_records_missing_credentials_and_still_compares_current_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
@@ -230,14 +228,14 @@ def test_diagnostic_records_missing_credentials_and_still_compares_rc31_path(
     stages = cast("list[dict[str, object]]", result["stages"])
 
     assert [stage["exception_class"] for stage in stages] == [
-        None,
-        None,
         "PermissionError",
         "DiagnosticPrerequisiteError",
         "DiagnosticPrerequisiteError",
+        None,
+        None,
     ]
     assert len(calls) == 1
-    assert calls[0]["iam"] is True
+    assert calls[0]["iam"] is False
 
 
 def test_approval_binds_tls_timeout_protocol_and_exact_harness(tmp_path: Path) -> None:
@@ -270,6 +268,7 @@ def test_approval_binds_tls_timeout_protocol_and_exact_harness(tmp_path: Path) -
             "sslmode": "verify-full",
             "client_protocol_version": 0,
             "integrated_iam_for_explicit_credentials": False,
+            "current_dander_connection_factory": True,
             "read_only_validation_query": "SELECT current_database(), current_user",
             "schema_or_workload_mutation_allowed": False,
         },
@@ -286,11 +285,27 @@ def test_approval_binds_tls_timeout_protocol_and_exact_harness(tmp_path: Path) -
         diagnostic._load_approval(approval, config=config, identity=identity, execution_number=1)
 
 
-def test_tracked_objective_matches_exact_harness_and_twenty_run_bound() -> None:
+def test_historical_rc31_objective_preserves_old_path_order() -> None:
     root = Path(__file__).parents[2]
     approval = (
         root / "docs/evidence/phase8/2026-08-23/"
         "aws-native-rc31-redshift-connection-reproduction-objective.json"
+    )
+    payload = json.loads(approval.read_text(encoding="utf-8"))
+
+    assert payload["schema"] == "io.dander.phase8.redshift-connection-diagnostic-approval/v2"
+    assert payload["stages"][:2] == ["dander_iam_connector", "dander_validation_query"]
+    assert payload["execution"]["harness_sha256"] == (
+        "123b83902fa9630c5d1c80dcfcf2c4da3c7aaf94c567eb6c5e72858ddca1f4f5"
+    )
+    assert payload["execution"]["maximum_manual_executions"] == 20
+
+
+def test_tracked_rc32_objective_matches_exact_harness_and_twenty_run_bound() -> None:
+    root = Path(__file__).parents[2]
+    approval = (
+        root / "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-connection-diagnostic-objective.json"
     )
     payload = json.loads(approval.read_text(encoding="utf-8"))
     provider = cast("dict[str, object]", payload["provider"])
@@ -304,7 +319,7 @@ def test_tracked_objective_matches_exact_harness_and_twenty_run_bound() -> None:
         workgroup_name=cast("str", provider["workgroup_name"]),
         copy_role_arn="arn:aws:iam::184463061564:role/dander-redshift-copy",
         staging_bucket="dander-redshift-staging",
-        staging_prefix="phase8/0.9.0rc31/staging",
+        staging_prefix="phase8/0.9.0rc32/staging",
         port=cast("int", provider["port"]),
     )
     identity = diagnostic.CandidateIdentity(

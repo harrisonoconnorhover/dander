@@ -25,13 +25,13 @@ if TYPE_CHECKING:
     from dander.providers.redshift.session import RedshiftConnection
 
 
-_APPROVAL_SCHEMA = "io.dander.phase8.redshift-connection-diagnostic-approval/v2"
+_APPROVAL_SCHEMA = "io.dander.phase8.redshift-connection-diagnostic-approval/v3"
 _DIAGNOSTIC_STAGES = (
-    "dander_iam_connector",
-    "dander_validation_query",
     "get_credentials",
     "explicit_credentials_connector",
     "explicit_credentials_validation_query",
+    "dander_current_connector",
+    "dander_current_validation_query",
 )
 _MAXIMUM_MANUAL_EXECUTIONS = 20
 
@@ -95,24 +95,9 @@ def run_diagnostic(
     serverless_client: _RedshiftServerlessClient | None = None,
     connector: Callable[..., object] | None = None,
 ) -> dict[str, object]:
-    """Compare Dander's cold IAM path with explicit temporary credentials."""
+    """Compare explicit temporary credentials with Dander's current factory."""
     _require_no_provider_retries()
     stages: list[dict[str, object]] = []
-
-    dander_connection = _record_stage(
-        stages,
-        "dander_iam_connector",
-        redshift_runtime._sdk_connection_factory(config.warehouse_config()),  # noqa: SLF001
-    )
-    try:
-        _record_stage(
-            stages,
-            "dander_validation_query",
-            lambda: _validate_connection(dander_connection, config.database),
-        )
-    finally:
-        _close_connection(dander_connection)
-
     client = serverless_client or _serverless_client(config.region)
     explicit_connector = connector or _connector()
     credentials = _record_stage(
@@ -164,6 +149,20 @@ def run_diagnostic(
         )
     finally:
         _close_connection(explicit_connection)
+
+    dander_connection = _record_stage(
+        stages,
+        "dander_current_connector",
+        redshift_runtime._sdk_connection_factory(config.warehouse_config()),  # noqa: SLF001
+    )
+    try:
+        _record_stage(
+            stages,
+            "dander_current_validation_query",
+            lambda: _validate_connection(dander_connection, config.database),
+        )
+    finally:
+        _close_connection(dander_connection)
 
     return {"stages": stages}
 
@@ -256,6 +255,7 @@ def _load_approval(
         "sslmode": "verify-full",
         "client_protocol_version": 0,
         "integrated_iam_for_explicit_credentials": False,
+        "current_dander_connection_factory": True,
         "read_only_validation_query": "SELECT current_database(), current_user",
         "schema_or_workload_mutation_allowed": False,
     }
