@@ -319,11 +319,15 @@ def run_phase8_redshift_failure(
             "Redshift runtime construction failed after credential-rejection probe passed"
         ) from error
     result: _FailureResult | None = None
-    failure: Exception | None = None
+    failure: tuple[str, int, Exception] | None = None
+    stage = "failed_copy_cleanup_and_recovery"
+    stage_started = time.perf_counter()
     try:
         failed_copy_ms, recovery_ms, operations = _probe_failed_copy_cleanup_and_recovery(
             config, runtime, schema_name=schema_name, staging_prefix=staging_prefix
         )
+        stage = "stale_publication_rejection"
+        stage_started = time.perf_counter()
         stale_rejected, claim_attempts = shared._exercise_concurrent_fence(  # noqa: SLF001
             runtime, schema_name
         )
@@ -331,6 +335,8 @@ def run_phase8_redshift_failure(
             raise RedshiftFailureQualificationError(
                 "Redshift stale-publication rejection differed from the accepted probe"
             )
+        stage = "staging_residue_check"
+        stage_started = time.perf_counter()
         staging_tables = bulk._staging_table_count(runtime, schema_name)  # noqa: SLF001
         staging_objects = shared._prefix_object_count(  # noqa: SLF001
             _shared_config(config), staging_prefix
@@ -339,6 +345,8 @@ def run_phase8_redshift_failure(
             raise RedshiftFailureQualificationError(
                 "Redshift failure qualification left run-scoped staging objects"
             )
+        stage = "provider_cost_observation"
+        stage_started = time.perf_counter()
         time.sleep(config.cost_observation_delay_seconds)
         charged, compute, capacity = bulk._serverless_usage(runtime)  # noqa: SLF001
         if charged <= 0:
@@ -369,7 +377,7 @@ def run_phase8_redshift_failure(
             cleanup_verified=False,
         )
     except Exception as error:
-        failure = error
+        failure = (stage, _elapsed_ms(stage_started), error)
     finally:
         cleanup_error: Exception | None = None
         try:
@@ -392,10 +400,10 @@ def run_phase8_redshift_failure(
             "Redshift failure qualification cleanup could not be verified"
         )
     if failure is not None:
-        if isinstance(failure, (RedshiftFailureQualificationError, ValueError)):
-            raise failure
+        failed_stage, elapsed_ms, failure_error = failure
         raise RedshiftFailureQualificationError(
-            "Redshift failure qualification failed before report completion; cleanup passed"
+            f"stage={failed_stage}; elapsed_ms={elapsed_ms}; "
+            f"exception_class={type(failure_error).__name__}"
         ) from None
     assert result is not None
     return _report(config, identity, approval, replace(result, cleanup_verified=True))
