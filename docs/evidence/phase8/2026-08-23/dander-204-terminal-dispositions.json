@@ -1,0 +1,88 @@
+{
+  "schema": "io.dander.phase8.scale-matrix-terminal-dispositions/v1",
+  "reviewed_on": "2026-08-23",
+  "ticket": "DANDER-204",
+  "reviewed_protected_main": "f97f3147586260fbb6ed1c2049d4f72367bfb44b",
+  "read_only_reconciliation": true,
+  "provider_mutation_performed": false,
+  "workload_reruns": 0,
+  "candidate_published": false,
+  "dispositions": [
+    {
+      "scope": "snowflake_local_scale_256_mib_bounded_memory",
+      "status": "closed_failed_unsupported_profile",
+      "basis": "The exact RC30 workload completed with exact readback and cleanup, but every retained memory sample exceeded the committed 204.8 MiB peak-RSS limit.",
+      "references": [
+        "docs/evidence/phase8/2026-08-23/snowflake-rc30-bounded-memory-execution.json",
+        "docs/evidence/phase8/2026-08-23/snowflake-rc30-bounded-memory.json"
+      ],
+      "support_effect": "exclude_the_tested_256_mib_snowflake_profile"
+    },
+    {
+      "scope": "gke_standard_rc31_postgresql_functional_cells",
+      "cells": [
+        "correctness",
+        "bulk_throughput",
+        "incremental",
+        "concurrency",
+        "transform",
+        "crossover"
+      ],
+      "status": "functionally_passed_cost_not_evaluated",
+      "basis": "Each protected candidate workload passed its functional objectives and exact cleanup. Provider-posted cost remains unusable while Google flags post-2026-08-19 billing data as potentially incomplete or missing.",
+      "references": [
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-correctness.json",
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-throughput.json",
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-incremental.json",
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-concurrency.json",
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-transform.json",
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-crossover.json"
+      ],
+      "workload_rerun_required_for_cost_finalization": false
+    },
+    {
+      "scope": "gke_standard_rc31_postgresql_failure",
+      "status": "not_evaluated_exhausted_infrastructure_attempt",
+      "basis": "The initial Job failed before Dander at an invalid operator entrypoint. The protected correction's only infrastructure attempt stopped before cluster or candidate creation on an unretried service-account propagation rejection; exact cleanup passed.",
+      "references": [
+        "docs/evidence/phase8/2026-08-22/gke-standard-rc31-postgresql-failure-objectives.json",
+        "docs/evidence/phase8/2026-08-22/gke-standard-rc31-postgresql-failure-corrective-objectives.json",
+        "tickets/DANDER-204-phase8-scale-matrix.md"
+      ],
+      "qualification_result_claimed": false
+    },
+    {
+      "scope": "aws_native_rc31_redshift_scale_cells",
+      "cells": [
+        "bulk_throughput",
+        "incremental",
+        "concurrency",
+        "transform",
+        "bounded_memory",
+        "failure"
+      ],
+      "status": "not_qualified_no_normalized_report",
+      "basis": "The protected executions and permitted corrections are terminal historical attempts. They did not produce passing normalized reports. A later protected connection diagnostic completed GetCredentials, explicit-credential connector construction, and the unchanged Dander IAM factory without reproducing the stall, so it selected no product correction and transfers no result to a scale cell.",
+      "references": [
+        "tickets/DANDER-204-phase8-scale-matrix.md",
+        "docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-diagnostic.json"
+      ],
+      "previous_attempts_reinterpreted": false,
+      "support_effect": "aws_native_redshift_remains_experimental_and_unqualified"
+    }
+  ],
+  "remaining_gates": [
+    "final provider-posted GKE costs after the confirmed Cloud Billing delay clears",
+    "final AWS invoice reconciliation without rerunning accepted workloads",
+    "separately protected Redshift diagnosis before any materially affected rerun"
+  ],
+  "ticket_closed": false,
+  "pairwise_unblocked": false,
+  "support_promoted": false,
+  "sanitization": {
+    "credentials_present": false,
+    "tokens_present": false,
+    "business_rows_present": false,
+    "private_endpoint_present": false
+  }
+}

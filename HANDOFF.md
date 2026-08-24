@@ -2,36 +2,34 @@
 
 ## Finished
 
-- Reviewed all 16 retained GCP executions from August 20–23 and recorded sanitized evidence in issue #26.
-- Paused only the unavailable ServiceNow schedule through a reviewed one-change Terraform plan.
-- Preserved the ServiceNow job, alerts, secrets, data, and historical executions.
-- Verified the retained platform has no Terraform drift after the scope change.
+- Reconciled the terminal dispositions of the remaining DANDER-204 attempts without provider mutation.
+- Preserved Snowflake's tested 256 MiB profile as unsupported.
+- Preserved six GKE functional passes with provider cost still `not_evaluated`.
+- Preserved the GKE failure attempt and six Redshift cells without claiming qualification.
 
 ## Try It
 
-Review issue #26 and confirm the three available schedules remain enabled in `us-central1`.
+Review `docs/evidence/phase8/2026-08-23/dander-204-terminal-dispositions.json` against the referenced execution records.
 
 ## Checks
 
-- Greenhouse, HubSpot, and Salesforce passed all 12 scheduled executions reviewed.
-- ServiceNow's four failures retained the existing external OAuth-path diagnosis with zero data movement.
-- Row/key counts match, all current leases are released, no temporary staging remains, and Terraform reports no changes.
+- JSON parsing and release-metadata checks pass.
+- No workload, candidate, provider resource, or accepted result changed.
 
 ## Decisions
 
-- Continue the original August 2–September 1 soak without the unavailable ServiceNow PDI.
-- Evaluate the final seven clean days against Greenhouse, HubSpot, and Salesforce; do not restart the window.
-- Treat ServiceNow availability as an external limitation, not a Dander product defect.
+- A terminal attempt is not a passing normalized report.
+- The successful connection diagnostic does not transfer a result to any Redshift scale cell.
+- DANDER-204 stays open and DANDER-205 remains dependency-blocked.
 
 ## Remaining
 
-- Perform the next weekly retained-run review.
-- Close the soak only after the September 1 gate and final seven clean days.
-- Reconcile delayed provider costs without rerunning accepted workloads.
-- Continue eligible Phase 8 matrix and audit work.
+- Protect and execute the separately authorized Redshift diagnosis.
+- Reconcile GKE costs after Google's billing-delay incident clears.
+- Recheck the final AWS invoice without rerunning accepted workloads.
+- Continue the retained soak through its September 1 gate.
 
 ## Review First
 
-- `tickets/DANDER-207-phase8-soak-release.md`
-- `docs/operator-soak.md`
-- Issue #26 review dated 2026-08-23
+- `docs/evidence/phase8/2026-08-23/dander-204-terminal-dispositions.json`
+- `tickets/DANDER-204-phase8-scale-matrix.md`
