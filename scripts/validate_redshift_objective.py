@@ -19,7 +19,7 @@ RC32_DIGEST = "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5
 RC32_ARM64_MANIFEST_DIGEST = (
     "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53"
 )
-RC32_IMAGE = f"184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@{RC32_ARM64_MANIFEST_DIGEST}"
+RC32_IMAGE = "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander:0.9.0rc32"
 
 BENCHMARK_DEPENDENCIES = {
     "scripts.benchmarks.redshift_bulk_phase8": (),
@@ -41,6 +41,7 @@ PROFILE_FIELDS: tuple[tuple[tuple[str, ...], object], ...] = (
     (("configuration", "candidate", "git_commit"), RC32_GIT_COMMIT),
     (("configuration", "candidate", "image_index_digest"), RC32_DIGEST),
     (("configuration", "candidate", "target_image"), RC32_IMAGE),
+    (("configuration", "candidate", "immutable_tag_selection"), True),
     (("configuration", "candidate", "mutable_tag_selection"), False),
     (("configuration", "data_plane", "terraform_root"), "infra/qualification/aws-native"),
     (("configuration", "data_plane", "redshift_serverless_base_capacity_rpu"), 8),
@@ -50,6 +51,7 @@ PROFILE_FIELDS: tuple[tuple[tuple[str, ...], object], ...] = (
     (("configuration", "fargate_harness", "task_timeout_seconds"), 900),
     (("configuration", "fargate_harness", "runtime_cpu_architecture"), "ARM64"),
     (("configuration", "fargate_harness", "candidate_image_architecture"), "arm64"),
+    (("configuration", "fargate_harness", "container_image_version_consistency"), "enabled"),
     (("configuration", "fargate_harness", "candidate_python_executable"), "python"),
     (("configuration", "fargate_harness", "candidate_cli_executable"), "dander"),
     (("configuration", "fargate_harness", "forbidden_executable_prefix"), "/app/.venv/bin/"),
@@ -121,6 +123,10 @@ def canonical_launcher_contract(benchmark_module: str) -> dict[str, object]:
             "digest": RC32_ARM64_MANIFEST_DIGEST,
             "architecture": "arm64",
             "parent_index_digest": RC32_DIGEST,
+            "runtime_reference": RC32_IMAGE,
+            "repository_tag_mutability": "IMMUTABLE",
+            "verify_resolution_before_task_registration": True,
+            "verify_resolution_after_task_stop": True,
         },
         "iam_readiness": {
             "required_before_candidate": True,
@@ -377,6 +383,8 @@ def _smoke_bundle(
 
 
 def _image_has_rc32_digest(image: str) -> bool:
+    if image != RC32_IMAGE:
+        return False
     result = subprocess.run(
         [
             "docker",
@@ -391,9 +399,7 @@ def _image_has_rc32_digest(image: str) -> bool:
         text=True,
     )
     return (
-        result.returncode == 0
-        and f"@{RC32_ARM64_MANIFEST_DIGEST}" in result.stdout
-        and " arm64" in result.stdout
+        result.returncode == 0 and f"@{RC32_DIGEST}" in result.stdout and " arm64" in result.stdout
     )
 
 
