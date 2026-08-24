@@ -53,7 +53,7 @@
     "resource_name": "dander-p8q-rc32-rs-diag-c8",
     "state_key": "dander/d7/control-plane/phase8-qualification/rc32-redshift-connection-diagnostic-c8.tfstate",
     "redshift_serverless_base_capacity_rpu": 8,
-    "redshift_serverless_daily_usage_limit_rpu_hours": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 5,
     "task_role_tag": "RedshiftDbRoles=dander_runtime",
     "task_role_global_actions": [
       "tag:GetResources",
