@@ -22,3 +22,7 @@
   the tracked pre-push hook and `scripts/verify_repository_target.py`; do not bypass either check.
 - Create pull requests only with `scripts/create_pull_request.py`, supplying explicit `--base` and
   `--head` branches. Do not use `gh pr create` directly.
+- Before opening a pull request that adds or changes an exact-RC32 AWS-native Redshift objective,
+  pass every changed objective to `scripts/validate_redshift_objective.py` together and supply the
+  local immutable RC32 image through the PR wrapper's `--redshift-smoke-image` option. Historical
+  objectives are evidence and must not be rewritten to satisfy the new launcher contract.

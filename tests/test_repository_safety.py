@@ -9,7 +9,12 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from scripts.create_pull_request import create_command, pull_request_target_errors
+from scripts.create_pull_request import (
+    changed_rc32_redshift_objectives,
+    create_command,
+    pull_request_target_errors,
+    run_redshift_objective_preflight,
+)
 from scripts.verify_repository_target import (
     CANONICAL_REPOSITORY,
     RepositoryTargetError,
@@ -193,6 +198,41 @@ def test_pr_wrapper_verifies_created_target(tmp_path: Path) -> None:
     log = Path(environment["FAKE_GH_LOG"]).read_text(encoding="utf-8")
     assert f"pr create --repo {CANONICAL_REPOSITORY}" in log
     assert f"api repos/{CANONICAL_REPOSITORY}/pulls/999" in log
+
+
+def test_pr_wrapper_requires_image_smoke_for_new_rc32_redshift_objectives(
+    tmp_path: Path,
+) -> None:
+    _init_repository(tmp_path)
+    subprocess.run(["git", "config", "user.email", "tests@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Tests"], cwd=tmp_path, check=True)
+    validator = tmp_path / "scripts/validate_redshift_objective.py"
+    validator.parent.mkdir(parents=True)
+    shutil.copy2(ROOT / "scripts/validate_redshift_objective.py", validator)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "branch", "-M", "main"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "switch", "-qc", "codex/redshift-objective"], cwd=tmp_path, check=True)
+    objective = (
+        tmp_path / "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-bulk-objectives.json"
+    )
+    objective.parent.mkdir(parents=True)
+    objective.write_text("{}\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "objective"], cwd=tmp_path, check=True)
+
+    assert changed_rc32_redshift_objectives(
+        tmp_path,
+        base="main",
+        head="codex/redshift-objective",
+    ) == (objective,)
+    with pytest.raises(SystemExit, match="--redshift-smoke-image"):
+        run_redshift_objective_preflight(
+            tmp_path,
+            base="main",
+            head="codex/redshift-objective",
+            smoke_image=None,
+        )
 
 
 def _init_repository(path: Path) -> None:
