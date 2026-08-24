@@ -2,36 +2,35 @@
 
 ## Finished
 
-- Preserved C7 as the unexpected exact-RC32 runtime-construction timeout with no workload mutation.
-- Completed exact C7 cleanup: 37 resources, 12 state versions, and exact lock metadata removed.
-- Rebound the existing read-only connection diagnostic to RC32 and Dander's current factory.
-- Put explicit temporary credentials first while preserving TLS, protocol, and timeout settings.
-- Added one bounded C8 objective for up to 20 manual, zero-retry diagnostics.
+- Ran two protected, zero-retry RC32 Redshift connection diagnostics.
+- Verified the explicit and current Dander factories both connect and execute the validation query.
+- Classified the one timeout as first-query order dependent, not connector-path specific.
+- Completed exact launcher, object, data-plane, remote-state, and lock cleanup.
+- Recorded the sanitized diagnostic and conservative USD 4.00 objective bound.
 
 ## Try It
 
-Run `uv run --isolated --frozen --extra dev --extra postgres pytest tests/portability/test_redshift_connection_diagnostic_phase8.py -q`.
+Run `jq . docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-connection-diagnostic.json`.
 
 ## Checks
 
-- Focused diagnostic suite passes with 7 tests; full suite passes with 1,947 tests and 35 skips.
-- Ruff lint/format, strict types, contracts, dependency audit, Terraform format, JSON, and whitespace pass.
+- Both manual Step Functions executions succeeded with zero retries.
+- The saved 37-create plan applied and the post-apply plan had zero changes.
+- The saved 37-destroy plan applied; direct owned inventories and remote state are empty.
 
 ## Decisions
 
-- Diagnostic output remains limited to stage name, elapsed time, and exception class.
-- C8 permits no schema, COPY, benchmark, or candidate mutation.
-- The USD 4.00 diagnostic ceiling draws only from the existing reserved allocation.
+- No additional Redshift product, TLS, protocol, or timeout change is supported.
+- RC32's protected explicit-credential factory is the retained product correction.
+- Only materially blocked exact-RC32 Redshift cells remain eligible for new objectives.
 
 ## Remaining
 
-- Protect and merge the C8 diagnostic objective.
-- Verify exact-main CI before paid mutation.
-- Run only until the shared connection boundary is solidly classified, then clean every owned resource.
-- Select a product correction only from the protected diagnostic result.
+- Protect this sanitized diagnostic evidence.
+- Rebind and run only the materially blocked Redshift cells under separate protected objectives.
+- Reconcile delayed provider cost without rerunning accepted work.
 
 ## Review First
 
-- `scripts/benchmarks/redshift_connection_diagnostic_phase8.py`
-- `tests/portability/test_redshift_connection_diagnostic_phase8.py`
-- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-connection-diagnostic-objective.json`
+- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-connection-diagnostic.json`
+- `tickets/DANDER-204-phase8-scale-matrix.md`

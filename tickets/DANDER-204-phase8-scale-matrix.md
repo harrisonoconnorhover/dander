@@ -398,6 +398,19 @@ scale report.
   exact lock record. This selects the bounded product correction: Dander must acquire Serverless
   credentials explicitly while leaving provisioned Redshift unchanged. See
   `docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-reproduction.json`.
+- PRs #454 and #455 protected the exact-RC32 opposite-order diagnostic and its valid 5-RPU-hour
+  Serverless limit; both pull-request and exact-main CI runs passed all five jobs. The first manual
+  execution obtained credentials in 86 ms and connected explicitly in 104 ms, but its first
+  validation query timed out at 300,100 ms. Dander's current protected factory then connected in
+  492 ms and completed the same query in 12 ms. A second zero-retry execution completed both paths:
+  explicit in 127 ms plus a 9 ms query, and Dander in 118 ms plus an 8 ms query.
+- Combined with PR #443's opposite order, the timeout followed the first validation query rather
+  than one connector path. RC32's explicit-credential Dander factory is verified and this result
+  supports no additional product, TLS, protocol, or timeout change. The two executions performed
+  no schema, COPY, or benchmark mutation. Exact cleanup removed three transient objects,
+  deregistered both task revisions, removed the launcher and all 37 data-plane resources, deleted
+  all 13 state versions, and removed exact lock metadata while retaining RC32. See
+  `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-connection-diagnostic.json`.
 - PR #410 protected the exact-RC30 Snowflake bounded-memory objective. Exact-main run
   `32580133652` passed all five jobs before its one execution. The unchanged 2.6-million-row,
   2.7248-GB workload completed all 260 COPY operations and exact 2.6-million-row readback with zero
