@@ -6,6 +6,20 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc32 — 2026-08-23 (beta)
+
+### Fixed
+
+- Acquire Redshift Serverless temporary credentials in Dander and connect with integrated IAM
+  disabled so the first validation query does not stall after connector startup. Provisioned
+  Redshift behavior is unchanged.
+
+### Known limitations
+
+- RC32 is a private corrective candidate for Redshift cells blocked by the shared Serverless
+  connection boundary. Other Phase 8 cells, provider-cost reconciliation, pairwise, audit, soak,
+  and support gates remain open, and public RC20 is unchanged.
+
 ## 0.9.0rc31 — 2026-08-21 (beta)
 
 ### Fixed
