@@ -430,3 +430,11 @@ scale report.
   and transfers no result. DANDER-204 remains open for delayed provider costs and separately
   protected Redshift diagnosis; DANDER-205 is not unblocked. See
   `docs/evidence/phase8/2026-08-23/dander-204-terminal-dispositions.json`.
+- The delayed August 21 GCP provider rows later posted without a workload rerun. The exact proof
+  project's Compute Engine, Kubernetes Engine, and Networking rows total USD 0.216764 after
+  savings, which is a conservative provider-measured upper bound below every USD 0.50 ceiling for
+  the six functionally accepted GKE cells. Their cost gates now pass. AWS's August Usage total is
+  still provider-estimated; the account-wide USD 1.8598448133 gross bound remains below USD 3, and
+  its final-invoice recheck remains read-only. DANDER-204 stays open only for the exhausted GKE
+  failure cell, unqualified Redshift cells, and final AWS invoice confirmation. See
+  `docs/evidence/phase8/2026-08-24/provider-cost-reconciliation.json`.

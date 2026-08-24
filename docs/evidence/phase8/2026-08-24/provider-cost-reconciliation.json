@@ -1,0 +1,95 @@
+{
+  "schema": "io.dander.phase8.provider-cost-reconciliation/v3",
+  "checked_at_utc": "2026-08-24T20:16:40Z",
+  "read_only": true,
+  "cloud_mutation_started": false,
+  "accepted_workload_reruns": 0,
+  "previous_reconciliation": "docs/evidence/phase8/2026-08-20/provider-cost-reconciliation.json",
+  "aggregate": {
+    "provider_measured_cost_or_conservative_upper_bound_usd": "2.8449110263",
+    "composition": [
+      "aws_whole_account_gross_usage_upper_bound_usd=1.8598448133",
+      "azure_exact_resource_group_cost_usd=0.0735022130",
+      "snowflake_exact_dander_warehouse_cost_usd=0.6948000000",
+      "gcp_exact_gke_cost_usd=0.2167640000"
+    ],
+    "status": "below_combined_authorizations",
+    "qualification_effect": "Only the six named GKE cost gates close. Existing Azure, Snowflake, and earlier GKE cost conclusions remain unchanged; the estimated AWS invoice still requires a read-only final recheck."
+  },
+  "providers": {
+    "gcp": {
+      "source": "Google Cloud Billing Reports CSV export",
+      "billing_timezone": "America/New_York",
+      "charge_period": "2026-08-21",
+      "exact_proof_project_filter_selected": true,
+      "display_currency": "USD",
+      "export_sha256": "df9f9ff3a10d4cb9c4056ac1c5333b7f6d454a1ece4864c79370cfb6eccca3c0",
+      "attributable_service_rows": [
+        {
+          "service": "Compute Engine",
+          "usage_cost_usd": "0.220000",
+          "other_savings_usd": "0.000000",
+          "unrounded_subtotal_usd": "0.216764"
+        },
+        {
+          "service": "Kubernetes Engine",
+          "usage_cost_usd": "0.270000",
+          "other_savings_usd": "-0.270000",
+          "unrounded_subtotal_usd": "0.000000"
+        },
+        {
+          "service": "Networking",
+          "usage_cost_usd": "0.050000",
+          "other_savings_usd": "-0.050000",
+          "unrounded_subtotal_usd": "0.000000"
+        }
+      ],
+      "provider_measured_gke_cost_usd": "0.216764",
+      "attribution_method": "The exact proof project's full GKE service subtotal for the shared charge day is a conservative provider-measured upper bound for every nonnegative workload subset.",
+      "cells": [
+        "correctness",
+        "bulk_throughput",
+        "incremental",
+        "concurrency",
+        "transform",
+        "crossover"
+      ],
+      "per_cell_ceiling_usd": "0.50",
+      "combined_ceiling_usd": "3.00",
+      "objective_status": "passed_for_all_six_named_gke_cost_gates",
+      "workload_rerun_required": false,
+      "qualification_reference": "docs/evidence/phase8/2026-08-23/dander-204-terminal-dispositions.json"
+    },
+    "aws": {
+      "source": "AWS Cost Explorer GetCostAndUsage",
+      "profile": "dander-operator",
+      "usage_window_start": "2026-08-14",
+      "usage_window_end_exclusive": "2026-08-25",
+      "currency": "USD",
+      "record_type": "Usage",
+      "attribution_method": "Use every Usage record in the account as a conservative gross upper bound; the Dander subset cannot exceed the account-wide amount.",
+      "whole_account_gross_usage_upper_bound_usd": "1.8598448133",
+      "provider_data_estimated": true,
+      "next_page_token_present": false,
+      "approved_ceiling_usd": "3.00",
+      "objective_status": "passed_conservative_provider_upper_bound",
+      "final_invoice_recheck_required": true,
+      "workload_rerun_required": false
+    }
+  },
+  "conclusion": {
+    "gcp_billing_delay_cleared_for_charge_period": true,
+    "gke_cost_reconciliation_status": "passed",
+    "aws_final_invoice_status": "pending_provider_finalization",
+    "qualification_rerun_required": false,
+    "new_candidate_required": false,
+    "support_promoted": false,
+    "remaining_cost_follow_up": "Recheck AWS after invoice finalization without rerunning any workload."
+  },
+  "sanitization": {
+    "billing_account_id_present": false,
+    "credentials_present": false,
+    "tokens_present": false,
+    "business_rows_present": false
+  }
+}

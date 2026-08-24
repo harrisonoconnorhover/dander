@@ -1,8 +1,8 @@
 {
   "schema": "io.dander.phase8.scale-matrix-terminal-dispositions/v1",
-  "reviewed_on": "2026-08-23",
+  "reviewed_on": "2026-08-24",
   "ticket": "DANDER-204",
-  "reviewed_protected_main": "f97f3147586260fbb6ed1c2049d4f72367bfb44b",
+  "reviewed_protected_main": "29f3c3da8a673762315dcf30034d756972ed3e58",
   "read_only_reconciliation": true,
   "provider_mutation_performed": false,
   "workload_reruns": 0,
@@ -28,15 +28,16 @@
         "transform",
         "crossover"
       ],
-      "status": "functionally_passed_cost_not_evaluated",
-      "basis": "Each protected candidate workload passed its functional objectives and exact cleanup. Provider-posted cost remains unusable while Google flags post-2026-08-19 billing data as potentially incomplete or missing.",
+      "status": "functionally_and_cost_passed",
+      "basis": "Each protected candidate workload passed its functional objectives and exact cleanup. The delayed provider rows later posted: the exact proof project's full August 21 GKE service subtotal was USD 0.216764, a conservative provider-measured upper bound below every USD 0.50 cell ceiling.",
       "references": [
         "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-correctness.json",
         "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-bulk-throughput.json",
         "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-incremental.json",
         "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-concurrency.json",
         "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-transform.json",
-        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-crossover.json"
+        "docs/evidence/phase8/2026-08-21/gke-standard-rc31-postgresql-crossover.json",
+        "docs/evidence/phase8/2026-08-24/provider-cost-reconciliation.json"
       ],
       "workload_rerun_required_for_cost_finalization": false
     },
@@ -72,7 +73,6 @@
     }
   ],
   "remaining_gates": [
-    "final provider-posted GKE costs after the confirmed Cloud Billing delay clears",
     "final AWS invoice reconciliation without rerunning accepted workloads",
     "separately protected Redshift diagnosis before any materially affected rerun"
   ],
