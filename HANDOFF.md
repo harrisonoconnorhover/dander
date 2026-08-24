@@ -2,35 +2,31 @@
 
 ## Finished
 
-- Reproduced the RC31 boundary: integrated-IAM validation timed out while explicit credentials validated.
-- Cleaned the disposable launcher, data plane, staging objects, state versions, and lock metadata.
-- Changed only Serverless connections to use Dander-acquired temporary credentials with integrated IAM disabled.
-- Preserved provisioned Redshift, TLS verification, protocol selection, and the 300-second timeout.
-- Recorded sanitized diagnostic evidence without credential or endpoint payloads.
+- Prepared private candidate version `0.9.0rc32` from the protected Redshift Serverless correction.
+- Added release notes limited to explicit Serverless credential acquisition.
+- Kept the historical RC31 concurrency objective bound to its original immutable candidate.
 
 ## Try It
 
-Run `uv run pytest -q tests/providers/test_redshift_warehouse_runtime.py`.
+Run `uv run dander --version` and confirm `0.9.0rc32`.
 
 ## Checks
 
-- Full pytest passes: 1,936 passed and 35 skipped.
-- Ruff lint/format, strict typing, Control contract drift, and release metadata checks pass.
+- Release metadata, full pytest, Ruff, strict typing, and Control contract drift pass.
 
 ## Decisions
 
-- Request 900-second Serverless credentials for each new connection; do not cache secrets in Dander.
-- Reject incomplete credential responses before invoking the connector.
+- RC32 is private and only replaces RC31 for Redshift cells blocked by the shared connection boundary.
+- Provisioned Redshift and unrelated qualification results remain unchanged.
 
 ## Remaining
 
-- Protect and merge this correction, then require exact-main CI.
-- Publish one immutable replacement candidate from that protected commit.
-- Protect corrective objectives and rerun only Redshift cells blocked by this shared boundary.
-- Reconcile the delayed provider cost without rerunning for billing data alone.
+- Protect and merge this candidate-preparation change.
+- Publish one immutable multi-platform RC32 image from exact protected main.
+- Bind only materially affected Redshift corrective objectives to that identity.
 
 ## Review First
 
-- `src/dander/providers/redshift/runtime.py`
-- `tests/providers/test_redshift_warehouse_runtime.py`
-- `docs/evidence/phase8/2026-08-23/aws-native-rc31-redshift-connection-reproduction.json`
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `tests/portability/test_redshift_concurrency_phase8_benchmark.py`

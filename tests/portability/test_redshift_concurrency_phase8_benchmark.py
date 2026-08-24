@@ -328,7 +328,7 @@ def test_corrective_objective_binds_corrected_harness_and_same_rc31_workload() -
         staging_prefix="phase8/0.9.0rc31/staging",
     )
     identity = concurrency.CandidateIdentity(
-        release_version=__version__,
+        release_version="0.9.0rc31",
         git_commit="3d6a59484737bf1192f0389b8f93a3a24c780fc4",
         image_digest=("sha256:26dac10d6cd81eef15a96a26fb011c0266ed4de6e4e5b21f596185edd3c387c9"),
         approval_reference=(
