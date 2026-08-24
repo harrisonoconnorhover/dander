@@ -7,7 +7,7 @@ import json
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from scripts import validate_redshift_objective as validator
@@ -34,6 +34,28 @@ def test_canonical_contract_accepts_each_remaining_rc32_cell(
     assert contract == validator.canonical_launcher_contract(module)
 
 
+def test_runtime_target_pins_the_rc32_arm64_manifest_not_its_parent_index(
+    tmp_path: Path,
+) -> None:
+    objective, repository = _objective(tmp_path, REMAINING_MODULES[0])
+
+    payload = validator.validate_objective(objective, repository_root=repository)
+
+    candidate = payload["configuration"]["candidate"]  # type: ignore[index]
+    manifest = payload["configuration"]["launcher_contract"]["image_manifest"]  # type: ignore[index]
+    approved = cast("dict[str, object]", payload["approved_objectives"])
+    assert candidate["target_image"].endswith(validator.RC32_ARM64_MANIFEST_DIGEST)
+    assert candidate["target_image"] != (
+        f"184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@{validator.RC32_DIGEST}"
+    )
+    assert manifest == {
+        "digest": validator.RC32_ARM64_MANIFEST_DIGEST,
+        "architecture": "arm64",
+        "parent_index_digest": validator.RC32_DIGEST,
+    }
+    assert approved["image_digest"] == validator.RC32_DIGEST
+
+
 @pytest.mark.parametrize(
     ("field_path", "replacement", "message"),
     [
@@ -44,6 +66,12 @@ def test_canonical_contract_accepts_each_remaining_rc32_cell(
             "X86_64",
             "architecture",
         ),
+        (
+            ("configuration", "candidate", "target_image"),
+            f"184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@{validator.RC32_DIGEST}",
+            "target_image",
+        ),
+        (("approved_objectives", "image_digest"), "sha256:" + "0" * 64, "approved digest"),
         (
             ("configuration", "fargate_harness", "candidate_python_executable"),
             "/app/.venv/bin/python",
@@ -175,7 +203,9 @@ def test_local_rc32_image_smoke_uses_exact_bundle_and_fail_closed_container(
         if command[:3] == ["docker", "image", "inspect"]:
             return SimpleNamespace(
                 returncode=0,
-                stdout=(f'["example.invalid/dander@{validator.RC32_DIGEST}"] arm64\n'),
+                stdout=(
+                    f'["example.invalid/dander@{validator.RC32_ARM64_MANIFEST_DIGEST}"] arm64\n'
+                ),
                 stderr="",
             )
         return SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -317,6 +347,7 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
             "candidate": {
                 "release_version": validator.RC32_VERSION,
                 "git_commit": validator.RC32_GIT_COMMIT,
+                "image_index_digest": validator.RC32_DIGEST,
                 "target_image": validator.RC32_IMAGE,
                 "mutable_tag_selection": False,
             },
@@ -331,6 +362,11 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
             "execution": execution,
             "diagnostics": deepcopy(validator.DIAGNOSTICS),
             "cleanup": deepcopy(validator.CLEANUP),
+        },
+        "approved_objectives": {
+            "release_version": validator.RC32_VERSION,
+            "git_commit": validator.RC32_GIT_COMMIT,
+            "image_digest": validator.RC32_DIGEST,
         },
     }
     objective.write_text(json.dumps(payload), encoding="utf-8")
