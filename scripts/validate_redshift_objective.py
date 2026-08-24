@@ -21,6 +21,16 @@ RC32_ARM64_MANIFEST_DIGEST = (
 )
 RC32_IMAGE = "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander:0.9.0rc32"
 LAUNCHER_PREFLIGHT = "scripts/benchmarks/redshift_launcher_preflight.py"
+QUERY_BOUNDARY_SCHEMA = "io.dander.phase8.redshift-query-boundary-diagnostic-approval/v1"
+QUERY_BOUNDARY_SCRIPT = "scripts/benchmarks/redshift_query_boundary_diagnostic_phase8.py"
+QUERY_BOUNDARY_STAGES = [
+    "get_credentials",
+    "verified_postgres_tls_handshake",
+    "psycopg_connector",
+    "psycopg_validation_query",
+    "redshift_connector",
+    "redshift_validation_query",
+]
 
 BENCHMARK_DEPENDENCIES = {
     "scripts.benchmarks.redshift_bulk_phase8": (),
@@ -172,6 +182,9 @@ def canonical_launcher_contract(benchmark_module: str) -> dict[str, object]:
 def validate_objective(path: Path, *, repository_root: Path) -> dict[str, object]:
     """Validate one new objective and return its parsed payload."""
     payload = _load_object(path)
+    if payload.get("schema") == QUERY_BOUNDARY_SCHEMA:
+        _validate_query_boundary_diagnostic(path, payload, repository_root)
+        return payload
     for field_path, expected in PROFILE_FIELDS:
         _require(_at(payload, field_path) == expected, f"{field_path[-1]} is not canonical")
     configuration = _mapping(payload.get("configuration"), "configuration")
@@ -319,6 +332,181 @@ def _validate_budget(payload: dict[str, object]) -> None:
     _require(remaining >= 0, "objective exceeds aggregate spend authority")
 
 
+def _validate_query_boundary_diagnostic(
+    objective_path: Path,
+    payload: dict[str, object],
+    repository_root: Path,
+) -> None:
+    candidate = _mapping(payload.get("candidate"), "candidate")
+    _require(
+        candidate
+        == {
+            "release_version": RC32_VERSION,
+            "git_commit": RC32_GIT_COMMIT,
+            "image_digest": RC32_DIGEST,
+        },
+        "query-boundary candidate is not exact RC32",
+    )
+    _require(payload.get("stages") == QUERY_BOUNDARY_STAGES, "query-boundary stages drifted")
+    provider = _mapping(payload.get("provider"), "provider")
+    account = str(provider.get("account_id", ""))
+    region = str(provider.get("region", ""))
+    workgroup = str(provider.get("workgroup_name", ""))
+    _require(account.isdigit() and len(account) == 12, "query-boundary account is not exact")
+    _require(region == "us-east-1", "query-boundary region is not exact")
+    _require(
+        workgroup.startswith("dander-p8q-rc32-rs-query-c") and len(workgroup) <= 32,
+        "query-boundary resource name is not bounded",
+    )
+    suffix = workgroup.rsplit("-", 1)[-1]
+    _require(
+        provider
+        == {
+            "account_id": account,
+            "region": region,
+            "workgroup_name": workgroup,
+            "host": f"{workgroup}.{account}.{region}.redshift-serverless.amazonaws.com",
+            "database": "analytics",
+            "port": 5439,
+        },
+        "query-boundary provider binding drifted",
+    )
+    relative_objective = objective_path.resolve().relative_to(repository_root.resolve()).as_posix()
+    harness_hash = _sha256(repository_root / QUERY_BOUNDARY_SCRIPT)
+    execution = _mapping(payload.get("execution"), "execution")
+    approval_reference = str(execution.get("approval_reference", ""))
+    _require(
+        execution
+        == {
+            "approval_reference": approval_reference,
+            "harness_sha256": harness_hash,
+            "maximum_manual_executions": 1,
+            "automatic_retry": False,
+            "provider_operation_retries": 0,
+            "connect_timeout_seconds": 300,
+            "ssl": True,
+            "sslmode": "verify-full",
+            "client_protocol_version": 0,
+            "integrated_iam": False,
+            "verified_postgres_tls_handshake": True,
+            "comparison_driver": "psycopg",
+            "redshift_connector_matches_current_product_configuration": True,
+            "read_only_validation_query": "SELECT 1",
+            "schema_or_workload_mutation_allowed": False,
+        },
+        "query-boundary execution is not exact",
+    )
+    _require(bool(approval_reference), "query-boundary approval reference is missing")
+    _require(
+        payload.get("diagnostic_boundaries")
+        == {
+            "psycopg_path_runs_before_redshift_connector_path": True,
+            "connector_and_validation_query_stages_are_timed_separately": True,
+            "sanitized_output_fields": ["stage", "elapsed_ms", "exception_class"],
+            "provider_exception_messages_retained": False,
+            "no_candidate_or_benchmark_command": True,
+        },
+        "query-boundary diagnostic contract drifted",
+    )
+    infrastructure = _mapping(payload.get("infrastructure"), "infrastructure")
+    expected_members = [
+        relative_objective,
+        "scripts/__init__.py",
+        "scripts/benchmarks/__init__.py",
+        QUERY_BOUNDARY_SCRIPT,
+    ]
+    _require(
+        infrastructure
+        == {
+            "data_plane": "infra/qualification/aws-native",
+            "resource_name": workgroup,
+            "state_key": (
+                "dander/d7/control-plane/phase8-qualification/"
+                f"rc32-redshift-query-boundary-{suffix}.tfstate"
+            ),
+            "staging_bucket": f"{workgroup}-{account}-staging",
+            "redshift_serverless_base_capacity_rpu": 8,
+            "redshift_serverless_daily_usage_limit_rpu_hours": 1,
+            "postgresql_instance_class": "db.t4g.micro",
+            "task_role_tag": "RedshiftDbRoles=dander_runtime",
+            "task_role_global_actions": ["tag:GetResources", "tag:GetTagKeys"],
+            "task_role_scoped_actions": [
+                "redshift-serverless:GetCredentials",
+                "s3:GetObject",
+                "s3:PutObject",
+            ],
+            "task_cpu_units": 2048,
+            "task_memory_mib": 4096,
+            "task_cpu_architecture": "ARM64",
+            "task_read_only_root": True,
+            "task_user": "65532:65532",
+            "task_tmpfs_path": "/tmp",
+            "harness_working_directory": "/tmp/harness",
+            "harness_environment": {"PYTHONPATH": "/tmp/harness"},
+            "harness_bundle_key": (
+                f"phase8/{RC32_VERSION}/staging/harness/"
+                f"redshift-query-boundary-{harness_hash[:12]}-{suffix}.zip"
+            ),
+            "harness_bundle_contains": expected_members,
+            "sanitized_output_key": (
+                f"phase8/{RC32_VERSION}/staging/diagnostics/query-boundary.json"
+            ),
+            "task_timeout_seconds": 900,
+            "maximum_state_machine_executions": 1,
+            "state_machine_retry_states": 0,
+            "ecs_task_retries": 0,
+            "container_restarts": 0,
+            "automatic_retry": False,
+            "provider_operation_retries": 0,
+            "schedule_created": False,
+            "post_apply_no_drift_required": True,
+        },
+        "query-boundary infrastructure is not canonical",
+    )
+    for member in expected_members:
+        _require((repository_root / member).is_file(), f"bundle member is missing: {member}")
+    protection = _mapping(payload.get("protection"), "protection")
+    protected_base = str(protection.get("protected_base_commit", ""))
+    _require(
+        len(protected_base) == 40
+        and all(character in "0123456789abcdef" for character in protected_base),
+        "query-boundary protected base is malformed",
+    )
+    _require(
+        protection
+        == {
+            "protected_base_commit": protected_base,
+            "exact_main_ci_required_before_execution": True,
+            "immutable_image_reference": RC32_IMAGE,
+            "image_manifest_architecture": "arm64",
+            "image_manifest_digest": RC32_ARM64_MANIFEST_DIGEST,
+            "image_tag_mutability": "IMMUTABLE",
+        },
+        "query-boundary protection drifted",
+    )
+    ceiling = _mapping(payload.get("cost_ceiling"), "cost_ceiling")
+    _require(
+        ceiling == {"amount_usd": "0.50", "approval_reference": approval_reference},
+        "query-boundary cost ceiling drifted",
+    )
+    _validate_budget(payload)
+    _require(
+        payload.get("cleanup")
+        == {
+            "begin_immediately_after_terminal_diagnosis": True,
+            "no_schema_copy_or_benchmark_mutation": True,
+            "delete_exact_harness_and_sanitized_output": True,
+            "deregister_exact_task_definition": True,
+            "remove_exact_log_group_state_machine_roles_and_cluster": True,
+            "destroy_launcher_before_data_plane": True,
+            "terraform_state_entries_after_destroy": 0,
+            "remote_state_versions_after_destroy": 0,
+            "direct_owned_resource_inventories_empty": True,
+        },
+        "query-boundary cleanup drifted",
+    )
+
+
 def classify_ci_scope(paths: list[str]) -> str:
     """Return objective, benchmark, or full for one Git diff."""
     if not paths:
@@ -360,11 +548,62 @@ def smoke_candidate_commands(
     _require(_image_has_rc32_digest(image), "smoke image is not the immutable RC32 digest")
     for path in paths:
         payload = validate_objective(path, repository_root=repository_root)
+        if payload.get("schema") == QUERY_BOUNDARY_SCHEMA:
+            _smoke_query_boundary_diagnostic(path, payload, repository_root, image)
+            continue
         configuration = _mapping(payload["configuration"], "configuration")
         module = str(_mapping(configuration["launcher_contract"], "contract")["benchmark_module"])
         fargate = _mapping(configuration["fargate_harness"], "fargate")
         members = [str(item) for item in _list(fargate["harness_bundle_contains"], "bundle")]
         _smoke_bundle(members, module, repository_root, image)
+
+
+def _smoke_query_boundary_diagnostic(
+    path: Path,
+    payload: dict[str, object],
+    repository_root: Path,
+    image: str,
+) -> None:
+    infrastructure = _mapping(payload.get("infrastructure"), "infrastructure")
+    members = [str(item) for item in _list(infrastructure.get("harness_bundle_contains"), "bundle")]
+    with tempfile.TemporaryDirectory(prefix="dander-redshift-query-smoke-") as temporary:
+        bundle = Path(temporary)
+        for member in members:
+            target = bundle / member
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(repository_root / member, target)
+        relative_objective = path.resolve().relative_to(repository_root.resolve()).as_posix()
+        shell = (
+            "set -eu; "
+            'case "$(command -v python)" in /app/.venv/bin/*) exit 91;; esac; '
+            "cd /tmp/harness; export PYTHONPATH=/tmp/harness; "
+            "python -c 'import psycopg, redshift_connector'; "
+            "python -c 'import scripts.benchmarks.redshift_query_boundary_diagnostic_phase8'; "
+            f"python {QUERY_BOUNDARY_SCRIPT} --help >/tmp/help.txt; "
+            f"test -f {relative_objective}"
+        )
+        subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--platform",
+                "linux/arm64",
+                "--read-only",
+                "--tmpfs",
+                "/tmp:rw,noexec,nosuid,size=128m",
+                "--mount",
+                f"type=bind,source={bundle},target=/tmp/harness,readonly",
+                "--user",
+                "65532:65532",
+                "--entrypoint",
+                "/bin/sh",
+                image,
+                "-c",
+                shell,
+            ],
+            check=True,
+        )
 
 
 def smoke_benchmark_modules(

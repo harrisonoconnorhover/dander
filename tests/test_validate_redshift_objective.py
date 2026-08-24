@@ -294,6 +294,75 @@ def test_ci_routes_light_changes_away_from_distribution_and_container_builds() -
     )
 
 
+def test_tracked_query_boundary_diagnostic_matches_the_protected_contract() -> None:
+    repository = Path(__file__).parents[1]
+    objective = repository / (
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-query-boundary-diagnostic-objective.json"
+    )
+
+    payload = validator.validate_objective(objective, repository_root=repository)
+
+    assert payload["schema"] == validator.QUERY_BOUNDARY_SCHEMA
+    assert payload["stages"] == validator.QUERY_BOUNDARY_STAGES
+
+
+def test_query_boundary_diagnostic_rejects_product_connection_drift() -> None:
+    repository = Path(__file__).parents[1]
+    objective = repository / (
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-query-boundary-diagnostic-objective.json"
+    )
+    payload: dict[str, Any] = json.loads(objective.read_text(encoding="utf-8"))
+    payload["execution"]["client_protocol_version"] = 2
+
+    with pytest.raises(validator.ObjectiveValidationError, match="execution is not exact"):
+        validator._validate_query_boundary_diagnostic(  # noqa: SLF001
+            objective,
+            payload,
+            repository,
+        )
+
+
+def test_query_boundary_smoke_preserves_the_exact_read_only_container_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = Path(__file__).parents[1]
+    objective = repository / (
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-query-boundary-diagnostic-objective.json"
+    )
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        calls.append(command)
+        if command[:3] == ["docker", "image", "inspect"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=f'["example.invalid/dander@{validator.RC32_DIGEST}"] arm64\n',
+                stderr="",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("scripts.validate_redshift_objective.subprocess.run", run)
+
+    validator.smoke_candidate_commands(
+        [objective],
+        repository_root=repository,
+        image=validator.RC32_IMAGE,
+    )
+
+    container = calls[1]
+    assert "--read-only" in container
+    assert "/tmp:rw,noexec,nosuid,size=128m" in container
+    assert container[container.index("--user") + 1] == "65532:65532"
+    shell = container[-1]
+    assert "import psycopg, redshift_connector" in shell
+    assert "import scripts.benchmarks.redshift_query_boundary_diagnostic_phase8" in shell
+    assert "redshift_query_boundary_diagnostic_phase8.py --help" in shell
+    assert "dander qualification-run" not in shell
+
+
 def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
     repository = tmp_path / "repository"
     script = module.replace(".", "/") + ".py"
