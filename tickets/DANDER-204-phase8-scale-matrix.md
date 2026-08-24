@@ -399,3 +399,11 @@ scale report.
   `not_evaluated`. Snowflake metered 0.233800200 compute credits, or USD 0.467600400 at the verified
   USD 2.00 effective rate, within the USD 0.50 ceiling. This closes the cell as a failed unsupported
   profile without a product correction, replacement candidate, or rerun.
+- The 2026-08-23 terminal-disposition reconciliation changes no execution result. Snowflake's tested
+  256 MiB profile is closed unsupported; six GKE RC31 cells retain functional passes with cost
+  `not_evaluated`; the GKE failure cell retains an exhausted infrastructure attempt with no
+  qualification result; and the six Redshift RC31 cells remain unqualified because none produced a
+  passing normalized report. The later connection diagnostic did not reproduce the Redshift stall
+  and transfers no result. DANDER-204 remains open for delayed provider costs and separately
+  protected Redshift diagnosis; DANDER-205 is not unblocked. See
+  `docs/evidence/phase8/2026-08-23/dander-204-terminal-dispositions.json`.
