@@ -375,3 +375,42 @@ def test_protected_objective_binds_harness_and_zero_retry_launcher(tmp_path: Pat
     assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
     assert approval.cost_ceiling.amount_usd == Decimal("0.50")
     assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0
+
+
+def test_rc32_corrective_objective_binds_candidate_budget_and_zero_retries(
+    tmp_path: Path,
+) -> None:
+    reference = "codex-user-2026-08-24-additional-phase8-usd-10-redshift-failure-usd-0.50"
+    config = failure.RedshiftFailureConfig(
+        account_id="184463061564",
+        host="private-host",
+        database="analytics",
+        region="us-east-1",
+        workgroup_name="dander-p8q-rc32-rs-failure",
+        copy_role_arn=("arn:aws:iam::184463061564:role/dander-p8q-rc32-rs-failure-redshift-copy"),
+        staging_bucket="dander-p8q-rc32-rs-failure-184463061564-staging",
+        staging_prefix="phase8/0.9.0rc32/staging",
+    )
+    identity = replace(
+        _identity(),
+        release_version="0.9.0rc32",
+        git_commit="0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+        image_digest=("sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63"),
+        approval_reference=reference,
+    )
+    source = Path(
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-failure-corrective-objectives.json"
+    )
+    payload = cast("dict[str, Any]", json.loads(source.read_text()))
+    manifest = tmp_path / "objectives.json"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    approval = failure._load_approval(manifest, config=config, identity=identity)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    assert payload["budget_allocation"]["aggregate_ceiling_usd"] == "20.00"
+    assert payload["configuration"]["execution"]["corrective_candidate_executions"] == 1
+    assert payload["configuration"]["execution"]["provider_operation_retries"] == 0
+    assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0

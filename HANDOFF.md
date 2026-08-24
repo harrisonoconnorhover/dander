@@ -2,32 +2,35 @@
 
 ## Finished
 
-- Published private multi-platform RC32 from exact protected main `0d648a6`.
-- Verified the immutable GAR index, both runtimes, provenance, SBOM, and source-free/rootless contract.
-- Copied the exact OCI index to the retained private ECR repository without changing its digest.
+- Bound one corrective Redshift failure execution to immutable RC32.
+- Preserved the four accepted probes, 2-vCPU/4-GiB Fargate shape, and exact cleanup contract.
+- Recorded the additional USD 10 aggregate authorization without changing the USD 0.50 cell ceiling.
+- Added focused protection for candidate identity, budget, harness hashes, and zero retries.
 
 ## Try It
 
-Inspect `docs/evidence/phase8/2026-08-24/rc32-candidate.json`.
+Run `uv run pytest tests/portability/test_redshift_failure_phase8_benchmark.py -q`.
 
 ## Checks
 
-- PR #445 and exact-main CI passed all five protected jobs.
-- Both RC32 architectures passed version, runtime inspection, read-only conformance, rootless/source-free, and qualification-entrypoint checks.
+- Focused Redshift failure tests pass.
+- Ruff lint and format checks pass for the changed test.
+- Objective JSON parsing and Git whitespace checks pass.
 
 ## Decisions
 
-- RC32 is private and only replaces RC31 for Redshift cells blocked by the shared connection boundary.
-- Provisioned Redshift and unrelated qualification results remain unchanged.
-- The diagnostic run count is sufficient; no additional diagnostic execution is justified.
+- Failure is the smallest Redshift cell exercising the corrected shared Serverless boundary.
+- The prior RC31 attempt remains failed and transfers no result.
+- Automatic and provider-operation retries remain disabled.
 
 ## Remaining
 
-- Protect the RC32 candidate identity.
-- Obtain additional aggregate dollar authorization before binding or executing corrective Redshift workloads.
-- After budget approval, bind and rerun only the six Redshift cells blocked at the shared Serverless query boundary.
+- Protect and merge this objective.
+- Verify exact-main CI before the one paid execution.
+- Run once, clean every owned resource, and record RC31 plus RC32 evidence together.
+- Continue only the materially blocked Redshift cells.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-24/rc32-candidate.json`
-- `src/dander/providers/redshift/runtime.py`
+- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-corrective-objectives.json`
+- `tests/portability/test_redshift_failure_phase8_benchmark.py`
