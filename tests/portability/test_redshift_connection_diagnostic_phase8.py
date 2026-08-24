@@ -311,6 +311,7 @@ def test_tracked_rc32_objective_matches_exact_harness_and_twenty_run_bound() -> 
     provider = cast("dict[str, object]", payload["provider"])
     candidate = cast("dict[str, object]", payload["candidate"])
     execution = cast("dict[str, object]", payload["execution"])
+    infrastructure = cast("dict[str, object]", payload["infrastructure"])
     config = diagnostic.DiagnosticConfig(
         account_id=cast("str", provider["account_id"]),
         host=cast("str", provider["host"]),
@@ -331,6 +332,7 @@ def test_tracked_rc32_objective_matches_exact_harness_and_twenty_run_bound() -> 
 
     diagnostic._load_approval(approval, config=config, identity=identity, execution_number=1)
     diagnostic._load_approval(approval, config=config, identity=identity, execution_number=20)
+    assert infrastructure["redshift_serverless_daily_usage_limit_rpu_hours"] == 5
 
 
 def test_diagnostic_requires_zero_provider_retries(monkeypatch: pytest.MonkeyPatch) -> None:
