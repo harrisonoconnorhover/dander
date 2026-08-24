@@ -98,6 +98,8 @@ class RedshiftFailureConfig:
     copy_part_rows: int = 1
     copy_part_logical_bytes: int = 16 * 1_024 * 1_024
     cost_observation_delay_seconds: int = 70
+    cost_observation_timeout_seconds: int = 300
+    cost_observation_poll_seconds: int = 60
     on_demand_rate_usd_per_rpu_hour: Decimal = Decimal("0.375")
 
     def __post_init__(self) -> None:
@@ -110,6 +112,8 @@ class RedshiftFailureConfig:
             "copy_part_rows",
             "copy_part_logical_bytes",
             "cost_observation_delay_seconds",
+            "cost_observation_timeout_seconds",
+            "cost_observation_poll_seconds",
         ):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -118,6 +122,8 @@ class RedshiftFailureConfig:
             raise ValueError("failure qualification must use one-row COPY parts")
         if self.cost_observation_delay_seconds < 60:
             raise ValueError("cost observation must wait for one complete provider interval")
+        if self.cost_observation_timeout_seconds < self.cost_observation_delay_seconds:
+            raise ValueError("cost observation timeout must include the initial delay")
         if (
             not self.on_demand_rate_usd_per_rpu_hour.is_finite()
             or self.on_demand_rate_usd_per_rpu_hour <= 0
@@ -209,6 +215,10 @@ def _load_approval(
         raise ValueError("objective approval must disable provider-operation retries")
     if execution.get("cost_observation_delay_seconds") != config.cost_observation_delay_seconds:
         raise ValueError("objective approval changed the provider cost observation")
+    if execution.get("cost_observation_timeout_seconds") != config.cost_observation_timeout_seconds:
+        raise ValueError("objective approval changed the provider cost observation timeout")
+    if execution.get("cost_observation_poll_seconds") != config.cost_observation_poll_seconds:
+        raise ValueError("objective approval changed the provider cost observation interval")
     fargate = bulk._mapping(  # noqa: SLF001
         configuration.get("fargate_harness"), "Fargate harness configuration"
     )
@@ -347,8 +357,7 @@ def run_phase8_redshift_failure(
             )
         stage = "provider_cost_observation"
         stage_started = time.perf_counter()
-        time.sleep(config.cost_observation_delay_seconds)
-        charged, compute, capacity = bulk._serverless_usage(runtime)  # noqa: SLF001
+        charged, compute, capacity = _observe_serverless_usage(runtime, config=config)
         if charged <= 0:
             raise RedshiftFailureQualificationError(
                 "Redshift Serverless did not report charged provider usage"
@@ -407,6 +416,26 @@ def run_phase8_redshift_failure(
         ) from None
     assert result is not None
     return _report(config, identity, approval, replace(result, cleanup_verified=True))
+
+
+def _observe_serverless_usage(
+    runtime: WarehouseRuntime,
+    *,
+    config: RedshiftFailureConfig,
+) -> tuple[Decimal, Decimal, Decimal]:
+    """Wait for delayed provider metadata without repeating the workload."""
+    waited_seconds = 0
+    next_delay = config.cost_observation_delay_seconds
+    usage = (Decimal(0), Decimal(0), Decimal(0))
+    while waited_seconds < config.cost_observation_timeout_seconds:
+        delay = min(next_delay, config.cost_observation_timeout_seconds - waited_seconds)
+        time.sleep(delay)
+        waited_seconds += delay
+        usage = bulk._serverless_usage(runtime)  # noqa: SLF001
+        if usage[0] > 0:
+            return usage
+        next_delay = config.cost_observation_poll_seconds
+    return usage
 
 
 def _probe_credential_rejection(config: RedshiftFailureConfig) -> int:

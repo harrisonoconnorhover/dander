@@ -176,6 +176,60 @@ def test_run_rejects_failures_recovers_and_cleans(monkeypatch: pytest.MonkeyPatc
     assert dropped and deleted
 
 
+def test_run_waits_for_delayed_cost_metadata_without_repeating_workload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(
+        cost_observation_delay_seconds=60,
+        cost_observation_timeout_seconds=180,
+        cost_observation_poll_seconds=60,
+    )
+    workload_calls: list[str] = []
+    sleeps: list[int] = []
+    usage = iter(
+        (
+            (Decimal("0"), Decimal("8"), Decimal("8")),
+            (Decimal("0"), Decimal("16"), Decimal("8")),
+            (Decimal("480"), Decimal("478.5"), Decimal("8")),
+        )
+    )
+
+    monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
+    monkeypatch.setenv("AWS_RETRY_MODE", "standard")
+    monkeypatch.setattr(bulk, "_warehouse_runtime", lambda *_args, **_kwargs: object())
+
+    def probe_workload(
+        *_args: object, **_kwargs: object
+    ) -> tuple[int, int, tuple[OperationTelemetry, ...]]:
+        workload_calls.append("failed_copy_and_recovery")
+        return 7, 11, (_operation(),)
+
+    def probe_fence(*_args: object, **_kwargs: object) -> tuple[bool, int]:
+        workload_calls.append("fence")
+        return True, 2
+
+    monkeypatch.setattr(failure, "_probe_failed_copy_cleanup_and_recovery", probe_workload)
+    monkeypatch.setattr(shared, "_exercise_concurrent_fence", probe_fence)
+    monkeypatch.setattr(bulk, "_staging_table_count", lambda *_args: 0)
+    monkeypatch.setattr(bulk, "_serverless_usage", lambda _runtime: next(usage))
+    monkeypatch.setattr(shared, "_prefix_object_count", lambda *_args: 0)
+    monkeypatch.setattr(shared, "_schema_exists", lambda *_args: False)
+    monkeypatch.setattr(shared, "_drop_schema", lambda *_args: None)
+    monkeypatch.setattr(shared, "_delete_prefix", lambda *_args: None)
+    monkeypatch.setattr(time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    report = failure.run_phase8_redshift_failure(
+        config,
+        identity=_identity(),
+        approval=_approval(config),
+        credential_probe=lambda _config: 5,
+    )
+
+    assert report.status.value == "passed"
+    assert workload_calls == ["failed_copy_and_recovery", "fence"]
+    assert sleeps == [60, 60, 60]
+
+
 def test_run_classifies_runtime_failure_after_credential_probe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -657,7 +711,7 @@ def test_historical_rc32_stage_diagnostic_objective_preserves_previous_harness_b
     assert harness["harness_environment"] == {"PYTHONPATH": "/tmp/harness"}
 
 
-def test_rc32_schema_corrective_objective_binds_schema_ready_harness_and_zero_retries(
+def test_historical_rc32_schema_corrective_objective_preserves_cost_observation_boundary(
     tmp_path: Path,
 ) -> None:
     reference = (
@@ -688,10 +742,9 @@ def test_rc32_schema_corrective_objective_binds_schema_ready_harness_and_zero_re
     manifest = tmp_path / "objectives.json"
     manifest.write_text(json.dumps(payload), encoding="utf-8")
 
-    approval = failure._load_approval(manifest, config=config, identity=identity)
+    with pytest.raises(ValueError, match="protected harness"):
+        failure._load_approval(manifest, config=config, identity=identity)
 
-    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
-    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
     assert payload["budget_allocation"] == {
         "authorization_reference": (
             "codex-user-2026-08-24-redshift-diagnosis-runs-and-additional-usd-10"
@@ -708,8 +761,62 @@ def test_rc32_schema_corrective_objective_binds_schema_ready_harness_and_zero_re
     )
     assert execution["corrective_candidate_executions"] == 1
     assert execution["provider_operation_retries"] == 0
+    assert execution["cost_observation_delay_seconds"] == 70
+    assert "cost_observation_timeout_seconds" not in execution
+    assert "cost_observation_poll_seconds" not in execution
     assert payload["configuration"]["fargate_harness"]["state_machine_retry_states"] == 0
     prior = payload["configuration"]["prior_rc32_stage_diagnostic_attempt"]
     assert prior["sanitized_stage"] == "failed_copy_cleanup_and_recovery"
     assert prior["exception_class"] == "ProgrammingError"
+    assert prior["owned_workload_cleanup_passed"] is True
+
+
+def test_rc32_cost_observation_objective_binds_bounded_metadata_polling(
+    tmp_path: Path,
+) -> None:
+    reference = (
+        "codex-user-2026-08-24-redshift-diagnosis-runs-"
+        "redshift-failure-cost-observation-corrective-usd-0.50"
+    )
+    config = failure.RedshiftFailureConfig(
+        account_id="184463061564",
+        host="private-host",
+        database="analytics",
+        region="us-east-1",
+        workgroup_name="dander-p8q-rc32-rs-fail-c7",
+        copy_role_arn=("arn:aws:iam::184463061564:role/dander-p8q-rc32-rs-fail-c7-redshift-copy"),
+        staging_bucket="dander-p8q-rc32-rs-fail-c7-184463061564-staging",
+        staging_prefix="phase8/0.9.0rc32/staging",
+    )
+    identity = replace(
+        _identity(),
+        release_version="0.9.0rc32",
+        git_commit="0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+        image_digest=("sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63"),
+        approval_reference=reference,
+    )
+    source = Path(
+        "docs/evidence/phase8/2026-08-24/"
+        "aws-native-rc32-redshift-failure-cost-observation-corrective-objectives.json"
+    )
+    payload = cast("dict[str, Any]", json.loads(source.read_text()))
+    manifest = tmp_path / "objectives.json"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    approval = failure._load_approval(manifest, config=config, identity=identity)
+
+    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
+    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    execution = payload["configuration"]["execution"]
+    assert execution["harness_sha256"] == (
+        "d6242150328e607341199a283c1da0bbd8ddbfd89c19617b386f335d33a218cd"
+    )
+    assert execution["provider_operation_retries"] == 0
+    assert execution["cost_observation_delay_seconds"] == 70
+    assert execution["cost_observation_timeout_seconds"] == 300
+    assert execution["cost_observation_poll_seconds"] == 60
+    assert execution["workload_reexecutions_during_cost_observation"] == 0
+    prior = payload["configuration"]["prior_rc32_cost_observation_attempt"]
+    assert prior["sanitized_stage"] == "provider_cost_observation"
+    assert prior["functional_result_transfers_to_corrective_execution"] is True
     assert prior["owned_workload_cleanup_passed"] is True
