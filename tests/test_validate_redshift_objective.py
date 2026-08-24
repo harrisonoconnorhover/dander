@@ -34,7 +34,7 @@ def test_canonical_contract_accepts_each_remaining_rc32_cell(
     assert contract == validator.canonical_launcher_contract(module)
 
 
-def test_runtime_target_pins_the_rc32_arm64_manifest_not_its_parent_index(
+def test_runtime_target_uses_the_immutable_rc32_tag_with_exact_digest_resolution(
     tmp_path: Path,
 ) -> None:
     objective, repository = _objective(tmp_path, REMAINING_MODULES[0])
@@ -44,14 +44,17 @@ def test_runtime_target_pins_the_rc32_arm64_manifest_not_its_parent_index(
     candidate = payload["configuration"]["candidate"]  # type: ignore[index]
     manifest = payload["configuration"]["launcher_contract"]["image_manifest"]  # type: ignore[index]
     approved = cast("dict[str, object]", payload["approved_objectives"])
-    assert candidate["target_image"].endswith(validator.RC32_ARM64_MANIFEST_DIGEST)
-    assert candidate["target_image"] != (
-        f"184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@{validator.RC32_DIGEST}"
-    )
+    assert candidate["target_image"] == validator.RC32_IMAGE
+    assert candidate["immutable_tag_selection"] is True
+    assert candidate["mutable_tag_selection"] is False
     assert manifest == {
         "digest": validator.RC32_ARM64_MANIFEST_DIGEST,
         "architecture": "arm64",
         "parent_index_digest": validator.RC32_DIGEST,
+        "runtime_reference": validator.RC32_IMAGE,
+        "repository_tag_mutability": "IMMUTABLE",
+        "verify_resolution_before_task_registration": True,
+        "verify_resolution_after_task_stop": True,
     }
     assert approved["image_digest"] == validator.RC32_DIGEST
 
@@ -71,6 +74,7 @@ def test_runtime_target_pins_the_rc32_arm64_manifest_not_its_parent_index(
             f"184463061564.dkr.ecr.us-east-1.amazonaws.com/dander@{validator.RC32_DIGEST}",
             "target_image",
         ),
+        (("configuration", "candidate", "immutable_tag_selection"), False, "tag_selection"),
         (("approved_objectives", "image_digest"), "sha256:" + "0" * 64, "approved digest"),
         (
             ("configuration", "fargate_harness", "candidate_python_executable"),
@@ -203,9 +207,7 @@ def test_local_rc32_image_smoke_uses_exact_bundle_and_fail_closed_container(
         if command[:3] == ["docker", "image", "inspect"]:
             return SimpleNamespace(
                 returncode=0,
-                stdout=(
-                    f'["example.invalid/dander@{validator.RC32_ARM64_MANIFEST_DIGEST}"] arm64\n'
-                ),
+                stdout=f'["example.invalid/dander@{validator.RC32_DIGEST}"] arm64\n',
                 stderr="",
             )
         return SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -215,7 +217,7 @@ def test_local_rc32_image_smoke_uses_exact_bundle_and_fail_closed_container(
     validator.smoke_candidate_commands(
         [objective],
         repository_root=repository,
-        image="local-rc32",
+        image=validator.RC32_IMAGE,
     )
 
     container = calls[1]
@@ -349,6 +351,7 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
                 "git_commit": validator.RC32_GIT_COMMIT,
                 "image_index_digest": validator.RC32_DIGEST,
                 "target_image": validator.RC32_IMAGE,
+                "immutable_tag_selection": True,
                 "mutable_tag_selection": False,
             },
             "data_plane": {
