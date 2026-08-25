@@ -1,0 +1,131 @@
+{
+  "schema": "io.dander.phase8.aws-native-redshift-failure-launcher-arn-result/v1",
+  "attempt_date": "2026-08-24",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-launcher-arn-objective.json",
+  "protection": {
+    "objective_pull_request": 472,
+    "objective_merge_commit": "de91c00d4de0cfe2daf498e7da04666575cd6005",
+    "objective_exact_main_ci_run": 32804450701,
+    "execution_repository_commit": "de91c00d4de0cfe2daf498e7da04666575cd6005",
+    "execution_exact_main_ci_run": 32804450701
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "replacement_published": false
+  },
+  "launcher_setup": {
+    "state_machine_create_api_attempts": 2,
+    "first_create_result": "iam_trust_propagation_not_ready",
+    "state_machine_definitions_created": 1,
+    "task_definition_revisions": 1,
+    "materialized_cluster_arn_exact": true,
+    "materialized_task_definition_arn_exact": true,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0
+  },
+  "execution": {
+    "state_machine_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c17:rc32-redshift-failure-launcher-arn-c17-20260824",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-fail-c17/5f0e78918da24801abcc5e2b89a07fae",
+    "started_at": "2026-08-24T23:31:00.594-04:00",
+    "stopped_at": "2026-08-24T23:38:00.189-04:00",
+    "state_machine_status": "failed",
+    "state_machine_error": "States.TaskFailed",
+    "task_exit_code": 2,
+    "state_machine_executions": 1,
+    "ecs_tasks_started": 1,
+    "candidate_executions": 1,
+    "automatic_candidate_retries": 0,
+    "provider_operation_retries": 0,
+    "workload_mutation_boundary_reached": true
+  },
+  "readiness": {
+    "status": "passed",
+    "attempts": 1,
+    "stages": [
+      "launcher_environment",
+      "iam_readiness",
+      "get_credentials",
+      "readiness_connector_1",
+      "readiness_validation_query_1"
+    ],
+    "exception_classes": 0
+  },
+  "candidate_result": {
+    "status": "failed",
+    "stderr_summary": "Redshift failure qualification could not remove all owned resources",
+    "stdout_bytes": 0,
+    "normalized_report_emitted": false,
+    "owned_failure_prefix_objects_after_task": 0,
+    "owned_failure_schemas_after_task": 0
+  },
+  "classification": {
+    "result": "daily_usage_limit_reached_during_final_cleanup",
+    "failure_boundary": "final_cleanup_after_failure_workload_started",
+    "connection_boundary_reached": true,
+    "candidate_or_product_correction_required": false,
+    "objective_configuration_correction_required": true,
+    "direct_evidence": "The first post-task Redshift Data API diagnostic failed with ERROR: Query reached usage limit; the protected data plane had a 1 RPU-hour daily deactivation limit.",
+    "inference": "The task's generic final-cleanup error was most likely caused by the same usage guard rejecting a cleanup connection after provisioning grants plus the bounded 300-second cost-observation window consumed the cell allowance.",
+    "inference_confidence": "high_but_not_direct_candidate_exception",
+    "smallest_correction": "Require 2 RPU-hours for the failure cell and reconcile its reservation to USD 0.75 while retaining one task, the 900-second timeout, and zero retries.",
+    "historical_objective_rewritten": false,
+    "new_protected_objective_required_before_another_execution": true
+  },
+  "artifacts": {
+    "harness_bundle_sha256": "3e6796251918ea8db39127801de6076712b1df2a0e477d4df882c05cb15fa271",
+    "task_policy_sha256": "35a9790b906442e444580ce610f1a242df0b50e5f3196870334955c9cc8228dd",
+    "task_definition_sha256": "8f63fd39d4aa361d07a58e891c63a3931fccdc0fb3690d08df5c0e193d086e05",
+    "state_machine_sha256": "2676aa8298ca88a25b51039094de535e3857e4a3e8e24a3ab2299bc3ead96e9c",
+    "execution_sha256": "c552091d85da7740c4a7738ef632a4c583cbdbef3ae97321611bb6557afc91cb",
+    "execution_history_summary_sha256": "eda8dfd5d93fdf135cfe25ae991ba207b71ecae93cd409f394a8cc4d7ec4e803",
+    "task_description_sha256": "6e71b705d20d0475b166a970b2dcb16f26db68ca0d9e6caf08445ac3b14a7efc",
+    "launcher_preflight_sha256": "9807b816fcab58c0ad8bf5fc03e53690cab86ca4a5a9b596c6f8616442a012ee",
+    "stderr_sha256": "5e1e3d3a4c8e24504f8b887daee0e3f6989015a78925c07e84d838bea8ecb13b",
+    "usage_limit_failure_sha256": "682422e675c6793959363383f55dd7b763c21f1a2ba2563b5188819fff73f855",
+    "objects_after_execution_sha256": "809804bc9ad7903106f5861aa228bab79b17f98f9009fc0bb6e754c9f28cb824"
+  },
+  "infrastructure": {
+    "terraform_create_plan_sha256": "85749096c8ea1a84d7e96430b0fcc0799ecaea0378556ef5e0ed0b4b28969498",
+    "terraform_create_actions": 37,
+    "terraform_post_apply_changes": 0,
+    "redshift_serverless_base_capacity_rpu": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 1,
+    "redshift_serverless_usage_limit_breach_action": "deactivate"
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "harness_and_diagnostics_objects_removed": 4,
+    "terraform_destroy_plan_sha256": "5600135dc84de8d28ab93f5c935a188c4bbd63e257bd2db024e9c1a186a8900b",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 12,
+    "remote_state_delete_markers_removed": 0,
+    "remote_state_lock_versions_removed": 5,
+    "remote_state_lock_delete_markers_removed": 5,
+    "remote_state_exact_keys_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "candidate_digest_retained": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.50",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "conservative_bound_usd": "0.50",
+    "aggregate_authorized_ceiling_usd": "20.00",
+    "aggregate_conservative_bound_after_objective_usd": "17.341419762794",
+    "promotional_credits_relied_upon": false,
+    "promotional_credit_status": "expired_2026-08-15"
+  },
+  "qualification_effect": {
+    "redshift_failure_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "usage_limit_guard_reached": true,
+    "next_scope": "Protect a 2 RPU-hour failure-cell guard with a USD 0.75 reservation, then run one fresh exact-RC32 C18 execution."
+  }
+}

@@ -210,7 +210,7 @@ def validate_objective(path: Path, *, repository_root: Path) -> dict[str, object
     _require(configuration.get("task_role") == TASK_ROLE, "task role is not canonical")
     _require(configuration.get("diagnostics") == DIAGNOSTICS, "diagnostics are not exact")
     _require(configuration.get("cleanup") == CLEANUP, "cleanup is not exact")
-    _validate_usage_limit(configuration)
+    _validate_usage_limit(configuration, module)
     _validate_runtime_bindings(configuration)
     _validate_bundle_and_hashes(path, configuration, module, repository_root)
     _validate_execution_authority(configuration, module)
@@ -225,13 +225,14 @@ def validate_objectives(paths: list[Path], *, repository_root: Path) -> None:
         validate_objective(path, repository_root=repository_root)
 
 
-def _validate_usage_limit(configuration: dict[str, object]) -> None:
+def _validate_usage_limit(configuration: dict[str, object], module: str) -> None:
     data_plane = _mapping(configuration.get("data_plane"), "data_plane")
     limit = data_plane.get("redshift_serverless_daily_usage_limit_rpu_hours")
-    _require(
-        isinstance(limit, int) and 1 <= limit <= 5,
-        "daily usage limit must be an integer from 1 through 5",
-    )
+    if not isinstance(limit, int) or isinstance(limit, bool):
+        raise ObjectiveValidationError("daily usage limit must be an integer from 1 through 5")
+    _require(1 <= limit <= 5, "daily usage limit must be an integer from 1 through 5")
+    if module == "scripts.benchmarks.redshift_failure_phase8":
+        _require(limit >= 2, "failure-cell daily usage limit must be at least 2 RPU-hours")
 
 
 def _validate_runtime_bindings(configuration: dict[str, object]) -> None:
