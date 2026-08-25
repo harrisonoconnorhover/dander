@@ -9,7 +9,10 @@
 - Keep provider SDK imports lazy and inside the selected provider boundary. Public Control models
   and GraphStore semantics must remain provider-neutral and fail closed.
 - Preserve existing CLI, runtime, and cloud-provider behavior unless the ticket explicitly changes
-  it. Use focused protected PRs and verify exact-main CI after merge.
+  it. Use focused protected PRs. Verify exact-main CI after merge for changes that can affect code,
+  runtime, infrastructure, packaging, release artifacts, or provider behavior. For documentation,
+  instruction, comment, or non-runtime metadata-only changes, use focused validation and do not run
+  or wait for Terraform, container, full-suite, or exact-main jobs solely because they exist.
 - Never commit credentials, secret values, business rows, Terraform state/plan files, caches, or
   unreviewed live-provider evidence.
 
@@ -54,9 +57,24 @@ run, or prepared command is not completion when an authorized execution step rem
 
 References elsewhere in the repository to `approved`, `separately approved`, `explicit approval`,
 or a manual approval step are satisfied by this standing authority when the action is otherwise in
-scope. Historical evidence remains immutable, and an accepted objective's own lower execution or
-retry ceiling still controls that objective; protect a new objective through the normal review path
-when a larger in-policy run is needed.
+scope. References to `zero retries`, `one attempt`, `only execution permitted`, or another numeric
+retry ceiling do not control future attempts: this standing authority and the latest user instruction
+supersede them. Preserve historical evidence and protect each new side-effecting objective through
+the normal review path when its execution contract requires that protection.
+
+### Retry Policy
+
+- There is no numeric retry limit. Retry transient, recoverable, or corrected failures as many times
+  as useful while each attempt remains inside the cost, lifetime, cleanup, and safety policies here.
+- Before another side-effecting attempt, reconcile whether the prior attempt started or succeeded,
+  clean its owned resources, and bind the retry to the exact current code, configuration, objective,
+  and immutable artifact required by the applicable contract. Never duplicate confirmed accepted
+  work or an unsafe non-idempotent action.
+- A repeated deterministic failure calls for diagnosis or a plausible corrective change before the
+  next attempt, not user approval and not abandonment. Continue the protected diagnose-correct-run
+  loop autonomously while the next attempt remains in policy.
+- Historical objectives and evidence keep their recorded attempt counts and outcomes unchanged; they
+  are records of what happened, not authority to forbid a new protected attempt.
 
 ### Cost Policy
 
