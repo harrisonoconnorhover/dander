@@ -1,0 +1,120 @@
+{
+  "schema": "io.dander.phase8.aws-native-redshift-failure-readiness-result/v1",
+  "attempt_date": "2026-08-24",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-readiness-objective.json",
+  "protection": {
+    "objective_pull_request": 465,
+    "objective_merge_commit": "f5fdb0312dee6192076b1c77d7983bab953f2756",
+    "objective_exact_main_ci_run": 32794979483,
+    "execution_repository_commit": "0bfea6c9aa750b82ebcee212fe58de008f362b58",
+    "execution_exact_main_ci_run": 32796575645
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "replacement_published": false
+  },
+  "execution": {
+    "state_machine_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c14:rc32-redshift-failure-readiness-c14-20260824",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-fail-c14/6d88a93830a346118f867ca8174d1791",
+    "started_at": "2026-08-24T21:40:54.805-04:00",
+    "stopped_at": "2026-08-24T21:42:01.524-04:00",
+    "state_machine_status": "failed",
+    "candidate_exit_code": 2,
+    "manual_candidate_executions": 1,
+    "automatic_candidate_retries": 0,
+    "provider_operation_retries": 0,
+    "workload_mutations": 0,
+    "workload_reexecution_allowed": false
+  },
+  "readiness": {
+    "status": "passed_first_probe",
+    "artifact_sha256": "c150d4b8c441dbc4c9fc8aa16b271bd69b10378e9731250406c2d7a569589b55",
+    "stages": [
+      {
+        "stage": "launcher_environment",
+        "elapsed_ms": 1634,
+        "exception_class": null
+      },
+      {
+        "stage": "iam_readiness",
+        "elapsed_ms": 154,
+        "exception_class": null
+      },
+      {
+        "stage": "get_credentials",
+        "elapsed_ms": 87,
+        "exception_class": null
+      },
+      {
+        "stage": "readiness_connector_1",
+        "elapsed_ms": 331,
+        "exception_class": null
+      },
+      {
+        "stage": "readiness_validation_query_1",
+        "elapsed_ms": 8,
+        "exception_class": null
+      }
+    ]
+  },
+  "candidate_result": {
+    "status": "blocked_before_workload_mutation",
+    "sanitized_stderr": "Redshift failure qualification failed: objective approval does not match the Redshift data plane",
+    "stderr_sha256": "f3883e8833a20866275c960d7215a046e102a4a58c362f7dbe7a954b553d615e",
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_bytes": 0
+  },
+  "classification": {
+    "result": "protected_approval_provider_shape_mismatch",
+    "connection_boundary_cleared": true,
+    "connector_or_query_correction_required": false,
+    "cause": "The protected objective binds host and database in configuration.redshift, while the failure harness required exact mapping equality but omitted those two approved coordinates from its expected mapping.",
+    "smallest_correction": "Bind config.host and config.database in the failure harness expected provider mapping and cover the protected launcher-shaped approval in a credential-free test.",
+    "historical_objective_rewritten": false,
+    "new_protected_objective_required_before_another_execution": true
+  },
+  "artifacts": {
+    "execution_sha256": "8bbf8e8b807c8c0ad19f486f4d5f364f3f9e8249133010fc03a9d7ce9801a5be",
+    "execution_history_summary_sha256": "8fc0e52cdc92c97843f3012ec01bccc6841f69a8fb91372f91038753a3969e06"
+  },
+  "infrastructure": {
+    "terraform_create_plan_sha256": "99008d28d5a5031ed5cfdb0a09a586d81bbf58e87faaafa31e677fb7bb2ac49d",
+    "terraform_create_actions": 37,
+    "terraform_post_apply_changes": 0,
+    "task_definition_revisions": 1,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "diagnostic_and_harness_objects_removed": 4,
+    "terraform_destroy_plan_sha256": "d9f6656049dc4334a8f65b3ed61bd208178e979097d20712472a25aa0bb92b3d",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 12,
+    "remote_state_versions_after_cleanup": 0,
+    "remote_state_delete_markers_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "candidate_digest_retained": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.50",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "conservative_bound_usd": "0.50",
+    "aggregate_authorized_ceiling_usd": "20.00",
+    "aggregate_conservative_bound_after_objective_usd": "15.841419762794"
+  },
+  "qualification_effect": {
+    "redshift_failure_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "readiness_correction_validated": true,
+    "next_scope": "Protect the two-field approval binding correction and a new exact-RC32 objective before one fresh failure-cell execution."
+  }
+}
