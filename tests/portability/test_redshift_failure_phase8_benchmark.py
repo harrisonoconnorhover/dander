@@ -133,7 +133,7 @@ def test_external_cost_finalization_round_trips_protected_interim(tmp_path: Path
         provider_operation_recovery_duration_ms=11,
         stale_publications_rejected=1,
         concurrent_claim_attempts=2,
-        copy_operations=1,
+        copy_operations=2,
         query_ids=("query-1",),
         provider_operation_retries=0,
         staging_tables=0,
@@ -183,7 +183,7 @@ def test_external_cost_finalization_rejects_unverified_cleanup(tmp_path: Path) -
             provider_operation_recovery_duration_ms=11,
             stale_publications_rejected=1,
             concurrent_claim_attempts=2,
-            copy_operations=1,
+            copy_operations=2,
             query_ids=("query-1",),
             provider_operation_retries=0,
             staging_tables=0,
@@ -226,7 +226,7 @@ def test_run_rejects_failures_recovers_and_cleans(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(
         failure,
         "_probe_failed_copy_cleanup_and_recovery",
-        lambda *_args, **_kwargs: (7, 11, (_operation(),)),
+        lambda *_args, **_kwargs: (7, 11, (_operation(), _operation())),
     )
     monkeypatch.setattr(shared, "_exercise_concurrent_fence", lambda *_args: (True, 2))
     monkeypatch.setattr(bulk, "_staging_table_count", lambda *_args: 0)
@@ -253,6 +253,7 @@ def test_run_rejects_failures_recovers_and_cleans(monkeypatch: pytest.MonkeyPatc
 
     assert payload["status"] == "passed"
     assert metrics["probe_count"] == "4"
+    assert metrics["copy_operations"] == "2"
     assert metrics["provider_operation_retries"] == "0"
     assert metrics["stale_publications_rejected"] == "1"
     assert calls == ["credential", "runtime"]
@@ -285,7 +286,7 @@ def test_run_waits_for_delayed_cost_metadata_without_repeating_workload(
         *_args: object, **_kwargs: object
     ) -> tuple[int, int, tuple[OperationTelemetry, ...]]:
         workload_calls.append("failed_copy_and_recovery")
-        return 7, 11, (_operation(),)
+        return 7, 11, (_operation(), _operation())
 
     def probe_fence(*_args: object, **_kwargs: object) -> tuple[bool, int]:
         workload_calls.append("fence")

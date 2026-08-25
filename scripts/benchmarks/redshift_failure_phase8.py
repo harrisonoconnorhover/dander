@@ -659,7 +659,8 @@ def _report(
         result.probe_count != 4
         or result.stale_publications_rejected != 1
         or result.concurrent_claim_attempts != 2
-        or result.copy_operations != 1
+        # One staged recovery write emits LOAD and fenced-publication telemetry.
+        or result.copy_operations != 2
         or result.provider_operation_retries != 0
         or result.staging_tables != 0
         or result.staging_objects != 0
