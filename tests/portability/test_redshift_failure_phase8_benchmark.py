@@ -457,6 +457,42 @@ def test_failed_copy_probe_uses_exact_sql_then_recovers(
     ]
 
 
+def test_approval_binds_launcher_host_and_database(tmp_path: Path) -> None:
+    source = Path(
+        "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-readiness-objective.json"
+    )
+    payload = cast("dict[str, Any]", json.loads(source.read_text()))
+    provider = cast("dict[str, str]", payload["configuration"]["redshift"])
+    config = failure.RedshiftFailureConfig(
+        account_id=provider["account_id"],
+        host=provider["host"],
+        database=provider["database"],
+        region=provider["region"],
+        workgroup_name=provider["workgroup_name"],
+        copy_role_arn=provider["copy_role_arn"],
+        staging_bucket=provider["staging_bucket"],
+        staging_prefix=provider["staging_prefix"],
+    )
+    objectives = cast("dict[str, str]", payload["approved_objectives"])
+    identity = replace(
+        _identity(),
+        release_version=objectives["release_version"],
+        git_commit=objectives["git_commit"],
+        image_digest=objectives["image_digest"],
+        approval_reference=objectives["approval_reference"],
+    )
+    execution = cast("dict[str, object]", payload["configuration"]["execution"])
+    execution["harness_sha256"] = failure._file_sha256(Path(failure.__file__))
+    manifest = tmp_path / "objectives.json"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    approval = failure._load_approval(manifest, config=config, identity=identity)
+
+    assert approval.account_id == config.account_id
+    assert provider["host"] == config.host
+    assert provider["database"] == config.database
+
+
 def test_historical_rc31_objective_preserves_old_harness_binding(tmp_path: Path) -> None:
     reference = "codex-goal-02043c37-096e-416a-875c-b405c4af0594-aws-redshift-failure-usd-0.50"
     config = failure.RedshiftFailureConfig(
@@ -771,7 +807,7 @@ def test_historical_rc32_schema_corrective_objective_preserves_cost_observation_
     assert prior["owned_workload_cleanup_passed"] is True
 
 
-def test_rc32_cost_observation_objective_binds_bounded_metadata_polling(
+def test_rc32_cost_observation_objective_preserves_bounded_metadata_polling(
     tmp_path: Path,
 ) -> None:
     reference = (
@@ -803,10 +839,9 @@ def test_rc32_cost_observation_objective_binds_bounded_metadata_polling(
     manifest = tmp_path / "objectives.json"
     manifest.write_text(json.dumps(payload), encoding="utf-8")
 
-    approval = failure._load_approval(manifest, config=config, identity=identity)
+    with pytest.raises(ValueError, match="protected harness"):
+        failure._load_approval(manifest, config=config, identity=identity)
 
-    assert approval.objectives.benchmark_class is BenchmarkClass.FAILURE
-    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
     execution = payload["configuration"]["execution"]
     assert execution["harness_sha256"] == (
         "d6242150328e607341199a283c1da0bbd8ddbfd89c19617b386f335d33a218cd"

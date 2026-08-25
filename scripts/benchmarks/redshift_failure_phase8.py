@@ -189,7 +189,7 @@ def _load_approval(
         raise ValueError("objective approval workload does not match the requested run")
     configuration = bulk._mapping(payload.get("configuration"), "configuration")  # noqa: SLF001
     provider = bulk._mapping(configuration.get("redshift"), "Redshift configuration")  # noqa: SLF001
-    expected_provider = {
+    legacy_expected_provider = {
         "account_id": config.account_id,
         "region": config.region,
         "workgroup_name": config.workgroup_name,
@@ -198,7 +198,12 @@ def _load_approval(
         "staging_prefix": config.staging_prefix,
         "on_demand_rate_usd_per_rpu_hour": str(config.on_demand_rate_usd_per_rpu_hour),
     }
-    if provider != expected_provider:
+    launcher_expected_provider = {
+        **legacy_expected_provider,
+        "host": config.host,
+        "database": config.database,
+    }
+    if provider not in (legacy_expected_provider, launcher_expected_provider):
         raise ValueError("objective approval does not match the Redshift data plane")
     execution = bulk._mapping(configuration.get("execution"), "execution configuration")  # noqa: SLF001
     if execution.get("harness_sha256") != _file_sha256(Path(__file__)):
