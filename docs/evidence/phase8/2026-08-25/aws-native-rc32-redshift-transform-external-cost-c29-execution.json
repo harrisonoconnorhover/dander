@@ -1,0 +1,212 @@
+{
+  "schema": "io.dander.phase8.redshift-transform-external-cost-execution/v1",
+  "objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-transform-external-cost-corrective-objective.json",
+  "objective_sha256": "03428602bdf4763df601d9639b564b433f3b029a97d4f80f5f5a4374ee678001",
+  "report_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-transform-external-cost-c29-report.json",
+  "protected_main": {
+    "commit": "8341219a3086604bd2033ea1f90613f184d9061e",
+    "pull_request": "https://github.com/harrisonoconnorhover/dander/pull/482",
+    "exact_main_ci_run": "https://github.com/harrisonoconnorhover/dander/actions/runs/32837874729",
+    "exact_main_ci_conclusion": "success"
+  },
+  "launcher_comparison_resolution": {
+    "c28_and_c24_explicit_mode_1777_present": false,
+    "c28_and_c24_tmpfs_mode_difference": false,
+    "c24_real_failure": "The task definition retained the immutable image dander entrypoint and supplied /bin/sh -c as command arguments, so dander exited 2 before launcher preflight or candidate workload execution.",
+    "shared_mode_1777_invariant_added": false,
+    "c25_c26_c27_rebound": false,
+    "reason": "The user-directed rebind condition was false; the historical objectives remain unchanged."
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "image_index_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "bundle_key": "phase8/0.9.0rc32/staging/harness/redshift-transform-629e1ab1a4d3-c29.zip",
+    "bundle_sha256": "45b86192494f68374e9ed36d2e329f613b4005e79fa4d1676bf314eafafb4c46",
+    "bundle_server_side_encryption": "AES256"
+  },
+  "terraform": {
+    "state_key": "dander/d7/control-plane/phase8-qualification/rc32-redshift-transform-external-cost-c29.tfstate",
+    "create_plan": {
+      "create": 37,
+      "update": 0,
+      "delete": 0,
+      "replace": 0,
+      "sha256": "7f0f10f1523aa74581bc529bb19eeb25133db675927fa69f1c2518ca2da58d45"
+    },
+    "post_apply_plan": {
+      "result": "no_changes",
+      "sha256": "70ac0db55426264c49240b52ed31c84fb2e310224b588f2967a8165564166463"
+    },
+    "destroy_plan": {
+      "create": 0,
+      "update": 0,
+      "delete": 37,
+      "replace": 0,
+      "sha256": "712e117dc63067aaf46014611764d3ea7c946a7ece94a9b226c72c01211ef7ed"
+    },
+    "destroyed_resources": 37,
+    "state_entries_after_destroy": 0,
+    "state_versions_and_delete_markers_before_purge": 12,
+    "state_versions_and_delete_markers_after_purge": 0
+  },
+  "execution": {
+    "state_machine_arn": "arn:aws:states:us-east-1:184463061564:stateMachine:dander-p8q-rc32-rs-xform-c29",
+    "task_definition_arn": "arn:aws:ecs:us-east-1:184463061564:task-definition/dander-p8q-rc32-rs-xform-c29:1",
+    "workgroup_id": "2892f5af-c9e0-4a12-ab80-2fa4f9b60693",
+    "state_machine_creation_attempts": 3,
+    "state_machine_creation_errors": [
+      "iam_role_managed_rule_propagation",
+      "missing_step_functions_log_delivery_permissions"
+    ],
+    "state_machine_executions": 2,
+    "ecs_task_executions": 2,
+    "launcher_only_failures": 1,
+    "candidate_workload_executions": 1,
+    "automatic_retries": 0,
+    "provider_operation_retries": 0,
+    "successful_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-xform-c29:rc32-redshift-transform-c29-launcher-corrected-20260825",
+    "successful_ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-xform-c29/63913d68cdd14ab3897709387e9add9c",
+    "started_at": "2026-08-25T10:48:49.946Z",
+    "stopped_at": "2026-08-25T10:51:01.161Z",
+    "container_exit_code": 0,
+    "status": "passed"
+  },
+  "launcher_attempts": [
+    {
+      "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-xform-c29:rc32-redshift-transform-c29-20260825",
+      "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-xform-c29/9b08ea06dabf49e893e1d418485f9836",
+      "started_at": "2026-08-25T10:45:28.752Z",
+      "stopped_at": "2026-08-25T10:46:48.332Z",
+      "task_role_redshift_db_roles_tag": null,
+      "container_exit_code": 2,
+      "candidate_workload_executions": 0,
+      "failure_boundary": "first transform DDL",
+      "failure": "permission denied for database analytics",
+      "disposition": "launcher configuration corrected under the already-protected objective; no workload or candidate behavior changed"
+    },
+    {
+      "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-xform-c29:rc32-redshift-transform-c29-launcher-corrected-20260825",
+      "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-xform-c29/63913d68cdd14ab3897709387e9add9c",
+      "started_at": "2026-08-25T10:48:49.946Z",
+      "stopped_at": "2026-08-25T10:51:01.161Z",
+      "task_role_redshift_db_roles_tag": "dander_runtime",
+      "container_exit_code": 0,
+      "candidate_workload_executions": 1,
+      "status": "passed"
+    }
+  ],
+  "launcher_contract": {
+    "task_definition_entrypoint": [
+      "/bin/sh",
+      "-c"
+    ],
+    "task_command_argument_count": 1,
+    "task_command_argument_kind": "shell_program",
+    "task_user": "65532:65532",
+    "read_only_root_filesystem": true,
+    "dropped_capabilities": [
+      "ALL"
+    ],
+    "tmpfs_path": "/tmp",
+    "tmpfs_size_mib": 1024,
+    "tmpfs_mount_options": [
+      "rw",
+      "noexec",
+      "nosuid",
+      "nodev"
+    ],
+    "task_role_redshift_db_roles_tag": {
+      "key": "RedshiftDbRoles",
+      "value": "dander_runtime"
+    }
+  },
+  "launcher_preflight": {
+    "stages": [
+      {
+        "stage": "launcher_environment",
+        "result": "passed",
+        "elapsed_ms": 1094
+      },
+      {
+        "stage": "iam_readiness",
+        "result": "passed",
+        "elapsed_ms": 197
+      },
+      {
+        "stage": "get_credentials",
+        "result": "passed",
+        "elapsed_ms": 92
+      },
+      {
+        "stage": "readiness_connector_1",
+        "result": "passed",
+        "elapsed_ms": 35
+      },
+      {
+        "stage": "readiness_validation_query_1",
+        "result": "passed",
+        "elapsed_ms": 7
+      }
+    ]
+  },
+  "workload": {
+    "input_rows": 100100,
+    "output_rows": 100001,
+    "model_count": 4,
+    "assertion_count": 21,
+    "ownership_verifications": 27,
+    "copy_operations": 2,
+    "fenced_publications": 7,
+    "duration_ms": 69756,
+    "load_duration_ms": 23086,
+    "transform_duration_ms": 46169,
+    "peak_rss_bytes": 269705216,
+    "provider_operation_retries": 0,
+    "staging_tables_after_workload": 0,
+    "staging_objects_after_workload": 0,
+    "harness_schema_count_after_terminal": 0,
+    "cleanup_verified": true
+  },
+  "cost_attribution": {
+    "query_id": "9c6b56f0-64bb-4ea2-9fe3-612627acb12e",
+    "post_terminal_usage_queries": 1,
+    "charged_seconds": "3360",
+    "compute_seconds": "559.0",
+    "maximum_compute_capacity_rpu": "8.0",
+    "on_demand_rate_usd_per_rpu_hour": "0.375",
+    "exact_provider_cost_usd": "0.350000000000",
+    "estimated": false,
+    "provider_ledger_after_execution_usd": "20.391419762794"
+  },
+  "finalization": {
+    "mode": "offline_immutable_rc32",
+    "provider_operations": 0,
+    "workload_reexecutions": 0,
+    "report_sha256": "bc5664d643b59455be2e364764ef8c371c4c94b021b437d3ef201ff55501d99a",
+    "report_status": "passed",
+    "objectives_passed": 7,
+    "objectives_failed": 0
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane_destroy": true,
+    "transient_harness_and_diagnostics_deleted": true,
+    "task_definition_active_count": 0,
+    "running_task_count": 0,
+    "workgroup_absent": true,
+    "namespace_absent": true,
+    "staging_bucket_absent": true,
+    "rds_instance_absent": true,
+    "state_machine_absent": true,
+    "ecs_cluster_status": "INACTIVE",
+    "owned_secrets_count": 0,
+    "owned_roles_absent": true,
+    "log_group_count": 0,
+    "cleanup_verified": true
+  },
+  "disposition": {
+    "qualification_result": "qualified",
+    "historical_objectives_or_evidence_modified": false,
+    "next_unexecuted_objective": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-concurrency-external-cost-objective.json"
+  }
+}
