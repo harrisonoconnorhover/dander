@@ -1,5 +1,20 @@
 # Engineering Decisions
 
+## 2026-08-25 — Control retries requests while backends deduplicate effects
+
+- **Authority:** Control is the sole submission and reconciliation authority for hosted runs. The
+  direct CLI and single-container runtime remain supported outside hosted Control.
+- **Failure model:** Provider submission uses a deterministic logical run and attempt identity.
+  Control may repeat a request after a crash; `submit_or_adopt` must discover the original provider
+  execution. The contract promises at-least-once requests with idempotent provider effects, not
+  exactly-once execution.
+- **Truth model:** Execution progress, terminal outcome, result availability, and cleanup
+  confirmation are independent typed dimensions. Schedules select immutable execution plans but do
+  not participate in plan identity.
+- **Boundary:** DANDER-230 adds contracts and fake recovery tests only. Durable S3 state, provider
+  SDKs, lifecycle composition, schedules, cloud resources, and live executions remain separate
+  reviewed tickets.
+
 ## 2026-08-15 — EventBridge refresh covers the stable deployment name
 
 - **Finding:** RC25 used the documented default deployment name `dander`, so Terraform created
