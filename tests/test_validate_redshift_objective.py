@@ -208,13 +208,12 @@ def test_failure_cell_requires_the_protected_metadata_observation_window(tmp_pat
         "scripts.benchmarks.redshift_failure_phase8",
     )
     payload: dict[str, Any] = json.loads(objective.read_text(encoding="utf-8"))
-    payload["configuration"]["execution"]["cost_observation_timeout_seconds"] = 300
-    payload["configuration"]["cost_attribution"]["metadata_observation_timeout_seconds"] = 300
+    payload["configuration"]["execution"]["cost_observation_delay_seconds"] = 70
     objective.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(
         validator.ObjectiveValidationError,
-        match="cost observation timeout must be 600 seconds",
+        match="initial cost observation delay must be 120 seconds",
     ):
         validator.validate_objective(objective, repository_root=repository)
 
@@ -458,8 +457,11 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
         )
     cost_attribution: dict[str, object] = {}
     if module == "scripts.benchmarks.redshift_failure_phase8":
-        execution["cost_observation_timeout_seconds"] = 600
-        cost_attribution["metadata_observation_timeout_seconds"] = 600
+        execution["cost_observation_delay_seconds"] = 120
+        execution["cost_observation_timeout_seconds"] = 300
+        execution["cost_observation_poll_seconds"] = 120
+        cost_attribution["metadata_observation_timeout_seconds"] = 300
+        cost_attribution["metadata_observation_poll_seconds"] = 120
     fargate = {
         path[-1]: deepcopy(value)
         for path, value in validator.PROFILE_FIELDS

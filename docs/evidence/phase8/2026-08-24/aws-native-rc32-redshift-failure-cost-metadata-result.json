@@ -1,0 +1,143 @@
+{
+  "schema": "io.dander.phase8.aws-native-redshift-failure-cost-metadata-result/v1",
+  "attempt_date": "2026-08-25",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-cost-metadata-objective.json",
+  "protection": {
+    "objective_pull_request": 474,
+    "objective_merge_commit": "a4bb89f811bc0efbb355a47ba0c44182ff5e7da4",
+    "objective_exact_main_ci_run": 32809676436,
+    "execution_repository_commit": "a4bb89f811bc0efbb355a47ba0c44182ff5e7da4",
+    "execution_exact_main_ci_run": 32809676436
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "replacement_published": false
+  },
+  "launcher_setup": {
+    "task_definition_registration_api_attempts": 3,
+    "invalid_interpolated_role_arn_attempts": 2,
+    "task_definition_revisions": 1,
+    "state_machine_create_api_attempts": 2,
+    "invalid_interpolated_state_machine_role_arn_attempts": 1,
+    "state_machine_definitions_created": 1,
+    "materialized_cluster_arn_exact": true,
+    "materialized_task_definition_arn_exact": true,
+    "installed_policies_exact": true,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0
+  },
+  "execution": {
+    "state_machine_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c19:rc32-redshift-failure-cost-metadata-c19-20260825",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-fail-c19/372b9d72318b49caa52f34eac7f197f6",
+    "started_at": "2026-08-25T00:50:43.941-04:00",
+    "stopped_at": "2026-08-25T01:03:02.970-04:00",
+    "state_machine_status": "failed",
+    "state_machine_error": "States.TaskFailed",
+    "task_exit_code": 2,
+    "state_machine_executions": 1,
+    "ecs_tasks_started": 1,
+    "candidate_executions": 1,
+    "automatic_candidate_retries": 0,
+    "provider_operation_retries": 0,
+    "workload_mutation_boundary_reached": true
+  },
+  "readiness": {
+    "status": "passed",
+    "attempts": 2,
+    "stages": [
+      "launcher_environment",
+      "iam_readiness",
+      "get_credentials",
+      "readiness_connector_1",
+      "readiness_validation_query_1",
+      "readiness_connector_2",
+      "readiness_validation_query_2"
+    ],
+    "exception_classes": [
+      "TimeoutError"
+    ]
+  },
+  "candidate_result": {
+    "status": "failed",
+    "sanitized_stage": "provider_cost_observation",
+    "sanitized_elapsed_ms": 625541,
+    "sanitized_exception_class": "RedshiftFailureQualificationError",
+    "stdout_bytes": 0,
+    "normalized_report_emitted": false,
+    "owned_failure_prefix_objects_after_task": 0,
+    "owned_failure_schemas_after_task": 0,
+    "workload_reexecutions_during_cost_observation": 0
+  },
+  "classification": {
+    "result": "provider_cost_polling_reached_usage_limit_before_metadata_publication",
+    "failure_boundary": "provider_cost_observation_after_failure_workload_completed",
+    "connection_boundary_reached": true,
+    "candidate_or_product_correction_required": false,
+    "benchmark_harness_correction_required": true,
+    "objective_configuration_correction_required": true,
+    "direct_evidence": "The candidate completed the full 600-second observation loop with sanitized stage provider_cost_observation. Its 60-second reads never observed charged usage; the first post-terminal usage read was rejected because the exact 2 RPU-hour guard had deactivated the workgroup, while the direct failure-schema count was zero.",
+    "inference": "Repeated 60-second usage reads prevented a quiet provider interval and consumed the guard without publishing a usable row. C18 had observed the row only after 98 seconds of post-terminal quiet.",
+    "inference_confidence": "high_from_two_protected_attempts_and_direct_guard_evidence",
+    "smallest_correction": "Wait 120 quiet seconds before the first usage read, retain a 300-second total observation timeout, and space any remaining reads by 120 seconds while keeping one workload execution, the 2 RPU-hour guard, and the USD 0.75 reservation.",
+    "historical_objective_rewritten": false,
+    "new_protected_objective_required_before_another_execution": true
+  },
+  "artifacts": {
+    "harness_bundle_sha256": "bed517962b23196dca92a8f5af7ae4fe064e6ae63884c09146f32c2fe8ae55f8",
+    "task_policy_sha256": "e05f38116daf64a63e64b17021c8dc8eac67afb1576b0ef29ff241a9e2711c84",
+    "task_definition_sha256": "77193ba10f07541e1a4d561a3179d2fe8790143f0e565825f0ed0ce6d4f6255f",
+    "state_machine_sha256": "ef78e00eb4149412785f594f80e9c7c2a49125faae6e1db2323d8f1540a97866",
+    "execution_sha256": "90fa697d8b750036c43656e19db0c5cd3af122559636946242056fc6d66b31b0",
+    "execution_history_summary_sha256": "01e38c673c9efbb07e932845aa18373ed9cb7470c4017409ff3392d137b63dea",
+    "task_description_sha256": "1378d9c9c41ee6f8aa3f1b654bae2b9c77109ffdb665a1de99a637a4a65d7e3d",
+    "launcher_preflight_sha256": "062949951702488e3f3011817961b08d28d01fb3f4a1e5f977e93762f6052260",
+    "stderr_sha256": "e4a6896972e242b7123c5d4a9e7caf58dc9c671b420f3344e462ea79fa0d4f52",
+    "post_terminal_usage_diagnostic_sha256": "649799430b5954610834804734f5af58ba33f701b61a9738ec2b996f582645f7",
+    "direct_schema_result_sha256": "177363518f53d02a5f570d4a77d5501a5c19c0a1d0fc50ab32431712f41623d6",
+    "objects_after_execution_sha256": "361c19959d47119311dc26edb8e04def688e389d506b58cc033316c2de876b6b"
+  },
+  "infrastructure": {
+    "terraform_create_plan_sha256": "d447a3c554613c880277632506b0a8aa0871e117f4c38b6f0b4d1c6c6c4723fb",
+    "terraform_create_actions": 37,
+    "terraform_post_apply_changes": 0,
+    "redshift_serverless_base_capacity_rpu": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 2,
+    "redshift_serverless_usage_limit_breach_action": "deactivate"
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "harness_and_diagnostics_objects_removed": 4,
+    "terraform_destroy_plan_sha256": "1b497c301939d6c0321c692cc55da8e051526e811fa80627596b709ff61bd0df",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 12,
+    "remote_state_delete_markers_removed": 0,
+    "remote_state_lock_versions_removed": 5,
+    "remote_state_lock_delete_markers_removed": 5,
+    "remote_state_exact_keys_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "candidate_digest_retained": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.75",
+    "provider_measured_redshift_cost_usd": null,
+    "conservative_bound_usd": "0.75",
+    "status": "usage_guard_deactivated_before_measurement",
+    "aggregate_authorized_ceiling_usd": "20.00",
+    "aggregate_conservative_bound_after_objective_usd": "18.841419762794",
+    "promotional_credits_relied_upon": false,
+    "promotional_credit_status": "expired_2026-08-15"
+  },
+  "qualification_effect": {
+    "redshift_failure_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "usage_limit_guard_reached": true,
+    "next_scope": "Protect a quiet 120-second initial metadata interval and one fresh exact-RC32 C20 execution without changing the workload or guard."
+  }
+}

@@ -46,7 +46,6 @@ def _config(**overrides: object) -> failure.RedshiftFailureConfig:
         "copy_role_arn": "arn:aws:iam::123456789012:role/dander-p8q-rc31-rs-failure-copy",
         "staging_bucket": "dander-p8q-rc31-rs-failure-123456789012-staging",
         "staging_prefix": "phase8/0.9.0rc31/staging",
-        "cost_observation_delay_seconds": 60,
     }
     values.update(overrides)
     return failure.RedshiftFailureConfig(**values)  # type: ignore[arg-type]
@@ -338,8 +337,12 @@ def test_run_reports_only_sanitized_stage_timing_and_exception_class(
     assert dropped and deleted
 
 
-def test_default_cost_metadata_window_covers_delayed_provider_publication() -> None:
-    assert _config().cost_observation_timeout_seconds == 600
+def test_default_cost_metadata_window_uses_quiet_provider_intervals() -> None:
+    config = _config()
+
+    assert config.cost_observation_delay_seconds == 120
+    assert config.cost_observation_timeout_seconds == 300
+    assert config.cost_observation_poll_seconds == 120
 
 
 def test_credential_probe_uses_rejected_password_and_zero_retry_client(
@@ -476,7 +479,9 @@ def test_approval_binds_launcher_host_and_database(tmp_path: Path) -> None:
         copy_role_arn=provider["copy_role_arn"],
         staging_bucket=provider["staging_bucket"],
         staging_prefix=provider["staging_prefix"],
+        cost_observation_delay_seconds=70,
         cost_observation_timeout_seconds=300,
+        cost_observation_poll_seconds=60,
     )
     objectives = cast("dict[str, str]", payload["approved_objectives"])
     identity = replace(

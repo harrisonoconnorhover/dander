@@ -97,9 +97,9 @@ class RedshiftFailureConfig:
     statement_timeout_ms: int = 900_000
     copy_part_rows: int = 1
     copy_part_logical_bytes: int = 16 * 1_024 * 1_024
-    cost_observation_delay_seconds: int = 70
-    cost_observation_timeout_seconds: int = 600
-    cost_observation_poll_seconds: int = 60
+    cost_observation_delay_seconds: int = 120
+    cost_observation_timeout_seconds: int = 300
+    cost_observation_poll_seconds: int = 120
     on_demand_rate_usd_per_rpu_hour: Decimal = Decimal("0.375")
 
     def __post_init__(self) -> None:
