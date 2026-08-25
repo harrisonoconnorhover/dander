@@ -163,6 +163,7 @@ def _connect_psycopg(
         user=username,
         password=password,
         sslmode="verify-full",
+        sslrootcert="system",
         connect_timeout=config.connect_timeout_seconds,
         application_name="dander",
     )

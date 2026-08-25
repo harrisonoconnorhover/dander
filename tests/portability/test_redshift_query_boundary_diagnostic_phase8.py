@@ -134,6 +134,7 @@ def test_diagnostic_isolates_verified_tls_psycopg_and_product_driver(
             "user": "temporary-user",
             "password": "temporary-password",
             "sslmode": "verify-full",
+            "sslrootcert": "system",
             "connect_timeout": 300,
             "application_name": "dander",
         }

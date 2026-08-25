@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import time
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
@@ -23,6 +24,10 @@ if TYPE_CHECKING:
 _ARTIFACT_SCHEMA = "io.dander.phase8.aws-native-redshift-launcher-preflight/v1"
 _ALLOWED_FIELDS = ("stage", "elapsed_ms", "exception_class")
 _PREFLIGHT_EXIT = 3
+_READINESS_SOCKET_TIMEOUT_SECONDS = 12
+_READINESS_MAXIMUM_PROBES = 4
+_READINESS_PROBE_INTERVAL_SECONDS = 5
+_READINESS_WINDOW_SECONDS = 115
 
 
 class _Client(Protocol):
@@ -66,7 +71,10 @@ class LauncherPreflightConfig:
     benchmark_module: str
     bundle_members: tuple[str, ...]
     expected_hashes: tuple[tuple[str, str], ...]
-    connect_timeout_seconds: int
+    readiness_socket_timeout_seconds: int
+    readiness_maximum_probes: int
+    readiness_probe_interval_seconds: int
+    readiness_window_seconds: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,9 +103,16 @@ def load_config(path: Path) -> LauncherPreflightConfig:
     if "bulk_harness_sha256" in execution:
         expected_hashes += (("scripts/benchmarks/redshift_bulk_phase8.py", "bulk_harness_sha256"),)
     hashes = tuple((member, str(execution.get(field, ""))) for member, field in expected_hashes)
-    timeout = connection.get("connect_timeout_seconds")
-    if isinstance(timeout, bool) or not isinstance(timeout, int):
-        raise ValueError("launcher preflight connection timeout is malformed")
+    readiness_fields = {
+        "readiness_socket_timeout_seconds": connection.get("readiness_socket_timeout_seconds"),
+        "readiness_maximum_probes": connection.get("readiness_maximum_probes"),
+        "readiness_probe_interval_seconds": connection.get("readiness_probe_interval_seconds"),
+        "readiness_window_seconds": connection.get("readiness_window_seconds"),
+    }
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) for value in readiness_fields.values()
+    ):
+        raise ValueError("launcher preflight readiness configuration is malformed")
     config = LauncherPreflightConfig(
         objective_path=path,
         account_id=str(redshift.get("account_id", "")),
@@ -112,7 +127,14 @@ def load_config(path: Path) -> LauncherPreflightConfig:
         benchmark_module=str(contract.get("benchmark_module", "")),
         bundle_members=members,
         expected_hashes=hashes,
-        connect_timeout_seconds=timeout,
+        readiness_socket_timeout_seconds=cast(
+            "int", readiness_fields["readiness_socket_timeout_seconds"]
+        ),
+        readiness_maximum_probes=cast("int", readiness_fields["readiness_maximum_probes"]),
+        readiness_probe_interval_seconds=cast(
+            "int", readiness_fields["readiness_probe_interval_seconds"]
+        ),
+        readiness_window_seconds=cast("int", readiness_fields["readiness_window_seconds"]),
     )
     _validate_config(config)
     return config
@@ -124,8 +146,9 @@ def run_preflight(
     clients: _Clients | None = None,
     connector: Callable[..., object] | None = None,
     environment_check: Callable[[LauncherPreflightConfig], None] | None = None,
+    sleeper: Callable[[float], None] = time.sleep,
 ) -> tuple[dict[str, object], ...]:
-    """Run the read-only preflight and stop at the first sanitized failure."""
+    """Run bounded read-only readiness probes before the candidate command."""
     _require_no_provider_retries()
     selected = clients or _clients(config.region)
     stages: list[dict[str, object]] = []
@@ -145,17 +168,33 @@ def run_preflight(
     )
     if not ok:
         return tuple(stages)
-    connection, ok = _record(
-        stages,
-        "explicit_credentials_connector",
-        lambda: _connect(config, credentials, connector or _connector()),
-    )
-    if not ok:
-        return tuple(stages)
-    try:
-        _record(stages, "explicit_credentials_validation_query", lambda: _select_one(connection))
-    finally:
-        cast("_Connection", connection).close()
+    selected_connector = connector or _connector()
+    deadline = time.monotonic() + config.readiness_window_seconds
+    for probe in range(1, config.readiness_maximum_probes + 1):
+        if deadline - time.monotonic() < config.readiness_socket_timeout_seconds * 2:
+            break
+        connection, connected = _record(
+            stages,
+            f"readiness_connector_{probe}",
+            partial(_connect, config, credentials, selected_connector, probe=probe),
+        )
+        query_passed = False
+        if connected:
+            try:
+                _, query_passed = _record(
+                    stages,
+                    f"readiness_validation_query_{probe}",
+                    partial(_select_one, connection),
+                )
+            finally:
+                cast("_Connection", connection).close()
+        if query_passed:
+            return tuple(stages)
+        if probe < config.readiness_maximum_probes:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            sleeper(min(config.readiness_probe_interval_seconds, remaining))
     return tuple(stages)
 
 
@@ -190,8 +229,13 @@ def _validate_config(config: LauncherPreflightConfig) -> None:
         raise ValueError("Redshift host is not the exact owned Serverless workgroup")
     if config.diagnostics_key != expected_diagnostics:
         raise ValueError("launcher preflight artifact key is not exact")
-    if config.connect_timeout_seconds != 300:
-        raise ValueError("launcher preflight connection timeout is not exact")
+    if (
+        config.readiness_socket_timeout_seconds != _READINESS_SOCKET_TIMEOUT_SECONDS
+        or config.readiness_maximum_probes != _READINESS_MAXIMUM_PROBES
+        or config.readiness_probe_interval_seconds != _READINESS_PROBE_INTERVAL_SECONDS
+        or config.readiness_window_seconds != _READINESS_WINDOW_SECONDS
+    ):
+        raise ValueError("launcher preflight readiness configuration is not exact")
     if not config.database or not config.harness_bundle_key or not config.benchmark_module:
         raise ValueError("launcher preflight configuration is incomplete")
 
@@ -233,6 +277,8 @@ def _connect(
     config: LauncherPreflightConfig,
     credentials: object,
     connector: Callable[..., object],
+    *,
+    probe: int,
 ) -> object:
     values = _mapping(credentials, "credentials")
     username = values.get("dbUser")
@@ -254,8 +300,8 @@ def _connect(
         port=5439,
         database=config.database,
         region=config.region,
-        timeout=config.connect_timeout_seconds,
-        application_name="dander",
+        timeout=config.readiness_socket_timeout_seconds,
+        application_name=f"dander-phase8-readiness-{probe}",
         client_protocol_version=0,
         is_serverless=True,
         serverless_work_group=config.workgroup_name,
@@ -359,8 +405,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     except Exception as error:
         stages += (_failure_stage("diagnostic_artifact_upload", time.perf_counter(), error),)
     _print_stages(stages)
-    passed = bool(stages) and all(stage["exception_class"] is None for stage in stages)
+    passed = _preflight_passed(stages)
     return 0 if passed else _PREFLIGHT_EXIT
+
+
+def _preflight_passed(stages: tuple[dict[str, object], ...]) -> bool:
+    if not stages:
+        return False
+    terminal = stages[-1]
+    return bool(
+        str(terminal.get("stage", "")).startswith("readiness_validation_query_")
+        and terminal.get("exception_class") is None
+    )
 
 
 def _failure_stage(name: str, started: float, error: Exception) -> dict[str, object]:

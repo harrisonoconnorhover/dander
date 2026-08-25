@@ -2,35 +2,36 @@
 
 ## Finished
 
-- Ran two protected, zero-retry RC32 Redshift connection diagnostics.
-- Verified the explicit and current Dander factories both connect and execute the validation query.
-- Classified the one timeout as first-query order dependent, not connector-path specific.
-- Completed exact launcher, object, data-plane, remote-state, and lock cleanup.
-- Recorded the sanitized diagnostic and conservative USD 4.00 objective bound.
+- Added four bounded, read-only Redshift readiness probes before candidate execution.
+- Limited each connector socket operation to 12 seconds and the full readiness window to 115 seconds.
+- Assigned a unique `application_name` to every probe while keeping workload retries at zero.
+- Gave the Psycopg comparison an explicit libpq system trust root.
+- Preserved the immutable C13 objective and its historical harness identity.
 
 ## Try It
 
-Run `jq . docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-connection-diagnostic.json`.
+Run `uv run pytest tests/portability/test_redshift_launcher_preflight.py tests/portability/test_redshift_query_boundary_diagnostic_phase8.py tests/test_validate_redshift_objective.py -q`.
 
 ## Checks
 
-- Both manual Step Functions executions succeeded with zero retries.
-- The saved 37-create plan applied and the post-apply plan had zero changes.
-- The saved 37-destroy plan applied; direct owned inventories and remote state are empty.
+- Ruff format and lint passed for all changed Python files.
+- Focused tests passed; the broader portability and repository-safety suite passed with two skips.
+- `scripts/check_types.py`, Control contract validation, and exact-RC32 objective/container smoke passed.
 
 ## Decisions
 
-- No additional Redshift product, TLS, protocol, or timeout change is supported.
-- RC32's protected explicit-credential factory is the retained product correction.
-- Only materially blocked exact-RC32 Redshift cells remain eligible for new objectives.
+- Readiness probes are infrastructure checks, not candidate or workload retries.
+- Four probes use 12-second socket bounds and 5-second gaps, leaving margin inside a 115-second window.
+- Historical C13 evidence remains unchanged; its comparator is corrected only for future use.
 
 ## Remaining
 
-- Protect this sanitized diagnostic evidence.
-- Rebind and run only the materially blocked Redshift cells under separate protected objectives.
-- Reconcile delayed provider cost without rerunning accepted work.
+- Merge the focused protected PR and verify exact-main CI.
+- From that protected commit, bind one real blocked Redshift workload objective to the new launcher hash.
+- Run the selected cell once only if identity, budget, cleanup, and exact-main gates pass.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-connection-diagnostic.json`
-- `tickets/DANDER-204-phase8-scale-matrix.md`
+- `scripts/benchmarks/redshift_launcher_preflight.py`
+- `scripts/benchmarks/redshift_query_boundary_diagnostic_phase8.py`
+- `scripts/validate_redshift_objective.py`

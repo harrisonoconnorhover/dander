@@ -23,6 +23,13 @@ RC32_IMAGE = "184463061564.dkr.ecr.us-east-1.amazonaws.com/dander:0.9.0rc32"
 LAUNCHER_PREFLIGHT = "scripts/benchmarks/redshift_launcher_preflight.py"
 QUERY_BOUNDARY_SCHEMA = "io.dander.phase8.redshift-query-boundary-diagnostic-approval/v1"
 QUERY_BOUNDARY_SCRIPT = "scripts/benchmarks/redshift_query_boundary_diagnostic_phase8.py"
+QUERY_BOUNDARY_C13_OBJECTIVE = (
+    "docs/evidence/phase8/2026-08-24/"
+    "aws-native-rc32-redshift-query-boundary-diagnostic-objective.json"
+)
+QUERY_BOUNDARY_C13_HARNESS_SHA256 = (
+    "88b93a7345d195510f659bb3649ac7414649ae7dbb17ee005541c6d40900d8f1"
+)
 QUERY_BOUNDARY_STAGES = [
     "get_credentials",
     "verified_postgres_tls_handshake",
@@ -164,7 +171,10 @@ def canonical_launcher_contract(benchmark_module: str) -> dict[str, object]:
             "integrated_iam": False,
             "ssl": True,
             "sslmode": "verify-full",
-            "connect_timeout_seconds": 300,
+            "readiness_socket_timeout_seconds": 12,
+            "readiness_maximum_probes": 4,
+            "readiness_probe_interval_seconds": 5,
+            "readiness_window_seconds": 115,
             "query": "SELECT 1",
             "must_succeed_before_candidate_command": True,
             "schema_or_workload_mutation_allowed": False,
@@ -372,7 +382,11 @@ def _validate_query_boundary_diagnostic(
         "query-boundary provider binding drifted",
     )
     relative_objective = objective_path.resolve().relative_to(repository_root.resolve()).as_posix()
-    harness_hash = _sha256(repository_root / QUERY_BOUNDARY_SCRIPT)
+    harness_hash = (
+        QUERY_BOUNDARY_C13_HARNESS_SHA256
+        if relative_objective == QUERY_BOUNDARY_C13_OBJECTIVE
+        else _sha256(repository_root / QUERY_BOUNDARY_SCRIPT)
+    )
     execution = _mapping(payload.get("execution"), "execution")
     approval_reference = str(execution.get("approval_reference", ""))
     _require(
