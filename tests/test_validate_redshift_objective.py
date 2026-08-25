@@ -176,6 +176,7 @@ def test_static_drift_fails_before_pr_creation(
         ("iam_readiness", "maximum_checks", 0),
         ("connection", "integrated_iam", True),
         ("connection", "sslmode", "prefer"),
+        ("connection", "readiness_maximum_probes", 5),
         ("connection", "query", "SELECT current_user"),
     ],
 )

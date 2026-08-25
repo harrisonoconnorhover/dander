@@ -72,6 +72,17 @@ class _Connection:
         return None
 
 
+class _TimeoutCursor(_Cursor):
+    def execute(self, operation: str) -> object:
+        raise TimeoutError
+
+
+class _TimeoutConnection(_Connection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.selected = _TimeoutCursor()
+
+
 class SensitiveConnectionError(RuntimeError):
     """A test-only provider failure whose message must never reach evidence."""
 
@@ -93,7 +104,10 @@ def _config(tmp_path: Path) -> preflight.LauncherPreflightConfig:
         benchmark_module="scripts.benchmarks.redshift_failure_phase8",
         bundle_members=("scripts/benchmarks/redshift_failure_phase8.py",),
         expected_hashes=(),
-        connect_timeout_seconds=300,
+        readiness_socket_timeout_seconds=12,
+        readiness_maximum_probes=4,
+        readiness_probe_interval_seconds=5,
+        readiness_window_seconds=115,
     )
 
 
@@ -131,8 +145,8 @@ def test_preflight_uses_explicit_tls_credentials_and_select_one(
         "launcher_environment",
         "iam_readiness",
         "get_credentials",
-        "explicit_credentials_connector",
-        "explicit_credentials_validation_query",
+        "readiness_connector_1",
+        "readiness_validation_query_1",
     ]
     assert all(stage["exception_class"] is None for stage in stages)
     assert connector_calls == [
@@ -146,8 +160,8 @@ def test_preflight_uses_explicit_tls_credentials_and_select_one(
             "port": 5439,
             "database": "analytics",
             "region": "us-east-1",
-            "timeout": 300,
-            "application_name": "dander",
+            "timeout": 12,
+            "application_name": "dander-phase8-readiness-1",
             "client_protocol_version": 0,
             "is_serverless": True,
             "serverless_work_group": "dander-p8q-rc32-rs-fail-c12",
@@ -174,10 +188,11 @@ def test_failed_stage_is_sanitized_and_published_to_the_exact_owned_key(
         clients=_clients(client),
         connector=fail_connect,
         environment_check=lambda _config: None,
+        sleeper=lambda _seconds: None,
     )
     preflight.publish_preflight(config, stages, s3_client=client)
 
-    assert stages[-1]["stage"] == "explicit_credentials_connector"
+    assert stages[-1]["stage"] == "readiness_connector_4"
     assert stages[-1]["exception_class"] == "SensitiveConnectionError"
     assert client.upload is not None
     assert client.upload["Bucket"] == config.staging_bucket
@@ -192,6 +207,43 @@ def test_failed_stage_is_sanitized_and_published_to_the_exact_owned_key(
     assert all(
         set(stage) == {"stage", "elapsed_ms", "exception_class"} for stage in payload["stages"]
     )
+
+
+def test_readiness_query_timeout_can_recover_without_becoming_a_workload_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AWS_MAX_ATTEMPTS", "1")
+    monkeypatch.setenv("AWS_RETRY_MODE", "standard")
+    client = _Client()
+    timed_out = _TimeoutConnection()
+    connection = _Connection()
+    attempts = 0
+
+    def connect(**_kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return timed_out
+        return connection
+
+    stages = preflight.run_preflight(
+        _config(tmp_path),
+        clients=_clients(client),
+        connector=connect,
+        environment_check=lambda _config: None,
+        sleeper=lambda _seconds: None,
+    )
+
+    assert [stage["stage"] for stage in stages[-4:]] == [
+        "readiness_connector_1",
+        "readiness_validation_query_1",
+        "readiness_connector_2",
+        "readiness_validation_query_2",
+    ]
+    assert preflight._preflight_passed(stages)  # noqa: SLF001
+    assert attempts == 2
+    assert timed_out.selected.closed and timed_out.closed
 
 
 def test_preflight_rejects_provider_retries_before_any_stage(
