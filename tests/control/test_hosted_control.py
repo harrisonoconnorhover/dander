@@ -10,7 +10,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from dander.control import GraphRecord, InMemoryGraphStore, RootedLocalGraphStore
-from dander.control.application import ControlApplication, RunAddress, RunLifecyclePort
+from dander.control.application import (
+    ControlApplication,
+    RunAddress,
+    RunLifecyclePort,
+    RunSubmissionResolver,
+)
 from dander.control.http import create_control_app, decode_revision_etag, encode_revision_etag
 from dander.control.models import (
     LogPageResponse,
@@ -19,8 +24,10 @@ from dander.control.models import (
     RunState,
     RunStatusResponse,
 )
+from dander.control.orchestration import RunSubmission, RunTrigger, TriggerKind
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from pathlib import Path
 
     from httpx import Response
@@ -225,11 +232,11 @@ def test_etag_round_trips_arbitrary_opaque_revision_without_header_injection() -
 @dataclass
 class _Lifecycle:
     closed: bool = False
-    starts: list[tuple[str, str]] = field(default_factory=list)
+    starts: list[RunSubmission] = field(default_factory=list)
     mutations: list[tuple[str, str]] = field(default_factory=list)
 
-    def start(self, record: GraphRecord, *, idempotency_key: str) -> RunStatusResponse:
-        self.starts.append((record.revision, idempotency_key))
+    def start(self, submission: RunSubmission) -> RunStatusResponse:
+        self.starts.append(submission)
         return _status("run-one")
 
     def get(self, address: RunAddress) -> RunStatusResponse:
@@ -268,6 +275,31 @@ class _Lifecycle:
         self.closed = True
 
 
+@dataclass(frozen=True)
+class _SubmissionResolver:
+    environment: str = "production"
+    plan_id: str = "default-plan"
+    plan_revision: str = "a" * 64
+
+    def resolve(
+        self,
+        record: GraphRecord,
+        *,
+        idempotency_key: str,
+        requested_at: datetime,
+    ) -> RunSubmission:
+        return RunSubmission(
+            environment=self.environment,
+            project=record.project,
+            graph=record,
+            plan_id=self.plan_id,
+            plan_revision=self.plan_revision,
+            trigger=RunTrigger(kind=TriggerKind.API, trigger_id="control-api"),
+            idempotency_key=idempotency_key,
+            requested_at=requested_at,
+        )
+
+
 def _status(run_id: str) -> RunStatusResponse:
     return RunStatusResponse(run_id=run_id, state=RunState.QUEUED)
 
@@ -278,6 +310,7 @@ def test_normalized_lifecycle_receives_decoded_revision_and_explicit_idempotency
     application = ControlApplication(
         store,
         lifecycle=cast("RunLifecyclePort", lifecycle),
+        submission_resolver=cast("RunSubmissionResolver", _SubmissionResolver()),
         projects=("demo-project",),
     )
     client = TestClient(create_control_app(application))
@@ -291,7 +324,13 @@ def test_normalized_lifecycle_receives_decoded_revision_and_explicit_idempotency
             },
         )
         assert start.status_code == 202
-        assert lifecycle.starts == [('native/"revision', "start-key-0001")]
+        assert len(lifecycle.starts) == 1
+        assert lifecycle.starts[0].graph.revision == 'native/"revision'
+        assert lifecycle.starts[0].environment == "production"
+        assert lifecycle.starts[0].idempotency_key == "start-key-0001"
+        requested_offset = lifecycle.starts[0].requested_at.utcoffset()
+        assert requested_offset is not None
+        assert requested_offset.total_seconds() == 0
         assert client.get("/v1/runs").json()["items"][0]["run_id"] == "run-one"
         assert client.get("/v1/runs/run-one/logs?limit=25").status_code == 200
         assert (
@@ -321,6 +360,7 @@ def test_run_mutations_reject_a_body_before_operation_dispatch(operation: str) -
     application = ControlApplication(
         InMemoryGraphStore(),
         lifecycle=cast("RunLifecyclePort", lifecycle),
+        submission_resolver=cast("RunSubmissionResolver", _SubmissionResolver()),
     )
     client = TestClient(create_control_app(application))
 

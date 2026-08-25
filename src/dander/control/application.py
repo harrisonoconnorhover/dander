@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
 
 from dander import __version__
@@ -44,6 +45,7 @@ from dander.control.models import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from dander.control.orchestration import RunSubmission
     from dander.plugins import InstalledConnectorPlugin
 
 MAX_LOG_RECORDS = 500
@@ -99,11 +101,12 @@ class RunLifecyclePort(Protocol):
 
     ``start``, ``cancel``, and ``replay`` own durable idempotency at this boundary. Identical
     successful retries must replay their original result, conflicting key reuse must fail, and
-    failed validation/preconditions must not consume a key. ``start`` receives the exact current
-    graph record after the application has checked the requested opaque revision.
+    failed validation/preconditions must not consume a key. ``start`` receives one resolved
+    provider-neutral submission after the application has checked the requested graph revision.
+    ``replay`` creates a new logical run and returns its distinct run ID.
     """
 
-    def start(self, record: GraphRecord, *, idempotency_key: str) -> RunStatusResponse: ...
+    def start(self, submission: RunSubmission) -> RunStatusResponse: ...
 
     def list(self, *, cursor: str | None, limit: int) -> RunPageResponse: ...
 
@@ -122,6 +125,18 @@ class RunLifecyclePort(Protocol):
     def replay(self, address: RunAddress, *, idempotency_key: str) -> MutationResult: ...
 
     def close(self) -> None: ...
+
+
+class RunSubmissionResolver(Protocol):
+    """Resolve the compatibility graph route into one exact environment and execution plan."""
+
+    def resolve(
+        self,
+        record: GraphRecord,
+        *,
+        idempotency_key: str,
+        requested_at: datetime,
+    ) -> RunSubmission: ...
 
 
 class CanonicalGraphValidator:
@@ -147,6 +162,7 @@ class ControlApplication:
         validator: GraphValidationPort | None = None,
         preview: DeploymentPreviewPort | None = None,
         lifecycle: RunLifecyclePort | None = None,
+        submission_resolver: RunSubmissionResolver | None = None,
         connector_plugins: tuple[InstalledConnectorPlugin, ...] = (),
         projects: tuple[str, ...] = ("default",),
         readiness: Callable[[], bool] | None = None,
@@ -155,6 +171,11 @@ class ControlApplication:
         self.validator = validator or CanonicalGraphValidator()
         self.preview_port = preview
         self.lifecycle_port = lifecycle
+        self.submission_resolver = submission_resolver
+        if (lifecycle is None) != (submission_resolver is None):
+            raise ValueError(
+                "Control run lifecycle and submission resolver must be configured together."
+            )
         self.connector_catalog: ConnectorCatalogResponse = build_connector_catalog(
             connector_plugins
         )
@@ -264,7 +285,15 @@ class ControlApplication:
     ) -> RunStatusResponse:
         lifecycle = self._require_lifecycle()
         record = self.require_graph_revision(project, graph, expected_revision)
-        return lifecycle.start(record, idempotency_key=idempotency_key)
+        resolver = self._require_submission_resolver()
+        submission = resolver.resolve(
+            record,
+            idempotency_key=idempotency_key,
+            requested_at=datetime.now(UTC),
+        )
+        if submission.graph != record or submission.idempotency_key != idempotency_key:
+            raise RuntimeError("The submission resolver changed validated request identity.")
+        return lifecycle.start(submission)
 
     def get_run(self, address: RunAddress) -> RunStatusResponse:
         return self._require_lifecycle().get(address)
@@ -315,6 +344,13 @@ class ControlApplication:
             )
         return self.lifecycle_port
 
+    def _require_submission_resolver(self) -> RunSubmissionResolver:
+        if self.submission_resolver is None:
+            raise ControlOperationUnavailableError(
+                "Run submission is unavailable for the selected profile."
+            )
+        return self.submission_resolver
+
 
 def graph_resource_response(record: GraphRecord) -> GraphResourceResponse:
     """Project one internal record without exposing its provider-native revision in JSON."""
@@ -359,6 +395,7 @@ __all__ = [
     "MAX_LOG_RECORDS",
     "RunAddress",
     "RunLifecyclePort",
+    "RunSubmissionResolver",
     "graph_page_response",
     "graph_resource_response",
 ]
