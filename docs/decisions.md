@@ -1,5 +1,17 @@
 # Engineering Decisions
 
+## 2026-08-25 — Control run state uses canonical records and recoverable S3 claims
+
+- **Plan identity:** An execution-plan revision is computed from a versioned canonical envelope;
+  callers can no longer attach an unrelated SHA-shaped value. Loading a persisted plan recomputes
+  and verifies that identity.
+- **Durability:** Current run snapshots use opaque S3 ETags for compare-and-swap. Attempt intent is
+  create-only and permits only byte-identical replay. The hashed idempotency object is also a small
+  recovery journal containing the pristine run snapshot.
+- **Failure model:** A restart after the idempotency claim but before snapshot creation repairs the
+  missing snapshot from that claim. There is no claimed cross-object transaction and no AWS
+  launcher, scheduler, reconciler, infrastructure, or live execution in DANDER-231.
+
 ## 2026-08-25 — Control retries requests while backends deduplicate effects
 
 - **Authority:** Control is the sole submission and reconciliation authority for hosted runs. The

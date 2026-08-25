@@ -113,11 +113,10 @@ def _template(*, scheduled: bool = False) -> ExecutionTemplate:
     )
 
 
-def _plan(graph: GraphRecord | None = None, *, revision: str = "a" * 64) -> ExecutionPlan:
+def _plan(graph: GraphRecord | None = None) -> ExecutionPlan:
     selected = graph or _graph()
     return ExecutionPlan(
         plan_id="aws-redshift",
-        revision=revision,
         environment="production",
         project=selected.project,
         graph=selected.graph,
@@ -137,7 +136,7 @@ def _submission(
     *,
     key: str = "start-key-0001",
     requested_at: datetime = NOW,
-    plan_revision: str = "a" * 64,
+    plan_revision: str | None = None,
     trigger: RunTrigger | None = None,
 ) -> RunSubmission:
     selected = graph or _graph()
@@ -146,7 +145,7 @@ def _submission(
         project=selected.project,
         graph=selected,
         plan_id="aws-redshift",
-        plan_revision=plan_revision,
+        plan_revision=plan_revision or _plan(selected).revision,
         trigger=trigger or RunTrigger(kind=TriggerKind.API, trigger_id="control-api"),
         idempotency_key=key,
         requested_at=requested_at,
@@ -380,8 +379,8 @@ def test_idempotency_conflict_and_stale_plan_fail_before_second_provider_effect(
         dispatch_run_attempt(store, backend, conflicting, plan, now=NOW)
 
     changed_graph = replace(graph, content_sha256="d" * 64)
-    conflicting_plan = _plan(changed_graph, revision="c" * 64)
-    conflicting = _submission(changed_graph, plan_revision="c" * 64)
+    conflicting_plan = _plan(changed_graph)
+    conflicting = _submission(changed_graph, plan_revision=conflicting_plan.revision)
     with pytest.raises(RunStoreIdempotencyConflictError):
         dispatch_run_attempt(store, backend, conflicting, conflicting_plan, now=NOW)
     assert len(backend.effects) == 1

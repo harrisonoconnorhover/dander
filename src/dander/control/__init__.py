@@ -25,6 +25,7 @@ from dander.control.graph_store import (
 from dander.control.local_graph_store import RootedLocalGraphStore
 from dander.control.oci_object_graph_store import OCIObjectGraphStore
 from dander.control.orchestration import (
+    EXECUTION_PLAN_SCHEMA,
     AttemptRecord,
     BackendExecutionState,
     BackendHandle,
@@ -41,6 +42,10 @@ from dander.control.orchestration import (
     RunOutcome,
     RunRecord,
     RunStore,
+    RunStoreConflictError,
+    RunStoreCorruptionError,
+    RunStoreError,
+    RunStoreIdempotencyConflictError,
     RunSubmission,
     RunTrigger,
     StoredRun,
@@ -48,7 +53,19 @@ from dander.control.orchestration import (
     TriggerKind,
     TriggerSpec,
 )
+from dander.control.orchestration_serialization import (
+    ATTEMPT_RECORD_SCHEMA,
+    RUN_RECORD_SCHEMA,
+    OrchestrationSerializationError,
+    deserialize_attempt_record,
+    deserialize_execution_plan,
+    deserialize_run_record,
+    serialize_attempt_record,
+    serialize_execution_plan,
+    serialize_run_record,
+)
 from dander.control.s3_graph_store import S3GraphStore
+from dander.control.s3_run_store import S3RunStore
 
 __all__ = [
     "MAX_GRAPH_DOCUMENT_BYTES",
@@ -73,6 +90,7 @@ __all__ = [
     "OCIObjectGraphStore",
     "RootedLocalGraphStore",
     "S3GraphStore",
+    "S3RunStore",
     "canonicalize_graph_document",
     "AttemptRecord",
     "BackendExecutionState",
@@ -83,6 +101,7 @@ __all__ = [
     "CleanupState",
     "ExecutionBackend",
     "ExecutionPlan",
+    "EXECUTION_PLAN_SCHEMA",
     "HostedRunState",
     "ResultsState",
     "RetryPolicy",
@@ -90,12 +109,25 @@ __all__ = [
     "RunOutcome",
     "RunRecord",
     "RunStore",
+    "RunStoreConflictError",
+    "RunStoreCorruptionError",
+    "RunStoreError",
+    "RunStoreIdempotencyConflictError",
     "RunSubmission",
     "RunTrigger",
     "StoredRun",
     "StoredRunPage",
     "TriggerKind",
     "TriggerSpec",
+    "ATTEMPT_RECORD_SCHEMA",
+    "RUN_RECORD_SCHEMA",
+    "OrchestrationSerializationError",
+    "deserialize_attempt_record",
+    "deserialize_execution_plan",
+    "deserialize_run_record",
+    "serialize_attempt_record",
+    "serialize_execution_plan",
+    "serialize_run_record",
 ]
 
 from dander.control.models import (
