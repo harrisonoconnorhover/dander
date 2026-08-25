@@ -331,13 +331,25 @@ def _validate_execution_authority(
     _require("/app/.venv/bin" not in expected, "candidate command uses a forbidden executable")
     if module == "scripts.benchmarks.redshift_failure_phase8":
         _require(
-            execution.get("cost_observation_timeout_seconds") == 600,
-            "failure-cell cost observation timeout must be 600 seconds",
+            execution.get("cost_observation_delay_seconds") == 120,
+            "failure-cell initial cost observation delay must be 120 seconds",
+        )
+        _require(
+            execution.get("cost_observation_timeout_seconds") == 300,
+            "failure-cell cost observation timeout must be 300 seconds",
+        )
+        _require(
+            execution.get("cost_observation_poll_seconds") == 120,
+            "failure-cell cost observation interval must be 120 seconds",
         )
         cost_attribution = _mapping(configuration.get("cost_attribution"), "cost_attribution")
         _require(
-            cost_attribution.get("metadata_observation_timeout_seconds") == 600,
-            "failure-cell metadata observation timeout must be 600 seconds",
+            cost_attribution.get("metadata_observation_timeout_seconds") == 300,
+            "failure-cell metadata observation timeout must be 300 seconds",
+        )
+        _require(
+            cost_attribution.get("metadata_observation_poll_seconds") == 120,
+            "failure-cell metadata observation interval must be 120 seconds",
         )
 
 
