@@ -65,13 +65,30 @@
     "sanitized_artifact_emitted": false,
     "candidate_stdout_artifact_emitted": false,
     "candidate_stderr_artifact_emitted": false,
-    "failure_boundary": "launcher_tmpfs_permissions_before_harness_download",
-    "observed_tmpfs_mount_options": [
+    "failure_boundary": "launcher_used_image_entrypoint_instead_of_protected_shell_entrypoint",
+    "failed_c24_tmpfs_mount_options": [
       "rw",
       "nosuid",
       "nodev"
     ],
-    "required_correction": "mode=1777"
+    "successful_c28_tmpfs_mount_options": [
+      "rw",
+      "noexec",
+      "nosuid",
+      "nodev"
+    ],
+    "explicit_mode_1777_present_in_either_task_definition": false,
+    "failed_c24_task_definition_entrypoint": null,
+    "failed_c24_command_argument_count": 3,
+    "successful_c28_task_definition_entrypoint": [
+      "/bin/sh",
+      "-c"
+    ],
+    "successful_c28_command_argument_count": 1,
+    "immutable_image_default_entrypoint": [
+      "dander"
+    ],
+    "required_correction": "override the image entrypoint with /bin/sh -c and pass one shell-program argument"
   },
   "cost_attribution": {
     "query_id": "76dc0003-3e12-442a-8aed-17eb5ace7df7",
@@ -104,7 +121,7 @@
   },
   "disposition": {
     "qualification_result": "not_transferrable",
-    "cause": "The launcher mounted /tmp without mode=1777 for the protected non-root task user, so the harness did not download and candidate code did not execute.",
+    "cause": "The task definition retained the immutable image's dander entrypoint and supplied /bin/sh -c as command arguments, so dander exited 2 before the launcher preflight or candidate workload began.",
     "corrective_objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-transform-external-cost-corrective-objective.json"
   }
 }
