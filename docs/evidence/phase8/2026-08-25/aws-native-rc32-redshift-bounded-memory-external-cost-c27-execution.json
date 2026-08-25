@@ -1,0 +1,204 @@
+{
+  "schema": "io.dander.phase8.redshift-bounded-memory-external-cost-execution/v1",
+  "objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-bounded-memory-external-cost-objective.json",
+  "objective_sha256": "13fc85da661033f56c977806127570453ee240eb4e5048a1c4245d98d018246a",
+  "report_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-bounded-memory-external-cost-c27-report.json",
+  "report_sha256": "2c072581ccfd1b785a1e2264af51e2e5f782a50b41e69b979829d42506735d98",
+  "protected_main": {
+    "commit": "c2c47a9ea311f6889e1bf523dc021205b6e36a05",
+    "pull_request": "https://github.com/harrisonoconnorhover/dander/pull/479",
+    "exact_main_ci_run": "https://github.com/harrisonoconnorhover/dander/actions/runs/32829285372",
+    "exact_main_ci_conclusion": "success"
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "image_index_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "bundle_key": "phase8/0.9.0rc32/staging/harness/redshift-bounded-memory-a331148452eb-c27.zip",
+    "bundle_sha256": "a673e14c948e746a37eab0f17e9053c4168b89c694a356f1a2b8b77014be9fb0",
+    "bundle_server_side_encryption": "AES256"
+  },
+  "terraform": {
+    "state_key": "dander/d7/control-plane/phase8-qualification/rc32-redshift-bounded-memory-external-cost-c27.tfstate",
+    "create_plan": {
+      "create": 37,
+      "update": 0,
+      "delete": 0,
+      "replace": 0,
+      "sha256": "634d1e528515d6d2292736d2b9c20723b3471b5e40c4bb3bd4c71b3c724a6573"
+    },
+    "post_apply_plan": {
+      "result": "no_changes",
+      "sha256": "123213c5bcc54c46c00b67e0099f6873383ae6346dc763571cd3df1106607edf"
+    },
+    "destroy_plan": {
+      "create": 0,
+      "update": 0,
+      "delete": 37,
+      "replace": 0,
+      "sha256": "f00d405886ebe1d1d9cf35aadb9f4f37634794839748d43b3882c212e067d110"
+    },
+    "destroyed_resources": 37,
+    "state_entries_after_destroy": 0,
+    "state_versions_and_delete_markers_before_purge": 23,
+    "state_versions_and_delete_markers_after_purge": 0
+  },
+  "execution": {
+    "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-bmem-c27:rc32-redshift-bounded-memory-c27-20260825",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-bmem-c27/e1e6ed2ccb784aca92cc3de33454d401",
+    "task_definition_arn": "arn:aws:ecs:us-east-1:184463061564:task-definition/dander-p8q-rc32-rs-bmem-c27:1",
+    "workgroup_id": "1865516b-77b1-4b32-a8d3-c0e3e3e251cc",
+    "started_at": "2026-08-25T12:05:37.181Z",
+    "stopped_at": "2026-08-25T12:07:46.155Z",
+    "ecs_started_at": "2026-08-25T12:06:06.458Z",
+    "ecs_stopped_at": "2026-08-25T12:07:44.925Z",
+    "state_machine_creation_attempts": 1,
+    "state_machine_executions": 1,
+    "candidate_workload_executions": 1,
+    "automatic_retries": 0,
+    "provider_operation_retries": 0,
+    "container_exit_code": 0,
+    "state_machine_status": "SUCCEEDED",
+    "qualification_status": "failed"
+  },
+  "launcher_contract": {
+    "task_definition_entrypoint": [
+      "/bin/sh",
+      "-c"
+    ],
+    "task_command_argument_count": 1,
+    "task_command_argument_kind": "shell_program",
+    "task_user": "65532:65532",
+    "read_only_root_filesystem": true,
+    "candidate_container_memory_mib": 256,
+    "dropped_capabilities": [
+      "ALL"
+    ],
+    "tmpfs_path": "/tmp",
+    "tmpfs_size_mib": 1024,
+    "tmpfs_mount_options": [
+      "rw",
+      "noexec",
+      "nosuid",
+      "nodev"
+    ],
+    "task_role_redshift_db_roles_tag": {
+      "key": "RedshiftDbRoles",
+      "value": "dander_runtime"
+    }
+  },
+  "launcher_preflight": {
+    "stages": [
+      {
+        "stage": "launcher_environment",
+        "result": "passed",
+        "elapsed_ms": 1084
+      },
+      {
+        "stage": "iam_readiness",
+        "result": "passed",
+        "elapsed_ms": 208
+      },
+      {
+        "stage": "get_credentials",
+        "result": "passed",
+        "elapsed_ms": 89
+      },
+      {
+        "stage": "readiness_connector_1",
+        "result": "passed",
+        "elapsed_ms": 36
+      },
+      {
+        "stage": "readiness_validation_query_1",
+        "result": "TimeoutError",
+        "elapsed_ms": 12012
+      },
+      {
+        "stage": "readiness_connector_2",
+        "result": "passed",
+        "elapsed_ms": 384
+      },
+      {
+        "stage": "readiness_validation_query_2",
+        "result": "passed",
+        "elapsed_ms": 8
+      }
+    ]
+  },
+  "workload": {
+    "rows": 2600000,
+    "logical_input_bytes": 2724800000,
+    "duration_ms": 48721,
+    "throughput_rows_per_second": "53365.079",
+    "peak_rss_bytes": 296013824,
+    "memory_limit_bytes": 268435456,
+    "maximum_peak_rss_fraction": "0.80",
+    "maximum_allowed_peak_rss_bytes": "214748364.80",
+    "peak_rss_excess_bytes": "81265459.20",
+    "input_to_memory_ratio": "10.1506710052490234375",
+    "copy_operations": 2,
+    "query_ids": [
+      "206197"
+    ],
+    "queue_duration_ms": 0,
+    "load_duration_ms": 7962,
+    "bytes_processed": 0,
+    "spill_bytes": 0,
+    "staging_tables": 0,
+    "staging_objects": 0,
+    "cleanup_verified": true
+  },
+  "cost_attribution": {
+    "query_id": "7dd4d18d-39a5-4d68-bbf6-5282ed501e48",
+    "post_terminal_usage_queries": 1,
+    "charged_seconds": "2400",
+    "compute_seconds": "244.0",
+    "maximum_compute_capacity_rpu": "8.0",
+    "on_demand_rate_usd_per_rpu_hour": "0.375",
+    "exact_provider_cost_usd": "0.250000000000",
+    "estimated": false,
+    "provider_ledger_after_execution_usd": "21.141419762794"
+  },
+  "offline_finalization": {
+    "mode": "offline_immutable_rc32",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "provider_operations": 0,
+    "workload_reexecutions": 0,
+    "exit_code": 2,
+    "sanitized_failure": "Redshift bounded-memory qualification failed: peak RSS exceeds eighty percent of the container memory limit",
+    "candidate_normalized_report_emitted": false,
+    "evidence_report_normalization": "protected_interim_plus_exact_external_cost_without_workload_reexecution"
+  },
+  "cleanup": {
+    "harness_schema_count_after_terminal": 0,
+    "launcher_removed_before_data_plane_destroy": true,
+    "transient_harness_and_diagnostics_deleted": true,
+    "task_definition_active_count": 0,
+    "running_task_count": 0,
+    "workgroup_absent": true,
+    "namespace_absent": true,
+    "staging_bucket_absent": true,
+    "rds_instance_absent": true,
+    "state_machine_absent": true,
+    "ecs_cluster_status": "INACTIVE",
+    "owned_secrets_count": 0,
+    "owned_roles_absent": true,
+    "log_group_count": 0,
+    "cleanup_verified": true
+  },
+  "disposition": {
+    "qualification_result": "failed",
+    "candidate_product_attempt": true,
+    "failed_objective": "peak_rss",
+    "passed_objectives": [
+      "bounded_input_ratio",
+      "cleanup",
+      "cost_ceiling",
+      "throughput_measurement"
+    ],
+    "cause": "The protected candidate measured peak RSS above eighty percent of the approved 256 MiB container limit.",
+    "rerun_performed": false,
+    "historical_objective_changed": false
+  }
+}
