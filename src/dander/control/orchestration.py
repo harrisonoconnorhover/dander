@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from dander.deployment.projection import ExecutionTemplate
 
 ORCHESTRATION_SCHEMA = "io.dander.control.orchestration/v1"
+EXECUTION_PLAN_SCHEMA = "io.dander.control.execution-plan/v1"
 
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -38,8 +39,16 @@ class RunTransitionError(OrchestrationContractError):
     """A run lifecycle transition would regress or contradict durable state."""
 
 
-class RunStoreConflictError(RuntimeError):
+class RunStoreError(RuntimeError):
+    """A durable run-store operation failed without exposing provider details."""
+
+
+class RunStoreConflictError(RunStoreError):
     """A conditional run-store operation no longer matches durable state."""
+
+
+class RunStoreCorruptionError(RunStoreError):
+    """Durable run state is oversized, malformed, or internally inconsistent."""
 
 
 class RunStoreIdempotencyConflictError(RunStoreConflictError):
@@ -131,7 +140,6 @@ class ExecutionPlan:
     """
 
     plan_id: str
-    revision: str
     environment: str
     project: str
     graph: str
@@ -156,8 +164,6 @@ class ExecutionPlan:
         ):
             _require_portable_id(value, label=label)
         _require_opaque_id(self.backend_id, label="backend")
-        if _SHA256.fullmatch(self.revision) is None:
-            raise OrchestrationContractError("plan revision must be a lowercase SHA-256")
         if not self.graph_revision or len(self.graph_revision) > 512:
             raise OrchestrationContractError("graph revision is missing or oversized")
         if _SHA256.fullmatch(self.graph_content_sha256) is None:
@@ -181,6 +187,11 @@ class ExecutionPlan:
             raise OrchestrationContractError(
                 "execution plans must not embed schedule or time-zone selection"
             )
+
+    @property
+    def revision(self) -> str:
+        """Return the SHA-256 identity computed from versioned canonical plan contents."""
+        return hashlib.sha256(canonical_execution_plan_contents(self)).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -596,6 +607,41 @@ def create_run_record(submission: RunSubmission) -> RunRecord:
     )
 
 
+def canonical_execution_plan_contents(plan: ExecutionPlan) -> bytes:
+    """Serialize the immutable plan contents used to derive its revision.
+
+    The revision is deliberately absent from these bytes, so callers cannot supply or persist an
+    arbitrary SHA-shaped identity independently of the selected graph, image, or launcher input.
+    """
+    payload = {
+        "schema": EXECUTION_PLAN_SCHEMA,
+        "plan": {
+            "plan_id": plan.plan_id,
+            "environment": plan.environment,
+            "project": plan.project,
+            "graph": plan.graph,
+            "graph_revision": plan.graph_revision,
+            "graph_content_sha256": plan.graph_content_sha256,
+            "backend_id": plan.backend_id,
+            "profile_id": plan.profile_id,
+            "image": plan.image,
+            "execution_template": plan.execution_template.as_dict(),
+            "deadline_seconds": plan.deadline_seconds,
+            "retry_policy": {
+                "max_attempts": plan.retry_policy.max_attempts,
+                "retryable_exit_codes": list(plan.retry_policy.retryable_exit_codes),
+            },
+            "orchestration_schema": plan.schema,
+        },
+    }
+    return json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+
 def logical_run_identity(submission: RunSubmission) -> str:
     """Return the stable logical run ID for one scoped idempotency key."""
     value = ":".join(
@@ -840,6 +886,7 @@ def _require_optional_summary(value: str | None, *, label: str) -> None:
 
 
 __all__ = [
+    "EXECUTION_PLAN_SCHEMA",
     "ORCHESTRATION_SCHEMA",
     "AttemptRecord",
     "BackendExecutionState",
@@ -859,6 +906,8 @@ __all__ = [
     "RunRecord",
     "RunStore",
     "RunStoreConflictError",
+    "RunStoreCorruptionError",
+    "RunStoreError",
     "RunStoreIdempotencyConflictError",
     "RunSubmission",
     "RunTransitionError",
@@ -868,6 +917,7 @@ __all__ = [
     "TriggerKind",
     "TriggerSpec",
     "attempt_identity",
+    "canonical_execution_plan_contents",
     "create_run_record",
     "dispatch_run_attempt",
     "logical_run_identity",
