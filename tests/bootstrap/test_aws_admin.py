@@ -178,6 +178,7 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
         "iam:ListInstanceProfilesForRole",
         "iam:ListRoleTags",
         "logs:ListTagsForResource",
+        "sqs:ListQueueTags",
     ):
         assert f'"{action}"' in provider_policy
     for action in (
@@ -200,6 +201,7 @@ def test_deployment_role_scopes_d7_hosted_control_authority() -> None:
     assert "service/${var.name}-d7-*/*" in provider_policy
     assert "service-deployment/${var.name}-d7-*/*/*" in provider_policy
     assert "role/${var.name}-d7-*" in provider_policy
+    assert "${var.name}-d7-control-schedule*" in provider_policy
     assert provider_policy.count('"ec2:CreateSecurityGroup"') == 2
     assert provider_policy.count('"ec2:AuthorizeSecurityGroupEgress"') == 2
     assert provider_policy.count('"ec2:AuthorizeSecurityGroupIngress"') == 2

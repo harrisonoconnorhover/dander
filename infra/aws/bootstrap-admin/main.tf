@@ -580,6 +580,15 @@ data "aws_iam_policy_document" "deployment_d7_provider" {
   }
 
   statement {
+    sid     = "InspectD7ScheduleQueueTags"
+    effect  = "Allow"
+    actions = ["sqs:ListQueueTags"]
+    resources = [
+      "arn:${local.partition}:sqs:${var.region}:${var.aws_account_id}:${var.name}-d7-control-schedule*"
+    ]
+  }
+
+  statement {
     sid    = "CreateD7CloudFrontResources"
     effect = "Allow"
     actions = [

@@ -156,3 +156,63 @@ variable "druff_caddyfile" {
   default     = ""
   sensitive   = true
 }
+
+variable "execution_plan_json" {
+  type        = map(string)
+  description = "Canonical execution plans written to the Control config volume by revision."
+  default     = {}
+  sensitive   = true
+
+  validation {
+    condition = (
+      length(var.execution_plan_json) <= 100 &&
+      alltrue([for revision, value in var.execution_plan_json :
+        can(regex("^[0-9a-f]{64}$", revision)) && value != ""
+      ])
+    )
+    error_message = "execution_plan_json must contain at most 100 non-empty SHA-keyed plans."
+  }
+}
+
+variable "trigger_spec_json" {
+  type        = map(string)
+  description = "Canonical scheduled TriggerSpecs written to the Control config volume by id."
+  default     = {}
+  sensitive   = true
+
+  validation {
+    condition = (
+      length(var.trigger_spec_json) <= 100 &&
+      alltrue([for trigger_id, value in var.trigger_spec_json :
+        can(regex("^[a-z0-9][a-z0-9_-]{0,62}$", trigger_id)) && value != ""
+      ])
+    )
+    error_message = "trigger_spec_json must contain at most 100 non-empty portable trigger ids."
+  }
+}
+
+variable "control_schedules" {
+  type = map(object({
+    expression    = string
+    time_zone     = string
+    plan_revision = string
+    enabled       = bool
+    message       = string
+  }))
+  description = "EventBridge Scheduler projections for Control-owned trigger occurrences."
+  default     = {}
+
+  validation {
+    condition = (
+      length(var.control_schedules) <= 100 &&
+      alltrue([for trigger_id, schedule in var.control_schedules :
+        can(regex("^[a-z0-9][a-z0-9_-]{0,62}$", trigger_id)) &&
+        can(regex("^(cron|rate|at)\\(.+\\)$", schedule.expression)) &&
+        schedule.time_zone != "" &&
+        can(regex("^[0-9a-f]{64}$", schedule.plan_revision)) &&
+        schedule.message != ""
+      ])
+    )
+    error_message = "control_schedules must contain at most 100 complete Scheduler projections."
+  }
+}

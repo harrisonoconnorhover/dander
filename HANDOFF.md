@@ -2,37 +2,37 @@
 
 ## Finished
 
-- Composed canonical execution plans, durable S3 run state, and backend selection behind Control.
-- Implemented start/list/get/logs/cancel/replay plus bounded background reconciliation.
-- Added restart adoption, readiness-after-recovery, durable cancellation claims, and graceful shutdown.
-- Wired the existing Fargate launcher into optional `dander control serve` run configuration.
-- Preserved unwired Control, direct CLI execution, and the single-container runtime path.
+- Routed canonical scheduled occurrences through always-on Control and its existing durable lifecycle.
+- Added encrypted standard SQS wakeups, encrypted DLQ redrive, EventBridge Scheduler, and exact IAM.
+- Added occurrence idempotency, exact trigger/plan/graph validation, readiness, shutdown, and retry behavior.
+- Projected canonical plans/triggers into the existing AWS Control task without changing the worker container.
+- Added DANDER-234 tests, verifier coverage, operator documentation, decisions, and limitations.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_run_lifecycle.py tests/control/test_s3_run_store.py`.
+Run `uv run pytest -q tests/control/test_schedule_consumer.py tests/control/test_run_lifecycle.py` and `terraform -chdir=infra/aws-control test`.
 
 ## Checks
 
-- Full test suite passed: 2,054 passed and 35 skipped.
-- Full Ruff format and lint passed: 507 files checked.
-- Control contract drift check passed.
-- Canonical type check passed: 452 source files.
+- Full pytest passed: 2,060 passed and 35 skipped.
+- Full Ruff lint/format passed; strict typing passed for 455 source files; Control contract drift passed.
+- AWS Control Terraform passed validate and 5 tests; AWS bootstrap-admin passed validate and 1 test.
+- Trivy HIGH/CRITICAL infrastructure scan passed with zero findings.
 
 ## Decisions
 
-- Keep one active reconciler process over conditional S3 snapshots for the first hosted slice.
-- Require direct Fargate schedules to stay paused while Control owns hosted runs.
-- Keep provider selection behind the existing neutral interface; no GCP backend is implemented yet.
+- Use Scheduler's exact scheduled time, trigger id, and plan revision for durable occurrence idempotency.
+- Delete SQS messages only after durable Control acceptance; retry failures to one shared encrypted DLQ.
+- Keep one Control task, paused direct Fargate schedules, and the existing single-container worker.
 
 ## Remaining
 
-- Review and merge DANDER-233 through protected checks and verify exact-main CI.
-- DANDER-234 scheduling and DANDER-235 AWS acceptance remain separate bounded tickets.
+- Review and merge DANDER-234 through protected checks and confirm exact-main CI.
+- DANDER-235 live AWS/Redshift acceptance remains separate and has not started.
 - DANDER-236 GCP/BigQuery remains separately reviewed and must not auto-start.
 
 ## Review First
 
-- `src/dander/control/run_lifecycle.py`
+- `src/dander/control/schedule_consumer.py`
 - `src/dander/control/run_composition.py`
-- `tests/control/test_run_lifecycle.py`
+- `infra/aws-control/main.tf`

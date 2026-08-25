@@ -3,6 +3,12 @@
 Dander `0.9.x` is beta and proves a focused GCP-native vertical slice. It remains pre-1.0 software;
 evaluate these limits before using it for an unattended system containing business-critical data.
 
+The first hosted Control schedule path is implemented only for the experimental AWS profile. It
+uses one always-on Control task, EventBridge Scheduler, encrypted standard SQS, and durable
+occurrence idempotency over the existing single-container Fargate worker. It has not yet completed
+the DANDER-235 live AWS/Redshift acceptance, is not horizontally reconciled, and does not add a GCP
+execution backend. Direct CLI execution remains the supported escape hatch.
+
 The Phase 5 warehouse implementations and the
 [shared four-warehouse deterministic fixture](warehouse-correctness-conformance.md) pass on one
 protected-main commit with equal normalized rows and exact cleanup. This closes the Phase 5

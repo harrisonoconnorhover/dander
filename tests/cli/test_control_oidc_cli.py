@@ -198,6 +198,8 @@ def test_execution_plan_options_install_lifecycle_readiness(
 ) -> None:
     plan_path = tmp_path / "plan.json"
     plan_path.write_text("{}", encoding="utf-8")
+    trigger_path = tmp_path / "trigger.json"
+    trigger_path.write_text("{}", encoding="utf-8")
     observed: list[dict[str, object]] = []
 
     class _Lifecycle:
@@ -232,6 +234,10 @@ def test_execution_plan_options_install_lifecycle_readiness(
             str(plan_path),
             "--run-store-bucket",
             "dander-control-runs",
+            "--trigger-spec",
+            str(trigger_path),
+            "--schedule-queue-url",
+            "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules",
         ],
     )
 
@@ -239,5 +245,9 @@ def test_execution_plan_options_install_lifecycle_readiness(
     assert observed[0]["graph_store"].__class__ is InMemoryGraphStore
     assert observed[0]["plan_paths"] == [plan_path]
     assert observed[0]["run_store_bucket"] == "dander-control-runs"
+    assert observed[0]["trigger_paths"] == [trigger_path]
+    assert observed[0]["schedule_queue_url"] == (
+        "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules"
+    )
     assert result.stdout.count("Serving Dander Control") == 1
     assert lifecycle.close_count == 1

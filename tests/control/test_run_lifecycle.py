@@ -45,9 +45,13 @@ from dander.control.orchestration import (
     StoredRun,
     StoredRunPage,
     TriggerKind,
+    TriggerSpec,
     create_run_record,
 )
-from dander.control.orchestration_serialization import serialize_execution_plan
+from dander.control.orchestration_serialization import (
+    serialize_execution_plan,
+    serialize_trigger_spec,
+)
 from dander.control.run_composition import (
     ControlRunCompositionError,
     build_fargate_run_composition,
@@ -463,6 +467,52 @@ def test_background_recovery_controls_readiness_and_graceful_shutdown() -> None:
     assert store.close_count == 1
 
 
+def test_background_submission_source_participates_in_readiness_and_shutdown() -> None:
+    graph_store, graph = _graph_store()
+    plan = _plan(graph)
+    store = _Store()
+    backend = _Backend()
+
+    class _Source:
+        started = False
+        healthy = False
+        closed = False
+
+        def start(self) -> None:
+            self.started = True
+
+        def ready(self) -> bool:
+            return self.healthy
+
+        def close(self) -> None:
+            self.closed = True
+
+    source = _Source()
+    composition = compose_run_control(
+        graph_store=graph_store,
+        store=cast("RunStore", store),
+        plans=(plan,),
+        backends={"fargate": cast("ExecutionBackend", backend)},
+        environment="production",
+        reconcile_interval_seconds=0.01,
+        shutdown_grace_seconds=1,
+        start_reconciler=False,
+    )
+    composition.lifecycle.install_submission_source(source)
+    composition.lifecycle.start_reconciler()
+
+    for _ in range(100):
+        if source.started and composition.lifecycle.reconcile_once() == 0:
+            break
+        threading.Event().wait(0.005)
+    assert composition.lifecycle.ready() is False
+    source.healthy = True
+    assert composition.lifecycle.ready() is True
+
+    composition.lifecycle.close()
+    assert source.closed is True
+
+
 def test_cancel_is_idempotent_and_reconciliation_records_canceled_truth() -> None:
     graph_store, graph = _graph_store()
     plan = _plan(graph)
@@ -770,6 +820,66 @@ def test_fargate_startup_binds_canonical_plans_to_existing_aws_resources(
     ]
     assert backend_calls == [{plan.revision: binding}]
     composition.lifecycle.close()
+
+    trigger = TriggerSpec(
+        trigger_id="daily-redshift",
+        kind=TriggerKind.SCHEDULE,
+        plan_id=plan.plan_id,
+        plan_revision=plan.revision,
+        enabled=True,
+        schedule="rate(1 day)",
+        time_zone="UTC",
+    )
+    trigger_path = tmp_path / "trigger.json"
+    trigger_path.write_bytes(serialize_trigger_spec(trigger))
+    queue_calls: list[dict[str, object]] = []
+    consumer_state: dict[str, bool] = {}
+
+    class _Queue:
+        def __init__(self, queue_url: str, **kwargs: object) -> None:
+            queue_calls.append({"queue_url": queue_url, **kwargs})
+
+    class _Consumer:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            consumer_state["started"] = True
+
+        def ready(self) -> bool:
+            return True
+
+        def close(self) -> None:
+            consumer_state["closed"] = True
+
+    monkeypatch.setattr(composition_module, "SQSScheduleQueue", _Queue)
+    monkeypatch.setattr(composition_module, "ControlScheduleConsumer", _Consumer)
+    scheduled = build_fargate_run_composition(
+        graph_store=graph_store,
+        project_config=tmp_path / "dander.yaml",
+        plan_paths=(plan_path,),
+        run_store_bucket="dander-control-runs",
+        run_store_prefix="control/runs/v1",
+        environment="production",
+        reconcile_interval_seconds=0.01,
+        shutdown_grace_seconds=1,
+        trigger_paths=(trigger_path,),
+        schedule_queue_url=(
+            "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules"
+        ),
+    )
+    assert queue_calls == [
+        {
+            "queue_url": (
+                "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules"
+            ),
+            "expected_account_id": "123456789012",
+            "expected_region": "us-east-1",
+        }
+    ]
+    assert consumer_state["started"] is True
+    scheduled.lifecycle.close()
+    assert consumer_state["closed"] is True
 
     monkeypatch.setattr(
         FargateBinding,

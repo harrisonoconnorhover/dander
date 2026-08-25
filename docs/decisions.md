@@ -1,5 +1,20 @@
 # Engineering Decisions
 
+## 2026-08-25 — Scheduled occurrences enter the same durable Control lifecycle
+
+- **Ingress:** EventBridge Scheduler substitutes the exact scheduled UTC time into one canonical
+  versioned wakeup and sends it to an encrypted standard SQS queue. The plan remains schedule-free;
+  changing cron or time zone does not mint a new execution-plan revision.
+- **Idempotency:** Trigger id, exact plan revision, and occurrence time derive one opaque key.
+  Scheduler retries, queue redelivery, and Control restart may repeat the request, while the
+  existing durable claim and Fargate adoption boundaries converge on one provider effect.
+- **Failure and IAM:** Control deletes only after durable lifecycle acceptance. Failed or malformed
+  messages redrive to the encrypted DLQ. Scheduler can only send to the two queues; Control can
+  only receive/delete/read the source queue; Scheduler trust is account and schedule-group scoped.
+- **Boundary:** One Control task, direct CLI execution, paused direct Fargate schedules, and the
+  single Dander worker remain. Live AWS/Redshift acceptance and GCP/BigQuery remain DANDER-235 and
+  DANDER-236, respectively.
+
 ## 2026-08-25 — Control composes one durable hosted-run authority
 
 - **Composition:** One immutable plan registry, provider-neutral backend registry, durable run

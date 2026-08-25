@@ -81,6 +81,14 @@ mock_provider "aws" {
       arn = "arn:aws:logs:us-east-1:123456789012:log-group:/dander/dander/d7/unit"
     }
   }
+
+  mock_resource "aws_sqs_queue" {
+    defaults = {
+      arn = "arn:aws:sqs:us-east-1:123456789012:dander-d7-unit"
+      url = "https://sqs.us-east-1.amazonaws.com/123456789012/dander-d7-unit"
+      id  = "https://sqs.us-east-1.amazonaws.com/123456789012/dander-d7-unit"
+    }
+  }
 }
 
 variables {
@@ -102,6 +110,21 @@ variables {
   graph_store_json           = "{\"bucket\":\"dander-d7-unit-graphs\",\"kind\":\"s3\"}\n"
   bootstrap_json             = "{\"api_url\":\"https://d123456789abc.cloudfront.net\"}\n"
   druff_caddyfile            = ":8080 { root * /app file_server }\n"
+  execution_plan_json = {
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" = "{\"schema\":\"io.dander.control.execution-plan/v1\"}"
+  }
+  trigger_spec_json = {
+    "daily-redshift" = "{\"schema\":\"io.dander.control.trigger-spec/v1\"}"
+  }
+  control_schedules = {
+    "daily-redshift" = {
+      expression    = "cron(0 6 * * ? *)"
+      time_zone     = "America/New_York"
+      plan_revision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      enabled       = true
+      message       = "{\"plan_revision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"scheduled_occurrence\":\"<aws.scheduler.scheduled-time>\",\"schema\":\"io.dander.control.schedule-wakeup/v1\",\"trigger_id\":\"daily-redshift\"}"
+    }
+  }
 }
 
 override_data {
@@ -240,5 +263,47 @@ run "only_control_receives_graph_permissions" {
       aws_ecs_task_definition.druff[0].task_role_arn == aws_iam_role.druff_task[0].arn
     )
     error_message = "S3 GraphStore authority must remain confined to the Control task role."
+  }
+}
+
+run "schedules_use_encrypted_at_least_once_control_wakeups" {
+  command = plan
+
+  assert {
+    condition = (
+      aws_sqs_queue.control_schedule[0].sqs_managed_sse_enabled &&
+      aws_sqs_queue.control_schedule_dlq[0].sqs_managed_sse_enabled &&
+      aws_sqs_queue.control_schedule[0].receive_wait_time_seconds == 20 &&
+      aws_sqs_queue.control_schedule[0].visibility_timeout_seconds == 120 &&
+      jsondecode(aws_sqs_queue.control_schedule[0].redrive_policy).maxReceiveCount == 5 &&
+      aws_sqs_queue.control_schedule_dlq[0].message_retention_seconds == 1209600
+    )
+    error_message = "Control schedule wakeups must use encrypted long-polling SQS with bounded redrive."
+  }
+
+  assert {
+    condition = (
+      aws_scheduler_schedule.control["daily-redshift"].state == "ENABLED" &&
+      aws_scheduler_schedule.control["daily-redshift"].schedule_expression == "cron(0 6 * * ? *)" &&
+      aws_scheduler_schedule.control["daily-redshift"].schedule_expression_timezone == "America/New_York" &&
+      aws_scheduler_schedule.control["daily-redshift"].target[0].arn == aws_sqs_queue.control_schedule[0].arn &&
+      aws_scheduler_schedule.control["daily-redshift"].target[0].dead_letter_config[0].arn == aws_sqs_queue.control_schedule_dlq[0].arn &&
+      aws_scheduler_schedule.control["daily-redshift"].target[0].retry_policy[0].maximum_retry_attempts == 3
+    )
+    error_message = "EventBridge Scheduler must deliver exact occurrences to Control with a DLQ."
+  }
+
+  assert {
+    condition = (
+      aws_iam_role_policy.control_schedules[0].role == aws_iam_role.control_task[0].id &&
+      aws_iam_role_policy.scheduler_send[0].role == aws_iam_role.scheduler[0].id &&
+      endswith(
+        jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].command[
+          length(jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].command) - 1
+        ],
+        "dander-d7-unit",
+      )
+    )
+    error_message = "Only Control may consume wakeups and only Scheduler may send them."
   }
 }

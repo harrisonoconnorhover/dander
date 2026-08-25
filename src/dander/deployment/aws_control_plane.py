@@ -19,6 +19,13 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from dander.control.auth import HostedOIDCDeploymentInput, project_hosted_oidc
+from dander.control.orchestration import ExecutionPlan, TriggerKind, TriggerSpec
+from dander.control.orchestration_serialization import (
+    OrchestrationSerializationError,
+    deserialize_execution_plan,
+    deserialize_trigger_spec,
+    render_schedule_wakeup_template,
+)
 from dander.deployment.service import (
     ControlServiceIngress,
     ControlServiceObservability,
@@ -34,6 +41,7 @@ AWS_CONTROL_PLANE_SCHEMA: Final = "io.dander.aws-control-plane/v1"
 AWS_CONTROL_PORT: Final = 8770
 AWS_DRUFF_PORT: Final = 8080
 AWS_CONFIG_ROOT: Final = "/etc/dander"
+AWS_ORCHESTRATION_ROOT: Final = f"{AWS_CONFIG_ROOT}/orchestration"
 AWS_D7_STATE_PREFIX: Final = "dander/d7/control-plane/"
 
 _ACCOUNT = re.compile(r"^[0-9]{12}$")
@@ -52,6 +60,9 @@ _PRIVATE_IMAGE = re.compile(
     r"(?P<repository>[a-z0-9]+(?:[._/-][a-z0-9]+)*)@sha256:[0-9a-f]{64}$"
 )
 _IMMUTABLE_IMAGE = re.compile(r"^[a-z0-9.-]+(?::[0-9]{1,5})?/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$")
+_PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
+_SCHEDULE_EXPRESSION = re.compile(r"^(?:cron|rate|at)\(.+\)$")
+_MAX_ORCHESTRATION_CONFIG_BYTES: Final = 512 * 1024
 _FILES: Final = frozenset(
     {
         "Caddyfile",
@@ -229,6 +240,9 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     druff_image: str = Field(min_length=1, max_length=2048)
     druff_rollback_image: str = Field(min_length=1, max_length=2048)
     oidc: HostedOIDCDeploymentInput
+    execution_plan_json: tuple[str, ...] = ()
+    trigger_spec_json: tuple[str, ...] = ()
+    run_environment: str = "production"
 
     @field_validator("cloudfront_distribution_id")
     @classmethod
@@ -254,6 +268,53 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     def validate_application_image(cls, value: str) -> str:
         if _PRIVATE_IMAGE.fullmatch(value) is None:
             raise ValueError("AWS application images must use immutable private-ECR digests.")
+        return value
+
+    @field_validator("run_environment")
+    @classmethod
+    def validate_run_environment(cls, value: str) -> str:
+        if _PORTABLE_ID.fullmatch(value) is None:
+            raise ValueError("AWS Control run environment is invalid.")
+        return value
+
+    @field_validator("execution_plan_json")
+    @classmethod
+    def validate_execution_plan_json(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        try:
+            plans = tuple(deserialize_execution_plan(item.encode("utf-8")) for item in value)
+        except (AttributeError, OrchestrationSerializationError) as error:
+            raise ValueError("AWS Control execution plans must be canonical JSON.") from error
+        if len(plans) > 100 or len({plan.revision for plan in plans}) != len(plans):
+            raise ValueError("AWS Control execution plans must contain at most 100 revisions.")
+        if any(plan.backend_id != "fargate" for plan in plans):
+            raise ValueError("AWS Control execution plans must select the Fargate backend.")
+        if sum(len(item.encode("utf-8")) for item in value) > _MAX_ORCHESTRATION_CONFIG_BYTES:
+            raise ValueError("AWS Control execution-plan configuration is oversized.")
+        return value
+
+    @field_validator("trigger_spec_json")
+    @classmethod
+    def validate_trigger_spec_json(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        try:
+            specs = tuple(deserialize_trigger_spec(item.encode("utf-8")) for item in value)
+        except (AttributeError, OrchestrationSerializationError) as error:
+            raise ValueError("AWS Control trigger specs must be canonical JSON.") from error
+        if len(specs) > 100 or len({spec.trigger_id for spec in specs}) != len(specs):
+            raise ValueError("AWS Control trigger specs must contain at most 100 unique ids.")
+        if sum(len(item.encode("utf-8")) for item in value) > _MAX_ORCHESTRATION_CONFIG_BYTES:
+            raise ValueError("AWS Control trigger configuration is oversized.")
+        for spec in specs:
+            if (
+                spec.kind is not TriggerKind.SCHEDULE
+                or spec.schedule is None
+                or spec.schedule != spec.schedule.strip()
+                or _SCHEDULE_EXPRESSION.fullmatch(spec.schedule) is None
+                or spec.time_zone is None
+                or len(spec.time_zone) > 256
+            ):
+                raise ValueError(
+                    "AWS Control trigger specs must use EventBridge Scheduler expressions."
+                )
         return value
 
     @model_validator(mode="after")
@@ -290,7 +351,43 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
         }
         if observed != expected:
             raise ValueError("AWS hosted OIDC routes must use the exact CloudFront origin.")
+        plans = self.execution_plans
+        triggers = self.trigger_specs
+        if triggers and not plans:
+            raise ValueError("AWS Control scheduled triggers require execution plans.")
+        if plans and not any(plan.environment == self.run_environment for plan in plans):
+            raise ValueError("AWS Control run environment has no configured execution plan.")
+        by_revision = {plan.revision: plan for plan in plans}
+        for spec in triggers:
+            plan = by_revision.get(spec.plan_revision)
+            if plan is None or plan.plan_id != spec.plan_id:
+                raise ValueError(
+                    "AWS Control scheduled triggers must select an exact configured plan."
+                )
         return self
+
+    @property
+    def execution_plans(self) -> tuple[ExecutionPlan, ...]:
+        """Return validated plans in deterministic revision order."""
+        return tuple(
+            sorted(
+                (
+                    deserialize_execution_plan(item.encode("utf-8"))
+                    for item in self.execution_plan_json
+                ),
+                key=lambda plan: plan.revision,
+            )
+        )
+
+    @property
+    def trigger_specs(self) -> tuple[TriggerSpec, ...]:
+        """Return validated schedule triggers in deterministic id order."""
+        return tuple(
+            sorted(
+                (deserialize_trigger_spec(item.encode("utf-8")) for item in self.trigger_spec_json),
+                key=lambda spec: spec.trigger_id,
+            )
+        )
 
     @property
     def browser_origin(self) -> str:
@@ -348,6 +445,9 @@ def render_aws_control_foundation(source: AWSControlPlaneFoundationInput) -> dic
         "graph_store_json": "",
         "bootstrap_json": "",
         "druff_caddyfile": "",
+        "execution_plan_json": {},
+        "trigger_spec_json": {},
+        "control_schedules": {},
     }
     manifest = {
         "schema": AWS_CONTROL_PLANE_SCHEMA,
@@ -377,16 +477,63 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
     graph_json = _json(service.graph_store.as_dict())
     bootstrap_json = _json(oidc.bootstrap.model_dump(mode="json"))
     public_client_json = _json(oidc.public_client.model_dump(mode="json"))
+    plan_json = {
+        deserialize_execution_plan(raw.encode("utf-8")).revision: raw
+        for raw in source.execution_plan_json
+    }
+    trigger_json = {
+        deserialize_trigger_spec(raw.encode("utf-8")).trigger_id: raw
+        for raw in source.trigger_spec_json
+    }
+    schedules = {
+        spec.trigger_id: {
+            "expression": spec.schedule,
+            "time_zone": spec.time_zone,
+            "plan_revision": spec.plan_revision,
+            "enabled": spec.enabled,
+            "message": render_schedule_wakeup_template(spec),
+        }
+        for spec in source.trigger_specs
+    }
+    control_args = list(service.command)
+    if source.execution_plans:
+        for plan in source.execution_plans:
+            control_args.extend(
+                (
+                    "--execution-plan",
+                    f"{AWS_ORCHESTRATION_ROOT}/plans/{plan.revision}.json",
+                )
+            )
+        control_args.extend(
+            (
+                "--run-store-bucket",
+                source.graph_bucket,
+                "--run-store-prefix",
+                "dander-control/v1",
+                "--run-environment",
+                source.run_environment,
+            )
+        )
+        for spec in source.trigger_specs:
+            control_args.extend(
+                (
+                    "--trigger-spec",
+                    f"{AWS_ORCHESTRATION_ROOT}/triggers/{spec.trigger_id}.json",
+                )
+            )
     common: dict[str, object] = {
         **_foundation_values(source),
         "foundation_only": False,
         "cloudfront_distribution_id": source.cloudfront_distribution_id,
         "cloudfront_domain": source.cloudfront_domain,
-        "control_args": list(service.command),
+        "control_args": control_args,
         "control_oidc_json": oidc_json,
         "graph_store_json": graph_json,
         "bootstrap_json": bootstrap_json,
         "druff_caddyfile": _CADDYFILE,
+        "execution_plan_json": plan_json,
+        "trigger_spec_json": trigger_json,
+        "control_schedules": schedules,
     }
     active = {
         **common,
@@ -422,6 +569,15 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
             "graph_store": _sha256(graph_json),
             "bootstrap": _sha256(bootstrap_json),
             "druff_caddy": _sha256(_CADDYFILE),
+            "execution_plans": _sha256(_json(plan_json)),
+            "trigger_specs": _sha256(_json(trigger_json)),
+        },
+        "orchestration": {
+            "run_environment": source.run_environment,
+            "execution_plan_revisions": sorted(plan_json),
+            "scheduled_trigger_ids": sorted(schedules),
+            "run_store_bucket": source.graph_bucket if plan_json else None,
+            "run_store_prefix": "dander-control/v1" if plan_json else None,
         },
         "cloudfront": {
             "api_cache_ttl_seconds": 0,
@@ -592,6 +748,7 @@ def verify_live_aws_control_plane(
         )
         _verify_target_health(workload, target_health)
     _verify_bucket(source, source.graph_bucket)
+    scheduling = _verify_scheduling(source)
     expected = json.loads(rendered["deployment.json"])["config_sha256"]
     health = {
         "control_health": _http_json(f"{source.browser_origin}/healthz"),
@@ -616,6 +773,7 @@ def verify_live_aws_control_plane(
         "images": desired_images,
         "config_sha256": expected,
         "graph_bucket": source.graph_bucket,
+        "scheduling": scheduling,
     }
 
 
@@ -881,6 +1039,25 @@ def _verify_task_definition(
         or depends_on != [{"containerName": "config-init", "condition": "SUCCESS"}]
     ):
         raise AWSControlPlaneError(f"AWS {workload} application boundary is invalid")
+    active = json.loads(rendered["active.tfvars.json"])
+    if not isinstance(active, Mapping):
+        raise AWSControlPlaneError("AWS active projection is malformed")
+    if workload == "control":
+        projected_command = active.get("control_args")
+        if not isinstance(projected_command, list) or not all(
+            isinstance(part, str) for part in projected_command
+        ):
+            raise AWSControlPlaneError("AWS Control command projection is malformed")
+        expected_command = list(projected_command)
+        if source.trigger_specs:
+            expected_command.extend(
+                (
+                    "--schedule-queue-url",
+                    _schedule_queue_url(source, dead_letter=False),
+                )
+            )
+        if app.get("command") != expected_command:
+            raise AWSControlPlaneError("AWS Control command does not match the projection")
     mounts = app.get("mountPoints")
     if not isinstance(mounts, list):
         raise AWSControlPlaneError(f"AWS {workload} application mounts are absent")
@@ -901,6 +1078,10 @@ def _verify_task_definition(
         {
             "CONTROL_OIDC_B64": _b64(rendered["control-oidc.json"]),
             "GRAPH_STORE_B64": _b64(rendered["control-graph-store.json"]),
+            "EXECUTION_PLANS_B64": _b64(
+                _terraform_jsonencode(active.get("execution_plan_json", {}))
+            ),
+            "TRIGGER_SPECS_B64": _b64(_terraform_jsonencode(active.get("trigger_spec_json", {}))),
         }
         if workload == "control"
         else {
@@ -910,6 +1091,113 @@ def _verify_task_definition(
     )
     if environment != expected:
         raise AWSControlPlaneError(f"AWS {workload} startup config does not match projection")
+
+
+def _verify_scheduling(source: AWSControlPlaneInput) -> dict[str, object] | None:
+    if not source.trigger_specs:
+        return None
+    partition = "aws-us-gov" if source.region.startswith("us-gov-") else "aws"
+    queue_url = _schedule_queue_url(source, dead_letter=False)
+    dlq_url = _schedule_queue_url(source, dead_letter=True)
+    queue_arn = (
+        f"arn:{partition}:sqs:{source.region}:{source.aws_account_id}:"
+        f"{source.name}-d7-control-schedules"
+    )
+    dlq_arn = (
+        f"arn:{partition}:sqs:{source.region}:{source.aws_account_id}:"
+        f"{source.name}-d7-control-schedule-dlq"
+    )
+    queue = _aws_json(
+        source,
+        "sqs",
+        "get-queue-attributes",
+        "--queue-url",
+        queue_url,
+        "--attribute-names",
+        "QueueArn",
+        "SqsManagedSseEnabled",
+        "RedrivePolicy",
+        "ReceiveMessageWaitTimeSeconds",
+        "VisibilityTimeout",
+    )
+    attributes = queue.get("Attributes") if isinstance(queue, Mapping) else None
+    if not isinstance(attributes, Mapping):
+        raise AWSControlPlaneError("AWS Control schedule queue attributes are absent")
+    try:
+        redrive = json.loads(str(attributes.get("RedrivePolicy")))
+    except json.JSONDecodeError as error:
+        raise AWSControlPlaneError("AWS Control schedule redrive policy is malformed") from error
+    if (
+        attributes.get("QueueArn") != queue_arn
+        or attributes.get("SqsManagedSseEnabled") != "true"
+        or attributes.get("ReceiveMessageWaitTimeSeconds") != "20"
+        or attributes.get("VisibilityTimeout") != "120"
+        or redrive
+        != {
+            "deadLetterTargetArn": dlq_arn,
+            "maxReceiveCount": "5",
+        }
+    ):
+        raise AWSControlPlaneError("AWS Control schedule queue does not match the projection")
+    dlq = _aws_json(
+        source,
+        "sqs",
+        "get-queue-attributes",
+        "--queue-url",
+        dlq_url,
+        "--attribute-names",
+        "QueueArn",
+        "SqsManagedSseEnabled",
+    )
+    dlq_attributes = dlq.get("Attributes") if isinstance(dlq, Mapping) else None
+    if not isinstance(dlq_attributes, Mapping) or dlq_attributes != {
+        "QueueArn": dlq_arn,
+        "SqsManagedSseEnabled": "true",
+    }:
+        raise AWSControlPlaneError("AWS Control schedule DLQ does not match the projection")
+    role_arn = f"arn:{partition}:iam::{source.aws_account_id}:role/{source.name}-d7-scheduler"
+    for spec in source.trigger_specs:
+        schedule = _aws_json(
+            source,
+            "scheduler",
+            "get-schedule",
+            "--name",
+            f"{source.name}-d7-schedule-{_sha256(spec.trigger_id)[:12]}",
+        )
+        if not isinstance(schedule, Mapping):
+            raise AWSControlPlaneError(
+                f"AWS Control schedule {spec.trigger_id} response is malformed"
+            )
+        target = schedule.get("Target")
+        if (
+            not isinstance(target, Mapping)
+            or schedule.get("State") != ("ENABLED" if spec.enabled else "DISABLED")
+            or schedule.get("ScheduleExpression") != spec.schedule
+            or schedule.get("ScheduleExpressionTimezone") != spec.time_zone
+            or schedule.get("FlexibleTimeWindow") != {"Mode": "OFF"}
+            or target.get("Arn") != queue_arn
+            or target.get("RoleArn") != role_arn
+            or target.get("Input") != render_schedule_wakeup_template(spec)
+            or target.get("DeadLetterConfig") != {"Arn": dlq_arn}
+            or target.get("RetryPolicy")
+            != {"MaximumEventAgeInSeconds": 3600, "MaximumRetryAttempts": 3}
+        ):
+            raise AWSControlPlaneError(
+                f"AWS Control schedule {spec.trigger_id} does not match the projection"
+            )
+    return {
+        "queue_arn": queue_arn,
+        "dead_letter_arn": dlq_arn,
+        "scheduled_trigger_ids": [spec.trigger_id for spec in source.trigger_specs],
+    }
+
+
+def _schedule_queue_url(source: AWSControlPlaneInput, *, dead_letter: bool) -> str:
+    suffix = "control-schedule-dlq" if dead_letter else "control-schedules"
+    return (
+        f"https://sqs.{source.region}.amazonaws.com/{source.aws_account_id}/"
+        f"{source.name}-d7-{suffix}"
+    )
 
 
 def _verify_target_health(workload: str, value: object) -> None:
@@ -1050,6 +1338,19 @@ def _b64(value: str) -> str:
 
 def _json(value: object) -> str:
     return json.dumps(value, indent=2, sort_keys=True, separators=(",", ": ")) + "\n"
+
+
+def _terraform_jsonencode(value: object) -> str:
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    for character, escaped in (
+        ("<", r"\u003c"),
+        (">", r"\u003e"),
+        ("&", r"\u0026"),
+        ("\u2028", r"\u2028"),
+        ("\u2029", r"\u2029"),
+    ):
+        encoded = encoded.replace(character, escaped)
+    return encoded
 
 
 def _load_input(path: Path) -> AWSControlPlaneFoundationInput | AWSControlPlaneInput:

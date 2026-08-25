@@ -21,7 +21,9 @@ from dander.control.orchestration import (
     RunOutcome,
     RunRecord,
     RunTrigger,
+    ScheduleWakeup,
     TriggerKind,
+    TriggerSpec,
     canonical_execution_plan_contents,
 )
 from dander.deployment.projection import (
@@ -35,10 +37,15 @@ from dander.deployment.projection import (
 
 RUN_RECORD_SCHEMA = "io.dander.control.run-record/v1"
 ATTEMPT_RECORD_SCHEMA = "io.dander.control.attempt-record/v1"
+TRIGGER_SPEC_SCHEMA = "io.dander.control.trigger-spec/v1"
+SCHEDULE_WAKEUP_SCHEMA = "io.dander.control.schedule-wakeup/v1"
+SCHEDULED_TIME_TOKEN = "<aws.scheduler.scheduled-time>"
 
 _MAX_PLAN_BYTES = 1024 * 1024
 _MAX_RUN_BYTES = 256 * 1024
 _MAX_ATTEMPT_BYTES = 128 * 1024
+_MAX_TRIGGER_BYTES = 64 * 1024
+_MAX_WAKEUP_BYTES = 8 * 1024
 type _SecretProvider = Literal[
     "environment",
     "gcp_secret_manager",
@@ -224,6 +231,93 @@ def deserialize_attempt_record(data: bytes) -> AttemptRecord:
         raise
     except (KeyError, TypeError, ValueError) as error:
         raise OrchestrationSerializationError("attempt record is invalid") from error
+
+
+def serialize_trigger_spec(spec: TriggerSpec) -> bytes:
+    """Return canonical versioned bytes for one independently managed trigger."""
+    return _canonical_json(
+        {
+            "schema": TRIGGER_SPEC_SCHEMA,
+            "trigger": {
+                "trigger_id": spec.trigger_id,
+                "kind": spec.kind.value,
+                "plan_id": spec.plan_id,
+                "plan_revision": spec.plan_revision,
+                "enabled": spec.enabled,
+                "schedule": spec.schedule,
+                "time_zone": spec.time_zone,
+                "dependency": spec.dependency,
+            },
+        }
+    )
+
+
+def deserialize_trigger_spec(data: bytes) -> TriggerSpec:
+    """Load one canonical trigger without coupling its revision to plan contents."""
+    try:
+        envelope = _load_envelope(data, TRIGGER_SPEC_SCHEMA, _MAX_TRIGGER_BYTES)
+        values = _mapping(envelope["trigger"], "trigger spec")
+        spec = TriggerSpec(
+            trigger_id=_string(values["trigger_id"], "trigger_id"),
+            kind=_enum(TriggerKind, values["kind"], "trigger kind"),
+            plan_id=_string(values["plan_id"], "plan_id"),
+            plan_revision=_string(values["plan_revision"], "plan_revision"),
+            enabled=_boolean(values["enabled"], "enabled"),
+            schedule=_optional_string(values["schedule"], "schedule"),
+            time_zone=_optional_string(values["time_zone"], "time_zone"),
+            dependency=_optional_string(values["dependency"], "dependency"),
+        )
+        _require_canonical(data, serialize_trigger_spec(spec))
+        return spec
+    except OrchestrationSerializationError:
+        raise
+    except (KeyError, TypeError, ValueError) as error:
+        raise OrchestrationSerializationError("trigger-spec record is invalid") from error
+
+
+def serialize_schedule_wakeup(wakeup: ScheduleWakeup) -> bytes:
+    """Return the canonical queue body for one exact scheduled occurrence."""
+    return _canonical_json(
+        {
+            "schema": SCHEDULE_WAKEUP_SCHEMA,
+            "trigger_id": wakeup.trigger_id,
+            "plan_revision": wakeup.plan_revision,
+            "scheduled_occurrence": _timestamp(wakeup.scheduled_occurrence),
+        }
+    )
+
+
+def deserialize_schedule_wakeup(data: bytes) -> ScheduleWakeup:
+    """Load a canonical scheduled occurrence delivered by a provider queue."""
+    try:
+        envelope = _load_envelope(data, SCHEDULE_WAKEUP_SCHEMA, _MAX_WAKEUP_BYTES)
+        wakeup = ScheduleWakeup(
+            trigger_id=_string(envelope["trigger_id"], "trigger_id"),
+            plan_revision=_string(envelope["plan_revision"], "plan_revision"),
+            scheduled_occurrence=_datetime(
+                envelope["scheduled_occurrence"], "scheduled_occurrence"
+            ),
+        )
+        _require_canonical(data, serialize_schedule_wakeup(wakeup))
+        return wakeup
+    except OrchestrationSerializationError:
+        raise
+    except (KeyError, TypeError, ValueError) as error:
+        raise OrchestrationSerializationError("schedule-wakeup record is invalid") from error
+
+
+def render_schedule_wakeup_template(spec: TriggerSpec) -> str:
+    """Render a canonical Scheduler input with only its occurrence token unresolved."""
+    if spec.kind is not TriggerKind.SCHEDULE:
+        raise OrchestrationSerializationError("only scheduled triggers can render wakeups")
+    return _canonical_json(
+        {
+            "schema": SCHEDULE_WAKEUP_SCHEMA,
+            "trigger_id": spec.trigger_id,
+            "plan_revision": spec.plan_revision,
+            "scheduled_occurrence": SCHEDULED_TIME_TOKEN,
+        }
+    ).decode("utf-8")
 
 
 def _execution_template(value: object) -> ExecutionTemplate:
@@ -443,11 +537,19 @@ def _enum[EnumT: StrEnum](enum_type: type[EnumT], value: object, label: str) -> 
 __all__ = [
     "ATTEMPT_RECORD_SCHEMA",
     "RUN_RECORD_SCHEMA",
+    "SCHEDULED_TIME_TOKEN",
+    "SCHEDULE_WAKEUP_SCHEMA",
+    "TRIGGER_SPEC_SCHEMA",
     "OrchestrationSerializationError",
     "deserialize_attempt_record",
     "deserialize_execution_plan",
     "deserialize_run_record",
+    "deserialize_schedule_wakeup",
+    "deserialize_trigger_spec",
+    "render_schedule_wakeup_template",
     "serialize_attempt_record",
     "serialize_execution_plan",
     "serialize_run_record",
+    "serialize_schedule_wakeup",
+    "serialize_trigger_spec",
 ]
