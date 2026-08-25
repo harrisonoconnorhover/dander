@@ -1,6 +1,7 @@
 """Versioned browser-facing contracts and provider-neutral Control API ports."""
 
 from dander.control.azure_blob_graph_store import AzureBlobGraphStore
+from dander.control.fargate_execution_backend import FargateExecutionBackend
 from dander.control.gcs_graph_store import GCSGraphStore
 from dander.control.graph_store import (
     MAX_GRAPH_DOCUMENT_BYTES,
@@ -34,6 +35,7 @@ from dander.control.orchestration import (
     BackendObservation,
     CleanupState,
     ExecutionBackend,
+    ExecutionBackendError,
     ExecutionPlan,
     HostedRunState,
     ResultsState,
@@ -72,6 +74,7 @@ __all__ = [
     "MAX_GRAPH_PAGE_SIZE",
     "CanonicalGraphDocument",
     "AzureBlobGraphStore",
+    "FargateExecutionBackend",
     "GraphDeleteReceipt",
     "GraphPage",
     "GraphRecord",
@@ -100,6 +103,7 @@ __all__ = [
     "BackendObservation",
     "CleanupState",
     "ExecutionBackend",
+    "ExecutionBackendError",
     "ExecutionPlan",
     "EXECUTION_PLAN_SCHEMA",
     "HostedRunState",
