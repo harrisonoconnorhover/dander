@@ -143,6 +143,8 @@ def _manifest(config: concurrency.RedshiftConcurrencyConfig) -> dict[str, object
                 "account_id": config.account_id,
                 "region": config.region,
                 "workgroup_name": config.workgroup_name,
+                "host": config.host,
+                "database": config.database,
                 "copy_role_arn": config.copy_role_arn,
                 "staging_bucket": config.staging_bucket,
                 "staging_prefix": config.staging_prefix,
@@ -157,6 +159,7 @@ def _manifest(config: concurrency.RedshiftConcurrencyConfig) -> dict[str, object
                 "automatic_candidate_retry": False,
                 "provider_operation_retries": 0,
                 "cost_observation_delay_seconds": config.cost_observation_delay_seconds,
+                "defer_provider_cost_attribution": True,
                 "candidate_command": concurrency._CANDIDATE_COMMAND,
             },
         },
@@ -316,7 +319,7 @@ def test_approval_binds_task_role_launcher_harness_and_zero_retries(tmp_path: Pa
     assert approval.cost_ceiling.amount_usd == Decimal("0.50")
 
 
-def test_corrective_objective_binds_corrected_harness_and_same_rc31_workload() -> None:
+def test_rc31_objective_does_not_authorize_changed_harness() -> None:
     config = concurrency.RedshiftConcurrencyConfig(
         account_id="184463061564",
         host="dander-p8q-rc31-rs-conc.184463061564.us-east-1.redshift-serverless.amazonaws.com",
@@ -342,17 +345,15 @@ def test_corrective_objective_binds_corrected_harness_and_same_rc31_workload() -
         provider_job_ids=("namespace:pending", "workgroup:pending"),
     )
 
-    approval = concurrency._load_approval(
-        Path(
-            "docs/evidence/phase8/2026-08-22/"
-            "aws-native-rc31-redshift-concurrency-corrective-objectives.json"
-        ),
-        config=config,
-        identity=identity,
-    )
-
-    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
-    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    with pytest.raises(ValueError, match="protected harness"):
+        concurrency._load_approval(
+            Path(
+                "docs/evidence/phase8/2026-08-22/"
+                "aws-native-rc31-redshift-concurrency-corrective-objectives.json"
+            ),
+            config=config,
+            identity=identity,
+        )
 
 
 @pytest.mark.parametrize(

@@ -144,6 +144,8 @@ def _manifest(config: transform.RedshiftTransformConfig) -> dict[str, object]:
                 "account_id": config.account_id,
                 "region": config.region,
                 "workgroup_name": config.workgroup_name,
+                "host": config.host,
+                "database": config.database,
                 "copy_role_arn": config.copy_role_arn,
                 "staging_bucket": config.staging_bucket,
                 "staging_prefix": config.staging_prefix,
@@ -158,6 +160,7 @@ def _manifest(config: transform.RedshiftTransformConfig) -> dict[str, object]:
                 "automatic_candidate_retry": False,
                 "provider_operation_retries": 0,
                 "cost_observation_delay_seconds": config.cost_observation_delay_seconds,
+                "defer_provider_cost_attribution": True,
                 "candidate_command": transform._CANDIDATE_COMMAND,
             },
         },
@@ -368,7 +371,7 @@ def test_report_records_exact_models_assertions_cost_and_cleanup() -> None:
     assert metrics["staging_tables"] == "0"
 
 
-def test_committed_objective_binds_exact_rc31_harness_and_workload() -> None:
+def test_rc31_objective_does_not_authorize_changed_harness() -> None:
     config = transform.RedshiftTransformConfig(
         account_id="184463061564",
         host=("dander-p8q-rc31-rs-xform.184463061564.us-east-1.redshift-serverless.amazonaws.com"),
@@ -396,8 +399,5 @@ def test_committed_objective_binds_exact_rc31_harness_and_workload() -> None:
         "aws-native-rc31-redshift-transform-objectives.json"
     )
 
-    approval = transform._load_approval(path, config=config, identity=identity)
-
-    assert approval.objectives.configuration_sha256 == config.configuration_sha256()
-    assert approval.objectives.names == transform._OBJECTIVES
-    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
+    with pytest.raises(ValueError, match="protected harness"):
+        transform._load_approval(path, config=config, identity=identity)

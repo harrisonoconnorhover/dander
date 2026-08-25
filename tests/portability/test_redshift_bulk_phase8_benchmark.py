@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from contextlib import contextmanager
 from datetime import date
@@ -124,25 +125,20 @@ def _manifest(config: bulk.RedshiftBulkConfig) -> dict[str, object]:
         "workload": config.workload_payload(),
         "configuration": {
             "fargate_harness": {
-                "task_cpu_units": 2_048,
-                "task_memory_mib": 4_096,
-                "task_timeout_seconds": 900,
-                "cluster_executions": 1,
-                "state_machine_executions": 1,
-                "state_machine_retry_states": 0,
-                "ecs_task_retries": 0,
-                "container_restarts": 0,
-                "automatic_retry": False,
+                **copy.deepcopy(bulk._FARGATE_LAUNCHER_REQUIREMENTS),
             },
             "redshift": {
                 "account_id": config.account_id,
                 "region": config.region,
                 "workgroup_name": config.workgroup_name,
+                "host": config.host,
+                "database": config.database,
                 "copy_role_arn": config.copy_role_arn,
                 "staging_bucket": config.staging_bucket,
                 "staging_prefix": config.staging_prefix,
                 "on_demand_rate_usd_per_rpu_hour": str(config.on_demand_rate_usd_per_rpu_hour),
             },
+            "task_role": copy.deepcopy(bulk._TASK_ROLE_REQUIREMENTS),
             "execution": {
                 "harness_sha256": bulk._file_sha256(Path(bulk.__file__)),
                 "shared_harness_sha256": bulk._file_sha256(Path(shared.__file__)),
@@ -150,6 +146,8 @@ def _manifest(config: bulk.RedshiftBulkConfig) -> dict[str, object]:
                 "automatic_candidate_retry": False,
                 "provider_operation_retries": 0,
                 "cost_observation_delay_seconds": config.cost_observation_delay_seconds,
+                "defer_provider_cost_attribution": True,
+                "candidate_command": bulk._CANDIDATE_COMMAND,
             },
         },
         "approved_objectives": {
@@ -191,6 +189,66 @@ def test_report_records_provider_measured_cost_and_zero_retries() -> None:
         "namespace:namespace-id",
         "workgroup:workgroup-id",
     ]
+
+
+def test_deferred_cost_interim_round_trips_into_final_report(tmp_path: Path) -> None:
+    config = _config()
+    identity = _identity()
+    approval = _approval(config)
+    result = _result()
+    interim = bulk._deferred_cost_interim_payload(
+        schema=bulk._INTERIM_SCHEMA,
+        configuration_sha256=config.configuration_sha256(),
+        identity=identity,
+        approval=approval,
+        result=result,
+    )
+    path = tmp_path / "interim.json"
+    path.write_text(json.dumps(interim), encoding="utf-8")
+
+    loaded = bulk._load_deferred_cost_workload(
+        path,
+        schema=bulk._INTERIM_SCHEMA,
+        configuration_sha256=config.configuration_sha256(),
+        identity=identity,
+        approval=approval,
+        result_type=bulk._BulkResult,
+    )
+    finalized = bulk._with_external_cost(
+        loaded,
+        charged_seconds=Decimal("480"),
+        compute_seconds=Decimal("478.5"),
+        maximum_compute_capacity_rpu=Decimal("8"),
+        on_demand_rate_usd_per_rpu_hour=config.on_demand_rate_usd_per_rpu_hour,
+    )
+
+    assert bulk._report(config, identity, approval, finalized).status.value == "passed"
+    assert finalized.provider_cost_usd == Decimal("0.050000000000")
+
+
+def test_deferred_cost_interim_requires_verified_cleanup(tmp_path: Path) -> None:
+    config = _config()
+    interim = bulk._deferred_cost_interim_payload(
+        schema=bulk._INTERIM_SCHEMA,
+        configuration_sha256=config.configuration_sha256(),
+        identity=_identity(),
+        approval=_approval(config),
+        result=_result(),
+    )
+    workload = cast("dict[str, object]", interim["workload"])
+    workload["cleanup_verified"] = False
+    path = tmp_path / "interim.json"
+    path.write_text(json.dumps(interim), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="cleanup was not verified|fields are incomplete"):
+        bulk._load_deferred_cost_workload(
+            path,
+            schema=bulk._INTERIM_SCHEMA,
+            configuration_sha256=config.configuration_sha256(),
+            identity=_identity(),
+            approval=_approval(config),
+            result_type=bulk._BulkResult,
+        )
 
 
 def test_report_fails_closed_when_measured_cost_exceeds_ceiling() -> None:

@@ -17,7 +17,12 @@ from scripts.benchmarks import redshift_bounded_memory_phase8 as bounded
 from scripts.benchmarks import redshift_bulk_phase8 as bulk
 
 from dander import __version__
-from dander.qualification import ApprovedCostCeiling, ApprovedObjectiveSet, BenchmarkClass
+from dander.qualification import (
+    ApprovedCostCeiling,
+    ApprovedObjectiveSet,
+    BenchmarkClass,
+    QualificationReport,
+)
 
 _COMMIT = "b" * 40
 _DIGEST = f"sha256:{'a' * 64}"
@@ -137,6 +142,7 @@ def test_run_reuses_streaming_copy_and_cleans_owned_scope(
         config, identity=_identity(), approval=_approval(config)
     )
 
+    assert isinstance(report, QualificationReport)
     assert report.status.value == "passed"
     assert len(writes) == 1
     assert writes[0]["rows"] == config.rows
@@ -194,7 +200,7 @@ def test_requires_the_approved_container_hard_limit(monkeypatch: pytest.MonkeyPa
         bounded._require_container_memory_limit(config)
 
 
-def test_protected_objective_binds_harness_dependencies_and_container_limit(tmp_path: Path) -> None:
+def test_rc31_objective_does_not_authorize_changed_harness(tmp_path: Path) -> None:
     reference = "codex-goal-02043c37-096e-416a-875c-b405c4af0594-aws-redshift-bounded-usd-0.50"
     config = bounded.RedshiftBoundedMemoryConfig(
         account_id="184463061564",
@@ -220,8 +226,5 @@ def test_protected_objective_binds_harness_dependencies_and_container_limit(tmp_
     manifest = tmp_path / "objectives.json"
     manifest.write_text(json.dumps(payload), encoding="utf-8")
 
-    approval = bounded._load_approval(manifest, config=config, identity=identity)
-
-    assert approval.objectives.benchmark_class is BenchmarkClass.BOUNDED_MEMORY
-    assert approval.cost_ceiling.amount_usd == Decimal("0.50")
-    assert payload["configuration"]["fargate_harness"]["candidate_container_memory_mib"] == 256
+    with pytest.raises(ValueError, match="protected harness"):
+        bounded._load_approval(manifest, config=config, identity=identity)
