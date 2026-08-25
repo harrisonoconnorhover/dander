@@ -55,6 +55,10 @@ class RunStoreIdempotencyConflictError(RunStoreConflictError):
     """An idempotency key was reused for a different logical submission."""
 
 
+class ExecutionBackendError(RuntimeError):
+    """A hosted execution backend failed without exposing provider-native details."""
+
+
 class TriggerKind(StrEnum):
     """Supported reasons that Control may create a hosted logical run."""
 
@@ -896,6 +900,7 @@ __all__ = [
     "BackendObservation",
     "CleanupState",
     "ExecutionBackend",
+    "ExecutionBackendError",
     "ExecutionPlan",
     "HostedRunState",
     "OrchestrationContractError",

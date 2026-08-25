@@ -1,5 +1,21 @@
 # Engineering Decisions
 
+## 2026-08-25 — Hosted Fargate adopts deterministic Standard Workflow executions
+
+- **Provider identity:** Each Control run attempt hashes its logical run and attempt IDs into one
+  Step Functions execution name. The adapter reads before starting and reconciles any start error
+  with the same execution ARN, so at-least-once Control requests produce one provider effect.
+- **Plan and handoff:** Only explicitly registered canonical plan revisions may select an existing
+  Fargate binding. The SDK input carries plan revision, occurrence time, and non-secret correlation;
+  the existing task definition remains authoritative for image, command, identity, configuration,
+  secrets, resources, and the single Dander container.
+- **Truth model:** Step Functions supplies outcome, successful execution makes warehouse results
+  available, and cleanup is confirmed separately only when the correlated ECS task is `STOPPED`.
+  AWS errors and unverified cleanup do not expose provider details or erase known terminal truth.
+- **Boundary:** DANDER-232 adds the AWS SDK adapter and fake-provider tests only. Direct CLI launch,
+  Control service composition, scheduling, infrastructure, live execution, and other clouds remain
+  unchanged.
+
 ## 2026-08-25 — Control run state uses canonical records and recoverable S3 claims
 
 - **Plan identity:** An execution-plan revision is computed from a versioned canonical envelope;
