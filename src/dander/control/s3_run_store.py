@@ -33,9 +33,11 @@ from dander.control.orchestration_serialization import (
 )
 
 _RUN_IDEMPOTENCY_SCHEMA = "io.dander.control.run-idempotency/v1"
+_MUTATION_IDEMPOTENCY_SCHEMA = "io.dander.control.mutation-idempotency/v1"
 _MAX_RUN_BYTES = 256 * 1024
 _MAX_ATTEMPT_BYTES = 128 * 1024
 _MAX_IDEMPOTENCY_BYTES = _MAX_RUN_BYTES + 64 * 1024
+_MAX_MUTATION_BYTES = 16 * 1024
 _DEFAULT_TIMEOUT_SECONDS = 30.0
 _PREFIX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,510}[A-Za-z0-9]$")
 _GENERAL_PURPOSE_BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
@@ -122,6 +124,51 @@ class _IdempotencyEntry:
             raise
         except (KeyError, TypeError, ValueError, OrchestrationSerializationError) as error:
             raise RunStoreCorruptionError("An S3 run idempotency object is invalid.") from error
+
+
+@dataclass(frozen=True, slots=True)
+class _MutationEntry:
+    key_sha256: str
+    operation: str
+    run_id: str
+    result: Mapping[str, object]
+
+    def serialize(self) -> bytes:
+        return _canonical_json(
+            {
+                "schema": _MUTATION_IDEMPOTENCY_SCHEMA,
+                "key_sha256": self.key_sha256,
+                "operation": self.operation,
+                "run_id": self.run_id,
+                "result": self.result,
+            }
+        )
+
+    @classmethod
+    def deserialize(cls, data: bytes) -> _MutationEntry:
+        try:
+            if not data or len(data) > _MAX_MUTATION_BYTES:
+                raise RunStoreCorruptionError(
+                    "An S3 mutation idempotency object exceeds its bound."
+                )
+            values = _mapping(json.loads(data))
+            if values.get("schema") != _MUTATION_IDEMPOTENCY_SCHEMA:
+                raise RunStoreCorruptionError("An S3 mutation idempotency object is invalid.")
+            entry = cls(
+                key_sha256=_checked_sha256(values["key_sha256"], "mutation key"),
+                operation=_checked_portable(values["operation"], "mutation operation"),
+                run_id=_checked_opaque(values["run_id"], "run"),
+                result=_mapping(values["result"]),
+            )
+            if data != entry.serialize():
+                raise RunStoreCorruptionError("An S3 mutation idempotency object is not canonical.")
+            return entry
+        except RunStoreCorruptionError:
+            raise
+        except (KeyError, TypeError, UnicodeDecodeError, ValueError) as error:
+            raise RunStoreCorruptionError(
+                "An S3 mutation idempotency object is invalid."
+            ) from error
 
 
 class S3RunStore:
@@ -338,6 +385,53 @@ class S3RunStore:
                     "The attempt identity already contains different immutable input."
                 ) from None
 
+    def claim_mutation(
+        self,
+        *,
+        key_sha256: str,
+        operation: str,
+        run_id: str,
+        result: bytes,
+    ) -> bytes:
+        """Durably claim one mutation key and replay its original normalized result."""
+        key_sha256 = _checked_sha256(key_sha256, "mutation key")
+        operation = _checked_portable(operation, "mutation operation")
+        run_id = _checked_opaque(run_id, "run")
+        try:
+            result_value = _mapping(json.loads(result))
+        except (TypeError, UnicodeDecodeError, ValueError) as error:
+            raise RunStoreCorruptionError("The mutation result is invalid.") from error
+        entry = _MutationEntry(
+            key_sha256=key_sha256,
+            operation=operation,
+            run_id=run_id,
+            result=result_value,
+        )
+        data = entry.serialize()
+        if len(data) > _MAX_MUTATION_BYTES:
+            raise RunStoreCorruptionError("The mutation result exceeds its durable bound.")
+        name = self._mutation_name(key_sha256)
+        try:
+            self._write_object(name, data, expected_etag=None)
+            self._checkpoint("after_mutation_claim")
+            return _canonical_json(entry.result)
+        except RunStoreConflictError:
+            loaded = self._read_object(name, _MAX_MUTATION_BYTES)
+            if loaded is None:
+                raise RunStoreConflictError(
+                    "The S3 mutation idempotency claim did not converge."
+                ) from None
+            existing = _MutationEntry.deserialize(loaded[0])
+            if (
+                existing.key_sha256 != key_sha256
+                or existing.operation != operation
+                or existing.run_id != run_id
+            ):
+                raise RunStoreIdempotencyConflictError(
+                    "The mutation idempotency key belongs to a different operation."
+                ) from None
+            return _canonical_json(existing.result)
+
     def list(self, *, cursor: str | None, limit: int) -> StoredRunPage:
         """Return a bounded run page ordered by deterministic snapshot object key."""
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
@@ -498,6 +592,10 @@ class S3RunStore:
         project = _checked_portable(project, "project")
         key_sha256 = _checked_sha256(key_sha256, "idempotency key")
         return f"{self._prefix}/idempotency/runs/{environment}/{project}/{key_sha256}.json"
+
+    def _mutation_name(self, key_sha256: str) -> str:
+        key_sha256 = _checked_sha256(key_sha256, "mutation key")
+        return f"{self._prefix}/idempotency/mutations/{key_sha256}.json"
 
     def _checkpoint(self, stage: str) -> None:
         """Test seam invoked after each durable object mutation boundary."""

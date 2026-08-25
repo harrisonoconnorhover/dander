@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from typer.testing import CliRunner
@@ -176,3 +177,67 @@ def test_ephemeral_and_bound_graph_store_are_mutually_exclusive(tmp_path: Path) 
     assert result.exit_code == 1
     assert result.exception is not None
     assert "mutually exclusive" in str(result.exception)
+
+
+def test_execution_plans_require_a_durable_run_store(tmp_path: Path) -> None:
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text("{}", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        ["control", "serve", "--ephemeral", "--execution-plan", str(plan_path)],
+    )
+
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert "must be configured together" in str(result.exception)
+
+
+def test_execution_plan_options_install_lifecycle_readiness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text("{}", encoding="utf-8")
+    observed: list[dict[str, object]] = []
+
+    class _Lifecycle:
+        close_count = 0
+
+        def ready(self) -> bool:
+            return True
+
+        def close(self) -> None:
+            self.close_count += 1
+
+    lifecycle = _Lifecycle()
+
+    def build(**kwargs: object) -> object:
+        observed.append(kwargs)
+        return SimpleNamespace(lifecycle=lifecycle, resolver=object())
+
+    monkeypatch.setattr(
+        "dander.control.run_composition.build_fargate_run_composition",
+        build,
+    )
+    monkeypatch.setattr("uvicorn.Server.run", lambda _server: None)
+    result = CliRunner().invoke(
+        app,
+        [
+            "control",
+            "serve",
+            "--ephemeral",
+            "--project",
+            "demo",
+            "--execution-plan",
+            str(plan_path),
+            "--run-store-bucket",
+            "dander-control-runs",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert observed[0]["graph_store"].__class__ is InMemoryGraphStore
+    assert observed[0]["plan_paths"] == [plan_path]
+    assert observed[0]["run_store_bucket"] == "dander-control-runs"
+    assert result.stdout.count("Serving Dander Control") == 1
+    assert lifecycle.close_count == 1

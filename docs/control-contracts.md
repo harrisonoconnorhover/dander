@@ -178,6 +178,24 @@ bodies, list and log pages are bounded, oversized responses fail closed, and mut
 records contain only method, route template, status, and correlation ID. Response DTOs omit
 provider payloads, credentials, secret values, SQL, rows, and raw exception messages.
 
+Hosted run ownership is opt-in at startup. Supplying one or more canonical
+`--execution-plan` files together with `--run-store-bucket` composes the existing Control routes,
+the conditional S3 run store, and the existing Fargate launcher. Plans are content-addressed and
+select exactly one backend for an environment/project/graph; startup derives each AWS binding from
+the existing project manifest and refuses an unpaused direct schedule. The same provider-neutral
+lifecycle port accepts another registered execution backend without changing graph or pipeline
+logic. Omitting these options preserves the previous API behavior and the direct single-container
+CLI path.
+
+Control durably claims run and mutation idempotency, appends immutable attempt input, and advances
+run snapshots with compare-and-swap writes. Its bounded background reconciler adopts deterministic
+provider executions after restart, records normalized status/results/cleanup truth, and becomes
+ready only after one complete successful durable-store sweep. Cancellation first records durable
+intent and then invokes the backend's idempotent stop operation. Graceful shutdown stops the
+reconciler before closing backend and store clients. Scheduling, a GCP implementation, live
+AWS/Redshift acceptance, horizontal Control coordination, dynamic sizing, and generalized
+autoscaling remain later work.
+
 ## Hosted OIDC boundary
 
 `HostedOIDCDeploymentInput` is the single immutable source for the API trust settings, exact CORS

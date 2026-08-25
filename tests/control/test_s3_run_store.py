@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -202,6 +203,36 @@ def test_claim_is_durable_idempotent_and_rejects_different_submission() -> None:
     assert replay.stored == claimed.stored
     with pytest.raises(RunStoreIdempotencyConflictError):
         store.claim(create_run_record(_submission(plan_revision="c" * 64)))
+
+
+def test_mutation_claim_replays_original_result_across_restart_and_rejects_reuse() -> None:
+    backend = FakeS3Backend()
+    key_sha256 = hashlib.sha256(b"cancel-key-0001").hexdigest()
+    original = b'{"accepted":true,"operation":"cancel","run_id":"run-one","state":"canceling"}'
+    changed = b'{"accepted":false,"operation":"cancel","run_id":"run-one","state":"canceled"}'
+
+    first = _store(backend).claim_mutation(
+        key_sha256=key_sha256,
+        operation="cancel",
+        run_id="run-one",
+        result=original,
+    )
+    replayed = _store(backend).claim_mutation(
+        key_sha256=key_sha256,
+        operation="cancel",
+        run_id="run-one",
+        result=changed,
+    )
+
+    assert first == original
+    assert replayed == original
+    with pytest.raises(RunStoreIdempotencyConflictError):
+        _store(backend).claim_mutation(
+            key_sha256=key_sha256,
+            operation="cancel",
+            run_id="run-two",
+            result=original,
+        )
 
 
 def test_snapshot_compare_and_swap_and_attempt_immutability() -> None:
