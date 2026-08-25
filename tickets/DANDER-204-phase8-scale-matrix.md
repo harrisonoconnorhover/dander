@@ -438,3 +438,10 @@ scale report.
   its final-invoice recheck remains read-only. DANDER-204 stays open only for the exhausted GKE
   failure cell, unqualified Redshift cells, and final AWS invoice confirmation. See
   `docs/evidence/phase8/2026-08-24/provider-cost-reconciliation.json`.
+- Exact RC32's AWS-native Redshift failure cell now passes all six protected objectives. The C21
+  workload completed once with zero provider-operation retries, exact cleanup, and provider-measured
+  cost of USD 0.20; protected-main correction PR #477 then finalized that exact interim offline with
+  no AWS credentials, network, provider operations, workload reruns, or added cost. This closes the
+  failure cell without changing the candidate. The other five Redshift scale cells remain
+  unqualified, so Redshift support is not promoted. See
+  `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-finalization-telemetry-result.json`.

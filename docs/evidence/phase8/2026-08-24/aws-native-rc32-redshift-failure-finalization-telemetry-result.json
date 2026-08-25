@@ -1,0 +1,92 @@
+{
+  "schema": "io.dander.phase8.aws-native-redshift-failure-finalization-telemetry-result/v1",
+  "attempt_date": "2026-08-25",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-finalization-telemetry-objective.json",
+  "source_result_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-external-cost-result.json",
+  "normalized_report_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-finalization-telemetry-report.json",
+  "protection": {
+    "source_objective_pull_request": 476,
+    "source_objective_merge_commit": "85dc37a191653731e81c2bf76eeacd0c040887a7",
+    "source_objective_exact_main_ci_run": 32815488498,
+    "correction_pull_request": 477,
+    "correction_merge_commit": "e5f0602fd4516f9e23c73202c1a0bd74d210867b",
+    "correction_exact_main_ci_run": 32818649986,
+    "finalization_repository_commit": "e5f0602fd4516f9e23c73202c1a0bd74d210867b"
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "replacement_published": false
+  },
+  "source_execution": {
+    "state_machine_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c21:rc32-redshift-failure-external-cost-c21-20260825",
+    "candidate_executions": 1,
+    "provider_operation_retries": 0,
+    "workload_reexecutions": 0,
+    "cleanup_verified": true,
+    "provider_measured_cost_usd": "0.200000000000"
+  },
+  "offline_finalization": {
+    "mode": "immutable_rc32_arm64_container",
+    "network": "none",
+    "aws_credentials_available": false,
+    "read_only_root": true,
+    "container_user": "65532:65532",
+    "new_candidate_executions": 0,
+    "provider_operations": 0,
+    "workload_reexecutions": 0,
+    "additional_cost_usd": "0.00",
+    "stderr_bytes": 0,
+    "status": "passed"
+  },
+  "normalized_result": {
+    "schema": "io.dander.qualification.report/v1",
+    "status": "passed",
+    "passed_objectives": [
+      "cleanup",
+      "cost_ceiling",
+      "credential_rejection",
+      "failed_copy_cleanup",
+      "provider_operation_recovery",
+      "stale_publication_rejection"
+    ],
+    "failed_objectives": [],
+    "copy_telemetry_operations": 2,
+    "provider_operation_retries": 0,
+    "staging_objects": 0,
+    "staging_tables": 0,
+    "charged_seconds": 1920,
+    "compute_seconds": "262.0",
+    "maximum_compute_capacity_rpu": "8.0",
+    "provider_cost_usd": "0.200000000000",
+    "provider_cost_estimated": false
+  },
+  "artifacts": {
+    "normalized_report_sha256": "896287c6180ce5d8533d2f89470e1a6110bfb206a7bbf7a19f252c6148014957",
+    "corrected_harness_bundle_sha256": "c94971d0a1d9e24e34171c5b4ade276bb96618a8d51cadfbc80cde0503fbf660",
+    "finalization_stdout_sha256": "896287c6180ce5d8533d2f89470e1a6110bfb206a7bbf7a19f252c6148014957",
+    "finalization_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source_interim_sha256": "f39820948f1cd838b9381fd5393c1578f76795b55375b7a54cfcbc3252593c9f"
+  },
+  "qualification_effect": {
+    "redshift_failure_cell_closed": true,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "remaining_unqualified_redshift_scale_cells": [
+      "bounded_memory",
+      "bulk_throughput",
+      "concurrency",
+      "incremental",
+      "transform"
+    ],
+    "next_scope": "Qualify the five remaining Redshift scale cells and complete final AWS invoice reconciliation before any Redshift support promotion."
+  },
+  "sanitization": {
+    "credentials_present": false,
+    "tokens_present": false,
+    "business_rows_present": false,
+    "private_endpoint_present": false
+  }
+}
