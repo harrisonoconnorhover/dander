@@ -67,9 +67,7 @@ def test_runtime_target_uses_the_immutable_rc32_tag_with_exact_digest_resolution
     scoped_actions = cast("list[str]", validator.TASK_ROLE["required_scoped_actions"])
     assert "s3:GetBucketLocation" in scoped_actions
     configuration = cast("dict[str, Any]", payload["configuration"])
-    assert "s3:GetBucketLocation" in configuration["launcher_contract"]["iam_readiness"][
-        "checks"
-    ]
+    assert "s3:GetBucketLocation" in configuration["launcher_contract"]["iam_readiness"]["checks"]
 
 
 @pytest.mark.parametrize(
