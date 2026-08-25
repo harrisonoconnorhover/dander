@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from dander.control.application import (
     ControlApplication,
     ControlOperationConflictError,
+    ControlOperationDependencyError,
     ControlOperationIdempotencyConflictError,
     ControlOperationNotFoundError,
     ControlOperationUnavailableError,
@@ -379,6 +380,17 @@ def create_control_app(
     ) -> JSONResponse:
         return _error_response(
             request, HTTPStatus.NOT_IMPLEMENTED, "operation_unavailable", str(error)
+        )
+
+    @app.exception_handler(ControlOperationDependencyError)
+    async def dependency_unavailable(
+        request: Request, error: ControlOperationDependencyError
+    ) -> JSONResponse:
+        return _error_response(
+            request,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            "operation_temporarily_unavailable",
+            str(error),
         )
 
     @app.exception_handler(ControlOperationNotFoundError)

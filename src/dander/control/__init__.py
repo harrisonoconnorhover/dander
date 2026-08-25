@@ -54,6 +54,7 @@ from dander.control.orchestration import (
     StoredRunPage,
     TriggerKind,
     TriggerSpec,
+    dispatch_stored_run_attempt,
 )
 from dander.control.orchestration_serialization import (
     ATTEMPT_RECORD_SCHEMA,
@@ -65,6 +66,20 @@ from dander.control.orchestration_serialization import (
     serialize_attempt_record,
     serialize_execution_plan,
     serialize_run_record,
+)
+from dander.control.run_composition import (
+    ControlRunComposition,
+    ControlRunCompositionError,
+    build_fargate_run_composition,
+    compose_run_control,
+    load_execution_plans,
+)
+from dander.control.run_lifecycle import (
+    ControlRunLifecycle,
+    DurableMutationClaimStore,
+    ExecutionBackendRegistry,
+    ExecutionPlanRegistry,
+    PlanRunSubmissionResolver,
 )
 from dander.control.s3_graph_store import S3GraphStore
 from dander.control.s3_run_store import S3RunStore
@@ -123,6 +138,7 @@ __all__ = [
     "StoredRunPage",
     "TriggerKind",
     "TriggerSpec",
+    "dispatch_stored_run_attempt",
     "ATTEMPT_RECORD_SCHEMA",
     "RUN_RECORD_SCHEMA",
     "OrchestrationSerializationError",
@@ -132,6 +148,16 @@ __all__ = [
     "serialize_attempt_record",
     "serialize_execution_plan",
     "serialize_run_record",
+    "ControlRunComposition",
+    "ControlRunCompositionError",
+    "ControlRunLifecycle",
+    "DurableMutationClaimStore",
+    "ExecutionBackendRegistry",
+    "ExecutionPlanRegistry",
+    "PlanRunSubmissionResolver",
+    "build_fargate_run_composition",
+    "compose_run_control",
+    "load_execution_plans",
 ]
 
 from dander.control.models import (

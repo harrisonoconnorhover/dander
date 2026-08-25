@@ -10,7 +10,7 @@ import typer
 from click import ClickException
 
 from dander.control import InMemoryGraphStore, RootedLocalGraphStore
-from dander.control.application import ControlApplication
+from dander.control.application import ControlApplication, ControlOperationError
 from dander.plugins import ConnectorPluginError, load_connector_plugins
 from dander.project import ProjectConfigError, load_project_config
 
@@ -54,6 +54,45 @@ def serve_control(
         "--graph-store-config",
         help="Credential-free typed GraphStore locator JSON for hosted persistence.",
     ),
+    execution_plans: list[Path] | None = typer.Option(  # noqa: B008
+        None,
+        "--execution-plan",
+        help="Canonical hosted execution-plan JSON; repeat for each active graph.",
+    ),
+    run_store_bucket: str | None = typer.Option(
+        None,
+        "--run-store-bucket",
+        help="S3 bucket for durable hosted run snapshots and attempt history.",
+    ),
+    run_store_prefix: str = typer.Option(
+        "dander-control/v1",
+        "--run-store-prefix",
+        help="Object prefix for durable hosted run state.",
+    ),
+    run_environment: str = typer.Option(
+        "production",
+        "--run-environment",
+        help="Execution-plan environment selected by the compatibility run route.",
+    ),
+    reconcile_interval_seconds: float = typer.Option(
+        5.0,
+        "--reconcile-interval-seconds",
+        min=0.1,
+        max=300.0,
+        help="Background durable-run reconciliation interval.",
+    ),
+    shutdown_grace_seconds: float = typer.Option(
+        35.0,
+        "--shutdown-grace-seconds",
+        min=1.0,
+        max=300.0,
+        help="Maximum wait for graceful reconciler shutdown.",
+    ),
+    aws_deployment_name: str = typer.Option(
+        "dander",
+        "--aws-deployment-name",
+        help="Existing Fargate resource-name prefix used by the hosted backend.",
+    ),
 ) -> None:
     """Serve multi-graph Control locally or behind an approved hosted OIDC deployment."""
     try:
@@ -73,6 +112,10 @@ def serve_control(
         )
         if ephemeral and graph_store_binding is not None:
             raise ClickException("--ephemeral and --graph-store-config are mutually exclusive.")
+        if bool(execution_plans) != (run_store_bucket is not None):
+            raise ClickException(
+                "--execution-plan and --run-store-bucket must be configured together."
+            )
         if not _is_loopback(host) and oidc is None:
             raise ClickException(
                 "External Control binds require a valid --oidc-config deployment input."
@@ -87,11 +130,40 @@ def serve_control(
             store = build_bound_graph_store(graph_store_binding)
         else:
             store = InMemoryGraphStore() if ephemeral else RootedLocalGraphStore(root)
-        application = ControlApplication(
-            store,
-            connector_plugins=plugins,
-            projects=tuple(projects or ("default",)),
-        )
+        selected_projects = tuple(projects or ("default",))
+        if execution_plans:
+            assert run_store_bucket is not None
+            from dander.control.run_composition import build_fargate_run_composition
+
+            run_composition = build_fargate_run_composition(
+                graph_store=store,
+                project_config=project_config,
+                plan_paths=execution_plans,
+                run_store_bucket=run_store_bucket,
+                run_store_prefix=run_store_prefix,
+                environment=run_environment,
+                deployment_name=aws_deployment_name,
+                reconcile_interval_seconds=reconcile_interval_seconds,
+                shutdown_grace_seconds=shutdown_grace_seconds,
+            )
+            try:
+                application = ControlApplication(
+                    store,
+                    lifecycle=run_composition.lifecycle,
+                    submission_resolver=run_composition.resolver,
+                    connector_plugins=plugins,
+                    projects=selected_projects,
+                    readiness=run_composition.lifecycle.ready,
+                )
+            except Exception:  # noqa: BLE001 - close the started reconciler before re-raising
+                run_composition.lifecycle.close()
+                raise
+        else:
+            application = ControlApplication(
+                store,
+                connector_plugins=plugins,
+                projects=selected_projects,
+            )
         from uvicorn import Config, Server
 
         from dander.control.http import create_control_app
@@ -105,16 +177,25 @@ def serve_control(
             else str(root.resolve())
         )
         typer.echo(f"Serving Dander Control on {public_url} ({storage})")
-        Server(
-            Config(
-                create_control_app(application, oidc=oidc),
-                host=host,
-                port=port,
-                log_level="info",
-                access_log=False,
-            )
-        ).run()
-    except (ConnectorPluginError, ProjectConfigError, OSError, ValueError) as error:
+        try:
+            Server(
+                Config(
+                    create_control_app(application, oidc=oidc),
+                    host=host,
+                    port=port,
+                    log_level="info",
+                    access_log=False,
+                )
+            ).run()
+        finally:
+            application.close()
+    except (
+        ConnectorPluginError,
+        ControlOperationError,
+        ProjectConfigError,
+        OSError,
+        ValueError,
+    ) as error:
         raise ClickException(str(error)) from error
 
 

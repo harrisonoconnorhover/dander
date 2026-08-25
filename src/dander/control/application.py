@@ -59,6 +59,10 @@ class ControlOperationUnavailableError(ControlOperationError):
     """The selected profile does not implement the requested operation."""
 
 
+class ControlOperationDependencyError(ControlOperationError):
+    """A configured lifecycle dependency is temporarily unable to serve the operation."""
+
+
 class ControlOperationNotFoundError(ControlOperationError):
     """The addressed run does not exist in the selected lifecycle boundary."""
 
@@ -385,6 +389,7 @@ __all__ = [
     "CanonicalGraphValidator",
     "ControlApplication",
     "ControlOperationConflictError",
+    "ControlOperationDependencyError",
     "ControlOperationError",
     "ControlOperationIdempotencyConflictError",
     "ControlOperationNotFoundError",

@@ -1,5 +1,21 @@
 # Engineering Decisions
 
+## 2026-08-25 — Control composes one durable hosted-run authority
+
+- **Composition:** One immutable plan registry, provider-neutral backend registry, durable run
+  lifecycle, and bounded background reconciler now back the existing run API. The compatibility
+  route selects one configured environment and rejects a plan that does not match the current graph
+  revision.
+- **Recovery and readiness:** A queued durable snapshot can dispatch or adopt from its retained
+  attempt identity without the raw request key. Readiness stays false until a complete recovery
+  sweep succeeds; shutdown stops that single reconciler before closing provider/store transports.
+- **Idempotency:** Start and replay retain DANDER-231's durable run claims. Cancellation adds a
+  create-only S3 mutation claim containing the original normalized response, so conflict detection,
+  response replay, and recovery of a claim-before-provider-effect crash survive restart.
+- **Boundary:** Canonical plan files and the existing project manifest select the existing paused
+  Fargate controller. Direct CLI/single-container execution remains available. Scheduling, IAM,
+  infrastructure, live AWS acceptance, and a GCP backend remain DANDER-234 through DANDER-236.
+
 ## 2026-08-25 — Hosted Fargate adopts deterministic Standard Workflow executions
 
 - **Provider identity:** Each Control run attempt hashes its logical run and attempt IDs into one

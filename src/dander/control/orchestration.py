@@ -715,34 +715,78 @@ def dispatch_run_attempt(
         raise RunStoreIdempotencyConflictError(
             "the idempotency key belongs to a different logical submission"
         )
-    if stored.record.run_state not in {HostedRunState.QUEUED, HostedRunState.RETRYING}:
+    return dispatch_stored_run_attempt(store, backend, stored, plan, now=now)
+
+
+def dispatch_stored_run_attempt(
+    store: RunStore,
+    backend: ExecutionBackend,
+    stored: StoredRun,
+    plan: ExecutionPlan,
+    *,
+    now: datetime,
+) -> StoredRun:
+    """Dispatch or adopt one already durable queued run during reconciliation.
+
+    Durable run snapshots intentionally retain only a hash of the caller's idempotency key.  This
+    helper therefore operates on the claimed snapshot itself, allowing startup recovery to adopt a
+    provider effect without reconstructing or persisting the original secret-like request token.
+    """
+    _require_utc(now, label="dispatch time")
+    record = stored.record
+    expected = (
+        record.environment,
+        record.project,
+        record.graph,
+        record.graph_revision,
+        record.graph_content_sha256,
+        record.plan_id,
+        record.plan_revision,
+    )
+    actual = (
+        plan.environment,
+        plan.project,
+        plan.graph,
+        plan.graph_revision,
+        plan.graph_content_sha256,
+        plan.plan_id,
+        plan.revision,
+    )
+    if expected != actual:
+        raise OrchestrationContractError("durable run does not select the exact execution plan")
+    if (
+        record.requested_deadline_seconds is not None
+        and record.requested_deadline_seconds > plan.deadline_seconds
+    ):
+        raise OrchestrationContractError("durable run deadline exceeds the execution plan limit")
+    if record.run_state not in {HostedRunState.QUEUED, HostedRunState.RETRYING}:
         return stored
 
-    attempt_number = stored.record.attempt_count + 1
+    attempt_number = record.attempt_count + 1
     if attempt_number > plan.retry_policy.max_attempts:
         raise OrchestrationContractError("run has exhausted its bounded attempt policy")
-    attempt_id = attempt_identity(stored.record.run_id, attempt_number)
+    attempt_id = attempt_identity(record.run_id, attempt_number)
     attempt = AttemptRecord(
-        run_id=stored.record.run_id,
+        run_id=record.run_id,
         attempt_id=attempt_id,
         attempt_number=attempt_number,
         plan_id=plan.plan_id,
         plan_revision=plan.revision,
         backend_id=plan.backend_id,
-        trigger=submission.trigger,
-        created_at=stored.record.updated_at,
+        trigger=record.trigger,
+        created_at=record.updated_at,
     )
     store.append_attempt(attempt)
     handle = backend.submit_or_adopt(
         plan,
-        run_id=stored.record.run_id,
+        run_id=record.run_id,
         attempt_id=attempt_id,
-        trigger=submission.trigger,
+        trigger=record.trigger,
     )
     if handle.backend_id != plan.backend_id:
         raise OrchestrationContractError("backend returned a handle for a different backend")
     updated = transition_run(
-        stored.record,
+        record,
         HostedRunState.RUNNING,
         now=now,
         attempt_count=attempt_number,
@@ -925,6 +969,7 @@ __all__ = [
     "canonical_execution_plan_contents",
     "create_run_record",
     "dispatch_run_attempt",
+    "dispatch_stored_run_attempt",
     "logical_run_identity",
     "transition_run",
     "validate_submission_plan",
