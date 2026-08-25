@@ -244,6 +244,8 @@ def _validate_runtime_bindings(configuration: dict[str, object]) -> None:
     expected_host = f"{workgroup}.{account}.{region}.redshift-serverless.amazonaws.com"
     expected_bucket = f"{workgroup}-{account}-staging"
     expected_role = f"arn:aws:iam::{account}:role/{workgroup}-redshift-copy"
+    expected_cluster = f"arn:aws:ecs:{region}:{account}:cluster/{workgroup}"
+    expected_task_definition = f"arn:aws:ecs:{region}:{account}:task-definition/{workgroup}:1"
     _require(len(account) == 12 and account.isdigit(), "Redshift account is not exact")
     _require(region == "us-east-1", "Redshift region is not exact")
     _require(redshift.get("host") == expected_host, "Redshift host is not exact")
@@ -256,6 +258,14 @@ def _validate_runtime_bindings(configuration: dict[str, object]) -> None:
     )
     _require(data_plane.get("resource_name") == workgroup, "data-plane resource name drifted")
     _require(fargate.get("resource_prefix") == workgroup, "Fargate resource prefix drifted")
+    _require(
+        fargate.get("state_machine_cluster_arn") == expected_cluster,
+        "state-machine cluster ARN is not exact",
+    )
+    _require(
+        fargate.get("state_machine_task_definition_arn") == expected_task_definition,
+        "state-machine task-definition ARN is not exact",
+    )
 
 
 def _validate_bundle_and_hashes(

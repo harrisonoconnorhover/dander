@@ -149,6 +149,16 @@ def test_runtime_target_uses_the_immutable_rc32_tag_with_exact_digest_resolution
             "artifact key",
         ),
         (
+            ("configuration", "fargate_harness", "state_machine_cluster_arn"),
+            "arn:aws:ecs:us-east-1:123456789012:cluster/wrong",
+            "cluster ARN",
+        ),
+        (
+            ("configuration", "fargate_harness", "state_machine_task_definition_arn"),
+            "arn:aws:ecs:us-east-1:123456789012:task-definition/wrong:1",
+            "task-definition ARN",
+        ),
+        (
             (
                 "budget_allocation",
                 "remaining_aggregate_ceiling_after_full_objective_reservation_usd",
@@ -436,6 +446,12 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
             ),
             "transient_launcher_preflight_key": (
                 "phase8/0.9.0rc32/staging/diagnostics/launcher-preflight.json"
+            ),
+            "state_machine_cluster_arn": (
+                "arn:aws:ecs:us-east-1:123456789012:cluster/dander-p8q-rc32-rs-test"
+            ),
+            "state_machine_task_definition_arn": (
+                "arn:aws:ecs:us-east-1:123456789012:task-definition/dander-p8q-rc32-rs-test:1"
             ),
         }
     )

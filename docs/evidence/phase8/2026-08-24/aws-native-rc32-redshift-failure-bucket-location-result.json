@@ -1,0 +1,101 @@
+{
+  "schema": "io.dander.phase8.aws-native-redshift-failure-bucket-location-result/v1",
+  "attempt_date": "2026-08-24",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-bucket-location-objective.json",
+  "protection": {
+    "objective_pull_request": 471,
+    "objective_merge_commit": "d2d0554734e7cfcb376856ee8e2385d2c92bf870",
+    "objective_exact_main_ci_run": 32802486113,
+    "execution_repository_commit": "d2d0554734e7cfcb376856ee8e2385d2c92bf870",
+    "execution_exact_main_ci_run": 32802486113
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "replacement_published": false
+  },
+  "execution": {
+    "state_machine_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c16:rc32-redshift-failure-bucket-location-c16-20260824",
+    "started_at": "2026-08-24T22:59:03.346-04:00",
+    "stopped_at": "2026-08-24T22:59:03.486-04:00",
+    "state_machine_status": "failed",
+    "state_machine_error": "ECS.InvalidParameterException",
+    "state_machine_executions": 1,
+    "ecs_tasks_started": 0,
+    "candidate_executions": 0,
+    "automatic_candidate_retries": 0,
+    "provider_operation_retries": 0,
+    "workload_mutations": 0
+  },
+  "readiness": {
+    "status": "not_started",
+    "artifact_emitted": false
+  },
+  "candidate_result": {
+    "status": "not_started",
+    "stdout_emitted": false,
+    "stderr_emitted": false,
+    "normalized_report_emitted": false
+  },
+  "classification": {
+    "result": "launcher_state_machine_resource_arn_truncation",
+    "failure_boundary": "before_ecs_task_submission",
+    "connection_boundary_reached": false,
+    "candidate_or_product_correction_required": false,
+    "cause": "The generated state-machine definition truncated the literal separators and leading letters in both the ECS cluster and task-definition ARNs, so the ECS integration rejected the cluster resource before creating a task.",
+    "smallest_correction": "Bind both deterministic ECS ARNs in the protected objective and fail validation unless the materialized state-machine definition matches them exactly before creation and execution.",
+    "historical_objective_rewritten": false,
+    "new_protected_objective_required_before_another_execution": true
+  },
+  "artifacts": {
+    "harness_bundle_sha256": "bbcdc41915f48948aa4d10a2f65b6f7570c7553372b5f7c5bd7e62b6d51f8950",
+    "task_policy_sha256": "1890b80799e5c1bf0f0ea4a66c2a865f0afca9a0ec0a731da1e07a4d4e80bf97",
+    "task_definition_sha256": "fb4c1bc2af2543c61764132ead73c6afc28f7e4cd75debcf8287498be0930836",
+    "state_machine_sha256": "9f36e5ee2b649762cb74201c0be9440548c84cc06849d9227bc8355cd2a7ee3c",
+    "execution_sha256": "9339d866eecb46c8ef878483d7534180d3d23ee14d41cad581ddb52723458eb0",
+    "execution_history_summary_sha256": "b610092c9122d2ad2fd29c714a7ec8493083c8e2f4cb7597e3ffdf8a27b852df"
+  },
+  "infrastructure": {
+    "terraform_create_plan_sha256": "a1297fb492ff0fffb00ce940360cd9091ce899d0a4e240f3c6c3996fd9222332",
+    "terraform_create_actions": 37,
+    "terraform_post_apply_changes": 0,
+    "task_definition_revisions": 1,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "harness_objects_removed": 1,
+    "terraform_destroy_plan_sha256": "a8b7a42aafd24cb887539177eae1495ea43b709e3a00ed932c0923bc01d961ce",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 13,
+    "remote_state_lock_versions_removed": 5,
+    "remote_state_lock_delete_markers_removed": 5,
+    "remote_state_prefix_versions_after_cleanup": 0,
+    "remote_state_prefix_delete_markers_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "candidate_digest_retained": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.50",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "conservative_bound_usd": "0.50",
+    "aggregate_authorized_ceiling_usd": "20.00",
+    "aggregate_conservative_bound_after_objective_usd": "16.841419762794",
+    "promotional_credits_relied_upon": false,
+    "promotional_credit_status": "expired_2026-08-15"
+  },
+  "qualification_effect": {
+    "redshift_failure_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "bucket_location_task_policy_simulation_passed": true,
+    "next_scope": "Protect deterministic state-machine ARN bindings and one fresh exact-RC32 objective before another failure-cell execution."
+  }
+}
