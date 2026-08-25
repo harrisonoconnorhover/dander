@@ -59,6 +59,16 @@ def serve_control(
         "--execution-plan",
         help="Canonical hosted execution-plan JSON; repeat for each active graph.",
     ),
+    trigger_specs: list[Path] | None = typer.Option(  # noqa: B008
+        None,
+        "--trigger-spec",
+        help="Canonical scheduled TriggerSpec JSON; repeat for each Control-owned schedule.",
+    ),
+    schedule_queue_url: str | None = typer.Option(
+        None,
+        "--schedule-queue-url",
+        help="Encrypted standard SQS queue receiving scheduled Control wakeups.",
+    ),
     run_store_bucket: str | None = typer.Option(
         None,
         "--run-store-bucket",
@@ -116,6 +126,12 @@ def serve_control(
             raise ClickException(
                 "--execution-plan and --run-store-bucket must be configured together."
             )
+        if bool(trigger_specs) != (schedule_queue_url is not None):
+            raise ClickException(
+                "--trigger-spec and --schedule-queue-url must be configured together."
+            )
+        if trigger_specs and not execution_plans:
+            raise ClickException("Scheduled triggers require --execution-plan configuration.")
         if not _is_loopback(host) and oidc is None:
             raise ClickException(
                 "External Control binds require a valid --oidc-config deployment input."
@@ -145,6 +161,8 @@ def serve_control(
                 deployment_name=aws_deployment_name,
                 reconcile_interval_seconds=reconcile_interval_seconds,
                 shutdown_grace_seconds=shutdown_grace_seconds,
+                trigger_paths=trigger_specs or (),
+                schedule_queue_url=schedule_queue_url,
             )
             try:
                 application = ControlApplication(

@@ -34,6 +34,7 @@ locals {
     var.bootstrap_json != "" &&
     var.druff_caddyfile != ""
   )
+  schedule_profile = local.full_profile && length(var.control_schedules) > 0
   tags = {
     managed-by = "dander"
     phase      = "d7"
@@ -41,6 +42,7 @@ locals {
   }
   control_config_script = <<-PYTHON
     import base64
+    import json
     import os
     from pathlib import Path
 
@@ -52,6 +54,22 @@ locals {
         path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         path.write_bytes(base64.b64decode(os.environ[variable], validate=True))
         path.chmod(0o444)
+
+    for variable, destination in (
+        ("EXECUTION_PLANS_B64", "/config/orchestration/plans"),
+        ("TRIGGER_SPECS_B64", "/config/orchestration/triggers"),
+    ):
+        documents = json.loads(base64.b64decode(os.environ[variable], validate=True))
+        if not isinstance(documents, dict):
+            raise ValueError("Control orchestration config must be an object")
+        root = Path(destination)
+        root.mkdir(mode=0o755, parents=True, exist_ok=True)
+        for name, contents in documents.items():
+            if not isinstance(name, str) or not isinstance(contents, str):
+                raise ValueError("Control orchestration config entry is invalid")
+            path = root / f"{name}.json"
+            path.write_text(contents, encoding="utf-8")
+            path.chmod(0o444)
   PYTHON
   druff_config_script   = <<-PYTHON
     import base64
@@ -100,6 +118,20 @@ check "full_profile_is_complete" {
   }
 }
 
+check "control_orchestration_is_consistent" {
+  assert {
+    condition = (
+      length(var.trigger_spec_json) == length(var.control_schedules) &&
+      length(setsubtract(toset(keys(var.trigger_spec_json)), toset(keys(var.control_schedules)))) == 0 &&
+      length(setsubtract(toset(keys(var.control_schedules)), toset(keys(var.trigger_spec_json)))) == 0 &&
+      alltrue([for schedule in values(var.control_schedules) :
+        contains(keys(var.execution_plan_json), schedule.plan_revision)
+      ])
+    )
+    error_message = "Control schedules require matching trigger specs and registered plan revisions."
+  }
+}
+
 resource "aws_s3_bucket" "graphs" {
   bucket        = var.graph_bucket
   force_destroy = true
@@ -142,6 +174,71 @@ resource "aws_s3_bucket_versioning" "graphs" {
   versioning_configuration {
     status = "Enabled"
   }
+}
+
+resource "aws_sqs_queue" "control_schedule_dlq" {
+  count                      = local.schedule_profile ? 1 : 0
+  name                       = "${local.prefix}-control-schedule-dlq"
+  message_retention_seconds  = 1209600
+  sqs_managed_sse_enabled    = true
+  visibility_timeout_seconds = 120
+  receive_wait_time_seconds  = 20
+  tags                       = merge(local.tags, { purpose = "control-schedule-dlq" })
+}
+
+resource "aws_sqs_queue" "control_schedule" {
+  count                      = local.schedule_profile ? 1 : 0
+  name                       = "${local.prefix}-control-schedules"
+  message_retention_seconds  = 345600
+  sqs_managed_sse_enabled    = true
+  visibility_timeout_seconds = 120
+  receive_wait_time_seconds  = 20
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.control_schedule_dlq[0].arn
+    maxReceiveCount     = 5
+  })
+  tags = merge(local.tags, { purpose = "control-schedule-wakeups" })
+}
+
+resource "aws_sqs_queue_redrive_allow_policy" "control_schedule_dlq" {
+  count     = local.schedule_profile ? 1 : 0
+  queue_url = aws_sqs_queue.control_schedule_dlq[0].id
+  redrive_allow_policy = jsonencode({
+    redrivePermission = "byQueue"
+    sourceQueueArns   = [aws_sqs_queue.control_schedule[0].arn]
+  })
+}
+
+resource "aws_sqs_queue_policy" "control_schedule" {
+  count     = local.schedule_profile ? 1 : 0
+  queue_url = aws_sqs_queue.control_schedule[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "sqs:*"
+      Resource  = aws_sqs_queue.control_schedule[0].arn
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
+}
+
+resource "aws_sqs_queue_policy" "control_schedule_dlq" {
+  count     = local.schedule_profile ? 1 : 0
+  queue_url = aws_sqs_queue.control_schedule_dlq[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "sqs:*"
+      Resource  = aws_sqs_queue.control_schedule_dlq[0].arn
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
 }
 
 resource "aws_security_group" "alb" {
@@ -610,6 +707,113 @@ resource "aws_iam_role_policy" "control_graphs" {
   policy = data.aws_iam_policy_document.control_graphs[0].json
 }
 
+data "aws_iam_policy_document" "control_schedules" {
+  count = local.schedule_profile ? 1 : 0
+
+  statement {
+    sid    = "ConsumeScheduleWakeups"
+    effect = "Allow"
+    actions = [
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+      "sqs:ReceiveMessage",
+    ]
+    resources = [aws_sqs_queue.control_schedule[0].arn]
+  }
+}
+
+resource "aws_iam_role_policy" "control_schedules" {
+  count  = local.schedule_profile ? 1 : 0
+  name   = "dander-d7-control-schedules"
+  role   = aws_iam_role.control_task[0].id
+  policy = data.aws_iam_policy_document.control_schedules[0].json
+}
+
+data "aws_iam_policy_document" "scheduler_assume" {
+  count = local.schedule_profile ? 1 : 0
+
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [var.aws_account_id]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceArn"
+      values = [
+        "arn:${data.aws_partition.current.partition}:scheduler:${var.region}:${var.aws_account_id}:schedule-group/default"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "scheduler" {
+  count              = local.schedule_profile ? 1 : 0
+  name               = "${local.prefix}-scheduler"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume[0].json
+  tags               = merge(local.tags, { component = "scheduler" })
+}
+
+data "aws_iam_policy_document" "scheduler_send" {
+  count = local.schedule_profile ? 1 : 0
+
+  statement {
+    sid     = "SendScheduleWakeups"
+    effect  = "Allow"
+    actions = ["sqs:SendMessage"]
+    resources = [
+      aws_sqs_queue.control_schedule[0].arn,
+      aws_sqs_queue.control_schedule_dlq[0].arn,
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "scheduler_send" {
+  count  = local.schedule_profile ? 1 : 0
+  name   = "dander-d7-send-schedule-wakeups"
+  role   = aws_iam_role.scheduler[0].id
+  policy = data.aws_iam_policy_document.scheduler_send[0].json
+}
+
+resource "aws_scheduler_schedule" "control" {
+  for_each = var.foundation_only ? {} : var.control_schedules
+
+  name                         = "${local.prefix}-schedule-${substr(sha256(each.key), 0, 12)}"
+  description                  = "Dander Control trigger ${each.key}"
+  state                        = each.value.enabled ? "ENABLED" : "DISABLED"
+  schedule_expression          = each.value.expression
+  schedule_expression_timezone = each.value.time_zone
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_sqs_queue.control_schedule[0].arn
+    role_arn = aws_iam_role.scheduler[0].arn
+    input    = each.value.message
+
+    dead_letter_config {
+      arn = aws_sqs_queue.control_schedule_dlq[0].arn
+    }
+
+    retry_policy {
+      maximum_event_age_in_seconds = 3600
+      maximum_retry_attempts       = 3
+    }
+  }
+}
+
 resource "aws_ecs_cluster" "profile" {
   count = local.full_profile ? 1 : 0
   name  = local.cluster_name
@@ -660,6 +864,8 @@ resource "aws_ecs_task_definition" "control" {
       environment = [
         { name = "CONTROL_OIDC_B64", value = base64encode(var.control_oidc_json) },
         { name = "GRAPH_STORE_B64", value = base64encode(var.graph_store_json) },
+        { name = "EXECUTION_PLANS_B64", value = base64encode(jsonencode(var.execution_plan_json)) },
+        { name = "TRIGGER_SPECS_B64", value = base64encode(jsonencode(var.trigger_spec_json)) },
       ]
       linuxParameters = {
         initProcessEnabled = true
@@ -685,10 +891,13 @@ resource "aws_ecs_task_definition" "control" {
       memory                 = 1024
       readonlyRootFilesystem = true
       user                   = "65532:65532"
-      command                = var.control_args
-      stopTimeout            = 30
-      dependsOn              = [{ containerName = "config-init", condition = "SUCCESS" }]
-      portMappings           = [{ containerPort = 8770, hostPort = 8770, protocol = "tcp" }]
+      command = concat(
+        var.control_args,
+        local.schedule_profile ? ["--schedule-queue-url", aws_sqs_queue.control_schedule[0].url] : [],
+      )
+      stopTimeout  = 30
+      dependsOn    = [{ containerName = "config-init", condition = "SUCCESS" }]
+      portMappings = [{ containerPort = 8770, hostPort = 8770, protocol = "tcp" }]
       linuxParameters = {
         initProcessEnabled = true
         capabilities       = { add = [], drop = ["ALL"] }

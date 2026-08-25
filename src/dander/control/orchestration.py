@@ -235,6 +235,21 @@ class TriggerSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class ScheduleWakeup:
+    """One provider-neutral scheduled occurrence delivered to always-on Control."""
+
+    trigger_id: str
+    plan_revision: str
+    scheduled_occurrence: datetime
+
+    def __post_init__(self) -> None:
+        _require_portable_id(self.trigger_id, label="trigger")
+        if _SHA256.fullmatch(self.plan_revision) is None:
+            raise OrchestrationContractError("wakeup plan revision must be a lowercase SHA-256")
+        _require_utc(self.scheduled_occurrence, label="scheduled occurrence")
+
+
+@dataclass(frozen=True, slots=True)
 class RunTrigger:
     """The exact trigger occurrence attached to one logical run submission."""
 

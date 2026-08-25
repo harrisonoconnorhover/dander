@@ -13,6 +13,12 @@ from pydantic import ValidationError
 
 import dander.deployment.aws_control_plane as aws_control_plane
 from dander.control.auth import HostedOIDCDeploymentInput
+from dander.control.orchestration import ExecutionPlan, RetryPolicy, TriggerKind, TriggerSpec
+from dander.control.orchestration_serialization import (
+    SCHEDULED_TIME_TOKEN,
+    serialize_execution_plan,
+    serialize_trigger_spec,
+)
 from dander.deployment.aws_control_plane import (
     AWS_CONTROL_PLANE_SCHEMA,
     AWSControlPlaneFoundationInput,
@@ -24,6 +30,15 @@ from dander.deployment.aws_control_plane import (
     verify_live_aws_control_plane,
     write_aws_control_plane,
 )
+from dander.deployment.projection import (
+    EXECUTION_PROJECTION_SCHEMA,
+    ExecutionTemplate,
+    NetworkPlacement,
+    ObservabilityProjection,
+    ResourceProjection,
+    ScheduleProjection,
+)
+from dander.runtime_contract import RUNTIME_CONTRACT
 
 ROOT = Path(__file__).resolve().parents[2]
 ACCOUNT = "123456789012"
@@ -81,6 +96,82 @@ def _source(**updates: object) -> AWSControlPlaneInput:
     }
     values.update(updates)
     return AWSControlPlaneInput.model_validate(values)
+
+
+def _scheduled_source(**updates: object) -> AWSControlPlaneInput:
+    template = ExecutionTemplate(
+        schema=EXECUTION_PROJECTION_SCHEMA,
+        contract=RUNTIME_CONTRACT,
+        pipeline_id="hosted_graph",
+        profile_id="aws",
+        launcher="fargate",
+        image=_DANDER,
+        command=(
+            "runtime",
+            "execute",
+            "--contract",
+            RUNTIME_CONTRACT,
+            "--pipeline",
+            "hosted_graph",
+            "--platform",
+            "aws",
+        ),
+        configuration_reference="/app/dander.yaml",
+        environment=(),
+        secret_bindings=(),
+        workload_identity="task-role",
+        resources=ResourceProjection(
+            cpu_millis=1000,
+            memory_mib=2048,
+            ephemeral_storage_mib=21504,
+            deadline_seconds=300,
+            runtime_retry_count=0,
+            launcher_retry_count=1,
+        ),
+        schedule=ScheduleProjection(
+            task_count=1,
+            maximum_parallelism=1,
+            expression=None,
+            time_zone=None,
+            paused=True,
+        ),
+        network=NetworkPlacement(),
+        labels=(),
+        observability=ObservabilityProjection(
+            log_destination="cloudwatch",
+            metric_namespace="dander",
+            alert_target=None,
+            retention_days=30,
+        ),
+    )
+    plan = ExecutionPlan(
+        plan_id="aws-redshift",
+        environment="production",
+        project="demo",
+        graph="hosted-graph",
+        graph_revision="graph-r1",
+        graph_content_sha256="e" * 64,
+        backend_id="fargate",
+        profile_id="aws",
+        image=_DANDER,
+        execution_template=template,
+        deadline_seconds=300,
+        retry_policy=RetryPolicy(max_attempts=2),
+    )
+    spec = TriggerSpec(
+        trigger_id="daily-redshift",
+        kind=TriggerKind.SCHEDULE,
+        plan_id=plan.plan_id,
+        plan_revision=plan.revision,
+        enabled=True,
+        schedule="cron(0 6 * * ? *)",
+        time_zone="America/New_York",
+    )
+    return _source(
+        execution_plan_json=(serialize_execution_plan(plan).decode(),),
+        trigger_spec_json=(serialize_trigger_spec(spec).decode(),),
+        **updates,
+    )
 
 
 def test_inputs_are_closed_immutable_and_use_exact_aws_boundaries() -> None:
@@ -172,6 +263,73 @@ def test_foundation_and_complete_projection_are_deterministic_and_provider_neutr
     assert "private_key" not in combined
 
 
+def test_schedule_projection_routes_exact_occurrences_through_control() -> None:
+    source = _scheduled_source()
+    rendered = render_aws_control_plane(source)
+    active = json.loads(rendered["active.tfvars.json"])
+    manifest = json.loads(rendered["deployment.json"])
+    plan = source.execution_plans[0]
+    spec = source.trigger_specs[0]
+
+    assert active["execution_plan_json"] == {plan.revision: source.execution_plan_json[0]}
+    assert active["trigger_spec_json"] == {spec.trigger_id: source.trigger_spec_json[0]}
+    assert active["control_schedules"][spec.trigger_id] == {
+        "enabled": True,
+        "expression": "cron(0 6 * * ? *)",
+        "message": (
+            '{"plan_revision":"'
+            + plan.revision
+            + '","scheduled_occurrence":"'
+            + SCHEDULED_TIME_TOKEN
+            + '","schema":"io.dander.control.schedule-wakeup/v1",'
+            '"trigger_id":"daily-redshift"}'
+        ),
+        "plan_revision": plan.revision,
+        "time_zone": "America/New_York",
+    }
+    assert active["control_args"][-6:] == [
+        "--run-store-prefix",
+        "dander-control/v1",
+        "--run-environment",
+        "production",
+        "--trigger-spec",
+        "/etc/dander/orchestration/triggers/daily-redshift.json",
+    ]
+    assert manifest["orchestration"] == {
+        "execution_plan_revisions": [plan.revision],
+        "run_environment": "production",
+        "run_store_bucket": "dander-d7-unit-graphs",
+        "run_store_prefix": "dander-control/v1",
+        "scheduled_trigger_ids": ["daily-redshift"],
+    }
+    terraform = (ROOT / "infra" / "aws-control" / "main.tf").read_text(encoding="utf-8")
+    scheduler_trust = terraform.split('data "aws_iam_policy_document" "scheduler_assume"', 1)[
+        1
+    ].split('resource "aws_iam_role" "scheduler"', 1)[0]
+    assert 'variable = "aws:SourceAccount"' in scheduler_trust
+    assert "schedule-group/default" in scheduler_trust
+
+    with pytest.raises(ValidationError, match="canonical JSON"):
+        _source(execution_plan_json=("{}",))
+    with pytest.raises(ValidationError, match="exact configured plan"):
+        _source(
+            execution_plan_json=source.execution_plan_json,
+            trigger_spec_json=(
+                serialize_trigger_spec(
+                    TriggerSpec(
+                        trigger_id="wrong-plan",
+                        kind=TriggerKind.SCHEDULE,
+                        plan_id="other-plan",
+                        plan_revision=plan.revision,
+                        enabled=True,
+                        schedule="rate(1 day)",
+                        time_zone="UTC",
+                    )
+                ).decode(),
+            ),
+        )
+
+
 @pytest.mark.parametrize("complete", [False, True])
 def test_write_and_preflight_are_mode_bounded_and_backend_free(
     tmp_path: Path,
@@ -217,8 +375,9 @@ def test_live_verifier_is_read_only_and_checks_exact_provider_boundaries(
     monkeypatch: pytest.MonkeyPatch,
     environment: Literal["active", "rollback"],
 ) -> None:
-    source = _source()
+    source = _scheduled_source()
     rendered = render_aws_control_plane(source)
+    active = json.loads(rendered["active.tfvars.json"])
     desired = (
         {"control": _DANDER, "druff": _DRUFF}
         if environment == "active"
@@ -330,6 +489,53 @@ def test_live_verifier_is_read_only_and_checks_exact_provider_boundaries(
             }
         if arguments[:2] == ("s3api", "get-bucket-encryption"):
             return {"ServerSideEncryptionConfiguration": {"Rules": [{}]}}
+        if arguments[:2] == ("sqs", "get-queue-attributes"):
+            queue_url = arguments[arguments.index("--queue-url") + 1]
+            if queue_url.endswith("-dlq"):
+                return {
+                    "Attributes": {
+                        "QueueArn": (
+                            f"arn:aws:sqs:{REGION}:{ACCOUNT}:dander-d7-control-schedule-dlq"
+                        ),
+                        "SqsManagedSseEnabled": "true",
+                    }
+                }
+            return {
+                "Attributes": {
+                    "QueueArn": f"arn:aws:sqs:{REGION}:{ACCOUNT}:dander-d7-control-schedules",
+                    "SqsManagedSseEnabled": "true",
+                    "ReceiveMessageWaitTimeSeconds": "20",
+                    "VisibilityTimeout": "120",
+                    "RedrivePolicy": json.dumps(
+                        {
+                            "deadLetterTargetArn": (
+                                f"arn:aws:sqs:{REGION}:{ACCOUNT}:dander-d7-control-schedule-dlq"
+                            ),
+                            "maxReceiveCount": "5",
+                        }
+                    ),
+                }
+            }
+        if arguments[:2] == ("scheduler", "get-schedule"):
+            spec = source.trigger_specs[0]
+            return {
+                "State": "ENABLED",
+                "ScheduleExpression": spec.schedule,
+                "ScheduleExpressionTimezone": spec.time_zone,
+                "FlexibleTimeWindow": {"Mode": "OFF"},
+                "Target": {
+                    "Arn": f"arn:aws:sqs:{REGION}:{ACCOUNT}:dander-d7-control-schedules",
+                    "RoleArn": f"arn:aws:iam::{ACCOUNT}:role/dander-d7-scheduler",
+                    "Input": active["control_schedules"][spec.trigger_id]["message"],
+                    "DeadLetterConfig": {
+                        "Arn": (f"arn:aws:sqs:{REGION}:{ACCOUNT}:dander-d7-control-schedule-dlq")
+                    },
+                    "RetryPolicy": {
+                        "MaximumEventAgeInSeconds": 3600,
+                        "MaximumRetryAttempts": 3,
+                    },
+                },
+            }
         raise AssertionError(arguments)
 
     monkeypatch.setattr(aws_control_plane, "_aws_json", fake_aws)
@@ -351,6 +557,11 @@ def test_live_verifier_is_read_only_and_checks_exact_provider_boundaries(
 
     assert result["status"] == "passed"
     assert result["images"] == desired
+    assert result["scheduling"] == {
+        "queue_arn": f"arn:aws:sqs:{REGION}:{ACCOUNT}:dander-d7-control-schedules",
+        "dead_letter_arn": (f"arn:aws:sqs:{REGION}:{ACCOUNT}:dander-d7-control-schedule-dlq"),
+        "scheduled_trigger_ids": ["daily-redshift"],
+    }
     assert calls
     assert all(
         arguments[1].startswith(("get-", "describe-", "list-"))
@@ -433,9 +644,16 @@ def _task_definition(
     workload: Literal["control", "druff"],
 ) -> dict[str, object]:
     if workload == "control":
+        active = json.loads(rendered["active.tfvars.json"])
         environment = {
             "CONTROL_OIDC_B64": _b64(rendered["control-oidc.json"]),
             "GRAPH_STORE_B64": _b64(rendered["control-graph-store.json"]),
+            "EXECUTION_PLANS_B64": _b64(
+                json.dumps(active["execution_plan_json"], sort_keys=True, separators=(",", ":"))
+            ),
+            "TRIGGER_SPECS_B64": _b64(
+                json.dumps(active["trigger_spec_json"], sort_keys=True, separators=(",", ":"))
+            ),
         }
         role = source.control_task_role_arn
     else:
@@ -474,6 +692,20 @@ def _task_definition(
                         {"containerPath": "/etc/dander", "readOnly": True},
                         {"containerPath": "/tmp", "readOnly": False},
                     ],
+                    **(
+                        {
+                            "command": [
+                                *active["control_args"],
+                                "--schedule-queue-url",
+                                (
+                                    f"https://sqs.{REGION}.amazonaws.com/{ACCOUNT}/"
+                                    "dander-d7-control-schedules"
+                                ),
+                            ]
+                        }
+                        if workload == "control"
+                        else {}
+                    ),
                 },
             ],
         }

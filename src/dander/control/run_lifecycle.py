@@ -63,6 +63,16 @@ _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 _LOGGER = logging.getLogger("dander.control.reconciler")
 
 
+class RunSubmissionSource(Protocol):
+    """Background ingress owned and shut down by the composed run lifecycle."""
+
+    def start(self) -> None: ...
+
+    def ready(self) -> bool: ...
+
+    def close(self) -> None: ...
+
+
 @runtime_checkable
 class DurableMutationClaimStore(Protocol):
     """Create-only mutation claim extension required by the composed lifecycle."""
@@ -279,11 +289,19 @@ class ControlRunLifecycle:
         self._state_lock = threading.Lock()
         self._mutation_lock = threading.RLock()
         self._thread: threading.Thread | None = None
+        self._submission_sources: list[RunSubmissionSource] = []
         self._scan_cursor: str | None = None
         self._initial_recovery_complete = False
         self._scan_failed = False
         self._last_pass_failed = False
         self._closed = False
+
+    def install_submission_source(self, source: RunSubmissionSource) -> None:
+        """Install one ingress source before the reconciler and its workers start."""
+        with self._state_lock:
+            if self._closed or self._thread is not None:
+                raise ValueError("Run submission sources must be installed before startup.")
+            self._submission_sources.append(source)
 
     def start_reconciler(self) -> None:
         """Start the one active background reconciler for this Control process."""
@@ -299,6 +317,9 @@ class ControlRunLifecycle:
             )
             self._thread = thread
             thread.start()
+            sources = tuple(self._submission_sources)
+        for source in sources:
+            source.start()
 
     def ready(self) -> bool:
         """Report readiness only after one complete durable recovery scan."""
@@ -310,6 +331,7 @@ class ControlRunLifecycle:
                 and thread.is_alive()
                 and self._initial_recovery_complete
                 and not self._last_pass_failed
+                and all(source.ready() for source in self._submission_sources)
             )
 
     def start(self, submission: RunSubmission) -> RunStatusResponse:
@@ -534,6 +556,13 @@ class ControlRunLifecycle:
                 return
             self._closed = True
             thread = self._thread
+            sources = tuple(self._submission_sources)
+        source_failed = False
+        for source in sources:
+            try:
+                source.close()
+            except ControlOperationDependencyError:
+                source_failed = True
         self._stop.set()
         if thread is not None:
             thread.join(timeout=self._shutdown_grace)
@@ -541,7 +570,7 @@ class ControlRunLifecycle:
                 raise ControlOperationDependencyError(
                     "The Control reconciler did not stop within its shutdown grace period."
                 )
-        failed = False
+        failed = source_failed
         try:
             self._backends.close()
         except ExecutionBackendError:
