@@ -1,0 +1,166 @@
+{
+  "schema": "io.dander.phase8.aws-native-redshift-failure-external-cost-result/v1",
+  "attempt_date": "2026-08-25",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-external-cost-objective.json",
+  "protection": {
+    "objective_pull_request": 476,
+    "objective_merge_commit": "85dc37a191653731e81c2bf76eeacd0c040887a7",
+    "objective_exact_main_ci_run": 32815488498,
+    "execution_repository_commit": "85dc37a191653731e81c2bf76eeacd0c040887a7",
+    "execution_exact_main_ci_run": 32815488498
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "replacement_published": false
+  },
+  "launcher_setup": {
+    "task_definition_registration_api_attempts": 1,
+    "task_definition_revisions": 1,
+    "state_machine_create_api_attempts": 1,
+    "state_machine_definitions_created": 1,
+    "materialized_cluster_arn_exact": true,
+    "materialized_task_definition_arn_exact": true,
+    "installed_policies_exact": true,
+    "state_machine_retry_states": 0,
+    "state_machine_catch_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0
+  },
+  "execution": {
+    "state_machine_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c21:rc32-redshift-failure-external-cost-c21-20260825",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-fail-c21/b9ec7be412c044379f509065ae6433d4",
+    "started_at": "2026-08-25T02:23:37.989000-04:00",
+    "stopped_at": "2026-08-25T02:26:07.969000-04:00",
+    "task_started_at": "2026-08-25T02:24:13.830000-04:00",
+    "task_stopped_at": "2026-08-25T02:26:06.677000-04:00",
+    "state_machine_status": "succeeded",
+    "task_exit_code": 0,
+    "state_machine_executions": 1,
+    "ecs_tasks_started": 1,
+    "candidate_executions": 1,
+    "automatic_candidate_retries": 0,
+    "provider_operation_retries": 0,
+    "workload_reexecutions": 0
+  },
+  "readiness": {
+    "status": "passed",
+    "validation_query_attempts": 2,
+    "first_validation_query_exception_class": "TimeoutError",
+    "second_validation_query_status": "passed",
+    "maximum_validation_query_attempts": 4
+  },
+  "candidate_result": {
+    "status": "interim_passed",
+    "interim_schema": "io.dander.phase8.redshift-failure-interim/v1",
+    "probe_count": 4,
+    "credential_rejection_duration_ms": 417,
+    "failed_copy_cleanup_duration_ms": 2219,
+    "provider_operation_recovery_duration_ms": 11445,
+    "stale_publications_rejected": 1,
+    "concurrent_claim_attempts": 2,
+    "copy_telemetry_operations": 2,
+    "query_ids": [
+      "206199"
+    ],
+    "staging_tables": 0,
+    "staging_objects": 0,
+    "cleanup_verified": true,
+    "stderr_bytes": 0
+  },
+  "direct_post_terminal_attribution": {
+    "query_identity_class": "namespace_creator_superuser",
+    "created_at": "2026-08-25T02:27:52.826000-04:00",
+    "seconds_after_step_functions_terminal": "104.857",
+    "seconds_after_task_terminal": "106.149",
+    "charged_seconds": 1920,
+    "compute_seconds": "262.0",
+    "maximum_compute_capacity_rpu": "8.0",
+    "provider_cost_usd": "0.200000000000",
+    "owned_failure_schemas": 0,
+    "queries_executed": 2,
+    "usage_queries_executed": 1
+  },
+  "offline_finalization": {
+    "immutable_rc32_image_used": true,
+    "provider_operations": 0,
+    "workload_reexecutions": 0,
+    "status": "failed_contract_mismatch",
+    "sanitized_error": "Redshift failure evidence is incomplete",
+    "normalized_report_emitted": false
+  },
+  "classification": {
+    "result": "offline_finalization_copy_telemetry_contract_mismatch",
+    "failure_boundary": "normalized_report_assembly_after_successful_workload_cleanup_and_provider_cost_attribution",
+    "candidate_or_product_correction_required": false,
+    "benchmark_harness_correction_required": true,
+    "objective_configuration_correction_required": true,
+    "direct_evidence": "The protected workload emitted two zero-retry COPY telemetry records for one logical recovery write: the staged LOAD and the fenced publication. The report harness required exactly one record, so offline finalization rejected otherwise complete evidence.",
+    "smallest_correction": "Require the two established staged-writer telemetry records, protect the corrected harness and finalization-only objective, and finalize this exact interim offline without another provider operation or workload execution.",
+    "historical_objective_rewritten": false,
+    "correction_objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-finalization-telemetry-objective.json"
+  },
+  "artifacts": {
+    "harness_bundle_sha256": "f09e937069f39b942467e4bb1e17aca81f8f03a680c8f884c445e1c225904c3d",
+    "task_policy_sha256": "d835de1b5e63ccb742d8337c88f1043dba193a2facd19f0fbc877ad032482105",
+    "execution_policy_sha256": "8b8802048c19850e25945c6ebad6d3c23f7914d47c25aa12b50dca3f9181d950",
+    "state_machine_policy_sha256": "00c0ba4278474485a2fdd6e6e4eab00e343b64cecfe5da7b053673ba382d5896",
+    "task_definition_sha256": "e3fe1b43ff4a2aeaed88c52e87e664a5546cf96b8aee52d9333261978778c936",
+    "state_machine_sha256": "555f2cab1466481a2d3d86376faa60fa05214c45808ad0abc0fdf4ad21d44d04",
+    "execution_sha256": "17c35a6b557125c64ee8903da9f6c3ccb3dd67d349ccdfc3a7e7b5ba6e7ed8d5",
+    "execution_history_summary_sha256": "957c20da5f662433d6722c05a1213c2052149405b887f747ee0acc815da2f814",
+    "task_description_sha256": "561981565bf75511628257c62e88023129d85937628f7c28c6d9565a07b74b36",
+    "launcher_preflight_sha256": "cc778d65de4bcd70a28fc519bb8f50e1c7de9e7a594e88689caed474118e653c",
+    "interim_sha256": "f39820948f1cd838b9381fd5393c1578f76795b55375b7a54cfcbc3252593c9f",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "failed_finalization_stderr_sha256": "23920aa8e7801eb031315fcc0d36e5f532e6bdc2cdc0a5c856ca581b5fcfc9dc",
+    "direct_usage_description_sha256": "704f2fd0a686b998f8f633a376082636e249106de0f3eaec6c436053dc5e4c7d",
+    "direct_usage_result_sha256": "638ed1f588a86c86d0f3e77db39f21725cb52df5281189a3718ec5847bad56ba",
+    "direct_schema_description_sha256": "6aa9dd7e0d6faace497b7fc00ec5a75510b0247b119a6f3c187dd7a93ee1eae6",
+    "direct_schema_result_sha256": "177363518f53d02a5f570d4a77d5501a5c19c0a1d0fc50ab32431712f41623d6",
+    "objects_after_execution_sha256": "3ff823cddd0a52a5655bcaddd3d8f99f0bf5222180c3a90907a363d805c41b14"
+  },
+  "infrastructure": {
+    "terraform_create_plan_sha256": "ebef91d388e9c7b967b2c1e7db520da9a3ef9d4e8d97d49773d4c7930c88fa2e",
+    "terraform_create_actions": 37,
+    "terraform_post_apply_changes": 0,
+    "redshift_serverless_base_capacity_rpu": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 2,
+    "redshift_serverless_usage_limit_breach_action": "deactivate"
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "harness_and_diagnostics_objects_removed": 4,
+    "terraform_destroy_plan_sha256": "67c5cf543c81cbb692ff31203d1f269fcc72de702f34c90d7d02fc1f5e48ac02",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 12,
+    "remote_state_delete_markers_removed": 0,
+    "remote_state_lock_versions_removed": 5,
+    "remote_state_lock_delete_markers_removed": 5,
+    "remote_state_exact_keys_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "inactive_empty_ecs_cluster_tombstone_observed": true,
+    "candidate_digest_retained": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.75",
+    "provider_measured_redshift_cost_usd": "0.200000000000",
+    "conservative_bound_usd": "0.200000000000",
+    "status": "provider_measured_post_terminal",
+    "aggregate_authorized_ceiling_usd": "20.00",
+    "aggregate_provider_measured_or_conservative_after_objective_usd": "19.441419762794",
+    "promotional_credits_relied_upon": false,
+    "promotional_credit_status": "expired_2026-08-15"
+  },
+  "qualification_effect": {
+    "redshift_failure_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "usage_limit_guard_reached": false,
+    "next_scope": "Protect the two-record telemetry correction and finalization-only objective, then finalize this exact C21 interim offline with zero workload reruns."
+  }
+}

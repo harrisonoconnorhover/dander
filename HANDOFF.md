@@ -2,36 +2,37 @@
 
 ## Finished
 
-- Ran exact-main RC32 C20 once; readiness and all probes passed, but the non-superuser runtime role could not observe the superuser-only usage view.
-- Captured one post-terminal namespace-creator read: 3,840 charged seconds, 268 compute seconds, 8 RPU, USD 0.40, and zero failure schemas.
-- Removed the launcher first, destroyed all 37 data-plane resources, purged exact state/lock history, and verified empty direct inventories.
-- Added a C21 objective that emits a cleanup-verified interim, performs one post-terminal privileged read, and finalizes offline in immutable RC32 without repeating the workload.
+- Ran the exact-main C21 objective once: the ARM64 task exited 0 with all four probes, zero provider retries, and cleanup verified.
+- Performed the one post-terminal superuser read: 1,920 charged seconds, 262 compute seconds, 8 RPU, and provider-measured cost of USD 0.20.
+- Verified zero owned failure schemas, removed the launcher first, destroyed all 37 resources, purged the exact state/lock history, and confirmed empty active inventories.
+- Recorded the C21 result and added the smallest report correction: one staged recovery write emits LOAD plus fenced-publication telemetry.
+- Added a finalization-only correction objective bound to the existing interim; it authorizes zero provider operations and zero workload reruns.
 
 ## Try It
 
-Run `uv run python scripts/validate_redshift_objective.py docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-external-cost-objective.json --smoke-image 184463061564.dkr.ecr.us-east-1.amazonaws.com/dander:0.9.0rc32`.
+Run `uv run --extra dev --extra redshift --extra postgres pytest -q tests/portability/test_redshift_failure_phase8_benchmark.py`, then validate the finalization objective with `python3 scripts/validate_redshift_objective.py docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-finalization-telemetry-objective.json`.
 
 ## Checks
 
-- 85 focused benchmark, launcher, and validator tests passed.
-- Ruff lint/format and strict typing across 442 source files passed.
-- C21 objective validation, JSON parsing, and immutable ARM64 RC32 container smoke passed.
-- Provider-measured C20 spend leaves USD 0.008580237206 after the full C21 reservation.
+- C21 exact-main CI run `32815488498` passed at `85dc37a191653731e81c2bf76eeacd0c040887a7`.
+- All 22 focused Redshift failure tests passed with the two-record contract.
+- Finalization objective validation and JSON parsing passed.
+- Direct cleanup inventories are empty; ECS retains only an inactive, zero-task tombstone.
 
 ## Decisions
 
-- Preserve C20 as failed because no normalized report was emitted; its workload and cleanup evidence passed.
-- Follow AWS's documented superuser boundary instead of elevating the runtime task role.
-- Keep one workload task, one post-terminal usage query, zero workload reexecutions, the 2 RPU-hour guard, and the USD 0.75 reservation.
+- Preserve the successful C21 workload and cost evidence; do not rerun paid infrastructure for an offline report assertion.
+- Treat two COPY telemetry records as correct product behavior: staged LOAD and fenced publication.
+- Require protected exact-main CI before using the corrected harness for finalization.
 
 ## Remaining
 
-- Protect the C20 result, external finalizer, and C21 objective through PR checks and exact-main CI.
-- Run one fresh C21 execution, finalize its report from one post-terminal provider read, and clean up immediately.
-- Close the Redshift failure cell only if the protected report passes and cleanup remains empty.
+- Protect the correction, C21 result, and finalization-only objective through PR checks and exact-main CI.
+- Finalize the exact C21 interim offline inside immutable RC32 and record the normalized report hash.
+- Close the Redshift failure cell and promote support only if the protected report passes.
 
 ## Review First
 
-- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-quiet-metadata-result.json`
-- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-external-cost-objective.json`
+- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-external-cost-result.json`
+- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-finalization-telemetry-objective.json`
 - `scripts/benchmarks/redshift_failure_phase8.py`
