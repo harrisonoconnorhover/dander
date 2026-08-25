@@ -155,7 +155,7 @@ def canonical_launcher_contract(benchmark_module: str) -> dict[str, object]:
         },
         "iam_readiness": {
             "required_before_candidate": True,
-            "maximum_checks": 5,
+            "maximum_checks": 6,
             "interval_seconds": 5,
             "automatic_retry": False,
             "provider_operation_retries": 0,
