@@ -11,11 +11,11 @@ import resource
 import sys
 import time
 import uuid
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, fields, replace
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from dander import __version__
 from dander.concurrency import FencingToken
@@ -53,6 +53,7 @@ if TYPE_CHECKING:
 
 _APPROVAL_SCHEMA = "io.dander.qualification.objective-approval/v1"
 _CONFIG_SCHEMA = "io.dander.phase8.redshift-bulk/v1"
+_INTERIM_SCHEMA = "io.dander.phase8.redshift-bulk-interim/v1"
 _AUTHORITY_ID = "redshift:phase8-bulk"
 _OBJECTIVES = (
     "cleanup",
@@ -62,6 +63,78 @@ _OBJECTIVES = (
     "wide_copy_completion",
     "wide_throughput_measurement",
 )
+_TASK_ROLE_REQUIREMENTS: dict[str, object] = {
+    "redshift_db_roles_tag": {"key": "RedshiftDbRoles", "value": "dander_runtime"},
+    "required_global_actions": ["tag:GetResources", "tag:GetTagKeys"],
+    "required_global_resource": "*",
+    "required_scoped_actions": [
+        "redshift-serverless:GetCredentials",
+        "s3:DeleteObject",
+        "s3:GetBucketLocation",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:PutObject",
+    ],
+    "required_scoped_resource_binding": (
+        "exact_owned_workgroup_and_staging_bucket_arns_after_apply"
+    ),
+}
+_LEGACY_TASK_ROLE_REQUIREMENTS: dict[str, object] = {
+    "redshift_db_roles_tag": {"key": "RedshiftDbRoles", "value": "dander_runtime"},
+    "required_global_actions": ["tag:GetResources", "tag:GetTagKeys"],
+    "required_global_resource": "*",
+    "redshift_auth_action": "redshift-serverless:GetCredentials",
+    "redshift_auth_resource_binding": "exact_owned_workgroup_arn_after_apply",
+}
+_LEGACY_FARGATE_LAUNCHER_REQUIREMENTS: dict[str, object] = {
+    "runtime_cpu_architecture": "ARM64",
+    "candidate_image_architecture": "arm64",
+    "task_entrypoint": ["/bin/sh", "-c"],
+    "candidate_python_executable": "python",
+    "candidate_cli_executable": "dander",
+    "forbidden_candidate_executable_prefix": "/app/.venv/bin/",
+}
+_FARGATE_LAUNCHER_REQUIREMENTS: dict[str, object] = {
+    "task_cpu_units": 2_048,
+    "task_memory_mib": 4_096,
+    "task_timeout_seconds": 900,
+    "runtime_cpu_architecture": "ARM64",
+    "candidate_image_architecture": "arm64",
+    "task_entrypoint": ["/bin/sh", "-c"],
+    "candidate_python_executable": "python",
+    "candidate_cli_executable": "dander",
+    "forbidden_executable_prefix": "/app/.venv/bin/",
+    "task_read_only_root": True,
+    "task_user": "65532:65532",
+    "task_writable_paths": ["/tmp"],
+    "task_tmpfs_path": "/tmp",
+    "harness_working_directory": "/tmp/harness",
+    "harness_import_root": "/tmp/harness",
+    "harness_environment": {"PYTHONPATH": "/tmp/harness"},
+    "harness_bundle_extract_to": "/tmp/harness",
+    "harness_download_attempts": 1,
+    "cluster_executions": 1,
+    "state_machine_executions": 1,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0,
+    "automatic_retry": False,
+}
+_CANDIDATE_COMMAND = (
+    "cd /tmp/harness && PYTHONPATH=/tmp/harness dander qualification-run "
+    "scripts/benchmarks/redshift_bulk_phase8.py --defer-cost-attribution"
+)
+_EXTERNAL_COST_FIELDS = {
+    "charged_seconds",
+    "compute_seconds",
+    "maximum_compute_capacity_rpu",
+    "provider_cost_usd",
+}
+
+
+class _CostApproval(Protocol):
+    @property
+    def cost_ceiling(self) -> ApprovedCostCeiling: ...
 
 
 class RedshiftBulkQualificationError(RuntimeError):
@@ -194,6 +267,136 @@ class _BulkResult:
     cleanup_verified: bool
 
 
+def _identity_payload(identity: CandidateIdentity) -> dict[str, object]:
+    return {
+        "release_version": identity.release_version,
+        "git_commit": identity.git_commit,
+        "image_digest": identity.image_digest,
+        "approval_reference": identity.approval_reference,
+        "benchmark_date": identity.benchmark_date.isoformat(),
+        "launcher": identity.launcher,
+        "secret_provider": identity.secret_provider,
+        "service_shapes": list(identity.service_shapes),
+        "provider_job_ids": list(identity.provider_job_ids),
+    }
+
+
+def _deferred_cost_interim_payload(
+    *,
+    schema: str,
+    configuration_sha256: str,
+    identity: CandidateIdentity,
+    approval: _CostApproval,
+    result: object,
+) -> dict[str, object]:
+    """Serialize cleanup-verified workload evidence before superuser cost attribution."""
+    workload = asdict(cast("Any", result))
+    for field in _EXTERNAL_COST_FIELDS:
+        workload.pop(field)
+    if workload.get("cleanup_verified") is not True:
+        raise ValueError("deferred Redshift workload cleanup was not verified")
+    return {
+        "schema": schema,
+        "configuration_sha256": configuration_sha256,
+        "identity": _identity_payload(identity),
+        "approval_reference": approval.cost_ceiling.approval_reference,
+        "cost_ceiling_usd": str(approval.cost_ceiling.amount_usd),
+        "workload": workload,
+    }
+
+
+def _load_deferred_cost_workload[ResultT](
+    path: Path,
+    *,
+    schema: str,
+    configuration_sha256: str,
+    identity: CandidateIdentity,
+    approval: _CostApproval,
+    result_type: type[ResultT],
+) -> ResultT:
+    """Load one exact cleanup-verified interim into its benchmark result type."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("schema") != schema:
+        raise ValueError("Redshift interim schema is incompatible")
+    expected_metadata = {
+        "configuration_sha256": configuration_sha256,
+        "identity": _identity_payload(identity),
+        "approval_reference": approval.cost_ceiling.approval_reference,
+        "cost_ceiling_usd": str(approval.cost_ceiling.amount_usd),
+    }
+    if any(payload.get(key) != value for key, value in expected_metadata.items()):
+        raise ValueError("Redshift interim does not match the protected execution")
+    workload = payload.get("workload")
+    if not isinstance(workload, dict):
+        raise ValueError("Redshift interim workload is malformed")
+    expected_fields = {
+        field.name
+        for field in fields(cast("Any", result_type))
+        if field.name not in _EXTERNAL_COST_FIELDS
+    }
+    if set(workload) != expected_fields or workload.get("cleanup_verified") is not True:
+        raise ValueError("Redshift interim workload fields are incomplete")
+    values: dict[str, object] = {}
+    for name in expected_fields:
+        value = workload[name]
+        if name == "query_ids":
+            if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+                raise ValueError("Redshift interim query ids are malformed")
+            values[name] = tuple(value)
+        elif name == "cleanup_verified":
+            values[name] = True
+        elif isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError("Redshift interim measurements are malformed")
+        else:
+            values[name] = value
+    values.update(
+        {
+            "charged_seconds": Decimal(0),
+            "compute_seconds": Decimal(0),
+            "maximum_compute_capacity_rpu": Decimal(0),
+            "provider_cost_usd": Decimal(0),
+        }
+    )
+    return cast("ResultT", cast("Any", result_type)(**values))
+
+
+def _with_external_cost[ResultT](
+    result: ResultT,
+    *,
+    charged_seconds: Decimal | None,
+    compute_seconds: Decimal | None,
+    maximum_compute_capacity_rpu: Decimal | None,
+    on_demand_rate_usd_per_rpu_hour: Decimal,
+) -> ResultT:
+    charged = _provider_measurement(charged_seconds, "charged_seconds", allow_zero=False)
+    compute = _provider_measurement(compute_seconds, "compute_seconds", allow_zero=True)
+    capacity = _provider_measurement(
+        maximum_compute_capacity_rpu,
+        "maximum_compute_capacity_rpu",
+        allow_zero=False,
+    )
+    cost = (charged * on_demand_rate_usd_per_rpu_hour / Decimal(3_600)).quantize(
+        Decimal("0.000000000001"), rounding=ROUND_HALF_UP
+    )
+    return cast(
+        "ResultT",
+        replace(
+            cast("Any", result),
+            charged_seconds=charged,
+            compute_seconds=compute,
+            maximum_compute_capacity_rpu=capacity,
+            provider_cost_usd=cost,
+        ),
+    )
+
+
+def _provider_measurement(value: Decimal | None, name: str, *, allow_zero: bool) -> Decimal:
+    if value is None or not value.is_finite() or value < 0 or (not allow_zero and value == 0):
+        qualifier = "non-negative" if allow_zero else "positive"
+        raise ValueError(f"{name} must be a finite {qualifier} Decimal")
+    return value
+
+
 def _load_approval(
     path: Path,
     *,
@@ -207,7 +410,7 @@ def _load_approval(
         raise ValueError("objective approval workload does not match the requested run")
     configuration = _mapping(payload.get("configuration"), "configuration")
     provider = _mapping(configuration.get("redshift"), "Redshift configuration")
-    expected_provider = {
+    legacy_expected_provider = {
         "account_id": config.account_id,
         "region": config.region,
         "workgroup_name": config.workgroup_name,
@@ -216,8 +419,18 @@ def _load_approval(
         "staging_prefix": config.staging_prefix,
         "on_demand_rate_usd_per_rpu_hour": str(config.on_demand_rate_usd_per_rpu_hour),
     }
-    if provider != expected_provider:
+    launcher_expected_provider = {
+        **legacy_expected_provider,
+        "host": config.host,
+        "database": config.database,
+    }
+    if provider not in (legacy_expected_provider, launcher_expected_provider):
         raise ValueError("objective approval does not match the Redshift data plane")
+    canonical_rc32 = identity.release_version == "0.9.0rc32"
+    if canonical_rc32 and (
+        _mapping(configuration.get("task_role"), "task role") != _TASK_ROLE_REQUIREMENTS
+    ):
+        raise ValueError("objective approval does not bind the required Redshift task role")
     execution = _mapping(configuration.get("execution"), "execution configuration")
     if execution.get("harness_sha256") != _file_sha256(Path(__file__)):
         raise ValueError("objective approval does not match the protected harness")
@@ -231,18 +444,26 @@ def _load_approval(
         raise ValueError("objective approval must disable provider-operation retries")
     if execution.get("cost_observation_delay_seconds") != config.cost_observation_delay_seconds:
         raise ValueError("objective approval changed the provider cost observation")
+    if canonical_rc32 and execution.get("defer_provider_cost_attribution") is not True:
+        raise ValueError("objective approval must defer superuser-only cost attribution")
+    if canonical_rc32 and execution.get("candidate_command") != _CANDIDATE_COMMAND:
+        raise ValueError("objective approval does not bind the deferred-cost candidate command")
     fargate = _mapping(configuration.get("fargate_harness"), "Fargate harness configuration")
-    expected_fargate = {
-        "task_cpu_units": 2_048,
-        "task_memory_mib": 4_096,
-        "task_timeout_seconds": 900,
-        "cluster_executions": 1,
-        "state_machine_executions": 1,
-        "state_machine_retry_states": 0,
-        "ecs_task_retries": 0,
-        "container_restarts": 0,
-        "automatic_retry": False,
-    }
+    expected_fargate = (
+        _FARGATE_LAUNCHER_REQUIREMENTS
+        if canonical_rc32
+        else {
+            "task_cpu_units": 2_048,
+            "task_memory_mib": 4_096,
+            "task_timeout_seconds": 900,
+            "cluster_executions": 1,
+            "state_machine_executions": 1,
+            "state_machine_retry_states": 0,
+            "ecs_task_retries": 0,
+            "container_restarts": 0,
+            "automatic_retry": False,
+        }
+    )
     if any(fargate.get(name) != value for name, value in expected_fargate.items()):
         raise ValueError(
             "objective approval must use the exact zero-retry Fargate 2-vCPU/4-GiB shape"
@@ -299,7 +520,8 @@ def run_phase8_redshift_bulk(
     *,
     identity: CandidateIdentity,
     approval: _Approval,
-) -> QualificationReport:
+    defer_cost_attribution: bool = False,
+) -> QualificationReport | _BulkResult:
     """Run the accepted bulk class in one disposable Redshift schema."""
     if __version__ != identity.release_version:
         raise ValueError(
@@ -360,15 +582,17 @@ def run_phase8_redshift_bulk(
             raise RedshiftBulkQualificationError(
                 "Redshift bulk qualification left run-scoped staging objects"
             )
-        time.sleep(config.cost_observation_delay_seconds)
-        charged, compute, capacity = _serverless_usage(runtime)
-        if charged <= 0:
-            raise RedshiftBulkQualificationError(
-                "Redshift Serverless did not report charged provider usage"
-            )
-        provider_cost = (charged * config.on_demand_rate_usd_per_rpu_hour / Decimal(3600)).quantize(
-            Decimal("0.000000000001"), rounding=ROUND_HALF_UP
-        )
+        charged = compute = capacity = provider_cost = Decimal(0)
+        if not defer_cost_attribution:
+            time.sleep(config.cost_observation_delay_seconds)
+            charged, compute, capacity = _serverless_usage(runtime)
+            if charged <= 0:
+                raise RedshiftBulkQualificationError(
+                    "Redshift Serverless did not report charged provider usage"
+                )
+            provider_cost = (
+                charged * config.on_demand_rate_usd_per_rpu_hour / Decimal(3600)
+            ).quantize(Decimal("0.000000000001"), rounding=ROUND_HALF_UP)
         operations = (*narrow_operations, *wide_operations)
         result = _BulkResult(
             duration_ms=workload_duration_ms,
@@ -425,7 +649,10 @@ def run_phase8_redshift_bulk(
             "Redshift bulk qualification failed before report completion; cleanup passed"
         ) from None
     assert result is not None
-    return _report(config, identity, approval, replace(result, cleanup_verified=True))
+    completed = replace(result, cleanup_verified=True)
+    if defer_cost_attribution:
+        return completed
+    return _report(config, identity, approval, completed)
 
 
 def _warehouse_runtime(
@@ -799,6 +1026,12 @@ def _peak_rss_bytes() -> int:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    attribution = parser.add_mutually_exclusive_group()
+    attribution.add_argument("--defer-cost-attribution", action="store_true")
+    attribution.add_argument("--finalize-cost-attribution", type=Path)
+    parser.add_argument("--charged-seconds", type=Decimal)
+    parser.add_argument("--compute-seconds", type=Decimal)
+    parser.add_argument("--maximum-compute-capacity-rpu", type=Decimal)
     parser.add_argument("--approval-manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--account-id", required=True)
@@ -845,7 +1078,58 @@ def main() -> None:
         provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
     )
     approval = _load_approval(arguments.approval_manifest, config=config, identity=identity)
-    report = run_phase8_redshift_bulk(config, identity=identity, approval=approval)
+    if arguments.defer_cost_attribution:
+        result = run_phase8_redshift_bulk(
+            config,
+            identity=identity,
+            approval=approval,
+            defer_cost_attribution=True,
+        )
+        assert isinstance(result, _BulkResult)
+        interim = json.dumps(
+            _deferred_cost_interim_payload(
+                schema=_INTERIM_SCHEMA,
+                configuration_sha256=config.configuration_sha256(),
+                identity=identity,
+                approval=approval,
+                result=result,
+            ),
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        arguments.output.write_text(interim + "\n", encoding="utf-8")
+        print(interim)
+        return
+    if arguments.finalize_cost_attribution is not None:
+        workload = _load_deferred_cost_workload(
+            arguments.finalize_cost_attribution,
+            schema=_INTERIM_SCHEMA,
+            configuration_sha256=config.configuration_sha256(),
+            identity=identity,
+            approval=approval,
+            result_type=_BulkResult,
+        )
+        result = _with_external_cost(
+            workload,
+            charged_seconds=arguments.charged_seconds,
+            compute_seconds=arguments.compute_seconds,
+            maximum_compute_capacity_rpu=arguments.maximum_compute_capacity_rpu,
+            on_demand_rate_usd_per_rpu_hour=config.on_demand_rate_usd_per_rpu_hour,
+        )
+        report = _report(config, identity, approval, result)
+    else:
+        if any(
+            value is not None
+            for value in (
+                arguments.charged_seconds,
+                arguments.compute_seconds,
+                arguments.maximum_compute_capacity_rpu,
+            )
+        ):
+            raise ValueError("provider measurements require external cost finalization")
+        report_candidate = run_phase8_redshift_bulk(config, identity=identity, approval=approval)
+        assert isinstance(report_candidate, QualificationReport)
+        report = report_candidate
     arguments.output.write_text(report.to_json() + "\n", encoding="utf-8")
     print(report.to_json())
 

@@ -578,6 +578,7 @@ def test_approval_binds_launcher_host_and_database(tmp_path: Path) -> None:
     )
     execution = cast("dict[str, object]", payload["configuration"]["execution"])
     execution["harness_sha256"] = failure._file_sha256(Path(failure.__file__))
+    execution["bulk_harness_sha256"] = failure._file_sha256(Path(bulk.__file__))
     manifest = tmp_path / "objectives.json"
     manifest.write_text(json.dumps(payload), encoding="utf-8")
 

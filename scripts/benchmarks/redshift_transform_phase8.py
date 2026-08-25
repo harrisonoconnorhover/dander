@@ -52,6 +52,7 @@ if TYPE_CHECKING:
 
 _APPROVAL_SCHEMA = "io.dander.qualification.objective-approval/v1"
 _CONFIG_SCHEMA = "io.dander.phase8.redshift-transform/v1"
+_INTERIM_SCHEMA = "io.dander.phase8.redshift-transform-interim/v1"
 _AUTHORITY_ID = "redshift:phase8-transform"
 _OBJECTIVES = (
     "aggregation_exact",
@@ -62,23 +63,18 @@ _OBJECTIVES = (
     "join_exact",
     "scan_exact",
 )
-_TASK_ROLE_REQUIREMENTS: dict[str, object] = {
-    "redshift_db_roles_tag": {"key": "RedshiftDbRoles", "value": "dander_runtime"},
-    "required_global_actions": ["tag:GetResources", "tag:GetTagKeys"],
-    "required_global_resource": "*",
-    "redshift_auth_action": "redshift-serverless:GetCredentials",
-    "redshift_auth_resource_binding": "exact_owned_workgroup_arn_after_apply",
-}
-_FARGATE_LAUNCHER_REQUIREMENTS: dict[str, object] = {
-    "runtime_cpu_architecture": "ARM64",
-    "candidate_image_architecture": "arm64",
-    "task_entrypoint": ["/bin/sh", "-c"],
-    "candidate_python_executable": "python",
-    "candidate_cli_executable": "dander",
-    "forbidden_candidate_executable_prefix": "/app/.venv/bin/",
-}
-_CANDIDATE_COMMAND = (
+_TASK_ROLE_REQUIREMENTS = bulk._TASK_ROLE_REQUIREMENTS  # noqa: SLF001
+_FARGATE_LAUNCHER_REQUIREMENTS = bulk._FARGATE_LAUNCHER_REQUIREMENTS  # noqa: SLF001
+_LEGACY_TASK_ROLE_REQUIREMENTS = bulk._LEGACY_TASK_ROLE_REQUIREMENTS  # noqa: SLF001
+_LEGACY_FARGATE_LAUNCHER_REQUIREMENTS = (  # noqa: SLF001
+    bulk._LEGACY_FARGATE_LAUNCHER_REQUIREMENTS
+)
+_LEGACY_CANDIDATE_COMMAND = (
     "dander qualification-run /tmp/harness/scripts/benchmarks/redshift_transform_phase8.py"
+)
+_CANDIDATE_COMMAND = (
+    "cd /tmp/harness && PYTHONPATH=/tmp/harness dander qualification-run "
+    "scripts/benchmarks/redshift_transform_phase8.py --defer-cost-attribution"
 )
 
 
@@ -229,7 +225,7 @@ def _load_approval(
         raise ValueError("objective approval workload does not match the requested run")
     configuration = _mapping(payload.get("configuration"), "configuration")
     provider = _mapping(configuration.get("redshift"), "Redshift configuration")
-    expected_provider = {
+    legacy_expected_provider = {
         "account_id": config.account_id,
         "region": config.region,
         "workgroup_name": config.workgroup_name,
@@ -238,9 +234,18 @@ def _load_approval(
         "staging_prefix": config.staging_prefix,
         "on_demand_rate_usd_per_rpu_hour": str(config.on_demand_rate_usd_per_rpu_hour),
     }
-    if provider != expected_provider:
+    launcher_expected_provider = {
+        **legacy_expected_provider,
+        "host": config.host,
+        "database": config.database,
+    }
+    if provider not in (legacy_expected_provider, launcher_expected_provider):
         raise ValueError("objective approval does not match the Redshift data plane")
-    if _mapping(configuration.get("task_role"), "task role") != _TASK_ROLE_REQUIREMENTS:
+    canonical_rc32 = identity.release_version == "0.9.0rc32"
+    expected_task_role = (
+        _TASK_ROLE_REQUIREMENTS if canonical_rc32 else _LEGACY_TASK_ROLE_REQUIREMENTS
+    )
+    if _mapping(configuration.get("task_role"), "task role") != expected_task_role:
         raise ValueError("objective approval does not bind the required Redshift task role")
     execution = _mapping(configuration.get("execution"), "execution configuration")
     if execution.get("harness_sha256") != _file_sha256(Path(__file__)):
@@ -257,21 +262,28 @@ def _load_approval(
         raise ValueError("objective approval must disable provider-operation retries")
     if execution.get("cost_observation_delay_seconds") != config.cost_observation_delay_seconds:
         raise ValueError("objective approval changed the provider cost observation")
-    if execution.get("candidate_command") != _CANDIDATE_COMMAND:
+    if canonical_rc32 and execution.get("defer_provider_cost_attribution") is not True:
+        raise ValueError("objective approval must defer superuser-only cost attribution")
+    expected_command = _CANDIDATE_COMMAND if canonical_rc32 else _LEGACY_CANDIDATE_COMMAND
+    if execution.get("candidate_command") != expected_command:
         raise ValueError("objective approval does not bind the candidate command")
     fargate = _mapping(configuration.get("fargate_harness"), "Fargate configuration")
-    expected_fargate = {
-        "task_cpu_units": 2_048,
-        "task_memory_mib": 4_096,
-        "task_timeout_seconds": 900,
-        "cluster_executions": 1,
-        "state_machine_executions": 1,
-        "state_machine_retry_states": 0,
-        "ecs_task_retries": 0,
-        "container_restarts": 0,
-        "automatic_retry": False,
-        **_FARGATE_LAUNCHER_REQUIREMENTS,
-    }
+    expected_fargate = (
+        _FARGATE_LAUNCHER_REQUIREMENTS
+        if canonical_rc32
+        else {
+            "task_cpu_units": 2_048,
+            "task_memory_mib": 4_096,
+            "task_timeout_seconds": 900,
+            "cluster_executions": 1,
+            "state_machine_executions": 1,
+            "state_machine_retry_states": 0,
+            "ecs_task_retries": 0,
+            "container_restarts": 0,
+            "automatic_retry": False,
+            **_LEGACY_FARGATE_LAUNCHER_REQUIREMENTS,
+        }
+    )
     if any(fargate.get(name) != value for name, value in expected_fargate.items()):
         raise ValueError("objective approval must bind the protected zero-retry Fargate shape")
     objective_payload = _mapping(payload.get("approved_objectives"), "approved objectives")
@@ -326,7 +338,8 @@ def run_phase8_redshift_transform(
     *,
     identity: CandidateIdentity,
     approval: _Approval,
-) -> QualificationReport:
+    defer_cost_attribution: bool = False,
+) -> QualificationReport | _TransformResult:
     """Run the accepted transform class in disposable Redshift schemas."""
     if __version__ != identity.release_version:
         raise ValueError(
@@ -404,15 +417,17 @@ def run_phase8_redshift_transform(
             raise RedshiftTransformQualificationError(
                 "Redshift transform qualification left run-scoped staging objects"
             )
-        time.sleep(config.cost_observation_delay_seconds)
-        charged, compute, capacity = bulk._serverless_usage(runtime)  # noqa: SLF001
-        if charged <= 0:
-            raise RedshiftTransformQualificationError(
-                "Redshift Serverless did not report charged provider usage"
-            )
-        provider_cost = (charged * config.on_demand_rate_usd_per_rpu_hour / Decimal(3600)).quantize(
-            Decimal("0.000000000001"), rounding=ROUND_HALF_UP
-        )
+        charged = compute = capacity = provider_cost = Decimal(0)
+        if not defer_cost_attribution:
+            time.sleep(config.cost_observation_delay_seconds)
+            charged, compute, capacity = bulk._serverless_usage(runtime)  # noqa: SLF001
+            if charged <= 0:
+                raise RedshiftTransformQualificationError(
+                    "Redshift Serverless did not report charged provider usage"
+                )
+            provider_cost = (
+                charged * config.on_demand_rate_usd_per_rpu_hour / Decimal(3600)
+            ).quantize(Decimal("0.000000000001"), rounding=ROUND_HALF_UP)
         transform_operations = (*initial.telemetry, *replay.telemetry, *tested.telemetry)
         operations = (*seed_operations, *transform_operations)
         query_ids = tuple(
@@ -488,7 +503,10 @@ def run_phase8_redshift_transform(
             "Redshift transform qualification failed before report completion; cleanup passed"
         ) from None
     assert result is not None
-    return _report(config, identity, approval, replace(result, cleanup_verified=True))
+    completed = replace(result, cleanup_verified=True)
+    if defer_cost_attribution:
+        return completed
+    return _report(config, identity, approval, completed)
 
 
 def _seed_transform_sources(
@@ -975,6 +993,12 @@ def _peak_rss_bytes() -> int:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    attribution = parser.add_mutually_exclusive_group()
+    attribution.add_argument("--defer-cost-attribution", action="store_true")
+    attribution.add_argument("--finalize-cost-attribution", type=Path)
+    parser.add_argument("--charged-seconds", type=Decimal)
+    parser.add_argument("--compute-seconds", type=Decimal)
+    parser.add_argument("--maximum-compute-capacity-rpu", type=Decimal)
     parser.add_argument("--approval-manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--account-id", required=True)
@@ -1021,7 +1045,60 @@ def main() -> None:
         provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
     )
     approval = _load_approval(arguments.approval_manifest, config=config, identity=identity)
-    report = run_phase8_redshift_transform(config, identity=identity, approval=approval)
+    if arguments.defer_cost_attribution:
+        result = run_phase8_redshift_transform(
+            config,
+            identity=identity,
+            approval=approval,
+            defer_cost_attribution=True,
+        )
+        assert isinstance(result, _TransformResult)
+        interim = json.dumps(
+            bulk._deferred_cost_interim_payload(  # noqa: SLF001
+                schema=_INTERIM_SCHEMA,
+                configuration_sha256=config.configuration_sha256(),
+                identity=identity,
+                approval=approval,
+                result=result,
+            ),
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        arguments.output.write_text(interim + "\n", encoding="utf-8")
+        print(interim)
+        return
+    if arguments.finalize_cost_attribution is not None:
+        workload = bulk._load_deferred_cost_workload(  # noqa: SLF001
+            arguments.finalize_cost_attribution,
+            schema=_INTERIM_SCHEMA,
+            configuration_sha256=config.configuration_sha256(),
+            identity=identity,
+            approval=approval,
+            result_type=_TransformResult,
+        )
+        result = bulk._with_external_cost(  # noqa: SLF001
+            workload,
+            charged_seconds=arguments.charged_seconds,
+            compute_seconds=arguments.compute_seconds,
+            maximum_compute_capacity_rpu=arguments.maximum_compute_capacity_rpu,
+            on_demand_rate_usd_per_rpu_hour=config.on_demand_rate_usd_per_rpu_hour,
+        )
+        report = _report(config, identity, approval, result)
+    else:
+        if any(
+            value is not None
+            for value in (
+                arguments.charged_seconds,
+                arguments.compute_seconds,
+                arguments.maximum_compute_capacity_rpu,
+            )
+        ):
+            raise ValueError("provider measurements require external cost finalization")
+        report_candidate = run_phase8_redshift_transform(
+            config, identity=identity, approval=approval
+        )
+        assert isinstance(report_candidate, QualificationReport)
+        report = report_candidate
     arguments.output.write_text(report.to_json() + "\n", encoding="utf-8")
     print(report.to_json())
 
