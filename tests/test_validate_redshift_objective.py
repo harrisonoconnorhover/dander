@@ -447,9 +447,7 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
         "automatic_candidate_retry": False,
         "provider_operation_retries": 0,
         "aws_max_attempts": 1,
-        "candidate_command": (
-            f"cd /tmp/harness && PYTHONPATH=/tmp/harness dander qualification-run {script}"
-        ),
+        "candidate_command": validator._candidate_command(module),
     }
     if dependencies:
         execution["bulk_harness_sha256"] = _sha256(
@@ -457,11 +455,30 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
         )
     cost_attribution: dict[str, object] = {}
     if module == "scripts.benchmarks.redshift_failure_phase8":
+        execution["defer_provider_cost_attribution"] = True
+        execution["workload_reexecutions_during_external_cost_attribution"] = 0
         execution["cost_observation_delay_seconds"] = 120
         execution["cost_observation_timeout_seconds"] = 300
         execution["cost_observation_poll_seconds"] = 120
-        cost_attribution["metadata_observation_timeout_seconds"] = 300
-        cost_attribution["metadata_observation_poll_seconds"] = 120
+        cost_attribution.update(
+            {
+                "source": "SYS_SERVERLESS_USAGE",
+                "provider_measurement": "charged_seconds",
+                "formula": "charged_seconds / 3600 * 0.375 USD per RPU-hour",
+                "measurement_identity": "existing_namespace_creator_superuser",
+                "runtime_role_usage_queries": 0,
+                "post_terminal_delay_seconds": 75,
+                "post_terminal_usage_queries": 1,
+                "provider_operation_retries": 0,
+                "interim_schema": "io.dander.phase8.redshift-failure-interim/v1",
+                "interim_cleanup_required": True,
+                "finalization_mode": "offline_immutable_rc32",
+                "finalization_provider_operations": 0,
+                "workload_reexecutions_during_finalization": 0,
+                "estimated": False,
+                "cell_ceiling_within_remaining_allocation": True,
+            }
+        )
     fargate = {
         path[-1]: deepcopy(value)
         for path, value in validator.PROFILE_FIELDS

@@ -331,6 +331,14 @@ def _validate_execution_authority(
     _require("/app/.venv/bin" not in expected, "candidate command uses a forbidden executable")
     if module == "scripts.benchmarks.redshift_failure_phase8":
         _require(
+            execution.get("defer_provider_cost_attribution") is True,
+            "failure-cell cost attribution must be deferred until task terminal",
+        )
+        _require(
+            execution.get("workload_reexecutions_during_external_cost_attribution") == 0,
+            "failure-cell external cost attribution must not repeat the workload",
+        )
+        _require(
             execution.get("cost_observation_delay_seconds") == 120,
             "failure-cell initial cost observation delay must be 120 seconds",
         )
@@ -344,12 +352,25 @@ def _validate_execution_authority(
         )
         cost_attribution = _mapping(configuration.get("cost_attribution"), "cost_attribution")
         _require(
-            cost_attribution.get("metadata_observation_timeout_seconds") == 300,
-            "failure-cell metadata observation timeout must be 300 seconds",
-        )
-        _require(
-            cost_attribution.get("metadata_observation_poll_seconds") == 120,
-            "failure-cell metadata observation interval must be 120 seconds",
+            cost_attribution
+            == {
+                "source": "SYS_SERVERLESS_USAGE",
+                "provider_measurement": "charged_seconds",
+                "formula": "charged_seconds / 3600 * 0.375 USD per RPU-hour",
+                "measurement_identity": "existing_namespace_creator_superuser",
+                "runtime_role_usage_queries": 0,
+                "post_terminal_delay_seconds": 75,
+                "post_terminal_usage_queries": 1,
+                "provider_operation_retries": 0,
+                "interim_schema": "io.dander.phase8.redshift-failure-interim/v1",
+                "interim_cleanup_required": True,
+                "finalization_mode": "offline_immutable_rc32",
+                "finalization_provider_operations": 0,
+                "workload_reexecutions_during_finalization": 0,
+                "estimated": False,
+                "cell_ceiling_within_remaining_allocation": True,
+            },
+            "failure-cell external cost attribution contract drifted",
         )
 
 
@@ -748,10 +769,13 @@ def _image_has_rc32_digest(image: str) -> bool:
 
 
 def _candidate_command(module: str) -> str:
-    return (
+    command = (
         "cd /tmp/harness && PYTHONPATH=/tmp/harness dander qualification-run "
         + _benchmark_script(module)
     )
+    if module == "scripts.benchmarks.redshift_failure_phase8":
+        command += " --defer-cost-attribution"
+    return command
 
 
 def _benchmark_script(module: str) -> str:

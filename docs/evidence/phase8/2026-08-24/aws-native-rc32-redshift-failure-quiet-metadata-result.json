@@ -1,0 +1,158 @@
+{
+  "schema": "io.dander.phase8.aws-native-redshift-failure-quiet-metadata-result/v1",
+  "attempt_date": "2026-08-25",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-quiet-metadata-objective.json",
+  "protection": {
+    "objective_pull_request": 475,
+    "objective_merge_commit": "2ccbd1a9a7383bf2efd158b4d4534640e98073d5",
+    "objective_exact_main_ci_run": 32812496623,
+    "execution_repository_commit": "2ccbd1a9a7383bf2efd158b4d4534640e98073d5",
+    "execution_exact_main_ci_run": 32812496623
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "replacement_published": false
+  },
+  "launcher_setup": {
+    "task_definition_registration_api_attempts": 1,
+    "task_definition_revisions": 1,
+    "state_machine_create_api_attempts": 2,
+    "state_machine_role_propagation_failures_before_creation": 1,
+    "state_machine_definitions_created": 1,
+    "materialized_cluster_arn_exact": true,
+    "materialized_task_definition_arn_exact": true,
+    "installed_policies_exact": true,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0
+  },
+  "execution": {
+    "state_machine_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c20:rc32-redshift-failure-quiet-metadata-c20-20260825",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-fail-c20/6ceb28dbd5314bf4989d41dd8e013d1b",
+    "started_at": "2026-08-25T01:35:36.617000-04:00",
+    "stopped_at": "2026-08-25T01:42:19.676000-04:00",
+    "task_started_at": "2026-08-25T01:36:06.999000-04:00",
+    "task_stopped_at": "2026-08-25T01:42:18.484000-04:00",
+    "state_machine_status": "failed",
+    "state_machine_error": "States.TaskFailed",
+    "task_exit_code": 2,
+    "state_machine_executions": 1,
+    "ecs_tasks_started": 1,
+    "candidate_executions": 1,
+    "automatic_candidate_retries": 0,
+    "provider_operation_retries": 0,
+    "workload_mutation_boundary_reached": true
+  },
+  "readiness": {
+    "status": "passed",
+    "attempts": 1,
+    "stages": [
+      "launcher_environment",
+      "iam_readiness",
+      "get_credentials",
+      "readiness_connector_1",
+      "readiness_validation_query_1"
+    ],
+    "exception_classes": []
+  },
+  "candidate_result": {
+    "status": "failed",
+    "sanitized_stage": "provider_cost_observation",
+    "sanitized_elapsed_ms": 307754,
+    "sanitized_exception_class": "RedshiftFailureQualificationError",
+    "stdout_bytes": 0,
+    "normalized_report_emitted": false,
+    "owned_failure_prefix_objects_after_task": 0,
+    "owned_failure_schemas_after_task": 0,
+    "workload_reexecutions_during_cost_observation": 0
+  },
+  "direct_post_terminal_attribution": {
+    "query_identity_class": "namespace_creator_superuser",
+    "created_at": "2026-08-25T01:43:29.272000-04:00",
+    "seconds_after_task_stop": "70.788",
+    "charged_seconds": 3840,
+    "compute_seconds": "268.0",
+    "maximum_compute_capacity_rpu": "8.0",
+    "provider_cost_usd": "0.400000000000",
+    "owned_failure_schemas": 0,
+    "queries_executed": 2,
+    "usage_queries_executed": 1
+  },
+  "classification": {
+    "result": "runtime_role_cannot_observe_superuser_only_usage_view",
+    "failure_boundary": "provider_cost_observation_after_failure_workload_and_cleanup",
+    "connection_boundary_reached": true,
+    "candidate_or_product_correction_required": false,
+    "benchmark_harness_correction_required": true,
+    "objective_configuration_correction_required": true,
+    "direct_evidence": "The protected runtime role completed all probes and cleanup but returned zero charged usage for the full 300-second window. A single post-terminal query under the namespace-creator identity returned 3,840 charged seconds, 268 compute seconds, 8 RPU, and USD 0.40; the direct failure-schema count was zero.",
+    "aws_documentation": "https://docs.aws.amazon.com/redshift/latest/dg/SYS_SERVERLESS_USAGE.html",
+    "documented_boundary": "AWS documents SYS_SERVERLESS_USAGE as visible only to superusers. Granting SELECT to the non-superuser dander_runtime role did not make charged rows observable.",
+    "inference": "C18 through C20 changed timing and polling without changing the zero-row runtime-role result, while superuser reads returned charged usage. The deterministic boundary is database visibility, not metadata delay.",
+    "inference_confidence": "high_from_three_protected_attempts_direct_superuser_reads_and_provider_documentation",
+    "smallest_correction": "End the one workload task after emitting a cleanup-verified interim result, perform one post-terminal read under the existing namespace-creator identity, and finalize the normalized report offline in the immutable RC32 image without rerunning the workload.",
+    "historical_objective_rewritten": false,
+    "new_protected_objective_required_before_another_execution": true
+  },
+  "artifacts": {
+    "harness_bundle_sha256": "4913200eddf46950d36fe9b993246e6623886f7812be28780331c1eb5015ca7f",
+    "task_policy_sha256": "490319002c277c0f8803325857dd7f3a440db10a05a6589871f922726f366dcb",
+    "execution_policy_sha256": "a24be061aabdec487dde4c49ca958768ff72116b680a7d0e991a29744c65f7e1",
+    "state_machine_policy_sha256": "caf88b15920813b00b2146b5ccf36aaccfdb913526d945d339b34938092af101",
+    "task_definition_sha256": "01a8062654ce0604fef5eacdbe8eeef358504ca6b818b9f0b095634ce285570f",
+    "state_machine_sha256": "04d8a3df2be5dadbd6b389bc68f84b1e1d9ca0cc972d84719f50bddf6d829d5b",
+    "execution_sha256": "f0e50dba64c46fb2b195eeecab13fde82ed62706385aafb638750d7e6bbbeaa7",
+    "execution_history_summary_sha256": "01e38c673c9efbb07e932845aa18373ed9cb7470c4017409ff3392d137b63dea",
+    "task_description_sha256": "7e8af579674e3890b6ed91b203e6cb3c50a8476feafc319901f84f282187cdeb",
+    "launcher_preflight_sha256": "65244e7ac53be999f50598c2ac69886fd8b029b753d3cd88e56d6c8646ab1311",
+    "stderr_sha256": "d45a6eb898c0a237aeb17bf5b364154c6366d92a7d8478565019743bb6532d76",
+    "direct_usage_description_sha256": "14c7a03558770c001d43909e7e85d99af639be5a57a8b2f051d8a20fdff0c4d1",
+    "direct_usage_result_sha256": "7d51ad706304b705b5b098516fba4bffcf00dfaadfe8d886a9e4dd0106110e6f",
+    "direct_schema_description_sha256": "32959bae9e41644123736b81202b36447e3bcba41f7a708aaa477e4c74de07ef",
+    "direct_schema_result_sha256": "177363518f53d02a5f570d4a77d5501a5c19c0a1d0fc50ab32431712f41623d6",
+    "objects_after_execution_sha256": "bf9a2efe1315d6dbaed493c109d5148b9c988015b766858ae1210b2911901634"
+  },
+  "infrastructure": {
+    "terraform_create_plan_sha256": "c4541619b4390f58bfc04dd40d65383c7171bddfe85eb08b77ff8a37a484803c",
+    "terraform_create_actions": 37,
+    "terraform_post_apply_changes": 0,
+    "redshift_serverless_base_capacity_rpu": 8,
+    "redshift_serverless_daily_usage_limit_rpu_hours": 2,
+    "redshift_serverless_usage_limit_breach_action": "deactivate"
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "harness_and_diagnostics_objects_removed": 4,
+    "terraform_destroy_plan_sha256": "30d53ea55b6c92b8eb4913402136d366efa3d55dac5f1551c00f1d83b2445ece",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 12,
+    "remote_state_delete_markers_removed": 0,
+    "remote_state_lock_versions_removed": 5,
+    "remote_state_lock_delete_markers_removed": 5,
+    "remote_state_exact_keys_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "candidate_digest_retained": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.75",
+    "provider_measured_redshift_cost_usd": "0.400000000000",
+    "conservative_bound_usd": "0.400000000000",
+    "status": "provider_measured_post_terminal",
+    "aggregate_authorized_ceiling_usd": "20.00",
+    "aggregate_provider_measured_or_conservative_after_objective_usd": "19.241419762794",
+    "promotional_credits_relied_upon": false,
+    "promotional_credit_status": "expired_2026-08-15"
+  },
+  "qualification_effect": {
+    "redshift_failure_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "usage_limit_guard_reached": false,
+    "next_scope": "Protect external post-terminal cost attribution and offline immutable-RC32 report finalization, then run one fresh C21 workload task without changing the probes."
+  }
+}

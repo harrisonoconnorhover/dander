@@ -120,6 +120,90 @@ def test_config_binds_only_the_four_failure_probes() -> None:
         _config(copy_part_rows=2)
 
 
+def test_external_cost_finalization_round_trips_protected_interim(tmp_path: Path) -> None:
+    config = _config()
+    identity = _identity()
+    approval = _approval(config)
+    workload = failure._FailureWorkloadResult(
+        duration_ms=125,
+        peak_rss_bytes=4096,
+        probe_count=4,
+        credential_rejection_duration_ms=5,
+        failed_copy_cleanup_duration_ms=7,
+        provider_operation_recovery_duration_ms=11,
+        stale_publications_rejected=1,
+        concurrent_claim_attempts=2,
+        copy_operations=1,
+        query_ids=("query-1",),
+        provider_operation_retries=0,
+        staging_tables=0,
+        staging_objects=0,
+        cleanup_verified=True,
+    )
+    interim = tmp_path / "interim.json"
+    interim.write_text(
+        json.dumps(failure._interim_payload(config, identity, approval, workload)),
+        encoding="utf-8",
+    )
+
+    loaded = failure._load_interim_workload(
+        interim,
+        config=config,
+        identity=identity,
+        approval=approval,
+    )
+    result = failure._with_provider_cost(
+        loaded,
+        charged_seconds=Decimal("3840"),
+        compute_seconds=Decimal("268"),
+        maximum_compute_capacity_rpu=Decimal("8"),
+        on_demand_rate_usd_per_rpu_hour=Decimal("0.375"),
+    )
+    report = json.loads(failure._report(config, identity, approval, result).to_json())
+
+    assert loaded == workload
+    assert result.provider_cost_usd == Decimal("0.400000000000")
+    assert report["status"] == "passed"
+
+
+def test_external_cost_finalization_rejects_unverified_cleanup(tmp_path: Path) -> None:
+    config = _config()
+    identity = _identity()
+    approval = _approval(config)
+    payload = failure._interim_payload(
+        config,
+        identity,
+        approval,
+        failure._FailureWorkloadResult(
+            duration_ms=125,
+            peak_rss_bytes=4096,
+            probe_count=4,
+            credential_rejection_duration_ms=5,
+            failed_copy_cleanup_duration_ms=7,
+            provider_operation_recovery_duration_ms=11,
+            stale_publications_rejected=1,
+            concurrent_claim_attempts=2,
+            copy_operations=1,
+            query_ids=("query-1",),
+            provider_operation_retries=0,
+            staging_tables=0,
+            staging_objects=0,
+            cleanup_verified=True,
+        ),
+    )
+    cast("dict[str, Any]", payload["workload"])["cleanup_verified"] = False
+    interim = tmp_path / "interim.json"
+    interim.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="cleanup was not verified"):
+        failure._load_interim_workload(
+            interim,
+            config=config,
+            identity=identity,
+            approval=approval,
+        )
+
+
 def test_run_rejects_failures_recovers_and_cleans(monkeypatch: pytest.MonkeyPatch) -> None:
     config = _config()
     runtime = object()
