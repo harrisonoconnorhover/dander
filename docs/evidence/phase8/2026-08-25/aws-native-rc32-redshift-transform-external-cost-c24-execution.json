@@ -1,0 +1,110 @@
+{
+  "schema": "io.dander.phase8.redshift-transform-external-cost-execution/v1",
+  "objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-transform-external-cost-objective.json",
+  "objective_sha256": "693322e03ab0d61ef20def4882c7957b5b77deb5d05a8408768590fdbb74bd18",
+  "protected_main": {
+    "commit": "c2c47a9ea311f6889e1bf523dc021205b6e36a05",
+    "pull_request": "https://github.com/harrisonoconnorhover/dander/pull/479",
+    "exact_main_ci_run": "https://github.com/harrisonoconnorhover/dander/actions/runs/32829285372",
+    "exact_main_ci_conclusion": "success"
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "image_index_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "bundle_key": "phase8/0.9.0rc32/staging/harness/redshift-transform-629e1ab1a4d3-c24.zip",
+    "bundle_sha256": "d51bd7344365ac64682c83da219d36db32d4e06079d51a5fa7f1e717035baad0",
+    "bundle_server_side_encryption": "AES256"
+  },
+  "terraform": {
+    "state_key": "dander/d7/control-plane/phase8-qualification/rc32-redshift-transform-external-cost-c24.tfstate",
+    "create_plan": {
+      "create": 37,
+      "update": 0,
+      "delete": 0,
+      "replace": 0,
+      "sha256": "aa30de35dc35fffa8a311736ec1cf54c87d4e1f9ad1f74b464f7c2e5c71e03aa"
+    },
+    "post_apply_plan": {
+      "result": "no_changes",
+      "sha256": "d1dc0ba68af2037e5aa907c9966f327e9124a117624d1feae23dbac18ccede4a"
+    },
+    "destroy_plan": {
+      "create": 0,
+      "update": 0,
+      "delete": 37,
+      "replace": 0,
+      "sha256": "1970e02fe61366ed9c241da06e0da91c3a14c0f284edaade4a0306db5cbd6ab5"
+    },
+    "destroyed_resources": 37,
+    "state_entries_after_destroy": 0,
+    "state_versions_and_delete_markers_before_purge": 22,
+    "state_versions_and_delete_markers_after_purge": 0
+  },
+  "execution": {
+    "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-xform-c24:rc32-redshift-transform-c24-20260825",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-xform-c24/12fac40cafdf483c8ea34c48e60babd3",
+    "task_definition_arn": "arn:aws:ecs:us-east-1:184463061564:task-definition/dander-p8q-rc32-rs-xform-c24:1",
+    "workgroup_id": "c55073d7-f8e8-42e5-b861-219fda1a4c5d",
+    "started_at": "2026-08-25T10:10:39.858Z",
+    "stopped_at": "2026-08-25T10:11:35.027Z",
+    "state_machine_creation_attempts": 2,
+    "first_state_machine_creation_error": "iam_role_propagation",
+    "state_machine_executions": 1,
+    "ecs_task_executions": 1,
+    "candidate_workload_executions": 0,
+    "automatic_retries": 0,
+    "provider_operation_retries": 0,
+    "container_exit_code": 2,
+    "status": "launcher_failed",
+    "normalized_report_emitted": false,
+    "result_transfers_to_corrective_execution": false
+  },
+  "launcher_preflight": {
+    "started": false,
+    "sanitized_artifact_emitted": false,
+    "candidate_stdout_artifact_emitted": false,
+    "candidate_stderr_artifact_emitted": false,
+    "failure_boundary": "launcher_tmpfs_permissions_before_harness_download",
+    "observed_tmpfs_mount_options": [
+      "rw",
+      "nosuid",
+      "nodev"
+    ],
+    "required_correction": "mode=1777"
+  },
+  "cost_attribution": {
+    "query_id": "76dc0003-3e12-442a-8aed-17eb5ace7df7",
+    "post_terminal_usage_queries": 1,
+    "charged_seconds": "1440",
+    "compute_seconds": "13.0",
+    "maximum_compute_capacity_rpu": "8.0",
+    "on_demand_rate_usd_per_rpu_hour": "0.375",
+    "exact_provider_cost_usd": "0.150000000000",
+    "estimated": false,
+    "provider_ledger_after_execution_usd": "20.041419762794"
+  },
+  "cleanup": {
+    "harness_schema_count_after_terminal": 0,
+    "staging_objects_before_cleanup": 1,
+    "launcher_removed_before_data_plane_destroy": true,
+    "staging_and_diagnostic_objects_deleted": true,
+    "task_definition_active_count": 0,
+    "running_task_count": 0,
+    "workgroup_absent": true,
+    "namespace_absent": true,
+    "staging_bucket_absent": true,
+    "rds_instance_absent": true,
+    "state_machine_absent": true,
+    "ecs_cluster_status": "INACTIVE",
+    "owned_secrets_count": 0,
+    "owned_roles_absent": true,
+    "log_group_count": 0,
+    "cleanup_verified": true
+  },
+  "disposition": {
+    "qualification_result": "not_transferrable",
+    "cause": "The launcher mounted /tmp without mode=1777 for the protected non-root task user, so the harness did not download and candidate code did not execute.",
+    "corrective_objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-transform-external-cost-corrective-objective.json"
+  }
+}
