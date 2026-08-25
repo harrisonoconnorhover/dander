@@ -29,6 +29,10 @@ class _Client:
         self.calls.append(("tag_keys", kwargs))
         return {"TagKeys": []}
 
+    def get_bucket_location(self, **kwargs: object) -> object:
+        self.calls.append(("bucket_location", kwargs))
+        return {"LocationConstraint": None}
+
     def head_object(self, **kwargs: object) -> object:
         self.calls.append(("head", kwargs))
         return {}
@@ -149,6 +153,7 @@ def test_preflight_uses_explicit_tls_credentials_and_select_one(
         "readiness_validation_query_1",
     ]
     assert all(stage["exception_class"] is None for stage in stages)
+    assert ("bucket_location", {"Bucket": _config(tmp_path).staging_bucket}) in client.calls
     assert connector_calls == [
         {
             "user": "temporary-user",

@@ -102,6 +102,7 @@ TASK_ROLE = {
     "required_scoped_actions": [
         "redshift-serverless:GetCredentials",
         "s3:DeleteObject",
+        "s3:GetBucketLocation",
         "s3:GetObject",
         "s3:ListBucket",
         "s3:PutObject",
@@ -163,6 +164,7 @@ def canonical_launcher_contract(benchmark_module: str) -> dict[str, object]:
                 "tag:GetResources",
                 "tag:GetTagKeys",
                 "redshift-serverless:GetCredentials",
+                "s3:GetBucketLocation",
                 "s3:GetObject",
             ],
         },
