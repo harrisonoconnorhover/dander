@@ -55,6 +55,7 @@ class _S3MutationClient(Protocol):
 
 _APPROVAL_SCHEMA = "io.dander.qualification.objective-approval/v1"
 _CONFIG_SCHEMA = "io.dander.phase8.redshift-failure/v1"
+_INTERIM_SCHEMA = "io.dander.phase8.redshift-failure-interim/v1"
 _OBJECTIVES = (
     "cleanup",
     "cost_ceiling",
@@ -155,7 +156,7 @@ class RedshiftFailureConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class _FailureResult:
+class _FailureWorkloadResult:
     duration_ms: int
     peak_rss_bytes: int
     probe_count: int
@@ -166,14 +167,18 @@ class _FailureResult:
     concurrent_claim_attempts: int
     copy_operations: int
     query_ids: tuple[str, ...]
-    charged_seconds: Decimal
-    compute_seconds: Decimal
-    maximum_compute_capacity_rpu: Decimal
-    provider_cost_usd: Decimal
     provider_operation_retries: int
     staging_tables: int
     staging_objects: int
     cleanup_verified: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _FailureResult(_FailureWorkloadResult):
+    charged_seconds: Decimal
+    compute_seconds: Decimal
+    maximum_compute_capacity_rpu: Decimal
+    provider_cost_usd: Decimal
 
 
 def _load_approval(
@@ -299,6 +304,46 @@ def run_phase8_redshift_failure(
     credential_probe: Callable[[RedshiftFailureConfig], int] | None = None,
 ) -> QualificationReport:
     """Run the accepted failure class in one disposable Redshift schema."""
+    workload, runtime = _run_failure_workload(
+        config,
+        identity=identity,
+        approval=approval,
+        credential_probe=credential_probe,
+    )
+    stage_started = time.perf_counter()
+    try:
+        charged, compute, capacity = _observe_serverless_usage(runtime, config=config)
+        if charged <= 0:
+            raise RedshiftFailureQualificationError(
+                "Redshift Serverless did not report charged provider usage"
+            )
+    except Exception as error:
+        raise RedshiftFailureQualificationError(
+            f"stage=provider_cost_observation; elapsed_ms={_elapsed_ms(stage_started)}; "
+            f"exception_class={type(error).__name__}"
+        ) from None
+    return _report(
+        config,
+        identity,
+        approval,
+        _with_provider_cost(
+            workload,
+            charged_seconds=charged,
+            compute_seconds=compute,
+            maximum_compute_capacity_rpu=capacity,
+            on_demand_rate_usd_per_rpu_hour=config.on_demand_rate_usd_per_rpu_hour,
+        ),
+    )
+
+
+def _run_failure_workload(
+    config: RedshiftFailureConfig,
+    *,
+    identity: bulk.CandidateIdentity,
+    approval: bulk._Approval,
+    credential_probe: Callable[[RedshiftFailureConfig], int] | None = None,
+) -> tuple[_FailureWorkloadResult, WarehouseRuntime]:
+    """Run and clean the accepted probes without reading the superuser-only cost view."""
     if __version__ != identity.release_version:
         raise ValueError(
             f"installed Dander version {__version__!r} does not match {identity.release_version!r}"
@@ -333,7 +378,7 @@ def run_phase8_redshift_failure(
         raise RedshiftFailureQualificationError(
             "Redshift runtime construction failed after credential-rejection probe passed"
         ) from error
-    result: _FailureResult | None = None
+    result: _FailureWorkloadResult | None = None
     failure: tuple[str, int, Exception] | None = None
     stage = "failed_copy_cleanup_and_recovery"
     stage_started = time.perf_counter()
@@ -360,17 +405,7 @@ def run_phase8_redshift_failure(
             raise RedshiftFailureQualificationError(
                 "Redshift failure qualification left run-scoped staging objects"
             )
-        stage = "provider_cost_observation"
-        stage_started = time.perf_counter()
-        charged, compute, capacity = _observe_serverless_usage(runtime, config=config)
-        if charged <= 0:
-            raise RedshiftFailureQualificationError(
-                "Redshift Serverless did not report charged provider usage"
-            )
-        provider_cost = (charged * config.on_demand_rate_usd_per_rpu_hour / Decimal(3600)).quantize(
-            Decimal("0.000000000001"), rounding=ROUND_HALF_UP
-        )
-        result = _FailureResult(
+        result = _FailureWorkloadResult(
             duration_ms=_elapsed_ms(started),
             peak_rss_bytes=max(peak_before, _peak_rss_bytes()),
             probe_count=4,
@@ -381,10 +416,6 @@ def run_phase8_redshift_failure(
             concurrent_claim_attempts=claim_attempts,
             copy_operations=len(operations),
             query_ids=bulk._operation_query_ids(operations),  # noqa: SLF001
-            charged_seconds=charged,
-            compute_seconds=compute,
-            maximum_compute_capacity_rpu=capacity,
-            provider_cost_usd=provider_cost,
             provider_operation_retries=sum(operation.retry_count for operation in operations),
             staging_tables=staging_tables,
             staging_objects=staging_objects,
@@ -420,7 +451,40 @@ def run_phase8_redshift_failure(
             f"exception_class={type(failure_error).__name__}"
         ) from None
     assert result is not None
-    return _report(config, identity, approval, replace(result, cleanup_verified=True))
+    return replace(result, cleanup_verified=True), runtime
+
+
+def _with_provider_cost(
+    workload: _FailureWorkloadResult,
+    *,
+    charged_seconds: Decimal,
+    compute_seconds: Decimal,
+    maximum_compute_capacity_rpu: Decimal,
+    on_demand_rate_usd_per_rpu_hour: Decimal,
+) -> _FailureResult:
+    provider_cost = (charged_seconds * on_demand_rate_usd_per_rpu_hour / Decimal(3600)).quantize(
+        Decimal("0.000000000001"), rounding=ROUND_HALF_UP
+    )
+    return _FailureResult(
+        duration_ms=workload.duration_ms,
+        peak_rss_bytes=workload.peak_rss_bytes,
+        probe_count=workload.probe_count,
+        credential_rejection_duration_ms=workload.credential_rejection_duration_ms,
+        failed_copy_cleanup_duration_ms=workload.failed_copy_cleanup_duration_ms,
+        provider_operation_recovery_duration_ms=workload.provider_operation_recovery_duration_ms,
+        stale_publications_rejected=workload.stale_publications_rejected,
+        concurrent_claim_attempts=workload.concurrent_claim_attempts,
+        copy_operations=workload.copy_operations,
+        query_ids=workload.query_ids,
+        provider_operation_retries=workload.provider_operation_retries,
+        staging_tables=workload.staging_tables,
+        staging_objects=workload.staging_objects,
+        cleanup_verified=workload.cleanup_verified,
+        charged_seconds=charged_seconds,
+        compute_seconds=compute_seconds,
+        maximum_compute_capacity_rpu=maximum_compute_capacity_rpu,
+        provider_cost_usd=provider_cost,
+    )
 
 
 def _observe_serverless_usage(
@@ -764,8 +828,135 @@ def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _identity_payload(identity: bulk.CandidateIdentity) -> dict[str, object]:
+    return {
+        "release_version": identity.release_version,
+        "git_commit": identity.git_commit,
+        "image_digest": identity.image_digest,
+        "approval_reference": identity.approval_reference,
+        "benchmark_date": identity.benchmark_date.isoformat(),
+        "launcher": identity.launcher,
+        "secret_provider": identity.secret_provider,
+        "service_shapes": list(identity.service_shapes),
+        "provider_job_ids": list(identity.provider_job_ids),
+    }
+
+
+def _interim_payload(
+    config: RedshiftFailureConfig,
+    identity: bulk.CandidateIdentity,
+    approval: bulk._Approval,
+    workload: _FailureWorkloadResult,
+) -> dict[str, object]:
+    return {
+        "schema": _INTERIM_SCHEMA,
+        "configuration_sha256": config.configuration_sha256(),
+        "identity": _identity_payload(identity),
+        "approval_reference": approval.cost_ceiling.approval_reference,
+        "cost_ceiling_usd": str(approval.cost_ceiling.amount_usd),
+        "workload": {
+            "duration_ms": workload.duration_ms,
+            "peak_rss_bytes": workload.peak_rss_bytes,
+            "probe_count": workload.probe_count,
+            "credential_rejection_duration_ms": workload.credential_rejection_duration_ms,
+            "failed_copy_cleanup_duration_ms": workload.failed_copy_cleanup_duration_ms,
+            "provider_operation_recovery_duration_ms": (
+                workload.provider_operation_recovery_duration_ms
+            ),
+            "stale_publications_rejected": workload.stale_publications_rejected,
+            "concurrent_claim_attempts": workload.concurrent_claim_attempts,
+            "copy_operations": workload.copy_operations,
+            "query_ids": list(workload.query_ids),
+            "provider_operation_retries": workload.provider_operation_retries,
+            "staging_tables": workload.staging_tables,
+            "staging_objects": workload.staging_objects,
+            "cleanup_verified": workload.cleanup_verified,
+        },
+    }
+
+
+def _load_interim_workload(
+    path: Path,
+    *,
+    config: RedshiftFailureConfig,
+    identity: bulk.CandidateIdentity,
+    approval: bulk._Approval,
+) -> _FailureWorkloadResult:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("schema") != _INTERIM_SCHEMA:
+        raise ValueError("failure interim schema is incompatible")
+    expected_metadata = {
+        "configuration_sha256": config.configuration_sha256(),
+        "identity": _identity_payload(identity),
+        "approval_reference": approval.cost_ceiling.approval_reference,
+        "cost_ceiling_usd": str(approval.cost_ceiling.amount_usd),
+    }
+    if any(payload.get(key) != value for key, value in expected_metadata.items()):
+        raise ValueError("failure interim does not match the protected execution")
+    workload = payload.get("workload")
+    if not isinstance(workload, dict):
+        raise ValueError("failure interim workload is malformed")
+    integer_fields = (
+        "duration_ms",
+        "peak_rss_bytes",
+        "probe_count",
+        "credential_rejection_duration_ms",
+        "failed_copy_cleanup_duration_ms",
+        "provider_operation_recovery_duration_ms",
+        "stale_publications_rejected",
+        "concurrent_claim_attempts",
+        "copy_operations",
+        "provider_operation_retries",
+        "staging_tables",
+        "staging_objects",
+    )
+    if any(
+        isinstance(workload.get(name), bool)
+        or not isinstance(workload.get(name), int)
+        or int(workload[name]) < 0
+        for name in integer_fields
+    ):
+        raise ValueError("failure interim workload measurements are malformed")
+    query_ids = workload.get("query_ids")
+    if not isinstance(query_ids, list) or any(not isinstance(value, str) for value in query_ids):
+        raise ValueError("failure interim query ids are malformed")
+    if workload.get("cleanup_verified") is not True:
+        raise ValueError("failure interim cleanup was not verified")
+    return _FailureWorkloadResult(
+        duration_ms=int(workload["duration_ms"]),
+        peak_rss_bytes=int(workload["peak_rss_bytes"]),
+        probe_count=int(workload["probe_count"]),
+        credential_rejection_duration_ms=int(workload["credential_rejection_duration_ms"]),
+        failed_copy_cleanup_duration_ms=int(workload["failed_copy_cleanup_duration_ms"]),
+        provider_operation_recovery_duration_ms=int(
+            workload["provider_operation_recovery_duration_ms"]
+        ),
+        stale_publications_rejected=int(workload["stale_publications_rejected"]),
+        concurrent_claim_attempts=int(workload["concurrent_claim_attempts"]),
+        copy_operations=int(workload["copy_operations"]),
+        query_ids=tuple(query_ids),
+        provider_operation_retries=int(workload["provider_operation_retries"]),
+        staging_tables=int(workload["staging_tables"]),
+        staging_objects=int(workload["staging_objects"]),
+        cleanup_verified=True,
+    )
+
+
+def _provider_measurement(value: Decimal | None, name: str, *, allow_zero: bool) -> Decimal:
+    if value is None or not value.is_finite() or value < 0 or (not allow_zero and value == 0):
+        qualifier = "non-negative" if allow_zero else "positive"
+        raise ValueError(f"{name} must be a finite {qualifier} Decimal")
+    return value
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    attribution = parser.add_mutually_exclusive_group()
+    attribution.add_argument("--defer-cost-attribution", action="store_true")
+    attribution.add_argument("--finalize-cost-attribution", type=Path)
+    parser.add_argument("--charged-seconds", type=Decimal)
+    parser.add_argument("--compute-seconds", type=Decimal)
+    parser.add_argument("--maximum-compute-capacity-rpu", type=Decimal)
     parser.add_argument("--approval-manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--account-id", required=True)
@@ -812,7 +1003,67 @@ def main() -> None:
         provider_job_ids=tuple(sorted(set(arguments.provider_job_id))),
     )
     approval = _load_approval(arguments.approval_manifest, config=config, identity=identity)
-    report = run_phase8_redshift_failure(config, identity=identity, approval=approval)
+    if arguments.defer_cost_attribution:
+        if any(
+            value is not None
+            for value in (
+                arguments.charged_seconds,
+                arguments.compute_seconds,
+                arguments.maximum_compute_capacity_rpu,
+            )
+        ):
+            raise ValueError("deferred cost attribution does not accept provider measurements")
+        workload, _runtime = _run_failure_workload(
+            config,
+            identity=identity,
+            approval=approval,
+        )
+        interim = json.dumps(
+            _interim_payload(config, identity, approval, workload),
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        arguments.output.write_text(interim + "\n", encoding="utf-8")
+        print(interim)
+        return
+    if arguments.finalize_cost_attribution is not None:
+        workload = _load_interim_workload(
+            arguments.finalize_cost_attribution,
+            config=config,
+            identity=identity,
+            approval=approval,
+        )
+        result = _with_provider_cost(
+            workload,
+            charged_seconds=_provider_measurement(
+                arguments.charged_seconds,
+                "charged_seconds",
+                allow_zero=False,
+            ),
+            compute_seconds=_provider_measurement(
+                arguments.compute_seconds,
+                "compute_seconds",
+                allow_zero=True,
+            ),
+            maximum_compute_capacity_rpu=_provider_measurement(
+                arguments.maximum_compute_capacity_rpu,
+                "maximum_compute_capacity_rpu",
+                allow_zero=False,
+            ),
+            on_demand_rate_usd_per_rpu_hour=config.on_demand_rate_usd_per_rpu_hour,
+        )
+        report = _report(config, identity, approval, result)
+    else:
+        if any(
+            value is not None
+            for value in (
+                arguments.charged_seconds,
+                arguments.compute_seconds,
+                arguments.maximum_compute_capacity_rpu,
+            )
+        ):
+            raise ValueError("provider measurements require external cost finalization")
+        report = run_phase8_redshift_failure(config, identity=identity, approval=approval)
     arguments.output.write_text(report.to_json() + "\n", encoding="utf-8")
     print(report.to_json())
 
