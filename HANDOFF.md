@@ -2,36 +2,33 @@
 
 ## Finished
 
-- Added four bounded, read-only Redshift readiness probes before candidate execution.
-- Limited each connector socket operation to 12 seconds and the full readiness window to 115 seconds.
-- Assigned a unique `application_name` to every probe while keeping workload retries at zero.
-- Gave the Psycopg comparison an explicit libpq system trust root.
-- Preserved the immutable C13 objective and its historical harness identity.
+- Bound one RC32 Redshift failure workload to the protected readiness preflight.
+- Reserved one execution only, with zero candidate or provider-operation retries.
+- Kept the cell within a USD 0.50 ceiling and the existing USD 20 aggregate authority.
+- Selected new C14 resources and exact cleanup requirements.
 
 ## Try It
 
-Run `uv run pytest tests/portability/test_redshift_launcher_preflight.py tests/portability/test_redshift_query_boundary_diagnostic_phase8.py tests/test_validate_redshift_objective.py -q`.
+Run `uv run python3 scripts/validate_redshift_objective.py docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-readiness-objective.json --repository-root .`.
 
 ## Checks
 
-- Ruff format and lint passed for all changed Python files.
-- Focused tests passed; the broader portability and repository-safety suite passed with two skips.
-- `scripts/check_types.py`, Control contract validation, and exact-RC32 objective/container smoke passed.
+- Objective validation and exact-RC32 container smoke passed locally.
+- Focused validator tests passed.
+- Budget arithmetic reconciles with USD 4.158580237206 remaining after full reservation.
 
 ## Decisions
 
-- Readiness probes are infrastructure checks, not candidate or workload retries.
-- Four probes use 12-second socket bounds and 5-second gaps, leaving margin inside a 115-second window.
-- Historical C13 evidence remains unchanged; its comparator is corrected only for future use.
+- This is the blocked failure workload, not another connection diagnostic.
+- Readiness probes may retry; the candidate and workload may not.
 
 ## Remaining
 
-- Merge the focused protected PR and verify exact-main CI.
-- From that protected commit, bind one real blocked Redshift workload objective to the new launcher hash.
-- Run the selected cell once only if identity, budget, cleanup, and exact-main gates pass.
+- Protect the objective through PR checks and exact-main CI.
+- Verify AWS identity, budget, immutable image, and empty C14 resource scope.
+- Execute once, capture native evidence, and clean up immediately.
 
 ## Review First
 
+- `docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-readiness-objective.json`
 - `scripts/benchmarks/redshift_launcher_preflight.py`
-- `scripts/benchmarks/redshift_query_boundary_diagnostic_phase8.py`
-- `scripts/validate_redshift_objective.py`
