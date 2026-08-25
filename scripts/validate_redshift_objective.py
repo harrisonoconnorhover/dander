@@ -329,6 +329,16 @@ def _validate_execution_authority(
     expected = _candidate_command(module)
     _require(execution.get("candidate_command") == expected, "candidate command is not exact")
     _require("/app/.venv/bin" not in expected, "candidate command uses a forbidden executable")
+    if module == "scripts.benchmarks.redshift_failure_phase8":
+        _require(
+            execution.get("cost_observation_timeout_seconds") == 600,
+            "failure-cell cost observation timeout must be 600 seconds",
+        )
+        cost_attribution = _mapping(configuration.get("cost_attribution"), "cost_attribution")
+        _require(
+            cost_attribution.get("metadata_observation_timeout_seconds") == 600,
+            "failure-cell metadata observation timeout must be 600 seconds",
+        )
 
 
 def _validate_budget(payload: dict[str, object]) -> None:

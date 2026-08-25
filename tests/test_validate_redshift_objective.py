@@ -202,6 +202,23 @@ def test_failure_cell_rejects_one_rpu_hour_daily_limit(tmp_path: Path) -> None:
         validator.validate_objective(objective, repository_root=repository)
 
 
+def test_failure_cell_requires_the_protected_metadata_observation_window(tmp_path: Path) -> None:
+    objective, repository = _objective(
+        tmp_path,
+        "scripts.benchmarks.redshift_failure_phase8",
+    )
+    payload: dict[str, Any] = json.loads(objective.read_text(encoding="utf-8"))
+    payload["configuration"]["execution"]["cost_observation_timeout_seconds"] = 300
+    payload["configuration"]["cost_attribution"]["metadata_observation_timeout_seconds"] = 300
+    objective.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        validator.ObjectiveValidationError,
+        match="cost observation timeout must be 600 seconds",
+    ):
+        validator.validate_objective(objective, repository_root=repository)
+
+
 @pytest.mark.parametrize(
     ("contract_section", "field", "replacement"),
     [
@@ -439,6 +456,10 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
         execution["bulk_harness_sha256"] = _sha256(
             repository / "scripts/benchmarks/redshift_bulk_phase8.py"
         )
+    cost_attribution: dict[str, object] = {}
+    if module == "scripts.benchmarks.redshift_failure_phase8":
+        execution["cost_observation_timeout_seconds"] = 600
+        cost_attribution["metadata_observation_timeout_seconds"] = 600
     fargate = {
         path[-1]: deepcopy(value)
         for path, value in validator.PROFILE_FIELDS
@@ -516,6 +537,7 @@ def _objective(tmp_path: Path, module: str) -> tuple[Path, Path]:
             "task_role": deepcopy(validator.TASK_ROLE),
             "fargate_harness": fargate,
             "execution": execution,
+            "cost_attribution": cost_attribution,
             "diagnostics": deepcopy(validator.DIAGNOSTICS),
             "cleanup": deepcopy(validator.CLEANUP),
         },

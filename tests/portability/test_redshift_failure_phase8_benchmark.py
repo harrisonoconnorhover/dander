@@ -338,6 +338,10 @@ def test_run_reports_only_sanitized_stage_timing_and_exception_class(
     assert dropped and deleted
 
 
+def test_default_cost_metadata_window_covers_delayed_provider_publication() -> None:
+    assert _config().cost_observation_timeout_seconds == 600
+
+
 def test_credential_probe_uses_rejected_password_and_zero_retry_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -472,6 +476,7 @@ def test_approval_binds_launcher_host_and_database(tmp_path: Path) -> None:
         copy_role_arn=provider["copy_role_arn"],
         staging_bucket=provider["staging_bucket"],
         staging_prefix=provider["staging_prefix"],
+        cost_observation_timeout_seconds=300,
     )
     objectives = cast("dict[str, str]", payload["approved_objectives"])
     identity = replace(
