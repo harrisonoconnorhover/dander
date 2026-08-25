@@ -191,12 +191,9 @@
       "transient_candidate_stdout_key": "phase8/0.9.0rc32/staging/diagnostics/transform/stdout.txt",
       "transient_candidate_stderr_key": "phase8/0.9.0rc32/staging/diagnostics/transform/stderr.txt",
       "transient_diagnostics_delete_before_cleanup": true,
-      "task_tmpfs_mount_options": [
-        "rw",
-        "nosuid",
-        "nodev",
-        "mode=1777"
-      ]
+      "task_entrypoint_override_required": true,
+      "task_command_argument_count": 1,
+      "task_command_argument_kind": "shell_program"
     },
     "execution": {
       "harness_sha256": "629e1ab1a4d35eeaffacd972cc5934df35f2acdef1b6d4ab2fddad5b21c7cf24",
@@ -276,8 +273,8 @@
     "predecessor_objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-transform-external-cost-objective.json",
     "predecessor_execution_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-transform-external-cost-c24-execution.json",
     "predecessor_candidate_workload_executed": false,
-    "failure_boundary": "launcher_tmpfs_permissions_before_harness_download",
-    "correction": "mount /tmp with mode=1777 for the protected non-root task user",
+    "failure_boundary": "launcher_used_image_entrypoint_instead_of_protected_shell_entrypoint",
+    "correction": "override the immutable image entrypoint with /bin/sh -c and pass the launcher as one shell-program argument",
     "workload_reuse_from_predecessor": false
   }
 }
