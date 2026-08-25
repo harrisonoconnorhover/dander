@@ -260,6 +260,8 @@ def test_local_rc32_image_smoke_uses_exact_bundle_and_fail_closed_container(
 @pytest.mark.parametrize(
     ("paths", "expected"),
     [
+        (["AGENTS.md"], "objective"),
+        (["docs/operator/AGENTS.md"], "objective"),
         (["HANDOFF.md", "docs/evidence/phase8/2026-08-24/result.json"], "objective"),
         (
             ["docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-bulk-objectives.json"],

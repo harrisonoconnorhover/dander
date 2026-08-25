@@ -531,7 +531,9 @@ def classify_ci_scope(paths: list[str]) -> str:
     for value in paths:
         path = Path(value)
         light = (
-            value == "HANDOFF.md"
+            value == "AGENTS.md"
+            or value.endswith("/AGENTS.md")
+            or value == "HANDOFF.md"
             or (value.startswith("tickets/") and value.endswith(".md"))
             or value.startswith("docs/evidence/phase8/")
         )
