@@ -1,0 +1,271 @@
+{
+  "approved_objectives": {
+    "approval_reference": "codex-standing-authority-2026-08-25-redshift-bulk-external-cost-c26-usd-0.50",
+    "benchmark_class": "bulk_throughput",
+    "configuration_sha256": "6c913aba77ec3b49a7a769269ed19eff7768ed4cd85f0959a49d8648bcba1ffd",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "names": [
+      "cleanup",
+      "cost_ceiling",
+      "narrow_copy_completion",
+      "narrow_throughput_measurement",
+      "wide_copy_completion",
+      "wide_throughput_measurement"
+    ],
+    "profile_id": "aws_native_redshift",
+    "release_version": "0.9.0rc32"
+  },
+  "context": {
+    "benchmark_date": "2026-08-25",
+    "catalog": "none",
+    "cost_ceiling": {
+      "amount_usd": "0.50",
+      "approval_reference": "codex-standing-authority-2026-08-25-redshift-bulk-external-cost-c26-usd-0.50"
+    },
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "launcher": "aws_native_fargate",
+    "profile_id": "aws_native_redshift",
+    "provider_job_ids": [
+      "3312",
+      "3383",
+      "arn:aws:redshift-serverless:us-east-1:184463061564:workgroup/e1493717-0e68-49c0-a126-3a509a988a03",
+      "arn:aws:states:us-east-1:184463061564:stateMachine:dander-p8q-rc32-rs-bulk-c26"
+    ],
+    "regions": [
+      "aws:us-east-1"
+    ],
+    "release_version": "0.9.0rc32",
+    "secret_provider": "aws_task_role",
+    "service_shapes": [
+      "dander_2cpu_4gib",
+      "redshift_serverless_8_rpu"
+    ],
+    "state_backend": "none",
+    "warehouse": "redshift"
+  },
+  "objectives": [
+    {
+      "evidence_reference": "phase8/aws/redshift/bulk/cleanup",
+      "name": "cleanup",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/aws/redshift/bulk/cost_ceiling",
+      "name": "cost_ceiling",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/aws/redshift/bulk/narrow_copy_completion",
+      "name": "narrow_copy_completion",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/aws/redshift/bulk/narrow_throughput_measurement",
+      "name": "narrow_throughput_measurement",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/aws/redshift/bulk/wide_copy_completion",
+      "name": "wide_copy_completion",
+      "status": "passed"
+    },
+    {
+      "evidence_reference": "phase8/aws/redshift/bulk/wide_throughput_measurement",
+      "name": "wide_throughput_measurement",
+      "status": "passed"
+    }
+  ],
+  "performance": {
+    "costs": [
+      {
+        "amount": "0.250000000000",
+        "currency": "USD",
+        "estimated": false,
+        "provider": "aws",
+        "service": "redshift_serverless"
+      }
+    ],
+    "measurements": [
+      {
+        "name": "rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "700000"
+      },
+      {
+        "name": "logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "237600000"
+      },
+      {
+        "name": "duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "23727"
+      },
+      {
+        "name": "throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "29502.255"
+      },
+      {
+        "name": "peak_rss_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "399052800"
+      },
+      {
+        "name": "retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "queue_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "load_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "7010"
+      },
+      {
+        "name": "transform_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "catalog_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "0"
+      },
+      {
+        "name": "bytes_processed",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "0"
+      },
+      {
+        "name": "charged_seconds",
+        "status": "measured",
+        "unit": "rpu_seconds",
+        "value": "2400"
+      },
+      {
+        "name": "compute_seconds",
+        "status": "measured",
+        "unit": "rpu_seconds",
+        "value": "164"
+      },
+      {
+        "name": "copy_operations",
+        "status": "measured",
+        "unit": "count",
+        "value": "2"
+      },
+      {
+        "name": "maximum_compute_capacity",
+        "status": "measured",
+        "unit": "rpu",
+        "value": "8"
+      },
+      {
+        "name": "narrow_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "13859"
+      },
+      {
+        "name": "narrow_logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "28000000"
+      },
+      {
+        "name": "narrow_rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "500000"
+      },
+      {
+        "name": "narrow_throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "36077.639"
+      },
+      {
+        "name": "provider_operation_retries",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "spill_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "0"
+      },
+      {
+        "name": "staging_objects",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "staging_tables",
+        "status": "measured",
+        "unit": "count",
+        "value": "0"
+      },
+      {
+        "name": "wide_duration_ms",
+        "status": "measured",
+        "unit": "milliseconds",
+        "value": "7970"
+      },
+      {
+        "name": "wide_logical_bytes",
+        "status": "measured",
+        "unit": "bytes",
+        "value": "209600000"
+      },
+      {
+        "name": "wide_rows",
+        "status": "measured",
+        "unit": "rows",
+        "value": "200000"
+      },
+      {
+        "name": "wide_throughput_rows_per_second",
+        "status": "measured",
+        "unit": "rows_per_second",
+        "value": "25094.103"
+      }
+    ]
+  },
+  "schema": "io.dander.qualification.report/v1",
+  "status": "passed",
+  "workload": {
+    "batch_bytes": 67108864,
+    "batch_rows": 50000,
+    "benchmark_class": "bulk_throughput",
+    "concurrency": 1,
+    "configuration_sha256": "6c913aba77ec3b49a7a769269ed19eff7768ed4cd85f0959a49d8648bcba1ffd",
+    "input_rows": 700000,
+    "logical_input_bytes": 237600000,
+    "memory_limit_bytes": null,
+    "row_width_bytes": 1048,
+    "schema_depth": 1,
+    "source_rate_limit": "unlimited_container_generator",
+    "transform_complexity": "none_wide_and_narrow"
+  }
+}
