@@ -1,0 +1,96 @@
+{
+  "schema": "io.dander.phase8.redshift-incremental-external-cost-execution/v1",
+  "objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-incremental-external-cost-objective.json",
+  "protected_main": {
+    "commit": "c2c47a9ea311f6889e1bf523dc021205b6e36a05",
+    "pull_request": "https://github.com/harrisonoconnorhover/dander/pull/479",
+    "exact_main_ci_run": "https://github.com/harrisonoconnorhover/dander/actions/runs/32829285372",
+    "exact_main_ci_conclusion": "success"
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "image_index_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "bundle_key": "phase8/0.9.0rc32/staging/harness/redshift-incremental-7e8f0a6e414c-c23.zip",
+    "bundle_sha256": "4bb3396ad628534a4a4aaac121bfc48dcdb12a72918a051de60ae5e9f5f47dc2",
+    "bundle_server_side_encryption": "AES256"
+  },
+  "terraform": {
+    "state_key": "dander/d7/control-plane/phase8-qualification/rc32-redshift-incremental-external-cost-c23.tfstate",
+    "create_plan": {
+      "create": 37,
+      "update": 0,
+      "delete": 0,
+      "replace": 0,
+      "sha256": "cbc62f802e394a975404b9f60f01fedb8ee2b7a651222e5d0fc71339e92b934a"
+    },
+    "post_apply_plan": "no_changes",
+    "destroy_plan": {
+      "create": 0,
+      "update": 0,
+      "delete": 37,
+      "replace": 0,
+      "sha256": "a3f6771924020ca2891f1fe059a0591cf881f14eb1d90cf5ba43e999c09aa411"
+    },
+    "destroyed_resources": 37,
+    "state_entries_after_destroy": 0,
+    "state_versions_and_delete_markers_before_purge": 24,
+    "state_versions_and_delete_markers_after_purge": 0
+  },
+  "execution": {
+    "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-incr-c23:rc32-redshift-incremental-c23-20260825",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-incr-c23/d65e032b6fca4d0fa2e632e08e65b9e8",
+    "task_definition_arn": "arn:aws:ecs:us-east-1:184463061564:task-definition/dander-p8q-rc32-rs-incr-c23:1",
+    "started_at": "2026-08-25T09:11:23.574Z",
+    "stopped_at": "2026-08-25T09:13:43.285Z",
+    "state_machine_executions": 1,
+    "candidate_executions": 1,
+    "automatic_retries": 0,
+    "provider_operation_retries": 0,
+    "status": "failed",
+    "container_exit_code": 2,
+    "sanitized_failure": "Redshift incremental qualification failed: Redshift incremental delta affected an unexpected row count",
+    "failure_boundary": "benchmark_harness_merge_command_tag_row_count_assumption",
+    "normalized_report_emitted": false,
+    "result_transfers_to_corrective_execution": false
+  },
+  "launcher_preflight": {
+    "launcher_environment": "passed",
+    "iam_readiness": "passed",
+    "get_credentials": "passed",
+    "readiness_connector_1": "passed",
+    "readiness_validation_query_1": "TimeoutError_after_12008_ms",
+    "readiness_connector_2": "passed",
+    "readiness_validation_query_2": "passed_after_10_ms"
+  },
+  "cost_attribution": {
+    "post_terminal_usage_queries": 1,
+    "charged_seconds": "1920",
+    "compute_seconds": "206.0",
+    "maximum_compute_capacity_rpu": "8.0",
+    "on_demand_rate_usd_per_rpu_hour": "0.375",
+    "exact_provider_cost_usd": "0.200000000000",
+    "estimated": false,
+    "provider_ledger_after_execution_usd": "19.641419762794"
+  },
+  "cleanup": {
+    "harness_schema_count_after_terminal": 0,
+    "launcher_removed_before_data_plane_destroy": true,
+    "staging_and_diagnostic_objects_deleted": true,
+    "task_definition_active_count": 0,
+    "running_task_count": 0,
+    "workgroup_absent": true,
+    "namespace_absent": true,
+    "staging_bucket_absent": true,
+    "rds_instance_absent": true,
+    "state_machine_absent": true,
+    "owned_secrets_count": 0,
+    "owned_roles_absent": true,
+    "cleanup_verified": true
+  },
+  "disposition": {
+    "qualification_result": "not_transferrable",
+    "cause": "The harness treated the provider MERGE command tag as the exact logical delta row count and stopped before its stronger final-state readback.",
+    "corrective_objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-incremental-external-cost-corrective-objective.json"
+  }
+}

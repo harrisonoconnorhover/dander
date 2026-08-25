@@ -5,34 +5,35 @@
 - Added the proven deferred superuser cost-attribution path to the five remaining Redshift harnesses.
 - Protected exact C23-C27 objectives for incremental, transform, concurrency, bulk, and bounded-memory runs.
 - Bound every cell to one immutable ARM64 RC32 execution, one post-terminal usage query, offline finalization, and verified cleanup.
-- Preserved the closed C21 failure result and excluded the separate Druff worktree.
+- Recorded C23's non-transferable harness failure, exact USD 0.20 cost, and complete cleanup.
+- Corrected the harness so exact final-state readback decides incremental correctness while the MERGE command tag remains telemetry.
 
 ## Try It
 
-Validate all five new objectives with `uv run python scripts/validate_redshift_objective.py docs/evidence/phase8/2026-08-25/*-external-cost-objective.json`.
+Validate the corrective C28 objective with `uv run python scripts/validate_redshift_objective.py docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-incremental-external-cost-corrective-objective.json`.
 
 ## Checks
 
-- The complete portability and objective-validator test lane passed.
-- Ruff and strict typing over 442 source files passed.
-- All five objectives validated and all five generated commands smoked in immutable ARM64 RC32.
+- The focused incremental and objective-validator tests passed.
+- Ruff and strict typing passed for the corrected harness.
+- The C28 objective validated and its generated command smoked in immutable ARM64 RC32.
 - Diff whitespace and JSON parsing checks passed.
 
 ## Decisions
 
-- Reuse one shared interim/finalization mechanism instead of querying the superuser-only usage view from the runtime role.
-- Run cells sequentially with cleanup between them and reserve USD 0.50 per cell within the USD 25 monthly ceiling.
-- Keep Redshift experimental until all required live profile gates pass.
+- Treat the provider MERGE command tag as telemetry; exact target readback proves all updates, inserts, distinct keys, payloads, and cursor values.
+- Give the corrected incremental run a distinct C28 resource/state identity and preserve C23 as failed evidence.
+- Keep C24-C27 reserved and sequential; C23 cleanup left no resources or state history.
 
 ## Remaining
 
-- Merge this protected harness/objective change and pass exact-main CI.
-- Execute and clean C23-C27 sequentially, then protect their normalized evidence.
+- Merge the protected C28 correction and pass exact-main CI.
+- Execute and clean C28, then C24-C27 sequentially, and protect normalized evidence.
 - Complete the final read-only AWS invoice reconciliation.
 - Resolve the separate exhausted GKE failure cell before closing DANDER-204.
 
 ## Review First
 
-- `scripts/benchmarks/redshift_bulk_phase8.py`
-- `scripts/validate_redshift_objective.py`
-- `docs/evidence/phase8/2026-08-25/`
+- `scripts/benchmarks/redshift_incremental_phase8.py`
+- `docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-incremental-external-cost-c23-execution.json`
+- `docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-incremental-external-cost-corrective-objective.json`

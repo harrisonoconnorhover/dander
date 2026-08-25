@@ -97,6 +97,7 @@ def _result(**overrides: object) -> incremental._IncrementalResult:
         "seed_logical_bytes": 7_000,
         "delta_duration_ms": 100,
         "delta_rows": 2,
+        "delta_rows_affected": 1,
         "delta_logical_bytes": 70,
         "final_rows": 201,
         "updated_rows": 1,
@@ -200,6 +201,7 @@ def test_report_records_exact_incremental_result_cost_and_zero_retries() -> None
     ]
     metrics = {item["name"]: item["value"] for item in payload["performance"]["measurements"]}
     assert metrics["cursor_regressions_rejected"] == "1"
+    assert metrics["delta_rows_affected"] == "1"
     assert metrics["final_target_rows"] == "201"
     assert metrics["provider_operation_retries"] == "0"
     assert metrics["staging_objects"] == "0"
