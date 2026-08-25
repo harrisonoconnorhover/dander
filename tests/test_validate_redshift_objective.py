@@ -64,6 +64,12 @@ def test_runtime_target_uses_the_immutable_rc32_tag_with_exact_digest_resolution
         "artifact_fields": ["stage", "elapsed_ms", "exception_class"],
     }
     assert approved["image_digest"] == validator.RC32_DIGEST
+    scoped_actions = cast("list[str]", validator.TASK_ROLE["required_scoped_actions"])
+    assert "s3:GetBucketLocation" in scoped_actions
+    configuration = cast("dict[str, Any]", payload["configuration"])
+    readiness = configuration["launcher_contract"]["iam_readiness"]
+    assert "s3:GetBucketLocation" in readiness["checks"]
+    assert readiness["maximum_checks"] == len(readiness["checks"])
 
 
 @pytest.mark.parametrize(

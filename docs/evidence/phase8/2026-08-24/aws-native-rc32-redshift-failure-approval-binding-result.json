@@ -1,0 +1,128 @@
+{
+  "schema": "io.dander.phase8.aws-native-redshift-failure-approval-binding-result/v1",
+  "attempt_date": "2026-08-24",
+  "objective_reference": "docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-failure-approval-binding-objective.json",
+  "protection": {
+    "objective_pull_request": 468,
+    "objective_merge_commit": "b0424c45c1d002cfeba39c4cce6c54980cfa890c",
+    "objective_exact_main_ci_run": 32799969297,
+    "execution_repository_commit": "b0424c45c1d002cfeba39c4cce6c54980cfa890c",
+    "execution_exact_main_ci_run": 32799969297
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "git_commit": "0d648a622fa2b0240a3b7b5fb8b7151445591bca",
+    "image_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "replacement_published": false
+  },
+  "execution": {
+    "state_machine_execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-fail-c15:rc32-redshift-failure-approval-binding-c15-20260824",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-fail-c15/9dbb31a0126b4b388199ec51c714cd02",
+    "state_machine_started_at": "2026-08-24T22:14:33.874-04:00",
+    "state_machine_stopped_at": "2026-08-24T22:15:43.651-04:00",
+    "task_started_at": "2026-08-24T22:15:04.189-04:00",
+    "task_stopped_at": "2026-08-24T22:15:42.437-04:00",
+    "state_machine_status": "failed",
+    "candidate_exit_code": 2,
+    "manual_candidate_executions": 1,
+    "automatic_candidate_retries": 0,
+    "provider_operation_retries": 0,
+    "workload_mutation_started": true,
+    "workload_reexecution_allowed": false
+  },
+  "readiness": {
+    "status": "passed_first_probe",
+    "artifact_sha256": "00795ead6d600428c5eaa4203e771e10af2d35141e571adbfc729b8fc34da18d",
+    "stages": [
+      {
+        "stage": "launcher_environment",
+        "elapsed_ms": 1159,
+        "exception_class": null
+      },
+      {
+        "stage": "iam_readiness",
+        "elapsed_ms": 153,
+        "exception_class": null
+      },
+      {
+        "stage": "get_credentials",
+        "elapsed_ms": 85,
+        "exception_class": null
+      },
+      {
+        "stage": "readiness_connector_1",
+        "elapsed_ms": 276,
+        "exception_class": null
+      },
+      {
+        "stage": "readiness_validation_query_1",
+        "elapsed_ms": 9,
+        "exception_class": null
+      }
+    ]
+  },
+  "candidate_result": {
+    "status": "blocked_during_provider_operation_recovery",
+    "sanitized_stderr": "Redshift failure qualification failed: stage=failed_copy_cleanup_and_recovery; elapsed_ms=4435; exception_class=AccessDenied",
+    "stderr_sha256": "d8e3ce95b3d9b1c7867d199e582e7887df6d335403086af09c6ce1a0f1578f87",
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_bytes": 0,
+    "normalized_report_emitted": false
+  },
+  "classification": {
+    "result": "operator_task_role_omitted_required_bucket_location_read",
+    "connection_boundary_cleared": true,
+    "connector_or_query_correction_required": false,
+    "cause": "The protected transient task-role contract omitted s3:GetBucketLocation, while the Redshift writer validates the staging bucket region with that exact API before its recovery upload. Root policy simulation returned implicitDeny for the exact bucket and action; the contract's other exact S3 object actions were allowed.",
+    "smallest_correction": "Add exact-bucket s3:GetBucketLocation to the canonical task role and verify that read in the launcher preflight before candidate execution.",
+    "historical_objective_rewritten": false,
+    "new_protected_objective_required_before_another_execution": true
+  },
+  "artifacts": {
+    "harness_bundle_sha256": "3940312356228f3d0138c3a1224092b7627ff3620255d6d74524b5eed9829075",
+    "task_policy_sha256": "6dd6bb563699ae40282cc426710531067c0ba03fe4aa5a21f334fceba52cd786",
+    "task_definition_sha256": "751ef098f59985c3f4d9758f8a8dc50f6d88e88f58f1f7295c3a0a9b7915b713",
+    "state_machine_sha256": "adb77f4cc2988923f952e3851b81d544a12d67c9c99d97d3f063a730f6f6ca41",
+    "execution_sha256": "335e7dbba0b96231185843f548d6e00ee1c4cee30647c4bd3c1d7d02f3eb36c0",
+    "execution_history_summary_sha256": "9c6fee80a667a76edc9335181509420c873d41c45c888678ab3006f1585d4d3b",
+    "task_sha256": "32e900494fd2855eb44545bca0c24b18ee06ccec4ae157836937e2b8834c8c35"
+  },
+  "infrastructure": {
+    "terraform_create_plan_sha256": "abd15430e73691429d9cf5fce2960069e790790b896c948f15b1a7127432a35e",
+    "terraform_create_actions": 37,
+    "terraform_post_apply_changes": 0,
+    "task_definition_revisions": 1,
+    "state_machine_retry_states": 0,
+    "ecs_task_retries": 0,
+    "container_restarts": 0
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane": true,
+    "active_tasks_before_destroy": 0,
+    "diagnostic_and_harness_objects_removed": 4,
+    "terraform_destroy_plan_sha256": "cc2109cfbb919ab0a407e53b2cf4a55addd93ed966a7b9e5ed79efe28a03c429",
+    "terraform_resources_destroyed": 37,
+    "terraform_state_entries_after_destroy": 0,
+    "remote_state_versions_removed": 13,
+    "remote_state_versions_after_cleanup": 0,
+    "remote_state_delete_markers_after_cleanup": 0,
+    "direct_owned_resource_inventories_empty": true,
+    "candidate_digest_retained": true
+  },
+  "cost": {
+    "objective_ceiling_usd": "0.50",
+    "provider_measured_cost_usd": null,
+    "status": "provider_invoice_pending",
+    "conservative_bound_usd": "0.50",
+    "aggregate_authorized_ceiling_usd": "20.00",
+    "aggregate_conservative_bound_after_objective_usd": "16.341419762794"
+  },
+  "qualification_effect": {
+    "redshift_failure_cell_closed": false,
+    "support_promoted": false,
+    "candidate_changed": false,
+    "approval_binding_correction_validated": true,
+    "next_scope": "Protect the exact-bucket task-role correction and one fresh exact-RC32 objective before another failure-cell execution."
+  }
+}
