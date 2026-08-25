@@ -1,0 +1,135 @@
+{
+  "schema": "io.dander.phase8.redshift-incremental-external-cost-execution/v1",
+  "objective_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-incremental-external-cost-corrective-objective.json",
+  "report_reference": "docs/evidence/phase8/2026-08-25/aws-native-rc32-redshift-incremental-external-cost-c28-report.json",
+  "protected_main": {
+    "commit": "fb9446384df10125694d013afa4d34bfdfd8e24d",
+    "pull_request": "https://github.com/harrisonoconnorhover/dander/pull/480",
+    "exact_main_ci_run": "https://github.com/harrisonoconnorhover/dander/actions/runs/32832414418",
+    "exact_main_ci_conclusion": "success"
+  },
+  "candidate": {
+    "release_version": "0.9.0rc32",
+    "image_index_digest": "sha256:0c2717701a80003ca4e898485569c1f3728464845e735455bea68016b5975d63",
+    "arm64_manifest_digest": "sha256:93d359a6454ba57d41a31a618edb889c459cc5838184f6ea110aa89c63d35e53",
+    "bundle_key": "phase8/0.9.0rc32/staging/harness/redshift-incremental-f8902fa66912-c28.zip",
+    "bundle_sha256": "aa73d7fe69b2522391f9926653df7fb38a0066e7d1da33fa74bb4aa6787fc49f",
+    "bundle_server_side_encryption": "AES256"
+  },
+  "terraform": {
+    "state_key": "dander/d7/control-plane/phase8-qualification/rc32-redshift-incremental-external-cost-c28.tfstate",
+    "create_plan": {
+      "create": 37,
+      "update": 0,
+      "delete": 0,
+      "replace": 0,
+      "sha256": "431bc4d96892e8b92acb2a7c0b938692b215c39c54156d41cddb03f1fb16482f"
+    },
+    "post_apply_plan": "no_changes",
+    "destroy_plan": {
+      "create": 0,
+      "update": 0,
+      "delete": 37,
+      "replace": 0,
+      "sha256": "4a0b11e79792eae971cffc3ff25f5ecec2ee81bbf61608c104cdabb9d56a746e"
+    },
+    "destroyed_resources": 37,
+    "state_entries_after_destroy": 0,
+    "state_versions_and_delete_markers_before_purge": 22,
+    "state_versions_and_delete_markers_after_purge": 0
+  },
+  "execution": {
+    "execution_arn": "arn:aws:states:us-east-1:184463061564:execution:dander-p8q-rc32-rs-incr-c28:rc32-redshift-incremental-c28-20260825",
+    "ecs_task_arn": "arn:aws:ecs:us-east-1:184463061564:task/dander-p8q-rc32-rs-incr-c28/cdb297065ce44ddb94bfc6533fe7b7c4",
+    "task_definition_arn": "arn:aws:ecs:us-east-1:184463061564:task-definition/dander-p8q-rc32-rs-incr-c28:1",
+    "workgroup_id": "05fe2774-671e-433f-8351-2730a87f0480",
+    "started_at": "2026-08-25T09:43:55.232Z",
+    "stopped_at": "2026-08-25T09:45:40.901Z",
+    "state_machine_creation_attempts": 2,
+    "first_state_machine_creation_error": "iam_role_propagation",
+    "state_machine_executions": 1,
+    "candidate_executions": 1,
+    "automatic_retries": 0,
+    "provider_operation_retries": 0,
+    "container_exit_code": 0,
+    "status": "passed"
+  },
+  "launcher_preflight": {
+    "stages": [
+      {
+        "stage": "launcher_environment",
+        "result": "passed",
+        "elapsed_ms": 1048
+      },
+      {
+        "stage": "iam_readiness",
+        "result": "passed",
+        "elapsed_ms": 197
+      },
+      {
+        "stage": "get_credentials",
+        "result": "passed",
+        "elapsed_ms": 103
+      },
+      {
+        "stage": "readiness_connector_1",
+        "result": "passed",
+        "elapsed_ms": 290
+      },
+      {
+        "stage": "readiness_validation_query_1",
+        "result": "passed",
+        "elapsed_ms": 8
+      }
+    ]
+  },
+  "workload": {
+    "seed_rows": 300000,
+    "delta_rows": 3000,
+    "provider_delta_rows_affected": 1500,
+    "updated_rows": 1500,
+    "inserted_rows": 1500,
+    "final_rows": 301500,
+    "cursor_regressions_rejected": 1,
+    "copy_operations": 2,
+    "staging_tables_after_workload": 0,
+    "staging_objects_after_workload": 0,
+    "harness_schema_count_after_terminal": 0,
+    "cleanup_verified": true
+  },
+  "cost_attribution": {
+    "query_id": "13c3a630-4230-46f6-bbe8-9f1002735345",
+    "post_terminal_usage_queries": 1,
+    "charged_seconds": "2400",
+    "compute_seconds": "187.0",
+    "maximum_compute_capacity_rpu": "8.0",
+    "on_demand_rate_usd_per_rpu_hour": "0.375",
+    "exact_provider_cost_usd": "0.250000000000",
+    "estimated": false,
+    "provider_ledger_after_execution_usd": "19.891419762794"
+  },
+  "finalization": {
+    "mode": "offline_immutable_rc32",
+    "provider_operations": 0,
+    "workload_reexecutions": 0,
+    "report_sha256": "731b1520e15af69bab2d2791d8664e7128c9ec4acf93ee73dd49631619e6d099",
+    "report_status": "passed",
+    "objectives_passed": 6,
+    "objectives_failed": 0
+  },
+  "cleanup": {
+    "launcher_removed_before_data_plane_destroy": true,
+    "transient_harness_and_diagnostics_deleted": true,
+    "task_definition_active_count": 0,
+    "running_task_count": 0,
+    "workgroup_absent": true,
+    "namespace_absent": true,
+    "staging_bucket_absent": true,
+    "rds_instance_absent": true,
+    "state_machine_absent": true,
+    "owned_secrets_count": 0,
+    "owned_roles_absent": true,
+    "log_group_count": 0,
+    "cleanup_verified": true
+  }
+}
