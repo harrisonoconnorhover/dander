@@ -186,6 +186,22 @@ def test_static_drift_fails_before_pr_creation(
         validator.validate_objective(objective, repository_root=repository)
 
 
+def test_failure_cell_rejects_one_rpu_hour_daily_limit(tmp_path: Path) -> None:
+    objective, repository = _objective(
+        tmp_path,
+        "scripts.benchmarks.redshift_failure_phase8",
+    )
+    payload: dict[str, Any] = json.loads(objective.read_text(encoding="utf-8"))
+    payload["configuration"]["data_plane"]["redshift_serverless_daily_usage_limit_rpu_hours"] = 1
+    objective.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        validator.ObjectiveValidationError,
+        match="failure-cell daily usage limit",
+    ):
+        validator.validate_objective(objective, repository_root=repository)
+
+
 @pytest.mark.parametrize(
     ("contract_section", "field", "replacement"),
     [
