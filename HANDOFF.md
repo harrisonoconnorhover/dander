@@ -13,7 +13,7 @@ Validate all five new objectives with `uv run python scripts/validate_redshift_o
 
 ## Checks
 
-- All 92 focused validator and benchmark tests passed.
+- The complete portability and objective-validator test lane passed.
 - Ruff and strict typing over 442 source files passed.
 - All five objectives validated and all five generated commands smoked in immutable ARM64 RC32.
 - Diff whitespace and JSON parsing checks passed.
