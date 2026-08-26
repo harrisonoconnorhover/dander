@@ -320,8 +320,8 @@ class RedshiftStagedWriter(WritePattern):
                         connection,
                         *_direct_insert(temp_table, staged_schema, direct.rows),
                     )
-                # COPY and SET open an implicit transaction. Close it while retaining the
-                # session-scoped temp table so the fenced publication owns one transaction.
+                # Redshift temp tables are session-scoped. The staging work autocommits so the
+                # fenced publication below owns the only explicit transaction.
                 connection.commit()
                 if rows:
                     assert loaded is not None
@@ -350,8 +350,7 @@ class RedshiftStagedWriter(WritePattern):
                     cursor_field=self._cursor_field,
                     snapshot_field=self._snapshot_field,
                 )
-                # The schema read also opens an implicit transaction. End that read-only
-                # snapshot before beginning the one fenced publication transaction.
+                # Keep an explicit boundary before the one fenced publication transaction.
                 connection.commit()
                 started = perf_counter_ns()
                 results = self._target_fence.execute_statements(

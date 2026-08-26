@@ -27,7 +27,6 @@ class RedshiftCursor(Protocol):
 
 class RedshiftConnection(Protocol):
     autocommit: bool
-    in_transaction: bool
 
     def cursor(self) -> RedshiftCursor: ...
     def commit(self) -> None: ...
@@ -51,8 +50,8 @@ class RedshiftStatementResult:
 def open_connection(factory: RedshiftConnectionFactory) -> Iterator[RedshiftConnection]:
     connection = factory()
     # redshift_connector's implicit lowercase ``begin transaction`` can stall on a valid
-    # Serverless IAM session. Keep driver autocommit enabled and let the bounded helpers below
-    # open the same transaction explicitly with ``BEGIN`` before the first statement.
+    # Serverless IAM session. Keep ordinary session work in driver autocommit; destination
+    # fencing opens an explicit transaction only around the atomic publication statements.
     connection.autocommit = True
     try:
         yield connection
@@ -69,7 +68,6 @@ def execute(
 ) -> RedshiftStatementResult:
     cursor = connection.cursor()
     try:
-        _begin_if_needed(connection, cursor, statement)
         cursor.execute(statement, parameters or None)
         row = cursor.fetchone() if fetch == "one" else None
         rows = tuple(cursor.fetchall()) if fetch == "all" else ()
@@ -86,25 +84,10 @@ def execute_many(
     """Execute one bounded parameter batch without retaining provider response data."""
     cursor = connection.cursor()
     try:
-        _begin_if_needed(connection, cursor, "")
         cursor.executemany(statement, parameters)
         return RedshiftStatementResult(rowcount=cursor.rowcount)
     finally:
         cursor.close()
-
-
-def _begin_if_needed(
-    connection: RedshiftConnection,
-    cursor: RedshiftCursor,
-    statement: str,
-) -> None:
-    command = statement.lstrip().partition(" ")[0].upper()
-    if (
-        connection.autocommit
-        and not connection.in_transaction
-        and command not in {"BEGIN", "COMMIT", "END", "ROLLBACK", "START"}
-    ):
-        cursor.execute("BEGIN")
 
 
 def capture_last_query_id(connection: RedshiftConnection) -> str | None:
@@ -117,8 +100,7 @@ def capture_last_query_id(connection: RedshiftConnection) -> str | None:
     except Exception:
         return None
     finally:
-        # The lookup itself is telemetry-only. End it even when a denied lookup aborted the
-        # transaction so later correctness or cleanup SQL starts from a usable session.
+        # Keep the session usable if a denied telemetry lookup aborts an explicit transaction.
         _rollback_telemetry_transaction(connection)
 
 
@@ -158,8 +140,7 @@ def enrich_operation_telemetry(
     except Exception:
         return tuple(operations)
     finally:
-        # A read failure aborts Redshift's current transaction. Always clear that telemetry-only
-        # transaction before the caller performs temporary-table cleanup.
+        # Keep the session usable if a failed telemetry read aborts an explicit transaction.
         _rollback_telemetry_transaction(connection)
 
 
