@@ -33,6 +33,7 @@ RUN apt-get update \
         libuuid1 \
         login \
         mount \
+        openssl \
         util-linux \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv==0.12.0
