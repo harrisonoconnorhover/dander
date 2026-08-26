@@ -1,22 +1,22 @@
 # Engineering Decisions
 
-## 2026-08-26 — DANDER-235 stops at the exact-image platform handoff
+## 2026-08-26 — DANDER-235 reaches AWS deployment and stops at one missing queue read
 
-- **Finding:** The repaired exact-main image still starts hosted Control with the baked legacy
-  `/app/dander.yaml`. The AWS Control config initializer does not materialize
-  `dander.platforms.yaml`, and `control serve` has no platform-config option, so the requested AWS
-  profile cannot resolve to the existing Fargate launcher.
-- **Acceptance:** The one DANDER-235 attempt stopped at this mandatory preflight. No Control API,
-  scheduled occurrence, cancellation, retry, restart-adoption, result, or per-run cleanup cell ran,
-  and no Fargate worker or Redshift query started. An operator-only configuration bypass would not
-  qualify the exact protected-main artifact.
-- **Cleanup:** The disposable setup was removed immediately: Terraform destroyed 31 resources,
-  its state is empty, and direct inventories found no owned Redshift, PostgreSQL, S3, IAM, or VPC
-  resources. The one accepted immutable multi-platform image remains tagged; superseded DANDER-235
-  tags are absent.
-- **Boundary:** DANDER-235 remains unqualified. Its smallest correction is to hand the validated
-  non-secret platform manifest to hosted Control and select it during the existing Fargate binding.
-  No release, RC32 evidence change, new Phase 8 cell, or DANDER-236 work is included.
+- **Correction verified:** PR #495 handed the validated non-secret platform manifest to hosted
+  Control. Exact protected main resolved the accepted plan through the existing Fargate launcher;
+  the earlier platform-handoff blocker is closed.
+- **Finding:** The full AWS Control apply then failed on its first schedule-DLQ readback because the
+  bounded deployment role does not allow `sqs:ListQueueTags`. Terraform created the queue but could
+  not finish managing it. The smallest correction is that one read action on the exact Control
+  schedule-queue prefix; an operator policy bypass would not qualify the deployment artifact.
+- **Acceptance:** No Control API, scheduled occurrence, cancellation, retry, restart-adoption,
+  results, or per-run cleanup cell ran. No Fargate worker execution or Dander Redshift query began.
+- **Cleanup:** The partial Control stack, launcher, disposable Redshift/PostgreSQL data plane, and
+  synthetic issuer were removed immediately. The exact-main acceptance image remains immutable.
+  A superseded DANDER-235 tag remains only because both available scoped roles deny ECR deletion
+  and the saved stronger browser credential did not authenticate; this is an explicit cleanup gap.
+- **Boundary:** DANDER-235 remains unqualified. No release, RC32 evidence change, new Phase 8 cell,
+  DANDER-236 work, or application/runtime behavior change is included.
 
 ## 2026-08-25 — Scheduled occurrences enter the same durable Control lifecycle
 
