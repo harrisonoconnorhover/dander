@@ -354,8 +354,29 @@ def test_schedule_projection_routes_exact_occurrences_through_control() -> None:
         "--platforms-config",
         "/etc/dander/dander.platforms.yaml",
     ]
+    assert active["control_args"][len(project_aws_control_service(source).command) + 2 :][:4] == [
+        "--project",
+        "demo",
+        "--aws-deployment-name",
+        "dander",
+    ]
+    resource_name = "dander-hosted-graph-fad90246"
+    assert active["control_fargate_bindings"] == {
+        plan.revision: {
+            "execution_arn_prefix": (
+                f"arn:aws:states:{REGION}:{ACCOUNT}:execution:{resource_name}:"
+            ),
+            "log_group_arn": (
+                f"arn:aws:logs:{REGION}:{ACCOUNT}:log-group:/dander/dander/hosted_graph:*"
+            ),
+            "state_machine_arn": (
+                f"arn:aws:states:{REGION}:{ACCOUNT}:stateMachine:{resource_name}"
+            ),
+        }
+    }
     assert manifest["orchestration"] == {
         "execution_plan_revisions": [plan.revision],
+        "fargate_deployment_name": "dander",
         "run_environment": "production",
         "run_store_bucket": "dander-d7-unit-graphs",
         "run_store_prefix": "dander-control/v1",
@@ -367,6 +388,15 @@ def test_schedule_projection_routes_exact_occurrences_through_control() -> None:
     ].split('resource "aws_iam_role" "scheduler"', 1)[0]
     assert 'variable = "aws:SourceAccount"' in scheduler_trust
     assert "schedule-group/default" in scheduler_trust
+    fargate_policy = terraform.split('data "aws_iam_policy_document" "control_fargate"', 1)[
+        1
+    ].split('resource "aws_iam_role_policy" "control_fargate"', 1)[0]
+    assert 'actions   = ["states:StartExecution"]' in fargate_policy
+    assert '"states:DescribeExecution"' in fargate_policy
+    assert '"states:GetExecutionHistory"' in fargate_policy
+    assert '"states:StopExecution"' in fargate_policy
+    assert 'actions   = ["logs:FilterLogEvents"]' in fargate_policy
+    assert 'actions   = ["ecs:DescribeTasks"]' in fargate_policy
 
     with pytest.raises(ValidationError, match="canonical JSON"):
         _source(execution_plan_json=("{}",))

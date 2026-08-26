@@ -2,38 +2,37 @@
 
 ## Finished
 
-- Added `control serve --platforms-config` and passed it through the existing hosted Fargate composition.
-- Made `FargateBinding` resolve the selected deployment from the explicit operator-owned manifest.
-- Validated the AWS manifest against the existing platform schema and exact plan/deployment bindings.
-- Materialized the manifest through the existing read-only AWS Control config volume.
-- Preserved the single-container worker, execution plan, launcher, and provider behavior.
+- Rendered Control project selection, Fargate deployment binding, and scoped launcher IAM from the accepted typed inputs.
+- Kept the existing single worker container non-root while using its writable ephemeral `/tmp` path and absolute connector directory.
+- Replaced the Redshift connector's failing implicit transaction start with explicit `BEGIN` under driver autocommit.
+- Added focused Python, Terraform, and static regression coverage for every corrected boundary.
+- Preserved pipeline logic, RC32, the accepted DANDER-235 image, and all non-AWS backends.
 
 ## Try It
 
-Run `uv run pytest -q tests/deployment/test_aws_control_plane.py tests/control/test_run_lifecycle.py tests/providers/test_fargate_operations.py tests/cli/test_control_oidc_cli.py`.
+Run `uv run pytest -q tests/deployment/test_aws_control_plane.py tests/providers/test_redshift_warehouse_runtime.py tests/providers/test_launcher_runtime.py tests/infra/test_fargate_runtime.py`.
 
 ## Checks
 
-- Focused Python tests: 40 passed.
-- Full Python suite: passed with the repository's existing skips.
-- Ruff lint and format: passed.
-- Strict typing: passed for 455 source files.
-- AWS Control Terraform tests: 5 passed.
+- Focused Python suites: passed.
+- Neighboring Fargate operations/backend suites: passed.
+- Ruff lint/format and strict typing across 455 source files: passed.
+- AWS Control Terraform: validate passed; 5 tests passed.
+- Fargate Terraform module: validate passed; 5 tests passed.
 
 ## Decisions
 
-- Reuse the existing platform schema, Fargate binding, config-init volume, and execution backend.
-- Require platform configuration only when hosted execution plans are present.
-- Keep DANDER-236, releases, RC32 evidence, and runtime behavior unchanged.
+- Keep Fargate's default writable ephemeral layer because a root-owned anonymous `/tmp` volume is not writable by UID 65532 and a sidecar would break the single-container path.
+- Derive IAM resource ARNs from canonical plan contents plus the explicit Fargate deployment name.
+- Do not publish another image or rerun the completed DANDER-235 matrix from this PR.
 
 ## Remaining
 
-- Review and merge this focused DANDER-235 corrective PR after protected checks pass.
-- Confirm exact-main CI, publish one new immutable image tag, and run DANDER-235 once.
-- Clean up immediately and submit the single sanitized evidence/status PR.
+- Merge only after protected checks pass and confirm exact-main CI.
+- Keep the failed matrix evidence and accepted image immutable; no release or DANDER-236 work is included.
 
 ## Review First
 
+- `src/dander/providers/redshift/session.py`
 - `src/dander/deployment/aws_control_plane.py`
-- `src/dander/cli/control_command.py`
-- `infra/aws-control/main.tf`
+- `infra/aws/modules/fargate/main.tf`

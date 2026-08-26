@@ -294,6 +294,7 @@ def test_fargate_projects_the_typed_aws_native_profile_keylessly() -> None:
 
     assert template.profile_id == "production_fargate"
     assert template.command[template.command.index("--platform") + 1] == "production_fargate"
+    assert template.command[template.command.index("--connectors-dir") + 1] == "/app/connectors"
     binding = dict(template.secret_bindings)["DANDER_POSTGRES_DSN"]
     assert binding.provider == "aws_secret_manager"
     assert binding.reference == secret

@@ -228,3 +228,27 @@ variable "control_schedules" {
     error_message = "control_schedules must contain at most 100 complete Scheduler projections."
   }
 }
+
+variable "control_fargate_bindings" {
+  type = map(object({
+    execution_arn_prefix = string
+    log_group_arn        = string
+    state_machine_arn    = string
+  }))
+  description = "Exact existing Fargate resources that Control may operate for registered plans."
+  default     = {}
+
+  validation {
+    condition = (
+      length(var.control_fargate_bindings) <= 100 &&
+      alltrue([for revision, binding in var.control_fargate_bindings :
+        can(regex("^[0-9a-f]{64}$", revision)) &&
+        startswith(binding.execution_arn_prefix, "arn:") &&
+        endswith(binding.execution_arn_prefix, ":") &&
+        startswith(binding.log_group_arn, "arn:") &&
+        startswith(binding.state_machine_arn, "arn:")
+      ])
+    )
+    error_message = "control_fargate_bindings must contain at most 100 complete SHA-keyed bindings."
+  }
+}

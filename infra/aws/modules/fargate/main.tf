@@ -343,18 +343,15 @@ resource "aws_ecs_task_definition" "pipeline" {
     }
   }
 
-  volume {
-    name = "dander-tmp"
-  }
-
   container_definitions = jsonencode([
     {
       name                   = "dander"
       image                  = each.value.image
       essential              = true
-      readonlyRootFilesystem = true
+      readonlyRootFilesystem = false
       user                   = "65532:65532"
       command                = each.value.command
+      workingDirectory       = "/tmp"
       stopTimeout            = tonumber(each.value.extensions.fargate_stop_timeout_seconds)
       environment = [
         for name in sort(keys(local.container_environment[each.key])) : {
@@ -365,13 +362,7 @@ resource "aws_ecs_task_definition" "pipeline" {
       linuxParameters = {
         initProcessEnabled = true
       }
-      mountPoints = [
-        {
-          sourceVolume  = "dander-tmp"
-          containerPath = "/tmp"
-          readOnly      = false
-        }
-      ]
+      mountPoints = []
       logConfiguration = {
         logDriver = "awslogs"
         options = {

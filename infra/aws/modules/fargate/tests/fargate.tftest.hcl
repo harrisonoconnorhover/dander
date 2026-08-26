@@ -147,8 +147,9 @@ run "paused_bounded_controller" {
 
   assert {
     condition = (
-      jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].readonlyRootFilesystem == true &&
+      jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].readonlyRootFilesystem == false &&
       jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].user == "65532:65532" &&
+      jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].workingDirectory == "/tmp" &&
       contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment, { name = "HOME", value = "/tmp" }) &&
       contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment, { name = "TMPDIR", value = "/tmp" }) &&
       contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment, {
@@ -161,10 +162,10 @@ run "paused_bounded_controller" {
         })
       }) &&
       !contains([for item in jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].environment : item.name], "DANDER_POSTGRES_DSN") &&
-      contains(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].mountPoints, { sourceVolume = "dander-tmp", containerPath = "/tmp", readOnly = false }) &&
+      length(jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].mountPoints) == 0 &&
       jsondecode(aws_ecs_task_definition.pipeline["greenhouse_jobs"].container_definitions)[0].stopTimeout == 120
     )
-    error_message = "The Fargate task must remain non-root, read-only, and explicitly stoppable."
+    error_message = "The Fargate task must remain non-root, writable in ephemeral /tmp, and explicitly stoppable."
   }
 
   assert {

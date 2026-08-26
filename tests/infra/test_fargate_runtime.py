@@ -32,16 +32,17 @@ def test_aws_stage_zero_uses_customer_encryption_and_scoped_role_passing() -> No
     assert 'variable = "aws:PrincipalArn"' in stage_zero
 
 
-def test_fargate_task_is_immutable_nonroot_and_uses_separate_roles() -> None:
+def test_fargate_task_is_nonroot_with_writable_ephemeral_runtime_and_separate_roles() -> None:
     module = _source(MODULE)
     stage_zero = _source(AWS_ROOT / "bootstrap-admin/main.tf")
 
     assert 'data "aws_ecr_repository" "runtime"' in module
     assert 'image_tag_mutability = "IMMUTABLE"' in stage_zero
     assert "scan_on_push = true" in stage_zero
-    assert "readonlyRootFilesystem = true" in module
+    assert "readonlyRootFilesystem = false" in module
     assert 'user                   = "65532:65532"' in module
-    assert 'containerPath = "/tmp"' in module
+    assert 'workingDirectory       = "/tmp"' in module
+    assert "mountPoints = []" in module
     assert "execution_role_arn       = aws_iam_role.execution.arn" in module
     assert "task_role_arn            = aws_iam_role.task[each.key].arn" in module
     assert "secretsmanager:GetSecretValue" in module

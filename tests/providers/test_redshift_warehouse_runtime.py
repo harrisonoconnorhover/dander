@@ -20,7 +20,7 @@ from dander.pipeline.graph import PipelineGraph
 from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
 from dander.providers.redshift import RedshiftWarehouseConfig
-from dander.providers.redshift.session import enrich_operation_telemetry
+from dander.providers.redshift.session import enrich_operation_telemetry, execute, open_connection
 from dander.providers.redshift.transform import RedshiftGraphRunner, RedshiftTransformRunner
 from dander.providers.redshift.writer import RedshiftWriteError, _delete_owned
 from dander.telemetry import OperationTelemetry, TelemetryOperation
@@ -277,6 +277,23 @@ def _integer(row: dict[str, object], field_name: str) -> int:
     value = row[field_name]
     assert isinstance(value, int) and not isinstance(value, bool)
     return value
+
+
+def test_redshift_session_uses_explicit_begin_under_driver_autocommit() -> None:
+    backend = _FakeRedshift()
+
+    with open_connection(backend.connect) as connection:
+        assert connection.autocommit is True
+        result = execute(connection, "SELECT current_database(), current_user", fetch="one")
+        connection.commit()
+
+    assert result.row == ("analytics", "dander_user")
+    assert [statement for _, statement, _ in backend.statements] == [
+        "BEGIN",
+        "SELECT current_database(), current_user",
+    ]
+    assert backend.commits == 1
+    assert backend.closes == 1
 
 
 def _config() -> dict[str, object]:

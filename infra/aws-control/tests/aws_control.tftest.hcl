@@ -114,6 +114,13 @@ variables {
   execution_plan_json = {
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" = "{\"schema\":\"io.dander.control.execution-plan/v1\"}"
   }
+  control_fargate_bindings = {
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" = {
+      execution_arn_prefix = "arn:aws:states:us-east-1:123456789012:execution:dander-hosted-graph-fad90246:"
+      log_group_arn        = "arn:aws:logs:us-east-1:123456789012:log-group:/dander/dander/hosted_graph:*"
+      state_machine_arn    = "arn:aws:states:us-east-1:123456789012:stateMachine:dander-hosted-graph-fad90246"
+    }
+  }
   trigger_spec_json = {
     "daily-redshift" = "{\"schema\":\"io.dander.control.trigger-spec/v1\"}"
   }
@@ -305,6 +312,7 @@ run "schedules_use_encrypted_at_least_once_control_wakeups" {
   assert {
     condition = (
       aws_iam_role_policy.control_schedules[0].role == aws_iam_role.control_task[0].id &&
+      aws_iam_role_policy.control_fargate[0].role == aws_iam_role.control_task[0].id &&
       aws_iam_role_policy.scheduler_send[0].role == aws_iam_role.scheduler[0].id &&
       endswith(
         jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].command[

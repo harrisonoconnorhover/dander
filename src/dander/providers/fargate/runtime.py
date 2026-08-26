@@ -110,6 +110,8 @@ class FargateTemplateFactory:
                 "/app/dander.yaml",
                 "--models-dir",
                 "/app/models",
+                "--connectors-dir",
+                "/app/connectors",
                 "--batch-rows",
                 str(request.batch_rows),
             )

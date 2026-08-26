@@ -123,6 +123,9 @@ check "full_profile_is_complete" {
 check "control_orchestration_is_consistent" {
   assert {
     condition = (
+      length(var.execution_plan_json) == length(var.control_fargate_bindings) &&
+      length(setsubtract(toset(keys(var.execution_plan_json)), toset(keys(var.control_fargate_bindings)))) == 0 &&
+      length(setsubtract(toset(keys(var.control_fargate_bindings)), toset(keys(var.execution_plan_json)))) == 0 &&
       length(var.trigger_spec_json) == length(var.control_schedules) &&
       length(setsubtract(toset(keys(var.trigger_spec_json)), toset(keys(var.control_schedules)))) == 0 &&
       length(setsubtract(toset(keys(var.control_schedules)), toset(keys(var.trigger_spec_json)))) == 0 &&
@@ -729,6 +732,51 @@ resource "aws_iam_role_policy" "control_schedules" {
   name   = "dander-d7-control-schedules"
   role   = aws_iam_role.control_task[0].id
   policy = data.aws_iam_policy_document.control_schedules[0].json
+}
+
+data "aws_iam_policy_document" "control_fargate" {
+  count = local.full_profile && length(var.control_fargate_bindings) > 0 ? 1 : 0
+
+  statement {
+    sid       = "StartRegisteredFargatePlans"
+    effect    = "Allow"
+    actions   = ["states:StartExecution"]
+    resources = distinct([for binding in values(var.control_fargate_bindings) : binding.state_machine_arn])
+  }
+
+  statement {
+    sid    = "OperateOwnedFargateExecutions"
+    effect = "Allow"
+    actions = [
+      "states:DescribeExecution",
+      "states:GetExecutionHistory",
+      "states:StopExecution",
+    ]
+    resources = [for binding in values(var.control_fargate_bindings) : "${binding.execution_arn_prefix}*"]
+  }
+
+  statement {
+    sid       = "ReadRegisteredFargateLogs"
+    effect    = "Allow"
+    actions   = ["logs:FilterLogEvents"]
+    resources = distinct([for binding in values(var.control_fargate_bindings) : binding.log_group_arn])
+  }
+
+  # ECS does not support task-level resource scoping for DescribeTasks. Control still validates
+  # every returned task ARN against the registered binding before exposing status or cleanup.
+  statement {
+    sid       = "InspectFargateTasks"
+    effect    = "Allow"
+    actions   = ["ecs:DescribeTasks"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "control_fargate" {
+  count  = local.full_profile && length(var.control_fargate_bindings) > 0 ? 1 : 0
+  name   = "dander-d7-fargate-control"
+  role   = aws_iam_role.control_task[0].id
+  policy = data.aws_iam_policy_document.control_fargate[0].json
 }
 
 data "aws_iam_policy_document" "scheduler_assume" {
