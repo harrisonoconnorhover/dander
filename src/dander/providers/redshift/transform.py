@@ -297,8 +297,8 @@ def _publish_plan(
                 connection,
                 _create_temporary_sql(plan, temporary),
             )
-            # Redshift temp tables survive commit. End CTAS and schema-inspection snapshots
-            # before the single destination-fenced publication transaction begins.
+            # Redshift temp tables are session-scoped. Staging autocommits before the single
+            # destination-fenced publication transaction begins.
             connection.commit()
             staged = replace(staged, query_id=capture_last_query_id(connection))
             telemetry.append(

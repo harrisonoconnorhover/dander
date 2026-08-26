@@ -109,7 +109,8 @@ class _FakeCursor:
         compact = " ".join(command.split())
         if compact == "BEGIN" and self.connection.in_transaction:
             raise AssertionError("Redshift writer attempted to nest a transaction")
-        self.connection.in_transaction = True
+        if compact == "BEGIN" or not self.connection.autocommit:
+            self.connection.in_transaction = True
         self.backend.statements.append((self.connection.connection_id, compact, parameters))
         if compact.startswith("COPY ") or (
             compact.startswith("CREATE TEMP TABLE") and " AS SELECT" in compact
@@ -213,7 +214,8 @@ class _FakeCursor:
             raise RuntimeError("Redshift transaction is aborted until rollback")
         rows = tuple(tuple(row) for row in args)
         compact = " ".join(command.split())
-        self.connection.in_transaction = True
+        if not self.connection.autocommit:
+            self.connection.in_transaction = True
         self.backend.statements.append((self.connection.connection_id, compact, rows))
         if self.backend.direct_error:
             self.connection.aborted = True
@@ -279,7 +281,7 @@ def _integer(row: dict[str, object], field_name: str) -> int:
     return value
 
 
-def test_redshift_session_uses_explicit_begin_under_driver_autocommit() -> None:
+def test_redshift_session_leaves_ordinary_statements_in_driver_autocommit() -> None:
     backend = _FakeRedshift()
 
     with open_connection(backend.connect) as connection:
@@ -289,8 +291,7 @@ def test_redshift_session_uses_explicit_begin_under_driver_autocommit() -> None:
 
     assert result.row == ("analytics", "dander_user")
     assert [statement for _, statement, _ in backend.statements] == [
-        "BEGIN",
-        "SELECT current_database(), current_user",
+        "SELECT current_database(), current_user"
     ]
     assert backend.commits == 1
     assert backend.closes == 1

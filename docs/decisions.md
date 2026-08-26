@@ -2054,3 +2054,12 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   exact cleanup; paid disposable infrastructure never waits for user input.
 - **Deletion margin:** Each objective sets a cleanup-start deadline that leaves explicit
   provider-deletion margin inside its maximum resource lifetime.
+
+## 2026-08-26 — Redshift reserves transactions for fenced publication
+
+- **Observed boundary:** Enabling driver autocommit did not remove the Serverless transaction
+  stall while Dander still issued `BEGIN` automatically before every statement.
+- **Correction:** Setup, staging, reads, telemetry, and cleanup use driver autocommit. Only the
+  existing target-fence paths open explicit transactions for atomic destination publication.
+- **Boundary:** The single-container runtime and destination-fencing contract remain unchanged;
+  DANDER-235 live acceptance must still prove successful results, retries, cancellation, and cleanup.
