@@ -8,8 +8,10 @@ uses one always-on Control task, EventBridge Scheduler, encrypted standard SQS, 
 occurrence idempotency over the existing single-container Fargate worker. PR #495 corrected the
 first DANDER-235 platform-manifest handoff failure, but the exact-main rerun still stopped before
 execution: the bounded AWS deployment role lacks `sqs:ListQueueTags` for the Control schedule queue,
-so Terraform cannot complete the full Control stack. It is not horizontally reconciled and does
-not add a GCP execution backend. Direct CLI execution remains the supported escape hatch.
+so Terraform cannot complete the full Control stack. The smallest correction is one bounded
+`sqs:ListQueueTags` permission on the D7 Control schedule-queue prefix before a fresh acceptance
+attempt. It is not horizontally reconciled and does not add a GCP execution backend. Direct CLI
+execution remains the supported escape hatch.
 
 The Phase 5 warehouse implementations and the
 [shared four-warehouse deterministic fixture](warehouse-correctness-conformance.md) pass on one
