@@ -1,5 +1,23 @@
 # Engineering Decisions
 
+## 2026-08-26 — DANDER-235 stops at the exact-image platform handoff
+
+- **Finding:** The repaired exact-main image still starts hosted Control with the baked legacy
+  `/app/dander.yaml`. The AWS Control config initializer does not materialize
+  `dander.platforms.yaml`, and `control serve` has no platform-config option, so the requested AWS
+  profile cannot resolve to the existing Fargate launcher.
+- **Acceptance:** The one DANDER-235 attempt stopped at this mandatory preflight. No Control API,
+  scheduled occurrence, cancellation, retry, restart-adoption, result, or per-run cleanup cell ran,
+  and no Fargate worker or Redshift query started. An operator-only configuration bypass would not
+  qualify the exact protected-main artifact.
+- **Cleanup:** The disposable setup was removed immediately: Terraform destroyed 31 resources,
+  its state is empty, and direct inventories found no owned Redshift, PostgreSQL, S3, IAM, or VPC
+  resources. The one accepted immutable multi-platform image remains tagged; superseded DANDER-235
+  tags are absent.
+- **Boundary:** DANDER-235 remains unqualified. Its smallest correction is to hand the validated
+  non-secret platform manifest to hosted Control and select it during the existing Fargate binding.
+  No release, RC32 evidence change, new Phase 8 cell, or DANDER-236 work is included.
+
 ## 2026-08-25 — Scheduled occurrences enter the same durable Control lifecycle
 
 - **Ingress:** EventBridge Scheduler substitutes the exact scheduled UTC time into one canonical

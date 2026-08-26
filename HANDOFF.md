@@ -2,37 +2,37 @@
 
 ## Finished
 
-- Routed canonical scheduled occurrences through always-on Control and its existing durable lifecycle.
-- Added encrypted standard SQS wakeups, encrypted DLQ redrive, EventBridge Scheduler, and exact IAM.
-- Added occurrence idempotency, exact trigger/plan/graph validation, readiness, shutdown, and retry behavior.
-- Projected canonical plans/triggers into the existing AWS Control task without changing the worker container.
-- Added DANDER-234 tests, verifier coverage, operator documentation, decisions, and limitations.
+- Merged PR #493 as the combined DANDER-235 container-security prerequisite.
+- Confirmed all protected PR checks and exact-main CI passed for commit `aac16733a3a2`.
+- Published and read back one immutable DANDER-235 multi-platform image with both child digests.
+- Ran the single acceptance preflight, recorded the exact hosted-platform handoff blocker, and did not bypass it.
+- Destroyed all 31 disposable AWS resources and verified empty state plus direct absence checks.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_schedule_consumer.py tests/control/test_run_lifecycle.py` and `terraform -chdir=infra/aws-control test`.
+Review `docs/evidence/aws/2026-08-26/dander-235-control-redshift.json` with `jq`.
 
 ## Checks
 
-- Full pytest passed: 2,060 passed and 35 skipped.
-- Full Ruff lint/format passed; strict typing passed for 455 source files; Control contract drift passed.
-- AWS Control Terraform passed validate and 5 tests; AWS bootstrap-admin passed validate and 1 test.
-- Trivy HIGH/CRITICAL infrastructure scan passed with zero findings.
+- PR #493 and exact-main CI passed all six protected jobs, including both image builds, contracts, and scans.
+- Both published platform children had zero fixable HIGH/CRITICAL findings under the protected Trivy policy.
+- The exact published image reproduced the Fargate-binding preflight failure.
+- Terraform cleanup reported 31 destroyed; state and direct owned-resource inventories are empty.
 
 ## Decisions
 
-- Use Scheduler's exact scheduled time, trigger id, and plan revision for durable occurrence idempotency.
-- Delete SQS messages only after durable Control acceptance; retry failures to one shared encrypted DLQ.
-- Keep one Control task, paused direct Fargate schedules, and the existing single-container worker.
+- Do not qualify an operator-only platform-config injection as exact-main acceptance.
+- Keep DANDER-235 open until hosted Control receives and selects the validated platform manifest.
+- Keep DANDER-236, releases, RC32 evidence, and the single-container runtime unchanged.
 
 ## Remaining
 
-- Review and merge DANDER-234 through protected checks and confirm exact-main CI.
-- DANDER-235 live AWS/Redshift acceptance remains separate and has not started.
-- DANDER-236 GCP/BigQuery remains separately reviewed and must not auto-start.
+- Review and merge this sanitized DANDER-235 status PR.
+- Correct the hosted platform-config handoff in a separately reviewed DANDER-235 implementation PR.
+- Repeat DANDER-235 only from its repaired protected-main image and new immutable tag.
 
 ## Review First
 
-- `src/dander/control/schedule_consumer.py`
-- `src/dander/control/run_composition.py`
-- `infra/aws-control/main.tf`
+- `docs/evidence/aws/2026-08-26/dander-235-control-redshift.json`
+- `docs/decisions.md`
+- `docs/known-limitations.md`
