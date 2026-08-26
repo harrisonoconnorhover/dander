@@ -27,6 +27,7 @@ class RedshiftCursor(Protocol):
 
 class RedshiftConnection(Protocol):
     autocommit: bool
+    in_transaction: bool
 
     def cursor(self) -> RedshiftCursor: ...
     def commit(self) -> None: ...
@@ -49,7 +50,10 @@ class RedshiftStatementResult:
 @contextmanager
 def open_connection(factory: RedshiftConnectionFactory) -> Iterator[RedshiftConnection]:
     connection = factory()
-    connection.autocommit = False
+    # redshift_connector's implicit lowercase ``begin transaction`` can stall on a valid
+    # Serverless IAM session. Keep driver autocommit enabled and let the bounded helpers below
+    # open the same transaction explicitly with ``BEGIN`` before the first statement.
+    connection.autocommit = True
     try:
         yield connection
     finally:
@@ -65,6 +69,7 @@ def execute(
 ) -> RedshiftStatementResult:
     cursor = connection.cursor()
     try:
+        _begin_if_needed(connection, cursor, statement)
         cursor.execute(statement, parameters or None)
         row = cursor.fetchone() if fetch == "one" else None
         rows = tuple(cursor.fetchall()) if fetch == "all" else ()
@@ -81,10 +86,25 @@ def execute_many(
     """Execute one bounded parameter batch without retaining provider response data."""
     cursor = connection.cursor()
     try:
+        _begin_if_needed(connection, cursor, "")
         cursor.executemany(statement, parameters)
         return RedshiftStatementResult(rowcount=cursor.rowcount)
     finally:
         cursor.close()
+
+
+def _begin_if_needed(
+    connection: RedshiftConnection,
+    cursor: RedshiftCursor,
+    statement: str,
+) -> None:
+    command = statement.lstrip().partition(" ")[0].upper()
+    if (
+        connection.autocommit
+        and not connection.in_transaction
+        and command not in {"BEGIN", "COMMIT", "END", "ROLLBACK", "START"}
+    ):
+        cursor.execute("BEGIN")
 
 
 def capture_last_query_id(connection: RedshiftConnection) -> str | None:

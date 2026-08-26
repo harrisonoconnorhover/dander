@@ -124,7 +124,7 @@ class FargateBinding:
             raise FargateOperationError("Fargate deployment has an invalid AWS account")
         if not isinstance(region, str) or _AWS_REGION.fullmatch(region) is None:
             raise FargateOperationError("Fargate deployment has an invalid AWS region")
-        resource_name = _resource_name(name=name, pipeline_id=pipeline_id)
+        resource_name = fargate_resource_name(name=name, pipeline_id=pipeline_id)
         partition = "aws-us-gov" if region.startswith("us-gov-") else "aws"
         return cls(
             account_id=account_id,
@@ -589,7 +589,12 @@ class FargateOperations:
         return cast("dict[str, object]", payload)
 
 
-def _resource_name(*, name: str, pipeline_id: str) -> str:
+def fargate_resource_name(*, name: str, pipeline_id: str) -> str:
+    """Return the deterministic AWS resource name for one launcher pipeline."""
+    if not _DEPLOYMENT_NAME.fullmatch(name):
+        raise FargateOperationError("Invalid AWS deployment name")
+    if not _PIPELINE_ID.fullmatch(pipeline_id):
+        raise FargateOperationError("Invalid pipeline identifier")
     normalized = pipeline_id.replace("_", "-")[:20]
     digest = hashlib.sha1(pipeline_id.encode(), usedforsecurity=False).hexdigest()[:8]
     return "-".join(part for part in (name[:20], normalized, digest) if part)
@@ -664,4 +669,5 @@ __all__ = [
     "FargateLogEvent",
     "FargateOperationError",
     "FargateOperations",
+    "fargate_resource_name",
 ]

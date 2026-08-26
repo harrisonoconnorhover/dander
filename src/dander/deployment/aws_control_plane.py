@@ -38,6 +38,7 @@ from dander.deployment.service import (
     S3GraphStoreBinding,
 )
 from dander.project.portable_config import DanderPlatforms
+from dander.providers.fargate.operations import fargate_resource_name
 
 AWS_CONTROL_PLANE_SCHEMA: Final = "io.dander.aws-control-plane/v1"
 AWS_CONTROL_PORT: Final = 8770
@@ -256,6 +257,7 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     execution_plan_json: tuple[str, ...] = ()
     trigger_spec_json: tuple[str, ...] = ()
     run_environment: str = "production"
+    fargate_deployment_name: str = "dander"
 
     @field_validator("cloudfront_distribution_id")
     @classmethod
@@ -288,6 +290,13 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     def validate_run_environment(cls, value: str) -> str:
         if _PORTABLE_ID.fullmatch(value) is None:
             raise ValueError("AWS Control run environment is invalid.")
+        return value
+
+    @field_validator("fargate_deployment_name")
+    @classmethod
+    def validate_fargate_deployment_name(cls, value: str) -> str:
+        if _NAME.fullmatch(value) is None:
+            raise ValueError("AWS Fargate deployment name is invalid.")
         return value
 
     @field_validator("platforms_config_yaml")
@@ -476,6 +485,32 @@ def project_aws_control_service(source: AWSControlPlaneInput) -> ResolvedControl
     )
 
 
+def _control_fargate_bindings(source: AWSControlPlaneInput) -> dict[str, dict[str, str]]:
+    partition = "aws-us-gov" if source.region.startswith("us-gov-") else "aws"
+    bindings: dict[str, dict[str, str]] = {}
+    for plan in source.execution_plans:
+        pipeline_id = plan.execution_template.pipeline_id
+        resource_name = fargate_resource_name(
+            name=source.fargate_deployment_name,
+            pipeline_id=pipeline_id,
+        )
+        bindings[plan.revision] = {
+            "execution_arn_prefix": (
+                f"arn:{partition}:states:{source.region}:{source.aws_account_id}:"
+                f"execution:{resource_name}:"
+            ),
+            "log_group_arn": (
+                f"arn:{partition}:logs:{source.region}:{source.aws_account_id}:"
+                f"log-group:/dander/{source.fargate_deployment_name}/{pipeline_id}:*"
+            ),
+            "state_machine_arn": (
+                f"arn:{partition}:states:{source.region}:{source.aws_account_id}:"
+                f"stateMachine:{resource_name}"
+            ),
+        }
+    return bindings
+
+
 def render_aws_control_foundation(source: AWSControlPlaneFoundationInput) -> dict[str, str]:
     """Render only coordinates safe to apply before CloudFront assigns a domain."""
     foundation = {
@@ -492,6 +527,7 @@ def render_aws_control_foundation(source: AWSControlPlaneFoundationInput) -> dic
         "execution_plan_json": {},
         "trigger_spec_json": {},
         "control_schedules": {},
+        "control_fargate_bindings": {},
     }
     manifest = {
         "schema": AWS_CONTROL_PLANE_SCHEMA,
@@ -542,6 +578,9 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
     control_args = list(service.command)
     if source.execution_plans:
         control_args.extend(("--platforms-config", AWS_PLATFORMS_CONFIG))
+        for project in sorted({plan.project for plan in source.execution_plans}):
+            control_args.extend(("--project", project))
+        control_args.extend(("--aws-deployment-name", source.fargate_deployment_name))
         for plan in source.execution_plans:
             control_args.extend(
                 (
@@ -580,6 +619,7 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
         "execution_plan_json": plan_json,
         "trigger_spec_json": trigger_json,
         "control_schedules": schedules,
+        "control_fargate_bindings": _control_fargate_bindings(source),
     }
     active = {
         **common,
@@ -620,6 +660,7 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
         },
         "orchestration": {
             "run_environment": source.run_environment,
+            "fargate_deployment_name": source.fargate_deployment_name,
             "execution_plan_revisions": sorted(plan_json),
             "scheduled_trigger_ids": sorted(schedules),
             "run_store_bucket": source.graph_bucket if plan_json else None,
