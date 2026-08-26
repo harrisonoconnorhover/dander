@@ -31,6 +31,7 @@ locals {
     length(var.control_args) > 0 &&
     var.control_oidc_json != "" &&
     var.graph_store_json != "" &&
+    (length(var.execution_plan_json) == 0 || var.platforms_config_yaml != "") &&
     var.bootstrap_json != "" &&
     var.druff_caddyfile != ""
   )
@@ -49,6 +50,7 @@ locals {
     for variable, destination in (
         ("CONTROL_OIDC_B64", "/config/oidc/control-oidc.json"),
         ("GRAPH_STORE_B64", "/config/graph-store/control-graph-store.json"),
+        ("PLATFORMS_CONFIG_B64", "/config/dander.platforms.yaml"),
     ):
         path = Path(destination)
         path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
@@ -864,6 +866,7 @@ resource "aws_ecs_task_definition" "control" {
       environment = [
         { name = "CONTROL_OIDC_B64", value = base64encode(var.control_oidc_json) },
         { name = "GRAPH_STORE_B64", value = base64encode(var.graph_store_json) },
+        { name = "PLATFORMS_CONFIG_B64", value = base64encode(var.platforms_config_yaml) },
         { name = "EXECUTION_PLANS_B64", value = base64encode(jsonencode(var.execution_plan_json)) },
         { name = "TRIGGER_SPECS_B64", value = base64encode(jsonencode(var.trigger_spec_json)) },
       ]

@@ -795,6 +795,7 @@ def test_fargate_startup_binds_canonical_plans_to_existing_aws_resources(
     composition = build_fargate_run_composition(
         graph_store=graph_store,
         project_config=tmp_path / "dander.yaml",
+        platforms_config=tmp_path / "dander.platforms.yaml",
         plan_paths=(plan_path,),
         run_store_bucket="dander-control-runs",
         run_store_prefix="control/runs/v1",
@@ -806,6 +807,7 @@ def test_fargate_startup_binds_canonical_plans_to_existing_aws_resources(
     assert binding_calls == [
         {
             "config": tmp_path / "dander.yaml",
+            "platforms_config": tmp_path / "dander.platforms.yaml",
             "deployment": "aws",
             "pipeline_id": "hosted_graph",
             "name": "dander",
@@ -857,6 +859,7 @@ def test_fargate_startup_binds_canonical_plans_to_existing_aws_resources(
     scheduled = build_fargate_run_composition(
         graph_store=graph_store,
         project_config=tmp_path / "dander.yaml",
+        platforms_config=tmp_path / "dander.platforms.yaml",
         plan_paths=(plan_path,),
         run_store_bucket="dander-control-runs",
         run_store_prefix="control/runs/v1",

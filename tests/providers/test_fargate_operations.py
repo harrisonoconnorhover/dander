@@ -172,10 +172,14 @@ endpoints:
     deployment["runtime"]["memory"] = "2Gi"
     deployment["safety"]["require_guarded_free_tier"] = False
     platforms["deployments"]["aws_fargate"] = deployment
-    (tmp_path / "dander.platforms.yaml").write_text(yaml.safe_dump(platforms), encoding="utf-8")
+    operator_root = tmp_path / "operator"
+    operator_root.mkdir()
+    platforms_path = operator_root / "dander.platforms.yaml"
+    platforms_path.write_text(yaml.safe_dump(platforms), encoding="utf-8")
 
     binding = FargateBinding.from_project(
         config=project,
+        platforms_config=platforms_path,
         deployment="aws_fargate",
         pipeline_id=PIPELINE,
     )

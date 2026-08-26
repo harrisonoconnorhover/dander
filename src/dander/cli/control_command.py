@@ -44,6 +44,11 @@ def serve_control(
         "--config",
         help="Optional project manifest used only for presentation-safe plugin discovery.",
     ),
+    platforms_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--platforms-config",
+        help="Operator-owned platform manifest used by hosted execution backends.",
+    ),
     oidc_config: Path | None = typer.Option(  # noqa: B008
         None,
         "--oidc-config",
@@ -154,6 +159,7 @@ def serve_control(
             run_composition = build_fargate_run_composition(
                 graph_store=store,
                 project_config=project_config,
+                platforms_config=platforms_config,
                 plan_paths=execution_plans,
                 run_store_bucket=run_store_bucket,
                 run_store_prefix=run_store_prefix,

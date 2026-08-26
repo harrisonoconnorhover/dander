@@ -52,6 +52,59 @@ _DRUFF = REPOSITORY + "@sha256:" + "c" * 64
 _DRUFF_ROLLBACK = REPOSITORY + "@sha256:" + "d" * 64
 
 
+def _platforms_config() -> str:
+    return json.dumps(
+        {
+            "version": 1,
+            "platforms": {
+                "aws_native": {
+                    "warehouse": {
+                        "provider": "redshift",
+                        "deployment": "serverless",
+                        "host": "example.123456789012.us-east-1.redshift-serverless.amazonaws.com",
+                        "database": "analytics",
+                        "schema": "raw",
+                        "region": REGION,
+                        "workgroup_name": "dander-unit",
+                        "database_role": "dander_runtime",
+                        "copy_role_arn": f"arn:aws:iam::{ACCOUNT}:role/DanderRedshiftCopy",
+                        "staging_bucket": "dander-unit-staging",
+                    },
+                    "state": {
+                        "provider": "postgresql",
+                        "authority_id": "postgresql:aws-unit",
+                        "dsn_env": "DANDER_POSTGRES_DSN",
+                    },
+                    "catalog": {
+                        "provider": "glue",
+                        "region": REGION,
+                        "catalog_id": ACCOUNT,
+                    },
+                    "secrets": {"provider": "aws_secret_manager", "region": REGION},
+                }
+            },
+            "deployments": {
+                "aws": {
+                    "platform": "aws_native",
+                    "launcher": {
+                        "provider": "fargate",
+                        "region": REGION,
+                        "aws_account_id": ACCOUNT,
+                        "subnet_ids": ["subnet-0123456789abcdef0"],
+                        "security_group_ids": ["sg-0123456789abcdef0"],
+                        "architecture": "X86_64",
+                    },
+                    "runtime": {"memory": "2Gi"},
+                    "safety": {"require_guarded_free_tier": False},
+                    "pipelines": {"hosted_graph": {"paused": True}},
+                }
+            },
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
 def _foundation_values() -> dict[str, object]:
     return {
         "aws_account_id": ACCOUNT,
@@ -168,6 +221,7 @@ def _scheduled_source(**updates: object) -> AWSControlPlaneInput:
         time_zone="America/New_York",
     )
     return _source(
+        platforms_config_yaml=_platforms_config(),
         execution_plan_json=(serialize_execution_plan(plan).decode(),),
         trigger_spec_json=(serialize_trigger_spec(spec).decode(),),
         **updates,
@@ -272,6 +326,7 @@ def test_schedule_projection_routes_exact_occurrences_through_control() -> None:
     spec = source.trigger_specs[0]
 
     assert active["execution_plan_json"] == {plan.revision: source.execution_plan_json[0]}
+    assert active["platforms_config_yaml"] == source.platforms_config_yaml
     assert active["trigger_spec_json"] == {spec.trigger_id: source.trigger_spec_json[0]}
     assert active["control_schedules"][spec.trigger_id] == {
         "enabled": True,
@@ -295,6 +350,10 @@ def test_schedule_projection_routes_exact_occurrences_through_control() -> None:
         "--trigger-spec",
         "/etc/dander/orchestration/triggers/daily-redshift.json",
     ]
+    assert active["control_args"][len(project_aws_control_service(source).command) :][:2] == [
+        "--platforms-config",
+        "/etc/dander/dander.platforms.yaml",
+    ]
     assert manifest["orchestration"] == {
         "execution_plan_revisions": [plan.revision],
         "run_environment": "production",
@@ -311,8 +370,20 @@ def test_schedule_projection_routes_exact_occurrences_through_control() -> None:
 
     with pytest.raises(ValidationError, match="canonical JSON"):
         _source(execution_plan_json=("{}",))
+    with pytest.raises(ValidationError, match="require platform configuration"):
+        _source(execution_plan_json=source.execution_plan_json)
+    with pytest.raises(ValidationError, match="valid YAML"):
+        _source(platforms_config_yaml="version: [")
+    mismatched_platforms = json.loads(source.platforms_config_yaml)
+    mismatched_platforms["deployments"]["aws"]["launcher"]["region"] = "us-west-2"
+    with pytest.raises(ValidationError, match="matching Fargate platform bindings"):
+        _source(
+            platforms_config_yaml=json.dumps(mismatched_platforms),
+            execution_plan_json=source.execution_plan_json,
+        )
     with pytest.raises(ValidationError, match="exact configured plan"):
         _source(
+            platforms_config_yaml=source.platforms_config_yaml,
             execution_plan_json=source.execution_plan_json,
             trigger_spec_json=(
                 serialize_trigger_spec(
@@ -648,6 +719,7 @@ def _task_definition(
         environment = {
             "CONTROL_OIDC_B64": _b64(rendered["control-oidc.json"]),
             "GRAPH_STORE_B64": _b64(rendered["control-graph-store.json"]),
+            "PLATFORMS_CONFIG_B64": _b64(active["platforms_config_yaml"]),
             "EXECUTION_PLANS_B64": _b64(
                 json.dumps(active["execution_plan_json"], sort_keys=True, separators=(",", ":"))
             ),
