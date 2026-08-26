@@ -1,5 +1,17 @@
 # Engineering Decisions
 
+## 2026-08-26 — Cold Redshift validation timeouts use the bounded runtime retry
+
+- **Finding:** A fresh Serverless workgroup accepted TCP and temporary credentials, but its first
+  validation query timed out before Redshift registered SQL. The same image and IAM path connected
+  and queried successfully once the workgroup was warm.
+- **Behavior:** Dander now identifies only a Redshift validation exception chain containing a real
+  timeout as transient destination unavailability. The OCI runtime emits exit 75, allowing the
+  existing one-retry Fargate controller to retry the same logical run; other configuration failures
+  remain permanent and sanitized.
+- **Boundary:** This does not add provider retries, change transaction behavior, alter Control
+  contracts, or expand the DANDER-235 matrix. Direct and single-container execution remain intact.
+
 ## 2026-08-26 — DANDER-235 reaches AWS deployment and stops at one missing queue read
 
 - **Correction verified:** PR #495 handed the validated non-secret platform manifest to hosted

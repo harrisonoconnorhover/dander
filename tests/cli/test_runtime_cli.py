@@ -16,6 +16,7 @@ import dander.cli.runtime_command as runtime_module
 from dander.cli.main import app
 from dander.executor import PipelineExecutionResult
 from dander.identity import FargateIdentityError
+from dander.providers.redshift import RedshiftConnectionUnavailableError
 from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.runtime_contract import RuntimeCancelledError, RuntimeExitCode
 from dander.state import mark_failure_diagnostic_logged
@@ -448,6 +449,24 @@ def test_runtime_execute_sanitizes_retryable_failure(monkeypatch: MonkeyPatch) -
     assert terminal["retryable"] is True
     assert terminal["outputs"]["telemetry"]["duration_ms"] >= 0
     assert "credential-value" not in result.output
+
+
+def test_runtime_execute_retries_redshift_connection_warmup_timeout(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
+        error = ClickException("private provider detail")
+        error.__cause__ = RedshiftConnectionUnavailableError("private endpoint detail")
+        raise error
+
+    result = _invoke(monkeypatch, fail, platform="aws_fargate")
+
+    assert result.exit_code == RuntimeExitCode.RETRYABLE_FAILURE
+    terminal = json.loads(result.output.splitlines()[-1])
+    assert terminal["failure_code"] == "destination_write_failed"
+    assert terminal["retryable"] is True
+    assert "private provider detail" not in result.output
+    assert "private endpoint detail" not in result.output
 
 
 def test_runtime_execute_distinguishes_invalid_configuration(

@@ -79,6 +79,11 @@ def classify_failure(error: Exception, *, stage: RunStage, run_id: str) -> Failu
             "lease_failed",
             "Pipeline ownership or cursor fencing was lost. A fresh run can retry safely.",
         )
+    if "RedshiftConnectionUnavailableError" in names:
+        return details(
+            "destination_write_failed",
+            "Redshift was temporarily unavailable. A fresh run can retry safely.",
+        )
     if names & {"RawSchemaError", "CursorValueError", "WarehouseSchemaSupportError"}:
         return details(
             "source_schema_failed",
