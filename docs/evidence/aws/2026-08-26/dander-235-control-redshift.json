@@ -27,14 +27,29 @@
     "unfixed_vendor_advisories_outside_the_protected_gate": "not_claimed_absent",
     "application_or_orchestration_behavior_changed": false
   },
+  "platform_handoff_correction": {
+    "pull_request": 495,
+    "pull_request_status": "merged",
+    "merge_commit": "ed9bc2796702024e7742688eef192d2e1b0a6c61",
+    "pull_request_ci_run": 32974087308,
+    "pull_request_ci_status": "success",
+    "exact_main_ci_run": 32974837425,
+    "exact_main_ci_status": "success",
+    "accepted_contracts_changed": false,
+    "previous_platform_handoff_blocker_closed": true
+  },
   "acceptance_image": {
-    "source_commit": "aac16733a3a26d8ced136361b5813776c8d0c07f",
-    "tag": "dander-235-main-aac16733a3a2",
-    "retained_dander_235_tag_count": 1,
-    "index_digest": "sha256:b6a7655833a019e1dd0c176c0d9292badc9e6d68477c55e863673b06e4a2c92e",
+    "source_commit": "ed9bc2796702024e7742688eef192d2e1b0a6c61",
+    "tag": "dander-235-main-ed9bc2796702",
+    "publication_count_from_exact_main": 1,
+    "index_digest": "sha256:23e08d9687ee555f68696b55dd4e499fb51081b8e3d20a9dac974346639269c5",
     "platform_children": {
-      "linux_amd64": "sha256:be1867fc730e31c47cd51b6ca7fa60b1631f0d91bc2edcb43220e61d107813dc",
-      "linux_arm64": "sha256:1c91943b5e4d5f311b46f48bb71167b04e927b00c1fd595794221f283c9f55f9"
+      "linux_amd64": "sha256:f111847f81c04af3d06fa802cf709ba085afd8d1a62fcb59c110583fe890831e",
+      "linux_arm64": "sha256:a288f337c28cb3055f1fb0f05b2ba2f0e771043d2f67970ada53ac7eb92cea85"
+    },
+    "attestation_manifests": {
+      "linux_amd64": "sha256:d94eb29d2e20b813c38e9bcb7f791809e2badfabe1b79db8d7cc4049bb92ef4b",
+      "linux_arm64": "sha256:461b02232aec65b6e6479325488f530f8783c4984863c75ae04b135004d3cc52"
     },
     "platform_child_fixable_high_or_critical_findings": {
       "linux_amd64": 0,
@@ -42,53 +57,76 @@
     },
     "immutable_index_readback_passed": true,
     "release_created": false,
-    "superseded_dander_235_tags_retained": false
+    "retained_dander_235_tag_count": 2,
+    "superseded_dander_235_tags_retained": true,
+    "superseded_cleanup_status": "blocked_by_available_identity_authority",
+    "superseded_cleanup_observed_behavior": "Both available scoped roles denied exact ECR deletion, and the saved stronger browser credential did not authenticate."
   },
   "acceptance": {
-    "attempt_count": 1,
+    "historical_attempt_count": 2,
+    "current_exact_main_attempt_count": 1,
     "execution_attempt_count": 0,
-    "status": "blocked_at_mandatory_preflight",
+    "status": "blocked_at_control_deployment",
     "preflight": {
       "exact_published_image_used": true,
-      "stage": "control_fargate_binding",
-      "result": "failed",
-      "failure_code": "hosted_control_platform_profile_not_handed_off",
-      "observed_behavior": "The hosted Control path loaded the baked legacy project manifest, so the selected AWS profile did not resolve to the Fargate launcher.",
-      "dander_execution_provider_effect_started": false
+      "exact_main_ci_passed": true,
+      "platform_manifest_handoff_passed": true,
+      "execution_plan_resolution_passed": true,
+      "fargate_launcher_deployed": true,
+      "redshift_data_plane_available": true,
+      "phase8_qualification_harness_started": false
+    },
+    "deployment": {
+      "foundation_apply": "passed",
+      "full_apply": "failed",
+      "failure_stage": "control_schedule_dlq_readback",
+      "failure_code": "control_deployment_role_missing_sqs_list_queue_tags",
+      "observed_behavior": "Terraform created the bounded Control schedule dead-letter queue but could not read its tags through the deployment role.",
+      "control_api_became_available": false,
+      "control_schedule_created": false,
+      "step_functions_executions_started": 0,
+      "fargate_worker_tasks_started": 0,
+      "dander_redshift_queries_started": 0
     },
     "matrix": {
-      "api_success": "not_run_preflight_failed",
-      "scheduled_success": "not_run_preflight_failed",
-      "cancellation": "not_run_preflight_failed",
-      "bounded_exit_75_retry": "not_run_preflight_failed",
-      "restart_adoption": "not_run_preflight_failed",
-      "results": "not_run_preflight_failed",
-      "per_run_cleanup": "not_run_preflight_failed"
+      "api_success": "not_run_control_deployment_failed",
+      "scheduled_success": "not_run_control_deployment_failed",
+      "cancellation": "not_run_control_deployment_failed",
+      "bounded_exit_75_retry": "not_run_control_deployment_failed",
+      "restart_adoption": "not_run_control_deployment_failed",
+      "results": "not_run_control_deployment_failed",
+      "per_run_cleanup": "not_run_control_deployment_failed"
     },
     "support_promoted": false
   },
   "finding": {
-    "control_default_project_config": "/app/dander.yaml",
-    "platform_config_written_by_aws_control_init": false,
-    "platform_config_cli_option_on_control_serve": false,
-    "smallest_corrective_boundary": "Hand the validated non-secret platform manifest to hosted Control and explicitly select it when constructing the existing Fargate binding.",
-    "operator_side_configuration_bypass_used": false
+    "missing_action": "sqs:ListQueueTags",
+    "smallest_corrective_boundary": "Allow the bounded D7 deployment role to read tags only from the exact Control schedule-queue prefix, then rerun the complete acceptance from a fresh exact main.",
+    "operator_side_policy_bypass_used": false,
+    "application_orchestration_launcher_or_provider_behavior_changed": false
   },
   "provider_setup_and_cleanup": {
-    "redshift_workgroup_became_available": false,
-    "redshift_query_or_dander_run_started": false,
-    "control_service_or_fargate_worker_created": false,
-    "terraform_destroyed_resources": 31,
+    "redshift_workgroup_became_available": true,
+    "data_plane_setup_sql_completed": true,
+    "dander_redshift_query_started": false,
+    "control_api_or_fargate_worker_started": false,
+    "terraform_destroyed_resources": 98,
+    "external_resources_destroyed": 2,
     "terraform_state_resources_after_cleanup": 0,
     "direct_inventory_after_cleanup": {
+      "control_services": 0,
+      "control_schedules": 0,
+      "fargate_state_machines": 0,
       "redshift_workgroups": 0,
       "redshift_namespaces": 0,
       "postgresql_instances": 0,
       "staging_buckets": 0,
       "copy_roles": 0,
-      "tagged_vpcs": 0
+      "tagged_vpcs": 0,
+      "synthetic_identity_services": 0
     },
-    "cleanup_status": "passed"
+    "kms_keys_pending_deletion": 1,
+    "cleanup_status": "passed_except_superseded_registry_artifacts"
   },
   "cost": {
     "authorized_ceiling_usd": "25.00",

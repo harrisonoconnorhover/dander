@@ -5,11 +5,11 @@ evaluate these limits before using it for an unattended system containing busine
 
 The first hosted Control schedule path is implemented only for the experimental AWS profile. It
 uses one always-on Control task, EventBridge Scheduler, encrypted standard SQS, and durable
-occurrence idempotency over the existing single-container Fargate worker. The first DANDER-235
-live AWS/Redshift attempt stopped before execution because hosted Control does not yet receive and
-select the portable platform manifest needed to bind the existing Fargate launcher. It is not
-horizontally reconciled and does not add a GCP execution backend. Direct CLI execution remains the
-supported escape hatch.
+occurrence idempotency over the existing single-container Fargate worker. PR #495 corrected the
+first DANDER-235 platform-manifest handoff failure, but the exact-main rerun still stopped before
+execution: the bounded AWS deployment role lacks `sqs:ListQueueTags` for the Control schedule queue,
+so Terraform cannot complete the full Control stack. It is not horizontally reconciled and does
+not add a GCP execution backend. Direct CLI execution remains the supported escape hatch.
 
 The Phase 5 warehouse implementations and the
 [shared four-warehouse deterministic fixture](warehouse-correctness-conformance.md) pass on one
