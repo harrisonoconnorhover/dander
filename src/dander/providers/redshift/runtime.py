@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
 from dander.providers.redshift.config import RedshiftWarehouseConfig, validate_redshift_relation
+from dander.providers.redshift.errors import RedshiftConnectionUnavailableError
 from dander.providers.redshift.fence import RedshiftTargetFence
 from dander.providers.redshift.session import (
     RedshiftConnectionFactory,
@@ -268,6 +269,11 @@ def build_redshift_warehouse(
                 fetch="one",
             ).row
     except Exception as error:
+        if _contains_timeout(error):
+            raise RedshiftConnectionUnavailableError(
+                "Redshift connection validation timed out while the service was "
+                "temporarily unavailable"
+            ) from error
         raise ProviderFactoryError("Redshift connection validation failed") from error
     if not isinstance(current, (tuple, list)) or len(current) < 2:
         raise ProviderFactoryError("Redshift connection validation returned an invalid result")
@@ -426,6 +432,24 @@ def _quote(identifier: str) -> str:
 
 def _matches_iam_user(actual: str, configured: str) -> bool:
     return actual in {configured, f"IAM:{configured}"} or actual.startswith(f"IAMA:{configured}:")
+
+
+def _contains_timeout(error: BaseException) -> bool:
+    pending: list[BaseException] = [error]
+    seen: set[int] = set()
+    while pending and len(seen) < 8:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, TimeoutError):
+            return True
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None:
+            pending.append(current.__context__)
+        pending.extend(value for value in current.args if isinstance(value, BaseException))
+    return False
 
 
 __all__ = [

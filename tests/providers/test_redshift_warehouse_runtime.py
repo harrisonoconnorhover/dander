@@ -19,7 +19,10 @@ from dander.ingestion import Endpoint, RawField, SourceConfig
 from dander.pipeline.graph import PipelineGraph
 from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError, plan_graph_execution
 from dander.providers import ProviderFactoryError, ProviderKind, default_provider_registry
-from dander.providers.redshift import RedshiftWarehouseConfig
+from dander.providers.redshift import (
+    RedshiftConnectionUnavailableError,
+    RedshiftWarehouseConfig,
+)
 from dander.providers.redshift.session import enrich_operation_telemetry, execute, open_connection
 from dander.providers.redshift.transform import RedshiftGraphRunner, RedshiftTransformRunner
 from dander.providers.redshift.writer import RedshiftWriteError, _delete_owned
@@ -2125,6 +2128,31 @@ def test_redshift_connection_validation_errors_are_sanitized(tmp_path: Path) -> 
             },
         )
     assert "private AWS response" not in str(raised.value)
+
+
+def test_redshift_connection_validation_timeout_is_transient(tmp_path: Path) -> None:
+    class _ColdConnectionFactory:
+        def __call__(self) -> object:
+            raise TimeoutError("private endpoint detail")
+
+    registry = default_provider_registry()
+    config = registry.parse(ProviderKind.WAREHOUSE, _config())
+
+    with pytest.raises(
+        RedshiftConnectionUnavailableError,
+        match="temporarily unavailable",
+    ) as raised:
+        registry.build(
+            ProviderKind.WAREHOUSE,
+            config,
+            context={
+                "catalog": "analytics",
+                "connection_factory": _ColdConnectionFactory(),
+                "s3_client": _FakeS3(),
+                "staging_root": tmp_path,
+            },
+        )
+    assert "private endpoint detail" not in str(raised.value)
 
 
 def test_redshift_serverless_uses_explicit_temporary_credentials_and_base_protocol(
