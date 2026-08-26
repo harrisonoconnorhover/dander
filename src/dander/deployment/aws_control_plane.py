@@ -16,7 +16,8 @@ from tempfile import NamedTemporaryFile
 from typing import Final, Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from dander.control.auth import HostedOIDCDeploymentInput, project_hosted_oidc
 from dander.control.orchestration import ExecutionPlan, TriggerKind, TriggerSpec
@@ -36,12 +37,14 @@ from dander.deployment.service import (
     ResolvedControlServiceRequest,
     S3GraphStoreBinding,
 )
+from dander.project.portable_config import DanderPlatforms
 
 AWS_CONTROL_PLANE_SCHEMA: Final = "io.dander.aws-control-plane/v1"
 AWS_CONTROL_PORT: Final = 8770
 AWS_DRUFF_PORT: Final = 8080
 AWS_CONFIG_ROOT: Final = "/etc/dander"
 AWS_ORCHESTRATION_ROOT: Final = f"{AWS_CONFIG_ROOT}/orchestration"
+AWS_PLATFORMS_CONFIG: Final = f"{AWS_CONFIG_ROOT}/dander.platforms.yaml"
 AWS_D7_STATE_PREFIX: Final = "dander/d7/control-plane/"
 
 _ACCOUNT = re.compile(r"^[0-9]{12}$")
@@ -63,6 +66,7 @@ _IMMUTABLE_IMAGE = re.compile(r"^[a-z0-9.-]+(?::[0-9]{1,5})?/[A-Za-z0-9._/-]+@sh
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _SCHEDULE_EXPRESSION = re.compile(r"^(?:cron|rate|at)\(.+\)$")
 _MAX_ORCHESTRATION_CONFIG_BYTES: Final = 512 * 1024
+_MAX_PLATFORMS_CONFIG_BYTES: Final = 32 * 1024
 _FILES: Final = frozenset(
     {
         "Caddyfile",
@@ -136,6 +140,14 @@ _CADDYFILE: Final = """{
 
 class AWSControlPlaneError(ValueError):
     """The AWS profile, projection, or live deployment is invalid."""
+
+
+def _parse_platforms_config(value: str) -> DanderPlatforms:
+    try:
+        document = yaml.safe_load(value)
+        return DanderPlatforms.model_validate(document)
+    except (yaml.YAMLError, ValidationError) as error:
+        raise ValueError("AWS Control platform configuration must be valid YAML.") from error
 
 
 class AWSControlPlaneFoundationInput(BaseModel):
@@ -240,6 +252,7 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     druff_image: str = Field(min_length=1, max_length=2048)
     druff_rollback_image: str = Field(min_length=1, max_length=2048)
     oidc: HostedOIDCDeploymentInput
+    platforms_config_yaml: str = ""
     execution_plan_json: tuple[str, ...] = ()
     trigger_spec_json: tuple[str, ...] = ()
     run_environment: str = "production"
@@ -275,6 +288,16 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     def validate_run_environment(cls, value: str) -> str:
         if _PORTABLE_ID.fullmatch(value) is None:
             raise ValueError("AWS Control run environment is invalid.")
+        return value
+
+    @field_validator("platforms_config_yaml")
+    @classmethod
+    def validate_platforms_config_yaml(cls, value: str) -> str:
+        if not value:
+            return value
+        if len(value.encode("utf-8")) > _MAX_PLATFORMS_CONFIG_BYTES:
+            raise ValueError("AWS Control platform configuration is oversized.")
+        _parse_platforms_config(value)
         return value
 
     @field_validator("execution_plan_json")
@@ -353,14 +376,34 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
             raise ValueError("AWS hosted OIDC routes must use the exact CloudFront origin.")
         plans = self.execution_plans
         triggers = self.trigger_specs
+        if plans and not self.platforms_config_yaml:
+            raise ValueError("AWS Control execution plans require platform configuration.")
+        if plans:
+            platforms = _parse_platforms_config(self.platforms_config_yaml)
+            for plan in plans:
+                deployment = platforms.deployments.get(plan.profile_id)
+                if deployment is None:
+                    raise ValueError(
+                        "AWS Control execution plans require matching platform deployments."
+                    )
+                launcher = deployment.launcher
+                if (
+                    launcher.provider != "fargate"
+                    or launcher.aws_account_id != self.aws_account_id
+                    or launcher.region != self.region
+                    or plan.execution_template.pipeline_id not in deployment.pipelines
+                ):
+                    raise ValueError(
+                        "AWS Control execution plans require matching Fargate platform bindings."
+                    )
         if triggers and not plans:
             raise ValueError("AWS Control scheduled triggers require execution plans.")
         if plans and not any(plan.environment == self.run_environment for plan in plans):
             raise ValueError("AWS Control run environment has no configured execution plan.")
         by_revision = {plan.revision: plan for plan in plans}
         for spec in triggers:
-            plan = by_revision.get(spec.plan_revision)
-            if plan is None or plan.plan_id != spec.plan_id:
+            scheduled_plan = by_revision.get(spec.plan_revision)
+            if scheduled_plan is None or scheduled_plan.plan_id != spec.plan_id:
                 raise ValueError(
                     "AWS Control scheduled triggers must select an exact configured plan."
                 )
@@ -443,6 +486,7 @@ def render_aws_control_foundation(source: AWSControlPlaneFoundationInput) -> dic
         "control_args": [],
         "control_oidc_json": "",
         "graph_store_json": "",
+        "platforms_config_yaml": "",
         "bootstrap_json": "",
         "druff_caddyfile": "",
         "execution_plan_json": {},
@@ -497,6 +541,7 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
     }
     control_args = list(service.command)
     if source.execution_plans:
+        control_args.extend(("--platforms-config", AWS_PLATFORMS_CONFIG))
         for plan in source.execution_plans:
             control_args.extend(
                 (
@@ -529,6 +574,7 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
         "control_args": control_args,
         "control_oidc_json": oidc_json,
         "graph_store_json": graph_json,
+        "platforms_config_yaml": source.platforms_config_yaml,
         "bootstrap_json": bootstrap_json,
         "druff_caddyfile": _CADDYFILE,
         "execution_plan_json": plan_json,
@@ -1078,6 +1124,7 @@ def _verify_task_definition(
         {
             "CONTROL_OIDC_B64": _b64(rendered["control-oidc.json"]),
             "GRAPH_STORE_B64": _b64(rendered["control-graph-store.json"]),
+            "PLATFORMS_CONFIG_B64": _b64(str(active.get("platforms_config_yaml", ""))),
             "EXECUTION_PLANS_B64": _b64(
                 _terraform_jsonencode(active.get("execution_plan_json", {}))
             ),

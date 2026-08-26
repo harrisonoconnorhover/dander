@@ -164,6 +164,7 @@ def build_fargate_run_composition(
     *,
     graph_store: GraphStore,
     project_config: Path,
+    platforms_config: Path | None = None,
     plan_paths: Sequence[Path],
     run_store_bucket: str,
     run_store_prefix: str,
@@ -193,6 +194,7 @@ def build_fargate_run_composition(
                 )
             binding = FargateBinding.from_project(
                 config=project_config,
+                platforms_config=platforms_config,
                 deployment=plan.profile_id,
                 pipeline_id=plan.execution_template.pipeline_id,
                 name=deployment_name,

@@ -143,6 +143,18 @@ variable "graph_store_json" {
   sensitive   = true
 }
 
+variable "platforms_config_yaml" {
+  type        = string
+  description = "Validated non-secret platform manifest selected by hosted execution plans."
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = length(var.platforms_config_yaml) <= 32768
+    error_message = "platforms_config_yaml must not exceed 32 KiB."
+  }
+}
+
 variable "bootstrap_json" {
   type        = string
   description = "Public Druff bootstrap descriptor JSON."

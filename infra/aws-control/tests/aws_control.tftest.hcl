@@ -105,9 +105,10 @@ variables {
   cloudfront_domain          = "d123456789abc.cloudfront.net"
   dander_image               = "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   druff_image                = "123456789012.dkr.ecr.us-east-1.amazonaws.com/dander@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-  control_args               = ["control", "serve", "--host", "0.0.0.0", "--port", "8770", "--oidc-config", "/etc/dander/oidc/control-oidc.json", "--graph-store-config", "/etc/dander/graph-store/control-graph-store.json"]
+  control_args               = ["control", "serve", "--host", "0.0.0.0", "--port", "8770", "--oidc-config", "/etc/dander/oidc/control-oidc.json", "--graph-store-config", "/etc/dander/graph-store/control-graph-store.json", "--platforms-config", "/etc/dander/dander.platforms.yaml"]
   control_oidc_json          = "{\"api_url\":\"https://d123456789abc.cloudfront.net\"}\n"
   graph_store_json           = "{\"bucket\":\"dander-d7-unit-graphs\",\"kind\":\"s3\"}\n"
+  platforms_config_yaml      = "{\"version\":1}\n"
   bootstrap_json             = "{\"api_url\":\"https://d123456789abc.cloudfront.net\"}\n"
   druff_caddyfile            = ":8080 { root * /app file_server }\n"
   execution_plan_json = {
@@ -232,10 +233,18 @@ run "fargate_tasks_are_nonroot_readonly_and_config_init_is_ordered" {
       jsondecode(aws_ecs_task_definition.control[0].container_definitions)[0].name == "config-init" &&
       jsondecode(aws_ecs_task_definition.control[0].container_definitions)[0].readonlyRootFilesystem &&
       jsondecode(aws_ecs_task_definition.control[0].container_definitions)[0].user == "0:0" &&
+      length([
+        for variable in jsondecode(aws_ecs_task_definition.control[0].container_definitions)[0].environment : variable
+        if variable.name == "PLATFORMS_CONFIG_B64" && variable.value == base64encode(var.platforms_config_yaml)
+      ]) == 1 &&
       jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].name == "control" &&
       jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].readonlyRootFilesystem &&
       jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].user == "65532:65532" &&
-      jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].dependsOn[0].condition == "SUCCESS"
+      jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].dependsOn[0].condition == "SUCCESS" &&
+      contains(
+        jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].command,
+        "/etc/dander/dander.platforms.yaml",
+      )
     )
     error_message = "Control must wait for bounded config init and then run nonroot on a read-only root."
   }

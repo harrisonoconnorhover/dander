@@ -200,6 +200,8 @@ def test_execution_plan_options_install_lifecycle_readiness(
     plan_path.write_text("{}", encoding="utf-8")
     trigger_path = tmp_path / "trigger.json"
     trigger_path.write_text("{}", encoding="utf-8")
+    platforms_path = tmp_path / "dander.platforms.yaml"
+    platforms_path.write_text("version: 1\n", encoding="utf-8")
     observed: list[dict[str, object]] = []
 
     class _Lifecycle:
@@ -232,6 +234,8 @@ def test_execution_plan_options_install_lifecycle_readiness(
             "demo",
             "--execution-plan",
             str(plan_path),
+            "--platforms-config",
+            str(platforms_path),
             "--run-store-bucket",
             "dander-control-runs",
             "--trigger-spec",
@@ -244,6 +248,7 @@ def test_execution_plan_options_install_lifecycle_readiness(
     assert result.exit_code == 0
     assert observed[0]["graph_store"].__class__ is InMemoryGraphStore
     assert observed[0]["plan_paths"] == [plan_path]
+    assert observed[0]["platforms_config"] == platforms_path
     assert observed[0]["run_store_bucket"] == "dander-control-runs"
     assert observed[0]["trigger_paths"] == [trigger_path]
     assert observed[0]["schedule_queue_url"] == (

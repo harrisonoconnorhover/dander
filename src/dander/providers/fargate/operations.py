@@ -85,6 +85,7 @@ class FargateBinding:
         cls,
         *,
         config: Path,
+        platforms_config: Path | None = None,
         deployment: str,
         pipeline_id: str,
         name: str = "dander",
@@ -96,7 +97,14 @@ class FargateBinding:
         if not _PIPELINE_ID.fullmatch(pipeline_id):
             raise FargateOperationError("Invalid pipeline identifier")
         try:
-            manifest = load_project_config(resolved_config, deployment=deployment)
+            resolved_platforms_config = (
+                platforms_config.expanduser().resolve() if platforms_config is not None else None
+            )
+            manifest = load_project_config(
+                resolved_config,
+                platforms_path=resolved_platforms_config,
+                deployment=deployment,
+            )
             if manifest.launcher_provider != "fargate":
                 raise ProjectConfigError(
                     f"Deployment {deployment!r} does not select launcher.provider='fargate'"
