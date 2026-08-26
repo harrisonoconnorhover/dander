@@ -14,7 +14,8 @@ RUN pip3 install --target /python --no-cache-dir --no-deps /tmp/dander_platform-
 
 FROM fnproject/python:3.12@sha256:fa298b94e95a54e6d10c54aa5691fefdb01c76c5c38b3da352a2f9dc0fbdf739
 
-RUN microdnf update -y curl libcurl sqlite-libs && microdnf clean all
+RUN microdnf update -y curl libcurl python3.12 python3.12-libs sqlite-libs \
+    && microdnf clean all
 
 WORKDIR /function
 COPY --from=build /python /python
