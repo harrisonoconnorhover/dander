@@ -1,5 +1,20 @@
 # Engineering Decisions
 
+## 2026-08-26 — One AWS-hosted Control selects immutable AWS or GCP execution plans
+
+- **Selection:** The existing run route accepts an optional environment query and otherwise keeps
+  its configured default. API requests resolve environment, project, graph, and revision to one
+  canonical plan; scheduled wakeups continue to select an exact plan revision through the same
+  durable lifecycle.
+- **GCP execution:** The Cloud Run backend binds only declared Jobs whose image, command, runtime
+  service account, task count, and parallelism match the immutable plan. A deterministic Job
+  execution token makes lost responses and Control restarts adopt the same provider effect.
+- **Identity and boundary:** The AWS ECS task role federates into one GCP Control service account,
+  which may operate Jobs, read their logs, and act as only the declared runtime service accounts.
+  Worker secrets and BigQuery identity stay in the existing Cloud Run Job; direct CLI and the
+  single-container runtime remain unchanged. Spark, Kubernetes, cluster sizing, autoscaling,
+  GCP-hosted Control, and a second run store remain later extension points.
+
 ## 2026-08-26 — Cold Redshift validation timeouts use the bounded runtime retry
 
 - **Finding:** A fresh Serverless workgroup accepted TCP and temporary credentials, but its first

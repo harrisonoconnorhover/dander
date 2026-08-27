@@ -287,9 +287,10 @@ class _SubmissionResolver:
         *,
         idempotency_key: str,
         requested_at: datetime,
+        environment: str | None = None,
     ) -> RunSubmission:
         return RunSubmission(
-            environment=self.environment,
+            environment=environment or self.environment,
             project=record.project,
             graph=record,
             plan_id=self.plan_id,
@@ -331,6 +332,15 @@ def test_normalized_lifecycle_receives_decoded_revision_and_explicit_idempotency
         requested_offset = lifecycle.starts[0].requested_at.utcoffset()
         assert requested_offset is not None
         assert requested_offset.total_seconds() == 0
+        selected = client.post(
+            "/v1/projects/demo-project/graphs/alpha-graph/runs?environment=gcp",
+            headers={
+                "If-Match": created.headers["etag"],
+                "Idempotency-Key": "start-key-gcp-0001",
+            },
+        )
+        assert selected.status_code == 202
+        assert lifecycle.starts[-1].environment == "gcp"
         assert client.get("/v1/runs").json()["items"][0]["run_id"] == "run-one"
         assert client.get("/v1/runs/run-one/logs?limit=25").status_code == 200
         assert (

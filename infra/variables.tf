@@ -98,6 +98,17 @@ variable "enable_scheduled_job" {
   default     = false
 }
 
+variable "aws_control_role_arn" {
+  type        = string
+  description = "Optional AWS ECS task role allowed to operate Cloud Run Jobs through WIF."
+  default     = ""
+
+  validation {
+    condition     = var.aws_control_role_arn == "" || can(regex("^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_-]+$", var.aws_control_role_arn))
+    error_message = "aws_control_role_arn must be empty or one unpathed commercial-AWS role ARN."
+  }
+}
+
 variable "billing_account_id" {
   type        = string
   description = "Billing account id used for the runtime's read-only budget preflight."

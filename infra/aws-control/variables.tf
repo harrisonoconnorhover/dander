@@ -252,3 +252,47 @@ variable "control_fargate_bindings" {
     error_message = "control_fargate_bindings must contain at most 100 complete SHA-keyed bindings."
   }
 }
+
+variable "control_cloud_run_plan_revisions" {
+  type        = set(string)
+  description = "Registered execution-plan revisions operated through GCP Cloud Run."
+  default     = []
+
+  validation {
+    condition = (
+      length(var.control_cloud_run_plan_revisions) <= 100 &&
+      alltrue([for revision in var.control_cloud_run_plan_revisions :
+        can(regex("^[0-9a-f]{64}$", revision))
+      ])
+    )
+    error_message = "control_cloud_run_plan_revisions must contain at most 100 SHA revisions."
+  }
+}
+
+variable "gcp_control_service_account" {
+  type        = string
+  description = "GCP service account impersonated by the AWS Control task; empty disables GCP."
+  default     = ""
+
+  validation {
+    condition = var.gcp_control_service_account == "" || can(regex(
+      "^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]\\.iam\\.gserviceaccount\\.com$",
+      var.gcp_control_service_account,
+    ))
+    error_message = "gcp_control_service_account must be empty or a service-account email."
+  }
+}
+
+variable "gcp_wif_audience" {
+  type        = string
+  description = "Google AWS workload-identity-provider audience; empty disables GCP."
+  default     = ""
+
+  validation {
+    condition = var.gcp_wif_audience == "" || can(regex(
+      "^//iam\\.googleapis\\.com/projects/[0-9]{6,20}/locations/global/workloadIdentityPools/[a-z][a-z0-9-]{3,31}/providers/[a-z][a-z0-9-]{3,31}$",
+      var.gcp_wif_audience,
+    ))
+    error_message = "gcp_wif_audience must be empty or an exact workload provider audience."
+  }
+}

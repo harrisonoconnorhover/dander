@@ -221,7 +221,7 @@ class ExecutionBackendRegistry:
 
 @dataclass(frozen=True, slots=True)
 class PlanRunSubmissionResolver:
-    """Compatibility-route resolver for one configured Control environment."""
+    """Resolve API submissions with one backward-compatible default environment."""
 
     plans: ExecutionPlanRegistry
     environment: str
@@ -232,10 +232,12 @@ class PlanRunSubmissionResolver:
         *,
         idempotency_key: str,
         requested_at: datetime,
+        environment: str | None = None,
     ) -> RunSubmission:
-        plan = self.plans.select(record, environment=self.environment)
+        selected_environment = environment or self.environment
+        plan = self.plans.select(record, environment=selected_environment)
         return RunSubmission(
-            environment=self.environment,
+            environment=selected_environment,
             project=record.project,
             graph=record,
             plan_id=plan.plan_id,

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from dander.control.application import ControlOperationError
+from dander.control.cloud_run_execution_backend import CloudRunExecutionBackend
 from dander.control.fargate_execution_backend import FargateExecutionBackend
 from dander.control.orchestration import (
     ExecutionBackendError,
@@ -32,6 +33,7 @@ from dander.control.schedule_consumer import (
     ScheduleQueueError,
 )
 from dander.control.sqs_schedule_queue import SQSScheduleQueue
+from dander.providers.cloud_run import CloudRunBinding, CloudRunOperationError
 from dander.providers.fargate.operations import FargateBinding, FargateOperationError
 
 if TYPE_CHECKING:
@@ -160,7 +162,7 @@ def compose_run_control(
         raise ControlRunCompositionError("The Control run composition is invalid.") from error
 
 
-def build_fargate_run_composition(
+def build_multicloud_run_composition(
     *,
     graph_store: GraphStore,
     project_config: Path,
@@ -170,27 +172,43 @@ def build_fargate_run_composition(
     run_store_prefix: str,
     environment: str,
     deployment_name: str = "dander",
+    gcp_project_id: str | None = None,
+    gcp_deployment_name: str = "gcp_cloud_run",
     reconcile_interval_seconds: float = 5.0,
     shutdown_grace_seconds: float = 35.0,
     trigger_paths: Sequence[Path] = (),
     schedule_queue_url: str | None = None,
 ) -> ControlRunComposition:
-    """Build the first hosted AWS composition from canonical plans and ambient identity."""
+    """Build one AWS-hosted Control composition with Fargate and optional Cloud Run."""
     plans = load_execution_plans(plan_paths)
     if bool(trigger_paths) != (schedule_queue_url is not None):
         raise ControlRunCompositionError(
             "Control trigger specs and schedule queue URL must be configured together."
         )
     triggers = load_trigger_specs(trigger_paths) if trigger_paths else ()
-    bindings: dict[str, FargateBinding] = {}
+    fargate_bindings: dict[str, FargateBinding] = {}
+    cloud_run_bindings: dict[str, CloudRunBinding] = {}
     account_ids: set[str] = set()
     regions: set[str] = set()
     composition: ControlRunComposition | None = None
     try:
         for plan in plans:
+            if plan.backend_id == "cloud_run":
+                if gcp_project_id is None:
+                    raise ControlRunCompositionError(
+                        "Cloud Run execution plans require an exact GCP project id."
+                    )
+                cloud_run_bindings[plan.revision] = CloudRunBinding.from_project(
+                    config=project_config,
+                    platforms_config=platforms_config,
+                    deployment=gcp_deployment_name,
+                    pipeline_id=plan.execution_template.pipeline_id,
+                    project_id=gcp_project_id,
+                )
+                continue
             if plan.backend_id != "fargate":
                 raise ControlRunCompositionError(
-                    "The AWS Control composition only accepts Fargate execution plans."
+                    "The AWS Control composition accepts only Fargate or Cloud Run plans."
                 )
             binding = FargateBinding.from_project(
                 config=project_config,
@@ -203,12 +221,12 @@ def build_fargate_run_composition(
                 raise ControlRunCompositionError(
                     "Direct Fargate schedules must remain paused when Control owns hosted runs."
                 )
-            bindings[plan.revision] = binding
+            fargate_bindings[plan.revision] = binding
             account_ids.add(binding.account_id)
             regions.add(binding.region)
         if len(account_ids) != 1:
             raise ControlRunCompositionError(
-                "The AWS Control composition must use one exact AWS account."
+                "The AWS-hosted Control composition requires one exact Fargate AWS account."
             )
         owner = next(iter(account_ids))
         store = S3RunStore(
@@ -216,12 +234,16 @@ def build_fargate_run_composition(
             prefix=run_store_prefix,
             expected_bucket_owner=owner,
         )
-        backend = FargateExecutionBackend(bindings)
+        backends: dict[str, ExecutionBackend] = {
+            "fargate": FargateExecutionBackend(fargate_bindings)
+        }
+        if cloud_run_bindings:
+            backends["cloud_run"] = CloudRunExecutionBackend(cloud_run_bindings)
         composition = compose_run_control(
             graph_store=graph_store,
             store=store,
             plans=plans,
-            backends={"fargate": backend},
+            backends=backends,
             environment=environment,
             reconcile_interval_seconds=reconcile_interval_seconds,
             shutdown_grace_seconds=shutdown_grace_seconds,
@@ -254,6 +276,7 @@ def build_fargate_run_composition(
     except (
         ControlOperationError,
         ControlRunCompositionError,
+        CloudRunOperationError,
         ExecutionBackendError,
         FargateOperationError,
         OrchestrationContractError,
@@ -269,10 +292,14 @@ def build_fargate_run_composition(
         raise ControlRunCompositionError("The AWS Control run binding is invalid.") from error
 
 
+build_fargate_run_composition = build_multicloud_run_composition
+
+
 __all__ = [
     "ControlRunComposition",
     "ControlRunCompositionError",
     "build_fargate_run_composition",
+    "build_multicloud_run_composition",
     "compose_run_control",
     "load_execution_plans",
     "load_trigger_specs",

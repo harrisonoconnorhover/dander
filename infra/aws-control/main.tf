@@ -123,9 +123,19 @@ check "full_profile_is_complete" {
 check "control_orchestration_is_consistent" {
   assert {
     condition = (
-      length(var.execution_plan_json) == length(var.control_fargate_bindings) &&
-      length(setsubtract(toset(keys(var.execution_plan_json)), toset(keys(var.control_fargate_bindings)))) == 0 &&
-      length(setsubtract(toset(keys(var.control_fargate_bindings)), toset(keys(var.execution_plan_json)))) == 0 &&
+      length(var.execution_plan_json) == length(var.control_fargate_bindings) + length(var.control_cloud_run_plan_revisions) &&
+      length(setintersection(toset(keys(var.control_fargate_bindings)), var.control_cloud_run_plan_revisions)) == 0 &&
+      length(setsubtract(
+        toset(keys(var.execution_plan_json)),
+        setunion(toset(keys(var.control_fargate_bindings)), var.control_cloud_run_plan_revisions),
+      )) == 0 &&
+      length(setsubtract(
+        setunion(toset(keys(var.control_fargate_bindings)), var.control_cloud_run_plan_revisions),
+        toset(keys(var.execution_plan_json)),
+      )) == 0 &&
+      (length(var.control_cloud_run_plan_revisions) > 0) == (
+        var.gcp_control_service_account != "" && var.gcp_wif_audience != ""
+      ) &&
       length(var.trigger_spec_json) == length(var.control_schedules) &&
       length(setsubtract(toset(keys(var.trigger_spec_json)), toset(keys(var.control_schedules)))) == 0 &&
       length(setsubtract(toset(keys(var.control_schedules)), toset(keys(var.trigger_spec_json)))) == 0 &&
@@ -942,6 +952,10 @@ resource "aws_ecs_task_definition" "control" {
       memory                 = 1024
       readonlyRootFilesystem = true
       user                   = "65532:65532"
+      environment = length(var.control_cloud_run_plan_revisions) > 0 ? [
+        { name = "DANDER_GCP_SERVICE_ACCOUNT", value = var.gcp_control_service_account },
+        { name = "DANDER_GCP_WIF_AUDIENCE", value = var.gcp_wif_audience },
+      ] : []
       command = concat(
         var.control_args,
         local.schedule_profile ? ["--schedule-queue-url", aws_sqs_queue.control_schedule[0].url] : [],
