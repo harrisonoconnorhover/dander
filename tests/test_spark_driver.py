@@ -188,3 +188,22 @@ def test_exchange_cleanup_fails_when_the_exchange_still_exists() -> None:
 
     with pytest.raises(driver.SparkDriverError, match="did not converge"):
         driver._delete_exchange(spark, "gs://qualification/exchange")
+
+
+def test_spark_stop_failure_is_visible_and_deferred_to_the_provider(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    invocation = driver.parse_invocation(_arguments())
+    context = driver.runtime_context(invocation, _environment())
+    spark = MagicMock()
+    spark.stop.side_effect = OSError("provider detail")
+
+    driver._stop_spark(spark, context)
+
+    event = json.loads(capsys.readouterr().out)
+    assert event == {
+        "cleanup_owner": "managed_spark",
+        "contract": driver.QUALIFICATION_CONTRACT,
+        "event": "spark.session.stop.deferred",
+        "run_id": context.run_id,
+    }

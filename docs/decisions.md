@@ -2130,9 +2130,11 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   restart recovery adopts the original batch. Control normalizes batch status, output logs,
   runtime results, and operation cancellation through its existing reconciler. Provider operation
   validation accepts both location- and region-scoped long-running operation names because the
-  batch API returns the regional form. Managed Spark deletes workload compute after terminal
-  completion; the batch record and persistent Cloud Logs remain as evidence rather than being
-  treated as live compute.
+  batch API returns the regional form. Observed runtime validation also accepts only numeric patch
+  expansion within the requested runtime family and removes Google's matching `spark:` or
+  `dataproc:` property namespace before comparing every planned value. Managed Spark deletes
+  workload compute after terminal completion; the batch record and persistent Cloud Logs remain as
+  evidence rather than being treated as live compute.
 - **Boundary:** This is the provider adapter and immutable driver contract, not live qualification
   of a particular driver/image pair. Publishing and qualifying that pair is separate bounded work.
   Dynamic physical planning, resource sizing, autoscaling, Kubernetes, and a general cluster
@@ -2146,8 +2148,11 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Workload:** The driver accepts only the canonical `spark_bigquery_qualification` two-stage
   physical plan. It writes the declared exchange to GCS, publishes four deterministic rows through
   Spark's BigQuery connector, reads back three aggregates, verifies exchange deletion by its final
-  absence even if the GCS filesystem reports an error after deleting it, and emits Control's existing
-  canonical runtime completion event.
+  absence even if the GCS filesystem reports an error after deleting it, and emits Control's
+  existing canonical runtime completion event. Explicit Spark-session stop is best-effort and emits
+  a sanitized deferred-cleanup event on error because the Managed Spark batch lifecycle owns process
+  teardown and Control independently confirms terminal compute cleanup. Runtime failures expose a
+  stable stage code without provider exception text.
 - **Boundary:** This proves the DANDER-242 artifact and lifecycle seam for one pair. It does not add
   arbitrary operator dispatch, dynamic topology or sizing, autoscaling, Kubernetes, or a cluster
   manager, and it does not modify the single-container runtime.

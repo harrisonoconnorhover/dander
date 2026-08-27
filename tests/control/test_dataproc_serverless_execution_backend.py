@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
@@ -146,11 +147,29 @@ class _Transport:
         resource = url.removeprefix("https://dataproc.googleapis.com/v1/")
         if method == "GET" and "/batches/" in resource:
             found_batch = self.batches.get(resource)
-            return _Response(200, found_batch) if found_batch is not None else _Response(404, {})
+            return (
+                _Response(200, _provider_observed_batch(found_batch))
+                if found_batch is not None
+                else _Response(404, {})
+            )
         raise AssertionError((method, url, kwargs))
 
     def close(self) -> None:
         self.close_count += 1
+
+
+def _provider_observed_batch(batch: dict[str, object]) -> dict[str, object]:
+    observed = copy.deepcopy(batch)
+    runtime = observed["runtimeConfig"]
+    assert isinstance(runtime, dict)
+    runtime["version"] = f"{runtime['version']}.39"
+    properties = runtime["properties"]
+    assert isinstance(properties, dict)
+    runtime["properties"] = {
+        f"{'dataproc' if key.startswith('dataproc.') else 'spark'}:{key}": value
+        for key, value in properties.items()
+    }
+    return observed
 
 
 def _physical_plan() -> PhysicalPlan:
@@ -439,6 +458,11 @@ def test_observe_rejects_replaced_or_drifted_batch() -> None:
     assert isinstance(properties, dict)
     properties["spark.dynamicAllocation.enabled"] = "true"
 
+    with pytest.raises(ExecutionBackendError, match="observed Managed Spark batch"):
+        backend.observe(plan, handle)
+
+    properties["spark.dynamicAllocation.enabled"] = "false"
+    runtime["version"] = "2.4"
     with pytest.raises(ExecutionBackendError, match="observed Managed Spark batch"):
         backend.observe(plan, handle)
 
