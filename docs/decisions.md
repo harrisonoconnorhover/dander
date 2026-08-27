@@ -2159,13 +2159,23 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 
 ## 2026-08-27 — Spark qualification readback is driver-bounded
 
-- **Observed boundary:** Managed Spark wrote the expected four BigQuery rows, but the connector-side
-  global aggregate failed after opening the read session and before returning its result.
-- **Correction:** The fixed qualification reads at most five value pairs through Spark and computes
-  its three aggregates on the driver. This preserves the BigQuery round trip while eliminating an
-  unnecessary distributed aggregate for a four-row acceptance fixture.
+- **Choice:** The fixed qualification reads at most five value pairs through Spark and computes its
+  three aggregates on the driver. This preserves the BigQuery round trip without adding a
+  distributed aggregate for a four-row acceptance fixture.
+- **Identity requirement:** The workload service account needs BigQuery Read Session User in
+  addition to its dataset and job roles; without it, the connector cannot create the read session.
 - **Boundary:** This does not change pipeline logic, output rows, the two-executor physical plan,
   provider selection, the single-container runtime, or any general Spark execution behavior.
+
+## 2026-08-27 — Managed Spark unwraps Cloud Logging output messages
+
+- **Observed boundary:** Managed Spark completed successfully and emitted canonical Dander results,
+  while Cloud Logging returned driver stdout inside `jsonPayload.message`. Control serialized the
+  wrapper object and therefore could not recognize `runtime.completed`.
+- **Correction:** The backend uses a string `jsonPayload.message` as the log record message and keeps
+  the existing canonical JSON fallback for other structured entries.
+- **Boundary:** Batch validation, result parsing, retries, cancellation, and every other backend are
+  unchanged.
 
 ## 2026-08-27 — Managed Spark uses a revision-covered immutable provider tag
 

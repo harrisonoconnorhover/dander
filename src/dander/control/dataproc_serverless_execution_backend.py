@@ -712,7 +712,11 @@ def _log_message(entry: Mapping[str, object]) -> str:
     else:
         payload = entry.get("jsonPayload")
         if isinstance(payload, Mapping):
-            message = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+            embedded_message = payload.get("message")
+            if isinstance(embedded_message, str):
+                message = embedded_message or "(empty log entry)"
+            else:
+                message = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         else:
             message = "(structured log entry)"
     if len(message) > _MAX_LOG_MESSAGE_LENGTH:
