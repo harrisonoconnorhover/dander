@@ -49,6 +49,44 @@ TASK_ARN = f"arn:aws:ecs:{REGION}:{ACCOUNT}:task/dander/{TASK_ID}"
 NOW = datetime(2026, 8, 25, 17, tzinfo=UTC)
 
 
+def _completion_message() -> str:
+    return json.dumps(
+        {
+            "contract": RUNTIME_CONTRACT,
+            "event": "runtime.completed",
+            "pipeline_id": PIPELINE,
+            "status": "succeeded",
+            "outputs": {
+                "metrics": {
+                    "endpoints": 1,
+                    "extracted_rows": 3,
+                    "affected_rows": 3,
+                    "models": 1,
+                    "assertions": 3,
+                    "assets": 1,
+                },
+                "telemetry": {
+                    "duration_ms": 1_000,
+                    "retry_count": 0,
+                    "rows_read": 3,
+                    "rows_written": 3,
+                    "rows_affected": 3,
+                    "bytes_read": 30,
+                    "bytes_written": 30,
+                    "bytes_processed": 30,
+                    "bytes_billed": 0,
+                    "queue_duration_ms": 0,
+                    "execution_duration_ms": 10,
+                    "spill_bytes": 0,
+                    "operations": [{"operation": "load"}],
+                },
+            },
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
 class _FakeAwsError(Exception):
     def __init__(self, code: str, message: str = "provider detail") -> None:
         super().__init__(message)
@@ -349,7 +387,7 @@ def test_submit_rejects_unregistered_plan_before_an_aws_call(tmp_path: Path) -> 
 
 
 def test_observe_normalizes_success_results_and_confirmed_task_cleanup(tmp_path: Path) -> None:
-    backend, plan, step_functions, _logs, ecs = _backend(tmp_path)
+    backend, plan, step_functions, logs, ecs = _backend(tmp_path)
     handle = _start(backend, plan)
     step_functions.executions[handle.execution_id].update(
         {
@@ -365,6 +403,9 @@ def test_observe_normalizes_success_results_and_confirmed_task_cleanup(tmp_path:
         }
     )
     ecs.tasks[TASK_ARN] = "STOPPED"
+    logs.responses.append(
+        {"events": [{"timestamp": 1_777_000_000_000, "message": _completion_message()}]}
+    )
 
     observed = backend.observe(plan, handle)
 
@@ -373,6 +414,8 @@ def test_observe_normalizes_success_results_and_confirmed_task_cleanup(tmp_path:
     assert observed.results_state is ResultsState.AVAILABLE
     assert observed.cleanup_state is CleanupState.CONFIRMED
     assert observed.failure_code is None
+    assert observed.result_summary is not None
+    assert observed.result_summary.extracted_rows == 3
     assert ecs.calls == [{"cluster": "dander", "tasks": [TASK_ARN]}]
 
 
@@ -406,12 +449,15 @@ def test_observe_recovers_allowlisted_failure_and_keeps_cleanup_independent(
 
 
 def test_observe_reports_uncertain_cleanup_when_task_verification_fails(tmp_path: Path) -> None:
-    backend, plan, step_functions, _logs, ecs = _backend(tmp_path)
+    backend, plan, step_functions, logs, ecs = _backend(tmp_path)
     handle = _start(backend, plan)
     step_functions.executions[handle.execution_id].update(
         {"status": "SUCCEEDED", "output": json.dumps({"task_arn": TASK_ARN})}
     )
     ecs.error = _FakeAwsError("AccessDeniedException", "secret cleanup detail")
+    logs.responses.append(
+        {"events": [{"timestamp": 1_777_000_000_000, "message": _completion_message()}]}
+    )
 
     observed = backend.observe(plan, handle)
 

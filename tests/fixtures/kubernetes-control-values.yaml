@@ -31,8 +31,8 @@ control:
   image: 127.0.0.1:5001/dander@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 druff:
   port: 8080
-  bootstrap: '{"api_audience":"dander-kubernetes-control","api_url":"https://dander.127.0.0.1.sslip.io:8443","compatibility":{"maximum_druff_contract":"1.x","minimum_druff_contract":"1.0.0"},"contract":{"id":"io.dander.control.contracts/v1","sha256":"695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3"},"issuer":"https://issuer.127.0.0.1.sslip.io:8443/default","logout_uri":"https://dander.127.0.0.1.sslip.io:8443/signed-out","public_client_id":"druff-kubernetes-spa","redirect_uri":"https://dander.127.0.0.1.sslip.io:8443/auth/callback","schema_version":1}'
-  rolloutDigest: 5eaddbdb758aefa2fbaa1ff2e819e5d991d04c751f2cbbabd526b7f106760eac
+  bootstrap: '{"api_audience":"dander-kubernetes-control","api_url":"https://dander.127.0.0.1.sslip.io:8443","compatibility":{"maximum_druff_contract":"1.x","minimum_druff_contract":"1.0.0"},"contract":{"id":"io.dander.control.contracts/v1","sha256":"686ad6977663f1732379cbefafc37810635a117bf4c2153c97d5074cb6eec591"},"issuer":"https://issuer.127.0.0.1.sslip.io:8443/default","logout_uri":"https://dander.127.0.0.1.sslip.io:8443/signed-out","public_client_id":"druff-kubernetes-spa","redirect_uri":"https://dander.127.0.0.1.sslip.io:8443/auth/callback","schema_version":1}'
+  rolloutDigest: 0b4a5698ba695ac0e8874c4103c5a52112bd430de36ff59e3e9d82ec5a6b2718
   resources:
     requests: {cpu: 100m, memory: 128Mi, ephemeral-storage: 64Mi}
     limits: {cpu: 500m, memory: 256Mi, ephemeral-storage: 128Mi}

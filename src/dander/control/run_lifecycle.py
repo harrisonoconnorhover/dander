@@ -28,6 +28,7 @@ from dander.control.models import (
     RunPageResponse,
     RunState,
     RunStatusResponse,
+    RunTelemetrySummary,
 )
 from dander.control.orchestration import (
     BackendExecutionState,
@@ -694,6 +695,7 @@ class ControlRunLifecycle:
                 results_state=observation.results_state,
                 cleanup_state=observation.cleanup_state,
                 stage=observation.stage,
+                result_summary=observation.result_summary,
             )
         elif record.run_state is HostedRunState.TERMINAL:
             return stored
@@ -771,12 +773,40 @@ def _run_state(record: RunRecord) -> RunState:
 def _status_response(record: RunRecord) -> RunStatusResponse:
     state = _run_state(record)
     failed = record.outcome is RunOutcome.FAILED
+    summary = record.result_summary
     return RunStatusResponse(
         run_id=record.run_id,
         state=state,
         stage=record.stage,
         started_at=_timestamp(record.created_at) if record.attempt_count else None,
         finished_at=_timestamp(record.terminal_at) if record.terminal_at else None,
+        endpoints=summary.endpoints if summary else 0,
+        extracted=summary.extracted_rows if summary else 0,
+        affected=summary.affected_rows if summary else 0,
+        models=summary.models if summary else 0,
+        assertions=summary.assertions if summary else 0,
+        assets=summary.assets if summary else 0,
+        result_schema=summary.schema if summary else None,
+        skipped=summary.skipped if summary else False,
+        telemetry=(
+            RunTelemetrySummary(
+                duration_ms=summary.duration_ms,
+                operation_count=summary.operation_count,
+                retry_count=summary.retry_count,
+                rows_read=summary.rows_read,
+                rows_written=summary.rows_written,
+                rows_affected=summary.rows_affected,
+                bytes_read=summary.bytes_read,
+                bytes_written=summary.bytes_written,
+                bytes_processed=summary.bytes_processed,
+                bytes_billed=summary.bytes_billed,
+                queue_duration_ms=summary.queue_duration_ms,
+                execution_duration_ms=summary.execution_duration_ms,
+                spill_bytes=summary.spill_bytes,
+            )
+            if summary
+            else None
+        ),
         failure_code="hosted_execution_failed" if failed else None,
         failure_summary="The hosted execution failed." if failed else None,
         can_cancel=record.run_state
