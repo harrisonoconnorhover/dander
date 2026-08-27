@@ -10,6 +10,7 @@ from typing import Literal, cast
 
 from dander.control.orchestration import (
     EXECUTION_PLAN_SCHEMA,
+    EXECUTION_PLAN_SCHEMA_V1,
     EXECUTION_RESULT_SUMMARY_SCHEMA,
     AttemptRecord,
     BackendHandle,
@@ -40,6 +41,7 @@ from dander.deployment.projection import (
     ScheduleProjection,
     SecretReference,
 )
+from dander.physical_plan import deserialize_physical_plan
 
 RUN_RECORD_SCHEMA_V1 = "io.dander.control.run-record/v1"
 RUN_RECORD_SCHEMA_V2 = "io.dander.control.run-record/v2"
@@ -74,7 +76,7 @@ def serialize_execution_plan(plan: ExecutionPlan) -> bytes:
     contents = _mapping(json.loads(canonical_execution_plan_contents(plan)), "plan contents")
     return _canonical_json(
         {
-            "schema": EXECUTION_PLAN_SCHEMA,
+            "schema": contents["schema"],
             "revision": plan.revision,
             "plan": contents["plan"],
         }
@@ -84,7 +86,12 @@ def serialize_execution_plan(plan: ExecutionPlan) -> bytes:
 def deserialize_execution_plan(data: bytes) -> ExecutionPlan:
     """Load a canonical plan and reject a stored revision that does not match its contents."""
     try:
-        envelope = _load_envelope(data, EXECUTION_PLAN_SCHEMA, _MAX_PLAN_BYTES)
+        envelope = _load_any_envelope(
+            data,
+            frozenset({EXECUTION_PLAN_SCHEMA_V1, EXECUTION_PLAN_SCHEMA}),
+            _MAX_PLAN_BYTES,
+        )
+        plan_schema = _string(envelope["schema"], "execution plan schema")
         values = _mapping(envelope["plan"], "execution plan")
         plan = ExecutionPlan(
             plan_id=_string(values["plan_id"], "plan_id"),
@@ -99,6 +106,11 @@ def deserialize_execution_plan(data: bytes) -> ExecutionPlan:
             execution_template=_execution_template(values["execution_template"]),
             deadline_seconds=_integer(values["deadline_seconds"], "deadline_seconds"),
             retry_policy=_retry_policy(values["retry_policy"]),
+            physical_plan=(
+                deserialize_physical_plan(_canonical_json(values["physical_plan"]))
+                if plan_schema == EXECUTION_PLAN_SCHEMA
+                else None
+            ),
             schema=_string(values["orchestration_schema"], "orchestration_schema"),
         )
         stored_revision = _string(envelope["revision"], "revision")
