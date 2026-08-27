@@ -11,6 +11,8 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError
 
+from dander.identity import google_client_options
+
 _BILLING_SCOPE = "https://www.googleapis.com/auth/cloud-billing.readonly"
 _CLOUD_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _PROJECT_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
@@ -93,7 +95,9 @@ class GcpBillingVerifier:
     def __init__(self, session: _Session | None = None) -> None:
         if session is None:
             try:
-                credentials, _ = google.auth.default(scopes=[_BILLING_SCOPE])
+                credentials = google_client_options().get("credentials")
+                if credentials is None:
+                    credentials, _ = google.auth.default(scopes=[_BILLING_SCOPE])
                 session = cast(
                     "_Session",
                     AuthorizedSession(credentials),  # type: ignore[no-untyped-call]
@@ -152,7 +156,9 @@ class GuardedFreeTierVerifier:
     def __init__(self, session: _Session | None = None) -> None:
         if session is None:
             try:
-                credentials, _ = google.auth.default(scopes=[_CLOUD_SCOPE])
+                credentials = google_client_options().get("credentials")
+                if credentials is None:
+                    credentials, _ = google.auth.default(scopes=[_CLOUD_SCOPE])
                 session = cast(
                     "_Session",
                     AuthorizedSession(credentials),  # type: ignore[no-untyped-call]
