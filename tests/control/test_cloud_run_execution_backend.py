@@ -91,7 +91,7 @@ class _Transport:
             )
             self.executions[execution_resource] = {
                 "name": execution_resource,
-                "job": self.job["name"],
+                "job": JOB,
                 "taskCount": 1,
                 "startTime": "2026-08-26T18:00:01Z",
             }
@@ -373,6 +373,15 @@ def test_unregistered_plan_and_foreign_handle_fail_before_provider_mutation() ->
     with pytest.raises(ExecutionBackendError, match="outside"):
         backend.observe(plan, replace(handle, execution_id="projects/foreign/executions/nope"))
     assert len([call for call in transport.calls if call[0] == "PATCH"]) == 1
+
+
+def test_observe_rejects_execution_from_a_foreign_parent_job() -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan)
+    transport.executions[handle.execution_id]["job"] = "foreign-job"
+
+    with pytest.raises(ExecutionBackendError, match="unexpected execution"):
+        backend.observe(plan, handle)
 
 
 def test_close_releases_transport_once() -> None:

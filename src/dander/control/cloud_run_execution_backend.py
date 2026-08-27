@@ -417,7 +417,7 @@ class CloudRunExecutionBackend:
         execution: Mapping[str, object],
         resource: str,
     ) -> None:
-        if execution.get("name") != resource or execution.get("job") != binding.job_resource:
+        if execution.get("name") != resource or execution.get("job") != binding.job_name:
             raise ExecutionBackendError("Cloud Run returned an unexpected execution.")
 
     def _request_json(
