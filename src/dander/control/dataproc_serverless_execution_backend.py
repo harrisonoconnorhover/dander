@@ -441,7 +441,7 @@ class DataprocServerlessExecutionBackend:
             },
             "runtimeConfig": {
                 "version": binding.runtime_version,
-                "containerImage": plan.image,
+                "containerImage": binding.container_image_tag,
                 "properties": dict(sorted(properties.items())),
                 "autotuningConfig": {"scenarios": ["NONE"]},
             },
@@ -498,7 +498,7 @@ class DataprocServerlessExecutionBackend:
             },
             "runtimeConfig": {
                 "version": binding.runtime_version,
-                "containerImage": plan.image,
+                "containerImage": binding.container_image_tag,
                 "properties": {
                     "dataproc.tier": "standard",
                     "spark.dynamicAllocation.enabled": "false",

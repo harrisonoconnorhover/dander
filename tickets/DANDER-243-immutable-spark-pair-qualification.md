@@ -23,7 +23,8 @@ particular driver and image. This slice supplies exactly one narrow pair and one
 - [x] Build an amd64 Debian 12 custom image with Spark's required UID/GID and utilities, without
   bundling Spark or a JRE.
 - [x] Contract-test the plan, Control handoff, driver/image identity, and Control result parser.
-- [ ] Publish one uniquely tagged image digest and one same-region GCS driver object from exact main.
+- [ ] Publish one tag-immutable image whose tag resolves to the recorded digest and one same-region
+  GCS driver object from exact main.
 - [ ] Run one two-executor Managed Spark/BigQuery qualification through Control and clean up its
   disposable dataset, bucket contents, batch metadata where supported, and temporary IAM.
 
