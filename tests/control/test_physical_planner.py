@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
+from dander.control.execution_plan_compiler import (
+    ExecutionPlanCompiler,
+    ExecutionPlanProfile,
+)
 from dander.control.graph_store import InMemoryGraphStore
 from dander.control.models import PipelineGraphDocument
 from dander.control.orchestration import (
@@ -343,6 +348,58 @@ def test_control_selects_existing_backend_for_same_graph_planned_two_ways() -> N
     assert restored.revision == selected_spark.revision
     assert restored.physical_plan is not None
     assert restored.physical_plan.revision == selected_spark.physical_plan.revision
+
+
+def test_execution_plan_compiler_derives_identity_and_removes_embedded_schedule() -> None:
+    graph_store = InMemoryGraphStore(
+        clock=lambda: NOW,
+        revision_factory=lambda: "graph-r1",
+    )
+    graph = graph_store.create(
+        "demo",
+        "orders",
+        _graph(),
+        idempotency_key="graph-key-0001",
+    )
+    scheduled_template = replace(
+        _template("fargate", maximum_parallelism=1, deadline_seconds=300),
+        schedule=ScheduleProjection(
+            task_count=1,
+            maximum_parallelism=1,
+            expression="cron(0 6 * * ? *)",
+            time_zone="America/New_York",
+            paused=False,
+        ),
+    )
+    profile = ExecutionPlanProfile(
+        plan_id="aws-orders",
+        environment="aws",
+        execution_mode=PhysicalExecutionMode.FUSED_CONTAINER,
+    )
+    compiler = ExecutionPlanCompiler()
+
+    plan = compiler.compile(graph, profile, scheduled_template)
+    repeated = compiler.compile(graph, profile, scheduled_template)
+
+    assert repeated == plan
+    assert repeated.revision == plan.revision
+    assert (plan.project, plan.graph) == (graph.project, graph.graph)
+    assert (plan.graph_revision, plan.graph_content_sha256) == (
+        graph.revision,
+        graph.content_sha256,
+    )
+    assert plan.backend_id == scheduled_template.launcher
+    assert plan.profile_id == scheduled_template.profile_id
+    assert plan.image == scheduled_template.image
+    assert plan.deadline_seconds == scheduled_template.resources.deadline_seconds
+    assert plan.retry_policy.max_attempts == scheduled_template.resources.launcher_retry_count + 1
+    assert plan.execution_template.schedule == replace(
+        scheduled_template.schedule,
+        expression=None,
+        time_zone=None,
+    )
+    assert plan.execution_template.command[:-2] == scheduled_template.command
+    assert plan.execution_template.command[-2] == "--physical-plan"
 
 
 def test_managed_spark_execution_plan_requires_distributed_physical_execution() -> None:
