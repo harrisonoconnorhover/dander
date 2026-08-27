@@ -71,6 +71,27 @@ def test_billing_verifier_accepts_only_explicit_disabled_response() -> None:
     verifier.require_disabled("unit-project")
 
 
+def test_billing_verifier_uses_launcher_identity_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    credentials = object()
+    session = _Session(_Response(200, {"billingEnabled": False}))
+    monkeypatch.setattr(
+        "dander.sandbox.google_client_options",
+        lambda: {"credentials": credentials},
+    )
+    monkeypatch.setattr(
+        "dander.sandbox.google.auth.default",
+        lambda **_kwargs: pytest.fail("ambient credentials must not be used"),
+    )
+    monkeypatch.setattr(
+        "dander.sandbox.AuthorizedSession",
+        lambda value: session if value is credentials else pytest.fail("wrong credentials"),
+    )
+
+    GcpBillingVerifier().require_disabled("unit-project")
+
+
 @pytest.mark.parametrize(
     "response",
     [
@@ -168,6 +189,27 @@ def test_guarded_free_tier_accepts_complete_five_dollar_guard() -> None:
     assert session.urls[2].endswith(
         "projects/unit-project/topics/dander-stop-billing/subscriptions?pageSize=100"
     )
+
+
+def test_guarded_free_tier_uses_launcher_identity_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    credentials = object()
+    session = _SequenceSession([_billing(), _budget(), _subscription()])
+    monkeypatch.setattr(
+        "dander.sandbox.google_client_options",
+        lambda: {"credentials": credentials},
+    )
+    monkeypatch.setattr(
+        "dander.sandbox.google.auth.default",
+        lambda **_kwargs: pytest.fail("ambient credentials must not be used"),
+    )
+    monkeypatch.setattr(
+        "dander.sandbox.AuthorizedSession",
+        lambda value: session if value is credentials else pytest.fail("wrong credentials"),
+    )
+
+    GuardedFreeTierVerifier().require_guarded("unit-project")
 
 
 @pytest.mark.parametrize(
