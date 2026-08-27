@@ -78,7 +78,17 @@ from dander.deployment.projection import (
     ResourceProjection,
     ScheduleProjection,
 )
+from dander.physical_plan import (
+    ExchangeTransport,
+    PartitioningStrategy,
+    PhysicalExchange,
+    PhysicalExecutionMode,
+    PhysicalPlan,
+    PhysicalStage,
+    serialize_physical_plan,
+)
 from dander.providers.cloud_run import CloudRunBinding
+from dander.providers.dataproc_serverless import DataprocServerlessBinding
 from dander.providers.fargate import FargateBinding
 from dander.runtime_contract import RUNTIME_CONTRACT
 
@@ -194,6 +204,74 @@ def _gcp_plan(graph: GraphRecord) -> ExecutionPlan:
         profile_id="gcp",
         image=image,
         execution_template=template,
+    )
+
+
+def _spark_plan(graph: GraphRecord) -> ExecutionPlan:
+    image = "us-central1-docker.pkg.dev/dander-unit-project/dander/spark@sha256:" + "e" * 64
+    physical = PhysicalPlan(
+        pipeline_id="hosted_graph",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        stages=(
+            PhysicalStage("extract", ("extract",), 2),
+            PhysicalStage("publish", ("publish",), 2, ("extract",)),
+        ),
+        exchanges=(
+            PhysicalExchange(
+                "extract-publish",
+                "extract",
+                "publish",
+                ExchangeTransport.OBJECT_STORE,
+                PartitioningStrategy.ROUND_ROBIN,
+                2,
+            ),
+        ),
+        maximum_parallelism=2,
+    )
+    aws = _plan(graph)
+    template = replace(
+        aws.execution_template,
+        profile_id="gcp",
+        launcher="dataproc_serverless",
+        image=image,
+        command=(
+            *aws.execution_template.command[:-1],
+            "gcp",
+            "--physical-plan",
+            serialize_physical_plan(physical).decode(),
+        ),
+        workload_identity="dander-spark@dander-unit-project.iam.gserviceaccount.com",
+        resources=replace(
+            aws.execution_template.resources,
+            cpu_millis=4_000,
+            memory_mib=16_384,
+            ephemeral_storage_mib=None,
+            deadline_seconds=600,
+        ),
+        schedule=replace(
+            aws.execution_template.schedule,
+            task_count=2,
+            maximum_parallelism=2,
+        ),
+        extensions=(
+            (
+                "spark.main_python_file_uri",
+                "gs://dander-spark-stage/drivers/driver-" + "f" * 64 + ".py",
+            ),
+            ("spark.runtime_version", "2.3"),
+            ("spark.staging_bucket", "dander-spark-stage"),
+        ),
+    )
+    return replace(
+        aws,
+        plan_id="gcp-spark-bigquery",
+        environment="spark",
+        backend_id="dataproc_serverless",
+        profile_id="gcp",
+        image=image,
+        execution_template=template,
+        deadline_seconds=600,
+        physical_plan=physical,
     )
 
 
@@ -1026,7 +1104,7 @@ def test_composed_lifecycle_serves_existing_control_run_routes() -> None:
         assert "provider-secret" not in unavailable.text
 
 
-def test_aws_hosted_composition_registers_fargate_and_cloud_run_plans(
+def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import dander.control.run_composition as composition_module
@@ -1034,10 +1112,13 @@ def test_aws_hosted_composition_registers_fargate_and_cloud_run_plans(
     graph_store, graph = _graph_store()
     aws_plan = _plan(graph)
     gcp_plan = _gcp_plan(graph)
+    spark_plan = _spark_plan(graph)
     aws_path = tmp_path / "aws-plan.json"
     gcp_path = tmp_path / "gcp-plan.json"
+    spark_path = tmp_path / "spark-plan.json"
     aws_path.write_bytes(serialize_execution_plan(aws_plan))
     gcp_path.write_bytes(serialize_execution_plan(gcp_plan))
+    spark_path.write_bytes(serialize_execution_plan(spark_plan))
     fargate_binding = FargateBinding(
         account_id="123456789012",
         region="us-east-1",
@@ -1061,8 +1142,19 @@ def test_aws_hosted_composition_registers_fargate_and_cloud_run_plans(
         job_name="dander-hosted-graph",
         runtime_service_account=("dander-runtime@dander-unit-project.iam.gserviceaccount.com"),
     )
+    spark_binding = DataprocServerlessBinding(
+        project_id="dander-unit-project",
+        region="us-central1",
+        profile_id="gcp",
+        pipeline_id="hosted_graph",
+        runtime_service_account=("dander-spark@dander-unit-project.iam.gserviceaccount.com"),
+        main_python_file_uri=("gs://dander-spark-stage/drivers/driver-" + "f" * 64 + ".py"),
+        runtime_version="2.3",
+        staging_bucket="dander-spark-stage",
+    )
     fargate_backend = _Backend()
     cloud_run_backend = _Backend()
+    spark_backend = _Backend()
     cloud_binding_calls: list[dict[str, object]] = []
 
     monkeypatch.setattr(
@@ -1076,6 +1168,11 @@ def test_aws_hosted_composition_registers_fargate_and_cloud_run_plans(
         return cloud_run_binding
 
     monkeypatch.setattr(CloudRunBinding, "from_project", classmethod(bind_cloud))
+    monkeypatch.setattr(
+        DataprocServerlessBinding,
+        "from_execution_template",
+        classmethod(lambda _cls, _template, /, **_kwargs: spark_binding),
+    )
     monkeypatch.setattr(composition_module, "S3RunStore", lambda *_args, **_kwargs: _Store())
     monkeypatch.setattr(
         composition_module,
@@ -1091,12 +1188,19 @@ def test_aws_hosted_composition_registers_fargate_and_cloud_run_plans(
             cloud_run_backend if bindings == {gcp_plan.revision: cloud_run_binding} else None
         ),
     )
+    monkeypatch.setattr(
+        composition_module,
+        "DataprocServerlessExecutionBackend",
+        lambda bindings: (
+            spark_backend if bindings == {spark_plan.revision: spark_binding} else None
+        ),
+    )
 
     composition = build_fargate_run_composition(
         graph_store=graph_store,
         project_config=tmp_path / "dander.yaml",
         platforms_config=tmp_path / "dander.platforms.yaml",
-        plan_paths=(aws_path, gcp_path),
+        plan_paths=(aws_path, gcp_path, spark_path),
         run_store_bucket="dander-control-runs",
         run_store_prefix="control/runs/v1",
         environment="production",
@@ -1112,6 +1216,13 @@ def test_aws_hosted_composition_registers_fargate_and_cloud_run_plans(
         environment="gcp",
     )
     assert selected.plan_revision == gcp_plan.revision
+    selected_spark = composition.resolver.resolve(
+        graph,
+        idempotency_key="spark-start-key-0001",
+        requested_at=NOW,
+        environment="spark",
+    )
+    assert selected_spark.plan_revision == spark_plan.revision
     assert cloud_binding_calls == [
         {
             "config": tmp_path / "dander.yaml",
@@ -1124,6 +1235,7 @@ def test_aws_hosted_composition_registers_fargate_and_cloud_run_plans(
     composition.lifecycle.close()
     assert fargate_backend.close_count == 1
     assert cloud_run_backend.close_count == 1
+    assert spark_backend.close_count == 1
 
 
 def test_fargate_startup_binds_canonical_plans_to_existing_aws_resources(

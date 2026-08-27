@@ -2112,3 +2112,24 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** The current container accepts only fused execution: one partition per stage,
   single in-memory exchanges, and parallelism one. Distributed plans are modeled but fail closed
   until a backend such as serverless Spark explicitly implements their dispatch and exchange rules.
+
+## 2026-08-27 — Managed Spark is a fixed-size distributed backend
+
+- **Binding:** `dataproc_serverless` plans bind a distributed physical plan to one immutable
+  Artifact Registry digest and one content-addressed PySpark driver in the same bounded GCS staging
+  bucket. Control passes the unchanged Dander command, canonical physical plan, configuration
+  reference, non-secret environment, and GCP Secret Manager references; the batch service account
+  resolves GCP/BigQuery authority without a credential value crossing Control.
+- **Resources:** The plan fixes 2–2,000 executors, 4/8/16 cores, total memory, project/region,
+  runtime version, subnetwork, and a 10-minute-to-14-day TTL. Submission explicitly disables Spark
+  dynamic allocation and autotuning. Distributed dependencies require object-store exchanges;
+  Control does not infer partitions, resize a job, or select a cluster shape at runtime.
+- **Lifecycle:** Run and attempt identities derive one batch ID and one create request UUID, so
+  restart recovery adopts the original batch. Control normalizes batch status, output logs,
+  runtime results, and operation cancellation through its existing reconciler. Managed Spark
+  deletes workload compute after terminal completion; the batch record and persistent Cloud Logs
+  remain as evidence rather than being treated as live compute.
+- **Boundary:** This is the provider adapter and immutable driver contract, not live qualification
+  of a particular driver/image pair. Publishing and qualifying that pair is separate bounded work.
+  Dynamic physical planning, resource sizing, autoscaling, Kubernetes, and a general cluster
+  manager remain explicitly out of scope.

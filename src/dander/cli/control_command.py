@@ -137,7 +137,7 @@ def serve_control(
     gcp_project_id: str | None = typer.Option(
         None,
         "--gcp-project-id",
-        help="Exact GCP project containing registered Cloud Run execution plans.",
+        help="Exact GCP project containing registered Cloud Run or Managed Spark plans.",
     ),
     gcp_deployment_name: str = typer.Option(
         "gcp_cloud_run",
