@@ -612,7 +612,7 @@ def test_live_verifier_is_read_only_and_checks_exact_provider_boundaries(
                             "deadLetterTargetArn": (
                                 f"arn:aws:sqs:{REGION}:{ACCOUNT}:dander-d7-control-schedule-dlq"
                             ),
-                            "maxReceiveCount": "5",
+                            "maxReceiveCount": 5,
                         }
                     ),
                 }
