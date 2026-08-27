@@ -45,7 +45,7 @@ _ARTIFACT_IMAGE = re.compile(
     r"[a-z][a-z0-9._/-]*@sha256:[0-9a-f]{64}$"
 )
 _OPERATION = re.compile(
-    r"^projects/(?P<project>[a-z][a-z0-9-]{4,28}[a-z0-9])/locations/"
+    r"^projects/(?P<project>[a-z][a-z0-9-]{4,28}[a-z0-9])/(?:locations|regions)/"
     r"(?P<region>[a-z]+(?:-[a-z0-9]+)+[0-9])/operations/[A-Za-z0-9._-]{1,128}$"
 )
 _TERMINAL_STATES = {"CANCELLED", "FAILED", "SUCCEEDED"}

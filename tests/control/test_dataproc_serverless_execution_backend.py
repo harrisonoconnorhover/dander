@@ -124,7 +124,7 @@ class _Transport:
             batch_id = params["batchId"]
             assert isinstance(batch_id, str)
             resource = f"projects/{PROJECT}/locations/{REGION}/batches/{batch_id}"
-            operation = f"projects/{PROJECT}/locations/{REGION}/operations/op-{batch_id}"
+            operation = f"projects/{PROJECT}/regions/{REGION}/operations/op-{batch_id}"
             self.batches[resource] = {
                 "name": resource,
                 "state": "PENDING",

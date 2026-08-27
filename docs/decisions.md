@@ -2128,9 +2128,11 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   infer partitions, resize a job, or select a cluster shape at runtime.
 - **Lifecycle:** Run and attempt identities derive one batch ID and one create request UUID, so
   restart recovery adopts the original batch. Control normalizes batch status, output logs,
-  runtime results, and operation cancellation through its existing reconciler. Managed Spark
-  deletes workload compute after terminal completion; the batch record and persistent Cloud Logs
-  remain as evidence rather than being treated as live compute.
+  runtime results, and operation cancellation through its existing reconciler. Provider operation
+  validation accepts both location- and region-scoped long-running operation names because the
+  batch API returns the regional form. Managed Spark deletes workload compute after terminal
+  completion; the batch record and persistent Cloud Logs remain as evidence rather than being
+  treated as live compute.
 - **Boundary:** This is the provider adapter and immutable driver contract, not live qualification
   of a particular driver/image pair. Publishing and qualifying that pair is separate bounded work.
   Dynamic physical planning, resource sizing, autoscaling, Kubernetes, and a general cluster
@@ -2143,8 +2145,9 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   the driver verifies both copies before provider or warehouse work begins.
 - **Workload:** The driver accepts only the canonical `spark_bigquery_qualification` two-stage
   physical plan. It writes the declared exchange to GCS, publishes four deterministic rows through
-  Spark's BigQuery connector, reads back three aggregates, cleans the exchange, and emits Control's
-  existing canonical runtime completion event.
+  Spark's BigQuery connector, reads back three aggregates, verifies exchange deletion by its final
+  absence even if the GCS filesystem reports an error after deleting it, and emits Control's existing
+  canonical runtime completion event.
 - **Boundary:** This proves the DANDER-242 artifact and lifecycle seam for one pair. It does not add
   arbitrary operator dispatch, dynamic topology or sizing, autoscaling, Kubernetes, or a cluster
   manager, and it does not modify the single-container runtime.

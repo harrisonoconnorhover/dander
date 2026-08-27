@@ -506,15 +506,24 @@ def _output_table(invocation: Invocation, context: RuntimeContext) -> str:
 
 def _delete_exchange(spark: object, uri: str) -> None:
     dynamic_spark = cast("Any", spark)
+    filesystem: Any | None = None
+    path: Any | None = None
     try:
         hadoop_configuration = dynamic_spark.sparkContext._jsc.hadoopConfiguration()
         path = dynamic_spark._jvm.org.apache.hadoop.fs.Path(uri)
         filesystem = path.getFileSystem(hadoop_configuration)
-        if not filesystem.delete(path, True) and filesystem.exists(path):
+        filesystem.delete(path, True)
+        if filesystem.exists(path):
             raise SparkDriverError("the object-store exchange cleanup did not converge")
     except SparkDriverError:
         raise
     except Exception as error:
+        if filesystem is not None and path is not None:
+            try:
+                if not filesystem.exists(path):
+                    return
+            except Exception:
+                pass
         raise SparkDriverError("the object-store exchange cleanup failed") from error
 
 
