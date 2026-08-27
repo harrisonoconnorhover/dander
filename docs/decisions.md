@@ -2157,6 +2157,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   arbitrary operator dispatch, dynamic topology or sizing, autoscaling, Kubernetes, or a cluster
   manager, and it does not modify the single-container runtime.
 
+## 2026-08-27 — Spark qualification readback is driver-bounded
+
+- **Observed boundary:** Managed Spark wrote the expected four BigQuery rows, but the connector-side
+  global aggregate failed after opening the read session and before returning its result.
+- **Correction:** The fixed qualification reads at most five value pairs through Spark and computes
+  its three aggregates on the driver. This preserves the BigQuery round trip while eliminating an
+  unnecessary distributed aggregate for a four-row acceptance fixture.
+- **Boundary:** This does not change pipeline logic, output rows, the two-executor physical plan,
+  provider selection, the single-container runtime, or any general Spark execution behavior.
+
 ## 2026-08-27 — Managed Spark uses a revision-covered immutable provider tag
 
 - **Constraint:** Managed Service for Apache Spark documents custom container submission with a
