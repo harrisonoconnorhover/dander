@@ -1223,7 +1223,7 @@ def _verify_scheduling(source: AWSControlPlaneInput) -> dict[str, object] | None
         or redrive
         != {
             "deadLetterTargetArn": dlq_arn,
-            "maxReceiveCount": "5",
+            "maxReceiveCount": 5,
         }
     ):
         raise AWSControlPlaneError("AWS Control schedule queue does not match the projection")
