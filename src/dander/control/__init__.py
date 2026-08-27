@@ -1,6 +1,9 @@
 """Versioned browser-facing contracts and provider-neutral Control API ports."""
 
 from dander.control.azure_blob_graph_store import AzureBlobGraphStore
+from dander.control.dataproc_serverless_execution_backend import (
+    DataprocServerlessExecutionBackend,
+)
 from dander.control.fargate_execution_backend import FargateExecutionBackend
 from dander.control.gcs_graph_store import GCSGraphStore
 from dander.control.graph_store import (
@@ -137,6 +140,7 @@ __all__ = [
     "CanonicalGraphDocument",
     "AzureBlobGraphStore",
     "FargateExecutionBackend",
+    "DataprocServerlessExecutionBackend",
     "GraphDeleteReceipt",
     "GraphPage",
     "GraphRecord",

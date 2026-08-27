@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING
 
 from dander.control.application import ControlOperationError
 from dander.control.cloud_run_execution_backend import CloudRunExecutionBackend
+from dander.control.dataproc_serverless_execution_backend import (
+    DataprocServerlessExecutionBackend,
+)
 from dander.control.fargate_execution_backend import FargateExecutionBackend
 from dander.control.orchestration import (
     ExecutionBackendError,
@@ -36,6 +39,10 @@ from dander.control.schedule_consumer import (
 )
 from dander.control.sqs_schedule_queue import SQSScheduleQueue
 from dander.providers.cloud_run import CloudRunBinding, CloudRunOperationError
+from dander.providers.dataproc_serverless import (
+    DataprocServerlessBinding,
+    DataprocServerlessOperationError,
+)
 from dander.providers.fargate.operations import FargateBinding, FargateOperationError
 
 if TYPE_CHECKING:
@@ -201,7 +208,7 @@ def build_multicloud_run_composition(
     trigger_paths: Sequence[Path] = (),
     schedule_queue_url: str | None = None,
 ) -> ControlRunComposition:
-    """Build one AWS-hosted Control composition with Fargate and optional Cloud Run."""
+    """Build one AWS-hosted Control composition with registered AWS and GCP backends."""
     plans = load_execution_plans(plan_paths)
     if bool(trigger_paths) != (schedule_queue_url is not None):
         raise ControlRunCompositionError(
@@ -210,11 +217,22 @@ def build_multicloud_run_composition(
     triggers = load_trigger_specs(trigger_paths) if trigger_paths else ()
     fargate_bindings: dict[str, FargateBinding] = {}
     cloud_run_bindings: dict[str, CloudRunBinding] = {}
+    spark_bindings: dict[str, DataprocServerlessBinding] = {}
     account_ids: set[str] = set()
     regions: set[str] = set()
     composition: ControlRunComposition | None = None
     try:
         for plan in plans:
+            if plan.backend_id == "dataproc_serverless":
+                if gcp_project_id is None:
+                    raise ControlRunCompositionError(
+                        "Managed Spark execution plans require an exact GCP project id."
+                    )
+                spark_bindings[plan.revision] = DataprocServerlessBinding.from_execution_template(
+                    plan.execution_template,
+                    project_id=gcp_project_id,
+                )
+                continue
             if plan.backend_id == "cloud_run":
                 if gcp_project_id is None:
                     raise ControlRunCompositionError(
@@ -230,7 +248,8 @@ def build_multicloud_run_composition(
                 continue
             if plan.backend_id != "fargate":
                 raise ControlRunCompositionError(
-                    "The AWS Control composition accepts only Fargate or Cloud Run plans."
+                    "The AWS Control composition accepts only Fargate, Cloud Run, or "
+                    "Managed Spark plans."
                 )
             binding = FargateBinding.from_project(
                 config=project_config,
@@ -261,6 +280,8 @@ def build_multicloud_run_composition(
         }
         if cloud_run_bindings:
             backends["cloud_run"] = CloudRunExecutionBackend(cloud_run_bindings)
+        if spark_bindings:
+            backends["dataproc_serverless"] = DataprocServerlessExecutionBackend(spark_bindings)
         composition = compose_run_control(
             graph_store=graph_store,
             store=store,
@@ -305,6 +326,7 @@ def build_multicloud_run_composition(
         ControlOperationError,
         ControlRunCompositionError,
         CloudRunOperationError,
+        DataprocServerlessOperationError,
         ExecutionBackendError,
         FargateOperationError,
         OrchestrationContractError,

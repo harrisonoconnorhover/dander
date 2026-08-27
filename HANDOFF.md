@@ -2,37 +2,37 @@
 
 ## Finished
 
-- Added canonical physical-plan v1 with static stages, partitions, exchanges, and maximum parallelism.
-- Added execution-plan v2 embedding and revision binding while preserving exact v1 recovery.
-- Passed fused multi-stage plans through the existing Dander container command and runtime validation.
-- Added the verified physical-plan revision to success and failure runtime events.
-- Kept Fargate and Cloud Run single-container-only; both reject distributed execution before launch.
+- Added a `dataproc_serverless` Control backend for distributed physical-plan v1.
+- Added deterministic batch submission/adoption, restart recovery, status, logs, results, and cancellation.
+- Bound immutable PySpark driver/image, GCP service account, config, secret references, and subnetwork.
+- Fixed executor count/cores/memory and TTL while explicitly disabling Spark autoscaling/autotuning.
+- Wired Fargate, Cloud Run, and Managed Spark through the same always-on Control lifecycle.
 
 ## Try It
 
-Build a `fused_container_physical_plan`, append its canonical JSON as the final `--physical-plan` command argument, and serialize the containing `ExecutionPlan`. The unchanged `runtime execute` path validates and reports its revision.
+Register a `dataproc_serverless` execution plan with a distributed object-store physical plan and the three `spark.*` template extensions. Start it through the existing Control run endpoint.
 
 ## Checks
 
 - Full pytest suite: passed.
-- Ruff lint and format: passed.
-- Strict type check across 463 source files: passed.
+- Ruff lint and format across 522 files: passed.
+- Strict type check across 467 source files: passed.
 - Control contract drift and diff checks: passed.
 
 ## Decisions
 
-- Physical topology is static and provider-neutral; provider resources remain in the enclosing execution plan.
-- Existing containers fuse all declared stages, require one partition per stage, and allow only single in-memory exchanges.
-- Distributed plans are valid artifacts but require a backend that explicitly implements their dispatch and exchange rules.
+- Managed Spark accepts only static distributed plans with object-store exchanges.
+- The immutable driver artifact enacts the plan; Control owns provider lifecycle and durable reconciliation.
+- Terminal serverless compute cleanup is confirmed while batch metadata and Cloud Logs remain evidence.
 
 ## Remaining
 
-- Open and merge the protected DANDER-241 PR, then confirm exact-main CI.
-- Implement one serverless Spark batch backend against distributed physical-plan v1.
-- Stop before dynamic topology, cluster sizing, or autoscaling.
+- Publish and live-qualify one compatible immutable Spark driver/image pair before a support claim.
+- Consider dynamic physical topology/resource sizing only as a separately reviewed next milestone.
+- Do not add generalized autoscaling, Kubernetes, or a cluster manager in this slice.
 
 ## Review First
 
-- `src/dander/physical_plan.py`
-- `src/dander/control/orchestration.py`
-- `src/dander/cli/runtime_command.py`
+- `src/dander/control/dataproc_serverless_execution_backend.py`
+- `src/dander/providers/dataproc_serverless/operations.py`
+- `tests/control/test_dataproc_serverless_execution_backend.py`
