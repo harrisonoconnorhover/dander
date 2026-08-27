@@ -15,6 +15,7 @@ from dander.control.application import (
     ControlApplication,
     ControlOperationConflictError,
     ControlOperationIdempotencyConflictError,
+    ControlOperationUnavailableError,
     RunAddress,
 )
 from dander.control.graph_store import GraphRecord, InMemoryGraphStore
@@ -45,6 +46,8 @@ from dander.control.orchestration import (
     RunStoreIdempotencyConflictError,
     RunSubmission,
     RunTrigger,
+    SizeClassCandidate,
+    SizeClassMode,
     StoredRun,
     StoredRunPage,
     TriggerKind,
@@ -682,7 +685,15 @@ def test_replay_creates_a_new_durable_run_and_rejects_graph_drift() -> None:
     store = _Store()
     backend = _Backend()
     lifecycle = _lifecycle(graph_store, plan, store, backend)
-    source = lifecycle.start(_submission(graph, plan))
+    selection = PlanRunSubmissionResolver(
+        ExecutionPlanRegistry((plan,)),
+        "production",
+        size_class_candidates=(SizeClassCandidate(plan.revision, "small", 1_000),),
+        default_size_class="small",
+    )
+    source = lifecycle.start(
+        selection.resolve(graph, idempotency_key="start-key-0001", requested_at=NOW)
+    )
     handle = next(iter(backend.effects.values()))
     backend.observations[handle.execution_id] = _terminal(RunOutcome.FAILED)
     lifecycle.reconcile_once()
@@ -696,6 +707,8 @@ def test_replay_creates_a_new_durable_run_and_rejects_graph_drift() -> None:
     replay_record = store.runs[replayed.resulting_run_id].record
     assert replay_record.placement_decision is not None
     assert replay_record.placement_decision.mode is PlacementMode.REPLAY
+    assert replay_record.size_class_decision is not None
+    assert replay_record.size_class_decision.mode is SizeClassMode.REPLAY
 
     current = graph_store.get(graph.project, graph.graph)
     graph_store.put(
@@ -734,7 +747,7 @@ def test_same_lifecycle_interface_selects_a_non_aws_backend_without_pipeline_cha
     assert next(iter(backend.effects.values())).backend_id == "gcp"
 
 
-def test_plan_registry_rejects_stale_graphs_and_multiple_active_revisions() -> None:
+def test_plan_registry_rejects_stale_graphs_and_requires_sizing_for_multiple_revisions() -> None:
     _store, graph = _graph_store()
     plan = _plan(graph)
     registry = ExecutionPlanRegistry((plan,))
@@ -748,14 +761,22 @@ def test_plan_registry_rejects_stale_graphs_and_multiple_active_revisions() -> N
         image=changed_image,
         execution_template=replace(plan.execution_template, image=changed_image),
     )
-    with pytest.raises(OrchestrationContractError, match="more than one active plan"):
-        ExecutionPlanRegistry((plan, changed_plan))
+    multi = ExecutionPlanRegistry((plan, changed_plan))
+    with pytest.raises(ControlOperationConflictError, match="current graph"):
+        multi.select(stale, environment="production")
+    with pytest.raises(OrchestrationContractError, match="size candidate for every revision"):
+        PlanRunSubmissionResolver(multi, "production")
 
 
 def test_compatibility_resolver_selects_the_exact_active_plan() -> None:
     _store, graph = _graph_store()
     plan = _plan(graph)
-    resolver = PlanRunSubmissionResolver(ExecutionPlanRegistry((plan,)), "production")
+    resolver = PlanRunSubmissionResolver(
+        ExecutionPlanRegistry((plan,)),
+        "production",
+        size_class_candidates=(SizeClassCandidate(plan.revision, "small", 1_000),),
+        default_size_class="small",
+    )
 
     submission = resolver.resolve(
         graph,
@@ -826,6 +847,104 @@ def test_automatic_placement_is_locality_budget_cost_deterministic_and_overridea
     assert budgeted.plan_revision == gcp.revision
 
 
+def test_bounded_size_classes_select_before_environment_placement() -> None:
+    _store, graph = _graph_store()
+    aws_small = _plan(graph)
+    aws_large = replace(
+        aws_small,
+        plan_id="aws-redshift-large",
+        execution_template=replace(
+            aws_small.execution_template,
+            resources=replace(
+                aws_small.execution_template.resources,
+                cpu_millis=2_000,
+                memory_mib=4_096,
+            ),
+        ),
+    )
+    gcp_small = _gcp_plan(graph)
+    gcp_large = replace(
+        gcp_small,
+        plan_id="gcp-bigquery-large",
+        execution_template=replace(
+            gcp_small.execution_template,
+            resources=replace(
+                gcp_small.execution_template.resources,
+                cpu_millis=2_000,
+                memory_mib=4_096,
+            ),
+        ),
+    )
+    plans = (aws_small, aws_large, gcp_small, gcp_large)
+    sizes = tuple(
+        SizeClassCandidate(
+            plan_revision=plan.revision,
+            size_class="small" if plan in {aws_small, gcp_small} else "large",
+            max_input_bytes=1_000 if plan in {aws_small, gcp_small} else 10_000,
+        )
+        for plan in plans
+    )
+    placement = tuple(
+        PlacementCandidate(
+            plan_revision=plan.revision,
+            locality="us-east-1" if plan.environment == "production" else "us-central1",
+            estimated_cost_microusd=400 if plan.environment == "production" else 100,
+        )
+        for plan in plans
+    )
+    resolver = PlanRunSubmissionResolver(
+        ExecutionPlanRegistry(plans),
+        "auto",
+        placement,
+        "us-east-1",
+        500,
+        sizes,
+        "small",
+    )
+
+    automatic = resolver.resolve(
+        graph,
+        idempotency_key="start-key-0004",
+        requested_at=NOW,
+        estimated_input_bytes=5_000,
+    )
+    override = resolver.resolve(
+        graph,
+        idempotency_key="start-key-0005",
+        requested_at=NOW,
+        environment="gcp",
+        size_class="small",
+    )
+
+    assert automatic.plan_revision == aws_large.revision
+    assert automatic.size_class_decision is not None
+    assert automatic.size_class_decision.mode is SizeClassMode.AUTOMATIC_INPUT
+    assert automatic.size_class_decision.selected_size_class == "large"
+    assert automatic.size_class_decision.memory_mib == 4_096
+    assert automatic.size_class_decision.eligible_plan_count == 2
+    assert override.plan_revision == gcp_small.revision
+    assert override.size_class_decision is not None
+    assert override.size_class_decision.mode is SizeClassMode.MANUAL_OVERRIDE
+
+    with pytest.raises(ControlOperationConflictError, match="execution plan"):
+        resolver.plans.select(replace(graph, content_sha256="c" * 64), environment="gcp")
+    with pytest.raises(ControlOperationUnavailableError, match="requested size class"):
+        resolver.resolve(
+            graph,
+            idempotency_key="start-key-0006",
+            requested_at=NOW,
+            estimated_input_bytes=20_000,
+        )
+    with pytest.raises(ControlOperationConflictError, match="either a size class"):
+        resolver.resolve(
+            graph,
+            idempotency_key="start-key-0007",
+            requested_at=NOW,
+            size_class="small",
+            estimated_input_bytes=500,
+        )
+
+
 def test_plan_files_must_be_canonical_and_content_addressed(tmp_path: Path) -> None:
     _store, graph = _graph_store()
     plan = _plan(graph)
@@ -851,7 +970,12 @@ def test_composed_lifecycle_serves_existing_control_run_routes() -> None:
         backend,
         clock=lambda: datetime.now(UTC) + timedelta(seconds=1),
     )
-    resolver = PlanRunSubmissionResolver(ExecutionPlanRegistry((plan,)), "production")
+    resolver = PlanRunSubmissionResolver(
+        ExecutionPlanRegistry((plan,)),
+        "production",
+        size_class_candidates=(SizeClassCandidate(plan.revision, "small", 1_000),),
+        default_size_class="small",
+    )
     application = ControlApplication(
         graph_store,
         lifecycle=lifecycle,
@@ -878,6 +1002,17 @@ def test_composed_lifecycle_serves_existing_control_run_routes() -> None:
             "estimated_cost_microusd": None,
             "preferred_locality": None,
             "max_cost_microusd": None,
+            "eligible_plan_count": 1,
+        }
+        assert response.json()["sizing"] == {
+            "decision_schema": "io.dander.control.size-class-decision/v1",
+            "mode": "configured_default",
+            "selected_size_class": "small",
+            "estimated_input_bytes": None,
+            "max_input_bytes": 1_000,
+            "cpu_millis": 1_000,
+            "memory_mib": 2_048,
+            "ephemeral_storage_mib": 21_504,
             "eligible_plan_count": 1,
         }
         assert client.get("/v1/runs").json()["items"][0]["run_id"] == run_id

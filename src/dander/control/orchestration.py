@@ -25,6 +25,7 @@ ORCHESTRATION_SCHEMA = "io.dander.control.orchestration/v1"
 EXECUTION_PLAN_SCHEMA = "io.dander.control.execution-plan/v1"
 EXECUTION_RESULT_SUMMARY_SCHEMA = "io.dander.control.execution-result-summary/v1"
 PLACEMENT_DECISION_SCHEMA = "io.dander.control.placement-decision/v1"
+SIZE_CLASS_DECISION_SCHEMA = "io.dander.control.size-class-decision/v1"
 
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -125,6 +126,16 @@ class PlacementMode(StrEnum):
     REPLAY = "replay"
 
 
+class SizeClassMode(StrEnum):
+    """How Control selected one bounded single-container resource class."""
+
+    AUTOMATIC_INPUT = "automatic_input"
+    MANUAL_OVERRIDE = "manual_override"
+    CONFIGURED_DEFAULT = "configured_default"
+    SCHEDULED = "scheduled"
+    REPLAY = "replay"
+
+
 @dataclass(frozen=True, slots=True)
 class PlacementCandidate:
     """One static cost/locality estimate attached to an immutable plan revision."""
@@ -147,6 +158,89 @@ class PlacementCandidate:
             raise OrchestrationContractError(
                 "placement estimated cost must be bounded non-negative micro-USD"
             )
+
+
+@dataclass(frozen=True, slots=True)
+class SizeClassCandidate:
+    """One immutable plan revision's named input-capacity ceiling."""
+
+    plan_revision: str
+    size_class: str
+    max_input_bytes: int
+
+    def __post_init__(self) -> None:
+        if _SHA256.fullmatch(self.plan_revision) is None:
+            raise OrchestrationContractError(
+                "size-class candidate plan revision must be a lowercase SHA-256"
+            )
+        _require_portable_id(self.size_class, label="size class")
+        if (
+            isinstance(self.max_input_bytes, bool)
+            or not isinstance(self.max_input_bytes, int)
+            or not 0 <= self.max_input_bytes <= _MAX_RESULT_INTEGER
+        ):
+            raise OrchestrationContractError(
+                "size-class maximum input must be bounded non-negative bytes"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class SizeClassDecision:
+    """Versioned fixed-size evidence for one selected single-container resource class."""
+
+    mode: SizeClassMode
+    selected_size_class: str
+    estimated_input_bytes: int | None
+    max_input_bytes: int
+    cpu_millis: int
+    memory_mib: int
+    ephemeral_storage_mib: int | None
+    eligible_plan_count: int
+    schema: str = SIZE_CLASS_DECISION_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema != SIZE_CLASS_DECISION_SCHEMA:
+            raise OrchestrationContractError("unsupported size-class decision contract")
+        _require_portable_id(self.selected_size_class, label="selected size class")
+        if self.estimated_input_bytes is not None and (
+            isinstance(self.estimated_input_bytes, bool)
+            or not isinstance(self.estimated_input_bytes, int)
+            or not 0 <= self.estimated_input_bytes <= _MAX_RESULT_INTEGER
+        ):
+            raise OrchestrationContractError("estimated input must be bounded non-negative bytes")
+        if (
+            isinstance(self.max_input_bytes, bool)
+            or not isinstance(self.max_input_bytes, int)
+            or not 0 <= self.max_input_bytes <= _MAX_RESULT_INTEGER
+        ):
+            raise OrchestrationContractError(
+                "size-class maximum input must be bounded non-negative bytes"
+            )
+        if (
+            self.estimated_input_bytes is not None
+            and self.estimated_input_bytes > self.max_input_bytes
+        ):
+            raise OrchestrationContractError("selected size class cannot fit estimated input")
+        for label, value in (
+            ("cpu", self.cpu_millis),
+            ("memory", self.memory_mib),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise OrchestrationContractError(f"size-class {label} must be a positive integer")
+        if self.ephemeral_storage_mib is not None and (
+            isinstance(self.ephemeral_storage_mib, bool)
+            or not isinstance(self.ephemeral_storage_mib, int)
+            or self.ephemeral_storage_mib < 1
+        ):
+            raise OrchestrationContractError(
+                "size-class ephemeral storage must be a positive integer"
+            )
+        if (
+            isinstance(self.eligible_plan_count, bool)
+            or not isinstance(self.eligible_plan_count, int)
+            or not 1 <= self.eligible_plan_count <= 100
+        ):
+            raise OrchestrationContractError("size-class eligible plan count is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -442,6 +536,7 @@ class RunSubmission:
     requested_at: datetime
     requested_deadline_seconds: int | None = None
     placement_decision: PlacementDecision | None = None
+    size_class_decision: SizeClassDecision | None = None
 
     def __post_init__(self) -> None:
         _require_portable_id(self.environment, label="environment")
@@ -635,6 +730,7 @@ class RunRecord:
     backend_handle: BackendHandle | None = None
     result_summary: ExecutionResultSummary | None = None
     placement_decision: PlacementDecision | None = None
+    size_class_decision: SizeClassDecision | None = None
 
     def __post_init__(self) -> None:
         _require_opaque_id(self.run_id, label="run")
@@ -813,6 +909,7 @@ def create_run_record(submission: RunSubmission) -> RunRecord:
         created_at=submission.requested_at,
         updated_at=submission.requested_at,
         placement_decision=submission.placement_decision,
+        size_class_decision=submission.size_class_decision,
     )
 
 
@@ -847,6 +944,41 @@ def format_placement_candidate_spec(candidate: PlacementCandidate) -> str:
             candidate.plan_revision,
             candidate.locality,
             str(candidate.estimated_cost_microusd),
+        )
+    )
+
+
+def parse_size_class_candidate_spec(value: str) -> SizeClassCandidate:
+    """Parse the compact revision,size-class,max-input-bytes startup syntax."""
+    parts = value.split(",")
+    if len(parts) != 3:
+        raise OrchestrationContractError(
+            "size-class candidate must use revision,size-class,max-input-bytes syntax"
+        )
+    revision, size_class, maximum = parts
+    try:
+        max_input_bytes = int(maximum)
+    except ValueError as error:
+        raise OrchestrationContractError(
+            "size-class candidate maximum input must be an integer"
+        ) from error
+    candidate = SizeClassCandidate(
+        plan_revision=revision,
+        size_class=size_class,
+        max_input_bytes=max_input_bytes,
+    )
+    if format_size_class_candidate_spec(candidate) != value:
+        raise OrchestrationContractError("size-class candidate syntax is not canonical")
+    return candidate
+
+
+def format_size_class_candidate_spec(candidate: SizeClassCandidate) -> str:
+    """Render one canonical Control startup size-class candidate."""
+    return ",".join(
+        (
+            candidate.plan_revision,
+            candidate.size_class,
+            str(candidate.max_input_bytes),
         )
     )
 
@@ -1182,7 +1314,10 @@ def _require_optional_summary(value: str | None, *, label: str) -> None:
 
 __all__ = [
     "EXECUTION_PLAN_SCHEMA",
+    "EXECUTION_RESULT_SUMMARY_SCHEMA",
     "ORCHESTRATION_SCHEMA",
+    "PLACEMENT_DECISION_SCHEMA",
+    "SIZE_CLASS_DECISION_SCHEMA",
     "AttemptRecord",
     "BackendExecutionState",
     "BackendHandle",
@@ -1193,8 +1328,12 @@ __all__ = [
     "ExecutionBackend",
     "ExecutionBackendError",
     "ExecutionPlan",
+    "ExecutionResultSummary",
     "HostedRunState",
     "OrchestrationContractError",
+    "PlacementCandidate",
+    "PlacementDecision",
+    "PlacementMode",
     "ResultsState",
     "RetryPolicy",
     "RunClaim",
@@ -1208,6 +1347,9 @@ __all__ = [
     "RunSubmission",
     "RunTransitionError",
     "RunTrigger",
+    "SizeClassCandidate",
+    "SizeClassDecision",
+    "SizeClassMode",
     "StoredRun",
     "StoredRunPage",
     "TriggerKind",
@@ -1217,7 +1359,11 @@ __all__ = [
     "create_run_record",
     "dispatch_run_attempt",
     "dispatch_stored_run_attempt",
+    "format_placement_candidate_spec",
+    "format_size_class_candidate_spec",
     "logical_run_identity",
+    "parse_placement_candidate_spec",
+    "parse_size_class_candidate_spec",
     "transition_run",
     "validate_submission_plan",
 ]

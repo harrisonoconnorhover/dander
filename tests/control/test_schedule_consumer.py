@@ -15,6 +15,7 @@ from dander.control.orchestration import (
     RetryPolicy,
     RunSubmission,
     ScheduleWakeup,
+    SizeClassCandidate,
     TriggerKind,
     TriggerSpec,
 )
@@ -27,7 +28,7 @@ from dander.control.orchestration_serialization import (
     serialize_schedule_wakeup,
     serialize_trigger_spec,
 )
-from dander.control.run_lifecycle import ExecutionPlanRegistry
+from dander.control.run_lifecycle import ExecutionPlanRegistry, PlanRunSubmissionResolver
 from dander.control.schedule_consumer import (
     ControlScheduleConsumer,
     QueuedScheduleMessage,
@@ -157,10 +158,18 @@ def test_trigger_and_wakeup_codecs_are_canonical_and_versioned() -> None:
 
 def test_schedule_resolution_uses_exact_occurrence_idempotency_and_current_plan() -> None:
     graph_store, plan = _graph_and_plan()
+    plans = ExecutionPlanRegistry((plan,))
+    selection = PlanRunSubmissionResolver(
+        plans,
+        "production",
+        size_class_candidates=(SizeClassCandidate(plan.revision, "small", 1_000),),
+        default_size_class="small",
+    )
     resolver = ScheduledRunSubmissionResolver(
-        ExecutionPlanRegistry((plan,)),
+        plans,
         graph_store,
         (_spec(plan),),
+        selection,
     )
     wakeup = ScheduleWakeup("daily-redshift", plan.revision, NOW)
 
@@ -172,6 +181,8 @@ def test_schedule_resolution_uses_exact_occurrence_idempotency_and_current_plan(
     assert first.fingerprint == repeated.fingerprint
     assert first.trigger.scheduled_occurrence == NOW
     assert first.idempotency_key != schedule_occurrence_idempotency_key(later)
+    assert first.size_class_decision is not None
+    assert first.size_class_decision.mode.value == "scheduled"
 
     disabled = ScheduledRunSubmissionResolver(
         ExecutionPlanRegistry((plan,)),

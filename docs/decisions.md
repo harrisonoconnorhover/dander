@@ -2090,3 +2090,13 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   existing target-fence paths open explicit transactions for atomic destination publication.
 - **Boundary:** The single-container runtime and destination-fencing contract remain unchanged;
   DANDER-235 live acceptance must still prove successful results, retries, cancellation, and cleanup.
+
+## 2026-08-27 — Control selects bounded immutable size classes
+
+- **Selection:** A size class names an already registered immutable execution-plan revision and a
+  maximum input-byte estimate. Control selects the smallest fitting class independently per
+  environment before applying the existing environment placement policy.
+- **Evidence:** Run-record v4 persists the chosen class, capacity ceiling, and exact plan resources;
+  status, schedules, replays, and restart recovery retain the same bounded decision.
+- **Boundary:** This changes plan selection only. Each run still launches one existing Dander
+  container through Fargate or Cloud Run; dynamic sizing, clusters, and autoscaling remain later work.

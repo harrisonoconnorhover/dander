@@ -26,6 +26,8 @@ from dander.control.orchestration import (
     RunRecord,
     RunTrigger,
     ScheduleWakeup,
+    SizeClassDecision,
+    SizeClassMode,
     TriggerKind,
     TriggerSpec,
     canonical_execution_plan_contents,
@@ -41,7 +43,8 @@ from dander.deployment.projection import (
 
 RUN_RECORD_SCHEMA_V1 = "io.dander.control.run-record/v1"
 RUN_RECORD_SCHEMA_V2 = "io.dander.control.run-record/v2"
-RUN_RECORD_SCHEMA = "io.dander.control.run-record/v3"
+RUN_RECORD_SCHEMA_V3 = "io.dander.control.run-record/v3"
+RUN_RECORD_SCHEMA = "io.dander.control.run-record/v4"
 ATTEMPT_RECORD_SCHEMA = "io.dander.control.attempt-record/v1"
 TRIGGER_SPEC_SCHEMA = "io.dander.control.trigger-spec/v1"
 SCHEDULE_WAKEUP_SCHEMA = "io.dander.control.schedule-wakeup/v1"
@@ -120,6 +123,7 @@ def serialize_run_record(record: RunRecord) -> bytes:
                 record,
                 include_result_summary=True,
                 include_placement_decision=True,
+                include_size_class_decision=True,
             ),
         }
     )
@@ -130,7 +134,14 @@ def deserialize_run_record(data: bytes) -> RunRecord:
     try:
         envelope = _load_any_envelope(
             data,
-            frozenset({RUN_RECORD_SCHEMA_V1, RUN_RECORD_SCHEMA_V2, RUN_RECORD_SCHEMA}),
+            frozenset(
+                {
+                    RUN_RECORD_SCHEMA_V1,
+                    RUN_RECORD_SCHEMA_V2,
+                    RUN_RECORD_SCHEMA_V3,
+                    RUN_RECORD_SCHEMA,
+                }
+            ),
             _MAX_RUN_BYTES,
         )
         schema = _string(envelope["schema"], "run record schema")
@@ -166,18 +177,25 @@ def deserialize_run_record(data: bytes) -> RunRecord:
             backend_handle=_backend_handle(values["backend_handle"]),
             result_summary=(
                 _deserialize_execution_result_summary_value(values["result_summary"])
-                if schema in {RUN_RECORD_SCHEMA_V2, RUN_RECORD_SCHEMA}
+                if schema in {RUN_RECORD_SCHEMA_V2, RUN_RECORD_SCHEMA_V3, RUN_RECORD_SCHEMA}
                 and values["result_summary"] is not None
                 else None
             ),
             placement_decision=(
                 _placement_decision(values["placement_decision"])
-                if schema == RUN_RECORD_SCHEMA and values["placement_decision"] is not None
+                if schema in {RUN_RECORD_SCHEMA_V3, RUN_RECORD_SCHEMA}
+                and values["placement_decision"] is not None
+                else None
+            ),
+            size_class_decision=(
+                _size_class_decision(values["size_class_decision"])
+                if schema == RUN_RECORD_SCHEMA and values["size_class_decision"] is not None
                 else None
             ),
         )
         expected = {
             RUN_RECORD_SCHEMA: serialize_run_record,
+            RUN_RECORD_SCHEMA_V3: _serialize_run_record_v3,
             RUN_RECORD_SCHEMA_V2: _serialize_run_record_v2,
             RUN_RECORD_SCHEMA_V1: _serialize_run_record_v1,
         }[schema](record)
@@ -437,6 +455,7 @@ def _serialize_run_record_v1(record: RunRecord) -> bytes:
                 record,
                 include_result_summary=False,
                 include_placement_decision=False,
+                include_size_class_decision=False,
             ),
         }
     )
@@ -450,6 +469,21 @@ def _serialize_run_record_v2(record: RunRecord) -> bytes:
                 record,
                 include_result_summary=True,
                 include_placement_decision=False,
+                include_size_class_decision=False,
+            ),
+        }
+    )
+
+
+def _serialize_run_record_v3(record: RunRecord) -> bytes:
+    return _canonical_json(
+        {
+            "schema": RUN_RECORD_SCHEMA_V3,
+            "record": _run_record_payload(
+                record,
+                include_result_summary=True,
+                include_placement_decision=True,
+                include_size_class_decision=False,
             ),
         }
     )
@@ -460,6 +494,7 @@ def _run_record_payload(
     *,
     include_result_summary: bool,
     include_placement_decision: bool,
+    include_size_class_decision: bool,
 ) -> dict[str, object]:
     handle = record.backend_handle
     payload: dict[str, object] = {
@@ -507,6 +542,12 @@ def _run_record_payload(
             if record.placement_decision is not None
             else None
         )
+    if include_size_class_decision:
+        payload["size_class_decision"] = (
+            _size_class_decision_payload(record.size_class_decision)
+            if record.size_class_decision is not None
+            else None
+        )
     return payload
 
 
@@ -535,6 +576,39 @@ def _placement_decision(value: object) -> PlacementDecision:
         ),
         preferred_locality=_optional_string(values["preferred_locality"], "preferred_locality"),
         max_cost_microusd=_optional_integer(values["max_cost_microusd"], "max_cost_microusd"),
+        eligible_plan_count=_integer(values["eligible_plan_count"], "eligible_plan_count"),
+    )
+
+
+def _size_class_decision_payload(decision: SizeClassDecision) -> dict[str, object]:
+    return {
+        "schema": decision.schema,
+        "mode": decision.mode.value,
+        "selected_size_class": decision.selected_size_class,
+        "estimated_input_bytes": decision.estimated_input_bytes,
+        "max_input_bytes": decision.max_input_bytes,
+        "cpu_millis": decision.cpu_millis,
+        "memory_mib": decision.memory_mib,
+        "ephemeral_storage_mib": decision.ephemeral_storage_mib,
+        "eligible_plan_count": decision.eligible_plan_count,
+    }
+
+
+def _size_class_decision(value: object) -> SizeClassDecision:
+    values = _mapping(value, "size-class decision")
+    return SizeClassDecision(
+        schema=_string(values["schema"], "size-class schema"),
+        mode=_enum(SizeClassMode, values["mode"], "size-class mode"),
+        selected_size_class=_string(values["selected_size_class"], "selected_size_class"),
+        estimated_input_bytes=_optional_integer(
+            values["estimated_input_bytes"], "estimated_input_bytes"
+        ),
+        max_input_bytes=_integer(values["max_input_bytes"], "max_input_bytes"),
+        cpu_millis=_integer(values["cpu_millis"], "cpu_millis"),
+        memory_mib=_integer(values["memory_mib"], "memory_mib"),
+        ephemeral_storage_mib=_optional_integer(
+            values["ephemeral_storage_mib"], "ephemeral_storage_mib"
+        ),
         eligible_plan_count=_integer(values["eligible_plan_count"], "eligible_plan_count"),
     )
 
@@ -736,6 +810,8 @@ __all__ = [
     "ATTEMPT_RECORD_SCHEMA",
     "EXECUTION_RESULT_SUMMARY_SCHEMA",
     "RUN_RECORD_SCHEMA",
+    "RUN_RECORD_SCHEMA_V3",
+    "RUN_RECORD_SCHEMA_V2",
     "RUN_RECORD_SCHEMA_V1",
     "SCHEDULED_TIME_TOKEN",
     "SCHEDULE_WAKEUP_SCHEMA",

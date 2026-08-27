@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     import pytest
     from uvicorn import Server
 
-    from dander.control.orchestration import PlacementCandidate
+    from dander.control.orchestration import PlacementCandidate, SizeClassCandidate
     from dander.deployment.service import GCSGraphStoreBinding
 
 
@@ -251,6 +251,10 @@ def test_execution_plan_options_install_lifecycle_readiness(
             "us-east-1",
             "--run-max-cost-microusd",
             "500",
+            "--run-size-candidate",
+            f"{'a' * 64},small,1000",
+            "--run-default-size-class",
+            "small",
         ],
     )
 
@@ -268,5 +272,9 @@ def test_execution_plan_options_install_lifecycle_readiness(
     assert candidates[0].plan_revision == "a" * 64
     assert observed[0]["preferred_locality"] == "us-east-1"
     assert observed[0]["max_cost_microusd"] == 500
+    sizes = cast("tuple[SizeClassCandidate, ...]", observed[0]["size_class_candidates"])
+    assert sizes[0].size_class == "small"
+    assert sizes[0].max_input_bytes == 1_000
+    assert observed[0]["default_size_class"] == "small"
     assert result.stdout.count("Serving Dander Control") == 1
     assert lifecycle.close_count == 1
