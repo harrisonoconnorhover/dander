@@ -13,9 +13,13 @@ from dander.control.graph_store import GraphRecord, InMemoryGraphStore
 from dander.control.models import PipelineGraphDocument
 from dander.control.orchestration import (
     AttemptRecord,
+    CleanupState,
     ExecutionPlan,
+    ExecutionResultSummary,
     HostedRunState,
+    ResultsState,
     RetryPolicy,
+    RunOutcome,
     RunRecord,
     RunStoreConflictError,
     RunStoreIdempotencyConflictError,
@@ -30,9 +34,11 @@ from dander.control.orchestration_serialization import (
     OrchestrationSerializationError,
     deserialize_attempt_record,
     deserialize_execution_plan,
+    deserialize_execution_result_summary,
     deserialize_run_record,
     serialize_attempt_record,
     serialize_execution_plan,
+    serialize_execution_result_summary,
     serialize_run_record,
 )
 from dander.control.s3_run_store import S3RunStore
@@ -49,6 +55,30 @@ from tests.control.s3_fakes import FakeS3Backend, FakeS3Client
 
 NOW = datetime(2026, 8, 25, 16, tzinfo=UTC)
 IMAGE = "registry.example.invalid/dander/runtime@sha256:" + "b" * 64
+
+
+def _result_summary() -> ExecutionResultSummary:
+    return ExecutionResultSummary(
+        endpoints=1,
+        extracted_rows=3,
+        affected_rows=3,
+        models=1,
+        assertions=3,
+        assets=1,
+        duration_ms=1_000,
+        operation_count=1,
+        retry_count=0,
+        rows_read=3,
+        rows_written=3,
+        rows_affected=3,
+        bytes_read=30,
+        bytes_written=30,
+        bytes_processed=30,
+        bytes_billed=0,
+        queue_duration_ms=0,
+        execution_duration_ms=10,
+        spill_bytes=0,
+    )
 
 
 def _graph() -> GraphRecord:
@@ -175,9 +205,53 @@ def test_versioned_records_round_trip_as_canonical_bytes() -> None:
     assert deserialize_execution_plan(serialize_execution_plan(plan)) == plan
     assert deserialize_run_record(serialize_run_record(run)) == run
     assert deserialize_attempt_record(serialize_attempt_record(attempt)) == attempt
+    assert (
+        deserialize_execution_result_summary(serialize_execution_result_summary(_result_summary()))
+        == _result_summary()
+    )
     assert json.loads(serialize_execution_plan(plan))["schema"].endswith("/v1")
-    assert json.loads(serialize_run_record(run))["schema"].endswith("/v1")
+    assert json.loads(serialize_run_record(run))["schema"].endswith("/v2")
     assert json.loads(serialize_attempt_record(attempt))["schema"].endswith("/v1")
+
+
+def test_v1_run_snapshot_and_idempotency_claim_recover_without_invented_results() -> None:
+    backend = FakeS3Backend()
+    candidate = create_run_record(_submission())
+    store = _store(backend)
+    claimed = store.claim(candidate).stored
+    terminal = transition_run(
+        claimed.record,
+        HostedRunState.TERMINAL,
+        now=NOW + timedelta(seconds=1),
+        outcome=RunOutcome.SUCCEEDED,
+        results_state=ResultsState.AVAILABLE,
+        cleanup_state=CleanupState.CONFIRMED,
+        result_summary=_result_summary(),
+    )
+    store.save(claimed, terminal)
+
+    for item in backend.objects.values():
+        payload = json.loads(item.data)
+        run_envelope = payload.get("initial_record", payload)
+        if not isinstance(run_envelope, dict) or "record" not in run_envelope:
+            continue
+        run_envelope["schema"] = "io.dander.control.run-record/v1"
+        record = run_envelope["record"]
+        assert isinstance(record, dict)
+        record.pop("result_summary")
+        item.data = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+
+    restarted = _store(backend)
+    recovered = restarted.find_idempotency(
+        environment=candidate.environment,
+        project=candidate.project,
+        idempotency_key_sha256=candidate.idempotency_key_sha256,
+    )
+
+    assert recovered is not None
+    assert recovered.record.outcome is RunOutcome.SUCCEEDED
+    assert recovered.record.results_state is ResultsState.AVAILABLE
+    assert recovered.record.result_summary is None
 
 
 def test_plan_revision_is_computed_and_tampering_is_rejected() -> None:
@@ -255,6 +329,28 @@ def test_snapshot_compare_and_swap_and_attempt_immutability() -> None:
     store.append_attempt(attempt)
     with pytest.raises(RunStoreConflictError, match="different immutable"):
         store.append_attempt(replace(attempt, backend_id="cloud_run"))
+
+
+def test_success_summary_survives_conditional_snapshot_restart() -> None:
+    backend = FakeS3Backend()
+    store = _store(backend)
+    claimed = store.claim(create_run_record(_submission())).stored
+    terminal = transition_run(
+        claimed.record,
+        HostedRunState.TERMINAL,
+        now=NOW + timedelta(seconds=1),
+        outcome=RunOutcome.SUCCEEDED,
+        results_state=ResultsState.AVAILABLE,
+        cleanup_state=CleanupState.CONFIRMED,
+        result_summary=_result_summary(),
+    )
+
+    saved = store.save(claimed, terminal)
+    recovered = _store(backend).get(saved.record.run_id)
+
+    assert recovered is not None
+    assert recovered.record.result_summary == _result_summary()
+    assert recovered.record.results_state is ResultsState.AVAILABLE
 
 
 def test_run_pagination_uses_an_opaque_exclusive_cursor() -> None:

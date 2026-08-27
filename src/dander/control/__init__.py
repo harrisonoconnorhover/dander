@@ -27,6 +27,7 @@ from dander.control.local_graph_store import RootedLocalGraphStore
 from dander.control.oci_object_graph_store import OCIObjectGraphStore
 from dander.control.orchestration import (
     EXECUTION_PLAN_SCHEMA,
+    EXECUTION_RESULT_SUMMARY_SCHEMA,
     AttemptRecord,
     BackendExecutionState,
     BackendHandle,
@@ -37,6 +38,7 @@ from dander.control.orchestration import (
     ExecutionBackend,
     ExecutionBackendError,
     ExecutionPlan,
+    ExecutionResultSummary,
     HostedRunState,
     ResultsState,
     RetryPolicy,
@@ -66,12 +68,14 @@ from dander.control.orchestration_serialization import (
     OrchestrationSerializationError,
     deserialize_attempt_record,
     deserialize_execution_plan,
+    deserialize_execution_result_summary,
     deserialize_run_record,
     deserialize_schedule_wakeup,
     deserialize_trigger_spec,
     render_schedule_wakeup_template,
     serialize_attempt_record,
     serialize_execution_plan,
+    serialize_execution_result_summary,
     serialize_run_record,
     serialize_schedule_wakeup,
     serialize_trigger_spec,
@@ -139,6 +143,8 @@ __all__ = [
     "ExecutionBackendError",
     "ExecutionPlan",
     "EXECUTION_PLAN_SCHEMA",
+    "ExecutionResultSummary",
+    "EXECUTION_RESULT_SUMMARY_SCHEMA",
     "HostedRunState",
     "ResultsState",
     "RetryPolicy",
@@ -166,12 +172,14 @@ __all__ = [
     "OrchestrationSerializationError",
     "deserialize_attempt_record",
     "deserialize_execution_plan",
+    "deserialize_execution_result_summary",
     "deserialize_run_record",
     "deserialize_schedule_wakeup",
     "deserialize_trigger_spec",
     "render_schedule_wakeup_template",
     "serialize_attempt_record",
     "serialize_execution_plan",
+    "serialize_execution_result_summary",
     "serialize_run_record",
     "serialize_schedule_wakeup",
     "serialize_trigger_spec",
@@ -215,6 +223,7 @@ from dander.control.models import (
     RunPageResponse,
     RunRequest,
     RunStatusResponse,
+    RunTelemetrySummary,
 )
 
 __all__ += [
@@ -238,4 +247,5 @@ __all__ += [
     "RunPageResponse",
     "RunRequest",
     "RunStatusResponse",
+    "RunTelemetrySummary",
 ]

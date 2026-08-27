@@ -17,6 +17,7 @@ from dander.control.orchestration import (
     BackendObservation,
     CleanupState,
     ExecutionPlan,
+    ExecutionResultSummary,
     HostedRunState,
     OrchestrationContractError,
     ResultsState,
@@ -54,6 +55,30 @@ IMAGE = "registry.example.invalid/dander/runtime@sha256:" + "b" * 64
 GRAPH_DOCUMENT = PipelineGraphDocument.model_validate(
     {"name": "hosted_graph", "nodes": [], "edges": []}
 )
+
+
+def _result_summary() -> ExecutionResultSummary:
+    return ExecutionResultSummary(
+        endpoints=1,
+        extracted_rows=3,
+        affected_rows=3,
+        models=1,
+        assertions=3,
+        assets=1,
+        duration_ms=1_000,
+        operation_count=0,
+        retry_count=0,
+        rows_read=0,
+        rows_written=0,
+        rows_affected=0,
+        bytes_read=0,
+        bytes_written=0,
+        bytes_processed=0,
+        bytes_billed=0,
+        queue_duration_ms=0,
+        execution_duration_ms=0,
+        spill_bytes=0,
+    )
 
 
 def _graph() -> GraphRecord:
@@ -322,6 +347,7 @@ def test_transition_preserves_independent_outcome_results_and_cleanup_truth() ->
         now=NOW + timedelta(seconds=3),
         results_state=ResultsState.AVAILABLE,
         cleanup_state=CleanupState.UNCERTAIN,
+        result_summary=_result_summary(),
     )
 
     assert partially_reconciled.outcome is RunOutcome.SUCCEEDED

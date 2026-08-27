@@ -14,6 +14,10 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, cast
 
+from dander.control.execution_results import (
+    ExecutionResultCollectionError,
+    collect_execution_result_summary,
+)
 from dander.control.orchestration import (
     BackendExecutionState,
     BackendHandle,
@@ -205,6 +209,22 @@ class CloudRunExecutionBackend:
             outcome = RunOutcome.FAILED
             stage = "failed"
             failure_code = _execution_failure_code(execution)
+        result_summary = None
+        if outcome is RunOutcome.SUCCEEDED:
+            try:
+                result_summary = collect_execution_result_summary(
+                    lambda cursor, limit: self.logs(
+                        plan,
+                        handle,
+                        cursor=cursor,
+                        limit=limit,
+                    ),
+                    pipeline_id=plan.execution_template.pipeline_id,
+                )
+            except ExecutionResultCollectionError as error:
+                raise ExecutionBackendError(
+                    "Cloud Run result summary is temporarily unavailable."
+                ) from error
         return BackendObservation(
             execution_state=BackendExecutionState.TERMINAL,
             outcome=outcome,
@@ -217,6 +237,7 @@ class CloudRunExecutionBackend:
             observed_at=self._now(),
             stage=stage,
             failure_code=failure_code,
+            result_summary=result_summary,
         )
 
     def logs(

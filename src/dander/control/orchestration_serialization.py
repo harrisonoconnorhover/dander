@@ -10,10 +10,12 @@ from typing import Literal, cast
 
 from dander.control.orchestration import (
     EXECUTION_PLAN_SCHEMA,
+    EXECUTION_RESULT_SUMMARY_SCHEMA,
     AttemptRecord,
     BackendHandle,
     CleanupState,
     ExecutionPlan,
+    ExecutionResultSummary,
     HostedRunState,
     OrchestrationContractError,
     ResultsState,
@@ -35,7 +37,8 @@ from dander.deployment.projection import (
     SecretReference,
 )
 
-RUN_RECORD_SCHEMA = "io.dander.control.run-record/v1"
+RUN_RECORD_SCHEMA_V1 = "io.dander.control.run-record/v1"
+RUN_RECORD_SCHEMA = "io.dander.control.run-record/v2"
 ATTEMPT_RECORD_SCHEMA = "io.dander.control.attempt-record/v1"
 TRIGGER_SPEC_SCHEMA = "io.dander.control.trigger-spec/v1"
 SCHEDULE_WAKEUP_SCHEMA = "io.dander.control.schedule-wakeup/v1"
@@ -43,6 +46,7 @@ SCHEDULED_TIME_TOKEN = "<aws.scheduler.scheduled-time>"
 
 _MAX_PLAN_BYTES = 1024 * 1024
 _MAX_RUN_BYTES = 256 * 1024
+_MAX_RESULT_SUMMARY_BYTES = 16 * 1024
 _MAX_ATTEMPT_BYTES = 128 * 1024
 _MAX_TRIGGER_BYTES = 64 * 1024
 _MAX_WAKEUP_BYTES = 8 * 1024
@@ -106,44 +110,10 @@ def deserialize_execution_plan(data: bytes) -> ExecutionPlan:
 
 def serialize_run_record(record: RunRecord) -> bytes:
     """Return canonical versioned bytes for one mutable run snapshot."""
-    trigger = _trigger_payload(record.trigger)
-    handle = record.backend_handle
     return _canonical_json(
         {
             "schema": RUN_RECORD_SCHEMA,
-            "record": {
-                "run_id": record.run_id,
-                "environment": record.environment,
-                "project": record.project,
-                "graph": record.graph,
-                "graph_revision": record.graph_revision,
-                "graph_content_sha256": record.graph_content_sha256,
-                "plan_id": record.plan_id,
-                "plan_revision": record.plan_revision,
-                "trigger": trigger,
-                "idempotency_key_sha256": record.idempotency_key_sha256,
-                "submission_sha256": record.submission_sha256,
-                "requested_at": _timestamp(record.requested_at),
-                "requested_deadline_seconds": record.requested_deadline_seconds,
-                "run_state": record.run_state.value,
-                "outcome": record.outcome.value,
-                "results_state": record.results_state.value,
-                "cleanup_state": record.cleanup_state.value,
-                "created_at": _timestamp(record.created_at),
-                "updated_at": _timestamp(record.updated_at),
-                "terminal_at": _timestamp(record.terminal_at) if record.terminal_at else None,
-                "stage": record.stage,
-                "attempt_count": record.attempt_count,
-                "current_attempt_id": record.current_attempt_id,
-                "backend_handle": (
-                    {
-                        "backend_id": handle.backend_id,
-                        "execution_id": handle.execution_id,
-                    }
-                    if handle is not None
-                    else None
-                ),
-            },
+            "record": _run_record_payload(record, include_result_summary=True),
         }
     )
 
@@ -151,7 +121,12 @@ def serialize_run_record(record: RunRecord) -> bytes:
 def deserialize_run_record(data: bytes) -> RunRecord:
     """Load one canonical versioned run snapshot."""
     try:
-        envelope = _load_envelope(data, RUN_RECORD_SCHEMA, _MAX_RUN_BYTES)
+        envelope = _load_any_envelope(
+            data,
+            frozenset({RUN_RECORD_SCHEMA_V1, RUN_RECORD_SCHEMA}),
+            _MAX_RUN_BYTES,
+        )
+        schema = _string(envelope["schema"], "run record schema")
         values = _mapping(envelope["record"], "run record")
         record = RunRecord(
             run_id=_string(values["run_id"], "run_id"),
@@ -182,13 +157,50 @@ def deserialize_run_record(data: bytes) -> RunRecord:
             attempt_count=_integer(values["attempt_count"], "attempt_count"),
             current_attempt_id=_optional_string(values["current_attempt_id"], "current_attempt_id"),
             backend_handle=_backend_handle(values["backend_handle"]),
+            result_summary=(
+                _deserialize_execution_result_summary_value(values["result_summary"])
+                if schema == RUN_RECORD_SCHEMA and values["result_summary"] is not None
+                else None
+            ),
         )
-        _require_canonical(data, serialize_run_record(record))
+        expected = (
+            serialize_run_record(record)
+            if schema == RUN_RECORD_SCHEMA
+            else _serialize_run_record_v1(record)
+        )
+        _require_canonical(data, expected)
         return record
     except OrchestrationSerializationError:
         raise
     except (KeyError, TypeError, ValueError) as error:
         raise OrchestrationSerializationError("run record is invalid") from error
+
+
+def serialize_execution_result_summary(summary: ExecutionResultSummary) -> bytes:
+    """Return canonical versioned bytes for fixed-size runtime result aggregates."""
+    return _canonical_json(
+        {
+            "schema": EXECUTION_RESULT_SUMMARY_SCHEMA,
+            "summary": _execution_result_summary_payload(summary),
+        }
+    )
+
+
+def deserialize_execution_result_summary(data: bytes) -> ExecutionResultSummary:
+    """Load one canonical fixed-size runtime result summary."""
+    try:
+        envelope = _load_envelope(
+            data,
+            EXECUTION_RESULT_SUMMARY_SCHEMA,
+            _MAX_RESULT_SUMMARY_BYTES,
+        )
+        summary = _execution_result_summary(envelope["summary"])
+        _require_canonical(data, serialize_execution_result_summary(summary))
+        return summary
+    except OrchestrationSerializationError:
+        raise
+    except (KeyError, TypeError, ValueError) as error:
+        raise OrchestrationSerializationError("execution-result summary is invalid") from error
 
 
 def serialize_attempt_record(record: AttemptRecord) -> bytes:
@@ -404,6 +416,118 @@ def _retry_policy(value: object) -> RetryPolicy:
     )
 
 
+def _serialize_run_record_v1(record: RunRecord) -> bytes:
+    return _canonical_json(
+        {
+            "schema": RUN_RECORD_SCHEMA_V1,
+            "record": _run_record_payload(record, include_result_summary=False),
+        }
+    )
+
+
+def _run_record_payload(
+    record: RunRecord,
+    *,
+    include_result_summary: bool,
+) -> dict[str, object]:
+    handle = record.backend_handle
+    payload: dict[str, object] = {
+        "run_id": record.run_id,
+        "environment": record.environment,
+        "project": record.project,
+        "graph": record.graph,
+        "graph_revision": record.graph_revision,
+        "graph_content_sha256": record.graph_content_sha256,
+        "plan_id": record.plan_id,
+        "plan_revision": record.plan_revision,
+        "trigger": _trigger_payload(record.trigger),
+        "idempotency_key_sha256": record.idempotency_key_sha256,
+        "submission_sha256": record.submission_sha256,
+        "requested_at": _timestamp(record.requested_at),
+        "requested_deadline_seconds": record.requested_deadline_seconds,
+        "run_state": record.run_state.value,
+        "outcome": record.outcome.value,
+        "results_state": record.results_state.value,
+        "cleanup_state": record.cleanup_state.value,
+        "created_at": _timestamp(record.created_at),
+        "updated_at": _timestamp(record.updated_at),
+        "terminal_at": _timestamp(record.terminal_at) if record.terminal_at else None,
+        "stage": record.stage,
+        "attempt_count": record.attempt_count,
+        "current_attempt_id": record.current_attempt_id,
+        "backend_handle": (
+            {
+                "backend_id": handle.backend_id,
+                "execution_id": handle.execution_id,
+            }
+            if handle is not None
+            else None
+        ),
+    }
+    if include_result_summary:
+        payload["result_summary"] = (
+            json.loads(serialize_execution_result_summary(record.result_summary))
+            if record.result_summary is not None
+            else None
+        )
+    return payload
+
+
+def _execution_result_summary_payload(summary: ExecutionResultSummary) -> dict[str, object]:
+    return {
+        "endpoints": summary.endpoints,
+        "extracted_rows": summary.extracted_rows,
+        "affected_rows": summary.affected_rows,
+        "models": summary.models,
+        "assertions": summary.assertions,
+        "assets": summary.assets,
+        "duration_ms": summary.duration_ms,
+        "operation_count": summary.operation_count,
+        "retry_count": summary.retry_count,
+        "rows_read": summary.rows_read,
+        "rows_written": summary.rows_written,
+        "rows_affected": summary.rows_affected,
+        "bytes_read": summary.bytes_read,
+        "bytes_written": summary.bytes_written,
+        "bytes_processed": summary.bytes_processed,
+        "bytes_billed": summary.bytes_billed,
+        "queue_duration_ms": summary.queue_duration_ms,
+        "execution_duration_ms": summary.execution_duration_ms,
+        "spill_bytes": summary.spill_bytes,
+        "skipped": summary.skipped,
+    }
+
+
+def _execution_result_summary(value: object) -> ExecutionResultSummary:
+    values = _mapping(value, "execution-result summary")
+    return ExecutionResultSummary(
+        endpoints=_integer(values["endpoints"], "endpoints"),
+        extracted_rows=_integer(values["extracted_rows"], "extracted_rows"),
+        affected_rows=_integer(values["affected_rows"], "affected_rows"),
+        models=_integer(values["models"], "models"),
+        assertions=_integer(values["assertions"], "assertions"),
+        assets=_integer(values["assets"], "assets"),
+        duration_ms=_integer(values["duration_ms"], "duration_ms"),
+        operation_count=_integer(values["operation_count"], "operation_count"),
+        retry_count=_integer(values["retry_count"], "retry_count"),
+        rows_read=_integer(values["rows_read"], "rows_read"),
+        rows_written=_integer(values["rows_written"], "rows_written"),
+        rows_affected=_integer(values["rows_affected"], "rows_affected"),
+        bytes_read=_integer(values["bytes_read"], "bytes_read"),
+        bytes_written=_integer(values["bytes_written"], "bytes_written"),
+        bytes_processed=_integer(values["bytes_processed"], "bytes_processed"),
+        bytes_billed=_integer(values["bytes_billed"], "bytes_billed"),
+        queue_duration_ms=_integer(values["queue_duration_ms"], "queue_duration_ms"),
+        execution_duration_ms=_integer(values["execution_duration_ms"], "execution_duration_ms"),
+        spill_bytes=_integer(values["spill_bytes"], "spill_bytes"),
+        skipped=_boolean(values["skipped"], "skipped"),
+    )
+
+
+def _deserialize_execution_result_summary_value(value: object) -> ExecutionResultSummary:
+    return deserialize_execution_result_summary(_canonical_json(value))
+
+
 def _trigger_payload(trigger: RunTrigger) -> dict[str, object]:
     return {
         "kind": trigger.kind.value,
@@ -438,6 +562,14 @@ def _backend_handle(value: object) -> BackendHandle | None:
 
 
 def _load_envelope(data: bytes, schema: str, max_bytes: int) -> Mapping[str, object]:
+    return _load_any_envelope(data, frozenset({schema}), max_bytes)
+
+
+def _load_any_envelope(
+    data: bytes,
+    schemas: frozenset[str],
+    max_bytes: int,
+) -> Mapping[str, object]:
     if not isinstance(data, bytes) or not data or len(data) > max_bytes:
         raise OrchestrationSerializationError("orchestration record size is invalid")
     try:
@@ -445,7 +577,7 @@ def _load_envelope(data: bytes, schema: str, max_bytes: int) -> Mapping[str, obj
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise OrchestrationSerializationError("orchestration record is not valid JSON") from error
     envelope = _mapping(value, "orchestration envelope")
-    if envelope.get("schema") != schema:
+    if envelope.get("schema") not in schemas:
         raise OrchestrationSerializationError("unsupported orchestration record schema")
     return envelope
 
@@ -536,19 +668,23 @@ def _enum[EnumT: StrEnum](enum_type: type[EnumT], value: object, label: str) -> 
 
 __all__ = [
     "ATTEMPT_RECORD_SCHEMA",
+    "EXECUTION_RESULT_SUMMARY_SCHEMA",
     "RUN_RECORD_SCHEMA",
+    "RUN_RECORD_SCHEMA_V1",
     "SCHEDULED_TIME_TOKEN",
     "SCHEDULE_WAKEUP_SCHEMA",
     "TRIGGER_SPEC_SCHEMA",
     "OrchestrationSerializationError",
     "deserialize_attempt_record",
     "deserialize_execution_plan",
+    "deserialize_execution_result_summary",
     "deserialize_run_record",
     "deserialize_schedule_wakeup",
     "deserialize_trigger_spec",
     "render_schedule_wakeup_template",
     "serialize_attempt_record",
     "serialize_execution_plan",
+    "serialize_execution_result_summary",
     "serialize_run_record",
     "serialize_schedule_wakeup",
     "serialize_trigger_spec",

@@ -14,6 +14,10 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, cast
 
+from dander.control.execution_results import (
+    ExecutionResultCollectionError,
+    collect_execution_result_summary,
+)
 from dander.control.orchestration import (
     BackendExecutionState,
     BackendHandle,
@@ -216,6 +220,22 @@ class FargateExecutionBackend:
         results_state = (
             ResultsState.AVAILABLE if outcome is RunOutcome.SUCCEEDED else ResultsState.UNAVAILABLE
         )
+        result_summary = None
+        if outcome is RunOutcome.SUCCEEDED:
+            try:
+                result_summary = collect_execution_result_summary(
+                    lambda cursor, limit: self.logs(
+                        plan,
+                        handle,
+                        cursor=cursor,
+                        limit=limit,
+                    ),
+                    pipeline_id=plan.execution_template.pipeline_id,
+                )
+            except ExecutionResultCollectionError as error:
+                raise ExecutionBackendError(
+                    "Fargate result summary is temporarily unavailable."
+                ) from error
         return BackendObservation(
             execution_state=BackendExecutionState.TERMINAL,
             outcome=outcome,
@@ -224,6 +244,7 @@ class FargateExecutionBackend:
             observed_at=self._now(),
             stage=_normalized_stage(status),
             failure_code=failure_code,
+            result_summary=result_summary,
         )
 
     def logs(
@@ -266,7 +287,10 @@ class FargateExecutionBackend:
         }
         if cursor is not None:
             arguments["nextToken"] = cursor
-        response = self._call("read logs", self._logs.filter_log_events, **arguments)
+        try:
+            response = self._call("read logs", self._logs.filter_log_events, **arguments)
+        except _AwsCallError as error:
+            raise ExecutionBackendError("Fargate logs are unavailable.") from error
         raw_events = response.get("events")
         if not isinstance(raw_events, list) or len(raw_events) > limit:
             raise ExecutionBackendError("Fargate returned an invalid log page.")

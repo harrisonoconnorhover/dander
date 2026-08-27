@@ -27,6 +27,7 @@ type JsonObject = dict[str, JsonValue]
 _KNOWN_NODE_TYPES = ("source", "transform", "target")
 _IDENTIFIER_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*$"
 _FUNCTION_KEY_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$"
+_MAX_RESULT_INTEGER = 9_223_372_036_854_775_807
 
 
 class ControlModel(BaseModel):
@@ -620,6 +621,24 @@ class RunState(StrEnum):
     RETRYING = "retrying"
 
 
+class RunTelemetrySummary(ControlModel):
+    """Fixed-size telemetry totals; provider operation details remain in logs."""
+
+    duration_ms: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    operation_count: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    retry_count: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    rows_read: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    rows_written: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    rows_affected: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    bytes_read: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    bytes_written: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    bytes_processed: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    bytes_billed: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    queue_duration_ms: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    execution_duration_ms: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    spill_bytes: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+
+
 class RunStatusResponse(ControlModel):
     run_id: str
     state: RunState
@@ -632,6 +651,9 @@ class RunStatusResponse(ControlModel):
     models: int = Field(default=0, ge=0)
     assertions: int = Field(default=0, ge=0)
     assets: int = Field(default=0, ge=0)
+    result_schema: Literal["io.dander.control.execution-result-summary/v1"] | None = None
+    skipped: bool = False
+    telemetry: RunTelemetrySummary | None = None
     failure_code: str | None = None
     failure_summary: str | None = None
     can_cancel: bool = False

@@ -23,12 +23,14 @@ if TYPE_CHECKING:
 
 ORCHESTRATION_SCHEMA = "io.dander.control.orchestration/v1"
 EXECUTION_PLAN_SCHEMA = "io.dander.control.execution-plan/v1"
+EXECUTION_RESULT_SUMMARY_SCHEMA = "io.dander.control.execution-result-summary/v1"
 
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MAX_OPAQUE_VALUE = 1024
+_MAX_RESULT_INTEGER = 9_223_372_036_854_775_807
 
 
 class OrchestrationContractError(ValueError):
@@ -110,6 +112,68 @@ class BackendExecutionState(StrEnum):
     RUNNING = "running"
     TERMINAL = "terminal"
     UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionResultSummary:
+    """Fixed-size, provider-neutral aggregates from one completed runtime event."""
+
+    endpoints: int
+    extracted_rows: int
+    affected_rows: int
+    models: int
+    assertions: int
+    assets: int
+    duration_ms: int
+    operation_count: int
+    retry_count: int
+    rows_read: int
+    rows_written: int
+    rows_affected: int
+    bytes_read: int
+    bytes_written: int
+    bytes_processed: int
+    bytes_billed: int
+    queue_duration_ms: int
+    execution_duration_ms: int
+    spill_bytes: int
+    skipped: bool = False
+    schema: str = EXECUTION_RESULT_SUMMARY_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema != EXECUTION_RESULT_SUMMARY_SCHEMA:
+            raise OrchestrationContractError("unsupported execution-result summary contract")
+        if not isinstance(self.skipped, bool):
+            raise OrchestrationContractError("execution-result skipped state must be boolean")
+        for label, value in (
+            ("endpoints", self.endpoints),
+            ("extracted_rows", self.extracted_rows),
+            ("affected_rows", self.affected_rows),
+            ("models", self.models),
+            ("assertions", self.assertions),
+            ("assets", self.assets),
+            ("duration_ms", self.duration_ms),
+            ("operation_count", self.operation_count),
+            ("retry_count", self.retry_count),
+            ("rows_read", self.rows_read),
+            ("rows_written", self.rows_written),
+            ("rows_affected", self.rows_affected),
+            ("bytes_read", self.bytes_read),
+            ("bytes_written", self.bytes_written),
+            ("bytes_processed", self.bytes_processed),
+            ("bytes_billed", self.bytes_billed),
+            ("queue_duration_ms", self.queue_duration_ms),
+            ("execution_duration_ms", self.execution_duration_ms),
+            ("spill_bytes", self.spill_bytes),
+        ):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= _MAX_RESULT_INTEGER
+            ):
+                raise OrchestrationContractError(
+                    f"execution-result {label} must be a bounded non-negative integer"
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -356,6 +420,7 @@ class BackendObservation:
     observed_at: datetime
     stage: str | None = None
     failure_code: str | None = None
+    result_summary: ExecutionResultSummary | None = None
 
     def __post_init__(self) -> None:
         _require_utc(self.observed_at, label="observed_at")
@@ -365,9 +430,18 @@ class BackendObservation:
             self.outcome is not RunOutcome.UNKNOWN
             or self.results_state is not ResultsState.PENDING
             or self.cleanup_state is not CleanupState.PENDING
+            or self.result_summary is not None
         ):
             raise OrchestrationContractError(
                 "non-terminal backend observations cannot report terminal reconciliation"
+            )
+        if (self.results_state is ResultsState.AVAILABLE) != (self.result_summary is not None):
+            raise OrchestrationContractError(
+                "available backend results require exactly one execution-result summary"
+            )
+        if self.result_summary is not None and self.outcome is not RunOutcome.SUCCEEDED:
+            raise OrchestrationContractError(
+                "only successful backend observations may report an execution-result summary"
             )
 
 
@@ -461,6 +535,7 @@ class RunRecord:
     attempt_count: int = 0
     current_attempt_id: str | None = None
     backend_handle: BackendHandle | None = None
+    result_summary: ExecutionResultSummary | None = None
 
     def __post_init__(self) -> None:
         _require_opaque_id(self.run_id, label="run")
@@ -508,6 +583,14 @@ class RunRecord:
         if self.backend_handle is not None and self.backend_handle.backend_id == "":
             raise OrchestrationContractError("run backend handle is malformed")
         _require_optional_summary(self.stage, label="stage")
+        if self.result_summary is not None and (
+            self.run_state is not HostedRunState.TERMINAL
+            or self.outcome is not RunOutcome.SUCCEEDED
+            or self.results_state is not ResultsState.AVAILABLE
+        ):
+            raise OrchestrationContractError(
+                "execution-result summaries require available successful terminal results"
+            )
         _validate_run_dimensions(self)
 
 
@@ -824,6 +907,7 @@ def transition_run(
     attempt_count: int | None = None,
     current_attempt_id: str | None = None,
     backend_handle: BackendHandle | None = None,
+    result_summary: ExecutionResultSummary | None = None,
 ) -> RunRecord:
     """Apply one monotonic run transition while preserving independent reconciliation truth."""
     _require_utc(now, label="transition time")
@@ -862,9 +946,14 @@ def transition_run(
     next_outcome = outcome or record.outcome
     next_results = results_state or record.results_state
     next_cleanup = cleanup_state or record.cleanup_state
+    next_summary = result_summary or record.result_summary
     _require_monotonic_outcome(record.outcome, next_outcome)
     _require_monotonic_results(record.results_state, next_results)
     _require_monotonic_cleanup(record.cleanup_state, next_cleanup)
+    if record.result_summary is not None and next_summary != record.result_summary:
+        raise RunTransitionError("run execution-result summary cannot change after it is set")
+    if next_results is ResultsState.AVAILABLE and next_summary is None:
+        raise RunTransitionError("available run results require an execution-result summary")
     next_terminal_at = record.terminal_at
     if run_state is HostedRunState.TERMINAL and next_terminal_at is None:
         next_terminal_at = now
@@ -882,6 +971,7 @@ def transition_run(
             current_attempt_id if current_attempt_id is not None else record.current_attempt_id
         ),
         backend_handle=backend_handle or record.backend_handle,
+        result_summary=next_summary,
     )
     return updated
 

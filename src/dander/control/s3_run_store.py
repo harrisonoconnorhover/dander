@@ -117,7 +117,18 @@ class _IdempotencyEntry:
                 or entry.initial_record.submission_sha256 != entry.submission_sha256
             ):
                 raise RunStoreCorruptionError("An S3 run idempotency object is inconsistent.")
-            if data != entry.serialize():
+            expected = _canonical_json(
+                {
+                    "schema": _RUN_IDEMPOTENCY_SCHEMA,
+                    "environment": entry.environment,
+                    "project": entry.project,
+                    "key_sha256": entry.key_sha256,
+                    "run_id": entry.run_id,
+                    "submission_sha256": entry.submission_sha256,
+                    "initial_record": initial,
+                }
+            )
+            if data != expected:
                 raise RunStoreCorruptionError("An S3 run idempotency object is not canonical.")
             return entry
         except RunStoreCorruptionError:

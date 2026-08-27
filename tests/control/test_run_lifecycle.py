@@ -31,6 +31,7 @@ from dander.control.orchestration import (
     ExecutionBackend,
     ExecutionBackendError,
     ExecutionPlan,
+    ExecutionResultSummary,
     OrchestrationContractError,
     ResultsState,
     RetryPolicy,
@@ -373,6 +374,30 @@ def _running(*, stage: str = "running") -> BackendObservation:
     )
 
 
+def _result_summary() -> ExecutionResultSummary:
+    return ExecutionResultSummary(
+        endpoints=1,
+        extracted_rows=3,
+        affected_rows=3,
+        models=1,
+        assertions=3,
+        assets=1,
+        duration_ms=1_000,
+        operation_count=0,
+        retry_count=0,
+        rows_read=0,
+        rows_written=0,
+        rows_affected=0,
+        bytes_read=0,
+        bytes_written=0,
+        bytes_processed=0,
+        bytes_billed=0,
+        queue_duration_ms=0,
+        execution_duration_ms=0,
+        spill_bytes=0,
+    )
+
+
 def _terminal(
     outcome: RunOutcome,
     *,
@@ -388,6 +413,7 @@ def _terminal(
         observed_at=NOW + timedelta(seconds=20),
         stage=outcome.value,
         failure_code="provider_failed" if outcome is RunOutcome.FAILED else None,
+        result_summary=_result_summary() if outcome is RunOutcome.SUCCEEDED else None,
     )
 
 
@@ -439,10 +465,20 @@ def test_start_list_logs_and_terminal_reconciliation_are_provider_neutral() -> N
     terminal = lifecycle.get(RunAddress(started.run_id))
     assert terminal.state is RunState.SUCCEEDED
     assert terminal.can_replay is True
+    assert terminal.endpoints == 1
+    assert terminal.extracted == 3
+    assert terminal.telemetry is not None
+    assert terminal.telemetry.duration_ms == 1_000
     durable = store.get(started.run_id)
     assert durable is not None
     assert durable.record.results_state is ResultsState.AVAILABLE
+    assert durable.record.result_summary == _result_summary()
     assert durable.record.cleanup_state is CleanupState.UNCERTAIN
+
+    restarted = _lifecycle(graph_store, plan, store, backend)
+    recovered_status = restarted.get(RunAddress(started.run_id))
+    assert recovered_status.extracted == 3
+    assert recovered_status.telemetry == terminal.telemetry
 
     backend.observations[handle.execution_id] = _terminal(RunOutcome.SUCCEEDED)
     lifecycle.reconcile_once()

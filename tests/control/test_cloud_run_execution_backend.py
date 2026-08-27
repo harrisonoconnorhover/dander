@@ -40,6 +40,40 @@ IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/dander/runtime@sha256:" + "b" * 64
 NOW = datetime(2026, 8, 26, 18, tzinfo=UTC)
 
 
+def _completion_payload() -> dict[str, object]:
+    return {
+        "contract": RUNTIME_CONTRACT,
+        "event": "runtime.completed",
+        "pipeline_id": PIPELINE,
+        "status": "succeeded",
+        "outputs": {
+            "metrics": {
+                "endpoints": 1,
+                "extracted_rows": 3,
+                "affected_rows": 3,
+                "models": 1,
+                "assertions": 3,
+                "assets": 1,
+            },
+            "telemetry": {
+                "duration_ms": 1_000,
+                "retry_count": 0,
+                "rows_read": 3,
+                "rows_written": 3,
+                "rows_affected": 3,
+                "bytes_read": 30,
+                "bytes_written": 30,
+                "bytes_processed": 30,
+                "bytes_billed": 0,
+                "queue_duration_ms": 0,
+                "execution_duration_ms": 10,
+                "spill_bytes": 0,
+                "operations": [{"operation": "load"}],
+            },
+        },
+    }
+
+
 @dataclass
 class _Response:
     status_code: int
@@ -296,10 +330,15 @@ def test_observe_normalizes_start_success_failure_and_cancellation() -> None:
             "succeededCount": 1,
         }
     )
+    transport.log_response = {
+        "entries": [{"timestamp": "2026-08-26T18:00:02Z", "jsonPayload": _completion_payload()}]
+    }
     succeeded = backend.observe(plan, handle)
     assert succeeded.outcome is RunOutcome.SUCCEEDED
     assert succeeded.results_state is ResultsState.AVAILABLE
     assert succeeded.cleanup_state is CleanupState.CONFIRMED
+    assert succeeded.result_summary is not None
+    assert succeeded.result_summary.extracted_rows == 3
 
     execution.update({"succeededCount": 0, "failedCount": 1})
     failed = backend.observe(plan, handle)
