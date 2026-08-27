@@ -639,6 +639,25 @@ class RunTelemetrySummary(ControlModel):
     spill_bytes: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
 
 
+class RunPlacementDecision(ControlModel):
+    """Fixed-size explanation of the execution-plan selection used by Control."""
+
+    decision_schema: Literal["io.dander.control.placement-decision/v1"]
+    mode: Literal[
+        "automatic",
+        "manual_override",
+        "configured_default",
+        "scheduled",
+        "replay",
+    ]
+    selected_environment: str
+    selected_locality: str | None = None
+    estimated_cost_microusd: int | None = Field(default=None, ge=0, le=_MAX_RESULT_INTEGER)
+    preferred_locality: str | None = None
+    max_cost_microusd: int | None = Field(default=None, ge=0, le=_MAX_RESULT_INTEGER)
+    eligible_plan_count: int = Field(ge=1, le=100)
+
+
 class RunStatusResponse(ControlModel):
     run_id: str
     state: RunState
@@ -654,6 +673,7 @@ class RunStatusResponse(ControlModel):
     result_schema: Literal["io.dander.control.execution-result-summary/v1"] | None = None
     skipped: bool = False
     telemetry: RunTelemetrySummary | None = None
+    placement: RunPlacementDecision | None = None
     failure_code: str | None = None
     failure_summary: str | None = None
     can_cancel: bool = False

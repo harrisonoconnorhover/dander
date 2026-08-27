@@ -33,6 +33,8 @@ from dander.control.orchestration import (
     ExecutionPlan,
     ExecutionResultSummary,
     OrchestrationContractError,
+    PlacementCandidate,
+    PlacementMode,
     ResultsState,
     RetryPolicy,
     RunClaim,
@@ -691,6 +693,9 @@ def test_replay_creates_a_new_durable_run_and_rejects_graph_drift() -> None:
     assert replayed.resulting_run_id is not None
     assert replayed.resulting_run_id != source.run_id
     assert replayed.state is RunState.RUNNING
+    replay_record = store.runs[replayed.resulting_run_id].record
+    assert replay_record.placement_decision is not None
+    assert replay_record.placement_decision.mode is PlacementMode.REPLAY
 
     current = graph_store.get(graph.project, graph.graph)
     graph_store.put(
@@ -760,6 +765,65 @@ def test_compatibility_resolver_selects_the_exact_active_plan() -> None:
 
     assert submission.plan_revision == plan.revision
     assert submission.trigger.kind is TriggerKind.API
+    assert submission.placement_decision is not None
+    assert submission.placement_decision.mode is PlacementMode.CONFIGURED_DEFAULT
+
+
+def test_automatic_placement_is_locality_budget_cost_deterministic_and_overrideable() -> None:
+    _store, graph = _graph_store()
+    aws = _plan(graph)
+    gcp = _gcp_plan(graph)
+    candidates = (
+        PlacementCandidate(
+            plan_revision=aws.revision,
+            locality="us-east-1",
+            estimated_cost_microusd=400,
+        ),
+        PlacementCandidate(
+            plan_revision=gcp.revision,
+            locality="us-central1",
+            estimated_cost_microusd=100,
+        ),
+    )
+    resolver = PlanRunSubmissionResolver(
+        ExecutionPlanRegistry((aws, gcp)),
+        "auto",
+        candidates,
+        "us-east-1",
+        500,
+    )
+
+    automatic = resolver.resolve(
+        graph,
+        idempotency_key="start-key-0001",
+        requested_at=NOW,
+    )
+    override = resolver.resolve(
+        graph,
+        idempotency_key="start-key-0002",
+        requested_at=NOW,
+        environment="gcp",
+    )
+    budgeted = PlanRunSubmissionResolver(
+        ExecutionPlanRegistry((aws, gcp)),
+        "auto",
+        tuple(reversed(candidates)),
+        "us-east-1",
+        150,
+    ).resolve(
+        graph,
+        idempotency_key="start-key-0003",
+        requested_at=NOW,
+    )
+
+    assert automatic.plan_revision == aws.revision
+    assert automatic.placement_decision is not None
+    assert automatic.placement_decision.mode is PlacementMode.AUTOMATIC
+    assert automatic.placement_decision.eligible_plan_count == 2
+    assert override.plan_revision == gcp.revision
+    assert override.placement_decision is not None
+    assert override.placement_decision.mode is PlacementMode.MANUAL_OVERRIDE
+    assert budgeted.plan_revision == gcp.revision
 
 
 def test_plan_files_must_be_canonical_and_content_addressed(tmp_path: Path) -> None:
@@ -806,6 +870,16 @@ def test_composed_lifecycle_serves_existing_control_run_routes() -> None:
         assert response.status_code == 202, response.text
         run_id = response.json()["run_id"]
         assert response.json()["state"] == "running"
+        assert response.json()["placement"] == {
+            "decision_schema": "io.dander.control.placement-decision/v1",
+            "mode": "configured_default",
+            "selected_environment": "production",
+            "selected_locality": None,
+            "estimated_cost_microusd": None,
+            "preferred_locality": None,
+            "max_cost_microusd": None,
+            "eligible_plan_count": 1,
+        }
         assert client.get("/v1/runs").json()["items"][0]["run_id"] == run_id
         logs = client.get(f"/v1/runs/{run_id}/logs?limit=25")
         assert logs.status_code == 200

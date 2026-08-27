@@ -17,6 +17,8 @@ from dander.control.orchestration import (
     ExecutionPlan,
     ExecutionResultSummary,
     HostedRunState,
+    PlacementDecision,
+    PlacementMode,
     ResultsState,
     RetryPolicy,
     RunOutcome,
@@ -173,6 +175,15 @@ def _submission(
         plan_id="aws-redshift",
         plan_revision=plan_revision or _plan(graph).revision,
         trigger=RunTrigger(kind=TriggerKind.API, trigger_id="control-api"),
+        placement_decision=PlacementDecision(
+            mode=PlacementMode.CONFIGURED_DEFAULT,
+            selected_environment="production",
+            selected_locality=None,
+            estimated_cost_microusd=None,
+            preferred_locality=None,
+            max_cost_microusd=None,
+            eligible_plan_count=1,
+        ),
         idempotency_key=key,
         requested_at=requested_at,
         requested_deadline_seconds=240,
@@ -210,7 +221,7 @@ def test_versioned_records_round_trip_as_canonical_bytes() -> None:
         == _result_summary()
     )
     assert json.loads(serialize_execution_plan(plan))["schema"].endswith("/v1")
-    assert json.loads(serialize_run_record(run))["schema"].endswith("/v2")
+    assert json.loads(serialize_run_record(run))["schema"].endswith("/v3")
     assert json.loads(serialize_attempt_record(attempt))["schema"].endswith("/v1")
 
 
@@ -239,6 +250,7 @@ def test_v1_run_snapshot_and_idempotency_claim_recover_without_invented_results(
         record = run_envelope["record"]
         assert isinstance(record, dict)
         record.pop("result_summary")
+        record.pop("placement_decision")
         item.data = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
 
     restarted = _store(backend)
@@ -252,6 +264,29 @@ def test_v1_run_snapshot_and_idempotency_claim_recover_without_invented_results(
     assert recovered.record.outcome is RunOutcome.SUCCEEDED
     assert recovered.record.results_state is ResultsState.AVAILABLE
     assert recovered.record.result_summary is None
+    assert recovered.record.placement_decision is None
+
+
+def test_v2_run_snapshot_recovers_results_without_invented_placement() -> None:
+    record = replace(
+        create_run_record(_submission()),
+        run_state=HostedRunState.TERMINAL,
+        outcome=RunOutcome.SUCCEEDED,
+        results_state=ResultsState.AVAILABLE,
+        cleanup_state=CleanupState.CONFIRMED,
+        terminal_at=NOW + timedelta(seconds=1),
+        updated_at=NOW + timedelta(seconds=1),
+        result_summary=_result_summary(),
+    )
+    envelope = json.loads(serialize_run_record(record))
+    envelope["schema"] = "io.dander.control.run-record/v2"
+    envelope["record"].pop("placement_decision")
+    recovered = deserialize_run_record(
+        json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
+    )
+
+    assert recovered.result_summary == _result_summary()
+    assert recovered.placement_decision is None
 
 
 def test_plan_revision_is_computed_and_tampering_is_rejected() -> None:

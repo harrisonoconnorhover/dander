@@ -2,35 +2,35 @@
 
 ## Finished
 
-- Added canonical `ExecutionResultSummary` v1 persistence in run-record v2 with v1 recovery.
-- Normalized the same execution-scoped `runtime.completed` event for Fargate and Cloud Run.
-- Returned real run counts and fixed-size telemetry through Control, including after restart.
-- Kept both existing launchers and the single-container runtime unchanged.
+- Added deterministic Control placement across registered execution plans using static per-plan locality and micro-USD estimates.
+- Enforced a maximum estimated cost, preferred locality, stable cost/tie ordering, and the existing `environment` query as a manual override.
+- Persisted a versioned placement decision in run-record v3 and exposed it through run status after restart.
+- Preserved v1/v2 run-record recovery and the existing fixed-environment behavior.
+- Rendered the bounded placement policy through the existing AWS Control startup arguments.
 
 ## Try It
 
-Read a successful run through the existing Control run-status route; counts, `result_schema`, and bounded `telemetry` are populated.
+Start Control with `--run-environment auto`, repeat `--run-placement-candidate REVISION,LOCALITY,COST`, and supply `--run-preferred-locality` plus `--run-max-cost-microusd`. Add `?environment=gcp` to override.
 
 ## Checks
 
-- Full pytest: 2,083 passed, 35 skipped.
-- Ruff lint/format and canonical strict typing across 461 files: passed.
-- Generated Control contract bundle, focused Control/deployment tests, and bundle validation: passed.
+- Full pytest with all extras: passed (35 skipped).
+- Ruff lint/format, strict type check across 461 source files, and diff check: passed.
+- Generated and validated the Control contract bundle; focused Control, CLI, serialization, scheduling, and AWS projection tests passed.
 
 ## Decisions
 
-- A provider success remains unreconciled until its scoped completion log is available; the next Control pass retries collection.
-- Stored v1 successes remain readable with no fabricated historical summary.
-- Per-operation telemetry stays in provider logs; Control persists only fixed scalar totals.
+- Static estimates are keyed by immutable plan revision; no pricing service or new infrastructure was introduced.
+- Locality ranks first, cost ranks second inside the hard budget, and stable plan identity breaks ties.
+- Placement evidence does not alter exact-plan idempotency, preserving retries of pre-v3 runs.
 
 ## Remaining
 
-- Run the full repository suite and protected PR/exact-main checks for DANDER-238.
-- Prove one Fargate and one Cloud Run result through the existing disposable Control deployment.
-- Then implement deterministic placement, bounded size classes, physical-plan v1, and one serverless Spark backend in order.
+- Merge DANDER-239 after protected checks and confirm exact-main CI.
+- Implement bounded single-container size-class selection next.
 
 ## Review First
 
-- `src/dander/control/execution_results.py`
-- `src/dander/control/orchestration_serialization.py`
 - `src/dander/control/run_lifecycle.py`
+- `src/dander/control/orchestration.py`
+- `src/dander/deployment/aws_control_plane.py`

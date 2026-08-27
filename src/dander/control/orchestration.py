@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 ORCHESTRATION_SCHEMA = "io.dander.control.orchestration/v1"
 EXECUTION_PLAN_SCHEMA = "io.dander.control.execution-plan/v1"
 EXECUTION_RESULT_SUMMARY_SCHEMA = "io.dander.control.execution-result-summary/v1"
+PLACEMENT_DECISION_SCHEMA = "io.dander.control.placement-decision/v1"
 
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -112,6 +113,95 @@ class BackendExecutionState(StrEnum):
     RUNNING = "running"
     TERMINAL = "terminal"
     UNKNOWN = "unknown"
+
+
+class PlacementMode(StrEnum):
+    """How Control selected the immutable execution plan for one run."""
+
+    AUTOMATIC = "automatic"
+    MANUAL_OVERRIDE = "manual_override"
+    CONFIGURED_DEFAULT = "configured_default"
+    SCHEDULED = "scheduled"
+    REPLAY = "replay"
+
+
+@dataclass(frozen=True, slots=True)
+class PlacementCandidate:
+    """One static cost/locality estimate attached to an immutable plan revision."""
+
+    plan_revision: str
+    locality: str
+    estimated_cost_microusd: int
+
+    def __post_init__(self) -> None:
+        if _SHA256.fullmatch(self.plan_revision) is None:
+            raise OrchestrationContractError(
+                "placement candidate plan revision must be a lowercase SHA-256"
+            )
+        _require_portable_id(self.locality, label="placement locality")
+        if (
+            isinstance(self.estimated_cost_microusd, bool)
+            or not isinstance(self.estimated_cost_microusd, int)
+            or not 0 <= self.estimated_cost_microusd <= _MAX_RESULT_INTEGER
+        ):
+            raise OrchestrationContractError(
+                "placement estimated cost must be bounded non-negative micro-USD"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class PlacementDecision:
+    """Versioned, fixed-size explanation of Control's execution-plan selection."""
+
+    mode: PlacementMode
+    selected_environment: str
+    selected_locality: str | None
+    estimated_cost_microusd: int | None
+    preferred_locality: str | None
+    max_cost_microusd: int | None
+    eligible_plan_count: int
+    schema: str = PLACEMENT_DECISION_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema != PLACEMENT_DECISION_SCHEMA:
+            raise OrchestrationContractError("unsupported placement-decision contract")
+        _require_portable_id(self.selected_environment, label="selected environment")
+        if self.selected_locality is not None:
+            _require_portable_id(self.selected_locality, label="selected locality")
+        if self.preferred_locality is not None:
+            _require_portable_id(self.preferred_locality, label="preferred locality")
+        for label, value in (
+            ("estimated cost", self.estimated_cost_microusd),
+            ("maximum cost", self.max_cost_microusd),
+        ):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= _MAX_RESULT_INTEGER
+            ):
+                raise OrchestrationContractError(
+                    f"placement {label} must be bounded non-negative micro-USD"
+                )
+        if (self.selected_locality is None) != (self.estimated_cost_microusd is None):
+            raise OrchestrationContractError(
+                "placement selection locality and cost must be supplied together"
+            )
+        if isinstance(self.eligible_plan_count, bool) or not 1 <= self.eligible_plan_count <= 100:
+            raise OrchestrationContractError("placement eligible plan count is invalid")
+        if self.mode is PlacementMode.AUTOMATIC:
+            if (
+                self.selected_locality is None
+                or self.preferred_locality is None
+                or self.max_cost_microusd is None
+            ):
+                raise OrchestrationContractError(
+                    "automatic placement requires locality, cost, and budget evidence"
+                )
+            assert self.estimated_cost_microusd is not None
+            if self.estimated_cost_microusd > self.max_cost_microusd:
+                raise OrchestrationContractError(
+                    "automatic placement exceeds its maximum estimated cost"
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -351,6 +441,7 @@ class RunSubmission:
     idempotency_key: str
     requested_at: datetime
     requested_deadline_seconds: int | None = None
+    placement_decision: PlacementDecision | None = None
 
     def __post_init__(self) -> None:
         _require_portable_id(self.environment, label="environment")
@@ -360,6 +451,13 @@ class RunSubmission:
             raise OrchestrationContractError("submission project does not match its graph")
         if _SHA256.fullmatch(self.plan_revision) is None:
             raise OrchestrationContractError("submission plan revision must be a lowercase SHA-256")
+        if (
+            self.placement_decision is not None
+            and self.placement_decision.selected_environment != self.environment
+        ):
+            raise OrchestrationContractError(
+                "submission placement decision selects a different environment"
+            )
         if _IDEMPOTENCY_KEY.fullmatch(self.idempotency_key) is None:
             raise OrchestrationContractError("submission idempotency key is malformed")
         _require_utc(self.requested_at, label="requested_at")
@@ -536,6 +634,7 @@ class RunRecord:
     current_attempt_id: str | None = None
     backend_handle: BackendHandle | None = None
     result_summary: ExecutionResultSummary | None = None
+    placement_decision: PlacementDecision | None = None
 
     def __post_init__(self) -> None:
         _require_opaque_id(self.run_id, label="run")
@@ -590,6 +689,13 @@ class RunRecord:
         ):
             raise OrchestrationContractError(
                 "execution-result summaries require available successful terminal results"
+            )
+        if (
+            self.placement_decision is not None
+            and self.placement_decision.selected_environment != self.environment
+        ):
+            raise OrchestrationContractError(
+                "run placement decision selects a different environment"
             )
         _validate_run_dimensions(self)
 
@@ -706,6 +812,42 @@ def create_run_record(submission: RunSubmission) -> RunRecord:
         cleanup_state=CleanupState.PENDING,
         created_at=submission.requested_at,
         updated_at=submission.requested_at,
+        placement_decision=submission.placement_decision,
+    )
+
+
+def parse_placement_candidate_spec(value: str) -> PlacementCandidate:
+    """Parse the compact revision,locality,micro-USD Control startup syntax."""
+    parts = value.split(",")
+    if len(parts) != 3:
+        raise OrchestrationContractError(
+            "placement candidate must use revision,locality,estimated-cost-microusd syntax"
+        )
+    revision, locality, cost = parts
+    try:
+        estimated_cost_microusd = int(cost)
+    except ValueError as error:
+        raise OrchestrationContractError(
+            "placement candidate estimated cost must be an integer"
+        ) from error
+    candidate = PlacementCandidate(
+        plan_revision=revision,
+        locality=locality,
+        estimated_cost_microusd=estimated_cost_microusd,
+    )
+    if format_placement_candidate_spec(candidate) != value:
+        raise OrchestrationContractError("placement candidate syntax is not canonical")
+    return candidate
+
+
+def format_placement_candidate_spec(candidate: PlacementCandidate) -> str:
+    """Render the compact canonical Control startup syntax for one estimate."""
+    return ",".join(
+        (
+            candidate.plan_revision,
+            candidate.locality,
+            str(candidate.estimated_cost_microusd),
+        )
     )
 
 

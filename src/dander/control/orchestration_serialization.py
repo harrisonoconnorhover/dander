@@ -18,6 +18,8 @@ from dander.control.orchestration import (
     ExecutionResultSummary,
     HostedRunState,
     OrchestrationContractError,
+    PlacementDecision,
+    PlacementMode,
     ResultsState,
     RetryPolicy,
     RunOutcome,
@@ -38,7 +40,8 @@ from dander.deployment.projection import (
 )
 
 RUN_RECORD_SCHEMA_V1 = "io.dander.control.run-record/v1"
-RUN_RECORD_SCHEMA = "io.dander.control.run-record/v2"
+RUN_RECORD_SCHEMA_V2 = "io.dander.control.run-record/v2"
+RUN_RECORD_SCHEMA = "io.dander.control.run-record/v3"
 ATTEMPT_RECORD_SCHEMA = "io.dander.control.attempt-record/v1"
 TRIGGER_SPEC_SCHEMA = "io.dander.control.trigger-spec/v1"
 SCHEDULE_WAKEUP_SCHEMA = "io.dander.control.schedule-wakeup/v1"
@@ -113,7 +116,11 @@ def serialize_run_record(record: RunRecord) -> bytes:
     return _canonical_json(
         {
             "schema": RUN_RECORD_SCHEMA,
-            "record": _run_record_payload(record, include_result_summary=True),
+            "record": _run_record_payload(
+                record,
+                include_result_summary=True,
+                include_placement_decision=True,
+            ),
         }
     )
 
@@ -123,7 +130,7 @@ def deserialize_run_record(data: bytes) -> RunRecord:
     try:
         envelope = _load_any_envelope(
             data,
-            frozenset({RUN_RECORD_SCHEMA_V1, RUN_RECORD_SCHEMA}),
+            frozenset({RUN_RECORD_SCHEMA_V1, RUN_RECORD_SCHEMA_V2, RUN_RECORD_SCHEMA}),
             _MAX_RUN_BYTES,
         )
         schema = _string(envelope["schema"], "run record schema")
@@ -159,15 +166,21 @@ def deserialize_run_record(data: bytes) -> RunRecord:
             backend_handle=_backend_handle(values["backend_handle"]),
             result_summary=(
                 _deserialize_execution_result_summary_value(values["result_summary"])
-                if schema == RUN_RECORD_SCHEMA and values["result_summary"] is not None
+                if schema in {RUN_RECORD_SCHEMA_V2, RUN_RECORD_SCHEMA}
+                and values["result_summary"] is not None
+                else None
+            ),
+            placement_decision=(
+                _placement_decision(values["placement_decision"])
+                if schema == RUN_RECORD_SCHEMA and values["placement_decision"] is not None
                 else None
             ),
         )
-        expected = (
-            serialize_run_record(record)
-            if schema == RUN_RECORD_SCHEMA
-            else _serialize_run_record_v1(record)
-        )
+        expected = {
+            RUN_RECORD_SCHEMA: serialize_run_record,
+            RUN_RECORD_SCHEMA_V2: _serialize_run_record_v2,
+            RUN_RECORD_SCHEMA_V1: _serialize_run_record_v1,
+        }[schema](record)
         _require_canonical(data, expected)
         return record
     except OrchestrationSerializationError:
@@ -420,7 +433,24 @@ def _serialize_run_record_v1(record: RunRecord) -> bytes:
     return _canonical_json(
         {
             "schema": RUN_RECORD_SCHEMA_V1,
-            "record": _run_record_payload(record, include_result_summary=False),
+            "record": _run_record_payload(
+                record,
+                include_result_summary=False,
+                include_placement_decision=False,
+            ),
+        }
+    )
+
+
+def _serialize_run_record_v2(record: RunRecord) -> bytes:
+    return _canonical_json(
+        {
+            "schema": RUN_RECORD_SCHEMA_V2,
+            "record": _run_record_payload(
+                record,
+                include_result_summary=True,
+                include_placement_decision=False,
+            ),
         }
     )
 
@@ -429,6 +459,7 @@ def _run_record_payload(
     record: RunRecord,
     *,
     include_result_summary: bool,
+    include_placement_decision: bool,
 ) -> dict[str, object]:
     handle = record.backend_handle
     payload: dict[str, object] = {
@@ -470,7 +501,42 @@ def _run_record_payload(
             if record.result_summary is not None
             else None
         )
+    if include_placement_decision:
+        payload["placement_decision"] = (
+            _placement_decision_payload(record.placement_decision)
+            if record.placement_decision is not None
+            else None
+        )
     return payload
+
+
+def _placement_decision_payload(decision: PlacementDecision) -> dict[str, object]:
+    return {
+        "schema": decision.schema,
+        "mode": decision.mode.value,
+        "selected_environment": decision.selected_environment,
+        "selected_locality": decision.selected_locality,
+        "estimated_cost_microusd": decision.estimated_cost_microusd,
+        "preferred_locality": decision.preferred_locality,
+        "max_cost_microusd": decision.max_cost_microusd,
+        "eligible_plan_count": decision.eligible_plan_count,
+    }
+
+
+def _placement_decision(value: object) -> PlacementDecision:
+    values = _mapping(value, "placement decision")
+    return PlacementDecision(
+        schema=_string(values["schema"], "placement schema"),
+        mode=_enum(PlacementMode, values["mode"], "placement mode"),
+        selected_environment=_string(values["selected_environment"], "selected_environment"),
+        selected_locality=_optional_string(values["selected_locality"], "selected_locality"),
+        estimated_cost_microusd=_optional_integer(
+            values["estimated_cost_microusd"], "estimated_cost_microusd"
+        ),
+        preferred_locality=_optional_string(values["preferred_locality"], "preferred_locality"),
+        max_cost_microusd=_optional_integer(values["max_cost_microusd"], "max_cost_microusd"),
+        eligible_plan_count=_integer(values["eligible_plan_count"], "eligible_plan_count"),
+    )
 
 
 def _execution_result_summary_payload(summary: ExecutionResultSummary) -> dict[str, object]:

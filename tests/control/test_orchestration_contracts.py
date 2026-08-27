@@ -20,6 +20,8 @@ from dander.control.orchestration import (
     ExecutionResultSummary,
     HostedRunState,
     OrchestrationContractError,
+    PlacementDecision,
+    PlacementMode,
     ResultsState,
     RetryPolicy,
     RunClaim,
@@ -322,6 +324,25 @@ def test_submission_retry_identity_ignores_request_time_but_replay_is_a_new_run(
     assert retry.fingerprint == first.fingerprint
     assert create_run_record(retry).run_id == create_run_record(first).run_id
     assert create_run_record(replay).run_id != create_run_record(first).run_id
+
+
+def test_placement_evidence_does_not_change_exact_plan_idempotency() -> None:
+    submission = _submission()
+    placed = replace(
+        submission,
+        placement_decision=PlacementDecision(
+            mode=PlacementMode.CONFIGURED_DEFAULT,
+            selected_environment=submission.environment,
+            selected_locality=None,
+            estimated_cost_microusd=None,
+            preferred_locality=None,
+            max_cost_microusd=None,
+            eligible_plan_count=1,
+        ),
+    )
+
+    assert placed.fingerprint == submission.fingerprint
+    assert create_run_record(placed).run_id == create_run_record(submission).run_id
 
 
 def test_transition_preserves_independent_outcome_results_and_cleanup_truth() -> None:
