@@ -473,11 +473,15 @@ class DataprocServerlessExecutionBackend:
         desired = self._desired_batch(plan, binding, run_id=run_id, attempt_id=attempt_id)
         if batch.get("name") != expected_resource:
             raise ExecutionBackendError("Managed Spark returned an unexpected batch.")
-        for key in ("labels", "pysparkBatch", "runtimeConfig", "environmentConfig"):
+        for key in ("labels", "pysparkBatch", "environmentConfig"):
             if not _mapping_contains(batch.get(key), desired[key]):
                 raise ExecutionBackendError(
                     "The deployed Managed Spark batch does not match its immutable execution plan."
                 )
+        if not _runtime_config_contains(batch.get("runtimeConfig"), desired["runtimeConfig"]):
+            raise ExecutionBackendError(
+                "The deployed Managed Spark batch does not match its immutable execution plan."
+            )
 
     def _validate_observed_batch(
         self,
@@ -495,25 +499,27 @@ class DataprocServerlessExecutionBackend:
                 "mainPythonFileUri": binding.main_python_file_uri,
                 "args": list(template.command),
             },
-            "runtimeConfig": {
-                "version": binding.runtime_version,
-                "containerImage": binding.container_image_tag,
-                "properties": {
-                    "dataproc.tier": "standard",
-                    "spark.dynamicAllocation.enabled": "false",
-                    "spark.executor.instances": str(template.schedule.task_count),
-                    "spark.driver.cores": str(cores),
-                    "spark.executor.cores": str(cores),
-                    "spark.driver.memory": f"{heap_mib}m",
-                    "spark.executor.memory": f"{heap_mib}m",
-                    "spark.driver.memoryOverhead": f"{overhead_mib}m",
-                    "spark.executor.memoryOverhead": f"{overhead_mib}m",
-                },
-            },
             "environmentConfig": {"executionConfig": _execution_config(plan, binding)},
         }
-        if batch.get("name") != resource or any(
-            not _mapping_contains(batch.get(key), value) for key, value in expected.items()
+        expected_runtime = {
+            "version": binding.runtime_version,
+            "containerImage": binding.container_image_tag,
+            "properties": {
+                "dataproc.tier": "standard",
+                "spark.dynamicAllocation.enabled": "false",
+                "spark.executor.instances": str(template.schedule.task_count),
+                "spark.driver.cores": str(cores),
+                "spark.executor.cores": str(cores),
+                "spark.driver.memory": f"{heap_mib}m",
+                "spark.executor.memory": f"{heap_mib}m",
+                "spark.driver.memoryOverhead": f"{overhead_mib}m",
+                "spark.executor.memoryOverhead": f"{overhead_mib}m",
+            },
+        }
+        if (
+            batch.get("name") != resource
+            or any(not _mapping_contains(batch.get(key), value) for key, value in expected.items())
+            or not _runtime_config_contains(batch.get("runtimeConfig"), expected_runtime)
         ):
             raise ExecutionBackendError(
                 "The observed Managed Spark batch does not match its immutable execution plan."
@@ -638,6 +644,53 @@ def _mapping_contains(actual: object, expected: object) -> bool:
             for key, value in expected.items()
         )
     return actual == expected
+
+
+def _runtime_config_contains(actual: object, expected: object) -> bool:
+    if not isinstance(actual, Mapping) or not isinstance(expected, Mapping):
+        return False
+    actual_version = actual.get("version")
+    expected_version = expected.get("version")
+    if not _runtime_version_matches(actual_version, expected_version):
+        return False
+    if actual.get("containerImage") != expected.get("containerImage"):
+        return False
+    properties = _normalized_provider_properties(actual.get("properties"))
+    return properties is not None and _mapping_contains(properties, expected.get("properties"))
+
+
+def _runtime_version_matches(actual: object, expected: object) -> bool:
+    if not isinstance(actual, str) or not isinstance(expected, str):
+        return False
+    if actual == expected:
+        return True
+    prefix = f"{expected}."
+    suffix = actual.removeprefix(prefix)
+    return (
+        actual.startswith(prefix)
+        and bool(suffix)
+        and all(part.isdigit() for part in suffix.split("."))
+    )
+
+
+def _normalized_provider_properties(value: object) -> dict[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+    normalized: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        canonical = key
+        for namespace in ("spark", "dataproc"):
+            prefix = f"{namespace}:"
+            candidate = key.removeprefix(prefix)
+            if key.startswith(prefix) and candidate.startswith(f"{namespace}."):
+                canonical = candidate
+                break
+        if canonical in normalized and normalized[canonical] != item:
+            return None
+        normalized[canonical] = item
+    return normalized
 
 
 def _timestamp(value: object) -> datetime:

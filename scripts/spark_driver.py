@@ -41,6 +41,15 @@ _EXPECTED_DOUBLED_SUM = 34
 class SparkDriverError(RuntimeError):
     """The immutable driver contract or live Spark result is invalid."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        failure_code: str = "spark_qualification_failed",
+    ) -> None:
+        super().__init__(message)
+        self.failure_code = failure_code
+
 
 @dataclass(frozen=True, slots=True)
 class Invocation:
@@ -247,22 +256,33 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             StructType,
         )
     except ImportError as error:
-        raise SparkDriverError("the managed Spark runtime is unavailable") from error
+        raise SparkDriverError(
+            "the managed Spark runtime is unavailable",
+            failure_code="spark_runtime_unavailable",
+        ) from error
 
     try:
         spark = SparkSession.builder.appName(PIPELINE_ID).getOrCreate()
     except Exception as error:
-        raise SparkDriverError("the managed Spark session could not start") from error
+        raise SparkDriverError(
+            "the managed Spark session could not start",
+            failure_code="spark_session_start_failed",
+        ) from error
     dynamic_spark = cast("Any", spark)
     exchange_uri = _exchange_uri(invocation, context)
     output_table = _output_table(invocation, context)
     exchange_created = False
+    stage = "configuration"
     try:
         dynamic_spark.conf.set("temporaryGcsBucket", invocation.staging_bucket)
         dynamic_allocation = dynamic_spark.conf.get("spark.dynamicAllocation.enabled")
         executor_instances = int(dynamic_spark.conf.get("spark.executor.instances"))
         if dynamic_allocation.casefold() != "false" or executor_instances != 2:
-            raise SparkDriverError("the managed Spark runtime changed the fixed executor plan")
+            raise SparkDriverError(
+                "the managed Spark runtime changed the fixed executor plan",
+                failure_code="spark_fixed_shape_mismatch",
+            )
+        stage = "exchange_write"
         schema = StructType(
             [
                 StructField("id", IntegerType(), nullable=False),
@@ -277,6 +297,7 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
         )
         source.repartition(2).write.mode("errorifexists").parquet(exchange_uri)
         exchange_created = True
+        stage = "bigquery_write"
         published = (
             dynamic_spark.read.parquet(exchange_uri)
             .withColumn("doubled_value", functions.col("value") * 2)
@@ -290,12 +311,14 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             .mode("overwrite")
             .save()
         )
+        stage = "bigquery_read"
         observed = (
             dynamic_spark.read.format("bigquery")
             .option("table", output_table)
             .option("parentProject", invocation.project)
             .load()
         )
+        stage = "bigquery_aggregate"
         aggregate = observed.agg(
             functions.count("*").alias("row_count"),
             functions.sum("value").alias("value_sum"),
@@ -310,17 +333,24 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             executor_instances=executor_instances,
             exchange_partitions=2,
         )
+        stage = "result_validation"
         if (
             result.row_count != _EXPECTED_ROWS
             or result.value_sum != _EXPECTED_VALUE_SUM
             or result.doubled_sum != _EXPECTED_DOUBLED_SUM
         ):
-            raise SparkDriverError("the BigQuery round-trip returned unexpected aggregates")
+            raise SparkDriverError(
+                "the BigQuery round-trip returned unexpected aggregates",
+                failure_code="spark_readback_mismatch",
+            )
         return result
     except SparkDriverError:
         raise
     except Exception as error:
-        raise SparkDriverError("the Spark and BigQuery qualification failed") from error
+        raise SparkDriverError(
+            "the Spark and BigQuery qualification failed",
+            failure_code=f"spark_{stage}_failed",
+        ) from error
     finally:
         cleanup_error: SparkDriverError | None = None
         if exchange_created:
@@ -328,11 +358,7 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
                 _delete_exchange(dynamic_spark, exchange_uri)
             except SparkDriverError as error:
                 cleanup_error = error
-        try:
-            dynamic_spark.stop()
-        except Exception:
-            if cleanup_error is None:
-                cleanup_error = SparkDriverError("the managed Spark session did not stop cleanly")
+        _stop_spark(dynamic_spark, context)
         if cleanup_error is not None:
             raise cleanup_error
 
@@ -411,9 +437,19 @@ def main(arguments: list[str] | None = None) -> int:
     print(_json(_started_event(invocation, context)), flush=True)
     try:
         result = run_spark(invocation, context)
-    except SparkDriverError:
+    except SparkDriverError as error:
         duration_ms = _elapsed_ms(started_ns)
-        print(_json(_failed_event(invocation, context, duration_ms=duration_ms)), flush=True)
+        print(
+            _json(
+                _failed_event(
+                    invocation,
+                    context,
+                    duration_ms=duration_ms,
+                    failure_code=error.failure_code,
+                )
+            ),
+            flush=True,
+        )
         return 1
     duration_ms = _elapsed_ms(started_ns)
     print(_json(_qualification_event(invocation, context, result)), flush=True)
@@ -442,6 +478,7 @@ def _failed_event(
     context: RuntimeContext,
     *,
     duration_ms: int,
+    failure_code: str,
 ) -> dict[str, object]:
     return {
         "contract": RUNTIME_CONTRACT,
@@ -454,7 +491,7 @@ def _failed_event(
         "dimensions": _dimensions(invocation, context),
         "status": "failed",
         "outputs": {"telemetry": {"duration_ms": duration_ms}},
-        "failure_code": "spark_qualification_failed",
+        "failure_code": failure_code,
         "retryable": False,
     }
 
@@ -514,7 +551,10 @@ def _delete_exchange(spark: object, uri: str) -> None:
         filesystem = path.getFileSystem(hadoop_configuration)
         filesystem.delete(path, True)
         if filesystem.exists(path):
-            raise SparkDriverError("the object-store exchange cleanup did not converge")
+            raise SparkDriverError(
+                "the object-store exchange cleanup did not converge",
+                failure_code="spark_exchange_cleanup_incomplete",
+            )
     except SparkDriverError:
         raise
     except Exception as error:
@@ -524,7 +564,28 @@ def _delete_exchange(spark: object, uri: str) -> None:
                     return
             except Exception:
                 pass
-        raise SparkDriverError("the object-store exchange cleanup failed") from error
+        raise SparkDriverError(
+            "the object-store exchange cleanup failed",
+            failure_code="spark_exchange_cleanup_failed",
+        ) from error
+
+
+def _stop_spark(spark: object, context: RuntimeContext) -> None:
+    dynamic_spark = cast("Any", spark)
+    try:
+        dynamic_spark.stop()
+    except Exception:
+        print(
+            _json(
+                {
+                    "contract": QUALIFICATION_CONTRACT,
+                    "event": "spark.session.stop.deferred",
+                    "run_id": context.run_id,
+                    "cleanup_owner": "managed_spark",
+                }
+            ),
+            flush=True,
+        )
 
 
 def _timestamp() -> str:

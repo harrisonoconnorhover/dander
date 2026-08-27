@@ -2,38 +2,38 @@
 
 ## Finished
 
-- Accepted the regional long-running-operation name returned by Managed Spark batch creation.
-- Preserved strict project, region, operation ID, batch, and immutable-plan validation.
-- Made exchange cleanup depend on the verified absent-path postcondition after provider delete errors.
-- Added focused coverage for Google's operation response and GCS cleanup convergence shapes.
-- Kept pipeline logic, workload sizing, and other backends unchanged.
+- Normalized Google's numeric runtime patch expansion and matching property namespaces on batch reads.
+- Preserved exact image, planned property values, project, region, batch, and plan validation.
+- Made explicit Spark-session stop best-effort while exposing deferred provider-owned cleanup.
+- Added sanitized failure-stage codes for any remaining runtime failure.
+- Kept pipeline logic, fixed sizing, single-container runtime, and other backends unchanged.
 
 ## Try It
 
-Submit the existing fixed Managed Spark plan. Control now records the backend handle returned by
-the real batch API, and the driver accepts cleanup only after verifying the exchange is absent.
+Submit the fixed Managed Spark plan. Control accepts the provider-normalized batch only when all
+planned values match, and Managed Spark owns final process teardown after driver completion.
 
 ## Checks
 
 - Ruff lint and format checks passed for the changed Python files.
 - Strict mypy passed for the Managed Spark backend and Spark driver.
-- Focused backend and driver tests passed: 15 tests.
+- Focused backend and driver tests passed: 16 tests.
 - Protected CI and live qualification remain pending.
 
 ## Decisions
 
-- Both `locations` and `regions` operation collections are accepted after exact project/region
-  matching; Google returned `regions` for the accepted batch.
-- GCS delete errors are accepted only when a separate existence check proves cleanup converged.
+- Provider response normalization is bounded to a numeric patch suffix and matching property namespace.
+- Spark-session stop cannot invalidate correct results and verified exchange deletion; provider terminal
+  cleanup remains an independent Control gate.
 
 ## Remaining
 
-- Run focused checks, merge through protected CI, and confirm exact-main CI.
-- Publish and qualify the corrected immutable pair; preserve the failed pair as superseded evidence.
+- Merge through protected CI and confirm exact-main CI.
+- Publish and qualify the corrected immutable pair; retain failed attempts as sanitized evidence.
 - Clean disposable resources after evidence capture.
 
 ## Review First
 
 - `src/dander/control/dataproc_serverless_execution_backend.py`
+- `scripts/spark_driver.py`
 - `tests/control/test_dataproc_serverless_execution_backend.py`
-- `docs/decisions.md`
