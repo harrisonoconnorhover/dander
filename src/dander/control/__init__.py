@@ -95,6 +95,12 @@ from dander.control.orchestration_serialization import (
     serialize_schedule_wakeup,
     serialize_trigger_spec,
 )
+from dander.control.physical_planner import (
+    PhysicalPlanner,
+    PhysicalPlanningError,
+    StaticPhysicalPlanner,
+    bind_physical_plan,
+)
 from dander.control.run_composition import (
     ControlRunComposition,
     ControlRunCompositionError,
@@ -235,6 +241,10 @@ __all__ = [
     "serialize_run_record",
     "serialize_schedule_wakeup",
     "serialize_trigger_spec",
+    "PhysicalPlanner",
+    "PhysicalPlanningError",
+    "StaticPhysicalPlanner",
+    "bind_physical_plan",
     "ControlScheduleConsumer",
     "QueuedScheduleMessage",
     "ScheduleQueueError",

@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Unwrapped Managed Spark driver stdout from Cloud Logging's `jsonPayload.message` envelope.
-- Preserved generic structured-log serialization and bounded result parsing.
-- Corrected the qualification identity requirement to include BigQuery Read Session User.
-- Kept pipeline logic, fixed sizing, single-container runtime, and other backends unchanged.
+- Added a deterministic Control planner from canonical graphs to physical-plan v1.
+- Preserved fused single-container execution for valid graphs.
+- Added one fixed distributed rule for a source-to-transform-to-target chain.
+- Added exact execution-template binding and Managed Spark mode enforcement.
+- Preserved backend selection and physical-plan identity across serialization and restart loading.
 
 ## Try It
 
-Observe a successful Managed Spark batch whose driver logs use Cloud Logging's JSON wrapper.
-Control now recognizes the embedded canonical completion and persists its result summary.
+Use `StaticPhysicalPlanner.plan(...)` with the same `PipelineGraphDocument` and either
+`fused_container` or `distributed`, then pass the result through `bind_physical_plan(...)`.
 
 ## Checks
 
-- Ruff lint and format checks passed for the changed Python files.
-- Repository-wide strict typing passed: 468 files.
-- Focused backend and result tests passed: 13 tests.
-- Read-only live observation recovered exact results and confirmed cleanup from the successful batch.
-- Protected CI and live requalification remain pending.
+- Repository-wide Ruff lint and format checks passed: 526 files formatted.
+- Repository-wide strict typing passed: 470 source files.
+- Control contract validation passed.
+- Full Pytest suite passed with only the existing Starlette deprecation warning.
+- Protected CI remains pending.
 
 ## Decisions
 
-- Only string-valued `jsonPayload.message` is unwrapped; other structured entries retain canonical JSON.
-- The general Managed Spark backend and physical-plan contracts remain unchanged.
+- Distributed planning is exactly two fixed partitions with one object-store exchange.
+- Unsupported distributed shapes and joins fail closed; fused execution remains the default path.
+- Existing immutable execution plans continue to select environment and provider backend.
 
 ## Remaining
 
-- Merge through protected CI and confirm exact-main CI.
-- Publish and qualify the corrected immutable pair; retain failed attempts as sanitized evidence.
-- Clean disposable resources after evidence capture.
+- Merge the functional PR after protected CI passes.
+- Do not publish an image or run cloud qualification for this slice.
 
 ## Review First
 
-- `src/dander/control/dataproc_serverless_execution_backend.py`
-- `tests/control/test_dataproc_serverless_execution_backend.py`
+- `src/dander/control/physical_planner.py`
+- `tests/control/test_physical_planner.py`
 - `docs/decisions.md`
