@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
@@ -372,7 +373,15 @@ def test_observe_normalizes_running_success_failure_and_cancellation() -> None:
     assert running.execution_state is BackendExecutionState.RUNNING
 
     transport.log_response = {
-        "entries": [{"timestamp": "2026-08-27T14:00:02Z", "jsonPayload": _completion_payload()}]
+        "entries": [
+            {
+                "timestamp": "2026-08-27T14:00:02Z",
+                "jsonPayload": {
+                    "class": "org.apache.spark.deploy.PythonRunner",
+                    "message": json.dumps(_completion_payload()),
+                },
+            }
+        ]
     }
     batch["state"] = "SUCCEEDED"
     succeeded = backend.observe(plan, handle)
@@ -402,15 +411,20 @@ def test_logs_are_bounded_paginated_and_batch_scoped() -> None:
                 "textPayload": "runtime started",
                 "severity": "INFO",
             },
-            {"timestamp": "2026-08-27T14:00:02Z", "jsonPayload": {"status": "ok"}},
+            {
+                "timestamp": "2026-08-27T14:00:02Z",
+                "jsonPayload": {"message": "runtime completed", "status": "ok"},
+            },
+            {"timestamp": "2026-08-27T14:00:03Z", "jsonPayload": {"status": "ok"}},
         ],
         "nextPageToken": "page-2",
     }
 
-    page = backend.logs(plan, handle, cursor=None, limit=2)
+    page = backend.logs(plan, handle, cursor=None, limit=3)
 
     assert [record.message for record in page.records] == [
         "runtime started",
+        "runtime completed",
         '{"status":"ok"}',
     ]
     assert page.records[0].level == "info"
