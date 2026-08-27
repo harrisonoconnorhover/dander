@@ -16,6 +16,16 @@ import dander.cli.runtime_command as runtime_module
 from dander.cli.main import app
 from dander.executor import PipelineExecutionResult
 from dander.identity import FargateIdentityError
+from dander.physical_plan import (
+    ExchangeTransport,
+    PartitioningStrategy,
+    PhysicalExchange,
+    PhysicalExecutionMode,
+    PhysicalPlan,
+    PhysicalStage,
+    fused_container_physical_plan,
+    serialize_physical_plan,
+)
 from dander.providers.redshift import RedshiftConnectionUnavailableError
 from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.runtime_contract import RuntimeCancelledError, RuntimeExitCode
@@ -38,26 +48,32 @@ def _invoke(
     attempt: int = 1,
     extra_env: dict[str, str] | None = None,
     platform: str = "gcp",
+    physical_plan: PhysicalPlan | None = None,
 ) -> Result:
     monkeypatch.setattr(runtime_module, "execute_run", execute)
+    arguments = [
+        "runtime",
+        "execute",
+        "--contract",
+        "io.dander.runtime/v1",
+        "--pipeline",
+        "greenhouse_jobs",
+        "--platform",
+        platform,
+        "--project",
+        "unit-project",
+        "--batch-rows",
+        "2500",
+        "--catalog-output",
+        "/tmp/dander-catalog.json",
+    ]
+    if physical_plan is not None:
+        arguments.extend(
+            ("--physical-plan", serialize_physical_plan(physical_plan).decode("utf-8"))
+        )
     return CliRunner().invoke(
         app,
-        [
-            "runtime",
-            "execute",
-            "--contract",
-            "io.dander.runtime/v1",
-            "--pipeline",
-            "greenhouse_jobs",
-            "--platform",
-            platform,
-            "--project",
-            "unit-project",
-            "--batch-rows",
-            "2500",
-            "--catalog-output",
-            "/tmp/dander-catalog.json",
-        ],
+        arguments,
         env={
             "DANDER_RUN_ID": "cloud-run:execution-42",
             "DANDER_LAUNCHER": "cloud_run",
@@ -148,6 +164,82 @@ def test_runtime_execute_marks_later_launcher_attempt_as_retry(
     assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
     assert captured["run_id"] == "cloud-run:execution-42"
     assert captured["retry"] is True
+
+
+def test_runtime_execute_consumes_fused_physical_plan_and_reports_revision(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    plan = fused_container_physical_plan(
+        "greenhouse_jobs",
+        stages=(
+            PhysicalStage(
+                stage_id="extract",
+                operators=("extract.jobs",),
+                partition_count=1,
+            ),
+            PhysicalStage(
+                stage_id="transform",
+                operators=("transform.jobs",),
+                partition_count=1,
+                depends_on=("extract",),
+            ),
+        ),
+        exchanges=(
+            PhysicalExchange(
+                exchange_id="extract_to_transform",
+                producer_stage_id="extract",
+                consumer_stage_id="transform",
+                transport=ExchangeTransport.MEMORY,
+                partitioning=PartitioningStrategy.SINGLE,
+                partition_count=1,
+            ),
+        ),
+    )
+
+    def execute(options: RunOptions, **kwargs: object) -> PipelineExecutionResult:
+        run_id = cast("str", kwargs["run_id"])
+        return PipelineExecutionResult(
+            run_id=run_id,
+            pipeline_id=options.pipeline_or_source,
+            ingestion=PipelineRunResult(run_id=run_id, source="fixture", endpoints=()),
+            models=(),
+            assertions=0,
+            assets=0,
+        )
+
+    result = _invoke(monkeypatch, execute, physical_plan=plan)
+
+    assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
+    events = [json.loads(line) for line in result.output.splitlines()]
+    assert all(event["dimensions"]["physical_plan_revision"] == plan.revision for event in events)
+
+
+def test_runtime_execute_rejects_distributed_plan_on_existing_container(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    plan = PhysicalPlan(
+        pipeline_id="greenhouse_jobs",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        stages=(
+            PhysicalStage(
+                stage_id="pipeline",
+                operators=("greenhouse_jobs",),
+                partition_count=1,
+            ),
+        ),
+        exchanges=(),
+        maximum_parallelism=1,
+    )
+
+    result = _invoke(
+        monkeypatch,
+        lambda *_args, **_kwargs: None,
+        physical_plan=plan,
+    )
+
+    assert result.exit_code == RuntimeExitCode.INVALID_INVOCATION
+    assert "requires fused-container" in result.output
+    assert "runtime.started" not in result.output
 
 
 def test_runtime_execute_allows_aws_native_fargate_without_google_identity(

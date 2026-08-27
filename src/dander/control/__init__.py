@@ -117,6 +117,19 @@ from dander.control.schedule_consumer import (
     schedule_occurrence_idempotency_key,
 )
 from dander.control.sqs_schedule_queue import SQSScheduleQueue
+from dander.physical_plan import (
+    PHYSICAL_PLAN_SCHEMA,
+    ExchangeTransport,
+    PartitioningStrategy,
+    PhysicalExchange,
+    PhysicalExecutionMode,
+    PhysicalPlan,
+    PhysicalPlanError,
+    PhysicalStage,
+    deserialize_physical_plan,
+    fused_container_physical_plan,
+    serialize_physical_plan,
+)
 
 __all__ = [
     "MAX_GRAPH_DOCUMENT_BYTES",
@@ -144,6 +157,17 @@ __all__ = [
     "S3GraphStore",
     "S3RunStore",
     "canonicalize_graph_document",
+    "PHYSICAL_PLAN_SCHEMA",
+    "ExchangeTransport",
+    "PartitioningStrategy",
+    "PhysicalExchange",
+    "PhysicalExecutionMode",
+    "PhysicalPlan",
+    "PhysicalPlanError",
+    "PhysicalStage",
+    "deserialize_physical_plan",
+    "fused_container_physical_plan",
+    "serialize_physical_plan",
     "AttemptRecord",
     "BackendExecutionState",
     "BackendHandle",

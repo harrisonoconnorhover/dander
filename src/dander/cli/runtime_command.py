@@ -26,6 +26,12 @@ from dander.identity.refresh_probe import (
     run_google_refresh_probe,
     validate_probe_target,
 )
+from dander.physical_plan import (
+    PhysicalExecutionMode,
+    PhysicalPlan,
+    PhysicalPlanError,
+    deserialize_physical_plan,
+)
 from dander.runtime_contract import (
     RUNTIME_CONTRACT,
     LauncherContext,
@@ -183,6 +189,7 @@ def execute_runtime(
     guarded_free_tier: bool = typer.Option(False, "--guarded-free-tier"),
     batch_rows: int = typer.Option(10_000, "--batch-rows", min=1, max=100_000),
     budget_name: str = typer.Option("dander-sbx-cap", "--budget-name", hidden=True),
+    physical_plan: str | None = typer.Option(None, "--physical-plan", hidden=True),
 ) -> None:
     """Execute one pipeline and emit only versioned, non-sensitive JSON Lines."""
     try:
@@ -190,8 +197,17 @@ def execute_runtime(
         validate_runtime_identifier(pipeline, label="pipeline id")
         validate_runtime_identifier(platform, label="platform")
         context = LauncherContext.from_environment()
+        selected_physical_plan = _load_physical_plan_argument(
+            physical_plan,
+            pipeline_id=pipeline,
+            context=context,
+        )
     except RuntimeContractError as error:
         raise typer.BadParameter(str(error)) from error
+
+    physical_plan_revision = (
+        selected_physical_plan.revision if selected_physical_plan is not None else None
+    )
 
     started_ns = time.monotonic_ns()
     typer.echo(
@@ -199,6 +215,7 @@ def execute_runtime(
             context=context,
             pipeline_id=pipeline,
             platform=platform,
+            physical_plan_revision=physical_plan_revision,
         ).to_json()
     )
     diagnostic_checkpoint = failure_diagnostic_checkpoint()
@@ -259,6 +276,7 @@ def execute_runtime(
                 failure_code="interrupted_run",
                 retryable=True,
                 duration_ms=_elapsed_ms(started_ns),
+                physical_plan_revision=physical_plan_revision,
             ).to_json()
         )
         raise typer.Exit(code=RuntimeExitCode.CANCELLED) from None
@@ -283,6 +301,7 @@ def execute_runtime(
                     failure_code=failure.code,
                     retryable=retryable,
                     duration_ms=_elapsed_ms(started_ns),
+                    physical_plan_revision=physical_plan_revision,
                 ).to_json()
             )
             code = (
@@ -308,6 +327,7 @@ def execute_runtime(
                 failure_code="invalid_configuration",
                 retryable=False,
                 duration_ms=_elapsed_ms(started_ns),
+                physical_plan_revision=physical_plan_revision,
             ).to_json()
         )
         raise typer.Exit(code=RuntimeExitCode.INVALID_INVOCATION) from None
@@ -331,6 +351,7 @@ def execute_runtime(
                 failure_code=failure.code,
                 retryable=retryable,
                 duration_ms=_elapsed_ms(started_ns),
+                physical_plan_revision=physical_plan_revision,
             ).to_json()
         )
         code = RuntimeExitCode.RETRYABLE_FAILURE if retryable else RuntimeExitCode.PERMANENT_FAILURE
@@ -346,8 +367,35 @@ def execute_runtime(
             context=context,
             platform=platform,
             duration_ms=_elapsed_ms(started_ns),
+            physical_plan_revision=physical_plan_revision,
         ).to_json()
     )
+
+
+def _load_physical_plan_argument(
+    value: str | None,
+    *,
+    pipeline_id: str,
+    context: LauncherContext,
+) -> PhysicalPlan | None:
+    """Validate the optional static plan consumed by the existing fused container path."""
+    if value is None:
+        return None
+    try:
+        plan = deserialize_physical_plan(value.encode("utf-8"))
+    except PhysicalPlanError as error:
+        raise RuntimeContractError("physical plan is invalid") from error
+    if plan.pipeline_id != pipeline_id:
+        raise RuntimeContractError("physical plan selects a different pipeline")
+    if plan.execution_mode is not PhysicalExecutionMode.FUSED_CONTAINER:
+        raise RuntimeContractError(
+            "the existing container runtime requires fused-container physical execution"
+        )
+    if context.shard_index != 0 or context.shard_count != 1:
+        raise RuntimeContractError(
+            "fused-container physical execution requires the unsharded runtime context"
+        )
+    return plan
 
 
 def _materialize_platforms_config(

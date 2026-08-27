@@ -17,6 +17,7 @@ from dander.control.orchestration import (
     ExecutionPlan,
     ExecutionResultSummary,
     HostedRunState,
+    OrchestrationContractError,
     PlacementDecision,
     PlacementMode,
     ResultsState,
@@ -53,6 +54,13 @@ from dander.deployment.projection import (
     ObservabilityProjection,
     ResourceProjection,
     ScheduleProjection,
+)
+from dander.physical_plan import (
+    PhysicalExecutionMode,
+    PhysicalPlan,
+    PhysicalStage,
+    fused_container_physical_plan,
+    serialize_physical_plan,
 )
 from dander.runtime_contract import RUNTIME_CONTRACT
 from tests.control.s3_fakes import FakeS3Backend, FakeS3Client
@@ -163,6 +171,35 @@ def _plan(graph: GraphRecord | None = None) -> ExecutionPlan:
     )
 
 
+def _physical_plan(graph: GraphRecord | None = None) -> ExecutionPlan:
+    selected = graph or _graph()
+    physical = fused_container_physical_plan("hosted_graph")
+    template = _template()
+    template = replace(
+        template,
+        command=(
+            *template.command,
+            "--physical-plan",
+            serialize_physical_plan(physical).decode("utf-8"),
+        ),
+    )
+    return ExecutionPlan(
+        plan_id="aws-redshift",
+        environment="production",
+        project=selected.project,
+        graph=selected.graph,
+        graph_revision=selected.revision,
+        graph_content_sha256=selected.content_sha256,
+        backend_id="fargate",
+        profile_id="aws",
+        image=IMAGE,
+        execution_template=template,
+        deadline_seconds=300,
+        retry_policy=RetryPolicy(max_attempts=2),
+        physical_plan=physical,
+    )
+
+
 def _submission(
     *,
     key: str = "start-key-0001",
@@ -235,6 +272,54 @@ def test_versioned_records_round_trip_as_canonical_bytes() -> None:
     assert json.loads(serialize_execution_plan(plan))["schema"].endswith("/v1")
     assert json.loads(serialize_run_record(run))["schema"].endswith("/v4")
     assert json.loads(serialize_attempt_record(attempt))["schema"].endswith("/v1")
+
+
+def test_execution_plan_v2_binds_exact_physical_plan_to_container_command() -> None:
+    plan = _physical_plan()
+    encoded = serialize_execution_plan(plan)
+    envelope = json.loads(encoded)
+
+    assert deserialize_execution_plan(encoded) == plan
+    assert plan.physical_plan is not None
+    assert envelope["schema"] == "io.dander.control.execution-plan/v2"
+    assert envelope["plan"]["physical_plan"]["revision"] == plan.physical_plan.revision
+    assert plan.execution_template.command[-2] == "--physical-plan"
+
+
+def test_execution_plan_rejects_physical_plan_command_drift() -> None:
+    plan = _physical_plan()
+    template = replace(plan.execution_template, command=plan.execution_template.command[:-2])
+
+    with pytest.raises(OrchestrationContractError, match="exact canonical physical plan"):
+        replace(plan, execution_template=template)
+
+
+def test_existing_control_backends_reject_distributed_physical_execution() -> None:
+    plan = _physical_plan()
+    distributed = PhysicalPlan(
+        pipeline_id="hosted_graph",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        stages=(
+            PhysicalStage(
+                stage_id="pipeline",
+                operators=("hosted_graph",),
+                partition_count=2,
+            ),
+        ),
+        exchanges=(),
+        maximum_parallelism=2,
+    )
+    template = replace(
+        plan.execution_template,
+        command=(
+            *plan.execution_template.command[:-2],
+            "--physical-plan",
+            serialize_physical_plan(distributed).decode("utf-8"),
+        ),
+    )
+
+    with pytest.raises(OrchestrationContractError, match="require fused"):
+        replace(plan, execution_template=template, physical_plan=distributed)
 
 
 def test_v1_run_snapshot_and_idempotency_claim_recover_without_invented_results() -> None:

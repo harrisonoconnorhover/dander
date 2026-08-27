@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 RUNTIME_CONTRACT = "io.dander.runtime/v1"
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SAFE_LAUNCHER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MAX_OPAQUE_LENGTH = 256
 
 
@@ -166,6 +167,7 @@ class RuntimeEvent:
         context: LauncherContext,
         pipeline_id: str,
         platform: str,
+        physical_plan_revision: str | None = None,
     ) -> RuntimeEvent:
         """Build the first event for a validated execution request."""
         return cls(
@@ -175,7 +177,7 @@ class RuntimeEvent:
             pipeline_id=pipeline_id,
             platform=platform,
             stage="starting",
-            dimensions=context.dimensions(),
+            dimensions=_runtime_dimensions(context, physical_plan_revision),
         )
 
     @classmethod
@@ -186,6 +188,7 @@ class RuntimeEvent:
         context: LauncherContext,
         platform: str,
         duration_ms: int | None = None,
+        physical_plan_revision: str | None = None,
     ) -> RuntimeEvent:
         """Build the terminal success/overlap record from non-sensitive aggregates."""
         endpoints = [
@@ -207,7 +210,7 @@ class RuntimeEvent:
             pipeline_id=result.pipeline_id,
             platform=platform,
             stage="complete",
-            dimensions=context.dimensions(),
+            dimensions=_runtime_dimensions(context, physical_plan_revision),
             status="skipped" if result.skipped else "succeeded",
             outputs={
                 "source": result.ingestion.source,
@@ -241,6 +244,7 @@ class RuntimeEvent:
         failure_code: str,
         retryable: bool,
         duration_ms: int = 0,
+        physical_plan_revision: str | None = None,
     ) -> RuntimeEvent:
         """Build a terse terminal failure without copying exception text."""
         return cls(
@@ -250,7 +254,7 @@ class RuntimeEvent:
             pipeline_id=pipeline_id,
             platform=platform,
             stage=stage,
-            dimensions=context.dimensions(),
+            dimensions=_runtime_dimensions(context, physical_plan_revision),
             status="failed",
             outputs={"telemetry": RunTelemetry(duration_ms=duration_ms).to_payload()},
             failure_code=failure_code,
@@ -278,6 +282,18 @@ class RuntimeEvent:
         if self.retryable is not None:
             payload["retryable"] = self.retryable
         return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+
+def _runtime_dimensions(
+    context: LauncherContext,
+    physical_plan_revision: str | None,
+) -> dict[str, object]:
+    dimensions = context.dimensions()
+    if physical_plan_revision is not None:
+        if _SHA256.fullmatch(physical_plan_revision) is None:
+            raise RuntimeContractError("physical-plan revision must be a lowercase SHA-256")
+        dimensions["physical_plan_revision"] = physical_plan_revision
+    return dimensions
 
 
 def validate_runtime_contract(value: str) -> None:

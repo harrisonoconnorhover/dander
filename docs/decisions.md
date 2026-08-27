@@ -2100,3 +2100,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   status, schedules, replays, and restart recovery retain the same bounded decision.
 - **Boundary:** This changes plan selection only. Each run still launches one existing Dander
   container through Fargate or Cloud Run; dynamic sizing, clusters, and autoscaling remain later work.
+
+## 2026-08-27 — Physical-plan v1 is static and initially fused into one container
+
+- **Contract:** A canonical physical plan identifies an ordered stage DAG, fixed partition counts,
+  explicit exchanges, and a hard maximum parallelism. Its revision is derived from the versioned
+  contents and becomes part of execution-plan v2; execution-plan v1 remains readable unchanged.
+- **Container handoff:** Fused plans travel as the final canonical `--physical-plan` runtime
+  argument. The existing Fargate and Cloud Run deployments therefore launch the same Dander image
+  and command path, while runtime events report the verified physical-plan revision.
+- **Boundary:** The current container accepts only fused execution: one partition per stage,
+  single in-memory exchanges, and parallelism one. Distributed plans are modeled but fail closed
+  until a backend such as serverless Spark explicitly implements their dispatch and exchange rules.

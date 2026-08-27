@@ -2,35 +2,37 @@
 
 ## Finished
 
-- Added bounded size-class selection across immutable registered Fargate and Cloud Run plans.
-- Added API selection by explicit `size_class` or bounded `estimated_input_bytes`, with a configured default.
-- Persisted versioned sizing evidence in run-record v4 and exposed it through Control status.
-- Preserved v1-v3 recovery, schedules, replay behavior, and fixed single-plan deployments.
-- Rendered size candidates and the default class through existing AWS Control startup arguments.
+- Added canonical physical-plan v1 with static stages, partitions, exchanges, and maximum parallelism.
+- Added execution-plan v2 embedding and revision binding while preserving exact v1 recovery.
+- Passed fused multi-stage plans through the existing Dander container command and runtime validation.
+- Added the verified physical-plan revision to success and failure runtime events.
+- Kept Fargate and Cloud Run single-container-only; both reject distributed execution before launch.
 
 ## Try It
 
-Repeat `--run-size-candidate REVISION,CLASS,MAX_BYTES`, set `--run-default-size-class`, then start a run with either `?size_class=small` or `?estimated_input_bytes=5000000`.
+Build a `fused_container_physical_plan`, append its canonical JSON as the final `--physical-plan` command argument, and serialize the containing `ExecutionPlan`. The unchanged `runtime execute` path validates and reports its revision.
 
 ## Checks
 
-- Full pytest with all extras: passed.
-- Ruff and strict type check across 461 source files: passed.
-- Generated and validated the Control contract bundle; focused Control, CLI, serialization, scheduling, AWS, and Kubernetes tests passed.
+- Full pytest suite: passed.
+- Ruff lint and format: passed.
+- Strict type check across 463 source files: passed.
+- Control contract drift and diff checks: passed.
 
 ## Decisions
 
-- Size classes map only to pre-registered immutable plans; the selected plan remains the resource source of truth.
-- Size filtering happens before the existing cost/locality placement and chooses the smallest fitting class per environment.
-- Sizing evidence does not alter exact-plan idempotency; the plan revision already captures execution resources.
+- Physical topology is static and provider-neutral; provider resources remain in the enclosing execution plan.
+- Existing containers fuse all declared stages, require one partition per stage, and allow only single in-memory exchanges.
+- Distributed plans are valid artifacts but require a backend that explicitly implements their dispatch and exchange rules.
 
 ## Remaining
 
-- Open the protected DANDER-240 PR, merge after required checks, and confirm exact-main CI.
-- Begin physical-plan v1 only after DANDER-240 closes.
+- Open and merge the protected DANDER-241 PR, then confirm exact-main CI.
+- Implement one serverless Spark batch backend against distributed physical-plan v1.
+- Stop before dynamic topology, cluster sizing, or autoscaling.
 
 ## Review First
 
-- `src/dander/control/run_lifecycle.py`
+- `src/dander/physical_plan.py`
 - `src/dander/control/orchestration.py`
-- `src/dander/control/orchestration_serialization.py`
+- `src/dander/cli/runtime_command.py`

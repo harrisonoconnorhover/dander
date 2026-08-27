@@ -15,6 +15,8 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
+from dander.physical_plan import PhysicalExecutionMode, PhysicalPlan, serialize_physical_plan
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -22,7 +24,8 @@ if TYPE_CHECKING:
     from dander.deployment.projection import ExecutionTemplate
 
 ORCHESTRATION_SCHEMA = "io.dander.control.orchestration/v1"
-EXECUTION_PLAN_SCHEMA = "io.dander.control.execution-plan/v1"
+EXECUTION_PLAN_SCHEMA_V1 = "io.dander.control.execution-plan/v1"
+EXECUTION_PLAN_SCHEMA = "io.dander.control.execution-plan/v2"
 EXECUTION_RESULT_SUMMARY_SCHEMA = "io.dander.control.execution-result-summary/v1"
 PLACEMENT_DECISION_SCHEMA = "io.dander.control.placement-decision/v1"
 SIZE_CLASS_DECISION_SCHEMA = "io.dander.control.size-class-decision/v1"
@@ -403,6 +406,7 @@ class ExecutionPlan:
     execution_template: ExecutionTemplate
     deadline_seconds: int
     retry_policy: RetryPolicy
+    physical_plan: PhysicalPlan | None = None
     schema: str = ORCHESTRATION_SCHEMA
 
     def __post_init__(self) -> None:
@@ -439,6 +443,35 @@ class ExecutionPlan:
             raise OrchestrationContractError(
                 "execution plans must not embed schedule or time-zone selection"
             )
+        physical_arguments = [
+            index for index, value in enumerate(template.command) if value == "--physical-plan"
+        ]
+        if self.physical_plan is None:
+            if physical_arguments:
+                raise OrchestrationContractError(
+                    "execution command cannot select an unregistered physical plan"
+                )
+        else:
+            if self.physical_plan.pipeline_id != template.pipeline_id:
+                raise OrchestrationContractError(
+                    "physical plan pipeline does not match its execution template"
+                )
+            if (
+                self.backend_id in {"fargate", "cloud_run"}
+                and self.physical_plan.execution_mode is not PhysicalExecutionMode.FUSED_CONTAINER
+            ):
+                raise OrchestrationContractError(
+                    "existing container backends require fused physical execution"
+                )
+            expected = serialize_physical_plan(self.physical_plan).decode("utf-8")
+            if (
+                len(physical_arguments) != 1
+                or physical_arguments[0] != len(template.command) - 2
+                or template.command[-1] != expected
+            ):
+                raise OrchestrationContractError(
+                    "execution command must end with the exact canonical physical plan"
+                )
 
     @property
     def revision(self) -> str:
@@ -989,27 +1022,29 @@ def canonical_execution_plan_contents(plan: ExecutionPlan) -> bytes:
     The revision is deliberately absent from these bytes, so callers cannot supply or persist an
     arbitrary SHA-shaped identity independently of the selected graph, image, or launcher input.
     """
-    payload = {
-        "schema": EXECUTION_PLAN_SCHEMA,
-        "plan": {
-            "plan_id": plan.plan_id,
-            "environment": plan.environment,
-            "project": plan.project,
-            "graph": plan.graph,
-            "graph_revision": plan.graph_revision,
-            "graph_content_sha256": plan.graph_content_sha256,
-            "backend_id": plan.backend_id,
-            "profile_id": plan.profile_id,
-            "image": plan.image,
-            "execution_template": plan.execution_template.as_dict(),
-            "deadline_seconds": plan.deadline_seconds,
-            "retry_policy": {
-                "max_attempts": plan.retry_policy.max_attempts,
-                "retryable_exit_codes": list(plan.retry_policy.retryable_exit_codes),
-            },
-            "orchestration_schema": plan.schema,
+    plan_payload: dict[str, object] = {
+        "plan_id": plan.plan_id,
+        "environment": plan.environment,
+        "project": plan.project,
+        "graph": plan.graph,
+        "graph_revision": plan.graph_revision,
+        "graph_content_sha256": plan.graph_content_sha256,
+        "backend_id": plan.backend_id,
+        "profile_id": plan.profile_id,
+        "image": plan.image,
+        "execution_template": plan.execution_template.as_dict(),
+        "deadline_seconds": plan.deadline_seconds,
+        "retry_policy": {
+            "max_attempts": plan.retry_policy.max_attempts,
+            "retryable_exit_codes": list(plan.retry_policy.retryable_exit_codes),
         },
+        "orchestration_schema": plan.schema,
     }
+    schema = EXECUTION_PLAN_SCHEMA_V1
+    if plan.physical_plan is not None:
+        schema = EXECUTION_PLAN_SCHEMA
+        plan_payload["physical_plan"] = json.loads(serialize_physical_plan(plan.physical_plan))
+    payload = {"schema": schema, "plan": plan_payload}
     return json.dumps(
         payload,
         sort_keys=True,
