@@ -2,37 +2,36 @@
 
 ## Finished
 
-- Kept Dander's canonical Spark image identity pinned to its OCI digest.
-- Added a revision-covered provider image tag constrained to the same Artifact Registry package.
-- Made the Managed Spark adapter submit and validate Google's documented tagged image reference.
-- Added focused coverage for the provider tag, package mismatch, lifecycle, and AWS Control input.
+- Removed the unsupported explicit `NONE` autotuning scenario from Managed Spark submissions.
+- Preserved the fixed executor count and explicit `spark.dynamicAllocation.enabled=false` contract.
+- Kept the execution plan, provider tag, driver, image, pipeline logic, and other backends unchanged.
+- Added focused request-shape coverage for the provider-default autotuning-off state.
 
 ## Try It
 
-Register `spark.container_image_tag` beside the existing three Spark extensions. Use a repository
-with immutable tags and verify that the tag resolves to the execution plan's image digest.
+Submit the existing fixed Managed Spark plan. The request now leaves optional autotuning absent
+while retaining the fixed two-executor shape and disabled Spark dynamic allocation.
 
 ## Checks
 
-- Ruff lint and format checks passed for all changed Python files.
-- Focused provider, lifecycle, and AWS Control tests passed: 37 tests.
-- Strict type checking and the full local test suite passed.
+- Ruff lint and format checks passed for the changed Python files.
+- Strict mypy passed for the Managed Spark backend.
+- Focused Managed Spark backend tests passed: 10 tests.
 - Protected CI and live qualification remain pending.
 
 ## Decisions
 
-- The execution plan digest remains Dander's canonical artifact identity.
-- The provider tag is plan-revision-covered and must address the identical image package.
-- Tag immutability and digest resolution are publication and qualification gates.
+- Provider-default absence is the compatible representation of autotuning off.
+- Fixed sizing still fails closed through the plan and explicit dynamic-allocation property.
 
 ## Remaining
 
 - Merge through protected CI and confirm exact-main CI.
-- Publish the exact-main pair to a tag-immutable repository.
-- Run the single Control to Managed Spark to BigQuery qualification and capture cleanup evidence.
+- Resume the queued Control qualification and capture cleanup evidence.
+- Record the canceled non-qualification render batch in sanitized operator evidence.
 
 ## Review First
 
-- `src/dander/providers/dataproc_serverless/operations.py`
 - `src/dander/control/dataproc_serverless_execution_backend.py`
 - `tests/control/test_dataproc_serverless_execution_backend.py`
+- `docs/decisions.md`

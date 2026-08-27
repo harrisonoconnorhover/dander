@@ -2122,8 +2122,10 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   resolves GCP/BigQuery authority without a credential value crossing Control.
 - **Resources:** The plan fixes 2–2,000 executors, 4/8/16 cores, total memory, project/region,
   runtime version, subnetwork, and a 10-minute-to-14-day TTL. Submission explicitly disables Spark
-  dynamic allocation and autotuning. Distributed dependencies require object-store exchanges;
-  Control does not infer partitions, resize a job, or select a cluster shape at runtime.
+  dynamic allocation and leaves the optional autotuning configuration absent, which is the
+  provider's default off state; an explicit `NONE` scenario is rejected for projects outside the
+  autotuning preview. Distributed dependencies require object-store exchanges; Control does not
+  infer partitions, resize a job, or select a cluster shape at runtime.
 - **Lifecycle:** Run and attempt identities derive one batch ID and one create request UUID, so
   restart recovery adopts the original batch. Control normalizes batch status, output logs,
   runtime results, and operation cancellation through its existing reconciler. Managed Spark

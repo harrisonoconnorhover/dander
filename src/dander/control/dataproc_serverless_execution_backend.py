@@ -443,7 +443,6 @@ class DataprocServerlessExecutionBackend:
                 "version": binding.runtime_version,
                 "containerImage": binding.container_image_tag,
                 "properties": dict(sorted(properties.items())),
-                "autotuningConfig": {"scenarios": ["NONE"]},
             },
             "environmentConfig": {"executionConfig": _execution_config(plan, binding)},
         }
@@ -510,7 +509,6 @@ class DataprocServerlessExecutionBackend:
                     "spark.driver.memoryOverhead": f"{overhead_mib}m",
                     "spark.executor.memoryOverhead": f"{overhead_mib}m",
                 },
-                "autotuningConfig": {"scenarios": ["NONE"]},
             },
             "environmentConfig": {"executionConfig": _execution_config(plan, binding)},
         }
