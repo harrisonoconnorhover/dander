@@ -2133,3 +2133,16 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   of a particular driver/image pair. Publishing and qualifying that pair is separate bounded work.
   Dynamic physical planning, resource sizing, autoscaling, Kubernetes, and a general cluster
   manager remain explicitly out of scope.
+
+## 2026-08-27 — The first Spark artifact pair is qualification-specific
+
+- **Pair:** One content-addressed Python driver is copied byte-for-byte into one immutable amd64
+  custom image and also uploaded to same-region GCS. The execution plan supplies the driver hash;
+  the driver verifies both copies before provider or warehouse work begins.
+- **Workload:** The driver accepts only the canonical `spark_bigquery_qualification` two-stage
+  physical plan. It writes the declared exchange to GCS, publishes four deterministic rows through
+  Spark's BigQuery connector, reads back three aggregates, cleans the exchange, and emits Control's
+  existing canonical runtime completion event.
+- **Boundary:** This proves the DANDER-242 artifact and lifecycle seam for one pair. It does not add
+  arbitrary operator dispatch, dynamic topology or sizing, autoscaling, Kubernetes, or a cluster
+  manager, and it does not modify the single-container runtime.

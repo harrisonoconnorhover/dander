@@ -369,6 +369,30 @@ jobs:
           exit-code: 1
           ignore-unfixed: true
           severity: CRITICAL,HIGH
+      - name: Build fixed Managed Spark image
+        if: needs.scope.outputs.lane == 'full'
+        run: |
+          docker build --platform linux/amd64 \
+            --file infra/spark/Dockerfile \
+            --build-arg DANDER_BUILD_REVISION="${{ github.sha }}" \
+            --tag dander-spark:${{ github.sha }} .
+      - name: Verify Managed Spark image and driver pair
+        if: needs.scope.outputs.lane == 'full'
+        run: |
+          test "$(docker image inspect dander-spark:${{ github.sha }} --format '{{.Architecture}}')" = "amd64"
+          test "$(docker run --rm --platform linux/amd64 --entrypoint /usr/bin/id dander-spark:${{ github.sha }} -u)" = "1099"
+          test "$(sha256sum scripts/spark_driver.py | cut -d ' ' -f1)" = "$(docker run --rm --platform linux/amd64 --entrypoint /usr/bin/sha256sum dander-spark:${{ github.sha }} /opt/dander/spark_driver.py | cut -d ' ' -f1)"
+          docker run --rm --platform linux/amd64 --entrypoint /usr/bin/test \
+            dander-spark:${{ github.sha }} -x /usr/bin/tini
+      - name: Scan Managed Spark image
+        if: needs.scope.outputs.lane == 'full'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: dander-spark:${{ github.sha }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
       - name: Confirm container builds are outside this lane
         if: needs.scope.outputs.lane != 'full'
         run: test "${{ needs.scope.outputs.lane }}" != "full"

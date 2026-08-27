@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Added a `dataproc_serverless` Control backend for distributed physical-plan v1.
-- Added deterministic batch submission/adoption, restart recovery, status, logs, results, and cancellation.
-- Bound immutable PySpark driver/image, GCP service account, config, secret references, and subnetwork.
-- Fixed executor count/cores/memory and TTL while explicitly disabling Spark autoscaling/autotuning.
-- Wired Fargate, Cloud Run, and Managed Spark through the same always-on Control lifecycle.
+- Added one Python 3.11-compatible fixed-plan Spark/BigQuery qualification driver.
+- Added a separate minimal Managed Spark image without changing the Dander runtime image.
+- Bound submitted and image-embedded driver bytes to one SHA-256 execution-plan argument.
+- Extended AWS Control rendering to register Managed Spark through its existing GCP identity handoff.
+- Added canonical plan, result collection, image UID, and vulnerability gates.
 
 ## Try It
 
-Register a `dataproc_serverless` execution plan with a distributed object-store physical plan and the three `spark.*` template extensions. Start it through the existing Control run endpoint.
+Build `infra/spark/Dockerfile`, hash `scripts/spark_driver.py`, and register the fixed
+`spark_bigquery_qualification` plan with that hash, the published image digest, and GCS driver URI.
 
 ## Checks
 
-- Full pytest suite: passed.
-- Ruff lint and format across 522 files: passed.
-- Strict type check across 467 source files: passed.
-- Control contract drift and diff checks: passed.
+- Focused driver and AWS Control tests passed locally.
+- Terraform validate and all six AWS Control fixture runs passed locally.
+- Local amd64 image UID, driver identity, `tini`, and zero HIGH/CRITICAL Trivy gates passed.
+- Full local suite passed: 2,113 tests passed and 35 skipped; protected CI remains pending.
 
 ## Decisions
 
-- Managed Spark accepts only static distributed plans with object-store exchanges.
-- The immutable driver artifact enacts the plan; Control owns provider lifecycle and durable reconciliation.
-- Terminal serverless compute cleanup is confirmed while batch metadata and Cloud Logs remain evidence.
+- The first pair intentionally supports one fixed two-stage qualification plan only.
+- GCS materializes the explicit exchange; Spark's BigQuery connector owns warehouse I/O.
+- The Managed Spark image stays separate from the existing single-container runtime.
 
 ## Remaining
 
-- Publish and live-qualify one compatible immutable Spark driver/image pair before a support claim.
-- Consider dynamic physical topology/resource sizing only as a separately reviewed next milestone.
-- Do not add generalized autoscaling, Kubernetes, or a cluster manager in this slice.
+- Merge through protected CI, publish one exact-main pair, and run one bounded live qualification.
+- Capture Control run, batch, artifact, result, cost, and cleanup evidence outside the repository.
+- Leave arbitrary operators, dynamic sizing/topology, autoscaling, and cluster managers for later.
 
 ## Review First
 
-- `src/dander/control/dataproc_serverless_execution_backend.py`
-- `src/dander/providers/dataproc_serverless/operations.py`
-- `tests/control/test_dataproc_serverless_execution_backend.py`
+- `scripts/spark_driver.py`
+- `infra/spark/Dockerfile`
+- `src/dander/deployment/aws_control_plane.py`

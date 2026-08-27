@@ -154,6 +154,7 @@ packages = ["src/dander"]
 "infra/aws-control/tests/aws_control.tftest.hcl" = "dander/templates/project/infra/aws-control/tests/aws_control.tftest.hcl"
 "infra/aws-control/variables.tf" = "dander/templates/project/infra/aws-control/variables.tf"
 "infra/aws-control/versions.tf" = "dander/templates/project/infra/aws-control/versions.tf"
+"infra/spark/Dockerfile" = "dander/templates/project/infra/spark/Dockerfile"
 "infra/local/Caddyfile" = "dander/templates/project/infra/local/Caddyfile"
 "infra/local/README.md" = "dander/templates/project/infra/local/README.md"
 "infra/local/compose.yaml" = "dander/templates/project/infra/local/compose.yaml"
@@ -361,6 +362,7 @@ include = [
   "scripts/benchmarks/warehouse_correctness.py",
   "scripts/check_control_contracts.py",
   "scripts/generate_control_contracts.py",
+  "scripts/spark_driver.py",
   "src",
   "tests",
   "uv.lock",

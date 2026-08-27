@@ -36,6 +36,10 @@ locals {
     var.druff_caddyfile != ""
   )
   schedule_profile = local.full_profile && length(var.control_schedules) > 0
+  control_gcp_plan_revisions = setunion(
+    var.control_cloud_run_plan_revisions,
+    var.control_dataproc_plan_revisions,
+  )
   tags = {
     managed-by = "dander"
     phase      = "d7"
@@ -123,17 +127,18 @@ check "full_profile_is_complete" {
 check "control_orchestration_is_consistent" {
   assert {
     condition = (
-      length(var.execution_plan_json) == length(var.control_fargate_bindings) + length(var.control_cloud_run_plan_revisions) &&
-      length(setintersection(toset(keys(var.control_fargate_bindings)), var.control_cloud_run_plan_revisions)) == 0 &&
+      length(var.execution_plan_json) == length(var.control_fargate_bindings) + length(local.control_gcp_plan_revisions) &&
+      length(setintersection(toset(keys(var.control_fargate_bindings)), local.control_gcp_plan_revisions)) == 0 &&
+      length(setintersection(var.control_cloud_run_plan_revisions, var.control_dataproc_plan_revisions)) == 0 &&
       length(setsubtract(
         toset(keys(var.execution_plan_json)),
-        setunion(toset(keys(var.control_fargate_bindings)), var.control_cloud_run_plan_revisions),
+        setunion(toset(keys(var.control_fargate_bindings)), local.control_gcp_plan_revisions),
       )) == 0 &&
       length(setsubtract(
-        setunion(toset(keys(var.control_fargate_bindings)), var.control_cloud_run_plan_revisions),
+        setunion(toset(keys(var.control_fargate_bindings)), local.control_gcp_plan_revisions),
         toset(keys(var.execution_plan_json)),
       )) == 0 &&
-      (length(var.control_cloud_run_plan_revisions) > 0) == (
+      (length(local.control_gcp_plan_revisions) > 0) == (
         var.gcp_control_service_account != "" && var.gcp_wif_audience != ""
       ) &&
       length(var.trigger_spec_json) == length(var.control_schedules) &&
@@ -952,7 +957,7 @@ resource "aws_ecs_task_definition" "control" {
       memory                 = 1024
       readonlyRootFilesystem = true
       user                   = "65532:65532"
-      environment = length(var.control_cloud_run_plan_revisions) > 0 ? [
+      environment = length(local.control_gcp_plan_revisions) > 0 ? [
         { name = "DANDER_GCP_SERVICE_ACCOUNT", value = var.gcp_control_service_account },
         { name = "DANDER_GCP_WIF_AUDIENCE", value = var.gcp_wif_audience },
       ] : []

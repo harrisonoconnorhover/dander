@@ -398,8 +398,12 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
             raise ValueError("AWS Control execution plans must be canonical JSON.") from error
         if len(plans) > 100 or len({plan.revision for plan in plans}) != len(plans):
             raise ValueError("AWS Control execution plans must contain at most 100 revisions.")
-        if any(plan.backend_id not in {"fargate", "cloud_run"} for plan in plans):
-            raise ValueError("AWS Control execution plans must select Fargate or Cloud Run.")
+        if any(
+            plan.backend_id not in {"fargate", "cloud_run", "dataproc_serverless"} for plan in plans
+        ):
+            raise ValueError(
+                "AWS Control execution plans must select Fargate, Cloud Run, or Managed Spark."
+            )
         if sum(len(item.encode("utf-8")) for item in value) > _MAX_ORCHESTRATION_CONFIG_BYTES:
             raise ValueError("AWS Control execution-plan configuration is oversized.")
         return value
@@ -485,16 +489,17 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
                     raise ValueError(
                         "AWS Control execution plans require matching Fargate platform bindings."
                     )
-            cloud_plans = tuple(item for item in plans if item.backend_id == "cloud_run")
+            gcp_plans = tuple(
+                item for item in plans if item.backend_id in {"cloud_run", "dataproc_serverless"}
+            )
+            cloud_plans = tuple(item for item in gcp_plans if item.backend_id == "cloud_run")
+            if gcp_plans and (
+                _GCP_PROJECT.fullmatch(self.gcp_project_id) is None
+                or _GCP_SERVICE_ACCOUNT.fullmatch(self.gcp_control_service_account) is None
+                or _GCP_WIF_AUDIENCE.fullmatch(self.gcp_wif_audience) is None
+            ):
+                raise ValueError("GCP plans require exact project and workload identity inputs.")
             if cloud_plans:
-                if (
-                    _GCP_PROJECT.fullmatch(self.gcp_project_id) is None
-                    or _GCP_SERVICE_ACCOUNT.fullmatch(self.gcp_control_service_account) is None
-                    or _GCP_WIF_AUDIENCE.fullmatch(self.gcp_wif_audience) is None
-                ):
-                    raise ValueError(
-                        "Cloud Run plans require exact GCP project and workload identity inputs."
-                    )
                 deployment = platforms.deployments.get(self.gcp_deployment_name)
                 if deployment is None or deployment.launcher.provider != "cloud_run":
                     raise ValueError("Cloud Run plans require the selected Cloud Run deployment.")
@@ -506,14 +511,14 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
                     raise ValueError(
                         "Cloud Run plans require matching platform and pipeline bindings."
                     )
-            elif any(
+            if not gcp_plans and any(
                 (
                     self.gcp_project_id,
                     self.gcp_control_service_account,
                     self.gcp_wif_audience,
                 )
             ):
-                raise ValueError("GCP workload identity inputs require a Cloud Run plan.")
+                raise ValueError("GCP workload identity inputs require a GCP execution plan.")
         if triggers and not plans:
             raise ValueError("AWS Control scheduled triggers require execution plans.")
         if (
@@ -663,6 +668,7 @@ def render_aws_control_foundation(source: AWSControlPlaneFoundationInput) -> dic
         "control_schedules": {},
         "control_fargate_bindings": {},
         "control_cloud_run_plan_revisions": [],
+        "control_dataproc_plan_revisions": [],
         "gcp_control_service_account": "",
         "gcp_wif_audience": "",
     }
@@ -718,11 +724,14 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
         for project in sorted({plan.project for plan in source.execution_plans}):
             control_args.extend(("--project", project))
         control_args.extend(("--aws-deployment-name", source.fargate_deployment_name))
+        if any(
+            plan.backend_id in {"cloud_run", "dataproc_serverless"}
+            for plan in source.execution_plans
+        ):
+            control_args.extend(("--gcp-project-id", source.gcp_project_id))
         if any(plan.backend_id == "cloud_run" for plan in source.execution_plans):
             control_args.extend(
                 (
-                    "--gcp-project-id",
-                    source.gcp_project_id,
                     "--gcp-deployment-name",
                     source.gcp_deployment_name,
                 )
@@ -778,6 +787,11 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
         "control_fargate_bindings": _control_fargate_bindings(source),
         "control_cloud_run_plan_revisions": sorted(
             plan.revision for plan in source.execution_plans if plan.backend_id == "cloud_run"
+        ),
+        "control_dataproc_plan_revisions": sorted(
+            plan.revision
+            for plan in source.execution_plans
+            if plan.backend_id == "dataproc_serverless"
         ),
         "gcp_control_service_account": source.gcp_control_service_account,
         "gcp_wif_audience": source.gcp_wif_audience,
@@ -848,8 +862,15 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
             **(
                 {
                     "gcp_project_id": source.gcp_project_id,
-                    "gcp_deployment_name": source.gcp_deployment_name,
                 }
+                if any(
+                    plan.backend_id in {"cloud_run", "dataproc_serverless"}
+                    for plan in source.execution_plans
+                )
+                else {}
+            ),
+            **(
+                {"gcp_deployment_name": source.gcp_deployment_name}
                 if any(plan.backend_id == "cloud_run" for plan in source.execution_plans)
                 else {}
             ),

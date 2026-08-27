@@ -269,6 +269,22 @@ variable "control_cloud_run_plan_revisions" {
   }
 }
 
+variable "control_dataproc_plan_revisions" {
+  type        = set(string)
+  description = "Registered execution-plan revisions operated through Managed Spark."
+  default     = []
+
+  validation {
+    condition = (
+      length(var.control_dataproc_plan_revisions) <= 100 &&
+      alltrue([for revision in var.control_dataproc_plan_revisions :
+        can(regex("^[0-9a-f]{64}$", revision))
+      ])
+    )
+    error_message = "control_dataproc_plan_revisions must contain at most 100 SHA revisions."
+  }
+}
+
 variable "gcp_control_service_account" {
   type        = string
   description = "GCP service account impersonated by the AWS Control task; empty disables GCP."
