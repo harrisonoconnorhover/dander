@@ -2,38 +2,37 @@
 
 ## Finished
 
-- Added one Python 3.11-compatible fixed-plan Spark/BigQuery qualification driver.
-- Added a separate minimal Managed Spark image without changing the Dander runtime image.
-- Bound submitted and image-embedded driver bytes to one SHA-256 execution-plan argument.
-- Extended AWS Control rendering to register Managed Spark through its existing GCP identity handoff.
-- Added canonical plan, result collection, image UID, and vulnerability gates.
+- Kept Dander's canonical Spark image identity pinned to its OCI digest.
+- Added a revision-covered provider image tag constrained to the same Artifact Registry package.
+- Made the Managed Spark adapter submit and validate Google's documented tagged image reference.
+- Added focused coverage for the provider tag, package mismatch, lifecycle, and AWS Control input.
 
 ## Try It
 
-Build `infra/spark/Dockerfile`, hash `scripts/spark_driver.py`, and register the fixed
-`spark_bigquery_qualification` plan with that hash, the published image digest, and GCS driver URI.
+Register `spark.container_image_tag` beside the existing three Spark extensions. Use a repository
+with immutable tags and verify that the tag resolves to the execution plan's image digest.
 
 ## Checks
 
-- Focused driver and AWS Control tests passed locally.
-- Terraform validate and all six AWS Control fixture runs passed locally.
-- Local amd64 image UID, driver identity, `tini`, and zero HIGH/CRITICAL Trivy gates passed.
-- Full local suite passed: 2,113 tests passed and 35 skipped; protected CI remains pending.
+- Ruff lint and format checks passed for all changed Python files.
+- Focused provider, lifecycle, and AWS Control tests passed: 37 tests.
+- Strict type checking and the full local test suite passed.
+- Protected CI and live qualification remain pending.
 
 ## Decisions
 
-- The first pair intentionally supports one fixed two-stage qualification plan only.
-- GCS materializes the explicit exchange; Spark's BigQuery connector owns warehouse I/O.
-- The Managed Spark image stays separate from the existing single-container runtime.
+- The execution plan digest remains Dander's canonical artifact identity.
+- The provider tag is plan-revision-covered and must address the identical image package.
+- Tag immutability and digest resolution are publication and qualification gates.
 
 ## Remaining
 
-- Merge through protected CI, publish one exact-main pair, and run one bounded live qualification.
-- Capture Control run, batch, artifact, result, cost, and cleanup evidence outside the repository.
-- Leave arbitrary operators, dynamic sizing/topology, autoscaling, and cluster managers for later.
+- Merge through protected CI and confirm exact-main CI.
+- Publish the exact-main pair to a tag-immutable repository.
+- Run the single Control to Managed Spark to BigQuery qualification and capture cleanup evidence.
 
 ## Review First
 
-- `scripts/spark_driver.py`
-- `infra/spark/Dockerfile`
-- `src/dander/deployment/aws_control_plane.py`
+- `src/dander/providers/dataproc_serverless/operations.py`
+- `src/dander/control/dataproc_serverless_execution_backend.py`
+- `tests/control/test_dataproc_serverless_execution_backend.py`

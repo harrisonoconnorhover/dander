@@ -255,6 +255,10 @@ def _spark_plan(graph: GraphRecord) -> ExecutionPlan:
         ),
         extensions=(
             (
+                "spark.container_image_tag",
+                "us-central1-docker.pkg.dev/dander-unit-project/dander/spark:unit-immutable",
+            ),
+            (
                 "spark.main_python_file_uri",
                 "gs://dander-spark-stage/drivers/driver-" + "f" * 64 + ".py",
             ),
@@ -1149,6 +1153,9 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
         pipeline_id="hosted_graph",
         runtime_service_account=("dander-spark@dander-unit-project.iam.gserviceaccount.com"),
         main_python_file_uri=("gs://dander-spark-stage/drivers/driver-" + "f" * 64 + ".py"),
+        container_image_tag=(
+            "us-central1-docker.pkg.dev/dander-unit-project/dander/spark:unit-immutable"
+        ),
         runtime_version="2.3",
         staging_bucket="dander-spark-stage",
     )

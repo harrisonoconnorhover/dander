@@ -28,6 +28,12 @@ _SUBNETWORK = re.compile(
     r"(?P<region>[a-z]+(?:-[a-z0-9]+)+[0-9])/subnetworks/"
     r"[a-z][a-z0-9-]{0,61}[a-z0-9]$"
 )
+_ARTIFACT_IMAGE_TAG = re.compile(
+    r"^(?P<region>[a-z]+(?:-[a-z0-9]+)+[0-9])-docker\.pkg\.dev/"
+    r"(?P<project>[a-z][a-z0-9-]{4,28}[a-z0-9])/"
+    r"(?P<path>[a-z0-9][a-z0-9._/-]{1,510}):"
+    r"(?P<tag>[A-Za-z0-9_][A-Za-z0-9._-]{0,127})$"
+)
 
 
 class DataprocServerlessOperationError(RuntimeError):
@@ -44,6 +50,7 @@ class DataprocServerlessBinding:
     pipeline_id: str
     runtime_service_account: str
     main_python_file_uri: str
+    container_image_tag: str
     runtime_version: str
     staging_bucket: str
     subnetwork_uri: str | None = None
@@ -51,6 +58,7 @@ class DataprocServerlessBinding:
     def __post_init__(self) -> None:
         service_account = _SERVICE_ACCOUNT.fullmatch(self.runtime_service_account)
         driver = _GCS_DRIVER.fullmatch(self.main_python_file_uri)
+        image = _ARTIFACT_IMAGE_TAG.fullmatch(self.container_image_tag)
         if (
             _GCP_PROJECT.fullmatch(self.project_id) is None
             or _GCP_REGION.fullmatch(self.region) is None
@@ -60,6 +68,9 @@ class DataprocServerlessBinding:
             or service_account.group("project") != self.project_id
             or driver is None
             or driver.group("bucket") != self.staging_bucket
+            or image is None
+            or image.group("project") != self.project_id
+            or image.group("region") != self.region
             or _GCS_BUCKET.fullmatch(self.staging_bucket) is None
             or _RUNTIME_VERSION.fullmatch(self.runtime_version) is None
         ):
@@ -87,6 +98,7 @@ class DataprocServerlessBinding:
             raise DataprocServerlessOperationError("Managed Spark project id is invalid")
         extensions = dict(template.extensions)
         expected = {
+            "spark.container_image_tag",
             "spark.main_python_file_uri",
             "spark.runtime_version",
             "spark.staging_bucket",
@@ -94,13 +106,21 @@ class DataprocServerlessBinding:
         spark_extensions = {key for key in extensions if key.startswith("spark.")}
         if spark_extensions != expected:
             raise DataprocServerlessOperationError(
-                "Managed Spark requires exactly the immutable driver, runtime, and "
-                "staging extensions"
+                "Managed Spark requires exactly the tagged image, immutable driver, runtime, "
+                "and staging extensions"
             )
+        container_image_tag = extensions["spark.container_image_tag"]
         main_python_file_uri = extensions["spark.main_python_file_uri"]
         runtime_version = extensions["spark.runtime_version"]
         staging_bucket = extensions["spark.staging_bucket"]
         driver = _GCS_DRIVER.fullmatch(main_python_file_uri)
+        tagged_image = _ARTIFACT_IMAGE_TAG.fullmatch(container_image_tag)
+        immutable_image_base = template.image.rpartition("@sha256:")[0]
+        tagged_image_base = container_image_tag.rpartition(":")[0]
+        if tagged_image is None or tagged_image_base != immutable_image_base:
+            raise DataprocServerlessOperationError(
+                "Managed Spark image tag must select the immutable plan image package"
+            )
         if driver is None:
             raise DataprocServerlessOperationError(
                 "Managed Spark driver must be a content-addressed Cloud Storage Python file"
@@ -111,6 +131,10 @@ class DataprocServerlessBinding:
             raise DataprocServerlessOperationError("Managed Spark staging bucket is invalid")
 
         region = _artifact_region(template.image)
+        if tagged_image.group("project") != project_id or tagged_image.group("region") != region:
+            raise DataprocServerlessOperationError(
+                "Managed Spark image tag must match its exact project and region"
+            )
         subnetwork_uri = template.network.placement
         if subnetwork_uri is not None:
             subnetwork = _SUBNETWORK.fullmatch(subnetwork_uri)
@@ -133,6 +157,7 @@ class DataprocServerlessBinding:
             pipeline_id=template.pipeline_id,
             runtime_service_account=template.workload_identity,
             main_python_file_uri=main_python_file_uri,
+            container_image_tag=container_image_tag,
             runtime_version=runtime_version,
             staging_bucket=staging_bucket,
             subnetwork_uri=subnetwork_uri,

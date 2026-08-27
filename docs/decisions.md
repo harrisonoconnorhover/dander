@@ -2146,3 +2146,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** This proves the DANDER-242 artifact and lifecycle seam for one pair. It does not add
   arbitrary operator dispatch, dynamic topology or sizing, autoscaling, Kubernetes, or a cluster
   manager, and it does not modify the single-container runtime.
+
+## 2026-08-27 — Managed Spark uses a revision-covered immutable provider tag
+
+- **Constraint:** Managed Service for Apache Spark documents custom container submission with a
+  tagged Artifact Registry URI and rejected the digest-form URI before creating a batch. Dander's
+  execution plan remains pinned to the image digest; a `spark.container_image_tag` extension is
+  covered by that same plan revision and must select the identical registry package.
+- **Immutability:** Publication uses an Artifact Registry repository with immutable tags enabled,
+  and qualification verifies that the provider tag resolves to the plan digest. The backend sends
+  the provider-supported tag while retaining the digest as Dander's canonical artifact identity.
+- **Boundary:** This is a provider-reference correction only. It does not alter the driver,
+  pipeline logic, executor count, physical plan, runtime image, or any other execution backend.

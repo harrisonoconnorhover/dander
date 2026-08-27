@@ -392,6 +392,10 @@ def _spark_source(**updates: object) -> AWSControlPlaneInput:
         ),
         extensions=(
             (
+                "spark.container_image_tag",
+                f"us-central1-docker.pkg.dev/{GCP_PROJECT}/dander/spark:unit-immutable",
+            ),
+            (
                 "spark.main_python_file_uri",
                 "gs://dander-unit-spark/driver/" + "9" * 64 + ".py",
             ),

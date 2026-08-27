@@ -51,6 +51,7 @@ REGION = "us-central1"
 PIPELINE = "hosted_graph"
 STAGING_BUCKET = "dander-spark-stage"
 IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/dander/spark@sha256:" + "b" * 64
+TAGGED_IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/dander/spark:dander-unit-immutable"
 DRIVER = f"gs://{STAGING_BUCKET}/drivers/spark-driver-" + "d" * 64 + ".py"
 NOW = datetime(2026, 8, 27, 14, tzinfo=UTC)
 RUN_ID = "run-hosted-001"
@@ -234,6 +235,7 @@ def _template() -> ExecutionTemplate:
             retention_days=None,
         ),
         extensions=(
+            ("spark.container_image_tag", TAGGED_IMAGE),
             ("spark.main_python_file_uri", DRIVER),
             ("spark.runtime_version", "2.3"),
             ("spark.staging_bucket", STAGING_BUCKET),
@@ -319,6 +321,7 @@ def test_submit_is_deterministic_fixed_size_and_restart_adopts() -> None:
     assert properties["spark.dynamicAllocation.enabled"] == "false"
     assert properties["spark.executor.instances"] == "2"
     assert runtime["autotuningConfig"] == {"scenarios": ["NONE"]}
+    assert runtime["containerImage"] == TAGGED_IMAGE
     environment = body["environmentConfig"]
     assert isinstance(environment, dict)
     assert environment["executionConfig"] == {
@@ -445,6 +448,7 @@ def test_binding_requires_content_addressed_driver_and_exact_extensions() -> Non
     changed = replace(
         plan.execution_template,
         extensions=(
+            ("spark.container_image_tag", TAGGED_IMAGE),
             ("spark.main_python_file_uri", f"gs://{STAGING_BUCKET}/driver.py"),
             ("spark.runtime_version", "2.3"),
             ("spark.staging_bucket", STAGING_BUCKET),
@@ -452,6 +456,25 @@ def test_binding_requires_content_addressed_driver_and_exact_extensions() -> Non
     )
 
     with pytest.raises(DataprocServerlessOperationError, match="content-addressed"):
+        DataprocServerlessBinding.from_execution_template(changed, project_id=PROJECT)
+
+
+def test_binding_rejects_tag_for_a_different_immutable_image_package() -> None:
+    plan = _plan()
+    changed = replace(
+        plan.execution_template,
+        extensions=(
+            (
+                "spark.container_image_tag",
+                f"{REGION}-docker.pkg.dev/{PROJECT}/dander/other:dander-unit-immutable",
+            ),
+            ("spark.main_python_file_uri", DRIVER),
+            ("spark.runtime_version", "2.3"),
+            ("spark.staging_bucket", STAGING_BUCKET),
+        ),
+    )
+
+    with pytest.raises(DataprocServerlessOperationError, match="immutable plan image package"):
         DataprocServerlessBinding.from_execution_template(changed, project_id=PROJECT)
 
 
