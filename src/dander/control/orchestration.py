@@ -472,6 +472,13 @@ class ExecutionPlan:
                 raise OrchestrationContractError(
                     "execution command must end with the exact canonical physical plan"
                 )
+        if self.backend_id == "dataproc_serverless" and (
+            self.physical_plan is None
+            or self.physical_plan.execution_mode is not PhysicalExecutionMode.DISTRIBUTED
+        ):
+            raise OrchestrationContractError(
+                "Managed Spark execution requires distributed physical execution"
+            )
 
     @property
     def revision(self) -> str:

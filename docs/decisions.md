@@ -2188,3 +2188,18 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   the provider-supported tag while retaining the digest as Dander's canonical artifact identity.
 - **Boundary:** This is a provider-reference correction only. It does not alter the driver,
   pipeline logic, executor count, physical plan, runtime image, or any other execution backend.
+
+## 2026-08-27 — Control compiles bounded physical plans from canonical graphs
+
+- **Planner:** Control accepts the canonical graph document, an execution pipeline id, and one
+  explicit physical mode. Fused planning places all node ids in one canonical single-partition
+  stage. Distributed planning accepts only one source-to-transform-to-target chain and emits two
+  fixed two-partition stages connected by one round-robin object-store exchange. Node and edge
+  declaration order cannot change the resulting plan or revision.
+- **Handoff:** A single binder appends the exact canonical physical-plan argument to an otherwise
+  unchanged execution template. The immutable execution plan still owns environment and backend
+  selection, while Managed Spark now fails construction unless its physical mode is distributed.
+  Canonical execution-plan serialization retains both decisions for replay and restart recovery.
+- **Boundary:** The accepted Spark driver remains qualification-specific. This adds no general
+  Spark operators, joins, provider calls, dynamic topology or partitions, resource estimation,
+  autoscaling, Kubernetes, job clusters, or new cost/locality placement behavior.
