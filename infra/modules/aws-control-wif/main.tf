@@ -61,6 +61,12 @@ resource "google_project_iam_member" "cloud_run_developer" {
   member  = "serviceAccount:${google_service_account.control.email}"
 }
 
+resource "google_project_iam_member" "artifact_registry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.control.email}"
+}
+
 resource "google_project_iam_member" "logging_viewer" {
   project = var.project_id
   role    = "roles/logging.viewer"
