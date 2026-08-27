@@ -2128,9 +2128,11 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   infer partitions, resize a job, or select a cluster shape at runtime.
 - **Lifecycle:** Run and attempt identities derive one batch ID and one create request UUID, so
   restart recovery adopts the original batch. Control normalizes batch status, output logs,
-  runtime results, and operation cancellation through its existing reconciler. Managed Spark
-  deletes workload compute after terminal completion; the batch record and persistent Cloud Logs
-  remain as evidence rather than being treated as live compute.
+  runtime results, and operation cancellation through its existing reconciler. Provider operation
+  validation accepts both location- and region-scoped long-running operation names because the
+  batch API returns the regional form. Managed Spark deletes workload compute after terminal
+  completion; the batch record and persistent Cloud Logs remain as evidence rather than being
+  treated as live compute.
 - **Boundary:** This is the provider adapter and immutable driver contract, not live qualification
   of a particular driver/image pair. Publishing and qualifying that pair is separate bounded work.
   Dynamic physical planning, resource sizing, autoscaling, Kubernetes, and a general cluster
