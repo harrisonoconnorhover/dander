@@ -320,7 +320,7 @@ def test_submit_is_deterministic_fixed_size_and_restart_adopts() -> None:
     assert isinstance(properties, dict)
     assert properties["spark.dynamicAllocation.enabled"] == "false"
     assert properties["spark.executor.instances"] == "2"
-    assert runtime["autotuningConfig"] == {"scenarios": ["NONE"]}
+    assert "autotuningConfig" not in runtime
     assert runtime["containerImage"] == TAGGED_IMAGE
     environment = body["environmentConfig"]
     assert isinstance(environment, dict)
