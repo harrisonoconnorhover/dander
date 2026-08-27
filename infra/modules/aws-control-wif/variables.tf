@@ -14,7 +14,7 @@ variable "aws_control_role_arn" {
 }
 
 variable "runtime_service_account_names" {
-  type        = set(string)
-  description = "Cloud Run runtime service-account resource names Control may act as."
-  default     = []
+  type        = map(string)
+  description = "Cloud Run runtime service-account resource names keyed by stable pipeline id."
+  default     = {}
 }

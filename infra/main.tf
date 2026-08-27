@@ -86,7 +86,7 @@ module "aws_control_wif" {
 
   project_id                    = var.project_id
   aws_control_role_arn          = var.aws_control_role_arn
-  runtime_service_account_names = toset(values(module.scheduled_job[0].runtime_service_account_names))
+  runtime_service_account_names = module.scheduled_job[0].runtime_service_account_names
 }
 
 check "github_wif_requires_runtime" {
