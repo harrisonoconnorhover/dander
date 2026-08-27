@@ -18,6 +18,8 @@
 !examples/**
 !infra/
 !infra/**
+!scripts/
+!scripts/spark_driver.py
 !dist/
 !dist/*.whl
 infra/.DS_Store

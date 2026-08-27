@@ -40,6 +40,15 @@ from dander.deployment.projection import (
     ResourceProjection,
     ScheduleProjection,
 )
+from dander.physical_plan import (
+    ExchangeTransport,
+    PartitioningStrategy,
+    PhysicalExchange,
+    PhysicalExecutionMode,
+    PhysicalPlan,
+    PhysicalStage,
+    serialize_physical_plan,
+)
 from dander.runtime_contract import RUNTIME_CONTRACT
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -283,6 +292,132 @@ def _multicloud_source(**updates: object) -> AWSControlPlaneInput:
             serialize_execution_plan(gcp_plan).decode(),
         ),
         "trigger_spec_json": scheduled.trigger_spec_json,
+        "gcp_project_id": GCP_PROJECT,
+        "gcp_control_service_account": (
+            f"dander-aws-control@{GCP_PROJECT}.iam.gserviceaccount.com"
+        ),
+        "gcp_wif_audience": (
+            "//iam.googleapis.com/projects/123456789012/locations/global/"
+            "workloadIdentityPools/dander-aws-control/providers/aws-control"
+        ),
+    }
+    values.update(updates)
+    return _source(**values)
+
+
+def _spark_source(**updates: object) -> AWSControlPlaneInput:
+    physical = PhysicalPlan(
+        pipeline_id="spark_bigquery_qualification",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        stages=(
+            PhysicalStage(
+                stage_id="extract",
+                operators=("spark_seed",),
+                partition_count=2,
+            ),
+            PhysicalStage(
+                stage_id="publish",
+                operators=("bigquery_publish",),
+                partition_count=2,
+                depends_on=("extract",),
+            ),
+        ),
+        exchanges=(
+            PhysicalExchange(
+                exchange_id="extract-publish",
+                producer_stage_id="extract",
+                consumer_stage_id="publish",
+                transport=ExchangeTransport.OBJECT_STORE,
+                partitioning=PartitioningStrategy.ROUND_ROBIN,
+                partition_count=2,
+            ),
+        ),
+        maximum_parallelism=2,
+    )
+    template = ExecutionTemplate(
+        schema=EXECUTION_PROJECTION_SCHEMA,
+        contract=RUNTIME_CONTRACT,
+        pipeline_id=physical.pipeline_id,
+        profile_id="gcp",
+        launcher="dataproc_serverless",
+        image=GCP_IMAGE,
+        command=(
+            "runtime",
+            "execute",
+            "--contract",
+            RUNTIME_CONTRACT,
+            "--pipeline",
+            physical.pipeline_id,
+            "--platform",
+            "gcp",
+            "--project",
+            GCP_PROJECT,
+            "--dataset",
+            "dander_spark_qualification",
+            "--staging-bucket",
+            "dander-unit-spark",
+            "--driver-sha256",
+            "9" * 64,
+            "--physical-plan",
+            serialize_physical_plan(physical).decode(),
+        ),
+        configuration_reference=("gs://dander-unit-spark/config/" + "8" * 64 + ".json"),
+        environment=(),
+        secret_bindings=(),
+        workload_identity=f"dander-spark@{GCP_PROJECT}.iam.gserviceaccount.com",
+        resources=ResourceProjection(
+            cpu_millis=4_000,
+            memory_mib=16_384,
+            ephemeral_storage_mib=None,
+            deadline_seconds=600,
+            runtime_retry_count=0,
+            launcher_retry_count=1,
+        ),
+        schedule=ScheduleProjection(
+            task_count=2,
+            maximum_parallelism=2,
+            expression=None,
+            time_zone=None,
+            paused=True,
+        ),
+        network=NetworkPlacement(
+            placement=(f"projects/{GCP_PROJECT}/regions/us-central1/subnetworks/dander-spark")
+        ),
+        labels=(),
+        observability=ObservabilityProjection(
+            log_destination="cloud_logging",
+            metric_namespace="dataproc.googleapis.com",
+            alert_target=None,
+            retention_days=None,
+        ),
+        extensions=(
+            (
+                "spark.main_python_file_uri",
+                "gs://dander-unit-spark/driver/" + "9" * 64 + ".py",
+            ),
+            ("spark.runtime_version", "2.3"),
+            ("spark.staging_bucket", "dander-unit-spark"),
+        ),
+    )
+    plan = ExecutionPlan(
+        plan_id="gcp-managed-spark",
+        environment="gcp",
+        project="demo",
+        graph="spark-qualification",
+        graph_revision="graph-r1",
+        graph_content_sha256="7" * 64,
+        backend_id="dataproc_serverless",
+        profile_id="gcp",
+        image=GCP_IMAGE,
+        execution_template=template,
+        deadline_seconds=600,
+        retry_policy=RetryPolicy(max_attempts=2),
+        physical_plan=physical,
+    )
+    values: dict[str, object] = {
+        "platforms_config_yaml": _platforms_config(),
+        "execution_plan_json": (serialize_execution_plan(plan).decode(),),
+        "run_environment": "gcp",
         "gcp_project_id": GCP_PROJECT,
         "gcp_control_service_account": (
             f"dander-aws-control@{GCP_PROJECT}.iam.gserviceaccount.com"
@@ -569,6 +704,34 @@ def test_multicloud_projection_keeps_one_control_and_scopes_each_backend() -> No
     ]
     with pytest.raises(ValidationError, match="workload identity inputs"):
         _multicloud_source(gcp_wif_audience="")
+
+
+def test_managed_spark_projection_uses_the_existing_gcp_identity_handoff() -> None:
+    source = _spark_source()
+    rendered = render_aws_control_plane(source)
+    active = json.loads(rendered["active.tfvars.json"])
+    plan = source.execution_plans[0]
+
+    assert active["control_fargate_bindings"] == {}
+    assert active["control_cloud_run_plan_revisions"] == []
+    assert active["control_dataproc_plan_revisions"] == [plan.revision]
+    assert active["gcp_control_service_account"] == source.gcp_control_service_account
+    assert active["gcp_wif_audience"] == source.gcp_wif_audience
+    gcp_index = active["control_args"].index("--gcp-project-id")
+    assert active["control_args"][gcp_index : gcp_index + 2] == [
+        "--gcp-project-id",
+        GCP_PROJECT,
+    ]
+    assert "--gcp-deployment-name" not in active["control_args"]
+    manifest = json.loads(rendered["deployment.json"])
+    assert manifest["orchestration"]["gcp_project_id"] == GCP_PROJECT
+    assert "gcp_deployment_name" not in manifest["orchestration"]
+    with pytest.raises(ValidationError, match="GCP execution plan"):
+        _scheduled_source(
+            gcp_project_id=GCP_PROJECT,
+            gcp_control_service_account=source.gcp_control_service_account,
+            gcp_wif_audience=source.gcp_wif_audience,
+        )
 
 
 @pytest.mark.parametrize("complete", [False, True])

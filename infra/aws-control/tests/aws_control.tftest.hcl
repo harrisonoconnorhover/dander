@@ -324,3 +324,35 @@ run "schedules_use_encrypted_at_least_once_control_wakeups" {
     error_message = "Only Control may consume wakeups and only Scheduler may send them."
   }
 }
+
+run "managed_spark_plans_share_the_single_gcp_identity_handoff" {
+  command = plan
+
+  variables {
+    execution_plan_json = {
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" = "{\"schema\":\"io.dander.control.execution-plan/v2\"}"
+    }
+    control_fargate_bindings         = {}
+    control_cloud_run_plan_revisions = []
+    control_dataproc_plan_revisions  = ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+    trigger_spec_json                = {}
+    control_schedules                = {}
+    gcp_control_service_account      = "dander-control@dander-unit-project.iam.gserviceaccount.com"
+    gcp_wif_audience                 = "//iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/dander-control/providers/aws-control"
+  }
+
+  assert {
+    condition = (
+      length(jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].environment) == 2 &&
+      contains(
+        jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].environment[*].name,
+        "DANDER_GCP_SERVICE_ACCOUNT",
+      ) &&
+      contains(
+        jsondecode(aws_ecs_task_definition.control[0].container_definitions)[1].environment[*].name,
+        "DANDER_GCP_WIF_AUDIENCE",
+      )
+    )
+    error_message = "Managed Spark plans must reuse the one reviewed Google identity handoff."
+  }
+}

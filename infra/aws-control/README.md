@@ -31,6 +31,10 @@ wakeup queue and DLQ. The Control task may receive/delete/read attributes only o
 Both queues use SSE-SQS and deny non-TLS access. The source queue redrives after five receives;
 Scheduler separately retries delivery three times for at most one hour before using the DLQ.
 
+Cloud Run and Managed Spark execution-plan revision sets share the same keyless GCP Control
+identity variables. Their sets remain distinct so Terraform can prove that every canonical plan
+has exactly one execution backend while the ECS task receives only one Google identity handoff.
+
 CloudFront disables caching for `/v1/*`, `/healthz`, and `/readyz`; forwards viewer headers and all
 query strings but no cookies; and leaves the static minimum TTL at zero so Caddy's `no-store` and
 immutable-asset headers remain authoritative. CloudFront and ALB access logging stay disabled so
