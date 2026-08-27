@@ -27,6 +27,8 @@ from dander.control.orchestration import (
     RunStoreIdempotencyConflictError,
     RunSubmission,
     RunTrigger,
+    SizeClassDecision,
+    SizeClassMode,
     TriggerKind,
     attempt_identity,
     create_run_record,
@@ -184,6 +186,16 @@ def _submission(
             max_cost_microusd=None,
             eligible_plan_count=1,
         ),
+        size_class_decision=SizeClassDecision(
+            mode=SizeClassMode.CONFIGURED_DEFAULT,
+            selected_size_class="small",
+            estimated_input_bytes=None,
+            max_input_bytes=1_000,
+            cpu_millis=1_000,
+            memory_mib=2_048,
+            ephemeral_storage_mib=21_504,
+            eligible_plan_count=1,
+        ),
         idempotency_key=key,
         requested_at=requested_at,
         requested_deadline_seconds=240,
@@ -221,7 +233,7 @@ def test_versioned_records_round_trip_as_canonical_bytes() -> None:
         == _result_summary()
     )
     assert json.loads(serialize_execution_plan(plan))["schema"].endswith("/v1")
-    assert json.loads(serialize_run_record(run))["schema"].endswith("/v3")
+    assert json.loads(serialize_run_record(run))["schema"].endswith("/v4")
     assert json.loads(serialize_attempt_record(attempt))["schema"].endswith("/v1")
 
 
@@ -251,6 +263,7 @@ def test_v1_run_snapshot_and_idempotency_claim_recover_without_invented_results(
         assert isinstance(record, dict)
         record.pop("result_summary")
         record.pop("placement_decision")
+        record.pop("size_class_decision")
         item.data = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
 
     restarted = _store(backend)
@@ -265,6 +278,7 @@ def test_v1_run_snapshot_and_idempotency_claim_recover_without_invented_results(
     assert recovered.record.results_state is ResultsState.AVAILABLE
     assert recovered.record.result_summary is None
     assert recovered.record.placement_decision is None
+    assert recovered.record.size_class_decision is None
 
 
 def test_v2_run_snapshot_recovers_results_without_invented_placement() -> None:
@@ -281,12 +295,28 @@ def test_v2_run_snapshot_recovers_results_without_invented_placement() -> None:
     envelope = json.loads(serialize_run_record(record))
     envelope["schema"] = "io.dander.control.run-record/v2"
     envelope["record"].pop("placement_decision")
+    envelope["record"].pop("size_class_decision")
     recovered = deserialize_run_record(
         json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
     )
 
     assert recovered.result_summary == _result_summary()
     assert recovered.placement_decision is None
+    assert recovered.size_class_decision is None
+
+
+def test_v3_run_snapshot_recovers_placement_without_invented_sizing() -> None:
+    record = create_run_record(_submission())
+    envelope = json.loads(serialize_run_record(record))
+    envelope["schema"] = "io.dander.control.run-record/v3"
+    envelope["record"].pop("size_class_decision")
+
+    recovered = deserialize_run_record(
+        json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
+    )
+
+    assert recovered.placement_decision == record.placement_decision
+    assert recovered.size_class_decision is None
 
 
 def test_plan_revision_is_computed_and_tampering_is_rejected() -> None:

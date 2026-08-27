@@ -512,6 +512,8 @@ def test_automatic_placement_renders_one_bounded_control_startup_policy() -> Non
         run_placement_candidates=candidates,
         run_preferred_locality="us-east-1",
         run_max_cost_microusd=500,
+        run_size_candidates=tuple(f"{plan.revision},small,1000" for plan in plans),
+        run_default_size_class="small",
     )
 
     rendered = render_aws_control_plane(source)
@@ -527,6 +529,9 @@ def test_automatic_placement_renders_one_bounded_control_startup_policy() -> Non
     assert manifest["orchestration"]["run_placement_candidates"] == list(
         source.run_placement_candidates
     )
+    assert args.count("--run-size-candidate") == 2
+    assert args[args.index("--run-default-size-class") + 1] == "small"
+    assert manifest["orchestration"]["run_size_candidates"] == list(source.run_size_candidates)
 
     with pytest.raises(ValidationError, match="requires candidates, locality, and max cost"):
         _multicloud_source(run_environment="auto")

@@ -105,6 +105,16 @@ def serve_control(
         min=0,
         help="Maximum static estimated run cost used by automatic placement.",
     ),
+    run_size_candidates: list[str] | None = typer.Option(  # noqa: B008
+        None,
+        "--run-size-candidate",
+        help="Plan revision,size-class,max-input-bytes; repeat for fixed-size selection.",
+    ),
+    run_default_size_class: str | None = typer.Option(
+        None,
+        "--run-default-size-class",
+        help="Default portable size class when a request supplies no input estimate.",
+    ),
     reconcile_interval_seconds: float = typer.Option(
         5.0,
         "--reconcile-interval-seconds",
@@ -180,7 +190,10 @@ def serve_control(
         selected_projects = tuple(projects or ("default",))
         if execution_plans:
             assert run_store_bucket is not None
-            from dander.control.orchestration import parse_placement_candidate_spec
+            from dander.control.orchestration import (
+                parse_placement_candidate_spec,
+                parse_size_class_candidate_spec,
+            )
             from dander.control.run_composition import build_fargate_run_composition
 
             placement_candidates = tuple(
@@ -189,6 +202,12 @@ def serve_control(
                         parse_placement_candidate_spec(value)
                         for value in run_placement_candidates or ()
                     ),
+                    key=lambda candidate: candidate.plan_revision,
+                )
+            )
+            size_class_candidates = tuple(
+                sorted(
+                    (parse_size_class_candidate_spec(value) for value in run_size_candidates or ()),
                     key=lambda candidate: candidate.plan_revision,
                 )
             )
@@ -203,6 +222,8 @@ def serve_control(
                 placement_candidates=placement_candidates,
                 preferred_locality=run_preferred_locality,
                 max_cost_microusd=run_max_cost_microusd,
+                size_class_candidates=size_class_candidates,
+                default_size_class=run_default_size_class,
                 deployment_name=aws_deployment_name,
                 gcp_project_id=gcp_project_id,
                 gcp_deployment_name=gcp_deployment_name,

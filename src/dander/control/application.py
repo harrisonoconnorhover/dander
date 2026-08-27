@@ -141,6 +141,8 @@ class RunSubmissionResolver(Protocol):
         idempotency_key: str,
         requested_at: datetime,
         environment: str | None = None,
+        size_class: str | None = None,
+        estimated_input_bytes: int | None = None,
     ) -> RunSubmission: ...
 
 
@@ -288,6 +290,8 @@ class ControlApplication:
         expected_revision: str,
         idempotency_key: str,
         environment: str | None = None,
+        size_class: str | None = None,
+        estimated_input_bytes: int | None = None,
     ) -> RunStatusResponse:
         lifecycle = self._require_lifecycle()
         record = self.require_graph_revision(project, graph, expected_revision)
@@ -297,6 +301,8 @@ class ControlApplication:
             idempotency_key=idempotency_key,
             requested_at=datetime.now(UTC),
             environment=environment,
+            size_class=size_class,
+            estimated_input_bytes=estimated_input_bytes,
         )
         if submission.graph != record or submission.idempotency_key != idempotency_key:
             raise RuntimeError("The submission resolver changed validated request identity.")

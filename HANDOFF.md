@@ -2,35 +2,35 @@
 
 ## Finished
 
-- Added deterministic Control placement across registered execution plans using static per-plan locality and micro-USD estimates.
-- Enforced a maximum estimated cost, preferred locality, stable cost/tie ordering, and the existing `environment` query as a manual override.
-- Persisted a versioned placement decision in run-record v3 and exposed it through run status after restart.
-- Preserved v1/v2 run-record recovery and the existing fixed-environment behavior.
-- Rendered the bounded placement policy through the existing AWS Control startup arguments.
+- Added bounded size-class selection across immutable registered Fargate and Cloud Run plans.
+- Added API selection by explicit `size_class` or bounded `estimated_input_bytes`, with a configured default.
+- Persisted versioned sizing evidence in run-record v4 and exposed it through Control status.
+- Preserved v1-v3 recovery, schedules, replay behavior, and fixed single-plan deployments.
+- Rendered size candidates and the default class through existing AWS Control startup arguments.
 
 ## Try It
 
-Start Control with `--run-environment auto`, repeat `--run-placement-candidate REVISION,LOCALITY,COST`, and supply `--run-preferred-locality` plus `--run-max-cost-microusd`. Add `?environment=gcp` to override.
+Repeat `--run-size-candidate REVISION,CLASS,MAX_BYTES`, set `--run-default-size-class`, then start a run with either `?size_class=small` or `?estimated_input_bytes=5000000`.
 
 ## Checks
 
-- Full pytest with all extras: passed (35 skipped).
-- Ruff lint/format, strict type check across 461 source files, and diff check: passed.
-- Generated and validated the Control contract bundle; focused Control, CLI, serialization, scheduling, and AWS projection tests passed.
+- Full pytest with all extras: passed.
+- Ruff and strict type check across 461 source files: passed.
+- Generated and validated the Control contract bundle; focused Control, CLI, serialization, scheduling, AWS, and Kubernetes tests passed.
 
 ## Decisions
 
-- Static estimates are keyed by immutable plan revision; no pricing service or new infrastructure was introduced.
-- Locality ranks first, cost ranks second inside the hard budget, and stable plan identity breaks ties.
-- Placement evidence does not alter exact-plan idempotency, preserving retries of pre-v3 runs.
+- Size classes map only to pre-registered immutable plans; the selected plan remains the resource source of truth.
+- Size filtering happens before the existing cost/locality placement and chooses the smallest fitting class per environment.
+- Sizing evidence does not alter exact-plan idempotency; the plan revision already captures execution resources.
 
 ## Remaining
 
-- Merge DANDER-239 after protected checks and confirm exact-main CI.
-- Implement bounded single-container size-class selection next.
+- Open the protected DANDER-240 PR, merge after required checks, and confirm exact-main CI.
+- Begin physical-plan v1 only after DANDER-240 closes.
 
 ## Review First
 
 - `src/dander/control/run_lifecycle.py`
 - `src/dander/control/orchestration.py`
-- `src/dander/deployment/aws_control_plane.py`
+- `src/dander/control/orchestration_serialization.py`

@@ -280,6 +280,10 @@ class _SubmissionResolver:
     environment: str = "production"
     plan_id: str = "default-plan"
     plan_revision: str = "a" * 64
+    observed: list[tuple[str | None, int | None]] = field(
+        default_factory=list,
+        compare=False,
+    )
 
     def resolve(
         self,
@@ -288,7 +292,10 @@ class _SubmissionResolver:
         idempotency_key: str,
         requested_at: datetime,
         environment: str | None = None,
+        size_class: str | None = None,
+        estimated_input_bytes: int | None = None,
     ) -> RunSubmission:
+        self.observed.append((size_class, estimated_input_bytes))
         return RunSubmission(
             environment=environment or self.environment,
             project=record.project,
@@ -307,24 +314,26 @@ def _status(run_id: str) -> RunStatusResponse:
 
 def test_normalized_lifecycle_receives_decoded_revision_and_explicit_idempotency() -> None:
     lifecycle = _Lifecycle()
+    resolver = _SubmissionResolver()
     store = InMemoryGraphStore(revision_factory=lambda: 'native/"revision')
     application = ControlApplication(
         store,
         lifecycle=cast("RunLifecyclePort", lifecycle),
-        submission_resolver=cast("RunSubmissionResolver", _SubmissionResolver()),
+        submission_resolver=cast("RunSubmissionResolver", resolver),
         projects=("demo-project",),
     )
     client = TestClient(create_control_app(application))
     with client:
         created = _create(client, "alpha-graph")
         start = client.post(
-            "/v1/projects/demo-project/graphs/alpha-graph/runs",
+            "/v1/projects/demo-project/graphs/alpha-graph/runs?size_class=small",
             headers={
                 "If-Match": created.headers["etag"],
                 "Idempotency-Key": "start-key-0001",
             },
         )
         assert start.status_code == 202
+        assert resolver.observed == [("small", None)]
         assert len(lifecycle.starts) == 1
         assert lifecycle.starts[0].graph.revision == 'native/"revision'
         assert lifecycle.starts[0].environment == "production"

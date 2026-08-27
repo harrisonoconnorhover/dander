@@ -658,6 +658,26 @@ class RunPlacementDecision(ControlModel):
     eligible_plan_count: int = Field(ge=1, le=100)
 
 
+class RunSizeClassDecision(ControlModel):
+    """Fixed-size explanation of the selected single-container resource class."""
+
+    decision_schema: Literal["io.dander.control.size-class-decision/v1"]
+    mode: Literal[
+        "automatic_input",
+        "manual_override",
+        "configured_default",
+        "scheduled",
+        "replay",
+    ]
+    selected_size_class: str
+    estimated_input_bytes: int | None = Field(default=None, ge=0, le=_MAX_RESULT_INTEGER)
+    max_input_bytes: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
+    cpu_millis: int = Field(ge=1)
+    memory_mib: int = Field(ge=1)
+    ephemeral_storage_mib: int | None = Field(default=None, ge=1)
+    eligible_plan_count: int = Field(ge=1, le=100)
+
+
 class RunStatusResponse(ControlModel):
     run_id: str
     state: RunState
@@ -674,6 +694,7 @@ class RunStatusResponse(ControlModel):
     skipped: bool = False
     telemetry: RunTelemetrySummary | None = None
     placement: RunPlacementDecision | None = None
+    sizing: RunSizeClassDecision | None = None
     failure_code: str | None = None
     failure_summary: str | None = None
     can_cancel: bool = False

@@ -26,7 +26,9 @@ from dander.control.orchestration import (
     TriggerKind,
     TriggerSpec,
     format_placement_candidate_spec,
+    format_size_class_candidate_spec,
     parse_placement_candidate_spec,
+    parse_size_class_candidate_spec,
 )
 from dander.control.orchestration_serialization import (
     OrchestrationSerializationError,
@@ -276,6 +278,8 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     run_placement_candidates: tuple[str, ...] = ()
     run_preferred_locality: str = ""
     run_max_cost_microusd: int | None = Field(default=None, ge=0)
+    run_size_candidates: tuple[str, ...] = ()
+    run_default_size_class: str = ""
     fargate_deployment_name: str = "dander"
     gcp_project_id: str = ""
     gcp_deployment_name: str = "gcp_cloud_run"
@@ -335,6 +339,29 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
             raise ValueError("AWS Control placement candidates must select unique revisions.")
         return tuple(
             format_placement_candidate_spec(item)
+            for item in sorted(candidates, key=lambda item: item.plan_revision)
+        )
+
+    @field_validator("run_default_size_class")
+    @classmethod
+    def validate_run_default_size_class(cls, value: str) -> str:
+        if value and _PORTABLE_ID.fullmatch(value) is None:
+            raise ValueError("AWS Control default size class is invalid.")
+        return value
+
+    @field_validator("run_size_candidates")
+    @classmethod
+    def validate_run_size_candidates(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        try:
+            candidates = tuple(parse_size_class_candidate_spec(item) for item in value)
+        except (AttributeError, OrchestrationContractError) as error:
+            raise ValueError("AWS Control size-class candidates are invalid.") from error
+        if len(candidates) > 100 or len({item.plan_revision for item in candidates}) != len(
+            candidates
+        ):
+            raise ValueError("AWS Control size-class candidates must select unique revisions.")
+        return tuple(
+            format_size_class_candidate_spec(item)
             for item in sorted(candidates, key=lambda item: item.plan_revision)
         )
 
@@ -502,6 +529,13 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
         }
         if placement_revisions - set(by_revision):
             raise ValueError("AWS Control placement candidate selects an unconfigured plan.")
+        size_revisions = {
+            parse_size_class_candidate_spec(item).plan_revision for item in self.run_size_candidates
+        }
+        if size_revisions - set(by_revision):
+            raise ValueError("AWS Control size-class candidate selects an unconfigured plan.")
+        if self.run_default_size_class and not size_revisions:
+            raise ValueError("AWS Control default size class requires size candidates.")
         if self.run_environment == "auto" and (
             not placement_revisions
             or not self.run_preferred_locality
@@ -716,6 +750,10 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
             control_args.extend(("--run-preferred-locality", source.run_preferred_locality))
         if source.run_max_cost_microusd is not None:
             control_args.extend(("--run-max-cost-microusd", str(source.run_max_cost_microusd)))
+        for candidate in source.run_size_candidates:
+            control_args.extend(("--run-size-candidate", candidate))
+        if source.run_default_size_class:
+            control_args.extend(("--run-default-size-class", source.run_default_size_class))
         for spec in source.trigger_specs:
             control_args.extend(
                 (
@@ -797,6 +835,14 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
                 if source.run_placement_candidates
                 or source.run_preferred_locality
                 or source.run_max_cost_microusd is not None
+                else {}
+            ),
+            **(
+                {
+                    "run_size_candidates": list(source.run_size_candidates),
+                    "run_default_size_class": source.run_default_size_class,
+                }
+                if source.run_size_candidates or source.run_default_size_class
                 else {}
             ),
             **(

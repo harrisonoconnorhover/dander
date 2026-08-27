@@ -27,6 +27,7 @@ from dander.control.models import (
     MutationResult,
     RunPageResponse,
     RunPlacementDecision,
+    RunSizeClassDecision,
     RunState,
     RunStatusResponse,
     RunTelemetrySummary,
@@ -49,6 +50,9 @@ from dander.control.orchestration import (
     RunStoreIdempotencyConflictError,
     RunSubmission,
     RunTrigger,
+    SizeClassCandidate,
+    SizeClassDecision,
+    SizeClassMode,
     StoredRun,
     TriggerKind,
     dispatch_run_attempt,
@@ -66,7 +70,7 @@ if TYPE_CHECKING:
 
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
-_MAX_COST_MICROUSD = 9_223_372_036_854_775_807
+_MAX_BOUNDED_INTEGER = 9_223_372_036_854_775_807
 _LOGGER = logging.getLogger("dander.control.reconciler")
 
 
@@ -95,11 +99,11 @@ class DurableMutationClaimStore(Protocol):
 
 
 class ExecutionPlanRegistry:
-    """Select one active immutable plan per environment/project/graph route."""
+    """Retain bounded immutable plans, including fixed-size route variants."""
 
     def __init__(self, plans: Iterable[ExecutionPlan]) -> None:
         by_revision: dict[str, ExecutionPlan] = {}
-        by_route: dict[tuple[str, str, str], ExecutionPlan] = {}
+        by_route: dict[tuple[str, str, str], list[ExecutionPlan]] = {}
         for plan in plans:
             existing = by_revision.setdefault(plan.revision, plan)
             if existing != plan:
@@ -107,17 +111,16 @@ class ExecutionPlanRegistry:
                     "an execution-plan revision contains conflicting contents"
                 )
             route = (plan.environment, plan.project, plan.graph)
-            selected = by_route.setdefault(route, plan)
-            if selected.revision != plan.revision:
-                raise OrchestrationContractError(
-                    "an execution route selects more than one active plan revision"
-                )
+            by_route.setdefault(route, []).append(plan)
         if not by_revision:
             raise OrchestrationContractError("at least one execution plan is required")
         if len(by_revision) > 100:
             raise OrchestrationContractError("the execution-plan registry exceeds its bound")
         self._by_revision = by_revision
-        self._by_route = by_route
+        self._by_route = {
+            route: tuple(sorted(selected, key=lambda item: item.revision))
+            for route, selected in by_route.items()
+        }
 
     @property
     def plans(self) -> tuple[ExecutionPlan, ...]:
@@ -126,19 +129,36 @@ class ExecutionPlanRegistry:
 
     def select(self, record: GraphRecord, *, environment: str) -> ExecutionPlan:
         """Select the active plan and reject graph/image deployment staleness."""
-        plan = self._by_route.get((environment, record.project, record.graph))
-        if plan is None:
+        selected = self.current_for_environment(record, environment=environment)
+        if len(selected) != 1:
+            raise ControlOperationUnavailableError(
+                "The hosted execution route requires an explicit size-class selection."
+            )
+        return selected[0]
+
+    def current_for_environment(
+        self,
+        record: GraphRecord,
+        *,
+        environment: str,
+    ) -> tuple[ExecutionPlan, ...]:
+        """Return current fixed-size plan variants for one exact environment."""
+        selected = self._by_route.get((environment, record.project, record.graph))
+        if selected is None:
             raise ControlOperationUnavailableError(
                 "No hosted execution plan is configured for this graph."
             )
-        if (
-            plan.graph_revision != record.revision
-            or plan.graph_content_sha256 != record.content_sha256
-        ):
+        current = tuple(
+            plan
+            for plan in selected
+            if plan.graph_revision == record.revision
+            and plan.graph_content_sha256 == record.content_sha256
+        )
+        if len(current) != len(selected):
             raise ControlOperationConflictError(
                 "The hosted execution plan does not match the current graph revision."
             )
-        return plan
+        return current
 
     def current_for_graph(self, record: GraphRecord) -> tuple[ExecutionPlan, ...]:
         """Return every current provider plan eligible for automatic placement."""
@@ -258,6 +278,8 @@ class PlanRunSubmissionResolver:
     placement_candidates: tuple[PlacementCandidate, ...] = ()
     preferred_locality: str | None = None
     max_cost_microusd: int | None = None
+    size_class_candidates: tuple[SizeClassCandidate, ...] = ()
+    default_size_class: str | None = None
 
     def __post_init__(self) -> None:
         revisions = [candidate.plan_revision for candidate in self.placement_candidates]
@@ -289,11 +311,41 @@ class PlanRunSubmissionResolver:
         if self.max_cost_microusd is not None and (
             isinstance(self.max_cost_microusd, bool)
             or not isinstance(self.max_cost_microusd, int)
-            or not 0 <= self.max_cost_microusd <= _MAX_COST_MICROUSD
+            or not 0 <= self.max_cost_microusd <= _MAX_BOUNDED_INTEGER
         ):
             raise OrchestrationContractError(
                 "placement maximum cost must be non-negative micro-USD"
             )
+        size_revisions = [candidate.plan_revision for candidate in self.size_class_candidates]
+        if len(size_revisions) != len(set(size_revisions)):
+            raise OrchestrationContractError("size-class candidates must use unique revisions")
+        if unknown := set(size_revisions) - known:
+            raise OrchestrationContractError(
+                f"size-class candidate selects unregistered plan revision {sorted(unknown)[0]}"
+            )
+        routes: dict[tuple[str, str, str], list[ExecutionPlan]] = {}
+        for plan in self.plans.plans:
+            routes.setdefault((plan.environment, plan.project, plan.graph), []).append(plan)
+        sized = self._size_candidates_by_revision()
+        for route_plans in routes.values():
+            if len(route_plans) > 1 and any(plan.revision not in sized for plan in route_plans):
+                raise OrchestrationContractError(
+                    "multi-plan execution routes require a size candidate for every revision"
+                )
+            classes = [
+                sized[plan.revision].size_class for plan in route_plans if plan.revision in sized
+            ]
+            if len(classes) != len(set(classes)):
+                raise OrchestrationContractError(
+                    "an execution route contains duplicate size classes"
+                )
+        if self.default_size_class is not None:
+            if _PORTABLE_ID.fullmatch(self.default_size_class) is None:
+                raise OrchestrationContractError("default size class is invalid")
+            if not self.size_class_candidates:
+                raise OrchestrationContractError(
+                    "a default size class requires configured size candidates"
+                )
 
     def resolve(
         self,
@@ -302,15 +354,28 @@ class PlanRunSubmissionResolver:
         idempotency_key: str,
         requested_at: datetime,
         environment: str | None = None,
+        size_class: str | None = None,
+        estimated_input_bytes: int | None = None,
     ) -> RunSubmission:
+        candidates, size_mode = self._select_size_candidates(
+            record,
+            size_class=size_class,
+            estimated_input_bytes=estimated_input_bytes,
+        )
         if environment is not None:
-            plan = self.plans.select(record, environment=environment)
+            plan = self._select_environment(candidates, environment)
             decision = self._exact_decision(plan, PlacementMode.MANUAL_OVERRIDE)
         elif self.environment == "auto":
-            plan, decision = self._automatically_select(record)
+            plan, decision = self._automatically_select(candidates)
         else:
-            plan = self.plans.select(record, environment=self.environment)
+            plan = self._select_environment(candidates, self.environment)
             decision = self._exact_decision(plan, PlacementMode.CONFIGURED_DEFAULT)
+        size_decision = self._size_decision(
+            plan,
+            candidates,
+            mode=size_mode,
+            estimated_input_bytes=estimated_input_bytes,
+        )
         return RunSubmission(
             environment=plan.environment,
             project=record.project,
@@ -319,6 +384,7 @@ class PlanRunSubmissionResolver:
             plan_revision=plan.revision,
             trigger=RunTrigger(kind=TriggerKind.API, trigger_id="control-api"),
             placement_decision=decision,
+            size_class_decision=size_decision,
             idempotency_key=idempotency_key,
             requested_at=requested_at,
         )
@@ -349,14 +415,14 @@ class PlanRunSubmissionResolver:
 
     def _automatically_select(
         self,
-        record: GraphRecord,
+        plans: tuple[ExecutionPlan, ...],
     ) -> tuple[ExecutionPlan, PlacementDecision]:
         assert self.preferred_locality is not None
         assert self.max_cost_microusd is not None
         estimates = self._candidates_by_revision()
         eligible = tuple(
             (plan, candidate)
-            for plan in self.plans.current_for_graph(record)
+            for plan in plans
             if (candidate := estimates.get(plan.revision)) is not None
             and candidate.estimated_cost_microusd <= self.max_cost_microusd
         )
@@ -386,6 +452,126 @@ class PlanRunSubmissionResolver:
 
     def _candidates_by_revision(self) -> dict[str, PlacementCandidate]:
         return {candidate.plan_revision: candidate for candidate in self.placement_candidates}
+
+    def _size_candidates_by_revision(self) -> dict[str, SizeClassCandidate]:
+        return {candidate.plan_revision: candidate for candidate in self.size_class_candidates}
+
+    def _select_size_candidates(
+        self,
+        record: GraphRecord,
+        *,
+        size_class: str | None,
+        estimated_input_bytes: int | None,
+    ) -> tuple[tuple[ExecutionPlan, ...], SizeClassMode | None]:
+        if size_class is not None and estimated_input_bytes is not None:
+            raise ControlOperationConflictError(
+                "Choose either a size class or estimated input bytes, not both."
+            )
+        if size_class is not None and _PORTABLE_ID.fullmatch(size_class) is None:
+            raise OrchestrationContractError("requested size class is invalid")
+        if estimated_input_bytes is not None and (
+            isinstance(estimated_input_bytes, bool)
+            or not isinstance(estimated_input_bytes, int)
+            or not 0 <= estimated_input_bytes <= _MAX_BOUNDED_INTEGER
+        ):
+            raise OrchestrationContractError("estimated input bytes are invalid")
+        current = self.plans.current_for_graph(record)
+        if not self.size_class_candidates:
+            if size_class is not None or estimated_input_bytes is not None:
+                raise ControlOperationUnavailableError(
+                    "No hosted size classes are configured for this graph."
+                )
+            return current, None
+        selected_class = size_class or self.default_size_class
+        mode = (
+            SizeClassMode.MANUAL_OVERRIDE
+            if size_class is not None
+            else SizeClassMode.AUTOMATIC_INPUT
+            if estimated_input_bytes is not None
+            else SizeClassMode.CONFIGURED_DEFAULT
+        )
+        if selected_class is None and estimated_input_bytes is None:
+            raise ControlOperationUnavailableError(
+                "The hosted execution route requires a size class or estimated input bytes."
+            )
+        configured = self._size_candidates_by_revision()
+        grouped: dict[str, list[tuple[ExecutionPlan, SizeClassCandidate]]] = {}
+        for plan in current:
+            candidate = configured.get(plan.revision)
+            if candidate is not None:
+                grouped.setdefault(plan.environment, []).append((plan, candidate))
+        selected: list[ExecutionPlan] = []
+        for environment in sorted(grouped):
+            choices = grouped[environment]
+            if estimated_input_bytes is not None:
+                fitting = [
+                    item for item in choices if item[1].max_input_bytes >= estimated_input_bytes
+                ]
+                if fitting:
+                    selected.append(
+                        min(
+                            fitting,
+                            key=lambda item: (
+                                item[1].max_input_bytes,
+                                item[1].size_class,
+                                item[0].revision,
+                            ),
+                        )[0]
+                    )
+            else:
+                match = [item for item in choices if item[1].size_class == selected_class]
+                if match:
+                    selected.append(match[0][0])
+        if not selected:
+            raise ControlOperationUnavailableError(
+                "No hosted execution plan satisfies the requested size class."
+            )
+        return tuple(selected), mode
+
+    @staticmethod
+    def _select_environment(
+        plans: tuple[ExecutionPlan, ...],
+        environment: str,
+    ) -> ExecutionPlan:
+        selected = tuple(plan for plan in plans if plan.environment == environment)
+        if len(selected) != 1:
+            raise ControlOperationUnavailableError(
+                "No hosted execution plan satisfies the selected environment and size class."
+            )
+        return selected[0]
+
+    def _size_decision(
+        self,
+        plan: ExecutionPlan,
+        eligible: tuple[ExecutionPlan, ...],
+        *,
+        mode: SizeClassMode | None,
+        estimated_input_bytes: int | None,
+    ) -> SizeClassDecision | None:
+        if mode is None:
+            return None
+        candidate = self._size_candidates_by_revision()[plan.revision]
+        resources = plan.execution_template.resources
+        return SizeClassDecision(
+            mode=mode,
+            selected_size_class=candidate.size_class,
+            estimated_input_bytes=estimated_input_bytes,
+            max_input_bytes=candidate.max_input_bytes,
+            cpu_millis=resources.cpu_millis,
+            memory_mib=resources.memory_mib,
+            ephemeral_storage_mib=resources.ephemeral_storage_mib,
+            eligible_plan_count=len(eligible),
+        )
+
+    def size_decision_for_exact_plan(
+        self,
+        plan: ExecutionPlan,
+        mode: SizeClassMode,
+    ) -> SizeClassDecision | None:
+        """Describe an exact schedule or replay size-class selection."""
+        if plan.revision not in self._size_candidates_by_revision():
+            return None
+        return self._size_decision(plan, (plan,), mode=mode, estimated_input_bytes=None)
 
 
 class ControlRunLifecycle:
@@ -654,6 +840,20 @@ class ControlRunLifecycle:
                     preferred_locality=None,
                     max_cost_microusd=None,
                     eligible_plan_count=1,
+                ),
+                size_class_decision=(
+                    SizeClassDecision(
+                        mode=SizeClassMode.REPLAY,
+                        selected_size_class=source.size_class_decision.selected_size_class,
+                        estimated_input_bytes=source.size_class_decision.estimated_input_bytes,
+                        max_input_bytes=source.size_class_decision.max_input_bytes,
+                        cpu_millis=source.size_class_decision.cpu_millis,
+                        memory_mib=source.size_class_decision.memory_mib,
+                        ephemeral_storage_mib=source.size_class_decision.ephemeral_storage_mib,
+                        eligible_plan_count=1,
+                    )
+                    if source.size_class_decision
+                    else None
                 ),
                 idempotency_key=idempotency_key,
                 requested_at=self._now(),
@@ -975,6 +1175,21 @@ def _status_response(record: RunRecord) -> RunStatusResponse:
                 eligible_plan_count=record.placement_decision.eligible_plan_count,
             )
             if record.placement_decision
+            else None
+        ),
+        sizing=(
+            RunSizeClassDecision(
+                decision_schema=record.size_class_decision.schema,
+                mode=record.size_class_decision.mode.value,
+                selected_size_class=record.size_class_decision.selected_size_class,
+                estimated_input_bytes=record.size_class_decision.estimated_input_bytes,
+                max_input_bytes=record.size_class_decision.max_input_bytes,
+                cpu_millis=record.size_class_decision.cpu_millis,
+                memory_mib=record.size_class_decision.memory_mib,
+                ephemeral_storage_mib=record.size_class_decision.ephemeral_storage_mib,
+                eligible_plan_count=record.size_class_decision.eligible_plan_count,
+            )
+            if record.size_class_decision
             else None
         ),
         failure_code="hosted_execution_failed" if failed else None,

@@ -22,6 +22,7 @@ from dander.control.orchestration import (
     RunSubmission,
     RunTrigger,
     ScheduleWakeup,
+    SizeClassMode,
     TriggerKind,
     TriggerSpec,
 )
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
 
     from dander.control.application import RunLifecyclePort
     from dander.control.graph_store import GraphStore
-    from dander.control.run_lifecycle import ExecutionPlanRegistry
+    from dander.control.run_lifecycle import ExecutionPlanRegistry, PlanRunSubmissionResolver
 
 _LOGGER = logging.getLogger("dander.control.schedule_consumer")
 _MAX_MESSAGE_BYTES = 256 * 1024
@@ -78,6 +79,7 @@ class ScheduledRunSubmissionResolver:
         plans: ExecutionPlanRegistry,
         graph_store: GraphStore,
         triggers: Iterable[TriggerSpec],
+        selection_resolver: PlanRunSubmissionResolver | None = None,
     ) -> None:
         selected: dict[str, TriggerSpec] = {}
         for spec in triggers:
@@ -105,6 +107,7 @@ class ScheduledRunSubmissionResolver:
         self._plans = plans
         self._graph_store = graph_store
         self._triggers = selected
+        self._selection_resolver = selection_resolver
 
     def resolve(self, wakeup: ScheduleWakeup, *, requested_at: datetime) -> RunSubmission:
         """Resolve one enabled, exact-plan occurrence and its deterministic idempotency key."""
@@ -146,6 +149,13 @@ class ScheduledRunSubmissionResolver:
                     preferred_locality=None,
                     max_cost_microusd=None,
                     eligible_plan_count=1,
+                ),
+                size_class_decision=(
+                    self._selection_resolver.size_decision_for_exact_plan(
+                        plan, SizeClassMode.SCHEDULED
+                    )
+                    if self._selection_resolver is not None
+                    else None
                 ),
                 idempotency_key=schedule_occurrence_idempotency_key(wakeup),
                 requested_at=requested_at,

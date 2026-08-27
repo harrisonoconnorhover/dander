@@ -15,6 +15,7 @@ from dander.control.orchestration import (
     OrchestrationContractError,
     PlacementCandidate,
     RunStoreError,
+    SizeClassCandidate,
 )
 from dander.control.orchestration_serialization import (
     OrchestrationSerializationError,
@@ -121,6 +122,8 @@ def compose_run_control(
     placement_candidates: Iterable[PlacementCandidate] = (),
     preferred_locality: str | None = None,
     max_cost_microusd: int | None = None,
+    size_class_candidates: Iterable[SizeClassCandidate] = (),
+    default_size_class: str | None = None,
     reconcile_interval_seconds: float = 5.0,
     reconcile_page_size: int = 100,
     shutdown_grace_seconds: float = 35.0,
@@ -155,6 +158,8 @@ def compose_run_control(
             tuple(placement_candidates),
             preferred_locality,
             max_cost_microusd,
+            tuple(size_class_candidates),
+            default_size_class,
         )
         if start_reconciler:
             lifecycle.start_reconciler()
@@ -186,6 +191,8 @@ def build_multicloud_run_composition(
     placement_candidates: Iterable[PlacementCandidate] = (),
     preferred_locality: str | None = None,
     max_cost_microusd: int | None = None,
+    size_class_candidates: Iterable[SizeClassCandidate] = (),
+    default_size_class: str | None = None,
     deployment_name: str = "dander",
     gcp_project_id: str | None = None,
     gcp_deployment_name: str = "gcp_cloud_run",
@@ -263,6 +270,8 @@ def build_multicloud_run_composition(
             placement_candidates=placement_candidates,
             preferred_locality=preferred_locality,
             max_cost_microusd=max_cost_microusd,
+            size_class_candidates=size_class_candidates,
+            default_size_class=default_size_class,
             reconcile_interval_seconds=reconcile_interval_seconds,
             shutdown_grace_seconds=shutdown_grace_seconds,
             start_reconciler=not triggers,
@@ -281,6 +290,7 @@ def build_multicloud_run_composition(
                 composition.resolver.plans,
                 graph_store,
                 triggers,
+                composition.resolver,
             )
             consumer = ControlScheduleConsumer(
                 queue,
