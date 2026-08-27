@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 import pytest
 from scripts import spark_driver as driver
@@ -164,3 +165,26 @@ def test_driver_completion_is_consumed_by_control_without_provider_fields() -> N
     assert summary.models == 1
     assert summary.assertions == 3
     assert summary.operation_count == 4
+
+
+def test_exchange_cleanup_accepts_a_verified_postcondition_after_delete_error() -> None:
+    spark = MagicMock()
+    path = spark._jvm.org.apache.hadoop.fs.Path.return_value
+    filesystem = path.getFileSystem.return_value
+    filesystem.delete.side_effect = OSError("provider detail")
+    filesystem.exists.return_value = False
+
+    driver._delete_exchange(spark, "gs://qualification/exchange")
+
+    filesystem.exists.assert_called_once_with(path)
+
+
+def test_exchange_cleanup_fails_when_the_exchange_still_exists() -> None:
+    spark = MagicMock()
+    path = spark._jvm.org.apache.hadoop.fs.Path.return_value
+    filesystem = path.getFileSystem.return_value
+    filesystem.delete.return_value = True
+    filesystem.exists.return_value = True
+
+    with pytest.raises(driver.SparkDriverError, match="did not converge"):
+        driver._delete_exchange(spark, "gs://qualification/exchange")

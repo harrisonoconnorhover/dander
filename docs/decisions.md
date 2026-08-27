@@ -2145,8 +2145,9 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   the driver verifies both copies before provider or warehouse work begins.
 - **Workload:** The driver accepts only the canonical `spark_bigquery_qualification` two-stage
   physical plan. It writes the declared exchange to GCS, publishes four deterministic rows through
-  Spark's BigQuery connector, reads back three aggregates, cleans the exchange, and emits Control's
-  existing canonical runtime completion event.
+  Spark's BigQuery connector, reads back three aggregates, verifies exchange deletion by its final
+  absence even if the GCS filesystem reports an error after deleting it, and emits Control's existing
+  canonical runtime completion event.
 - **Boundary:** This proves the DANDER-242 artifact and lifecycle seam for one pair. It does not add
   arbitrary operator dispatch, dynamic topology or sizing, autoscaling, Kubernetes, or a cluster
   manager, and it does not modify the single-container runtime.
