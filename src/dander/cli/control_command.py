@@ -108,6 +108,16 @@ def serve_control(
         "--aws-deployment-name",
         help="Existing Fargate resource-name prefix used by the hosted backend.",
     ),
+    gcp_project_id: str | None = typer.Option(
+        None,
+        "--gcp-project-id",
+        help="Exact GCP project containing registered Cloud Run execution plans.",
+    ),
+    gcp_deployment_name: str = typer.Option(
+        "gcp_cloud_run",
+        "--gcp-deployment-name",
+        help="Portable deployment containing registered Cloud Run Jobs.",
+    ),
 ) -> None:
     """Serve multi-graph Control locally or behind an approved hosted OIDC deployment."""
     try:
@@ -165,6 +175,8 @@ def serve_control(
                 run_store_prefix=run_store_prefix,
                 environment=run_environment,
                 deployment_name=aws_deployment_name,
+                gcp_project_id=gcp_project_id,
+                gcp_deployment_name=gcp_deployment_name,
                 reconcile_interval_seconds=reconcile_interval_seconds,
                 shutdown_grace_seconds=shutdown_grace_seconds,
                 trigger_paths=trigger_specs or (),

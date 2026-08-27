@@ -567,6 +567,10 @@ def create_control_app(
         request: Request,
         if_match: _IF_MATCH_HEADER,
         idempotency_key: _IDEMPOTENCY_HEADER,
+        environment: Annotated[
+            str | None,
+            Query(pattern=r"^[a-z0-9][a-z0-9_-]{0,62}$", max_length=63),
+        ] = None,
     ) -> object:
         await _require_empty_body(request)
         return application.start_run(
@@ -574,6 +578,7 @@ def create_control_app(
             graph,
             expected_revision=decode_revision_etag(if_match),
             idempotency_key=idempotency_key,
+            environment=environment,
         )
 
     @app.get("/v1/runs", dependencies=auth_dependencies(ControlCapability.READ))

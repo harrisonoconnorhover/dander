@@ -26,6 +26,15 @@ output "github_workload_identity" {
   } : null
 }
 
+output "aws_control_workload_identity" {
+  description = "Keyless AWS Control identity details when configured."
+  value = var.aws_control_role_arn != "" && var.enable_scheduled_job ? {
+    provider_resource_name = module.aws_control_wif[0].provider_resource_name
+    service_account_email  = module.aws_control_wif[0].service_account_email
+    audience               = module.aws_control_wif[0].audience
+  } : null
+}
+
 output "cost_guard" {
   description = "Budget and simulation-first kill-switch details when enabled."
   value = var.enable_cost_guard ? {

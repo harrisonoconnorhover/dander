@@ -72,6 +72,7 @@ from dander.deployment.projection import (
     ResourceProjection,
     ScheduleProjection,
 )
+from dander.providers.cloud_run import CloudRunBinding
 from dander.providers.fargate import FargateBinding
 from dander.runtime_contract import RUNTIME_CONTRACT
 
@@ -154,6 +155,39 @@ def _plan(graph: GraphRecord, *, backend_id: str = "fargate") -> ExecutionPlan:
         execution_template=template,
         deadline_seconds=300,
         retry_policy=RetryPolicy(max_attempts=2),
+    )
+
+
+def _gcp_plan(graph: GraphRecord) -> ExecutionPlan:
+    image = "us-central1-docker.pkg.dev/dander-unit-project/dander/runtime@sha256:" + "d" * 64
+    aws = _plan(graph)
+    template = replace(
+        aws.execution_template,
+        profile_id="gcp",
+        launcher="cloud_run",
+        image=image,
+        command=(*aws.execution_template.command[:-1], "gcp"),
+        workload_identity=("dander-runtime@dander-unit-project.iam.gserviceaccount.com"),
+        resources=replace(
+            aws.execution_template.resources,
+            memory_mib=512,
+            ephemeral_storage_mib=None,
+        ),
+        observability=replace(
+            aws.execution_template.observability,
+            log_destination="cloud_logging",
+            metric_namespace="run.googleapis.com",
+            retention_days=None,
+        ),
+    )
+    return replace(
+        aws,
+        plan_id="gcp-bigquery",
+        environment="gcp",
+        backend_id="cloud_run",
+        profile_id="gcp",
+        image=image,
+        execution_template=template,
     )
 
 
@@ -745,6 +779,106 @@ def test_composed_lifecycle_serves_existing_control_run_routes() -> None:
         assert unavailable.status_code == 503
         assert unavailable.json()["error"]["code"] == "operation_temporarily_unavailable"
         assert "provider-secret" not in unavailable.text
+
+
+def test_aws_hosted_composition_registers_fargate_and_cloud_run_plans(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dander.control.run_composition as composition_module
+
+    graph_store, graph = _graph_store()
+    aws_plan = _plan(graph)
+    gcp_plan = _gcp_plan(graph)
+    aws_path = tmp_path / "aws-plan.json"
+    gcp_path = tmp_path / "gcp-plan.json"
+    aws_path.write_bytes(serialize_execution_plan(aws_plan))
+    gcp_path.write_bytes(serialize_execution_plan(gcp_plan))
+    fargate_binding = FargateBinding(
+        account_id="123456789012",
+        region="us-east-1",
+        deployment_name="aws",
+        pipeline_id="hosted_graph",
+        resource_name="dander-hosted-graph-12345678",
+        state_machine_arn=(
+            "arn:aws:states:us-east-1:123456789012:stateMachine:dander-hosted-graph-12345678"
+        ),
+        cluster_name="dander",
+        log_group_name="/dander/dander/hosted_graph",
+        schedule_paused=True,
+        project_dir=tmp_path,
+    )
+    cloud_run_binding = CloudRunBinding(
+        project_id="dander-unit-project",
+        region="us-central1",
+        deployment_name="gcp_cloud_run",
+        profile_id="gcp",
+        pipeline_id="hosted_graph",
+        job_name="dander-hosted-graph",
+        runtime_service_account=("dander-runtime@dander-unit-project.iam.gserviceaccount.com"),
+    )
+    fargate_backend = _Backend()
+    cloud_run_backend = _Backend()
+    cloud_binding_calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        FargateBinding,
+        "from_project",
+        classmethod(lambda _cls, /, **_kwargs: fargate_binding),
+    )
+
+    def bind_cloud(_cls: object, /, **kwargs: object) -> CloudRunBinding:
+        cloud_binding_calls.append(kwargs)
+        return cloud_run_binding
+
+    monkeypatch.setattr(CloudRunBinding, "from_project", classmethod(bind_cloud))
+    monkeypatch.setattr(composition_module, "S3RunStore", lambda *_args, **_kwargs: _Store())
+    monkeypatch.setattr(
+        composition_module,
+        "FargateExecutionBackend",
+        lambda bindings: (
+            fargate_backend if bindings == {aws_plan.revision: fargate_binding} else None
+        ),
+    )
+    monkeypatch.setattr(
+        composition_module,
+        "CloudRunExecutionBackend",
+        lambda bindings: (
+            cloud_run_backend if bindings == {gcp_plan.revision: cloud_run_binding} else None
+        ),
+    )
+
+    composition = build_fargate_run_composition(
+        graph_store=graph_store,
+        project_config=tmp_path / "dander.yaml",
+        platforms_config=tmp_path / "dander.platforms.yaml",
+        plan_paths=(aws_path, gcp_path),
+        run_store_bucket="dander-control-runs",
+        run_store_prefix="control/runs/v1",
+        environment="production",
+        gcp_project_id="dander-unit-project",
+        reconcile_interval_seconds=0.01,
+        shutdown_grace_seconds=1,
+    )
+
+    selected = composition.resolver.resolve(
+        graph,
+        idempotency_key="gcp-start-key-0001",
+        requested_at=NOW,
+        environment="gcp",
+    )
+    assert selected.plan_revision == gcp_plan.revision
+    assert cloud_binding_calls == [
+        {
+            "config": tmp_path / "dander.yaml",
+            "platforms_config": tmp_path / "dander.platforms.yaml",
+            "deployment": "gcp_cloud_run",
+            "pipeline_id": "hosted_graph",
+            "project_id": "dander-unit-project",
+        }
+    ]
+    composition.lifecycle.close()
+    assert fargate_backend.close_count == 1
+    assert cloud_run_backend.close_count == 1
 
 
 def test_fargate_startup_binds_canonical_plans_to_existing_aws_resources(

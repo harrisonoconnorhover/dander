@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
@@ -16,6 +17,7 @@ from dander.control.auth import HostedOIDCDeploymentInput
 from dander.control.orchestration import ExecutionPlan, RetryPolicy, TriggerKind, TriggerSpec
 from dander.control.orchestration_serialization import (
     SCHEDULED_TIME_TOKEN,
+    deserialize_execution_plan,
     serialize_execution_plan,
     serialize_trigger_spec,
 )
@@ -50,6 +52,8 @@ _DANDER = REPOSITORY + "@sha256:" + "a" * 64
 _DANDER_ROLLBACK = REPOSITORY + "@sha256:" + "b" * 64
 _DRUFF = REPOSITORY + "@sha256:" + "c" * 64
 _DRUFF_ROLLBACK = REPOSITORY + "@sha256:" + "d" * 64
+GCP_PROJECT = "dander-unit-project"
+GCP_IMAGE = f"us-central1-docker.pkg.dev/{GCP_PROJECT}/dander/runtime@sha256:" + "f" * 64
 
 
 def _platforms_config() -> str:
@@ -81,7 +85,13 @@ def _platforms_config() -> str:
                         "catalog_id": ACCOUNT,
                     },
                     "secrets": {"provider": "aws_secret_manager", "region": REGION},
-                }
+                },
+                "gcp": {
+                    "warehouse": {"provider": "bigquery", "location": "US"},
+                    "state": {"provider": "bigquery"},
+                    "catalog": {"provider": "dataplex"},
+                    "secrets": {"provider": "gcp_secret_manager"},
+                },
             },
             "deployments": {
                 "aws": {
@@ -97,7 +107,14 @@ def _platforms_config() -> str:
                     "runtime": {"memory": "2Gi"},
                     "safety": {"require_guarded_free_tier": False},
                     "pipelines": {"hosted_graph": {"paused": True}},
-                }
+                },
+                "gcp_cloud_run": {
+                    "platform": "gcp",
+                    "launcher": {"provider": "cloud_run", "region": "us-central1"},
+                    "runtime": {"memory": "512Mi"},
+                    "safety": {"require_guarded_free_tier": False},
+                    "pipelines": {"hosted_graph": {"paused": True}},
+                },
             },
         },
         sort_keys=True,
@@ -226,6 +243,57 @@ def _scheduled_source(**updates: object) -> AWSControlPlaneInput:
         trigger_spec_json=(serialize_trigger_spec(spec).decode(),),
         **updates,
     )
+
+
+def _multicloud_source(**updates: object) -> AWSControlPlaneInput:
+    scheduled = _scheduled_source()
+    aws_plan = deserialize_execution_plan(scheduled.execution_plan_json[0].encode())
+    gcp_template = replace(
+        aws_plan.execution_template,
+        profile_id="gcp",
+        launcher="cloud_run",
+        image=GCP_IMAGE,
+        command=(*aws_plan.execution_template.command[:-1], "gcp"),
+        workload_identity=(f"dander-runtime-hosted-graph@{GCP_PROJECT}.iam.gserviceaccount.com"),
+        resources=replace(
+            aws_plan.execution_template.resources,
+            memory_mib=512,
+            ephemeral_storage_mib=None,
+        ),
+        observability=replace(
+            aws_plan.execution_template.observability,
+            log_destination="cloud_logging",
+            metric_namespace="run.googleapis.com",
+            retention_days=None,
+        ),
+    )
+    gcp_plan = replace(
+        aws_plan,
+        plan_id="gcp-bigquery",
+        environment="gcp",
+        backend_id="cloud_run",
+        profile_id="gcp",
+        image=GCP_IMAGE,
+        execution_template=gcp_template,
+    )
+    values: dict[str, object] = {
+        "platforms_config_yaml": _platforms_config(),
+        "execution_plan_json": (
+            scheduled.execution_plan_json[0],
+            serialize_execution_plan(gcp_plan).decode(),
+        ),
+        "trigger_spec_json": scheduled.trigger_spec_json,
+        "gcp_project_id": GCP_PROJECT,
+        "gcp_control_service_account": (
+            f"dander-aws-control@{GCP_PROJECT}.iam.gserviceaccount.com"
+        ),
+        "gcp_wif_audience": (
+            "//iam.googleapis.com/projects/123456789012/locations/global/"
+            "workloadIdentityPools/dander-aws-control/providers/aws-control"
+        ),
+    }
+    values.update(updates)
+    return _source(**values)
 
 
 def test_inputs_are_closed_immutable_and_use_exact_aws_boundaries() -> None:
@@ -429,6 +497,33 @@ def test_schedule_projection_routes_exact_occurrences_through_control() -> None:
                 ).decode(),
             ),
         )
+
+
+def test_multicloud_projection_keeps_one_control_and_scopes_each_backend() -> None:
+    source = _multicloud_source()
+    rendered = render_aws_control_plane(source)
+    active = json.loads(rendered["active.tfvars.json"])
+    plans = {plan.backend_id: plan for plan in source.execution_plans}
+
+    assert set(active["execution_plan_json"]) == {
+        plans["fargate"].revision,
+        plans["cloud_run"].revision,
+    }
+    assert set(active["control_fargate_bindings"]) == {plans["fargate"].revision}
+    assert active["control_cloud_run_plan_revisions"] == [plans["cloud_run"].revision]
+    assert active["gcp_control_service_account"] == source.gcp_control_service_account
+    assert active["gcp_wif_audience"] == source.gcp_wif_audience
+    assert active["control_args"].count("control") == 1
+    assert active["control_args"].count("serve") == 1
+    gcp_index = active["control_args"].index("--gcp-project-id")
+    assert active["control_args"][gcp_index : gcp_index + 4] == [
+        "--gcp-project-id",
+        GCP_PROJECT,
+        "--gcp-deployment-name",
+        "gcp_cloud_run",
+    ]
+    with pytest.raises(ValidationError, match="workload identity inputs"):
+        _multicloud_source(gcp_wif_audience="")
 
 
 @pytest.mark.parametrize("complete", [False, True])

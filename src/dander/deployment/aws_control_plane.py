@@ -65,6 +65,15 @@ _PRIVATE_IMAGE = re.compile(
 )
 _IMMUTABLE_IMAGE = re.compile(r"^[a-z0-9.-]+(?::[0-9]{1,5})?/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$")
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
+_GCP_PROJECT = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
+_GCP_SERVICE_ACCOUNT = re.compile(
+    r"^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]"
+    r"\.iam\.gserviceaccount\.com$"
+)
+_GCP_WIF_AUDIENCE = re.compile(
+    r"^//iam\.googleapis\.com/projects/[0-9]{6,20}/locations/global/"
+    r"workloadIdentityPools/[a-z][a-z0-9-]{3,31}/providers/[a-z][a-z0-9-]{3,31}$"
+)
 _SCHEDULE_EXPRESSION = re.compile(r"^(?:cron|rate|at)\(.+\)$")
 _MAX_ORCHESTRATION_CONFIG_BYTES: Final = 512 * 1024
 _MAX_PLATFORMS_CONFIG_BYTES: Final = 32 * 1024
@@ -258,6 +267,10 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     trigger_spec_json: tuple[str, ...] = ()
     run_environment: str = "production"
     fargate_deployment_name: str = "dander"
+    gcp_project_id: str = ""
+    gcp_deployment_name: str = "gcp_cloud_run"
+    gcp_control_service_account: str = ""
+    gcp_wif_audience: str = ""
 
     @field_validator("cloudfront_distribution_id")
     @classmethod
@@ -299,6 +312,13 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
             raise ValueError("AWS Fargate deployment name is invalid.")
         return value
 
+    @field_validator("gcp_deployment_name")
+    @classmethod
+    def validate_gcp_deployment_name(cls, value: str) -> str:
+        if _PORTABLE_ID.fullmatch(value) is None:
+            raise ValueError("AWS Control GCP deployment name is invalid.")
+        return value
+
     @field_validator("platforms_config_yaml")
     @classmethod
     def validate_platforms_config_yaml(cls, value: str) -> str:
@@ -318,8 +338,8 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
             raise ValueError("AWS Control execution plans must be canonical JSON.") from error
         if len(plans) > 100 or len({plan.revision for plan in plans}) != len(plans):
             raise ValueError("AWS Control execution plans must contain at most 100 revisions.")
-        if any(plan.backend_id != "fargate" for plan in plans):
-            raise ValueError("AWS Control execution plans must select the Fargate backend.")
+        if any(plan.backend_id not in {"fargate", "cloud_run"} for plan in plans):
+            raise ValueError("AWS Control execution plans must select Fargate or Cloud Run.")
         if sum(len(item.encode("utf-8")) for item in value) > _MAX_ORCHESTRATION_CONFIG_BYTES:
             raise ValueError("AWS Control execution-plan configuration is oversized.")
         return value
@@ -389,7 +409,7 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
             raise ValueError("AWS Control execution plans require platform configuration.")
         if plans:
             platforms = _parse_platforms_config(self.platforms_config_yaml)
-            for plan in plans:
+            for plan in (item for item in plans if item.backend_id == "fargate"):
                 deployment = platforms.deployments.get(plan.profile_id)
                 if deployment is None:
                     raise ValueError(
@@ -405,6 +425,35 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
                     raise ValueError(
                         "AWS Control execution plans require matching Fargate platform bindings."
                     )
+            cloud_plans = tuple(item for item in plans if item.backend_id == "cloud_run")
+            if cloud_plans:
+                if (
+                    _GCP_PROJECT.fullmatch(self.gcp_project_id) is None
+                    or _GCP_SERVICE_ACCOUNT.fullmatch(self.gcp_control_service_account) is None
+                    or _GCP_WIF_AUDIENCE.fullmatch(self.gcp_wif_audience) is None
+                ):
+                    raise ValueError(
+                        "Cloud Run plans require exact GCP project and workload identity inputs."
+                    )
+                deployment = platforms.deployments.get(self.gcp_deployment_name)
+                if deployment is None or deployment.launcher.provider != "cloud_run":
+                    raise ValueError("Cloud Run plans require the selected Cloud Run deployment.")
+                if any(
+                    plan.profile_id != deployment.platform
+                    or plan.execution_template.pipeline_id not in deployment.pipelines
+                    for plan in cloud_plans
+                ):
+                    raise ValueError(
+                        "Cloud Run plans require matching platform and pipeline bindings."
+                    )
+            elif any(
+                (
+                    self.gcp_project_id,
+                    self.gcp_control_service_account,
+                    self.gcp_wif_audience,
+                )
+            ):
+                raise ValueError("GCP workload identity inputs require a Cloud Run plan.")
         if triggers and not plans:
             raise ValueError("AWS Control scheduled triggers require execution plans.")
         if plans and not any(plan.environment == self.run_environment for plan in plans):
@@ -488,7 +537,7 @@ def project_aws_control_service(source: AWSControlPlaneInput) -> ResolvedControl
 def _control_fargate_bindings(source: AWSControlPlaneInput) -> dict[str, dict[str, str]]:
     partition = "aws-us-gov" if source.region.startswith("us-gov-") else "aws"
     bindings: dict[str, dict[str, str]] = {}
-    for plan in source.execution_plans:
+    for plan in (item for item in source.execution_plans if item.backend_id == "fargate"):
         pipeline_id = plan.execution_template.pipeline_id
         resource_name = fargate_resource_name(
             name=source.fargate_deployment_name,
@@ -528,6 +577,9 @@ def render_aws_control_foundation(source: AWSControlPlaneFoundationInput) -> dic
         "trigger_spec_json": {},
         "control_schedules": {},
         "control_fargate_bindings": {},
+        "control_cloud_run_plan_revisions": [],
+        "gcp_control_service_account": "",
+        "gcp_wif_audience": "",
     }
     manifest = {
         "schema": AWS_CONTROL_PLANE_SCHEMA,
@@ -581,6 +633,15 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
         for project in sorted({plan.project for plan in source.execution_plans}):
             control_args.extend(("--project", project))
         control_args.extend(("--aws-deployment-name", source.fargate_deployment_name))
+        if any(plan.backend_id == "cloud_run" for plan in source.execution_plans):
+            control_args.extend(
+                (
+                    "--gcp-project-id",
+                    source.gcp_project_id,
+                    "--gcp-deployment-name",
+                    source.gcp_deployment_name,
+                )
+            )
         for plan in source.execution_plans:
             control_args.extend(
                 (
@@ -620,6 +681,11 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
         "trigger_spec_json": trigger_json,
         "control_schedules": schedules,
         "control_fargate_bindings": _control_fargate_bindings(source),
+        "control_cloud_run_plan_revisions": sorted(
+            plan.revision for plan in source.execution_plans if plan.backend_id == "cloud_run"
+        ),
+        "gcp_control_service_account": source.gcp_control_service_account,
+        "gcp_wif_audience": source.gcp_wif_audience,
     }
     active = {
         **common,
@@ -665,6 +731,14 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
             "scheduled_trigger_ids": sorted(schedules),
             "run_store_bucket": source.graph_bucket if plan_json else None,
             "run_store_prefix": "dander-control/v1" if plan_json else None,
+            **(
+                {
+                    "gcp_project_id": source.gcp_project_id,
+                    "gcp_deployment_name": source.gcp_deployment_name,
+                }
+                if any(plan.backend_id == "cloud_run" for plan in source.execution_plans)
+                else {}
+            ),
         },
         "cloudfront": {
             "api_cache_ttl_seconds": 0,

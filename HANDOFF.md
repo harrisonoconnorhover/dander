@@ -2,36 +2,38 @@
 
 ## Finished
 
-- Classified only a real Redshift connection-validation timeout as transient unavailability.
-- Routed that failure to runtime exit 75 so the existing Fargate controller can make its one bounded retry.
-- Kept other Redshift validation errors permanent and all operator output sanitized.
-- Preserved the single-container runtime, pipeline logic, Control contracts, RC32, and DANDER-236 boundary.
+- Added environment-aware plan selection to the existing Control run API without changing its default.
+- Added a deterministic Cloud Run Job backend for dispatch/adoption, observation, logs, cancellation, and cleanup truth.
+- Composed Fargate and Cloud Run plans in one durable Control lifecycle and schedule path.
+- Added keyless AWS-task-role to GCP identity and provider-scoped reusable Terraform.
+- Preserved direct CLI execution, pipeline logic, and the existing single-container worker.
 
 ## Try It
 
-Run `uv run pytest -q tests/providers/test_redshift_warehouse_runtime.py tests/cli/test_runtime_cli.py tests/state/test_failure.py`.
+POST the existing run route with `?environment=gcp`; omit the query for the configured default.
 
 ## Checks
 
-- Focused provider, runtime, and failure-classification tests: passed.
-- Ruff lint, format, and diff checks for changed files: passed.
-- Canonical isolated strict type check across 456 source files: passed.
-- Full pytest suite: passed.
+- Full pytest: 2,075 passed, 35 skipped.
+- Ruff lint/format, canonical strict typing across 459 files, and Control contract drift: passed.
+- Root and AWS Control Terraform validate; AWS Control Terraform tests: 5 passed.
+- Wheel/sdist build, release metadata, and distribution validation: passed.
 
 ## Decisions
 
-- A Redshift cold-start timeout uses the launcher retry already declared by the execution plan.
-- No provider retry loop, transaction change, Control change, or matrix expansion was added.
-- Non-timeout validation failures remain permanent configuration failures.
+- Environment is the API selector; schedules already carry an exact immutable plan revision.
+- Cloud Run Job start tokens provide deterministic provider identity across retries and restarts.
+- AWS-to-GCP workload identity grants no stored key and leaves worker secrets with the existing Job.
 
 ## Remaining
 
-- Merge only after protected checks pass and confirm exact-main CI.
-- Publish one immutable exact-main image and run the existing DANDER-235 matrix from fresh infrastructure.
-- Capture evidence and clean up; do not start DANDER-236 or alter C27/RC32.
+- Open the single DANDER-236 functional PR and require protected checks.
+- Merge and confirm exact-main CI.
+- Publish one immutable image to both provider registries without rebuilding it.
+- Run the combined AWS/Redshift and GCP/BigQuery Control matrix, capture sanitized evidence, and clean up.
 
 ## Review First
 
-- `src/dander/providers/redshift/runtime.py`
-- `src/dander/state/failure.py`
-- `tests/cli/test_runtime_cli.py`
+- `src/dander/control/cloud_run_execution_backend.py`
+- `src/dander/control/run_composition.py`
+- `infra/modules/aws-control-wif/main.tf`

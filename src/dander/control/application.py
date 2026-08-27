@@ -132,7 +132,7 @@ class RunLifecyclePort(Protocol):
 
 
 class RunSubmissionResolver(Protocol):
-    """Resolve the compatibility graph route into one exact environment and execution plan."""
+    """Resolve a graph route into one exact environment and execution plan."""
 
     def resolve(
         self,
@@ -140,6 +140,7 @@ class RunSubmissionResolver(Protocol):
         *,
         idempotency_key: str,
         requested_at: datetime,
+        environment: str | None = None,
     ) -> RunSubmission: ...
 
 
@@ -286,6 +287,7 @@ class ControlApplication:
         *,
         expected_revision: str,
         idempotency_key: str,
+        environment: str | None = None,
     ) -> RunStatusResponse:
         lifecycle = self._require_lifecycle()
         record = self.require_graph_revision(project, graph, expected_revision)
@@ -294,6 +296,7 @@ class ControlApplication:
             record,
             idempotency_key=idempotency_key,
             requested_at=datetime.now(UTC),
+            environment=environment,
         )
         if submission.graph != record or submission.idempotency_key != idempotency_key:
             raise RuntimeError("The submission resolver changed validated request identity.")

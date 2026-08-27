@@ -6,6 +6,12 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Added
+
+- Let one always-on AWS-hosted Control select immutable AWS Fargate/Redshift or GCP Cloud
+  Run/BigQuery execution plans through the same run API and durable lifecycle, using keyless
+  AWS-to-Google workload identity while preserving direct single-container execution.
+
 ## 0.9.0rc32 — 2026-08-23 (beta)
 
 ### Fixed
