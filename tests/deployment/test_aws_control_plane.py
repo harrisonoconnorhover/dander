@@ -499,6 +499,46 @@ def test_schedule_projection_routes_exact_occurrences_through_control() -> None:
         )
 
 
+def test_automatic_placement_renders_one_bounded_control_startup_policy() -> None:
+    base = _multicloud_source()
+    plans = base.execution_plans
+    candidates = tuple(
+        f"{plan.revision},{'us-east-1' if plan.backend_id == 'fargate' else 'us-central1'},"
+        f"{400 if plan.backend_id == 'fargate' else 100}"
+        for plan in reversed(plans)
+    )
+    source = _multicloud_source(
+        run_environment="auto",
+        run_placement_candidates=candidates,
+        run_preferred_locality="us-east-1",
+        run_max_cost_microusd=500,
+    )
+
+    rendered = render_aws_control_plane(source)
+    active = json.loads(rendered["active.tfvars.json"])
+    manifest = json.loads(rendered["deployment.json"])
+    args = active["control_args"]
+
+    assert source.run_placement_candidates == tuple(sorted(candidates))
+    assert args.count("--run-placement-candidate") == 2
+    assert args[args.index("--run-environment") + 1] == "auto"
+    assert args[args.index("--run-preferred-locality") + 1] == "us-east-1"
+    assert args[args.index("--run-max-cost-microusd") + 1] == "500"
+    assert manifest["orchestration"]["run_placement_candidates"] == list(
+        source.run_placement_candidates
+    )
+
+    with pytest.raises(ValidationError, match="requires candidates, locality, and max cost"):
+        _multicloud_source(run_environment="auto")
+    with pytest.raises(ValidationError, match="unconfigured plan"):
+        _multicloud_source(
+            run_environment="auto",
+            run_placement_candidates=(f"{'0' * 64},us-east-1,1",),
+            run_preferred_locality="us-east-1",
+            run_max_cost_microusd=500,
+        )
+
+
 def test_multicloud_projection_keeps_one_control_and_scopes_each_backend() -> None:
     source = _multicloud_source()
     rendered = render_aws_control_plane(source)

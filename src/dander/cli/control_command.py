@@ -87,7 +87,23 @@ def serve_control(
     run_environment: str = typer.Option(
         "production",
         "--run-environment",
-        help="Execution-plan environment selected by the compatibility run route.",
+        help="Default execution-plan environment, or 'auto' for bounded placement.",
+    ),
+    run_placement_candidates: list[str] | None = typer.Option(  # noqa: B008
+        None,
+        "--run-placement-candidate",
+        help="Plan revision,locality,estimated-cost-microusd; repeat for automatic placement.",
+    ),
+    run_preferred_locality: str | None = typer.Option(
+        None,
+        "--run-preferred-locality",
+        help="Preferred portable locality for automatic placement.",
+    ),
+    run_max_cost_microusd: int | None = typer.Option(
+        None,
+        "--run-max-cost-microusd",
+        min=0,
+        help="Maximum static estimated run cost used by automatic placement.",
     ),
     reconcile_interval_seconds: float = typer.Option(
         5.0,
@@ -164,8 +180,18 @@ def serve_control(
         selected_projects = tuple(projects or ("default",))
         if execution_plans:
             assert run_store_bucket is not None
+            from dander.control.orchestration import parse_placement_candidate_spec
             from dander.control.run_composition import build_fargate_run_composition
 
+            placement_candidates = tuple(
+                sorted(
+                    (
+                        parse_placement_candidate_spec(value)
+                        for value in run_placement_candidates or ()
+                    ),
+                    key=lambda candidate: candidate.plan_revision,
+                )
+            )
             run_composition = build_fargate_run_composition(
                 graph_store=store,
                 project_config=project_config,
@@ -174,6 +200,9 @@ def serve_control(
                 run_store_bucket=run_store_bucket,
                 run_store_prefix=run_store_prefix,
                 environment=run_environment,
+                placement_candidates=placement_candidates,
+                preferred_locality=run_preferred_locality,
+                max_cost_microusd=run_max_cost_microusd,
                 deployment_name=aws_deployment_name,
                 gcp_project_id=gcp_project_id,
                 gcp_deployment_name=gcp_deployment_name,

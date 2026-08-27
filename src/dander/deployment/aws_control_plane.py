@@ -20,7 +20,14 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from dander.control.auth import HostedOIDCDeploymentInput, project_hosted_oidc
-from dander.control.orchestration import ExecutionPlan, TriggerKind, TriggerSpec
+from dander.control.orchestration import (
+    ExecutionPlan,
+    OrchestrationContractError,
+    TriggerKind,
+    TriggerSpec,
+    format_placement_candidate_spec,
+    parse_placement_candidate_spec,
+)
 from dander.control.orchestration_serialization import (
     OrchestrationSerializationError,
     deserialize_execution_plan,
@@ -266,6 +273,9 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
     execution_plan_json: tuple[str, ...] = ()
     trigger_spec_json: tuple[str, ...] = ()
     run_environment: str = "production"
+    run_placement_candidates: tuple[str, ...] = ()
+    run_preferred_locality: str = ""
+    run_max_cost_microusd: int | None = Field(default=None, ge=0)
     fargate_deployment_name: str = "dander"
     gcp_project_id: str = ""
     gcp_deployment_name: str = "gcp_cloud_run"
@@ -304,6 +314,29 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
         if _PORTABLE_ID.fullmatch(value) is None:
             raise ValueError("AWS Control run environment is invalid.")
         return value
+
+    @field_validator("run_preferred_locality")
+    @classmethod
+    def validate_run_preferred_locality(cls, value: str) -> str:
+        if value and _PORTABLE_ID.fullmatch(value) is None:
+            raise ValueError("AWS Control preferred run locality is invalid.")
+        return value
+
+    @field_validator("run_placement_candidates")
+    @classmethod
+    def validate_run_placement_candidates(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        try:
+            candidates = tuple(parse_placement_candidate_spec(item) for item in value)
+        except (AttributeError, OrchestrationContractError) as error:
+            raise ValueError("AWS Control placement candidates are invalid.") from error
+        if len(candidates) > 100 or len({item.plan_revision for item in candidates}) != len(
+            candidates
+        ):
+            raise ValueError("AWS Control placement candidates must select unique revisions.")
+        return tuple(
+            format_placement_candidate_spec(item)
+            for item in sorted(candidates, key=lambda item: item.plan_revision)
+        )
 
     @field_validator("fargate_deployment_name")
     @classmethod
@@ -456,9 +489,27 @@ class AWSControlPlaneInput(AWSControlPlaneFoundationInput):
                 raise ValueError("GCP workload identity inputs require a Cloud Run plan.")
         if triggers and not plans:
             raise ValueError("AWS Control scheduled triggers require execution plans.")
-        if plans and not any(plan.environment == self.run_environment for plan in plans):
+        if (
+            plans
+            and self.run_environment != "auto"
+            and not any(plan.environment == self.run_environment for plan in plans)
+        ):
             raise ValueError("AWS Control run environment has no configured execution plan.")
         by_revision = {plan.revision: plan for plan in plans}
+        placement_revisions = {
+            parse_placement_candidate_spec(item).plan_revision
+            for item in self.run_placement_candidates
+        }
+        if placement_revisions - set(by_revision):
+            raise ValueError("AWS Control placement candidate selects an unconfigured plan.")
+        if self.run_environment == "auto" and (
+            not placement_revisions
+            or not self.run_preferred_locality
+            or self.run_max_cost_microusd is None
+        ):
+            raise ValueError(
+                "AWS Control automatic placement requires candidates, locality, and max cost."
+            )
         for spec in triggers:
             scheduled_plan = by_revision.get(spec.plan_revision)
             if scheduled_plan is None or scheduled_plan.plan_id != spec.plan_id:
@@ -659,6 +710,12 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
                 source.run_environment,
             )
         )
+        for candidate in source.run_placement_candidates:
+            control_args.extend(("--run-placement-candidate", candidate))
+        if source.run_preferred_locality:
+            control_args.extend(("--run-preferred-locality", source.run_preferred_locality))
+        if source.run_max_cost_microusd is not None:
+            control_args.extend(("--run-max-cost-microusd", str(source.run_max_cost_microusd)))
         for spec in source.trigger_specs:
             control_args.extend(
                 (
@@ -731,6 +788,17 @@ def render_aws_control_plane(source: AWSControlPlaneInput) -> dict[str, str]:
             "scheduled_trigger_ids": sorted(schedules),
             "run_store_bucket": source.graph_bucket if plan_json else None,
             "run_store_prefix": "dander-control/v1" if plan_json else None,
+            **(
+                {
+                    "run_placement_candidates": list(source.run_placement_candidates),
+                    "run_preferred_locality": source.run_preferred_locality,
+                    "run_max_cost_microusd": source.run_max_cost_microusd,
+                }
+                if source.run_placement_candidates
+                or source.run_preferred_locality
+                or source.run_max_cost_microusd is not None
+                else {}
+            ),
             **(
                 {
                     "gcp_project_id": source.gcp_project_id,

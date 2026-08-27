@@ -17,6 +17,8 @@ from dander.control.application import (
 from dander.control.graph_store import GraphStoreError, GraphStoreNotFoundError
 from dander.control.orchestration import (
     OrchestrationContractError,
+    PlacementDecision,
+    PlacementMode,
     RunSubmission,
     RunTrigger,
     ScheduleWakeup,
@@ -135,6 +137,15 @@ class ScheduledRunSubmissionResolver:
                     kind=TriggerKind.SCHEDULE,
                     trigger_id=spec.trigger_id,
                     scheduled_occurrence=wakeup.scheduled_occurrence,
+                ),
+                placement_decision=PlacementDecision(
+                    mode=PlacementMode.SCHEDULED,
+                    selected_environment=plan.environment,
+                    selected_locality=None,
+                    estimated_cost_microusd=None,
+                    preferred_locality=None,
+                    max_cost_microusd=None,
+                    eligible_plan_count=1,
                 ),
                 idempotency_key=schedule_occurrence_idempotency_key(wakeup),
                 requested_at=requested_at,

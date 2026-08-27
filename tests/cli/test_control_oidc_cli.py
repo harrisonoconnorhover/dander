@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from typer.testing import CliRunner
 
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     import pytest
     from uvicorn import Server
 
+    from dander.control.orchestration import PlacementCandidate
     from dander.deployment.service import GCSGraphStoreBinding
 
 
@@ -242,6 +243,14 @@ def test_execution_plan_options_install_lifecycle_readiness(
             str(trigger_path),
             "--schedule-queue-url",
             "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules",
+            "--run-environment",
+            "auto",
+            "--run-placement-candidate",
+            f"{'a' * 64},us-east-1,400",
+            "--run-preferred-locality",
+            "us-east-1",
+            "--run-max-cost-microusd",
+            "500",
         ],
     )
 
@@ -254,5 +263,10 @@ def test_execution_plan_options_install_lifecycle_readiness(
     assert observed[0]["schedule_queue_url"] == (
         "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules"
     )
+    assert observed[0]["environment"] == "auto"
+    candidates = cast("tuple[PlacementCandidate, ...]", observed[0]["placement_candidates"])
+    assert candidates[0].plan_revision == "a" * 64
+    assert observed[0]["preferred_locality"] == "us-east-1"
+    assert observed[0]["max_cost_microusd"] == 500
     assert result.stdout.count("Serving Dander Control") == 1
     assert lifecycle.close_count == 1

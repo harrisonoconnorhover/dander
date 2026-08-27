@@ -26,6 +26,7 @@ from dander.control.models import (
     LogRecord,
     MutationResult,
     RunPageResponse,
+    RunPlacementDecision,
     RunState,
     RunStatusResponse,
     RunTelemetrySummary,
@@ -37,6 +38,9 @@ from dander.control.orchestration import (
     ExecutionPlan,
     HostedRunState,
     OrchestrationContractError,
+    PlacementCandidate,
+    PlacementDecision,
+    PlacementMode,
     ResultsState,
     RunOutcome,
     RunRecord,
@@ -61,6 +65,8 @@ if TYPE_CHECKING:
     from dander.control.orchestration import ExecutionBackend, RunStore
 
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
+_PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
+_MAX_COST_MICROUSD = 9_223_372_036_854_775_807
 _LOGGER = logging.getLogger("dander.control.reconciler")
 
 
@@ -133,6 +139,29 @@ class ExecutionPlanRegistry:
                 "The hosted execution plan does not match the current graph revision."
             )
         return plan
+
+    def current_for_graph(self, record: GraphRecord) -> tuple[ExecutionPlan, ...]:
+        """Return every current provider plan eligible for automatic placement."""
+        registered = tuple(
+            plan
+            for plan in self.plans
+            if plan.project == record.project and plan.graph == record.graph
+        )
+        if not registered:
+            raise ControlOperationUnavailableError(
+                "No hosted execution plan is configured for this graph."
+            )
+        current = tuple(
+            plan
+            for plan in registered
+            if plan.graph_revision == record.revision
+            and plan.graph_content_sha256 == record.content_sha256
+        )
+        if not current:
+            raise ControlOperationConflictError(
+                "The hosted execution plans do not match the current graph revision."
+            )
+        return current
 
     def require_revision(self, revision: str) -> ExecutionPlan:
         """Resolve an exact retained plan revision for lifecycle reconciliation."""
@@ -222,10 +251,49 @@ class ExecutionBackendRegistry:
 
 @dataclass(frozen=True, slots=True)
 class PlanRunSubmissionResolver:
-    """Resolve API submissions with one backward-compatible default environment."""
+    """Resolve API submissions through exact override, default, or bounded placement."""
 
     plans: ExecutionPlanRegistry
     environment: str
+    placement_candidates: tuple[PlacementCandidate, ...] = ()
+    preferred_locality: str | None = None
+    max_cost_microusd: int | None = None
+
+    def __post_init__(self) -> None:
+        revisions = [candidate.plan_revision for candidate in self.placement_candidates]
+        if len(revisions) != len(set(revisions)):
+            raise OrchestrationContractError("placement candidates must use unique plan revisions")
+        known = {plan.revision for plan in self.plans.plans}
+        if unknown := set(revisions) - known:
+            raise OrchestrationContractError(
+                f"placement candidate selects unregistered plan revision {sorted(unknown)[0]}"
+            )
+        if self.environment == "auto":
+            if any(plan.environment == "auto" for plan in self.plans.plans):
+                raise OrchestrationContractError(
+                    "automatic placement reserves the auto environment name"
+                )
+            if (
+                not self.placement_candidates
+                or self.preferred_locality is None
+                or self.max_cost_microusd is None
+            ):
+                raise OrchestrationContractError(
+                    "automatic placement requires candidates, preferred locality, and max cost"
+                )
+        if (
+            self.preferred_locality is not None
+            and _PORTABLE_ID.fullmatch(self.preferred_locality) is None
+        ):
+            raise OrchestrationContractError("preferred locality is invalid")
+        if self.max_cost_microusd is not None and (
+            isinstance(self.max_cost_microusd, bool)
+            or not isinstance(self.max_cost_microusd, int)
+            or not 0 <= self.max_cost_microusd <= _MAX_COST_MICROUSD
+        ):
+            raise OrchestrationContractError(
+                "placement maximum cost must be non-negative micro-USD"
+            )
 
     def resolve(
         self,
@@ -235,18 +303,89 @@ class PlanRunSubmissionResolver:
         requested_at: datetime,
         environment: str | None = None,
     ) -> RunSubmission:
-        selected_environment = environment or self.environment
-        plan = self.plans.select(record, environment=selected_environment)
+        if environment is not None:
+            plan = self.plans.select(record, environment=environment)
+            decision = self._exact_decision(plan, PlacementMode.MANUAL_OVERRIDE)
+        elif self.environment == "auto":
+            plan, decision = self._automatically_select(record)
+        else:
+            plan = self.plans.select(record, environment=self.environment)
+            decision = self._exact_decision(plan, PlacementMode.CONFIGURED_DEFAULT)
         return RunSubmission(
-            environment=selected_environment,
+            environment=plan.environment,
             project=record.project,
             graph=record,
             plan_id=plan.plan_id,
             plan_revision=plan.revision,
             trigger=RunTrigger(kind=TriggerKind.API, trigger_id="control-api"),
+            placement_decision=decision,
             idempotency_key=idempotency_key,
             requested_at=requested_at,
         )
+
+    def decision_for_exact_plan(
+        self,
+        plan: ExecutionPlan,
+        mode: PlacementMode,
+    ) -> PlacementDecision:
+        """Describe an exact schedule or replay selection using known static estimates."""
+        return self._exact_decision(plan, mode)
+
+    def _exact_decision(
+        self,
+        plan: ExecutionPlan,
+        mode: PlacementMode,
+    ) -> PlacementDecision:
+        candidate = self._candidates_by_revision().get(plan.revision)
+        return PlacementDecision(
+            mode=mode,
+            selected_environment=plan.environment,
+            selected_locality=candidate.locality if candidate else None,
+            estimated_cost_microusd=(candidate.estimated_cost_microusd if candidate else None),
+            preferred_locality=None,
+            max_cost_microusd=None,
+            eligible_plan_count=1,
+        )
+
+    def _automatically_select(
+        self,
+        record: GraphRecord,
+    ) -> tuple[ExecutionPlan, PlacementDecision]:
+        assert self.preferred_locality is not None
+        assert self.max_cost_microusd is not None
+        estimates = self._candidates_by_revision()
+        eligible = tuple(
+            (plan, candidate)
+            for plan in self.plans.current_for_graph(record)
+            if (candidate := estimates.get(plan.revision)) is not None
+            and candidate.estimated_cost_microusd <= self.max_cost_microusd
+        )
+        if not eligible:
+            raise ControlOperationUnavailableError(
+                "No hosted execution plan satisfies the configured placement budget."
+            )
+        plan, candidate = min(
+            eligible,
+            key=lambda item: (
+                item[1].locality != self.preferred_locality,
+                item[1].estimated_cost_microusd,
+                item[0].environment,
+                item[0].plan_id,
+                item[0].revision,
+            ),
+        )
+        return plan, PlacementDecision(
+            mode=PlacementMode.AUTOMATIC,
+            selected_environment=plan.environment,
+            selected_locality=candidate.locality,
+            estimated_cost_microusd=candidate.estimated_cost_microusd,
+            preferred_locality=self.preferred_locality,
+            max_cost_microusd=self.max_cost_microusd,
+            eligible_plan_count=len(eligible),
+        )
+
+    def _candidates_by_revision(self) -> dict[str, PlacementCandidate]:
+        return {candidate.plan_revision: candidate for candidate in self.placement_candidates}
 
 
 class ControlRunLifecycle:
@@ -498,6 +637,23 @@ class ControlRunLifecycle:
                     kind=TriggerKind.API,
                     trigger_id="control-api",
                     replay_of_run_id=source.run_id,
+                ),
+                placement_decision=PlacementDecision(
+                    mode=PlacementMode.REPLAY,
+                    selected_environment=source.environment,
+                    selected_locality=(
+                        source.placement_decision.selected_locality
+                        if source.placement_decision
+                        else None
+                    ),
+                    estimated_cost_microusd=(
+                        source.placement_decision.estimated_cost_microusd
+                        if source.placement_decision
+                        else None
+                    ),
+                    preferred_locality=None,
+                    max_cost_microusd=None,
+                    eligible_plan_count=1,
                 ),
                 idempotency_key=idempotency_key,
                 requested_at=self._now(),
@@ -805,6 +961,20 @@ def _status_response(record: RunRecord) -> RunStatusResponse:
                 spill_bytes=summary.spill_bytes,
             )
             if summary
+            else None
+        ),
+        placement=(
+            RunPlacementDecision(
+                decision_schema=record.placement_decision.schema,
+                mode=record.placement_decision.mode.value,
+                selected_environment=record.placement_decision.selected_environment,
+                selected_locality=record.placement_decision.selected_locality,
+                estimated_cost_microusd=(record.placement_decision.estimated_cost_microusd),
+                preferred_locality=record.placement_decision.preferred_locality,
+                max_cost_microusd=record.placement_decision.max_cost_microusd,
+                eligible_plan_count=record.placement_decision.eligible_plan_count,
+            )
+            if record.placement_decision
             else None
         ),
         failure_code="hosted_execution_failed" if failed else None,

@@ -246,6 +246,8 @@ def test_consumer_deletes_only_successfully_handed_off_canonical_messages() -> N
     assert queue.deleted == ["good-receipt"]
     assert len(lifecycle.submissions) == 1
     assert lifecycle.submissions[0].idempotency_key == schedule_occurrence_idempotency_key(wakeup)
+    assert lifecycle.submissions[0].placement_decision is not None
+    assert lifecycle.submissions[0].placement_decision.mode.value == "scheduled"
     consumer.close()
     assert queue.closed
 
