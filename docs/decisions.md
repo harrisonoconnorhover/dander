@@ -2203,3 +2203,15 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** The accepted Spark driver remains qualification-specific. This adds no general
   Spark operators, joins, provider calls, dynamic topology or partitions, resource estimation,
   autoscaling, Kubernetes, job clusters, or new cost/locality placement behavior.
+
+## 2026-08-27 — Deployment compilation produces retained immutable execution plans
+
+- **Compilation:** A pure Control compiler combines one canonical `GraphRecord`, explicit plan
+  identity/environment/mode, and an existing `ExecutionTemplate`. Graph identity comes only from
+  the record; backend, profile, image, deadline, and retry policy come only from the template.
+- **Trigger boundary:** Provider-generated templates may contain scheduling. Compilation clears
+  only the schedule expression and time zone before physical-plan binding because `TriggerSpec`
+  independently owns when a retained execution plan runs.
+- **Deployment handoff:** The compiler emits revision-sorted canonical plan JSON through the
+  existing AWS Control `execution_plan_json` input. Startup still loads all rendered plan files,
+  preserving historical revisions for restart recovery without runtime recompilation.

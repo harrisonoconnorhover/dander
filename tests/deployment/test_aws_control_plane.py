@@ -6,6 +6,7 @@ import base64
 import json
 import subprocess
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -14,6 +15,12 @@ from pydantic import ValidationError
 
 import dander.deployment.aws_control_plane as aws_control_plane
 from dander.control.auth import HostedOIDCDeploymentInput
+from dander.control.execution_plan_compiler import (
+    ExecutionPlanProfile,
+    compile_execution_plan_json,
+)
+from dander.control.graph_store import InMemoryGraphStore
+from dander.control.models import PipelineGraphDocument
 from dander.control.orchestration import ExecutionPlan, RetryPolicy, TriggerKind, TriggerSpec
 from dander.control.orchestration_serialization import (
     SCHEDULED_TIME_TOKEN,
@@ -21,6 +28,7 @@ from dander.control.orchestration_serialization import (
     serialize_execution_plan,
     serialize_trigger_spec,
 )
+from dander.control.run_composition import load_execution_plans
 from dander.deployment.aws_control_plane import (
     AWS_CONTROL_PLANE_SCHEMA,
     AWSControlPlaneFoundationInput,
@@ -736,6 +744,110 @@ def test_managed_spark_projection_uses_the_existing_gcp_identity_handoff() -> No
             gcp_control_service_account=source.gcp_control_service_account,
             gcp_wif_audience=source.gcp_wif_audience,
         )
+
+
+def test_compiled_fargate_and_spark_plans_render_and_reload(tmp_path: Path) -> None:
+    graph_store = InMemoryGraphStore(
+        clock=lambda: datetime(2026, 8, 27, 20, tzinfo=UTC),
+        revision_factory=lambda: "graph-r1",
+    )
+    graph = graph_store.create(
+        "demo",
+        "hosted-graph",
+        PipelineGraphDocument.model_validate(
+            {
+                "name": "Hosted graph",
+                "nodes": [
+                    {"id": "extract_orders", "type": "source", "name": "Extract"},
+                    {"id": "clean_orders", "type": "transform", "name": "Clean"},
+                    {"id": "publish_orders", "type": "target", "name": "Publish"},
+                ],
+                "edges": [
+                    {"from": "extract_orders", "to": "clean_orders"},
+                    {"from": "clean_orders", "to": "publish_orders"},
+                ],
+            }
+        ),
+        idempotency_key="graph-key-0001",
+    )
+    fargate_template = deserialize_execution_plan(
+        _scheduled_source().execution_plan_json[0].encode()
+    ).execution_template
+    fargate_template = replace(
+        fargate_template,
+        schedule=replace(
+            fargate_template.schedule,
+            expression="cron(0 6 * * ? *)",
+            time_zone="America/New_York",
+        ),
+    )
+    spark_template = deserialize_execution_plan(
+        _spark_source().execution_plan_json[0].encode()
+    ).execution_template
+    spark_template = replace(spark_template, command=spark_template.command[:-2])
+    bindings = (
+        (
+            ExecutionPlanProfile(
+                plan_id="aws-hosted-graph",
+                environment="production",
+                execution_mode=PhysicalExecutionMode.FUSED_CONTAINER,
+            ),
+            fargate_template,
+        ),
+        (
+            ExecutionPlanProfile(
+                plan_id="gcp-hosted-graph",
+                environment="gcp",
+                execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+            ),
+            spark_template,
+        ),
+    )
+
+    plan_json = compile_execution_plan_json(graph, bindings)
+    assert compile_execution_plan_json(graph, reversed(bindings)) == plan_json
+    source = _source(
+        platforms_config_yaml=_platforms_config(),
+        execution_plan_json=plan_json,
+        gcp_project_id=GCP_PROJECT,
+        gcp_control_service_account=(f"dander-aws-control@{GCP_PROJECT}.iam.gserviceaccount.com"),
+        gcp_wif_audience=(
+            "//iam.googleapis.com/projects/123456789012/locations/global/"
+            "workloadIdentityPools/dander-aws-control/providers/aws-control"
+        ),
+    )
+
+    rendered = render_aws_control_plane(source)
+    active = json.loads(rendered["active.tfvars.json"])
+    plans = {plan.backend_id: plan for plan in source.execution_plans}
+    assert set(plans) == {"fargate", "dataproc_serverless"}
+    assert set(active["execution_plan_json"]) == {
+        plans["fargate"].revision,
+        plans["dataproc_serverless"].revision,
+    }
+    assert set(active["control_fargate_bindings"]) == {plans["fargate"].revision}
+    assert active["control_dataproc_plan_revisions"] == [plans["dataproc_serverless"].revision]
+    assert active["control_args"].count("--execution-plan") == 2
+    assert plans["fargate"].execution_template.command[:-2] == fargate_template.command
+    assert plans["fargate"].execution_template.schedule.expression is None
+    assert plans["fargate"].execution_template.schedule.time_zone is None
+    assert (
+        plans["fargate"].physical_plan is not None
+        and plans["fargate"].physical_plan.execution_mode is PhysicalExecutionMode.FUSED_CONTAINER
+    )
+    assert (
+        plans["dataproc_serverless"].physical_plan is not None
+        and plans["dataproc_serverless"].physical_plan.execution_mode
+        is PhysicalExecutionMode.DISTRIBUTED
+    )
+
+    paths = []
+    for revision, raw in active["execution_plan_json"].items():
+        path = tmp_path / f"{revision}.json"
+        path.write_text(raw, encoding="utf-8")
+        paths.append(path)
+    reloaded = load_execution_plans(paths)
+    assert reloaded == source.execution_plans
 
 
 @pytest.mark.parametrize("complete", [False, True])

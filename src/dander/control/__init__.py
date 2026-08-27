@@ -4,6 +4,12 @@ from dander.control.azure_blob_graph_store import AzureBlobGraphStore
 from dander.control.dataproc_serverless_execution_backend import (
     DataprocServerlessExecutionBackend,
 )
+from dander.control.execution_plan_compiler import (
+    ExecutionPlanCompilationError,
+    ExecutionPlanCompiler,
+    ExecutionPlanProfile,
+    compile_execution_plan_json,
+)
 from dander.control.fargate_execution_backend import FargateExecutionBackend
 from dander.control.gcs_graph_store import GCSGraphStore
 from dander.control.graph_store import (
@@ -188,6 +194,9 @@ __all__ = [
     "ExecutionBackend",
     "ExecutionBackendError",
     "ExecutionPlan",
+    "ExecutionPlanCompilationError",
+    "ExecutionPlanCompiler",
+    "ExecutionPlanProfile",
     "EXECUTION_PLAN_SCHEMA",
     "ExecutionResultSummary",
     "EXECUTION_RESULT_SUMMARY_SCHEMA",
@@ -245,6 +254,7 @@ __all__ = [
     "PhysicalPlanningError",
     "StaticPhysicalPlanner",
     "bind_physical_plan",
+    "compile_execution_plan_json",
     "ControlScheduleConsumer",
     "QueuedScheduleMessage",
     "ScheduleQueueError",
