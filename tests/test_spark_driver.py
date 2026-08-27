@@ -207,3 +207,17 @@ def test_spark_stop_failure_is_visible_and_deferred_to_the_provider(
         "event": "spark.session.stop.deferred",
         "run_id": context.run_id,
     }
+
+
+def test_driver_aggregates_only_the_bounded_bigquery_readback() -> None:
+    rows = [
+        {"value": 2, "doubled_value": 4},
+        {"value": 3, "doubled_value": 6},
+        {"value": 5, "doubled_value": 10},
+        {"value": 7, "doubled_value": 14},
+    ]
+
+    assert driver._bounded_readback_aggregates(rows) == (4, 17, 34)
+
+    with pytest.raises(driver.SparkDriverError, match="readback rows are invalid"):
+        driver._bounded_readback_aggregates([{"value": 2}])

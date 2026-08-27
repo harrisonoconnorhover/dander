@@ -13,7 +13,10 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 RUNTIME_CONTRACT = "io.dander.runtime/v1"
 PHYSICAL_PLAN_SCHEMA = "io.dander.physical-plan/v1"
@@ -318,18 +321,15 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             .option("parentProject", invocation.project)
             .load()
         )
-        stage = "bigquery_aggregate"
-        aggregate = observed.agg(
-            functions.count("*").alias("row_count"),
-            functions.sum("value").alias("value_sum"),
-            functions.sum("doubled_value").alias("doubled_sum"),
-        ).collect()[0]
+        stage = "bigquery_readback"
+        readback_rows = observed.select("value", "doubled_value").take(_EXPECTED_ROWS + 1)
+        row_count, value_sum, doubled_sum = _bounded_readback_aggregates(readback_rows)
         result = SparkResult(
             output_table=output_table,
             exchange_uri=exchange_uri,
-            row_count=int(aggregate["row_count"]),
-            value_sum=int(aggregate["value_sum"]),
-            doubled_sum=int(aggregate["doubled_sum"]),
+            row_count=row_count,
+            value_sum=value_sum,
+            doubled_sum=doubled_sum,
             executor_instances=executor_instances,
             exchange_partitions=2,
         )
@@ -361,6 +361,20 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
         _stop_spark(dynamic_spark, context)
         if cleanup_error is not None:
             raise cleanup_error
+
+
+def _bounded_readback_aggregates(rows: Sequence[object]) -> tuple[int, int, int]:
+    """Aggregate the qualification's bounded BigQuery readback on the driver."""
+    try:
+        values = [
+            (int(cast("Any", row)["value"]), int(cast("Any", row)["doubled_value"])) for row in rows
+        ]
+    except (KeyError, TypeError, ValueError) as error:
+        raise SparkDriverError(
+            "the BigQuery readback rows are invalid",
+            failure_code="spark_readback_invalid",
+        ) from error
+    return len(values), sum(value for value, _ in values), sum(doubled for _, doubled in values)
 
 
 def completion_event(
