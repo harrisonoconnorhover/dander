@@ -12,6 +12,7 @@ from dander.control.orchestration import (
     EXECUTION_PLAN_SCHEMA,
     EXECUTION_PLAN_SCHEMA_V1,
     EXECUTION_RESULT_SUMMARY_SCHEMA,
+    SIZE_CLASS_DECISION_SCHEMA_V1,
     AttemptRecord,
     BackendHandle,
     CleanupState,
@@ -46,7 +47,8 @@ from dander.physical_plan import deserialize_physical_plan
 RUN_RECORD_SCHEMA_V1 = "io.dander.control.run-record/v1"
 RUN_RECORD_SCHEMA_V2 = "io.dander.control.run-record/v2"
 RUN_RECORD_SCHEMA_V3 = "io.dander.control.run-record/v3"
-RUN_RECORD_SCHEMA = "io.dander.control.run-record/v4"
+RUN_RECORD_SCHEMA_V4 = "io.dander.control.run-record/v4"
+RUN_RECORD_SCHEMA = "io.dander.control.run-record/v5"
 ATTEMPT_RECORD_SCHEMA = "io.dander.control.attempt-record/v1"
 TRIGGER_SPEC_SCHEMA = "io.dander.control.trigger-spec/v1"
 SCHEDULE_WAKEUP_SCHEMA = "io.dander.control.schedule-wakeup/v1"
@@ -151,6 +153,7 @@ def deserialize_run_record(data: bytes) -> RunRecord:
                     RUN_RECORD_SCHEMA_V1,
                     RUN_RECORD_SCHEMA_V2,
                     RUN_RECORD_SCHEMA_V3,
+                    RUN_RECORD_SCHEMA_V4,
                     RUN_RECORD_SCHEMA,
                 }
             ),
@@ -189,24 +192,36 @@ def deserialize_run_record(data: bytes) -> RunRecord:
             backend_handle=_backend_handle(values["backend_handle"]),
             result_summary=(
                 _deserialize_execution_result_summary_value(values["result_summary"])
-                if schema in {RUN_RECORD_SCHEMA_V2, RUN_RECORD_SCHEMA_V3, RUN_RECORD_SCHEMA}
+                if schema
+                in {
+                    RUN_RECORD_SCHEMA_V2,
+                    RUN_RECORD_SCHEMA_V3,
+                    RUN_RECORD_SCHEMA_V4,
+                    RUN_RECORD_SCHEMA,
+                }
                 and values["result_summary"] is not None
                 else None
             ),
             placement_decision=(
                 _placement_decision(values["placement_decision"])
-                if schema in {RUN_RECORD_SCHEMA_V3, RUN_RECORD_SCHEMA}
+                if schema in {RUN_RECORD_SCHEMA_V3, RUN_RECORD_SCHEMA_V4, RUN_RECORD_SCHEMA}
                 and values["placement_decision"] is not None
                 else None
             ),
             size_class_decision=(
-                _size_class_decision(values["size_class_decision"])
-                if schema == RUN_RECORD_SCHEMA and values["size_class_decision"] is not None
+                (
+                    _size_class_decision(values["size_class_decision"])
+                    if schema == RUN_RECORD_SCHEMA
+                    else _size_class_decision_v1(values["size_class_decision"])
+                )
+                if schema in {RUN_RECORD_SCHEMA_V4, RUN_RECORD_SCHEMA}
+                and values["size_class_decision"] is not None
                 else None
             ),
         )
         expected = {
             RUN_RECORD_SCHEMA: serialize_run_record,
+            RUN_RECORD_SCHEMA_V4: _serialize_run_record_v4,
             RUN_RECORD_SCHEMA_V3: _serialize_run_record_v3,
             RUN_RECORD_SCHEMA_V2: _serialize_run_record_v2,
             RUN_RECORD_SCHEMA_V1: _serialize_run_record_v1,
@@ -501,6 +516,18 @@ def _serialize_run_record_v3(record: RunRecord) -> bytes:
     )
 
 
+def _serialize_run_record_v4(record: RunRecord) -> bytes:
+    payload = _run_record_payload(
+        record,
+        include_result_summary=True,
+        include_placement_decision=True,
+        include_size_class_decision=True,
+    )
+    if record.size_class_decision is not None:
+        payload["size_class_decision"] = _size_class_decision_payload_v1(record.size_class_decision)
+    return _canonical_json({"schema": RUN_RECORD_SCHEMA_V4, "record": payload})
+
+
 def _run_record_payload(
     record: RunRecord,
     *,
@@ -598,6 +625,12 @@ def _size_class_decision_payload(decision: SizeClassDecision) -> dict[str, objec
         "mode": decision.mode.value,
         "selected_size_class": decision.selected_size_class,
         "estimated_input_bytes": decision.estimated_input_bytes,
+        "estimate_source": decision.estimate_source,
+        "estimate_observed_at": (
+            _timestamp(decision.estimate_observed_at)
+            if decision.estimate_observed_at is not None
+            else None
+        ),
         "max_input_bytes": decision.max_input_bytes,
         "cpu_millis": decision.cpu_millis,
         "memory_mib": decision.memory_mib,
@@ -606,10 +639,42 @@ def _size_class_decision_payload(decision: SizeClassDecision) -> dict[str, objec
     }
 
 
+def _size_class_decision_payload_v1(decision: SizeClassDecision) -> dict[str, object]:
+    payload = _size_class_decision_payload(decision)
+    payload["schema"] = SIZE_CLASS_DECISION_SCHEMA_V1
+    del payload["estimate_source"]
+    del payload["estimate_observed_at"]
+    return payload
+
+
 def _size_class_decision(value: object) -> SizeClassDecision:
     values = _mapping(value, "size-class decision")
     return SizeClassDecision(
         schema=_string(values["schema"], "size-class schema"),
+        mode=_enum(SizeClassMode, values["mode"], "size-class mode"),
+        selected_size_class=_string(values["selected_size_class"], "selected_size_class"),
+        estimated_input_bytes=_optional_integer(
+            values["estimated_input_bytes"], "estimated_input_bytes"
+        ),
+        estimate_source=_optional_string(values["estimate_source"], "estimate_source"),
+        estimate_observed_at=_optional_datetime(
+            values["estimate_observed_at"], "estimate_observed_at"
+        ),
+        max_input_bytes=_integer(values["max_input_bytes"], "max_input_bytes"),
+        cpu_millis=_integer(values["cpu_millis"], "cpu_millis"),
+        memory_mib=_integer(values["memory_mib"], "memory_mib"),
+        ephemeral_storage_mib=_optional_integer(
+            values["ephemeral_storage_mib"], "ephemeral_storage_mib"
+        ),
+        eligible_plan_count=_integer(values["eligible_plan_count"], "eligible_plan_count"),
+    )
+
+
+def _size_class_decision_v1(value: object) -> SizeClassDecision:
+    values = _mapping(value, "size-class decision")
+    if _string(values["schema"], "size-class schema") != SIZE_CLASS_DECISION_SCHEMA_V1:
+        raise OrchestrationSerializationError("size-class schema is unsupported")
+    return SizeClassDecision(
         mode=_enum(SizeClassMode, values["mode"], "size-class mode"),
         selected_size_class=_string(values["selected_size_class"], "selected_size_class"),
         estimated_input_bytes=_optional_integer(
@@ -822,6 +887,7 @@ __all__ = [
     "ATTEMPT_RECORD_SCHEMA",
     "EXECUTION_RESULT_SUMMARY_SCHEMA",
     "RUN_RECORD_SCHEMA",
+    "RUN_RECORD_SCHEMA_V4",
     "RUN_RECORD_SCHEMA_V3",
     "RUN_RECORD_SCHEMA_V2",
     "RUN_RECORD_SCHEMA_V1",

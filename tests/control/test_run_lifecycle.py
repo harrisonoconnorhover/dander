@@ -20,6 +20,7 @@ from dander.control.application import (
 )
 from dander.control.graph_store import GraphRecord, InMemoryGraphStore
 from dander.control.http import create_control_app, encode_revision_etag
+from dander.control.input_size_estimator import InputSizeEstimate, InputSizeEstimationError
 from dander.control.models import MutationResult, PipelineGraphDocument, RunState
 from dander.control.orchestration import (
     AttemptRecord,
@@ -240,6 +241,10 @@ def _spark_plan(graph: GraphRecord) -> ExecutionPlan:
             "--physical-plan",
             serialize_physical_plan(physical).decode(),
         ),
+        environment=(
+            ("BQ_DATASET_RAW", "raw"),
+            ("GCP_PROJECT_ID", "dander-unit-project"),
+        ),
         workload_identity="dander-spark@dander-unit-project.iam.gserviceaccount.com",
         resources=replace(
             aws.execution_template.resources,
@@ -277,6 +282,24 @@ def _spark_plan(graph: GraphRecord) -> ExecutionPlan:
         deadline_seconds=600,
         physical_plan=physical,
     )
+
+
+@dataclass
+class _InputEstimator:
+    estimated_input_bytes: int
+    fail: bool = False
+    calls: int = 0
+
+    def estimate(self, record: GraphRecord) -> InputSizeEstimate:
+        del record
+        self.calls += 1
+        if self.fail:
+            raise InputSizeEstimationError("metadata unavailable")
+        return InputSizeEstimate(
+            self.estimated_input_bytes,
+            "bigquery_table_metadata",
+            NOW,
+        )
 
 
 def _submission(
@@ -1121,6 +1144,152 @@ def test_spark_sizing_preserves_one_unsized_fargate_route() -> None:
         )
 
 
+def test_bigquery_metadata_selects_existing_spark_size_class_with_provenance() -> None:
+    _store, graph = _graph_store()
+    spark_small = _spark_plan(graph)
+    spark_large = replace(
+        spark_small,
+        plan_id="gcp-spark-bigquery-large",
+        execution_template=replace(
+            spark_small.execution_template,
+            resources=replace(spark_small.execution_template.resources, memory_mib=32_768),
+        ),
+    )
+    estimator = _InputEstimator(5_000)
+    resolver = PlanRunSubmissionResolver(
+        plans=ExecutionPlanRegistry((spark_small, spark_large)),
+        environment="spark",
+        size_class_candidates=(
+            SizeClassCandidate(spark_small.revision, "small", 1_000),
+            SizeClassCandidate(spark_large.revision, "large", 10_000),
+        ),
+        default_size_class="small",
+        input_size_estimators=(("spark", estimator),),
+    )
+
+    automatic = resolver.resolve(
+        graph,
+        idempotency_key="start-key-automatic",
+        requested_at=NOW,
+    )
+    explicit = resolver.resolve(
+        graph,
+        idempotency_key="start-key-explicit",
+        requested_at=NOW,
+        estimated_input_bytes=500,
+    )
+
+    assert automatic.plan_revision == spark_large.revision
+    assert automatic.size_class_decision is not None
+    assert automatic.size_class_decision.mode is SizeClassMode.AUTOMATIC_INPUT
+    assert automatic.size_class_decision.estimated_input_bytes == 5_000
+    assert automatic.size_class_decision.estimate_source == "bigquery_table_metadata"
+    assert automatic.size_class_decision.estimate_observed_at == NOW
+    assert explicit.plan_revision == spark_small.revision
+    assert explicit.size_class_decision is not None
+    assert explicit.size_class_decision.estimate_source == "api_request"
+    assert estimator.calls == 1
+
+
+def test_bigquery_metadata_failure_uses_existing_default_and_auto_route_is_rejected() -> None:
+    _store, graph = _graph_store()
+    spark = _spark_plan(graph)
+    estimator = _InputEstimator(500, fail=True)
+    candidates = (SizeClassCandidate(spark.revision, "small", 1_000),)
+    resolver = PlanRunSubmissionResolver(
+        plans=ExecutionPlanRegistry((spark,)),
+        environment="spark",
+        size_class_candidates=candidates,
+        default_size_class="small",
+        input_size_estimators=(("spark", estimator),),
+    )
+
+    fallback = resolver.resolve(
+        graph,
+        idempotency_key="start-key-fallback",
+        requested_at=NOW,
+    )
+
+    assert fallback.plan_revision == spark.revision
+    assert fallback.size_class_decision is not None
+    assert fallback.size_class_decision.mode is SizeClassMode.CONFIGURED_DEFAULT
+    assert fallback.size_class_decision.estimated_input_bytes is None
+    with pytest.raises(OrchestrationContractError, match="exact configured environment"):
+        replace(resolver, environment="auto")
+
+
+def test_idempotent_retry_replays_before_mutable_metadata_is_reestimated() -> None:
+    graph_store, graph = _graph_store()
+    spark_small = _spark_plan(graph)
+    spark_large = replace(
+        spark_small,
+        plan_id="gcp-spark-bigquery-large",
+        execution_template=replace(
+            spark_small.execution_template,
+            resources=replace(spark_small.execution_template.resources, memory_mib=32_768),
+        ),
+    )
+    estimator = _InputEstimator(500)
+    store = _Store()
+    backend = _Backend()
+    composition = compose_run_control(
+        graph_store=graph_store,
+        store=cast("RunStore", store),
+        plans=(spark_small, spark_large),
+        backends={"dataproc_serverless": cast("ExecutionBackend", backend)},
+        environment="spark",
+        size_class_candidates=(
+            SizeClassCandidate(spark_small.revision, "small", 1_000),
+            SizeClassCandidate(spark_large.revision, "large", 10_000),
+        ),
+        default_size_class="small",
+        input_size_estimators=(("spark", estimator),),
+        start_reconciler=False,
+        clock=lambda: datetime.now(UTC) + timedelta(seconds=1),
+    )
+    application = ControlApplication(
+        graph_store,
+        lifecycle=composition.lifecycle,
+        submission_resolver=composition.resolver,
+        projects=("demo",),
+    )
+
+    first = application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        idempotency_key="stable-metadata-key",
+    )
+    estimator.estimated_input_bytes = 5_000
+    replayed = application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        idempotency_key="stable-metadata-key",
+    )
+
+    assert replayed.run_id == first.run_id
+    assert estimator.calls == 1
+    assert store.runs[first.run_id].record.plan_revision == spark_small.revision
+    assert len(backend.submissions) == 1
+
+    explicit = application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        idempotency_key="explicit-metadata-key",
+        estimated_input_bytes=500,
+    )
+    assert explicit.run_id != first.run_id
+    with pytest.raises(ControlOperationIdempotencyConflictError):
+        application.start_run(
+            "demo",
+            "hosted-graph",
+            expected_revision=graph.revision,
+            idempotency_key="explicit-metadata-key",
+        )
+
+
 def test_plan_files_must_be_canonical_and_content_addressed(tmp_path: Path) -> None:
     _store, graph = _graph_store()
     plan = _plan(graph)
@@ -1181,10 +1350,12 @@ def test_composed_lifecycle_serves_existing_control_run_routes() -> None:
             "eligible_plan_count": 1,
         }
         assert response.json()["sizing"] == {
-            "decision_schema": "io.dander.control.size-class-decision/v1",
+            "decision_schema": "io.dander.control.size-class-decision/v2",
             "mode": "configured_default",
             "selected_size_class": "small",
             "estimated_input_bytes": None,
+            "estimate_source": None,
+            "estimate_observed_at": None,
             "max_input_bytes": 1_000,
             "cpu_millis": 1_000,
             "memory_mib": 2_048,
@@ -1257,6 +1428,8 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
     cloud_run_backend = _Backend()
     spark_backend = _Backend()
     cloud_binding_calls: list[dict[str, object]] = []
+    estimator_binding_calls: list[tuple[str, str]] = []
+    estimator = _InputEstimator(500)
 
     monkeypatch.setattr(
         FargateBinding,
@@ -1267,6 +1440,10 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
     def bind_cloud(_cls: object, /, **kwargs: object) -> CloudRunBinding:
         cloud_binding_calls.append(kwargs)
         return cloud_run_binding
+
+    def bind_estimator(project_id: str, raw_dataset: str) -> _InputEstimator:
+        estimator_binding_calls.append((project_id, raw_dataset))
+        return estimator
 
     monkeypatch.setattr(CloudRunBinding, "from_project", classmethod(bind_cloud))
     monkeypatch.setattr(
@@ -1296,6 +1473,11 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
             spark_backend if bindings == {spark_plan.revision: spark_binding} else None
         ),
     )
+    monkeypatch.setattr(
+        composition_module,
+        "BigQueryInputSizeEstimator",
+        bind_estimator,
+    )
 
     composition = build_fargate_run_composition(
         graph_store=graph_store,
@@ -1306,6 +1488,8 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
         run_store_prefix="control/runs/v1",
         environment="production",
         gcp_project_id="dander-unit-project",
+        size_class_candidates=(SizeClassCandidate(spark_plan.revision, "small", 1_000),),
+        default_size_class="small",
         reconcile_interval_seconds=0.01,
         shutdown_grace_seconds=1,
     )
@@ -1324,6 +1508,9 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
         environment="spark",
     )
     assert selected_spark.plan_revision == spark_plan.revision
+    assert selected_spark.size_class_decision is not None
+    assert selected_spark.size_class_decision.estimate_source == "bigquery_table_metadata"
+    assert estimator_binding_calls == [("dander-unit-project", "raw")]
     assert cloud_binding_calls == [
         {
             "config": tmp_path / "dander.yaml",

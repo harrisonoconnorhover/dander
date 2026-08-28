@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from dander.control.application import ControlOperationError
+from dander.control.bigquery_input_size_estimator import BigQueryInputSizeEstimator
 from dander.control.cloud_run_execution_backend import CloudRunExecutionBackend
 from dander.control.dataproc_serverless_execution_backend import (
     DataprocServerlessExecutionBackend,
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from dander.control.graph_store import GraphStore
+    from dander.control.input_size_estimator import InputSizeEstimator
     from dander.control.orchestration import ExecutionBackend, RunStore, TriggerSpec
 
 _MAX_PLAN_FILES = 100
@@ -131,6 +133,7 @@ def compose_run_control(
     max_cost_microusd: int | None = None,
     size_class_candidates: Iterable[SizeClassCandidate] = (),
     default_size_class: str | None = None,
+    input_size_estimators: Iterable[tuple[str, InputSizeEstimator]] = (),
     reconcile_interval_seconds: float = 5.0,
     reconcile_page_size: int = 100,
     shutdown_grace_seconds: float = 35.0,
@@ -160,13 +163,14 @@ def compose_run_control(
             shutdown_grace_seconds=shutdown_grace_seconds,
         )
         resolver = PlanRunSubmissionResolver(
-            plan_registry,
-            environment,
-            tuple(placement_candidates),
-            preferred_locality,
-            max_cost_microusd,
-            tuple(size_class_candidates),
-            default_size_class,
+            plans=plan_registry,
+            environment=environment,
+            placement_candidates=tuple(placement_candidates),
+            preferred_locality=preferred_locality,
+            max_cost_microusd=max_cost_microusd,
+            size_class_candidates=tuple(size_class_candidates),
+            default_size_class=default_size_class,
+            input_size_estimators=tuple(input_size_estimators),
         )
         if start_reconciler:
             lifecycle.start_reconciler()
@@ -210,6 +214,7 @@ def build_multicloud_run_composition(
 ) -> ControlRunComposition:
     """Build one AWS-hosted Control composition with registered AWS and GCP backends."""
     plans = load_execution_plans(plan_paths)
+    size_class_candidates = tuple(size_class_candidates)
     if bool(trigger_paths) != (schedule_queue_url is not None):
         raise ControlRunCompositionError(
             "Control trigger specs and schedule queue URL must be configured together."
@@ -293,6 +298,11 @@ def build_multicloud_run_composition(
             max_cost_microusd=max_cost_microusd,
             size_class_candidates=size_class_candidates,
             default_size_class=default_size_class,
+            input_size_estimators=_bigquery_input_size_estimators(
+                plans,
+                size_class_candidates,
+                gcp_project_id=gcp_project_id,
+            ),
             reconcile_interval_seconds=reconcile_interval_seconds,
             shutdown_grace_seconds=shutdown_grace_seconds,
             start_reconciler=not triggers,
@@ -343,6 +353,39 @@ def build_multicloud_run_composition(
 
 
 build_fargate_run_composition = build_multicloud_run_composition
+
+
+def _bigquery_input_size_estimators(
+    plans: tuple[ExecutionPlan, ...],
+    size_class_candidates: tuple[SizeClassCandidate, ...],
+    *,
+    gcp_project_id: str | None,
+) -> tuple[tuple[str, BigQueryInputSizeEstimator], ...]:
+    sized_revisions = {candidate.plan_revision for candidate in size_class_candidates}
+    coordinates: dict[str, tuple[str, str]] = {}
+    for plan in plans:
+        if plan.revision not in sized_revisions or plan.backend_id != "dataproc_serverless":
+            continue
+        environment = dict(plan.execution_template.environment)
+        project_id = environment.get("GCP_PROJECT_ID")
+        raw_dataset = environment.get("BQ_DATASET_RAW")
+        if gcp_project_id is None or project_id != gcp_project_id or raw_dataset is None:
+            raise ControlRunCompositionError(
+                "Managed Spark size plans require exact BigQuery input coordinates."
+            )
+        coordinate = (project_id, raw_dataset)
+        if (existing := coordinates.get(plan.environment)) and existing != coordinate:
+            raise ControlRunCompositionError(
+                "Managed Spark size plans disagree on BigQuery input coordinates."
+            )
+        coordinates[plan.environment] = coordinate
+    return tuple(
+        (
+            environment,
+            BigQueryInputSizeEstimator(project_id, raw_dataset),
+        )
+        for environment, (project_id, raw_dataset) in sorted(coordinates.items())
+    )
 
 
 __all__ = [

@@ -239,6 +239,16 @@ class _Lifecycle:
         self.starts.append(submission)
         return _status("run-one")
 
+    def find_api_start(
+        self,
+        record: GraphRecord,
+        *,
+        environment: str,
+        idempotency_key: str,
+    ) -> RunStatusResponse | None:
+        del record, environment, idempotency_key
+        return None
+
     def get(self, address: RunAddress) -> RunStatusResponse:
         return _status(address.run_id)
 
@@ -306,6 +316,9 @@ class _SubmissionResolver:
             idempotency_key=idempotency_key,
             requested_at=requested_at,
         )
+
+    def idempotency_environment(self, environment: str | None) -> str | None:
+        return environment or self.environment
 
 
 def _status(run_id: str) -> RunStatusResponse:

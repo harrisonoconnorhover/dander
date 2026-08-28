@@ -28,7 +28,8 @@ EXECUTION_PLAN_SCHEMA_V1 = "io.dander.control.execution-plan/v1"
 EXECUTION_PLAN_SCHEMA = "io.dander.control.execution-plan/v2"
 EXECUTION_RESULT_SUMMARY_SCHEMA = "io.dander.control.execution-result-summary/v1"
 PLACEMENT_DECISION_SCHEMA = "io.dander.control.placement-decision/v1"
-SIZE_CLASS_DECISION_SCHEMA = "io.dander.control.size-class-decision/v1"
+SIZE_CLASS_DECISION_SCHEMA_V1 = "io.dander.control.size-class-decision/v1"
+SIZE_CLASS_DECISION_SCHEMA = "io.dander.control.size-class-decision/v2"
 
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -189,7 +190,7 @@ class SizeClassCandidate:
 
 @dataclass(frozen=True, slots=True)
 class SizeClassDecision:
-    """Versioned fixed-size evidence for one selected single-container resource class."""
+    """Versioned fixed-size evidence for one selected execution resource class."""
 
     mode: SizeClassMode
     selected_size_class: str
@@ -199,6 +200,8 @@ class SizeClassDecision:
     memory_mib: int
     ephemeral_storage_mib: int | None
     eligible_plan_count: int
+    estimate_source: str | None = None
+    estimate_observed_at: datetime | None = None
     schema: str = SIZE_CLASS_DECISION_SCHEMA
 
     def __post_init__(self) -> None:
@@ -211,6 +214,21 @@ class SizeClassDecision:
             or not 0 <= self.estimated_input_bytes <= _MAX_RESULT_INTEGER
         ):
             raise OrchestrationContractError("estimated input must be bounded non-negative bytes")
+        if (self.estimate_source is None) != (self.estimate_observed_at is None):
+            raise OrchestrationContractError(
+                "size-class estimate source and observation time must be supplied together"
+            )
+        if self.estimate_source is not None:
+            _require_portable_id(self.estimate_source, label="size-class estimate source")
+            if self.estimated_input_bytes is None:
+                raise OrchestrationContractError(
+                    "size-class estimate provenance requires estimated input bytes"
+                )
+            assert self.estimate_observed_at is not None
+            _require_utc(
+                self.estimate_observed_at,
+                label="size-class estimate observation time",
+            )
         if (
             isinstance(self.max_input_bytes, bool)
             or not isinstance(self.max_input_bytes, int)
@@ -1360,6 +1378,7 @@ __all__ = [
     "ORCHESTRATION_SCHEMA",
     "PLACEMENT_DECISION_SCHEMA",
     "SIZE_CLASS_DECISION_SCHEMA",
+    "SIZE_CLASS_DECISION_SCHEMA_V1",
     "AttemptRecord",
     "BackendExecutionState",
     "BackendHandle",

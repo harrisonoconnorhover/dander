@@ -270,7 +270,7 @@ def test_versioned_records_round_trip_as_canonical_bytes() -> None:
         == _result_summary()
     )
     assert json.loads(serialize_execution_plan(plan))["schema"].endswith("/v1")
-    assert json.loads(serialize_run_record(run))["schema"].endswith("/v4")
+    assert json.loads(serialize_run_record(run))["schema"].endswith("/v5")
     assert json.loads(serialize_attempt_record(attempt))["schema"].endswith("/v1")
 
 
@@ -402,6 +402,38 @@ def test_v3_run_snapshot_recovers_placement_without_invented_sizing() -> None:
 
     assert recovered.placement_decision == record.placement_decision
     assert recovered.size_class_decision is None
+
+
+def test_v4_run_snapshot_recovers_legacy_sizing_without_invented_provenance() -> None:
+    record = create_run_record(_submission())
+    assert record.size_class_decision is not None
+    record = replace(
+        record,
+        size_class_decision=replace(
+            record.size_class_decision,
+            mode=SizeClassMode.AUTOMATIC_INPUT,
+            estimated_input_bytes=500,
+            estimate_source="api_request",
+            estimate_observed_at=NOW,
+        ),
+    )
+    envelope = json.loads(serialize_run_record(record))
+    envelope["schema"] = "io.dander.control.run-record/v4"
+    sizing = envelope["record"]["size_class_decision"]
+    sizing["schema"] = "io.dander.control.size-class-decision/v1"
+    sizing.pop("estimate_source")
+    sizing.pop("estimate_observed_at")
+
+    recovered = deserialize_run_record(
+        json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
+    )
+
+    assert recovered.size_class_decision is not None
+    assert recovered.size_class_decision.selected_size_class == "small"
+    assert recovered.size_class_decision.estimated_input_bytes == 500
+    assert recovered.size_class_decision.estimate_source is None
+    assert recovered.size_class_decision.estimate_observed_at is None
+    assert json.loads(serialize_run_record(recovered))["schema"].endswith("/v5")
 
 
 def test_plan_revision_is_computed_and_tampering_is_rejected() -> None:

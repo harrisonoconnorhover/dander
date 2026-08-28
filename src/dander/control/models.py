@@ -659,9 +659,9 @@ class RunPlacementDecision(ControlModel):
 
 
 class RunSizeClassDecision(ControlModel):
-    """Fixed-size explanation of the selected single-container resource class."""
+    """Fixed-size explanation of the selected execution resource class."""
 
-    decision_schema: Literal["io.dander.control.size-class-decision/v1"]
+    decision_schema: Literal["io.dander.control.size-class-decision/v2"]
     mode: Literal[
         "automatic_input",
         "manual_override",
@@ -671,6 +671,8 @@ class RunSizeClassDecision(ControlModel):
     ]
     selected_size_class: str
     estimated_input_bytes: int | None = Field(default=None, ge=0, le=_MAX_RESULT_INTEGER)
+    estimate_source: str | None = None
+    estimate_observed_at: str | None = None
     max_input_bytes: int = Field(ge=0, le=_MAX_RESULT_INTEGER)
     cpu_millis: int = Field(ge=1)
     memory_mib: int = Field(ge=1)
