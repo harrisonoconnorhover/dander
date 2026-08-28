@@ -51,6 +51,19 @@ class ExecutionPlanCompiler:
         """Bind one canonical graph and backend template into an immutable plan."""
         schedule = replace(template.schedule, expression=None, time_zone=None)
         unscheduled_template = replace(template, schedule=schedule)
+        if unscheduled_template.launcher == "dataproc_serverless":
+            if "--graph-content-sha256" in unscheduled_template.command:
+                raise ExecutionPlanCompilationError(
+                    "The managed Spark template already contains a graph content identity."
+                )
+            unscheduled_template = replace(
+                unscheduled_template,
+                command=(
+                    *unscheduled_template.command,
+                    "--graph-content-sha256",
+                    graph.content_sha256,
+                ),
+            )
         physical_plan = self._planner.plan(
             graph.document,
             pipeline_id=unscheduled_template.pipeline_id,

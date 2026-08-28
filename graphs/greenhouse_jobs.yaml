@@ -20,9 +20,28 @@ nodes:
       position:
         x: 80
         y: 120
+  - id: prepared_jobs
+    type: transform
+    name: Curated job fields
+    config:
+      operations: []
+    fields:
+      - name: id
+        type: INT64
+        nullable: false
+      - name: title
+        type: STRING
+      - name: company_name
+        type: STRING
+      - name: updated_at
+        type: TIMESTAMP
+    visual:
+      position:
+        x: 420
+        y: 120
   - id: curated_jobs
     type: target
-    name: Curated jobs
+    name: Published jobs
     config:
       writer:
         write_mode: replace
@@ -42,10 +61,21 @@ nodes:
         type: TIMESTAMP
     visual:
       position:
-        x: 420
+        x: 760
         y: 120
 edges:
   - from: greenhouse_jobs
+    to: prepared_jobs
+    mappings:
+      - source: id
+        target: id
+      - source: title
+        target: title
+      - source: company_name
+        target: company_name
+      - source: updated_at
+        target: updated_at
+  - from: prepared_jobs
     to: curated_jobs
     mappings:
       - source: id
@@ -56,4 +86,3 @@ edges:
         target: company_name
       - source: updated_at
         target: updated_at
-

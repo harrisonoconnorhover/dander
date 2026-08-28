@@ -402,6 +402,46 @@ def test_execution_plan_compiler_derives_identity_and_removes_embedded_schedule(
     assert plan.execution_template.command[-2] == "--physical-plan"
 
 
+def test_execution_plan_compiler_binds_managed_spark_to_the_control_graph() -> None:
+    graph = InMemoryGraphStore(
+        clock=lambda: NOW,
+        revision_factory=lambda: "graph-r1",
+    ).create(
+        "demo",
+        "orders",
+        _graph(),
+        idempotency_key="graph-key-0001",
+    )
+    template = _template(
+        "dataproc_serverless",
+        maximum_parallelism=2,
+        deadline_seconds=600,
+    )
+    profile = ExecutionPlanProfile(
+        plan_id="spark-orders",
+        environment="spark",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+    )
+
+    plan = ExecutionPlanCompiler().compile(graph, profile, template)
+
+    assert plan.execution_template.command[-4:-2] == (
+        "--graph-content-sha256",
+        graph.content_sha256,
+    )
+    assert plan.execution_template.command[-2] == "--physical-plan"
+
+    duplicate = replace(
+        template,
+        command=(*template.command, "--graph-content-sha256", "a" * 64),
+    )
+    with pytest.raises(
+        ValueError,
+        match="already contains a graph content identity",
+    ):
+        ExecutionPlanCompiler().compile(graph, profile, duplicate)
+
+
 def test_managed_spark_execution_plan_requires_distributed_physical_execution() -> None:
     template = _template(
         "dataproc_serverless",

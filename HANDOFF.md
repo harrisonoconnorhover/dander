@@ -2,36 +2,37 @@
 
 ## Finished
 
-- Added pure deployment-time compilation from canonical graphs and existing backend templates.
-- Derived immutable graph, backend, retry, deadline, and artifact identity from their owning inputs.
-- Rendered fused Fargate and distributed Dataproc plans through existing AWS Control configuration.
-- Preserved trigger separation, restart loading, and the single-container command path.
+- Replaced the hard-coded Spark qualification rows/output with one reusable linear graph runtime.
+- Bound canonical graph, content-addressed configuration, physical plan, and immutable driver pair.
+- Added the existing Greenhouse graph's semantics-preserving transform for fused/Spark parity.
+- Preserved Control result parsing, fixed two-executor shape, and verified exchange cleanup.
 
 ## Try It
 
-Call `compile_execution_plan_json(...)` with one graph and its plan-profile/template pairs, then use
-the returned tuple as `AWSControlPlaneInput.execution_plan_json`.
+Compile the Greenhouse graph with Fargate and Dataproc profiles. For Dataproc, upload the canonical
+runtime configuration to `gs://<staging-bucket>/config/<sha256>.json`; Control binds the expected
+graph SHA automatically.
 
 ## Checks
 
-- Repository-wide Ruff lint and formatting passed: 527 files formatted.
+- Repository-wide Ruff lint and formatting passed: 527 files.
 - Strict repository typing passed for 471 source files.
 - Full Pytest suite and Control contract validation passed; only the existing Starlette warning.
-- Final independent adversarial review passed with no material findings.
+- Both adversarial reviews' material findings were corrected; the two-pass cap forbids a third.
 
 ## Decisions
 
-- Deployment compilation is pure and provider-free; Control startup still loads retained files.
-- Schedule expression/time zone are removed from templates because `TriggerSpec` owns triggers.
-- The existing AWS input schema and Terraform rendering remain unchanged.
+- The supported subset is direct type-preserving mappings and one unpartitioned BigQuery replace.
+- Both qualification images must come from the same exact-main commit.
+- Live parity is exactly Fargate then Spark against one raw BigQuery snapshot.
 
 ## Remaining
 
 - Open one functional PR, require protected CI, merge, and confirm exact-main CI.
-- Begin DANDER-246 only after DANDER-245 is complete.
+- Publish the exact-main image pair and run the two-cell parity qualification, then clean up.
 
 ## Review First
 
+- `scripts/spark_driver.py`
 - `src/dander/control/execution_plan_compiler.py`
-- `tests/deployment/test_aws_control_plane.py`
-- `tests/control/test_physical_planner.py`
+- `tests/test_spark_driver.py`
