@@ -46,7 +46,7 @@ from dander.control.models import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from dander.control.orchestration import RunSubmission
+    from dander.control.orchestration import PlacementMode, RunSubmission
     from dander.plugins import InstalledConnectorPlugin
 
 MAX_LOG_RECORDS = 500
@@ -117,7 +117,8 @@ class RunLifecyclePort(Protocol):
         self,
         record: GraphRecord,
         *,
-        environment: str,
+        environments: tuple[str, ...],
+        placement_mode: PlacementMode,
         idempotency_key: str,
     ) -> RunStatusResponse | None: ...
 
@@ -154,7 +155,11 @@ class RunSubmissionResolver(Protocol):
         estimated_input_bytes: int | None = None,
     ) -> RunSubmission: ...
 
-    def idempotency_environment(self, environment: str | None) -> str | None: ...
+    def idempotency_lookup(
+        self,
+        record: GraphRecord,
+        environment: str | None,
+    ) -> tuple[tuple[str, ...], PlacementMode]: ...
 
 
 class CanonicalGraphValidator:
@@ -310,15 +315,18 @@ class ControlApplication:
         resolver = self._require_submission_resolver()
         with self._run_start_lock:
             if size_class is None and estimated_input_bytes is None:
-                idempotency_environment = resolver.idempotency_environment(environment)
-                if idempotency_environment is not None:
-                    existing = lifecycle.find_api_start(
-                        record,
-                        environment=idempotency_environment,
-                        idempotency_key=idempotency_key,
-                    )
-                    if existing is not None:
-                        return existing
+                idempotency_environments, placement_mode = resolver.idempotency_lookup(
+                    record,
+                    environment,
+                )
+                existing = lifecycle.find_api_start(
+                    record,
+                    environments=idempotency_environments,
+                    placement_mode=placement_mode,
+                    idempotency_key=idempotency_key,
+                )
+                if existing is not None:
+                    return existing
             submission = resolver.resolve(
                 record,
                 idempotency_key=idempotency_key,

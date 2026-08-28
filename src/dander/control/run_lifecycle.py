@@ -300,10 +300,6 @@ class PlanRunSubmissionResolver:
             raise OrchestrationContractError(
                 f"placement candidate selects unregistered plan revision {sorted(unknown)[0]}"
             )
-        if self.environment == "auto" and self.input_size_estimators:
-            raise OrchestrationContractError(
-                "automatic input sizing requires an exact configured environment"
-            )
         if self.environment == "auto":
             if any(plan.environment == "auto" for plan in self.plans.plans):
                 raise OrchestrationContractError(
@@ -387,7 +383,7 @@ class PlanRunSubmissionResolver:
         size_class: str | None = None,
         estimated_input_bytes: int | None = None,
     ) -> RunSubmission:
-        candidates, size_mode, size_evidence = self._select_size_candidates(
+        candidates, size_modes, size_evidence = self._select_size_candidates(
             record,
             environment=environment if environment is not None else self.environment,
             size_class=size_class,
@@ -405,7 +401,7 @@ class PlanRunSubmissionResolver:
         size_decision = self._size_decision(
             plan,
             candidates,
-            mode=size_mode,
+            mode=size_modes.get(plan.environment),
             evidence=size_evidence.get(plan.environment),
         )
         return RunSubmission(
@@ -421,10 +417,29 @@ class PlanRunSubmissionResolver:
             requested_at=requested_at,
         )
 
-    def idempotency_environment(self, environment: str | None) -> str | None:
-        """Return an exact durable lookup scope before mutable input estimation."""
-        selected = environment if environment is not None else self.environment
-        return None if selected == "auto" else selected
+    def idempotency_lookup(
+        self,
+        record: GraphRecord,
+        environment: str | None,
+    ) -> tuple[tuple[str, ...], PlacementMode]:
+        """Return bounded durable lookup scopes before mutable input estimation."""
+        if environment is not None:
+            return (environment,), PlacementMode.MANUAL_OVERRIDE
+        if self.environment != "auto":
+            return (self.environment,), PlacementMode.CONFIGURED_DEFAULT
+        environments = tuple(
+            sorted(
+                {
+                    plan.environment
+                    for plan in self.plans.plans
+                    if plan.project == record.project and plan.graph == record.graph
+                }
+            )
+        )
+        if not environments:
+            self.plans.current_for_graph(record)
+            raise RuntimeError("The execution-plan registry returned no graph environments.")
+        return environments, PlacementMode.AUTOMATIC
 
     def decision_for_exact_plan(
         self,
@@ -503,7 +518,7 @@ class PlanRunSubmissionResolver:
         requested_at: datetime,
     ) -> tuple[
         tuple[ExecutionPlan, ...],
-        SizeClassMode | None,
+        dict[str, SizeClassMode | None],
         dict[str, _SizeSelectionEvidence],
     ]:
         if size_class is not None and estimated_input_bytes is not None:
@@ -524,7 +539,7 @@ class PlanRunSubmissionResolver:
                 raise ControlOperationUnavailableError(
                     "No hosted size classes are configured for this graph."
                 )
-            return current, None, {}
+            return current, {plan.environment: None for plan in current}, {}
         selected_class = size_class or self.default_size_class
         mode = (
             SizeClassMode.MANUAL_OVERRIDE
@@ -540,9 +555,9 @@ class PlanRunSubmissionResolver:
         for plan in current:
             grouped.setdefault(plan.environment, []).append(plan)
         selected: list[ExecutionPlan] = []
+        modes: dict[str, SizeClassMode | None] = {}
         evidence: dict[str, _SizeSelectionEvidence] = {}
         estimators = dict(self.input_size_estimators)
-        resolved_mode = mode
         explicit_sizing = size_class is not None or estimated_input_bytes is not None
         for route_environment in sorted(grouped):
             if environment != "auto" and route_environment != environment:
@@ -556,9 +571,11 @@ class PlanRunSubmissionResolver:
             if not choices:
                 if not explicit_sizing:
                     selected.extend(route_plans)
+                    modes[route_environment] = None
                 continue
             route_estimated_input_bytes = estimated_input_bytes
             route_selected_class = selected_class
+            route_mode = mode
             if route_estimated_input_bytes is not None:
                 evidence[route_environment] = _SizeSelectionEvidence(
                     route_estimated_input_bytes,
@@ -574,13 +591,13 @@ class PlanRunSubmissionResolver:
                         estimate.source,
                         estimate.observed_at,
                     )
-                    resolved_mode = SizeClassMode.AUTOMATIC_INPUT
+                    route_mode = SizeClassMode.AUTOMATIC_INPUT
                 except InputSizeEstimationError:
                     _LOGGER.warning(
                         "control_input_size_estimation_fallback",
                         extra={"environment": route_environment},
                     )
-                    resolved_mode = (
+                    route_mode = (
                         SizeClassMode.CONFIGURED_DEFAULT
                         if self.default_size_class is not None
                         else None
@@ -602,15 +619,17 @@ class PlanRunSubmissionResolver:
                             ),
                         )[0]
                     )
+                    modes[route_environment] = route_mode
             else:
                 match = [item for item in choices if item[1].size_class == route_selected_class]
                 if match:
                     selected.append(match[0][0])
+                    modes[route_environment] = route_mode
         if not selected:
             raise ControlOperationUnavailableError(
                 "No hosted execution plan satisfies the requested size class."
             )
-        return tuple(selected), resolved_mode, evidence
+        return tuple(selected), modes, evidence
 
     @staticmethod
     def _select_environment(
@@ -758,36 +777,63 @@ class ControlRunLifecycle:
         self,
         record: GraphRecord,
         *,
-        environment: str,
+        environments: tuple[str, ...],
+        placement_mode: PlacementMode,
         idempotency_key: str,
     ) -> RunStatusResponse | None:
-        """Replay a prior no-sizing API request before consulting mutable metadata."""
+        """Replay one unambiguous no-sizing API request before mutable estimation."""
         if (
-            _PORTABLE_ID.fullmatch(environment) is None
+            not environments
+            or len(environments) > 100
+            or tuple(sorted(set(environments))) != environments
+            or any(_PORTABLE_ID.fullmatch(environment) is None for environment in environments)
+            or placement_mode
+            not in {
+                PlacementMode.AUTOMATIC,
+                PlacementMode.CONFIGURED_DEFAULT,
+                PlacementMode.MANUAL_OVERRIDE,
+            }
             or _IDEMPOTENCY_KEY.fullmatch(idempotency_key) is None
         ):
             raise OrchestrationContractError("run idempotency lookup is invalid")
+        found: list[StoredRun] = []
         try:
-            stored = self._store.find_idempotency(
-                environment=environment,
-                project=record.project,
-                idempotency_key_sha256=hashlib.sha256(idempotency_key.encode()).hexdigest(),
-            )
+            key_sha256 = hashlib.sha256(idempotency_key.encode()).hexdigest()
+            for environment in environments:
+                stored = self._store.find_idempotency(
+                    environment=environment,
+                    project=record.project,
+                    idempotency_key_sha256=key_sha256,
+                )
+                if stored is not None:
+                    found.append(stored)
         except RunStoreError as error:
             raise ControlOperationDependencyError(
                 "Durable run state is temporarily unavailable."
             ) from error
-        if stored is None:
+        if not found:
             return None
-        durable = stored.record
+        if len(found) != 1:
+            raise ControlOperationIdempotencyConflictError(
+                "The idempotency key belongs to multiple run submissions."
+            )
+        durable = found[0].record
+        placement_matches = (
+            durable.placement_decision is None
+            and placement_mode is PlacementMode.CONFIGURED_DEFAULT
+        ) or (
+            durable.placement_decision is not None
+            and durable.placement_decision.mode is placement_mode
+        )
         same_request = (
-            durable.environment == environment
+            durable.environment in environments
             and durable.project == record.project
             and durable.graph == record.graph
             and durable.graph_revision == record.revision
             and durable.graph_content_sha256 == record.content_sha256
             and durable.trigger.kind is TriggerKind.API
             and durable.trigger.trigger_id == "control-api"
+            and placement_matches
             and (
                 durable.size_class_decision is None
                 or durable.size_class_decision.mode is SizeClassMode.CONFIGURED_DEFAULT
