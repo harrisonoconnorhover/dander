@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
-from typing import cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
+import yaml
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from dander.control.execution_plan_compiler import (
     ExecutionPlanCompiler,
@@ -71,6 +75,15 @@ def _graph(*, reverse: bool = False) -> PipelineGraphDocument:
     return PipelineGraphDocument.model_validate(
         {"name": "Orders pipeline", "nodes": nodes, "edges": edges}
     )
+
+
+def _join_graph(*, reverse: bool = False) -> PipelineGraphDocument:
+    with open("graphs/keyed_join_qualification.yaml", encoding="utf-8") as stream:
+        payload = yaml.safe_load(stream)
+    if reverse:
+        payload["nodes"].reverse()
+        payload["edges"].reverse()
+    return PipelineGraphDocument.model_validate(payload)
 
 
 def _template(
@@ -233,6 +246,85 @@ def test_distributed_planner_accepts_one_bounded_static_partition_count() -> Non
             pipeline_id="orders",
             execution_mode=PhysicalExecutionMode.FUSED_CONTAINER,
             distributed_partitions=2,
+        )
+
+
+def test_planner_compiles_one_deterministic_keyed_join_shape() -> None:
+    planner = StaticPhysicalPlanner()
+
+    fused = planner.plan(
+        _join_graph(),
+        pipeline_id="keyed_join_qualification",
+        execution_mode=PhysicalExecutionMode.FUSED_CONTAINER,
+    )
+    distributed = planner.plan(
+        _join_graph(),
+        pipeline_id="keyed_join_qualification",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        distributed_partitions=3,
+    )
+    reordered = planner.plan(
+        _join_graph(reverse=True),
+        pipeline_id="keyed_join_qualification",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        distributed_partitions=3,
+    )
+
+    assert reordered == distributed
+    assert [stage.stage_id for stage in distributed.stages] == [
+        "extract-left",
+        "extract-right",
+        "join",
+    ]
+    assert [stage.operators for stage in distributed.stages] == [
+        ("posts",),
+        ("comments",),
+        ("curated_post_comments", "joined_post_comments"),
+    ]
+    assert [exchange.partition_keys for exchange in distributed.exchanges] == [
+        ("id",),
+        ("postId",),
+    ]
+    assert all(exchange.partitioning.value == "hash" for exchange in distributed.exchanges)
+    assert distributed.maximum_parallelism == 3
+    assert distributed.revision != fused.revision
+    assert fused.stages[0].operators == (
+        "comments",
+        "curated_post_comments",
+        "joined_post_comments",
+        "posts",
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda payload: payload["nodes"][2]["config"]["join"].update(type="left"), "one inner"),
+        (
+            lambda payload: payload["nodes"][2]["config"].update(
+                operations=[{"kind": "trim_whitespace", "params": {"field": "title"}}]
+            ),
+            "one inner",
+        ),
+        (
+            lambda payload: payload["nodes"][1]["fields"][2].update(type="STRING"),
+            "same declared type",
+        ),
+    ],
+)
+def test_keyed_join_planner_fails_closed_outside_the_bounded_shape(
+    mutation: Callable[[dict[str, Any]], None],
+    message: str,
+) -> None:
+    payload = _join_graph().model_dump(mode="json", by_alias=True)
+    mutation(payload)
+    graph = PipelineGraphDocument.model_validate(payload)
+
+    with pytest.raises(PhysicalPlanningError, match=message):
+        StaticPhysicalPlanner().plan(
+            graph,
+            pipeline_id="keyed_join_qualification",
+            execution_mode=PhysicalExecutionMode.DISTRIBUTED,
         )
 
 

@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Added deterministic small/large Managed Spark plan compilation from one graph and base template.
-- Bound each immutable plan's partitions, executor count, CPU/memory, and input ceiling.
-- Preserved unsized Fargate selection while routing Spark from supplied input estimates.
-- Generalized the linear driver to the exact static planned shape with dynamic allocation disabled.
-- Rejected executor/partition drift before provider submission.
+- Added one deterministic two-source inner-join physical plan with two keyed object-store exchanges.
+- Preserved the existing fused plan and versioned linear Spark configuration/result contracts.
+- Extended the Spark driver for side-qualified join projection, output readback, and dual cleanup.
+- Added a pinned credential-free two-endpoint connector, graph, and paused qualification pipeline.
+- Kept canonical Control results truthful with one logical join endpoint and additive source detail.
 
 ## Try It
 
-Call `ExecutionPlanCompiler.compile_managed_spark_size_classes` with bounded class definitions, pass
-its plan JSON and candidate specs to the existing Control renderer, then start a Spark run with
-`estimated_input_bytes`.
+Run `uv run pytest -q tests/control/test_physical_planner.py tests/test_spark_driver.py
+tests/pipeline/test_runtime_bridge.py` to exercise both fused and distributed plans locally.
 
 ## Checks
 
 - Repository-wide Ruff lint and formatting passed: 527 files.
 - Strict repository typing passed for 471 source files.
-- Full Pytest suite, 62 focused tests, and Control contract validation passed.
-- The single final adversarial review passed with no material findings.
+- Full Pytest passed: 2,147 passed and 35 skipped; focused DANDER-248 tests also passed.
+- Control contract drift validation passed.
+- The single adversarial final review passed with no material findings.
 - The existing Starlette deprecation warning is unchanged.
 
 ## Decisions
 
-- Sizing selects from a supplied byte estimate; Dander does not measure input yet.
-- Worker shapes stay static per immutable plan and Spark dynamic allocation remains off.
-- An unsized Fargate route ignores Spark's configured default class unless sizing is requested.
+- Join support is limited to one inner equality key, direct type-preserving mappings, and replace.
+- Left/right orientation comes from graph intent, not declaration order.
+- Dynamic sizing, allocation, extra join shapes, Kubernetes, and a new reconciler remain deferred.
 
 ## Remaining
 
 - Open and merge one protected functional PR; confirm exact-main CI.
-- Publish one exact-main Spark image/driver pair.
-- Run and clean up exactly two controlled-estimate Spark cells.
+- Publish exact-main runtime and Spark artifacts.
+- Run exactly one fused-Fargate versus Spark parity matrix and clean up.
 
 ## Review First
 
-- `src/dander/control/execution_plan_compiler.py`
-- `src/dander/control/run_lifecycle.py`
+- `src/dander/control/physical_planner.py`
 - `scripts/spark_driver.py`
+- `graphs/keyed_join_qualification.yaml`

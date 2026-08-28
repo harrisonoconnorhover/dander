@@ -4,7 +4,7 @@ ARG DANDER_BUILD_REVISION=unknown
 ARG DANDER_BUILD_CREATED=1970-01-01T00:00:00Z
 
 LABEL org.opencontainers.image.title="Dander Managed Spark runtime" \
-    org.opencontainers.image.description="Bounded linear-graph Dander Spark runtime" \
+    org.opencontainers.image.description="Bounded distributed-graph Dander Spark runtime" \
     org.opencontainers.image.source="https://github.com/harrisonoconnorhover/dander" \
     org.opencontainers.image.licenses="Apache-2.0" \
     org.opencontainers.image.revision="${DANDER_BUILD_REVISION}" \

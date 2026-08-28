@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Content-addressed Spark runtime for Dander's bounded linear graph contract."""
+"""Content-addressed Spark runtime for Dander's bounded distributed graph contracts."""
 
 from __future__ import annotations
 
@@ -19,6 +19,8 @@ RUNTIME_CONTRACT = "io.dander.runtime/v1"
 PHYSICAL_PLAN_SCHEMA = "io.dander.physical-plan/v1"
 CONFIGURATION_SCHEMA = "io.dander.spark-linear-configuration/v1"
 SPARK_RUNTIME_CONTRACT = "io.dander.spark-linear-runtime/v1"
+KEYED_JOIN_CONFIGURATION_SCHEMA = "io.dander.spark-keyed-join-configuration/v1"
+KEYED_JOIN_SPARK_RUNTIME_CONTRACT = "io.dander.spark-keyed-join-runtime/v1"
 _DRIVER_PATH = Path("/opt/dander/spark_driver.py")
 _MAX_CONFIGURATION_BYTES = 1_048_576
 _MAX_PHYSICAL_PLAN_BYTES = 262_144
@@ -123,11 +125,36 @@ class LinearGraph:
 
 
 @dataclass(frozen=True, slots=True)
+class JoinSource:
+    """One side of the bounded two-source equality join."""
+
+    source_id: str
+    fields: tuple[str, ...]
+    mappings: tuple[DirectMapping, ...]
+    source_table: str
+    join_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class KeyedJoinGraph:
+    """The one executable two-source join shape supported by the Spark runtime."""
+
+    left: JoinSource
+    right: JoinSource
+    transform_id: str
+    target_id: str
+    transform_fields: tuple[str, ...]
+    target_fields: tuple[str, ...]
+    transform_to_target: tuple[DirectMapping, ...]
+    output_table: str
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeConfiguration:
     """Content-addressed graph and bindings loaded from the plan's GCS reference."""
 
     graph_content_sha256: str
-    graph: LinearGraph
+    graph: LinearGraph | KeyedJoinGraph
     exchange_partitions: int
     content_sha256: str
 
@@ -144,6 +171,8 @@ class SparkResult:
     affected_rows: int
     executor_instances: int
     exchange_partitions: int
+    source_results: tuple[tuple[str, int], ...] = ()
+    exchange_uris: tuple[str, ...] = ()
 
 
 def parse_invocation(arguments: list[str]) -> Invocation:
@@ -264,7 +293,8 @@ def parse_runtime_configuration(raw: bytes, invocation: Invocation) -> RuntimeCo
         raise SparkDriverError("the Spark runtime configuration is not canonical")
     if set(payload) != {"schema", "graph_content_sha256", "graph", "source_relations"}:
         raise SparkDriverError("the Spark runtime configuration fields are unsupported")
-    if payload.get("schema") != CONFIGURATION_SCHEMA:
+    schema = payload.get("schema")
+    if schema not in {CONFIGURATION_SCHEMA, KEYED_JOIN_CONFIGURATION_SCHEMA}:
         raise SparkDriverError("the Spark runtime configuration schema is unsupported")
     graph_payload = payload.get("graph")
     graph_identity = payload.get("graph_content_sha256")
@@ -276,10 +306,20 @@ def parse_runtime_configuration(raw: bytes, invocation: Invocation) -> RuntimeCo
         or graph_identity != invocation.graph_content_sha256
     ):
         raise SparkDriverError("the Spark runtime graph identity does not match its plan")
-    graph = _linear_graph(graph_payload, payload.get("source_relations"), invocation)
-    exchange_partitions = _validate_linear_plan(
-        invocation.physical_plan, invocation.pipeline_id, graph
-    )
+    if schema == CONFIGURATION_SCHEMA:
+        linear_graph = _linear_graph(graph_payload, payload.get("source_relations"), invocation)
+        exchange_partitions = _validate_linear_plan(
+            invocation.physical_plan, invocation.pipeline_id, linear_graph
+        )
+        graph: LinearGraph | KeyedJoinGraph = linear_graph
+    else:
+        keyed_join_graph = _keyed_join_graph(
+            graph_payload, payload.get("source_relations"), invocation
+        )
+        exchange_partitions = _validate_keyed_join_plan(
+            invocation.physical_plan, invocation.pipeline_id, keyed_join_graph
+        )
+        graph = keyed_join_graph
     return RuntimeConfiguration(
         graph_content_sha256=derived_graph_identity,
         graph=graph,
@@ -417,6 +457,149 @@ def _linear_graph(
     )
 
 
+def _keyed_join_graph(
+    graph: dict[str, object], raw_source_relations: object, invocation: Invocation
+) -> KeyedJoinGraph:
+    if graph.get("name") != invocation.pipeline_id:
+        raise SparkDriverError("the configuration graph does not match the pipeline")
+    nodes = graph.get("nodes")
+    edges = graph.get("edges")
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        raise SparkDriverError("the configuration graph topology is invalid")
+    by_type: dict[str, list[dict[str, object]]] = {
+        "source": [],
+        "transform": [],
+        "target": [],
+    }
+    for node in nodes:
+        if not isinstance(node, dict) or node.get("type") not in by_type:
+            raise SparkDriverError("the configuration graph node is unsupported")
+        by_type[cast("str", node["type"])].append(cast("dict[str, object]", node))
+    if (
+        len(by_type["source"]) != 2
+        or len(by_type["transform"]) != 1
+        or len(by_type["target"]) != 1
+        or len(nodes) != 4
+    ):
+        raise SparkDriverError(
+            "the keyed-join Spark runtime requires two sources, one transform, and one target"
+        )
+    transform = by_type["transform"][0]
+    target = by_type["target"][0]
+    transform_id = _node_id(transform)
+    target_id = _node_id(target)
+    transform_fields, transform_types = _node_fields(transform)
+    target_fields, target_types = _node_fields(target)
+    transform_config = transform.get("config")
+    join = transform_config.get("join") if isinstance(transform_config, dict) else None
+    if (
+        not isinstance(transform_config, dict)
+        or transform_config.get("operations", []) != []
+        or not isinstance(join, dict)
+        or join.get("type") != "inner"
+    ):
+        raise SparkDriverError(
+            "the keyed-join Spark runtime requires one inner join without operations"
+        )
+    left_id = join.get("left_input")
+    right_id = join.get("right_input")
+    raw_keys = join.get("keys")
+    source_nodes = {_node_id(node): node for node in by_type["source"]}
+    if (
+        not isinstance(left_id, str)
+        or not isinstance(right_id, str)
+        or left_id == right_id
+        or set(source_nodes) != {left_id, right_id}
+        or not isinstance(raw_keys, list)
+        or len(raw_keys) != 1
+        or not isinstance(raw_keys[0], dict)
+    ):
+        raise SparkDriverError("the keyed-join Spark runtime input contract is invalid")
+    left_key = raw_keys[0].get("left")
+    right_key = raw_keys[0].get("right")
+    if not isinstance(left_key, str) or not isinstance(right_key, str):
+        raise SparkDriverError("the keyed-join Spark runtime key contract is invalid")
+
+    edge_by_pair: dict[tuple[str, str], dict[str, object]] = {}
+    for edge in edges:
+        if not isinstance(edge, dict):
+            raise SparkDriverError("the configuration graph edge is invalid")
+        pair = (edge.get("from"), edge.get("to"))
+        if not all(isinstance(value, str) for value in pair) or pair in edge_by_pair:
+            raise SparkDriverError("the configuration graph edge identity is invalid")
+        edge_by_pair[cast("tuple[str, str]", pair)] = edge
+    expected_pairs = {
+        (left_id, transform_id),
+        (right_id, transform_id),
+        (transform_id, target_id),
+    }
+    if set(edge_by_pair) != expected_pairs:
+        raise SparkDriverError("the keyed-join Spark runtime graph shape is invalid")
+
+    left_node = source_nodes[left_id]
+    right_node = source_nodes[right_id]
+    left_fields, left_types = _node_fields(left_node)
+    right_fields, right_types = _node_fields(right_node)
+    if (
+        left_key not in left_types
+        or right_key not in right_types
+        or left_types[left_key] != right_types[right_key]
+    ):
+        raise SparkDriverError("the keyed-join Spark runtime keys are incompatible")
+    left_mappings = _partial_direct_mappings(
+        edge_by_pair[(left_id, transform_id)], left_types, transform_types
+    )
+    right_mappings = _partial_direct_mappings(
+        edge_by_pair[(right_id, transform_id)], right_types, transform_types
+    )
+    mapped_targets = [mapping.target for mapping in (*left_mappings, *right_mappings)]
+    if len(mapped_targets) != len(set(mapped_targets)) or set(mapped_targets) != set(
+        transform_fields
+    ):
+        raise SparkDriverError(
+            "the keyed-join Spark runtime mappings must cover the joined output once"
+        )
+    transform_to_target = _direct_mappings(
+        edge_by_pair[(transform_id, target_id)],
+        transform_types,
+        target_types,
+        target_fields,
+    )
+    if not isinstance(raw_source_relations, dict) or set(raw_source_relations) != {
+        left_id,
+        right_id,
+    }:
+        raise SparkDriverError("the keyed-join Spark runtime source bindings are invalid")
+    left_table = raw_source_relations[left_id]
+    right_table = raw_source_relations[right_id]
+    if not isinstance(left_table, str) or not isinstance(right_table, str):
+        raise SparkDriverError("the keyed-join Spark runtime source tables are invalid")
+    _same_project_relation(left_table, invocation.project, "left source")
+    _same_project_relation(right_table, invocation.project, "right source")
+    return KeyedJoinGraph(
+        left=JoinSource(
+            source_id=left_id,
+            fields=left_fields,
+            mappings=left_mappings,
+            source_table=left_table,
+            join_key=left_key,
+        ),
+        right=JoinSource(
+            source_id=right_id,
+            fields=right_fields,
+            mappings=right_mappings,
+            source_table=right_table,
+            join_key=right_key,
+        ),
+        transform_id=transform_id,
+        target_id=target_id,
+        transform_fields=transform_fields,
+        target_fields=target_fields,
+        transform_to_target=transform_to_target,
+        output_table=_target_relation(target, invocation.project),
+    )
+
+
 def _node_id(node: dict[str, object]) -> str:
     value = node.get("id")
     if not isinstance(value, str) or _SAFE_IDENTIFIER.fullmatch(value) is None:
@@ -482,6 +665,38 @@ def _direct_mappings(
     if set(by_target) != set(target_fields):
         raise SparkDriverError("the Spark runtime mappings must cover the declared output")
     return tuple(by_target[field] for field in target_fields)
+
+
+def _partial_direct_mappings(
+    edge: dict[str, object],
+    source_types: dict[str, str],
+    target_types: dict[str, str],
+) -> tuple[DirectMapping, ...]:
+    if edge.get("join") is not None:
+        raise SparkDriverError("the Spark runtime does not support legacy edge joins")
+    raw_mappings = edge.get("mappings")
+    if not isinstance(raw_mappings, list) or not raw_mappings:
+        raise SparkDriverError("the Spark runtime mappings are invalid")
+    by_target: dict[str, DirectMapping] = {}
+    for raw_mapping in raw_mappings:
+        if not isinstance(raw_mapping, dict):
+            raise SparkDriverError("the Spark runtime mapping is invalid")
+        source = raw_mapping.get("source")
+        target = raw_mapping.get("target")
+        if (
+            not isinstance(source, str)
+            or not isinstance(target, str)
+            or raw_mapping.get("transformation") is not None
+            or source not in source_types
+            or target not in target_types
+            or source_types[source] != target_types[target]
+            or target in by_target
+        ):
+            raise SparkDriverError(
+                "the Spark runtime supports only type-preserving direct mappings"
+            )
+        by_target[target] = DirectMapping(source=source, target=target)
+    return tuple(by_target[target] for target in sorted(by_target))
 
 
 def _target_relation(target: dict[str, object], project: str) -> str:
@@ -562,6 +777,66 @@ def _validate_linear_plan(plan: dict[str, object], pipeline_id: str, graph: Line
     return partition_count
 
 
+def _validate_keyed_join_plan(
+    plan: dict[str, object], pipeline_id: str, graph: KeyedJoinGraph
+) -> int:
+    partition_count = plan.get("maximum_parallelism")
+    if (
+        isinstance(partition_count, bool)
+        or not isinstance(partition_count, int)
+        or not 2 <= partition_count <= 2_000
+    ):
+        raise SparkDriverError("the physical plan does not match the configured keyed join")
+    expected = {
+        "pipeline_id": pipeline_id,
+        "execution_mode": "distributed",
+        "stages": [
+            {
+                "stage_id": "extract-left",
+                "operators": [graph.left.source_id],
+                "partition_count": partition_count,
+                "depends_on": [],
+            },
+            {
+                "stage_id": "extract-right",
+                "operators": [graph.right.source_id],
+                "partition_count": partition_count,
+                "depends_on": [],
+            },
+            {
+                "stage_id": "join",
+                "operators": sorted([graph.transform_id, graph.target_id]),
+                "partition_count": partition_count,
+                "depends_on": ["extract-left", "extract-right"],
+            },
+        ],
+        "exchanges": [
+            {
+                "exchange_id": "left-join",
+                "producer_stage_id": "extract-left",
+                "consumer_stage_id": "join",
+                "transport": "object_store",
+                "partitioning": "hash",
+                "partition_count": partition_count,
+                "partition_keys": [graph.left.join_key],
+            },
+            {
+                "exchange_id": "right-join",
+                "producer_stage_id": "extract-right",
+                "consumer_stage_id": "join",
+                "transport": "object_store",
+                "partitioning": "hash",
+                "partition_count": partition_count,
+                "partition_keys": [graph.right.join_key],
+            },
+        ],
+        "maximum_parallelism": partition_count,
+    }
+    if plan != expected:
+        raise SparkDriverError("the physical plan does not match the configured keyed join")
+    return partition_count
+
+
 def _planned_executor_instances(spark: object, partition_count: int) -> int:
     dynamic_spark = cast("Any", spark)
     try:
@@ -581,7 +856,7 @@ def _planned_executor_instances(spark: object, partition_count: int) -> int:
 
 
 def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
-    """Execute one validated source-to-transform-to-BigQuery graph."""
+    """Execute one validated distributed graph and publish its BigQuery target."""
     try:
         from pyspark.sql import SparkSession, functions  # type: ignore[import-not-found]
     except ImportError as error:
@@ -597,8 +872,8 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             failure_code="spark_session_start_failed",
         ) from error
     dynamic_spark = cast("Any", spark)
-    exchange_uri = _exchange_uri(invocation, context)
-    exchange_created = False
+    owned_exchange_uris: tuple[str, ...] = ()
+    spark_contract = SPARK_RUNTIME_CONTRACT
     stage = "configuration"
     try:
         dynamic_spark.conf.set("temporaryGcsBucket", invocation.staging_bucket)
@@ -607,37 +882,96 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             dynamic_spark, configuration.exchange_partitions
         )
         graph = configuration.graph
-        stage = "source_read"
-        source = (
-            dynamic_spark.read.format("bigquery")
-            .option("table", graph.source_table)
-            .option("parentProject", invocation.project)
-            .load()
-            .select(*graph.source_fields)
-        )
-        source_rows = int(source.count())
-        stage = "exchange_write"
-        source.repartition(configuration.exchange_partitions).write.mode("errorifexists").parquet(
-            exchange_uri
-        )
-        exchange_created = True
-        stage = "transform"
-        exchanged = dynamic_spark.read.parquet(exchange_uri)
-        transformed = _project_frame(
-            exchanged,
-            graph.source_to_transform,
-            graph.transform_fields,
-            functions,
-        )
-        published = cast(
-            "Any",
-            _project_frame(
-                transformed,
-                graph.transform_to_target,
-                graph.target_fields,
+        if isinstance(graph, LinearGraph):
+            exchange_uri = _exchange_uri(invocation, context)
+            owned_exchange_uris = (exchange_uri,)
+            stage = "source_read"
+            source = (
+                dynamic_spark.read.format("bigquery")
+                .option("table", graph.source_table)
+                .option("parentProject", invocation.project)
+                .load()
+                .select(*graph.source_fields)
+            )
+            source_rows = int(source.count())
+            stage = "exchange_write"
+            source.repartition(configuration.exchange_partitions).write.mode(
+                "errorifexists"
+            ).parquet(exchange_uri)
+            stage = "transform"
+            exchanged = dynamic_spark.read.parquet(exchange_uri)
+            transformed = _project_frame(
+                exchanged,
+                graph.source_to_transform,
+                graph.transform_fields,
                 functions,
-            ),
-        )
+            )
+            published = cast(
+                "Any",
+                _project_frame(
+                    transformed,
+                    graph.transform_to_target,
+                    graph.target_fields,
+                    functions,
+                ),
+            )
+            expected_rows = source_rows
+            source_results: tuple[tuple[str, int], ...] = ()
+        else:
+            spark_contract = KEYED_JOIN_SPARK_RUNTIME_CONTRACT
+            owned_exchange_uris = _join_exchange_uris(invocation, context)
+            left_exchange, right_exchange = owned_exchange_uris
+            stage = "source_read"
+            left_source = (
+                dynamic_spark.read.format("bigquery")
+                .option("table", graph.left.source_table)
+                .option("parentProject", invocation.project)
+                .load()
+                .select(*graph.left.fields)
+            )
+            right_source = (
+                dynamic_spark.read.format("bigquery")
+                .option("table", graph.right.source_table)
+                .option("parentProject", invocation.project)
+                .load()
+                .select(*graph.right.fields)
+            )
+            left_rows = int(left_source.count())
+            right_rows = int(right_source.count())
+            source_rows = left_rows + right_rows
+            source_results = (
+                (graph.left.source_id, left_rows),
+                (graph.right.source_id, right_rows),
+            )
+            stage = "exchange_write"
+            left_source.repartition(
+                configuration.exchange_partitions,
+                functions.col(graph.left.join_key),
+            ).write.mode("errorifexists").parquet(left_exchange)
+            right_source.repartition(
+                configuration.exchange_partitions,
+                functions.col(graph.right.join_key),
+            ).write.mode("errorifexists").parquet(right_exchange)
+            stage = "transform"
+            left_exchanged = dynamic_spark.read.parquet(left_exchange).alias("lhs")
+            right_exchanged = dynamic_spark.read.parquet(right_exchange).alias("rhs")
+            joined = left_exchanged.join(
+                right_exchanged,
+                functions.col(f"lhs.{graph.left.join_key}")
+                == functions.col(f"rhs.{graph.right.join_key}"),
+                "inner",
+            )
+            transformed = _project_join_frame(joined, graph, functions)
+            published = cast(
+                "Any",
+                _project_frame(
+                    transformed,
+                    graph.transform_to_target,
+                    graph.target_fields,
+                    functions,
+                ),
+            )
+            expected_rows = int(published.count())
         stage = "bigquery_write"
         (
             published.write.format("bigquery")
@@ -654,20 +988,22 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             .load()
             .count()
         )
-        if affected_rows != source_rows:
+        if affected_rows != expected_rows:
             raise SparkDriverError(
-                "the BigQuery round-trip row count does not match its source",
+                "the BigQuery round-trip row count does not match its produced output",
                 failure_code="spark_readback_mismatch",
             )
         return SparkResult(
-            source_id=graph.source_id,
+            source_id=(graph.source_id if isinstance(graph, LinearGraph) else graph.transform_id),
             target_id=graph.target_id,
             output_table=graph.output_table,
-            exchange_uri=exchange_uri,
+            exchange_uri=owned_exchange_uris[0],
             source_rows=source_rows,
             affected_rows=affected_rows,
             executor_instances=executor_instances,
             exchange_partitions=configuration.exchange_partitions,
+            source_results=source_results,
+            exchange_uris=(owned_exchange_uris if source_results else ()),
         )
     except SparkDriverError:
         raise
@@ -677,13 +1013,8 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             failure_code=f"spark_{stage}_failed",
         ) from error
     finally:
-        cleanup_error: SparkDriverError | None = None
-        if exchange_created:
-            try:
-                _delete_exchange(dynamic_spark, exchange_uri)
-            except SparkDriverError as error:
-                cleanup_error = error
-        _stop_spark(dynamic_spark, context)
+        cleanup_error = _cleanup_exchanges(dynamic_spark, owned_exchange_uris)
+        _stop_spark(dynamic_spark, context, contract=spark_contract)
         if cleanup_error is not None:
             raise cleanup_error
 
@@ -702,6 +1033,24 @@ def _project_frame(
     )
 
 
+def _project_join_frame(
+    frame: object,
+    graph: KeyedJoinGraph,
+    functions: object,
+) -> object:
+    dynamic_frame = cast("Any", frame)
+    dynamic_functions = cast("Any", functions)
+    by_target = {mapping.target: ("lhs", mapping.source) for mapping in graph.left.mappings} | {
+        mapping.target: ("rhs", mapping.source) for mapping in graph.right.mappings
+    }
+    return dynamic_frame.select(
+        *(
+            dynamic_functions.col(f"{by_target[field][0]}.{by_target[field][1]}").alias(field)
+            for field in graph.transform_fields
+        )
+    )
+
+
 def completion_event(
     invocation: Invocation,
     context: RuntimeContext,
@@ -710,6 +1059,22 @@ def completion_event(
     duration_ms: int,
 ) -> dict[str, object]:
     """Build the canonical Dander runtime completion consumed by Control."""
+    operations = (
+        [
+            *({"operation": source_id} for source_id, _rows in result.source_results),
+            {"operation": "object_store_exchange:left"},
+            {"operation": "object_store_exchange:right"},
+            {"operation": result.target_id},
+            {"operation": "bigquery_readback"},
+        ]
+        if result.source_results
+        else [
+            {"operation": result.source_id},
+            {"operation": "object_store_exchange"},
+            {"operation": result.target_id},
+            {"operation": "bigquery_readback"},
+        ]
+    )
     return {
         "contract": RUNTIME_CONTRACT,
         "event": "runtime.completed",
@@ -744,12 +1109,7 @@ def completion_event(
                 "queue_duration_ms": 0,
                 "execution_duration_ms": duration_ms,
                 "spill_bytes": 0,
-                "operations": [
-                    {"operation": result.source_id},
-                    {"operation": "object_store_exchange"},
-                    {"operation": result.target_id},
-                    {"operation": "bigquery_readback"},
-                ],
+                "operations": operations,
             },
             "metrics": {
                 "endpoints": 1,
@@ -840,7 +1200,7 @@ def _spark_event(
     context: RuntimeContext,
     result: SparkResult,
 ) -> dict[str, object]:
-    return {
+    event: dict[str, object] = {
         "contract": SPARK_RUNTIME_CONTRACT,
         "event": "spark.runtime.completed",
         "run_id": context.run_id,
@@ -856,6 +1216,16 @@ def _spark_event(
         "exchange_partitions": result.exchange_partitions,
         "exchange_cleanup": "confirmed",
     }
+    if result.source_results:
+        event.update(
+            {
+                "contract": KEYED_JOIN_SPARK_RUNTIME_CONTRACT,
+                "source_id": result.source_id,
+                "source_rows_by_id": {source_id: rows for source_id, rows in result.source_results},
+                "exchange_uris": list(result.exchange_uris),
+            }
+        )
+    return event
 
 
 def _dimensions(invocation: Invocation, context: RuntimeContext) -> dict[str, object]:
@@ -876,6 +1246,14 @@ def _exchange_uri(invocation: Invocation, context: RuntimeContext) -> str:
         f"gs://{invocation.staging_bucket}/dander-spark/exchanges/"
         f"{context.run_id}/attempt-{context.attempt}/extract-transform"
     )
+
+
+def _join_exchange_uris(invocation: Invocation, context: RuntimeContext) -> tuple[str, str]:
+    root = (
+        f"gs://{invocation.staging_bucket}/dander-spark/exchanges/"
+        f"{context.run_id}/attempt-{context.attempt}"
+    )
+    return (f"{root}/left-join", f"{root}/right-join")
 
 
 def _delete_exchange(spark: object, uri: str) -> None:
@@ -907,7 +1285,23 @@ def _delete_exchange(spark: object, uri: str) -> None:
         ) from error
 
 
-def _stop_spark(spark: object, context: RuntimeContext) -> None:
+def _cleanup_exchanges(spark: object, uris: tuple[str, ...]) -> SparkDriverError | None:
+    first_error: SparkDriverError | None = None
+    for uri in uris:
+        try:
+            _delete_exchange(spark, uri)
+        except SparkDriverError as error:
+            if first_error is None:
+                first_error = error
+    return first_error
+
+
+def _stop_spark(
+    spark: object,
+    context: RuntimeContext,
+    *,
+    contract: str = SPARK_RUNTIME_CONTRACT,
+) -> None:
     dynamic_spark = cast("Any", spark)
     try:
         dynamic_spark.stop()
@@ -915,7 +1309,7 @@ def _stop_spark(spark: object, context: RuntimeContext) -> None:
         print(
             _json(
                 {
-                    "contract": SPARK_RUNTIME_CONTRACT,
+                    "contract": contract,
                     "event": "spark.session.stop.deferred",
                     "run_id": context.run_id,
                     "cleanup_owner": "managed_spark",
