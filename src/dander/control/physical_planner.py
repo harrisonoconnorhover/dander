@@ -23,7 +23,8 @@ if TYPE_CHECKING:
     from dander.deployment.projection import ExecutionTemplate
     from dander.pipeline.graph import PipelineGraph
 
-_DISTRIBUTED_PARTITIONS = 2
+_DEFAULT_DISTRIBUTED_PARTITIONS = 2
+_MAX_DISTRIBUTED_PARTITIONS = 2_000
 _KNOWN_NODE_TYPES = frozenset({"source", "transform", "target"})
 
 
@@ -40,6 +41,7 @@ class PhysicalPlanner(Protocol):
         *,
         pipeline_id: str,
         execution_mode: PhysicalExecutionMode,
+        distributed_partitions: int | None = None,
     ) -> PhysicalPlan:
         """Compile the graph into one immutable physical plan."""
 
@@ -53,8 +55,9 @@ class StaticPhysicalPlanner:
         *,
         pipeline_id: str,
         execution_mode: PhysicalExecutionMode,
+        distributed_partitions: int | None = None,
     ) -> PhysicalPlan:
-        """Return a deterministic plan without provider calls, estimates, or runtime sizing."""
+        """Return a deterministic plan without provider calls or runtime sizing."""
         try:
             graph = document.to_domain()
         except GraphValidationError as error:
@@ -67,12 +70,26 @@ class StaticPhysicalPlanner:
             raise PhysicalPlanningError("Physical planning does not support this graph node type.")
         if not isinstance(execution_mode, PhysicalExecutionMode):
             raise PhysicalPlanningError("The requested physical execution mode is invalid.")
+        if distributed_partitions is not None and (
+            isinstance(distributed_partitions, bool)
+            or not isinstance(distributed_partitions, int)
+            or not 2 <= distributed_partitions <= _MAX_DISTRIBUTED_PARTITIONS
+        ):
+            raise PhysicalPlanningError("Distributed partition count is outside its static bound.")
 
         try:
             if execution_mode is PhysicalExecutionMode.FUSED_CONTAINER:
+                if distributed_partitions is not None:
+                    raise PhysicalPlanningError(
+                        "Fused planning does not accept a distributed partition count."
+                    )
                 return self._fused_plan(graph, pipeline_id=pipeline_id)
             if execution_mode is PhysicalExecutionMode.DISTRIBUTED:
-                return self._distributed_plan(graph, pipeline_id=pipeline_id)
+                return self._distributed_plan(
+                    graph,
+                    pipeline_id=pipeline_id,
+                    partition_count=(distributed_partitions or _DEFAULT_DISTRIBUTED_PARTITIONS),
+                )
             raise PhysicalPlanningError("The requested physical execution mode is unsupported.")
         except PhysicalPlanError as error:
             raise PhysicalPlanningError(
@@ -96,7 +113,12 @@ class StaticPhysicalPlanner:
         )
 
     @staticmethod
-    def _distributed_plan(graph: PipelineGraph, *, pipeline_id: str) -> PhysicalPlan:
+    def _distributed_plan(
+        graph: PipelineGraph,
+        *,
+        pipeline_id: str,
+        partition_count: int,
+    ) -> PhysicalPlan:
         by_type = {
             node_type: tuple(
                 sorted(
@@ -133,12 +155,12 @@ class StaticPhysicalPlanner:
                 PhysicalStage(
                     stage_id="extract",
                     operators=(source.id,),
-                    partition_count=_DISTRIBUTED_PARTITIONS,
+                    partition_count=partition_count,
                 ),
                 PhysicalStage(
                     stage_id="transform",
                     operators=tuple(sorted((transform.id, target.id))),
-                    partition_count=_DISTRIBUTED_PARTITIONS,
+                    partition_count=partition_count,
                     depends_on=("extract",),
                 ),
             ),
@@ -149,10 +171,10 @@ class StaticPhysicalPlanner:
                     consumer_stage_id="transform",
                     transport=ExchangeTransport.OBJECT_STORE,
                     partitioning=PartitioningStrategy.ROUND_ROBIN,
-                    partition_count=_DISTRIBUTED_PARTITIONS,
+                    partition_count=partition_count,
                 ),
             ),
-            maximum_parallelism=_DISTRIBUTED_PARTITIONS,
+            maximum_parallelism=partition_count,
         )
 
 

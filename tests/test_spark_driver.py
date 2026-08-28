@@ -28,12 +28,17 @@ def _canonical_graph() -> CanonicalGraphDocument:
         return canonicalize_graph_document(yaml.safe_load(stream))
 
 
-def _physical_plan(*, maximum_parallelism: int | None = None) -> str:
+def _physical_plan(
+    *,
+    maximum_parallelism: int | None = None,
+    distributed_partitions: int = 2,
+) -> str:
     canonical = _canonical_graph()
     plan = StaticPhysicalPlanner().plan(
         canonical.document,
         pipeline_id=_PIPELINE,
         execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        distributed_partitions=distributed_partitions,
     )
     if maximum_parallelism is None:
         return serialize_physical_plan(plan).decode()
@@ -125,6 +130,34 @@ def test_driver_accepts_the_canonical_linear_plan_and_control_context() -> None:
     assert configuration.graph.transform_id == "prepared_jobs"
     assert configuration.graph.target_id == "curated_jobs"
     assert configuration.graph.output_table == f"{_PROJECT}.staging.graph_greenhouse_jobs"
+    assert configuration.exchange_partitions == 2
+
+
+def test_driver_accepts_a_larger_revision_covered_static_executor_shape() -> None:
+    invocation = driver.parse_invocation(
+        _arguments(physical_plan=_physical_plan(distributed_partitions=4))
+    )
+
+    configuration = driver.parse_runtime_configuration(_configuration_bytes(), invocation)
+
+    assert configuration.exchange_partitions == 4
+
+
+def test_driver_requires_exact_planned_executors_with_dynamic_allocation_off() -> None:
+    spark = MagicMock()
+    spark.conf.get.side_effect = lambda name: {
+        "spark.dynamicAllocation.enabled": "false",
+        "spark.executor.instances": "4",
+    }[name]
+
+    assert driver._planned_executor_instances(spark, 4) == 4
+
+    spark.conf.get.side_effect = lambda name: {
+        "spark.dynamicAllocation.enabled": "false",
+        "spark.executor.instances": "2",
+    }[name]
+    with pytest.raises(driver.SparkDriverError, match="planned executor shape"):
+        driver._planned_executor_instances(spark, 4)
 
 
 def test_driver_binds_configuration_to_control_graph_and_physical_plan() -> None:

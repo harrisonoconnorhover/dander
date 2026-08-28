@@ -355,12 +355,14 @@ class DataprocServerlessExecutionBackend:
             raise ExecutionBackendError(
                 "Managed Spark accepts only service-account-resolved GCP secret references."
             )
-        cores = _executor_cores(plan)
+        executor_count = template.schedule.task_count
         if (
-            template.schedule.task_count < 2
-            or template.schedule.task_count > 2_000
-            or template.schedule.maximum_parallelism != template.schedule.task_count
-            or physical.maximum_parallelism > template.schedule.task_count * cores
+            executor_count < 2
+            or executor_count > 2_000
+            or template.schedule.maximum_parallelism != executor_count
+            or physical.maximum_parallelism != executor_count
+            or any(stage.partition_count != executor_count for stage in physical.stages)
+            or any(exchange.partition_count != executor_count for exchange in physical.exchanges)
             or template.resources.ephemeral_storage_mib is not None
             or not 600 <= plan.deadline_seconds <= 14 * 24 * 60 * 60
         ):

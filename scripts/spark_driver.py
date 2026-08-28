@@ -128,6 +128,7 @@ class RuntimeConfiguration:
 
     graph_content_sha256: str
     graph: LinearGraph
+    exchange_partitions: int
     content_sha256: str
 
 
@@ -276,10 +277,13 @@ def parse_runtime_configuration(raw: bytes, invocation: Invocation) -> RuntimeCo
     ):
         raise SparkDriverError("the Spark runtime graph identity does not match its plan")
     graph = _linear_graph(graph_payload, payload.get("source_relations"), invocation)
-    _validate_linear_plan(invocation.physical_plan, invocation.pipeline_id, graph)
+    exchange_partitions = _validate_linear_plan(
+        invocation.physical_plan, invocation.pipeline_id, graph
+    )
     return RuntimeConfiguration(
         graph_content_sha256=derived_graph_identity,
         graph=graph,
+        exchange_partitions=exchange_partitions,
         content_sha256=hashlib.sha256(raw).hexdigest(),
     )
 
@@ -515,7 +519,14 @@ def _same_project_relation(value: str, project: str, kind: str) -> None:
         raise SparkDriverError(f"the Spark runtime {kind} relation is invalid")
 
 
-def _validate_linear_plan(plan: dict[str, object], pipeline_id: str, graph: LinearGraph) -> None:
+def _validate_linear_plan(plan: dict[str, object], pipeline_id: str, graph: LinearGraph) -> int:
+    partition_count = plan.get("maximum_parallelism")
+    if (
+        isinstance(partition_count, bool)
+        or not isinstance(partition_count, int)
+        or not 2 <= partition_count <= 2_000
+    ):
+        raise SparkDriverError("the physical plan does not match the configured linear graph")
     expected = {
         "pipeline_id": pipeline_id,
         "execution_mode": "distributed",
@@ -523,13 +534,13 @@ def _validate_linear_plan(plan: dict[str, object], pipeline_id: str, graph: Line
             {
                 "stage_id": "extract",
                 "operators": [graph.source_id],
-                "partition_count": 2,
+                "partition_count": partition_count,
                 "depends_on": [],
             },
             {
                 "stage_id": "transform",
                 "operators": sorted([graph.transform_id, graph.target_id]),
-                "partition_count": 2,
+                "partition_count": partition_count,
                 "depends_on": ["extract"],
             },
         ],
@@ -540,14 +551,33 @@ def _validate_linear_plan(plan: dict[str, object], pipeline_id: str, graph: Line
                 "consumer_stage_id": "transform",
                 "transport": "object_store",
                 "partitioning": "round_robin",
-                "partition_count": 2,
+                "partition_count": partition_count,
                 "partition_keys": [],
             }
         ],
-        "maximum_parallelism": 2,
+        "maximum_parallelism": partition_count,
     }
     if plan != expected:
         raise SparkDriverError("the physical plan does not match the configured linear graph")
+    return partition_count
+
+
+def _planned_executor_instances(spark: object, partition_count: int) -> int:
+    dynamic_spark = cast("Any", spark)
+    try:
+        dynamic_allocation = dynamic_spark.conf.get("spark.dynamicAllocation.enabled")
+        executor_instances = int(dynamic_spark.conf.get("spark.executor.instances"))
+    except Exception as error:
+        raise SparkDriverError(
+            "the managed Spark runtime executor plan is unavailable",
+            failure_code="spark_planned_shape_mismatch",
+        ) from error
+    if dynamic_allocation.casefold() != "false" or executor_instances != partition_count:
+        raise SparkDriverError(
+            "the managed Spark runtime changed the planned executor shape",
+            failure_code="spark_planned_shape_mismatch",
+        )
+    return executor_instances
 
 
 def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
@@ -572,14 +602,10 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
     stage = "configuration"
     try:
         dynamic_spark.conf.set("temporaryGcsBucket", invocation.staging_bucket)
-        dynamic_allocation = dynamic_spark.conf.get("spark.dynamicAllocation.enabled")
-        executor_instances = int(dynamic_spark.conf.get("spark.executor.instances"))
-        if dynamic_allocation.casefold() != "false" or executor_instances != 2:
-            raise SparkDriverError(
-                "the managed Spark runtime changed the fixed executor plan",
-                failure_code="spark_fixed_shape_mismatch",
-            )
         configuration = read_runtime_configuration(dynamic_spark, context, invocation)
+        executor_instances = _planned_executor_instances(
+            dynamic_spark, configuration.exchange_partitions
+        )
         graph = configuration.graph
         stage = "source_read"
         source = (
@@ -591,7 +617,9 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
         )
         source_rows = int(source.count())
         stage = "exchange_write"
-        source.repartition(2).write.mode("errorifexists").parquet(exchange_uri)
+        source.repartition(configuration.exchange_partitions).write.mode("errorifexists").parquet(
+            exchange_uri
+        )
         exchange_created = True
         stage = "transform"
         exchanged = dynamic_spark.read.parquet(exchange_uri)
@@ -639,7 +667,7 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             source_rows=source_rows,
             affected_rows=affected_rows,
             executor_instances=executor_instances,
-            exchange_partitions=2,
+            exchange_partitions=configuration.exchange_partitions,
         )
     except SparkDriverError:
         raise

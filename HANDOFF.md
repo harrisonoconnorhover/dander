@@ -2,37 +2,40 @@
 
 ## Finished
 
-- Replaced the hard-coded Spark qualification rows/output with one reusable linear graph runtime.
-- Bound canonical graph, content-addressed configuration, physical plan, and immutable driver pair.
-- Added the existing Greenhouse graph's semantics-preserving transform for fused/Spark parity.
-- Preserved Control result parsing, fixed two-executor shape, and verified exchange cleanup.
+- Added deterministic small/large Managed Spark plan compilation from one graph and base template.
+- Bound each immutable plan's partitions, executor count, CPU/memory, and input ceiling.
+- Preserved unsized Fargate selection while routing Spark from supplied input estimates.
+- Generalized the linear driver to the exact static planned shape with dynamic allocation disabled.
+- Rejected executor/partition drift before provider submission.
 
 ## Try It
 
-Compile the Greenhouse graph with Fargate and Dataproc profiles. For Dataproc, upload the canonical
-runtime configuration to `gs://<staging-bucket>/config/<sha256>.json`; Control binds the expected
-graph SHA automatically.
+Call `ExecutionPlanCompiler.compile_managed_spark_size_classes` with bounded class definitions, pass
+its plan JSON and candidate specs to the existing Control renderer, then start a Spark run with
+`estimated_input_bytes`.
 
 ## Checks
 
 - Repository-wide Ruff lint and formatting passed: 527 files.
 - Strict repository typing passed for 471 source files.
-- Full Pytest suite and Control contract validation passed; only the existing Starlette warning.
-- Both adversarial reviews' material findings were corrected; the two-pass cap forbids a third.
+- Full Pytest suite, 62 focused tests, and Control contract validation passed.
+- The single final adversarial review passed with no material findings.
+- The existing Starlette deprecation warning is unchanged.
 
 ## Decisions
 
-- The supported subset is direct type-preserving mappings and one unpartitioned BigQuery replace.
-- Both qualification images must come from the same exact-main commit.
-- Live parity is exactly Fargate then Spark against one raw BigQuery snapshot.
+- Sizing selects from a supplied byte estimate; Dander does not measure input yet.
+- Worker shapes stay static per immutable plan and Spark dynamic allocation remains off.
+- An unsized Fargate route ignores Spark's configured default class unless sizing is requested.
 
 ## Remaining
 
-- Open one functional PR, require protected CI, merge, and confirm exact-main CI.
-- Publish the exact-main image pair and run the two-cell parity qualification, then clean up.
+- Open and merge one protected functional PR; confirm exact-main CI.
+- Publish one exact-main Spark image/driver pair.
+- Run and clean up exactly two controlled-estimate Spark cells.
 
 ## Review First
 
-- `scripts/spark_driver.py`
 - `src/dander/control/execution_plan_compiler.py`
-- `tests/test_spark_driver.py`
+- `src/dander/control/run_lifecycle.py`
+- `scripts/spark_driver.py`
