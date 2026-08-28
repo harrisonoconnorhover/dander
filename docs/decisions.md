@@ -2246,3 +2246,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Qualification boundary:** One pinned, credential-free two-endpoint fixture supports exactly one
   fused-Fargate versus Spark parity matrix. Additional join types or keys, arbitrary DAG planning,
   dynamic sizing/allocation, autoscaling, Kubernetes, and a new reconciler remain later work.
+
+## 2026-08-28 — Automatic Spark sizing reads bounded BigQuery metadata
+
+- **Estimate:** For the supported canonical graph, Control derives each raw relation from its
+  connector and endpoint and sums BigQuery `tables.get` `numBytes` using `STORAGE_STATS`. The AWS
+  Control identity receives Metadata Viewer only; the estimator never reads table rows.
+- **Selection and recovery:** The observation selects the smallest existing immutable Spark size
+  class. Explicit API sizing bypasses estimation, and an unavailable estimate uses the existing
+  configured default. Before estimation, a no-sizing API retry consults the existing durable
+  idempotency index so mutable metadata cannot change its original plan.
+- **Contracts and boundary:** Size decisions v2 add estimate source/time, run snapshots v5 carry
+  that evidence, and canonical v4/v1 sizing records remain readable without invented provenance.
+  Estimation is limited to one exact environment; dynamic allocation, generalized placement,
+  autoscaling, and additional graph shapes remain separate work.

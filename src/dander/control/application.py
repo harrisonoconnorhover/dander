@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
@@ -112,6 +113,14 @@ class RunLifecyclePort(Protocol):
 
     def start(self, submission: RunSubmission) -> RunStatusResponse: ...
 
+    def find_api_start(
+        self,
+        record: GraphRecord,
+        *,
+        environment: str,
+        idempotency_key: str,
+    ) -> RunStatusResponse | None: ...
+
     def list(self, *, cursor: str | None, limit: int) -> RunPageResponse: ...
 
     def get(self, address: RunAddress) -> RunStatusResponse: ...
@@ -144,6 +153,8 @@ class RunSubmissionResolver(Protocol):
         size_class: str | None = None,
         estimated_input_bytes: int | None = None,
     ) -> RunSubmission: ...
+
+    def idempotency_environment(self, environment: str | None) -> str | None: ...
 
 
 class CanonicalGraphValidator:
@@ -194,6 +205,7 @@ class ControlApplication:
             graph_store.list(project, limit=1)
         self.projects = tuple(sorted(projects))
         self._readiness = readiness or (lambda: True)
+        self._run_start_lock = threading.Lock()
         self._closed = False
 
     def capabilities(self) -> CapabilitiesResponse:
@@ -296,17 +308,28 @@ class ControlApplication:
         lifecycle = self._require_lifecycle()
         record = self.require_graph_revision(project, graph, expected_revision)
         resolver = self._require_submission_resolver()
-        submission = resolver.resolve(
-            record,
-            idempotency_key=idempotency_key,
-            requested_at=datetime.now(UTC),
-            environment=environment,
-            size_class=size_class,
-            estimated_input_bytes=estimated_input_bytes,
-        )
-        if submission.graph != record or submission.idempotency_key != idempotency_key:
-            raise RuntimeError("The submission resolver changed validated request identity.")
-        return lifecycle.start(submission)
+        with self._run_start_lock:
+            if size_class is None and estimated_input_bytes is None:
+                idempotency_environment = resolver.idempotency_environment(environment)
+                if idempotency_environment is not None:
+                    existing = lifecycle.find_api_start(
+                        record,
+                        environment=idempotency_environment,
+                        idempotency_key=idempotency_key,
+                    )
+                    if existing is not None:
+                        return existing
+            submission = resolver.resolve(
+                record,
+                idempotency_key=idempotency_key,
+                requested_at=datetime.now(UTC),
+                environment=environment,
+                size_class=size_class,
+                estimated_input_bytes=estimated_input_bytes,
+            )
+            if submission.graph != record or submission.idempotency_key != idempotency_key:
+                raise RuntimeError("The submission resolver changed validated request identity.")
+            return lifecycle.start(submission)
 
     def get_run(self, address: RunAddress) -> RunStatusResponse:
         return self._require_lifecycle().get(address)

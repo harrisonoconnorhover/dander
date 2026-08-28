@@ -73,6 +73,12 @@ resource "google_project_iam_member" "logging_viewer" {
   member  = "serviceAccount:${google_service_account.control.email}"
 }
 
+resource "google_project_iam_member" "bigquery_metadata_viewer" {
+  project = var.project_id
+  role    = "roles/bigquery.metadataViewer"
+  member  = "serviceAccount:${google_service_account.control.email}"
+}
+
 resource "google_service_account_iam_member" "act_as_runtime" {
   for_each = var.runtime_service_account_names
 

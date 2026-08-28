@@ -2,40 +2,41 @@
 
 ## Finished
 
-- Added one deterministic two-source inner-join physical plan with two keyed object-store exchanges.
-- Preserved the existing fused plan and versioned linear Spark configuration/result contracts.
-- Extended the Spark driver for side-qualified join projection, output readback, and dual cleanup.
-- Added a pinned credential-free two-endpoint connector, graph, and paused qualification pipeline.
-- Kept canonical Control results truthful with one logical join endpoint and additive source detail.
+- Added metadata-only BigQuery input estimation for canonical graph source tables.
+- Connected estimates to existing immutable Spark size classes with explicit/default fallbacks.
+- Made no-sizing API retries replay durable runs before mutable metadata is read again.
+- Versioned sizing evidence and run snapshots while preserving canonical v4 reads.
+- Added the AWS Control BigQuery Metadata Viewer role and regenerated API contracts.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_physical_planner.py tests/test_spark_driver.py
-tests/pipeline/test_runtime_bridge.py` to exercise both fused and distributed plans locally.
+Run `uv run pytest -q tests/control/test_bigquery_input_size_estimator.py
+tests/control/test_run_lifecycle.py tests/control/test_s3_run_store.py`.
 
 ## Checks
 
-- Repository-wide Ruff lint and formatting passed: 527 files.
-- Strict repository typing passed for 471 source files.
-- Full Pytest passed: 2,147 passed and 35 skipped; focused DANDER-248 tests also passed.
-- Control contract drift validation passed.
-- The single adversarial final review passed with no material findings.
-- The existing Starlette deprecation warning is unchanged.
+- Repository-wide Ruff format and lint passed.
+- Strict repository typing passed for 474 source files.
+- Full Pytest passed with only the existing Starlette deprecation warning.
+- Focused DANDER-249 regression tests passed after the final review correction.
+- Control contract generation/drift validation passed.
+- Isolated Terraform formatting and module validation passed.
+- The final adversarial finding was corrected without another review checkpoint.
 
 ## Decisions
 
-- Join support is limited to one inner equality key, direct type-preserving mappings, and replace.
-- Left/right orientation comes from graph intent, not declaration order.
-- Dynamic sizing, allocation, extra join shapes, Kubernetes, and a new reconciler remain deferred.
+- Sum BigQuery `tables.get` `numBytes` metadata; never read table rows.
+- Explicit sizing bypasses estimation; metadata failure uses the existing default.
+- Limit automatic estimation to one exact environment and retain static Spark allocation.
 
 ## Remaining
 
 - Open and merge one protected functional PR; confirm exact-main CI.
-- Publish exact-main runtime and Spark artifacts.
-- Run exactly one fused-Fargate versus Spark parity matrix and clean up.
+- Publish one exact-main main image while reusing the accepted DANDER-248 Spark artifact.
+- Run exactly two Spark sizing cells, capture results, and clean up.
 
 ## Review First
 
-- `src/dander/control/physical_planner.py`
-- `scripts/spark_driver.py`
-- `graphs/keyed_join_qualification.yaml`
+- `src/dander/control/bigquery_input_size_estimator.py`
+- `src/dander/control/run_lifecycle.py`
+- `src/dander/control/orchestration_serialization.py`

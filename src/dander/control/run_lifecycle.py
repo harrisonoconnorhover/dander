@@ -20,6 +20,7 @@ from dander.control.application import (
     RunAddress,
 )
 from dander.control.graph_store import GraphStoreError, GraphStoreNotFoundError
+from dander.control.input_size_estimator import InputSizeEstimationError
 from dander.control.models import (
     LogLevel,
     LogPageResponse,
@@ -66,6 +67,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 
     from dander.control.graph_store import GraphRecord, GraphStore
+    from dander.control.input_size_estimator import InputSizeEstimator
     from dander.control.orchestration import ExecutionBackend, RunStore
 
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
@@ -270,6 +272,13 @@ class ExecutionBackendRegistry:
 
 
 @dataclass(frozen=True, slots=True)
+class _SizeSelectionEvidence:
+    estimated_input_bytes: int
+    source: str
+    observed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class PlanRunSubmissionResolver:
     """Resolve API submissions through exact override, default, or bounded placement."""
 
@@ -280,6 +289,7 @@ class PlanRunSubmissionResolver:
     max_cost_microusd: int | None = None
     size_class_candidates: tuple[SizeClassCandidate, ...] = ()
     default_size_class: str | None = None
+    input_size_estimators: tuple[tuple[str, InputSizeEstimator], ...] = ()
 
     def __post_init__(self) -> None:
         revisions = [candidate.plan_revision for candidate in self.placement_candidates]
@@ -289,6 +299,10 @@ class PlanRunSubmissionResolver:
         if unknown := set(revisions) - known:
             raise OrchestrationContractError(
                 f"placement candidate selects unregistered plan revision {sorted(unknown)[0]}"
+            )
+        if self.environment == "auto" and self.input_size_estimators:
+            raise OrchestrationContractError(
+                "automatic input sizing requires an exact configured environment"
             )
         if self.environment == "auto":
             if any(plan.environment == "auto" for plan in self.plans.plans):
@@ -346,6 +360,22 @@ class PlanRunSubmissionResolver:
                 raise OrchestrationContractError(
                     "a default size class requires configured size candidates"
                 )
+        estimator_environments = [environment for environment, _ in self.input_size_estimators]
+        if len(estimator_environments) != len(set(estimator_environments)):
+            raise OrchestrationContractError("input-size estimators must use unique environments")
+        sized_environments = {
+            plan.environment
+            for plan in self.plans.plans
+            if plan.revision in self._size_candidates_by_revision()
+        }
+        for estimator_environment in estimator_environments:
+            if (
+                _PORTABLE_ID.fullmatch(estimator_environment) is None
+                or estimator_environment not in sized_environments
+            ):
+                raise OrchestrationContractError(
+                    "an input-size estimator selects an invalid execution environment"
+                )
 
     def resolve(
         self,
@@ -357,11 +387,12 @@ class PlanRunSubmissionResolver:
         size_class: str | None = None,
         estimated_input_bytes: int | None = None,
     ) -> RunSubmission:
-        candidates, size_mode = self._select_size_candidates(
+        candidates, size_mode, size_evidence = self._select_size_candidates(
             record,
             environment=environment if environment is not None else self.environment,
             size_class=size_class,
             estimated_input_bytes=estimated_input_bytes,
+            requested_at=requested_at,
         )
         if environment is not None:
             plan = self._select_environment(candidates, environment)
@@ -375,7 +406,7 @@ class PlanRunSubmissionResolver:
             plan,
             candidates,
             mode=size_mode,
-            estimated_input_bytes=estimated_input_bytes,
+            evidence=size_evidence.get(plan.environment),
         )
         return RunSubmission(
             environment=plan.environment,
@@ -389,6 +420,11 @@ class PlanRunSubmissionResolver:
             idempotency_key=idempotency_key,
             requested_at=requested_at,
         )
+
+    def idempotency_environment(self, environment: str | None) -> str | None:
+        """Return an exact durable lookup scope before mutable input estimation."""
+        selected = environment if environment is not None else self.environment
+        return None if selected == "auto" else selected
 
     def decision_for_exact_plan(
         self,
@@ -464,7 +500,12 @@ class PlanRunSubmissionResolver:
         environment: str,
         size_class: str | None,
         estimated_input_bytes: int | None,
-    ) -> tuple[tuple[ExecutionPlan, ...], SizeClassMode | None]:
+        requested_at: datetime,
+    ) -> tuple[
+        tuple[ExecutionPlan, ...],
+        SizeClassMode | None,
+        dict[str, _SizeSelectionEvidence],
+    ]:
         if size_class is not None and estimated_input_bytes is not None:
             raise ControlOperationConflictError(
                 "Choose either a size class or estimated input bytes, not both."
@@ -483,7 +524,7 @@ class PlanRunSubmissionResolver:
                 raise ControlOperationUnavailableError(
                     "No hosted size classes are configured for this graph."
                 )
-            return current, None
+            return current, None, {}
         selected_class = size_class or self.default_size_class
         mode = (
             SizeClassMode.MANUAL_OVERRIDE
@@ -499,6 +540,9 @@ class PlanRunSubmissionResolver:
         for plan in current:
             grouped.setdefault(plan.environment, []).append(plan)
         selected: list[ExecutionPlan] = []
+        evidence: dict[str, _SizeSelectionEvidence] = {}
+        estimators = dict(self.input_size_estimators)
+        resolved_mode = mode
         explicit_sizing = size_class is not None or estimated_input_bytes is not None
         for route_environment in sorted(grouped):
             if environment != "auto" and route_environment != environment:
@@ -513,9 +557,39 @@ class PlanRunSubmissionResolver:
                 if not explicit_sizing:
                     selected.extend(route_plans)
                 continue
-            if estimated_input_bytes is not None:
+            route_estimated_input_bytes = estimated_input_bytes
+            route_selected_class = selected_class
+            if route_estimated_input_bytes is not None:
+                evidence[route_environment] = _SizeSelectionEvidence(
+                    route_estimated_input_bytes,
+                    "api_request",
+                    requested_at,
+                )
+            elif size_class is None and (estimator := estimators.get(route_environment)):
+                try:
+                    estimate = estimator.estimate(record)
+                    route_estimated_input_bytes = estimate.estimated_input_bytes
+                    evidence[route_environment] = _SizeSelectionEvidence(
+                        estimate.estimated_input_bytes,
+                        estimate.source,
+                        estimate.observed_at,
+                    )
+                    resolved_mode = SizeClassMode.AUTOMATIC_INPUT
+                except InputSizeEstimationError:
+                    _LOGGER.warning(
+                        "control_input_size_estimation_fallback",
+                        extra={"environment": route_environment},
+                    )
+                    resolved_mode = (
+                        SizeClassMode.CONFIGURED_DEFAULT
+                        if self.default_size_class is not None
+                        else None
+                    )
+            if route_estimated_input_bytes is not None:
                 fitting = [
-                    item for item in choices if item[1].max_input_bytes >= estimated_input_bytes
+                    item
+                    for item in choices
+                    if item[1].max_input_bytes >= route_estimated_input_bytes
                 ]
                 if fitting:
                     selected.append(
@@ -529,14 +603,14 @@ class PlanRunSubmissionResolver:
                         )[0]
                     )
             else:
-                match = [item for item in choices if item[1].size_class == selected_class]
+                match = [item for item in choices if item[1].size_class == route_selected_class]
                 if match:
                     selected.append(match[0][0])
         if not selected:
             raise ControlOperationUnavailableError(
                 "No hosted execution plan satisfies the requested size class."
             )
-        return tuple(selected), mode
+        return tuple(selected), resolved_mode, evidence
 
     @staticmethod
     def _select_environment(
@@ -556,7 +630,7 @@ class PlanRunSubmissionResolver:
         eligible: tuple[ExecutionPlan, ...],
         *,
         mode: SizeClassMode | None,
-        estimated_input_bytes: int | None,
+        evidence: _SizeSelectionEvidence | None,
     ) -> SizeClassDecision | None:
         if mode is None:
             return None
@@ -567,7 +641,9 @@ class PlanRunSubmissionResolver:
         return SizeClassDecision(
             mode=mode,
             selected_size_class=candidate.size_class,
-            estimated_input_bytes=estimated_input_bytes,
+            estimated_input_bytes=(evidence.estimated_input_bytes if evidence else None),
+            estimate_source=evidence.source if evidence else None,
+            estimate_observed_at=evidence.observed_at if evidence else None,
             max_input_bytes=candidate.max_input_bytes,
             cpu_millis=resources.cpu_millis,
             memory_mib=resources.memory_mib,
@@ -583,7 +659,7 @@ class PlanRunSubmissionResolver:
         """Describe an exact schedule or replay size-class selection."""
         if plan.revision not in self._size_candidates_by_revision():
             return None
-        return self._size_decision(plan, (plan,), mode=mode, estimated_input_bytes=None)
+        return self._size_decision(plan, (plan,), mode=mode, evidence=None)
 
 
 class ControlRunLifecycle:
@@ -677,6 +753,56 @@ class ControlRunLifecycle:
     def start(self, submission: RunSubmission) -> RunStatusResponse:
         with self._mutation_lock:
             return self._start(submission)
+
+    def find_api_start(
+        self,
+        record: GraphRecord,
+        *,
+        environment: str,
+        idempotency_key: str,
+    ) -> RunStatusResponse | None:
+        """Replay a prior no-sizing API request before consulting mutable metadata."""
+        if (
+            _PORTABLE_ID.fullmatch(environment) is None
+            or _IDEMPOTENCY_KEY.fullmatch(idempotency_key) is None
+        ):
+            raise OrchestrationContractError("run idempotency lookup is invalid")
+        try:
+            stored = self._store.find_idempotency(
+                environment=environment,
+                project=record.project,
+                idempotency_key_sha256=hashlib.sha256(idempotency_key.encode()).hexdigest(),
+            )
+        except RunStoreError as error:
+            raise ControlOperationDependencyError(
+                "Durable run state is temporarily unavailable."
+            ) from error
+        if stored is None:
+            return None
+        durable = stored.record
+        same_request = (
+            durable.environment == environment
+            and durable.project == record.project
+            and durable.graph == record.graph
+            and durable.graph_revision == record.revision
+            and durable.graph_content_sha256 == record.content_sha256
+            and durable.trigger.kind is TriggerKind.API
+            and durable.trigger.trigger_id == "control-api"
+            and (
+                durable.size_class_decision is None
+                or durable.size_class_decision.mode is SizeClassMode.CONFIGURED_DEFAULT
+                or (
+                    durable.size_class_decision.mode is SizeClassMode.AUTOMATIC_INPUT
+                    and durable.size_class_decision.estimate_source is not None
+                    and durable.size_class_decision.estimate_source != "api_request"
+                )
+            )
+        )
+        if not same_request:
+            raise ControlOperationIdempotencyConflictError(
+                "The idempotency key belongs to a different run submission."
+            )
+        return _status_response(durable)
 
     def _start(self, submission: RunSubmission) -> RunStatusResponse:
         plan = self._plans.for_submission(submission)
@@ -1195,6 +1321,12 @@ def _status_response(record: RunRecord) -> RunStatusResponse:
                 mode=record.size_class_decision.mode.value,
                 selected_size_class=record.size_class_decision.selected_size_class,
                 estimated_input_bytes=record.size_class_decision.estimated_input_bytes,
+                estimate_source=record.size_class_decision.estimate_source,
+                estimate_observed_at=(
+                    _timestamp(record.size_class_decision.estimate_observed_at)
+                    if record.size_class_decision.estimate_observed_at is not None
+                    else None
+                ),
                 max_input_bytes=record.size_class_decision.max_input_bytes,
                 cpu_millis=record.size_class_decision.cpu_millis,
                 memory_mib=record.size_class_decision.memory_mib,
