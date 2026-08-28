@@ -356,6 +356,28 @@ def test_greenhouse_linear_fixture_keeps_the_fused_bigquery_path() -> None:
     assert result.models == ("curated_jobs",)
 
 
+def test_multistage_linear_fixture_keeps_the_fused_bigquery_path() -> None:
+    graph = load_graph_from_yaml(Path("graphs/multistage_linear_qualification.yaml"))
+
+    plan = plan_graph_execution(
+        graph,
+        _source_config(),
+        project="unit-project",
+        dataset="raw",
+    )
+    result = BigQueryGraphRunner(plan=plan, project="unit-project", client=_Client()).build(
+        Path("."),
+        ownership=_Ownership(),
+    )
+
+    assert plan.targets[0].node_id == "curated_jobs"
+    assert plan.targets[0].target.table == "graph_greenhouse_jobs_multistage"
+    assert "FROM `unit-project`.`raw`.`greenhouse_job_board_jobs`" in plan.targets[0].query
+    assert "`job_id` AS `id`" in plan.targets[0].query
+    assert "SELECT *" not in plan.targets[0].query
+    assert result.models == ("curated_jobs",)
+
+
 def test_keyed_join_fixture_compiles_through_the_existing_fused_bigquery_path() -> None:
     graph = load_graph_from_yaml(Path("graphs/keyed_join_qualification.yaml"))
     source = load_source_config(Path("connectors/keyed_join_fixture.yaml"))

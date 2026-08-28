@@ -1,0 +1,108 @@
+name: multistage_linear_qualification
+nodes:
+  - id: greenhouse_jobs
+    type: source
+    name: Greenhouse jobs
+    config:
+      connector: greenhouse_job_board
+      endpoint: jobs
+    fields:
+      - name: id
+        type: INT64
+        nullable: false
+      - name: title
+        type: STRING
+      - name: company_name
+        type: STRING
+      - name: updated_at
+        type: TIMESTAMP
+
+  - id: normalized_jobs
+    type: transform
+    name: Normalize job fields
+    config:
+      operations: []
+    fields:
+      - name: job_id
+        type: INT64
+        nullable: false
+      - name: role_title
+        type: STRING
+      - name: company
+        type: STRING
+      - name: source_updated_at
+        type: TIMESTAMP
+
+  - id: prepared_jobs
+    type: transform
+    name: Prepare published fields
+    config:
+      operations: []
+    fields:
+      - name: id
+        type: INT64
+        nullable: false
+      - name: title
+        type: STRING
+      - name: company_name
+        type: STRING
+      - name: updated_at
+        type: TIMESTAMP
+
+  - id: curated_jobs
+    type: target
+    name: Published jobs
+    config:
+      writer:
+        write_mode: replace
+        destination:
+          dataset: staging
+          table: graph_greenhouse_jobs_multistage
+          business_key: []
+    fields:
+      - name: id
+        type: INT64
+        nullable: false
+      - name: title
+        type: STRING
+      - name: company_name
+        type: STRING
+      - name: updated_at
+        type: TIMESTAMP
+
+edges:
+  - from: greenhouse_jobs
+    to: normalized_jobs
+    mappings:
+      - source: id
+        target: job_id
+      - source: title
+        target: role_title
+      - source: company_name
+        target: company
+      - source: updated_at
+        target: source_updated_at
+
+  - from: normalized_jobs
+    to: prepared_jobs
+    mappings:
+      - source: job_id
+        target: id
+      - source: role_title
+        target: title
+      - source: company
+        target: company_name
+      - source: source_updated_at
+        target: updated_at
+
+  - from: prepared_jobs
+    to: curated_jobs
+    mappings:
+      - source: id
+        target: id
+      - source: title
+        target: title
+      - source: company_name
+        target: company_name
+      - source: updated_at
+        target: updated_at

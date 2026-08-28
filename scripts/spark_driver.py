@@ -19,6 +19,8 @@ RUNTIME_CONTRACT = "io.dander.runtime/v1"
 PHYSICAL_PLAN_SCHEMA = "io.dander.physical-plan/v1"
 CONFIGURATION_SCHEMA = "io.dander.spark-linear-configuration/v1"
 SPARK_RUNTIME_CONTRACT = "io.dander.spark-linear-runtime/v1"
+MULTISTAGE_LINEAR_CONFIGURATION_SCHEMA = "io.dander.spark-multistage-linear-configuration/v1"
+MULTISTAGE_LINEAR_SPARK_RUNTIME_CONTRACT = "io.dander.spark-multistage-linear-runtime/v1"
 KEYED_JOIN_CONFIGURATION_SCHEMA = "io.dander.spark-keyed-join-configuration/v1"
 KEYED_JOIN_SPARK_RUNTIME_CONTRACT = "io.dander.spark-keyed-join-runtime/v1"
 _DRIVER_PATH = Path("/opt/dander/spark_driver.py")
@@ -125,6 +127,25 @@ class LinearGraph:
 
 
 @dataclass(frozen=True, slots=True)
+class MultistageLinearGraph:
+    """The one executable source-to-two-transform chain supported by the Spark runtime."""
+
+    source_id: str
+    first_transform_id: str
+    second_transform_id: str
+    target_id: str
+    source_fields: tuple[str, ...]
+    first_transform_fields: tuple[str, ...]
+    second_transform_fields: tuple[str, ...]
+    target_fields: tuple[str, ...]
+    source_to_first: tuple[DirectMapping, ...]
+    first_to_second: tuple[DirectMapping, ...]
+    second_to_target: tuple[DirectMapping, ...]
+    source_table: str
+    output_table: str
+
+
+@dataclass(frozen=True, slots=True)
 class JoinSource:
     """One side of the bounded two-source equality join."""
 
@@ -154,7 +175,7 @@ class RuntimeConfiguration:
     """Content-addressed graph and bindings loaded from the plan's GCS reference."""
 
     graph_content_sha256: str
-    graph: LinearGraph | KeyedJoinGraph
+    graph: LinearGraph | MultistageLinearGraph | KeyedJoinGraph
     exchange_partitions: int
     content_sha256: str
 
@@ -171,6 +192,8 @@ class SparkResult:
     affected_rows: int
     executor_instances: int
     exchange_partitions: int
+    runtime_contract: str = SPARK_RUNTIME_CONTRACT
+    transform_ids: tuple[str, ...] = ()
     source_results: tuple[tuple[str, int], ...] = ()
     exchange_uris: tuple[str, ...] = ()
 
@@ -294,7 +317,11 @@ def parse_runtime_configuration(raw: bytes, invocation: Invocation) -> RuntimeCo
     if set(payload) != {"schema", "graph_content_sha256", "graph", "source_relations"}:
         raise SparkDriverError("the Spark runtime configuration fields are unsupported")
     schema = payload.get("schema")
-    if schema not in {CONFIGURATION_SCHEMA, KEYED_JOIN_CONFIGURATION_SCHEMA}:
+    if schema not in {
+        CONFIGURATION_SCHEMA,
+        MULTISTAGE_LINEAR_CONFIGURATION_SCHEMA,
+        KEYED_JOIN_CONFIGURATION_SCHEMA,
+    }:
         raise SparkDriverError("the Spark runtime configuration schema is unsupported")
     graph_payload = payload.get("graph")
     graph_identity = payload.get("graph_content_sha256")
@@ -311,7 +338,15 @@ def parse_runtime_configuration(raw: bytes, invocation: Invocation) -> RuntimeCo
         exchange_partitions = _validate_linear_plan(
             invocation.physical_plan, invocation.pipeline_id, linear_graph
         )
-        graph: LinearGraph | KeyedJoinGraph = linear_graph
+        graph: LinearGraph | MultistageLinearGraph | KeyedJoinGraph = linear_graph
+    elif schema == MULTISTAGE_LINEAR_CONFIGURATION_SCHEMA:
+        multistage_graph = _multistage_linear_graph(
+            graph_payload, payload.get("source_relations"), invocation
+        )
+        exchange_partitions = _validate_multistage_linear_plan(
+            invocation.physical_plan, invocation.pipeline_id, multistage_graph
+        )
+        graph = multistage_graph
     else:
         keyed_join_graph = _keyed_join_graph(
             graph_payload, payload.get("source_relations"), invocation
@@ -454,6 +489,110 @@ def _linear_graph(
         transform_to_target=second,
         source_table=source_table,
         output_table=output_table,
+    )
+
+
+def _multistage_linear_graph(
+    graph: dict[str, object], raw_source_relations: object, invocation: Invocation
+) -> MultistageLinearGraph:
+    if graph.get("name") != invocation.pipeline_id:
+        raise SparkDriverError("the configuration graph does not match the pipeline")
+    nodes = graph.get("nodes")
+    edges = graph.get("edges")
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        raise SparkDriverError("the multistage graph topology is invalid")
+    by_type: dict[str, list[dict[str, object]]] = {
+        "source": [],
+        "transform": [],
+        "target": [],
+    }
+    for node in nodes:
+        if not isinstance(node, dict) or node.get("type") not in by_type:
+            raise SparkDriverError("the multistage graph node is unsupported")
+        by_type[cast("str", node["type"])].append(cast("dict[str, object]", node))
+    if (
+        len(by_type["source"]) != 1
+        or len(by_type["transform"]) != 2
+        or len(by_type["target"]) != 1
+        or len(nodes) != 4
+    ):
+        raise SparkDriverError(
+            "the multistage Spark runtime requires one source, two transforms, and one target"
+        )
+
+    source = by_type["source"][0]
+    target = by_type["target"][0]
+    source_id = _node_id(source)
+    target_id = _node_id(target)
+    transform_nodes = {_node_id(node): node for node in by_type["transform"]}
+    edge_by_pair: dict[tuple[str, str], dict[str, object]] = {}
+    for edge in edges:
+        if not isinstance(edge, dict):
+            raise SparkDriverError("the multistage graph edge is invalid")
+        pair = (edge.get("from"), edge.get("to"))
+        if not all(isinstance(value, str) for value in pair) or pair in edge_by_pair:
+            raise SparkDriverError("the multistage graph edge identity is invalid")
+        edge_by_pair[cast("tuple[str, str]", pair)] = edge
+
+    ordered: tuple[str, str] | None = None
+    for first_id in sorted(transform_nodes):
+        second_id = next(value for value in transform_nodes if value != first_id)
+        if set(edge_by_pair) == {
+            (source_id, first_id),
+            (first_id, second_id),
+            (second_id, target_id),
+        }:
+            ordered = (first_id, second_id)
+            break
+    if ordered is None:
+        raise SparkDriverError("the multistage Spark runtime requires a linear graph chain")
+    first_id, second_id = ordered
+    first = transform_nodes[first_id]
+    second = transform_nodes[second_id]
+    for transform in (first, second):
+        config = transform.get("config")
+        if (
+            not isinstance(config, dict)
+            or config.get("join") is not None
+            or config.get("operations", []) != []
+        ):
+            raise SparkDriverError(
+                "the multistage Spark runtime supports direct mappings without operations"
+            )
+
+    source_fields, source_types = _node_fields(source)
+    first_fields, first_types = _node_fields(first)
+    second_fields, second_types = _node_fields(second)
+    target_fields, target_types = _node_fields(target)
+    source_to_first = _direct_mappings(
+        edge_by_pair[(source_id, first_id)], source_types, first_types, first_fields
+    )
+    first_to_second = _direct_mappings(
+        edge_by_pair[(first_id, second_id)], first_types, second_types, second_fields
+    )
+    second_to_target = _direct_mappings(
+        edge_by_pair[(second_id, target_id)], second_types, target_types, target_fields
+    )
+    if not isinstance(raw_source_relations, dict) or set(raw_source_relations) != {source_id}:
+        raise SparkDriverError("the multistage Spark runtime source binding is invalid")
+    source_table = raw_source_relations[source_id]
+    if not isinstance(source_table, str):
+        raise SparkDriverError("the multistage Spark runtime source table is invalid")
+    _same_project_relation(source_table, invocation.project, "source")
+    return MultistageLinearGraph(
+        source_id=source_id,
+        first_transform_id=first_id,
+        second_transform_id=second_id,
+        target_id=target_id,
+        source_fields=source_fields,
+        first_transform_fields=first_fields,
+        second_transform_fields=second_fields,
+        target_fields=target_fields,
+        source_to_first=source_to_first,
+        first_to_second=first_to_second,
+        second_to_target=second_to_target,
+        source_table=source_table,
+        output_table=_target_relation(target, invocation.project),
     )
 
 
@@ -777,6 +916,66 @@ def _validate_linear_plan(plan: dict[str, object], pipeline_id: str, graph: Line
     return partition_count
 
 
+def _validate_multistage_linear_plan(
+    plan: dict[str, object], pipeline_id: str, graph: MultistageLinearGraph
+) -> int:
+    partition_count = plan.get("maximum_parallelism")
+    if (
+        isinstance(partition_count, bool)
+        or not isinstance(partition_count, int)
+        or not 2 <= partition_count <= 2_000
+    ):
+        raise SparkDriverError("the physical plan does not match the configured multistage graph")
+    expected = {
+        "pipeline_id": pipeline_id,
+        "execution_mode": "distributed",
+        "stages": [
+            {
+                "stage_id": "extract",
+                "operators": [graph.source_id],
+                "partition_count": partition_count,
+                "depends_on": [],
+            },
+            {
+                "stage_id": "transform-a",
+                "operators": [graph.first_transform_id],
+                "partition_count": partition_count,
+                "depends_on": ["extract"],
+            },
+            {
+                "stage_id": "transform-b",
+                "operators": sorted([graph.second_transform_id, graph.target_id]),
+                "partition_count": partition_count,
+                "depends_on": ["transform-a"],
+            },
+        ],
+        "exchanges": [
+            {
+                "exchange_id": "extract-transform-a",
+                "producer_stage_id": "extract",
+                "consumer_stage_id": "transform-a",
+                "transport": "object_store",
+                "partitioning": "round_robin",
+                "partition_count": partition_count,
+                "partition_keys": [],
+            },
+            {
+                "exchange_id": "transform-a-transform-b",
+                "producer_stage_id": "transform-a",
+                "consumer_stage_id": "transform-b",
+                "transport": "object_store",
+                "partitioning": "round_robin",
+                "partition_count": partition_count,
+                "partition_keys": [],
+            },
+        ],
+        "maximum_parallelism": partition_count,
+    }
+    if plan != expected:
+        raise SparkDriverError("the physical plan does not match the configured multistage graph")
+    return partition_count
+
+
 def _validate_keyed_join_plan(
     plan: dict[str, object], pipeline_id: str, graph: KeyedJoinGraph
 ) -> int:
@@ -916,7 +1115,60 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
                 ),
             )
             expected_rows = source_rows
+            transform_ids: tuple[str, ...] = ()
             source_results: tuple[tuple[str, int], ...] = ()
+        elif isinstance(graph, MultistageLinearGraph):
+            spark_contract = MULTISTAGE_LINEAR_SPARK_RUNTIME_CONTRACT
+            owned_exchange_uris = _multistage_exchange_uris(invocation, context)
+            first_exchange, second_exchange = owned_exchange_uris
+            stage = "source_read"
+            source = (
+                dynamic_spark.read.format("bigquery")
+                .option("table", graph.source_table)
+                .option("parentProject", invocation.project)
+                .load()
+                .select(*graph.source_fields)
+            )
+            source_rows = int(source.count())
+            stage = "exchange_write"
+            source.repartition(configuration.exchange_partitions).write.mode(
+                "errorifexists"
+            ).parquet(first_exchange)
+            stage = "transform_a"
+            first_input = dynamic_spark.read.parquet(first_exchange)
+            first_output = cast(
+                "Any",
+                _project_frame(
+                    first_input,
+                    graph.source_to_first,
+                    graph.first_transform_fields,
+                    functions,
+                ),
+            )
+            stage = "exchange_write"
+            first_output.repartition(configuration.exchange_partitions).write.mode(
+                "errorifexists"
+            ).parquet(second_exchange)
+            stage = "transform_b"
+            second_input = dynamic_spark.read.parquet(second_exchange)
+            second_output = _project_frame(
+                second_input,
+                graph.first_to_second,
+                graph.second_transform_fields,
+                functions,
+            )
+            published = cast(
+                "Any",
+                _project_frame(
+                    second_output,
+                    graph.second_to_target,
+                    graph.target_fields,
+                    functions,
+                ),
+            )
+            expected_rows = source_rows
+            transform_ids = (graph.first_transform_id, graph.second_transform_id)
+            source_results = ()
         else:
             spark_contract = KEYED_JOIN_SPARK_RUNTIME_CONTRACT
             owned_exchange_uris = _join_exchange_uris(invocation, context)
@@ -972,6 +1224,7 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
                 ),
             )
             expected_rows = int(published.count())
+            transform_ids = ()
         stage = "bigquery_write"
         (
             published.write.format("bigquery")
@@ -994,7 +1247,9 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
                 failure_code="spark_readback_mismatch",
             )
         return SparkResult(
-            source_id=(graph.source_id if isinstance(graph, LinearGraph) else graph.transform_id),
+            source_id=(
+                graph.transform_id if isinstance(graph, KeyedJoinGraph) else graph.source_id
+            ),
             target_id=graph.target_id,
             output_table=graph.output_table,
             exchange_uri=owned_exchange_uris[0],
@@ -1002,8 +1257,10 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             affected_rows=affected_rows,
             executor_instances=executor_instances,
             exchange_partitions=configuration.exchange_partitions,
+            runtime_contract=spark_contract,
+            transform_ids=transform_ids,
             source_results=source_results,
-            exchange_uris=(owned_exchange_uris if source_results else ()),
+            exchange_uris=(owned_exchange_uris if len(owned_exchange_uris) > 1 else ()),
         )
     except SparkDriverError:
         raise
@@ -1059,22 +1316,31 @@ def completion_event(
     duration_ms: int,
 ) -> dict[str, object]:
     """Build the canonical Dander runtime completion consumed by Control."""
-    operations = (
-        [
+    if result.source_results:
+        operations = [
             *({"operation": source_id} for source_id, _rows in result.source_results),
             {"operation": "object_store_exchange:left"},
             {"operation": "object_store_exchange:right"},
             {"operation": result.target_id},
             {"operation": "bigquery_readback"},
         ]
-        if result.source_results
-        else [
+    elif result.transform_ids:
+        operations = [
+            {"operation": result.source_id},
+            {"operation": "object_store_exchange:extract-transform-a"},
+            {"operation": result.transform_ids[0]},
+            {"operation": "object_store_exchange:transform-a-transform-b"},
+            {"operation": result.transform_ids[1]},
+            {"operation": result.target_id},
+            {"operation": "bigquery_readback"},
+        ]
+    else:
+        operations = [
             {"operation": result.source_id},
             {"operation": "object_store_exchange"},
             {"operation": result.target_id},
             {"operation": "bigquery_readback"},
         ]
-    )
     return {
         "contract": RUNTIME_CONTRACT,
         "event": "runtime.completed",
@@ -1201,7 +1467,7 @@ def _spark_event(
     result: SparkResult,
 ) -> dict[str, object]:
     event: dict[str, object] = {
-        "contract": SPARK_RUNTIME_CONTRACT,
+        "contract": result.runtime_contract,
         "event": "spark.runtime.completed",
         "run_id": context.run_id,
         "graph_content_sha256": invocation.graph_content_sha256,
@@ -1222,6 +1488,13 @@ def _spark_event(
                 "contract": KEYED_JOIN_SPARK_RUNTIME_CONTRACT,
                 "source_id": result.source_id,
                 "source_rows_by_id": {source_id: rows for source_id, rows in result.source_results},
+                "exchange_uris": list(result.exchange_uris),
+            }
+        )
+    elif result.transform_ids:
+        event.update(
+            {
+                "transform_ids": list(result.transform_ids),
                 "exchange_uris": list(result.exchange_uris),
             }
         )
@@ -1254,6 +1527,14 @@ def _join_exchange_uris(invocation: Invocation, context: RuntimeContext) -> tupl
         f"{context.run_id}/attempt-{context.attempt}"
     )
     return (f"{root}/left-join", f"{root}/right-join")
+
+
+def _multistage_exchange_uris(invocation: Invocation, context: RuntimeContext) -> tuple[str, str]:
+    root = (
+        f"gs://{invocation.staging_bucket}/dander-spark/exchanges/"
+        f"{context.run_id}/attempt-{context.attempt}"
+    )
+    return (f"{root}/extract-transform-a", f"{root}/transform-a-transform-b")
 
 
 def _delete_exchange(spark: object, uri: str) -> None:

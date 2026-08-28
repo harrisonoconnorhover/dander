@@ -86,6 +86,15 @@ def _join_graph(*, reverse: bool = False) -> PipelineGraphDocument:
     return PipelineGraphDocument.model_validate(payload)
 
 
+def _multistage_graph(*, reverse: bool = False) -> PipelineGraphDocument:
+    with open("graphs/multistage_linear_qualification.yaml", encoding="utf-8") as stream:
+        payload = yaml.safe_load(stream)
+    if reverse:
+        payload["nodes"].reverse()
+        payload["edges"].reverse()
+    return PipelineGraphDocument.model_validate(payload)
+
+
 def _template(
     backend_id: str,
     *,
@@ -294,6 +303,72 @@ def test_planner_compiles_one_deterministic_keyed_join_shape() -> None:
         "joined_post_comments",
         "posts",
     )
+
+
+def test_planner_compiles_one_deterministic_multistage_linear_shape() -> None:
+    planner = StaticPhysicalPlanner()
+
+    fused = planner.plan(
+        _multistage_graph(),
+        pipeline_id="multistage_linear_qualification",
+        execution_mode=PhysicalExecutionMode.FUSED_CONTAINER,
+    )
+    distributed = planner.plan(
+        _multistage_graph(),
+        pipeline_id="multistage_linear_qualification",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        distributed_partitions=4,
+    )
+    reordered = planner.plan(
+        _multistage_graph(reverse=True),
+        pipeline_id="multistage_linear_qualification",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        distributed_partitions=4,
+    )
+
+    assert reordered == distributed
+    assert [stage.stage_id for stage in distributed.stages] == [
+        "extract",
+        "transform-a",
+        "transform-b",
+    ]
+    assert [stage.operators for stage in distributed.stages] == [
+        ("greenhouse_jobs",),
+        ("normalized_jobs",),
+        ("curated_jobs", "prepared_jobs"),
+    ]
+    assert [stage.depends_on for stage in distributed.stages] == [
+        (),
+        ("extract",),
+        ("transform-a",),
+    ]
+    assert [exchange.exchange_id for exchange in distributed.exchanges] == [
+        "extract-transform-a",
+        "transform-a-transform-b",
+    ]
+    assert all(exchange.partition_count == 4 for exchange in distributed.exchanges)
+    assert all(exchange.partitioning.value == "round_robin" for exchange in distributed.exchanges)
+    assert distributed.maximum_parallelism == 4
+    assert distributed.revision != fused.revision
+    assert fused.stages[0].operators == (
+        "curated_jobs",
+        "greenhouse_jobs",
+        "normalized_jobs",
+        "prepared_jobs",
+    )
+
+
+def test_multistage_planner_fails_closed_for_a_non_linear_shape() -> None:
+    payload = _multistage_graph().model_dump(mode="json", by_alias=True)
+    payload["edges"][1]["to"] = "curated_jobs"
+    graph = PipelineGraphDocument.model_validate(payload)
+
+    with pytest.raises(PhysicalPlanningError, match="two-transform linear chain"):
+        StaticPhysicalPlanner().plan(
+            graph,
+            pipeline_id="multistage_linear_qualification",
+            execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        )
 
 
 @pytest.mark.parametrize(
@@ -618,6 +693,62 @@ def test_compiler_materializes_canonical_managed_spark_size_classes() -> None:
     assert by_class["large"].execution_template.schedule.task_count == 4
     assert by_class["large"].execution_template.resources.cpu_millis == 8_000
     assert by_class["large"].execution_template.resources.memory_mib == 32_768
+
+
+def test_compiler_materializes_multistage_plans_with_existing_size_classes() -> None:
+    graph = InMemoryGraphStore(
+        clock=lambda: NOW,
+        revision_factory=lambda: "graph-r1",
+    ).create(
+        "demo",
+        "multistage_linear_qualification",
+        _multistage_graph(),
+        idempotency_key="graph-key-0001",
+    )
+    base_template = _template(
+        "dataproc_serverless",
+        maximum_parallelism=2,
+        deadline_seconds=600,
+    )
+    template = replace(
+        base_template,
+        pipeline_id="multistage_linear_qualification",
+        command=tuple(
+            "multistage_linear_qualification" if value == "orders" else value
+            for value in base_template.command
+        ),
+    )
+    profile = ExecutionPlanProfile(
+        plan_id="spark-multistage",
+        environment="spark",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+    )
+    small = ManagedSparkSizeClass("small", 1_000, 2, 4_000, 16_384)
+    large = ManagedSparkSizeClass("large", 10_000, 4, 8_000, 32_768)
+
+    compiled = ExecutionPlanCompiler().compile_managed_spark_size_classes(
+        graph, profile, template, (large, small)
+    )
+
+    by_class = {
+        candidate.size_class: next(
+            plan for plan in compiled.plans if plan.revision == candidate.plan_revision
+        )
+        for candidate in compiled.size_class_candidates
+    }
+    for size_class, partitions in (("small", 2), ("large", 4)):
+        plan = by_class[size_class]
+        assert plan.physical_plan is not None
+        assert [stage.partition_count for stage in plan.physical_plan.stages] == [
+            partitions,
+            partitions,
+            partitions,
+        ]
+        assert [exchange.partition_count for exchange in plan.physical_plan.exchanges] == [
+            partitions,
+            partitions,
+        ]
+        assert deserialize_execution_plan(serialize_execution_plan(plan)) == plan
 
 
 def test_managed_spark_execution_plan_requires_distributed_physical_execution() -> None:

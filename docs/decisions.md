@@ -2274,3 +2274,20 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   already describe the selected plan, estimate, resources, and recovery truth, so no new canonical
   schema is introduced. Provider payloads, schedules, single-container execution, Spark allocation,
   backends, reconciliation, and cost formulas are unchanged.
+
+## 2026-08-28 — The first multistage Spark chain stays statically bounded
+
+- **Plan:** Control recognizes exactly one source feeding two sequential transforms and one target.
+  Graph edges determine transform order, while canonical stage and exchange identifiers make node
+  declaration order irrelevant. The existing selected partition count applies unchanged to all
+  three stages and both round-robin object-store exchanges.
+- **Runtime:** A separate versioned configuration preserves the accepted linear and keyed-join
+  contracts. The driver materializes the source exchange, applies the first direct projection,
+  materializes the second exchange, applies the second projection and target mapping, verifies the
+  BigQuery replace result, and cleans both owned prefixes.
+- **Compatibility:** The same graph still compiles through the fused single-container runtime.
+  Execution-plan identity, API and scheduler selection, static sizing, automatic placement,
+  retries, cancellation, result parsing, and restart recovery use their existing contracts.
+- **Boundary:** This supports only the declared two-transform direct-mapping chain. Arbitrary DAGs,
+  operations, dynamic allocation, autoscaling, Kubernetes, job clusters, and a new reconciler
+  remain later work.
