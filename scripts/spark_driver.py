@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Content-addressed fixed-plan Spark/BigQuery qualification driver."""
+"""Content-addressed Spark runtime for Dander's bounded linear graph contract."""
 
 from __future__ import annotations
 
@@ -13,20 +13,20 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
+from typing import Any, cast
 
 RUNTIME_CONTRACT = "io.dander.runtime/v1"
 PHYSICAL_PLAN_SCHEMA = "io.dander.physical-plan/v1"
-QUALIFICATION_CONTRACT = "io.dander.spark-qualification/v1"
-PIPELINE_ID = "spark_bigquery_qualification"
+CONFIGURATION_SCHEMA = "io.dander.spark-linear-configuration/v1"
+SPARK_RUNTIME_CONTRACT = "io.dander.spark-linear-runtime/v1"
 _DRIVER_PATH = Path("/opt/dander/spark_driver.py")
+_MAX_CONFIGURATION_BYTES = 1_048_576
+_MAX_PHYSICAL_PLAN_BYTES = 262_144
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _PROJECT = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _DATASET = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,1023}$")
+_TABLE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]{0,1023}$")
 _BUCKET = re.compile(r"^[a-z0-9][a-z0-9._-]{1,220}$")
 _SERVICE_ACCOUNT = re.compile(
     r"^[a-z][a-z0-9-]{4,28}[a-z0-9]@(?P<project>[a-z][a-z0-9-]{4,28}[a-z0-9])"
@@ -36,19 +36,38 @@ _EXECUTION = re.compile(
     r"^projects/(?P<project>[a-z][a-z0-9-]{4,28}[a-z0-9])/locations/"
     r"[a-z]+(?:-[a-z0-9]+)+[0-9]/batches/dander-[0-9a-f]{40}$"
 )
-_EXPECTED_ROWS = 4
-_EXPECTED_VALUE_SUM = 17
-_EXPECTED_DOUBLED_SUM = 34
+_RELATION = re.compile(
+    r"^(?P<project>[a-z][a-z0-9-]{4,28}[a-z0-9])\."
+    r"(?P<dataset>[A-Za-z_][A-Za-z0-9_]{0,1023})\."
+    r"(?P<table>[A-Za-z0-9_][A-Za-z0-9_-]{0,1023})$"
+)
+_SUPPORTED_TYPES = frozenset(
+    {
+        "BOOL",
+        "BOOLEAN",
+        "BYTES",
+        "DATE",
+        "DATETIME",
+        "FLOAT",
+        "FLOAT64",
+        "INT64",
+        "INTEGER",
+        "NUMERIC",
+        "STRING",
+        "TIME",
+        "TIMESTAMP",
+    }
+)
 
 
 class SparkDriverError(RuntimeError):
-    """The immutable driver contract or live Spark result is invalid."""
+    """The immutable driver contract or managed Spark result is invalid."""
 
     def __init__(
         self,
         message: str,
         *,
-        failure_code: str = "spark_qualification_failed",
+        failure_code: str = "spark_linear_runtime_failed",
     ) -> None:
         super().__init__(message)
         self.failure_code = failure_code
@@ -56,12 +75,13 @@ class SparkDriverError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class Invocation:
-    """Validated arguments covered by the immutable execution plan."""
+    """Validated arguments covered by the immutable execution-plan revision."""
 
+    pipeline_id: str
     project: str
-    dataset: str
     staging_bucket: str
     platform: str
+    graph_content_sha256: str
     physical_plan: dict[str, object]
     physical_plan_revision: str
     driver_sha256: str
@@ -79,20 +99,54 @@ class RuntimeContext:
 
 
 @dataclass(frozen=True, slots=True)
-class SparkResult:
-    """Bounded aggregates retained from the live Spark and BigQuery round-trip."""
+class DirectMapping:
+    """One validated direct field projection or rename."""
 
+    source: str
+    target: str
+
+
+@dataclass(frozen=True, slots=True)
+class LinearGraph:
+    """The executable subset derived from one canonical graph configuration."""
+
+    source_id: str
+    transform_id: str
+    target_id: str
+    source_fields: tuple[str, ...]
+    transform_fields: tuple[str, ...]
+    target_fields: tuple[str, ...]
+    source_to_transform: tuple[DirectMapping, ...]
+    transform_to_target: tuple[DirectMapping, ...]
+    source_table: str
+    output_table: str
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeConfiguration:
+    """Content-addressed graph and bindings loaded from the plan's GCS reference."""
+
+    graph_content_sha256: str
+    graph: LinearGraph
+    content_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class SparkResult:
+    """Bounded result metadata retained from the managed Spark round-trip."""
+
+    source_id: str
+    target_id: str
     output_table: str
     exchange_uri: str
-    row_count: int
-    value_sum: int
-    doubled_sum: int
+    source_rows: int
+    affected_rows: int
     executor_instances: int
     exchange_partitions: int
 
 
 def parse_invocation(arguments: list[str]) -> Invocation:
-    """Parse the unchanged Dander command prefix plus qualification-only arguments."""
+    """Parse the Dander runtime command plus the bounded Spark contract."""
     if arguments[:2] != ["runtime", "execute"]:
         raise SparkDriverError("the driver requires the Dander runtime execute command")
     parser = argparse.ArgumentParser(add_help=False)
@@ -101,8 +155,8 @@ def parse_invocation(arguments: list[str]) -> Invocation:
     parser.add_argument("--platform", required=True)
     parser.add_argument("--physical-plan", required=True)
     parser.add_argument("--project", required=True)
-    parser.add_argument("--dataset", required=True)
     parser.add_argument("--staging-bucket", required=True)
+    parser.add_argument("--graph-content-sha256", required=True)
     parser.add_argument("--driver-sha256", required=True)
     try:
         values, unknown = parser.parse_known_args(arguments[2:])
@@ -110,24 +164,27 @@ def parse_invocation(arguments: list[str]) -> Invocation:
         raise SparkDriverError("the driver arguments are incomplete") from error
     if unknown:
         raise SparkDriverError("the driver arguments contain unsupported options")
-    if values.contract != RUNTIME_CONTRACT or values.pipeline != PIPELINE_ID:
-        raise SparkDriverError("the driver runtime identity is invalid")
+    if values.contract != RUNTIME_CONTRACT:
+        raise SparkDriverError("the driver runtime contract is invalid")
+    if _SAFE_IDENTIFIER.fullmatch(values.pipeline) is None:
+        raise SparkDriverError("the driver pipeline identity is invalid")
     if values.platform != "gcp":
         raise SparkDriverError("the driver requires the GCP profile")
     if _PROJECT.fullmatch(values.project) is None:
         raise SparkDriverError("the driver GCP project is invalid")
-    if _DATASET.fullmatch(values.dataset) is None:
-        raise SparkDriverError("the driver BigQuery dataset is invalid")
     if _BUCKET.fullmatch(values.staging_bucket) is None:
         raise SparkDriverError("the driver staging bucket is invalid")
+    if _SHA256.fullmatch(values.graph_content_sha256) is None:
+        raise SparkDriverError("the driver graph content identity is invalid")
     if _SHA256.fullmatch(values.driver_sha256) is None:
         raise SparkDriverError("the driver content identity is invalid")
     plan, revision = _physical_plan(values.physical_plan)
     return Invocation(
+        pipeline_id=values.pipeline,
         project=values.project,
-        dataset=values.dataset,
         staging_bucket=values.staging_bucket,
         platform=values.platform,
+        graph_content_sha256=values.graph_content_sha256,
         physical_plan=plan,
         physical_plan_revision=revision,
         driver_sha256=values.driver_sha256,
@@ -161,11 +218,13 @@ def runtime_context(
         raise SparkDriverError("the Spark driver must receive one unsharded runtime context")
     if service_account is None or service_account.group("project") != invocation.project:
         raise SparkDriverError("the driver service account is invalid")
-    configuration_prefix = f"gs://{invocation.staging_bucket}/"
-    if not configuration.startswith(configuration_prefix) or len(configuration) > 1024:
+    configuration_pattern = re.compile(
+        rf"^gs://{re.escape(invocation.staging_bucket)}/config/[0-9a-f]{{64}}\.json$"
+    )
+    if configuration_pattern.fullmatch(configuration) is None or len(configuration) > 1024:
         raise SparkDriverError("the driver configuration reference is invalid")
     if secret_bindings not in {None, "{}"}:
-        raise SparkDriverError("the qualification driver does not accept secret bindings")
+        raise SparkDriverError("the bounded Spark runtime does not accept secret bindings")
     return RuntimeContext(
         run_id=run_id,
         launcher_execution_id=execution_id,
@@ -192,7 +251,70 @@ def validate_driver_pair(
         raise SparkDriverError("the immutable driver pair does not match its execution plan")
 
 
+def parse_runtime_configuration(raw: bytes, invocation: Invocation) -> RuntimeConfiguration:
+    """Verify and reduce one canonical graph configuration to the executable subset."""
+    if not raw or len(raw) > _MAX_CONFIGURATION_BYTES:
+        raise SparkDriverError("the Spark runtime configuration size is invalid")
+    try:
+        payload = json.loads(raw)
+    except (TypeError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise SparkDriverError("the Spark runtime configuration is invalid") from error
+    if raw != _canonical_json(payload) or not isinstance(payload, dict):
+        raise SparkDriverError("the Spark runtime configuration is not canonical")
+    if set(payload) != {"schema", "graph_content_sha256", "graph", "source_relations"}:
+        raise SparkDriverError("the Spark runtime configuration fields are unsupported")
+    if payload.get("schema") != CONFIGURATION_SCHEMA:
+        raise SparkDriverError("the Spark runtime configuration schema is unsupported")
+    graph_payload = payload.get("graph")
+    graph_identity = payload.get("graph_content_sha256")
+    if not isinstance(graph_payload, dict) or not isinstance(graph_identity, str):
+        raise SparkDriverError("the Spark runtime graph configuration is invalid")
+    derived_graph_identity = hashlib.sha256(_canonical_json(graph_payload)).hexdigest()
+    if (
+        graph_identity != derived_graph_identity
+        or graph_identity != invocation.graph_content_sha256
+    ):
+        raise SparkDriverError("the Spark runtime graph identity does not match its plan")
+    graph = _linear_graph(graph_payload, payload.get("source_relations"), invocation)
+    _validate_linear_plan(invocation.physical_plan, invocation.pipeline_id, graph)
+    return RuntimeConfiguration(
+        graph_content_sha256=derived_graph_identity,
+        graph=graph,
+        content_sha256=hashlib.sha256(raw).hexdigest(),
+    )
+
+
+def read_runtime_configuration(
+    spark: object,
+    context: RuntimeContext,
+    invocation: Invocation,
+) -> RuntimeConfiguration:
+    """Read one bounded canonical GCS object through the managed Spark filesystem."""
+    dynamic_spark = cast("Any", spark)
+    try:
+        rows = dynamic_spark.read.text(context.configuration_reference).take(2)
+        if len(rows) != 1:
+            raise SparkDriverError("the Spark runtime configuration must contain one line")
+        value = cast("Any", rows[0])["value"]
+        if not isinstance(value, str):
+            raise SparkDriverError("the Spark runtime configuration row is invalid")
+        raw = value.encode("utf-8")
+    except SparkDriverError:
+        raise
+    except Exception as error:
+        raise SparkDriverError(
+            "the Spark runtime configuration could not be read",
+            failure_code="spark_configuration_read_failed",
+        ) from error
+    configuration = parse_runtime_configuration(raw, invocation)
+    if configuration.content_sha256 != Path(context.configuration_reference).stem:
+        raise SparkDriverError("the Spark runtime configuration object is not content-addressed")
+    return configuration
+
+
 def _physical_plan(raw: str) -> tuple[dict[str, object], str]:
+    if not raw or len(raw.encode("utf-8")) > _MAX_PHYSICAL_PLAN_BYTES:
+        raise SparkDriverError("the physical plan size is invalid")
     try:
         envelope = json.loads(raw)
     except (TypeError, json.JSONDecodeError) as error:
@@ -209,33 +331,213 @@ def _physical_plan(raw: str) -> tuple[dict[str, object], str]:
     derived = hashlib.sha256(canonical_contents).hexdigest()
     if revision != derived or raw.encode() != _canonical_json(envelope):
         raise SparkDriverError("the physical plan is not canonical or self-verifying")
-    _validate_qualification_plan(plan)
     return cast("dict[str, object]", plan), derived
 
 
-def _validate_qualification_plan(plan: dict[str, object]) -> None:
+def _linear_graph(
+    graph: dict[str, object], raw_source_relations: object, invocation: Invocation
+) -> LinearGraph:
+    if graph.get("name") != invocation.pipeline_id:
+        raise SparkDriverError("the configuration graph does not match the pipeline")
+    nodes = graph.get("nodes")
+    edges = graph.get("edges")
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        raise SparkDriverError("the configuration graph topology is invalid")
+    by_type: dict[str, list[dict[str, object]]] = {
+        "source": [],
+        "transform": [],
+        "target": [],
+    }
+    for node in nodes:
+        if not isinstance(node, dict) or node.get("type") not in by_type:
+            raise SparkDriverError("the configuration graph node is unsupported")
+        by_type[cast("str", node["type"])].append(cast("dict[str, object]", node))
+    if any(len(group) != 1 for group in by_type.values()) or len(nodes) != 3:
+        raise SparkDriverError("the Spark runtime requires one source, transform, and target")
+    source = by_type["source"][0]
+    transform = by_type["transform"][0]
+    target = by_type["target"][0]
+    source_id = _node_id(source)
+    transform_id = _node_id(transform)
+    target_id = _node_id(target)
+    source_fields, source_types = _node_fields(source)
+    transform_fields, transform_types = _node_fields(transform)
+    target_fields, target_types = _node_fields(target)
+    transform_config = transform.get("config")
+    if not isinstance(transform_config, dict):
+        raise SparkDriverError("the transform configuration is invalid")
+    if transform_config.get("join") is not None or transform_config.get("operations", []) != []:
+        raise SparkDriverError("the Spark runtime supports direct mappings without joins")
+    edge_by_pair: dict[tuple[str, str], dict[str, object]] = {}
+    for edge in edges:
+        if not isinstance(edge, dict):
+            raise SparkDriverError("the configuration graph edge is invalid")
+        pair = (edge.get("from"), edge.get("to"))
+        if not all(isinstance(value, str) for value in pair) or pair in edge_by_pair:
+            raise SparkDriverError("the configuration graph edge identity is invalid")
+        edge_by_pair[cast("tuple[str, str]", pair)] = edge
+    expected_pairs = {(source_id, transform_id), (transform_id, target_id)}
+    if set(edge_by_pair) != expected_pairs:
+        raise SparkDriverError("the Spark runtime requires a linear graph chain")
+    first = _direct_mappings(
+        edge_by_pair[(source_id, transform_id)],
+        source_types,
+        transform_types,
+        transform_fields,
+    )
+    second = _direct_mappings(
+        edge_by_pair[(transform_id, target_id)],
+        transform_types,
+        target_types,
+        target_fields,
+    )
+    source_relations = raw_source_relations
+    if not isinstance(source_relations, dict) or set(source_relations) != {source_id}:
+        raise SparkDriverError("the Spark runtime source relation binding is invalid")
+    source_table = source_relations[source_id]
+    if not isinstance(source_table, str):
+        raise SparkDriverError("the Spark runtime source table is invalid")
+    _same_project_relation(source_table, invocation.project, "source")
+    output_table = _target_relation(target, invocation.project)
+    return LinearGraph(
+        source_id=source_id,
+        transform_id=transform_id,
+        target_id=target_id,
+        source_fields=source_fields,
+        transform_fields=transform_fields,
+        target_fields=target_fields,
+        source_to_transform=first,
+        transform_to_target=second,
+        source_table=source_table,
+        output_table=output_table,
+    )
+
+
+def _node_id(node: dict[str, object]) -> str:
+    value = node.get("id")
+    if not isinstance(value, str) or _SAFE_IDENTIFIER.fullmatch(value) is None:
+        raise SparkDriverError("the configuration graph node identity is invalid")
+    return value
+
+
+def _node_fields(node: dict[str, object]) -> tuple[tuple[str, ...], dict[str, str]]:
+    raw_fields = node.get("fields")
+    if not isinstance(raw_fields, list) or not raw_fields:
+        raise SparkDriverError("the configuration graph fields are invalid")
+    names: list[str] = []
+    types: dict[str, str] = {}
+    for field in raw_fields:
+        if not isinstance(field, dict):
+            raise SparkDriverError("the configuration graph field is invalid")
+        name = field.get("name")
+        field_type = field.get("type")
+        if (
+            not isinstance(name, str)
+            or _SAFE_IDENTIFIER.fullmatch(name) is None
+            or not isinstance(field_type, str)
+            or field_type.upper() not in _SUPPORTED_TYPES
+            or field.get("cast_to") is not None
+            or name in types
+        ):
+            raise SparkDriverError("the configuration graph field contract is unsupported")
+        names.append(name)
+        types[name] = field_type.upper()
+    return tuple(names), types
+
+
+def _direct_mappings(
+    edge: dict[str, object],
+    source_types: dict[str, str],
+    target_types: dict[str, str],
+    target_fields: tuple[str, ...],
+) -> tuple[DirectMapping, ...]:
+    if edge.get("join") is not None:
+        raise SparkDriverError("the Spark runtime does not support joins")
+    raw_mappings = edge.get("mappings")
+    if not isinstance(raw_mappings, list) or not raw_mappings:
+        raise SparkDriverError("the Spark runtime mappings are invalid")
+    by_target: dict[str, DirectMapping] = {}
+    for raw_mapping in raw_mappings:
+        if not isinstance(raw_mapping, dict):
+            raise SparkDriverError("the Spark runtime mapping is invalid")
+        source = raw_mapping.get("source")
+        target = raw_mapping.get("target")
+        if (
+            not isinstance(source, str)
+            or not isinstance(target, str)
+            or raw_mapping.get("transformation") is not None
+            or source not in source_types
+            or target not in target_types
+            or source_types[source] != target_types[target]
+            or target in by_target
+        ):
+            raise SparkDriverError(
+                "the Spark runtime supports only type-preserving direct mappings"
+            )
+        by_target[target] = DirectMapping(source=source, target=target)
+    if set(by_target) != set(target_fields):
+        raise SparkDriverError("the Spark runtime mappings must cover the declared output")
+    return tuple(by_target[field] for field in target_fields)
+
+
+def _target_relation(target: dict[str, object], project: str) -> str:
+    config = target.get("config")
+    writer = config.get("writer") if isinstance(config, dict) else None
+    destination = writer.get("destination") if isinstance(writer, dict) else None
+    if not isinstance(writer, dict) or not isinstance(destination, dict):
+        raise SparkDriverError("the Spark runtime target writer is invalid")
+    if (
+        writer.get("write_mode") != "replace"
+        or writer.get("partitioning") is not None
+        or writer.get("clustering", []) != []
+        or writer.get("transport", "load_job") != "load_job"
+        or writer.get("schema_evolution", "strict") != "strict"
+        or destination.get("business_key", []) != []
+    ):
+        raise SparkDriverError("the Spark runtime target writer is unsupported")
+    target_project = destination.get("project") or project
+    dataset = destination.get("dataset")
+    table = destination.get("table")
+    if (
+        target_project != project
+        or not isinstance(dataset, str)
+        or _DATASET.fullmatch(dataset) is None
+        or not isinstance(table, str)
+        or _TABLE.fullmatch(table) is None
+    ):
+        raise SparkDriverError("the Spark runtime target relation is invalid")
+    return f"{project}.{dataset}.{table}"
+
+
+def _same_project_relation(value: str, project: str, kind: str) -> None:
+    match = _RELATION.fullmatch(value)
+    if match is None or match.group("project") != project:
+        raise SparkDriverError(f"the Spark runtime {kind} relation is invalid")
+
+
+def _validate_linear_plan(plan: dict[str, object], pipeline_id: str, graph: LinearGraph) -> None:
     expected = {
-        "pipeline_id": PIPELINE_ID,
+        "pipeline_id": pipeline_id,
         "execution_mode": "distributed",
         "stages": [
             {
                 "stage_id": "extract",
-                "operators": ["spark_seed"],
+                "operators": [graph.source_id],
                 "partition_count": 2,
                 "depends_on": [],
             },
             {
-                "stage_id": "publish",
-                "operators": ["bigquery_publish"],
+                "stage_id": "transform",
+                "operators": sorted([graph.transform_id, graph.target_id]),
                 "partition_count": 2,
                 "depends_on": ["extract"],
             },
         ],
         "exchanges": [
             {
-                "exchange_id": "extract-publish",
+                "exchange_id": "extract-transform",
                 "producer_stage_id": "extract",
-                "consumer_stage_id": "publish",
+                "consumer_stage_id": "transform",
                 "transport": "object_store",
                 "partitioning": "round_robin",
                 "partition_count": 2,
@@ -245,27 +547,20 @@ def _validate_qualification_plan(plan: dict[str, object]) -> None:
         "maximum_parallelism": 2,
     }
     if plan != expected:
-        raise SparkDriverError("the driver supports only its fixed qualification physical plan")
+        raise SparkDriverError("the physical plan does not match the configured linear graph")
 
 
 def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
-    """Execute the fixed two-stage Spark plan and verify its BigQuery output."""
+    """Execute one validated source-to-transform-to-BigQuery graph."""
     try:
         from pyspark.sql import SparkSession, functions  # type: ignore[import-not-found]
-        from pyspark.sql.types import (  # type: ignore[import-not-found]
-            IntegerType,
-            StringType,
-            StructField,
-            StructType,
-        )
     except ImportError as error:
         raise SparkDriverError(
             "the managed Spark runtime is unavailable",
             failure_code="spark_runtime_unavailable",
         ) from error
-
     try:
-        spark = SparkSession.builder.appName(PIPELINE_ID).getOrCreate()
+        spark = SparkSession.builder.appName(invocation.pipeline_id).getOrCreate()
     except Exception as error:
         raise SparkDriverError(
             "the managed Spark session could not start",
@@ -273,7 +568,6 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
         ) from error
     dynamic_spark = cast("Any", spark)
     exchange_uri = _exchange_uri(invocation, context)
-    output_table = _output_table(invocation, context)
     exchange_created = False
     stage = "configuration"
     try:
@@ -285,70 +579,73 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
                 "the managed Spark runtime changed the fixed executor plan",
                 failure_code="spark_fixed_shape_mismatch",
             )
+        configuration = read_runtime_configuration(dynamic_spark, context, invocation)
+        graph = configuration.graph
+        stage = "source_read"
+        source = (
+            dynamic_spark.read.format("bigquery")
+            .option("table", graph.source_table)
+            .option("parentProject", invocation.project)
+            .load()
+            .select(*graph.source_fields)
+        )
+        source_rows = int(source.count())
         stage = "exchange_write"
-        schema = StructType(
-            [
-                StructField("id", IntegerType(), nullable=False),
-                StructField("label", StringType(), nullable=False),
-                StructField("value", IntegerType(), nullable=False),
-            ]
-        )
-        rows = ((1, "alpha", 2), (2, "beta", 3), (3, "gamma", 5), (4, "delta", 7))
-        source = dynamic_spark.createDataFrame(
-            dynamic_spark.sparkContext.parallelize(rows, 2),
-            schema=schema,
-        )
         source.repartition(2).write.mode("errorifexists").parquet(exchange_uri)
         exchange_created = True
-        stage = "bigquery_write"
-        published = (
-            dynamic_spark.read.parquet(exchange_uri)
-            .withColumn("doubled_value", functions.col("value") * 2)
-            .withColumn("dander_run_id", functions.lit(context.run_id))
-            .select("id", "label", "value", "doubled_value", "dander_run_id")
+        stage = "transform"
+        exchanged = dynamic_spark.read.parquet(exchange_uri)
+        transformed = _project_frame(
+            exchanged,
+            graph.source_to_transform,
+            graph.transform_fields,
+            functions,
         )
+        published = cast(
+            "Any",
+            _project_frame(
+                transformed,
+                graph.transform_to_target,
+                graph.target_fields,
+                functions,
+            ),
+        )
+        stage = "bigquery_write"
         (
             published.write.format("bigquery")
-            .option("table", output_table)
+            .option("table", graph.output_table)
             .option("parentProject", invocation.project)
             .mode("overwrite")
             .save()
         )
-        stage = "bigquery_read"
-        observed = (
+        stage = "bigquery_readback"
+        affected_rows = int(
             dynamic_spark.read.format("bigquery")
-            .option("table", output_table)
+            .option("table", graph.output_table)
             .option("parentProject", invocation.project)
             .load()
+            .count()
         )
-        stage = "bigquery_readback"
-        readback_rows = observed.select("value", "doubled_value").take(_EXPECTED_ROWS + 1)
-        row_count, value_sum, doubled_sum = _bounded_readback_aggregates(readback_rows)
-        result = SparkResult(
-            output_table=output_table,
+        if affected_rows != source_rows:
+            raise SparkDriverError(
+                "the BigQuery round-trip row count does not match its source",
+                failure_code="spark_readback_mismatch",
+            )
+        return SparkResult(
+            source_id=graph.source_id,
+            target_id=graph.target_id,
+            output_table=graph.output_table,
             exchange_uri=exchange_uri,
-            row_count=row_count,
-            value_sum=value_sum,
-            doubled_sum=doubled_sum,
+            source_rows=source_rows,
+            affected_rows=affected_rows,
             executor_instances=executor_instances,
             exchange_partitions=2,
         )
-        stage = "result_validation"
-        if (
-            result.row_count != _EXPECTED_ROWS
-            or result.value_sum != _EXPECTED_VALUE_SUM
-            or result.doubled_sum != _EXPECTED_DOUBLED_SUM
-        ):
-            raise SparkDriverError(
-                "the BigQuery round-trip returned unexpected aggregates",
-                failure_code="spark_readback_mismatch",
-            )
-        return result
     except SparkDriverError:
         raise
     except Exception as error:
         raise SparkDriverError(
-            "the Spark and BigQuery qualification failed",
+            "the bounded Spark and BigQuery execution failed",
             failure_code=f"spark_{stage}_failed",
         ) from error
     finally:
@@ -363,18 +660,18 @@ def run_spark(invocation: Invocation, context: RuntimeContext) -> SparkResult:
             raise cleanup_error
 
 
-def _bounded_readback_aggregates(rows: Sequence[object]) -> tuple[int, int, int]:
-    """Aggregate the qualification's bounded BigQuery readback on the driver."""
-    try:
-        values = [
-            (int(cast("Any", row)["value"]), int(cast("Any", row)["doubled_value"])) for row in rows
-        ]
-    except (KeyError, TypeError, ValueError) as error:
-        raise SparkDriverError(
-            "the BigQuery readback rows are invalid",
-            failure_code="spark_readback_invalid",
-        ) from error
-    return len(values), sum(value for value, _ in values), sum(doubled for _, doubled in values)
+def _project_frame(
+    frame: object,
+    mappings: tuple[DirectMapping, ...],
+    fields: tuple[str, ...],
+    functions: object,
+) -> object:
+    dynamic_frame = cast("Any", frame)
+    dynamic_functions = cast("Any", functions)
+    by_target = {mapping.target: mapping.source for mapping in mappings}
+    return dynamic_frame.select(
+        *(dynamic_functions.col(by_target[field]).alias(field) for field in fields)
+    )
 
 
 def completion_event(
@@ -390,28 +687,28 @@ def completion_event(
         "event": "runtime.completed",
         "timestamp": _timestamp(),
         "run_id": context.run_id,
-        "pipeline_id": PIPELINE_ID,
+        "pipeline_id": invocation.pipeline_id,
         "platform": invocation.platform,
         "stage": "complete",
         "dimensions": _dimensions(invocation, context),
         "status": "succeeded",
         "outputs": {
-            "source": "spark_qualification",
+            "source": result.source_id,
             "endpoints": [
                 {
-                    "name": "spark_seed",
-                    "extracted_rows": result.row_count,
-                    "affected_rows": result.row_count,
+                    "name": result.source_id,
+                    "extracted_rows": result.source_rows,
+                    "affected_rows": result.affected_rows,
                     "cursor_committed": False,
                 }
             ],
-            "models": ["bigquery_publish"],
+            "models": [result.target_id],
             "telemetry": {
                 "duration_ms": duration_ms,
                 "retry_count": 0,
-                "rows_read": result.row_count * 2,
-                "rows_written": result.row_count * 2,
-                "rows_affected": result.row_count,
+                "rows_read": result.source_rows + result.affected_rows,
+                "rows_written": result.affected_rows,
+                "rows_affected": result.affected_rows,
                 "bytes_read": 0,
                 "bytes_written": 0,
                 "bytes_processed": 0,
@@ -420,18 +717,18 @@ def completion_event(
                 "execution_duration_ms": duration_ms,
                 "spill_bytes": 0,
                 "operations": [
-                    {"operation": "spark_seed"},
+                    {"operation": result.source_id},
                     {"operation": "object_store_exchange"},
-                    {"operation": "bigquery_publish"},
+                    {"operation": result.target_id},
                     {"operation": "bigquery_readback"},
                 ],
             },
             "metrics": {
                 "endpoints": 1,
-                "extracted_rows": result.row_count,
-                "affected_rows": result.row_count,
+                "extracted_rows": result.source_rows,
+                "affected_rows": result.affected_rows,
                 "models": 1,
-                "assertions": 3,
+                "assertions": 1,
                 "assets": 1,
             },
         },
@@ -440,7 +737,7 @@ def completion_event(
 
 
 def main(arguments: list[str] | None = None) -> int:
-    """Run one qualification while exposing only sanitized contract failures."""
+    """Run one bounded graph while exposing only sanitized contract failures."""
     started_ns = time.monotonic_ns()
     try:
         invocation = parse_invocation(list(sys.argv[1:] if arguments is None else arguments))
@@ -466,7 +763,7 @@ def main(arguments: list[str] | None = None) -> int:
         )
         return 1
     duration_ms = _elapsed_ms(started_ns)
-    print(_json(_qualification_event(invocation, context, result)), flush=True)
+    print(_json(_spark_event(invocation, context, result)), flush=True)
     print(
         _json(completion_event(invocation, context, result, duration_ms=duration_ms)),
         flush=True,
@@ -480,7 +777,7 @@ def _started_event(invocation: Invocation, context: RuntimeContext) -> dict[str,
         "event": "runtime.started",
         "timestamp": _timestamp(),
         "run_id": context.run_id,
-        "pipeline_id": PIPELINE_ID,
+        "pipeline_id": invocation.pipeline_id,
         "platform": invocation.platform,
         "stage": "starting",
         "dimensions": _dimensions(invocation, context),
@@ -499,7 +796,7 @@ def _failed_event(
         "event": "runtime.completed",
         "timestamp": _timestamp(),
         "run_id": context.run_id,
-        "pipeline_id": PIPELINE_ID,
+        "pipeline_id": invocation.pipeline_id,
         "platform": invocation.platform,
         "stage": "runtime",
         "dimensions": _dimensions(invocation, context),
@@ -510,21 +807,23 @@ def _failed_event(
     }
 
 
-def _qualification_event(
+def _spark_event(
     invocation: Invocation,
     context: RuntimeContext,
     result: SparkResult,
 ) -> dict[str, object]:
     return {
-        "contract": QUALIFICATION_CONTRACT,
-        "event": "spark.qualification.completed",
+        "contract": SPARK_RUNTIME_CONTRACT,
+        "event": "spark.runtime.completed",
         "run_id": context.run_id,
+        "graph_content_sha256": invocation.graph_content_sha256,
         "physical_plan_revision": invocation.physical_plan_revision,
         "driver_sha256": invocation.driver_sha256,
+        "source_id": result.source_id,
+        "target_id": result.target_id,
         "output_table": result.output_table,
-        "row_count": result.row_count,
-        "value_sum": result.value_sum,
-        "doubled_sum": result.doubled_sum,
+        "source_rows": result.source_rows,
+        "affected_rows": result.affected_rows,
         "executor_instances": result.executor_instances,
         "exchange_partitions": result.exchange_partitions,
         "exchange_cleanup": "confirmed",
@@ -539,20 +838,16 @@ def _dimensions(invocation: Invocation, context: RuntimeContext) -> dict[str, ob
         "shard_index": 0,
         "shard_count": 1,
         "principal": context.principal,
+        "graph_content_sha256": invocation.graph_content_sha256,
         "physical_plan_revision": invocation.physical_plan_revision,
     }
 
 
 def _exchange_uri(invocation: Invocation, context: RuntimeContext) -> str:
     return (
-        f"gs://{invocation.staging_bucket}/dander-spark-qualification/exchanges/"
-        f"{context.run_id}/attempt-{context.attempt}/extract-publish"
+        f"gs://{invocation.staging_bucket}/dander-spark/exchanges/"
+        f"{context.run_id}/attempt-{context.attempt}/extract-transform"
     )
-
-
-def _output_table(invocation: Invocation, context: RuntimeContext) -> str:
-    suffix = hashlib.sha256(context.run_id.encode()).hexdigest()[:16]
-    return f"{invocation.project}.{invocation.dataset}.dander_spark_qual_{suffix}"
 
 
 def _delete_exchange(spark: object, uri: str) -> None:
@@ -592,7 +887,7 @@ def _stop_spark(spark: object, context: RuntimeContext) -> None:
         print(
             _json(
                 {
-                    "contract": QUALIFICATION_CONTRACT,
+                    "contract": SPARK_RUNTIME_CONTRACT,
                     "event": "spark.session.stop.deferred",
                     "run_id": context.run_id,
                     "cleanup_owner": "managed_spark",

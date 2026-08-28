@@ -2215,3 +2215,19 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Deployment handoff:** The compiler emits revision-sorted canonical plan JSON through the
   existing AWS Control `execution_plan_json` input. Startup still loads all rendered plan files,
   preserving historical revisions for restart recovery without runtime recompilation.
+
+## 2026-08-27 — The first reusable Spark runtime is a bounded linear graph
+
+- **Runtime:** Managed Spark reads one content-addressed configuration containing a canonical graph
+  and its explicit source relation. It executes exactly one source-to-transform-to-BigQuery chain
+  with type-preserving direct projections, the static two-partition object-store exchange, and an
+  unpartitioned replace write. The existing fused runtime continues to execute the same graph.
+- **Identity:** Control adds the canonical graph content SHA to Dataproc commands before physical
+  plan binding. The driver requires that revision-covered identity to match the configuration's
+  canonical graph and requires the physical-plan operators to match the graph's node ids.
+- **Qualification:** Parity publishes the main and Spark images from one exact-main commit, runs
+  Fargate first to create one raw BigQuery snapshot, then runs Spark against that snapshot. No
+  changing public source is ingested twice, and the matrix remains exactly two cells.
+- **Boundary:** Executor and partition count stay fixed at two. Joins, operations, casts, alternate
+  writers, dynamic sizing, autoscaling, Kubernetes, and a new reconciler fail closed or remain later
+  work.

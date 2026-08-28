@@ -119,29 +119,15 @@ def test_graph_pipeline_dry_run_accepts_post_ingestion_operations(tmp_path: Path
     graph = yaml.safe_load(
         (_REPO_ROOT / "graphs" / "greenhouse_jobs.yaml").read_text(encoding="utf-8")
     )
-    source, target = graph["nodes"]
-    transform = {
-        "id": "clean_jobs",
-        "type": "transform",
-        "name": "Clean jobs",
-        "config": {
-            "operations": [
-                {"kind": "trim_whitespace", "params": {"field": "title"}},
-                {
-                    "kind": "filter_rows",
-                    "params": {
-                        "conditions": [{"field": "title", "op": "is_not_null"}],
-                    },
-                },
-            ]
+    _, transform, _ = graph["nodes"]
+    transform["config"]["operations"] = [
+        {"kind": "trim_whitespace", "params": {"field": "title"}},
+        {
+            "kind": "filter_rows",
+            "params": {
+                "conditions": [{"field": "title", "op": "is_not_null"}],
+            },
         },
-        "fields": [dict(field) for field in source["fields"]],
-    }
-    mappings = [{"source": field["name"], "target": field["name"]} for field in source["fields"]]
-    graph["nodes"] = [source, transform, target]
-    graph["edges"] = [
-        {"from": source["id"], "to": transform["id"], "mappings": mappings},
-        {"from": transform["id"], "to": target["id"], "mappings": mappings},
     ]
     graphs = tmp_path / "graphs"
     graphs.mkdir()

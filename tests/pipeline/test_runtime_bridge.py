@@ -11,7 +11,7 @@ import pytest
 
 from dander.concurrency import FencingToken
 from dander.ingestion import Endpoint, RawField, SourceConfig
-from dander.pipeline.graph import NodeField, PipelineGraph
+from dander.pipeline.graph import NodeField, PipelineGraph, load_graph_from_yaml
 from dander.pipeline.runtime import GraphRuntimeError, plan_graph_execution
 from dander.providers.bigquery.graph import BigQueryGraphRunner
 from dander.warehouse import RelationRef
@@ -86,6 +86,8 @@ def _source_config() -> SourceConfig:
                 raw_schema=[
                     RawField(name="id", data_type="INT64"),
                     RawField(name="title", data_type="STRING"),
+                    RawField(name="company_name", data_type="STRING"),
+                    RawField(name="updated_at", data_type="TIMESTAMP"),
                 ],
             ),
             Endpoint(
@@ -331,3 +333,24 @@ def test_runner_stages_then_uses_fenced_transactional_replacement() -> None:
     assert job_config is not None
     assert len(client.deleted) == 1
     assert client.deleted[0].startswith("unit-project.staging._dander_stage_graph_jobs_")
+
+
+def test_greenhouse_linear_fixture_keeps_the_fused_bigquery_path() -> None:
+    graph = load_graph_from_yaml(Path("graphs/greenhouse_jobs.yaml"))
+
+    plan = plan_graph_execution(
+        graph,
+        _source_config(),
+        project="unit-project",
+        dataset="raw",
+    )
+    result = BigQueryGraphRunner(plan=plan, project="unit-project", client=_Client()).build(
+        Path("."),
+        ownership=_Ownership(),
+    )
+
+    assert plan.targets[0].node_id == "curated_jobs"
+    assert plan.targets[0].target.table == "graph_greenhouse_jobs"
+    assert "FROM `unit-project`.`raw`.`greenhouse_job_board_jobs`" in plan.targets[0].query
+    assert "SELECT *" not in plan.targets[0].query
+    assert result.models == ("curated_jobs",)

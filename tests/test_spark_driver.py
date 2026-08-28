@@ -1,4 +1,4 @@
-"""Contracts for the content-addressed Managed Spark qualification driver."""
+"""Contracts for the content-addressed bounded Spark graph runtime."""
 
 from __future__ import annotations
 
@@ -8,109 +8,167 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 from scripts import spark_driver as driver
 
 from dander.control.execution_results import parse_execution_result_summary
-from dander.physical_plan import (
-    ExchangeTransport,
-    PartitioningStrategy,
-    PhysicalExchange,
-    PhysicalExecutionMode,
-    PhysicalPlan,
-    PhysicalStage,
-    serialize_physical_plan,
-)
+from dander.control.graph_store import CanonicalGraphDocument, canonicalize_graph_document
+from dander.control.physical_planner import StaticPhysicalPlanner
+from dander.physical_plan import PhysicalExecutionMode, serialize_physical_plan
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+_PROJECT = "dander-cr-20260802-7f3a"
+_PIPELINE = "greenhouse_jobs_graph"
 
-def _physical_plan() -> PhysicalPlan:
-    return PhysicalPlan(
-        pipeline_id=driver.PIPELINE_ID,
+
+def _canonical_graph() -> CanonicalGraphDocument:
+    with open("graphs/greenhouse_jobs.yaml", encoding="utf-8") as stream:
+        return canonicalize_graph_document(yaml.safe_load(stream))
+
+
+def _physical_plan(*, maximum_parallelism: int | None = None) -> str:
+    canonical = _canonical_graph()
+    plan = StaticPhysicalPlanner().plan(
+        canonical.document,
+        pipeline_id=_PIPELINE,
         execution_mode=PhysicalExecutionMode.DISTRIBUTED,
-        stages=(
-            PhysicalStage(
-                stage_id="extract",
-                operators=("spark_seed",),
-                partition_count=2,
-            ),
-            PhysicalStage(
-                stage_id="publish",
-                operators=("bigquery_publish",),
-                partition_count=2,
-                depends_on=("extract",),
-            ),
-        ),
-        exchanges=(
-            PhysicalExchange(
-                exchange_id="extract-publish",
-                producer_stage_id="extract",
-                consumer_stage_id="publish",
-                transport=ExchangeTransport.OBJECT_STORE,
-                partitioning=PartitioningStrategy.ROUND_ROBIN,
-                partition_count=2,
-            ),
-        ),
-        maximum_parallelism=2,
     )
+    if maximum_parallelism is None:
+        return serialize_physical_plan(plan).decode()
+    envelope = json.loads(serialize_physical_plan(plan))
+    envelope["plan"]["maximum_parallelism"] = maximum_parallelism
+    contents = driver._canonical_json(
+        {"schema": driver.PHYSICAL_PLAN_SCHEMA, "plan": envelope["plan"]}
+    )
+    envelope["revision"] = hashlib.sha256(contents).hexdigest()
+    return driver._canonical_json(envelope).decode()
 
 
-def _arguments(*, physical_plan: str | None = None) -> list[str]:
+def _arguments(
+    *,
+    physical_plan: str | None = None,
+    graph_content_sha256: str | None = None,
+) -> list[str]:
+    canonical = _canonical_graph()
     return [
         "runtime",
         "execute",
         "--contract",
         driver.RUNTIME_CONTRACT,
         "--pipeline",
-        driver.PIPELINE_ID,
+        _PIPELINE,
         "--platform",
         "gcp",
         "--physical-plan",
-        physical_plan or serialize_physical_plan(_physical_plan()).decode(),
+        physical_plan or _physical_plan(),
         "--project",
-        "dander-cr-20260802-7f3a",
-        "--dataset",
-        "dander_spark_qualification",
+        _PROJECT,
         "--staging-bucket",
-        "dander-cr-20260802-7f3a-spark-qualification",
+        f"{_PROJECT}-spark-qualification",
+        "--graph-content-sha256",
+        graph_content_sha256 or canonical.content_sha256,
         "--driver-sha256",
         "a" * 64,
     ]
 
 
-def _environment() -> dict[str, str]:
+def _configuration_payload(
+    *,
+    graph: dict[str, object] | None = None,
+) -> dict[str, object]:
+    canonical = _canonical_graph()
+    graph_payload = json.loads(canonical.data) if graph is None else graph
+    graph_sha256 = hashlib.sha256(driver._canonical_json(graph_payload)).hexdigest()
+    return {
+        "schema": driver.CONFIGURATION_SCHEMA,
+        "graph_content_sha256": graph_sha256,
+        "graph": graph_payload,
+        "source_relations": {
+            "greenhouse_jobs": f"{_PROJECT}.raw.greenhouse_job_board_jobs",
+        },
+    }
+
+
+def _configuration_bytes(*, graph: dict[str, object] | None = None) -> bytes:
+    return driver._canonical_json(_configuration_payload(graph=graph))
+
+
+def _environment(*, configuration_sha256: str = "b" * 64) -> dict[str, str]:
     return {
         "DANDER_RUN_ID": "run-0123456789abcdef01234567",
         "DANDER_LAUNCHER": "dataproc_serverless",
         "DANDER_LAUNCHER_EXECUTION_ID": (
-            "projects/dander-cr-20260802-7f3a/locations/us-central1/batches/"
+            f"projects/{_PROJECT}/locations/us-central1/batches/"
             "dander-0123456789abcdef0123456789abcdef01234567"
         ),
         "DANDER_ATTEMPT": "1",
         "DANDER_SHARD_INDEX": "0",
         "DANDER_SHARD_COUNT": "1",
-        "DANDER_PRINCIPAL": ("dander-spark@dander-cr-20260802-7f3a.iam.gserviceaccount.com"),
+        "DANDER_PRINCIPAL": f"dander-spark@{_PROJECT}.iam.gserviceaccount.com",
         "DANDER_CONFIGURATION_REFERENCE": (
-            "gs://dander-cr-20260802-7f3a-spark-qualification/config/" + "b" * 64 + ".json"
+            f"gs://{_PROJECT}-spark-qualification/config/{configuration_sha256}.json"
         ),
     }
 
 
-def test_driver_accepts_only_the_canonical_fixed_plan_and_control_context() -> None:
+def test_driver_accepts_the_canonical_linear_plan_and_control_context() -> None:
     invocation = driver.parse_invocation(_arguments())
     context = driver.runtime_context(invocation, _environment())
+    configuration = driver.parse_runtime_configuration(_configuration_bytes(), invocation)
 
-    assert invocation.physical_plan_revision == _physical_plan().revision
+    assert invocation.pipeline_id == _PIPELINE
+    assert invocation.physical_plan_revision == json.loads(_physical_plan())["revision"]
     assert context.attempt == 1
-    assert context.principal.startswith("dander-spark@")
+    assert configuration.graph.source_id == "greenhouse_jobs"
+    assert configuration.graph.transform_id == "prepared_jobs"
+    assert configuration.graph.target_id == "curated_jobs"
+    assert configuration.graph.output_table == f"{_PROJECT}.staging.graph_greenhouse_jobs"
 
-    tampered = json.loads(serialize_physical_plan(_physical_plan()))
-    tampered["plan"]["maximum_parallelism"] = 3
-    with pytest.raises(driver.SparkDriverError, match="self-verifying"):
-        driver.parse_invocation(
-            _arguments(physical_plan=json.dumps(tampered, sort_keys=True, separators=(",", ":")))
-        )
+
+def test_driver_binds_configuration_to_control_graph_and_physical_plan() -> None:
+    canonical = _canonical_graph()
+    invocation = driver.parse_invocation(_arguments())
+    payload = _configuration_payload()
+    payload["graph_content_sha256"] = "b" * 64
+
+    with pytest.raises(driver.SparkDriverError, match="graph identity"):
+        driver.parse_runtime_configuration(driver._canonical_json(payload), invocation)
+
+    wrong_plan = driver.parse_invocation(
+        _arguments(physical_plan=_physical_plan(maximum_parallelism=3))
+    )
+    with pytest.raises(driver.SparkDriverError, match="physical plan does not match"):
+        driver.parse_runtime_configuration(_configuration_bytes(), wrong_plan)
+
+    assert invocation.graph_content_sha256 == canonical.content_sha256
+
+
+def test_driver_fails_closed_outside_direct_mapping_subset() -> None:
+    graph = json.loads(_canonical_graph().data)
+    graph["nodes"][1]["config"]["operations"] = [
+        {"kind": "trim_whitespace", "params": {"field": "title"}}
+    ]
+    graph_sha256 = hashlib.sha256(driver._canonical_json(graph)).hexdigest()
+    invocation = driver.parse_invocation(_arguments(graph_content_sha256=graph_sha256))
+
+    with pytest.raises(driver.SparkDriverError, match="direct mappings without joins"):
+        driver.parse_runtime_configuration(_configuration_bytes(graph=graph), invocation)
+
+
+def test_driver_reads_one_content_addressed_configuration_object() -> None:
+    raw = _configuration_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    invocation = driver.parse_invocation(_arguments())
+    context = driver.runtime_context(invocation, _environment(configuration_sha256=digest))
+    spark = MagicMock()
+    spark.read.text.return_value.take.return_value = [{"value": raw.decode()}]
+
+    configuration = driver.read_runtime_configuration(spark, context, invocation)
+
+    assert configuration.content_sha256 == digest
+    spark.read.text.assert_called_once_with(context.configuration_reference)
 
 
 def test_driver_requires_byte_identical_submitted_and_embedded_pair(tmp_path: Path) -> None:
@@ -120,34 +178,25 @@ def test_driver_requires_byte_identical_submitted_and_embedded_pair(tmp_path: Pa
     embedded.write_bytes(submitted.read_bytes())
     digest = hashlib.sha256(submitted.read_bytes()).hexdigest()
 
-    driver.validate_driver_pair(
-        digest,
-        submitted_driver=submitted,
-        embedded_driver=embedded,
-    )
+    driver.validate_driver_pair(digest, submitted_driver=submitted, embedded_driver=embedded)
     embedded.write_bytes(b"different\n")
     with pytest.raises(driver.SparkDriverError, match="does not match"):
-        driver.validate_driver_pair(
-            digest,
-            submitted_driver=submitted,
-            embedded_driver=embedded,
-        )
+        driver.validate_driver_pair(digest, submitted_driver=submitted, embedded_driver=embedded)
 
 
 def test_driver_completion_is_consumed_by_control_without_provider_fields() -> None:
     invocation = driver.parse_invocation(_arguments())
     context = driver.runtime_context(invocation, _environment())
     result = driver.SparkResult(
-        output_table=(
-            "dander-cr-20260802-7f3a.dander_spark_qualification.dander_spark_qual_deadbeef"
-        ),
+        source_id="greenhouse_jobs",
+        target_id="curated_jobs",
+        output_table=f"{_PROJECT}.staging.graph_greenhouse_jobs",
         exchange_uri=(
-            "gs://dander-cr-20260802-7f3a-spark-qualification/"
-            "dander-spark-qualification/exchanges/run/attempt-1/extract-publish"
+            f"gs://{_PROJECT}-spark-qualification/dander-spark/exchanges/"
+            "run/attempt-1/extract-transform"
         ),
-        row_count=4,
-        value_sum=17,
-        doubled_sum=34,
+        source_rows=4,
+        affected_rows=4,
         executor_instances=2,
         exchange_partitions=2,
     )
@@ -157,13 +206,13 @@ def test_driver_completion_is_consumed_by_control_without_provider_fields() -> N
         sort_keys=True,
         separators=(",", ":"),
     )
-    summary = parse_execution_result_summary(message, pipeline_id=driver.PIPELINE_ID)
+    summary = parse_execution_result_summary(message, pipeline_id=_PIPELINE)
 
     assert summary is not None
     assert summary.extracted_rows == 4
     assert summary.affected_rows == 4
     assert summary.models == 1
-    assert summary.assertions == 3
+    assert summary.assertions == 1
     assert summary.operation_count == 4
 
 
@@ -203,21 +252,7 @@ def test_spark_stop_failure_is_visible_and_deferred_to_the_provider(
     event = json.loads(capsys.readouterr().out)
     assert event == {
         "cleanup_owner": "managed_spark",
-        "contract": driver.QUALIFICATION_CONTRACT,
+        "contract": driver.SPARK_RUNTIME_CONTRACT,
         "event": "spark.session.stop.deferred",
         "run_id": context.run_id,
     }
-
-
-def test_driver_aggregates_only_the_bounded_bigquery_readback() -> None:
-    rows = [
-        {"value": 2, "doubled_value": 4},
-        {"value": 3, "doubled_value": 6},
-        {"value": 5, "doubled_value": 10},
-        {"value": 7, "doubled_value": 14},
-    ]
-
-    assert driver._bounded_readback_aggregates(rows) == (4, 17, 34)
-
-    with pytest.raises(driver.SparkDriverError, match="readback rows are invalid"):
-        driver._bounded_readback_aggregates([{"value": 2}])
