@@ -24,7 +24,7 @@ from dander.control.models import (
     RunState,
     RunStatusResponse,
 )
-from dander.control.orchestration import RunSubmission, RunTrigger, TriggerKind
+from dander.control.orchestration import PlacementMode, RunSubmission, RunTrigger, TriggerKind
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -243,10 +243,11 @@ class _Lifecycle:
         self,
         record: GraphRecord,
         *,
-        environment: str,
+        environments: tuple[str, ...],
+        placement_mode: PlacementMode,
         idempotency_key: str,
     ) -> RunStatusResponse | None:
-        del record, environment, idempotency_key
+        del record, environments, placement_mode, idempotency_key
         return None
 
     def get(self, address: RunAddress) -> RunStatusResponse:
@@ -317,8 +318,18 @@ class _SubmissionResolver:
             requested_at=requested_at,
         )
 
-    def idempotency_environment(self, environment: str | None) -> str | None:
-        return environment or self.environment
+    def idempotency_lookup(
+        self,
+        record: GraphRecord,
+        environment: str | None,
+    ) -> tuple[tuple[str, ...], PlacementMode]:
+        del record
+        return (
+            (environment or self.environment,),
+            PlacementMode.MANUAL_OVERRIDE
+            if environment is not None
+            else PlacementMode.CONFIGURED_DEFAULT,
+        )
 
 
 def _status(run_id: str) -> RunStatusResponse:

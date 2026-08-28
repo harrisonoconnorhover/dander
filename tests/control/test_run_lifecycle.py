@@ -1191,7 +1191,7 @@ def test_bigquery_metadata_selects_existing_spark_size_class_with_provenance() -
     assert estimator.calls == 1
 
 
-def test_bigquery_metadata_failure_uses_existing_default_and_auto_route_is_rejected() -> None:
+def test_bigquery_metadata_failure_uses_existing_default_during_auto_placement() -> None:
     _store, graph = _graph_store()
     spark = _spark_plan(graph)
     estimator = _InputEstimator(500, fail=True)
@@ -1214,8 +1214,128 @@ def test_bigquery_metadata_failure_uses_existing_default_and_auto_route_is_rejec
     assert fallback.size_class_decision is not None
     assert fallback.size_class_decision.mode is SizeClassMode.CONFIGURED_DEFAULT
     assert fallback.size_class_decision.estimated_input_bytes is None
-    with pytest.raises(OrchestrationContractError, match="exact configured environment"):
-        replace(resolver, environment="auto")
+    automatic = replace(
+        resolver,
+        environment="auto",
+        placement_candidates=(PlacementCandidate(spark.revision, "us-central1", 100),),
+        preferred_locality="us-central1",
+        max_cost_microusd=500,
+    ).resolve(
+        graph,
+        idempotency_key="start-key-auto-fallback",
+        requested_at=NOW,
+    )
+
+    assert automatic.plan_revision == spark.revision
+    assert automatic.placement_decision is not None
+    assert automatic.placement_decision.mode is PlacementMode.AUTOMATIC
+    assert automatic.size_class_decision is not None
+    assert automatic.size_class_decision.mode is SizeClassMode.CONFIGURED_DEFAULT
+
+
+def test_auto_placement_selects_one_metadata_sized_spark_plan() -> None:
+    _store, graph = _graph_store()
+    fargate = _plan(graph)
+    spark_small = _spark_plan(graph)
+    spark_large = replace(
+        spark_small,
+        plan_id="gcp-spark-bigquery-large",
+        execution_template=replace(
+            spark_small.execution_template,
+            resources=replace(spark_small.execution_template.resources, memory_mib=32_768),
+        ),
+    )
+    estimator = _InputEstimator(5_000)
+    resolver = PlanRunSubmissionResolver(
+        plans=ExecutionPlanRegistry((spark_large, fargate, spark_small)),
+        environment="auto",
+        placement_candidates=(
+            PlacementCandidate(fargate.revision, "us-east-1", 50),
+            PlacementCandidate(spark_small.revision, "us-central1", 100),
+            PlacementCandidate(spark_large.revision, "us-central1", 200),
+        ),
+        preferred_locality="us-central1",
+        max_cost_microusd=500,
+        size_class_candidates=(
+            SizeClassCandidate(spark_small.revision, "small", 1_000),
+            SizeClassCandidate(spark_large.revision, "large", 10_000),
+        ),
+        default_size_class="small",
+        input_size_estimators=(("spark", estimator),),
+    )
+
+    selected = resolver.resolve(
+        graph,
+        idempotency_key="start-key-auto-sized",
+        requested_at=NOW,
+    )
+
+    assert selected.plan_revision == spark_large.revision
+    assert selected.placement_decision is not None
+    assert selected.placement_decision.mode is PlacementMode.AUTOMATIC
+    assert selected.placement_decision.estimated_cost_microusd == 200
+    assert selected.size_class_decision is not None
+    assert selected.size_class_decision.mode is SizeClassMode.AUTOMATIC_INPUT
+    assert selected.size_class_decision.selected_size_class == "large"
+    assert selected.size_class_decision.estimated_input_bytes == 5_000
+    assert selected.size_class_decision.estimate_source == "bigquery_table_metadata"
+    assert estimator.calls == 1
+
+
+def test_auto_sizing_keeps_estimator_modes_scoped_to_each_environment() -> None:
+    _store, graph = _graph_store()
+    east_small = _spark_plan(graph)
+    east_large = replace(
+        east_small,
+        plan_id="spark-east-large",
+        execution_template=replace(
+            east_small.execution_template,
+            resources=replace(east_small.execution_template.resources, memory_mib=32_768),
+        ),
+    )
+    west_small = replace(east_small, plan_id="spark-west-small", environment="spark-west")
+    west_large = replace(east_large, plan_id="spark-west-large", environment="spark-west")
+    east_estimator = _InputEstimator(5_000)
+    west_estimator = _InputEstimator(500, fail=True)
+    plans = (east_small, east_large, west_small, west_large)
+    resolver = PlanRunSubmissionResolver(
+        plans=ExecutionPlanRegistry(plans),
+        environment="auto",
+        placement_candidates=tuple(
+            PlacementCandidate(
+                plan.revision,
+                "us-central1" if plan.environment == "spark" else "us-west1",
+                100,
+            )
+            for plan in plans
+        ),
+        preferred_locality="us-central1",
+        max_cost_microusd=500,
+        size_class_candidates=tuple(
+            SizeClassCandidate(
+                plan.revision,
+                "small" if plan in {east_small, west_small} else "large",
+                1_000 if plan in {east_small, west_small} else 10_000,
+            )
+            for plan in plans
+        ),
+        default_size_class="small",
+        input_size_estimators=(
+            ("spark", east_estimator),
+            ("spark-west", west_estimator),
+        ),
+    )
+
+    selected = resolver.resolve(
+        graph,
+        idempotency_key="start-key-scoped-estimators",
+        requested_at=NOW,
+    )
+
+    assert selected.plan_revision == east_large.revision
+    assert selected.size_class_decision is not None
+    assert selected.size_class_decision.mode is SizeClassMode.AUTOMATIC_INPUT
+    assert selected.size_class_decision.estimated_input_bytes == 5_000
 
 
 def test_idempotent_retry_replays_before_mutable_metadata_is_reestimated() -> None:
@@ -1288,6 +1408,116 @@ def test_idempotent_retry_replays_before_mutable_metadata_is_reestimated() -> No
             expected_revision=graph.revision,
             idempotency_key="explicit-metadata-key",
         )
+
+
+def test_auto_retry_preserves_placement_and_rejects_cross_environment_key_collisions() -> None:
+    graph_store, graph = _graph_store()
+    fargate = _plan(graph)
+    spark_small = _spark_plan(graph)
+    spark_large = replace(
+        spark_small,
+        plan_id="gcp-spark-bigquery-large",
+        execution_template=replace(
+            spark_small.execution_template,
+            resources=replace(spark_small.execution_template.resources, memory_mib=32_768),
+        ),
+    )
+    estimator = _InputEstimator(500)
+    store = _Store()
+    fargate_backend = _Backend()
+    spark_backend = _Backend()
+    composition = compose_run_control(
+        graph_store=graph_store,
+        store=cast("RunStore", store),
+        plans=(fargate, spark_small, spark_large),
+        backends={
+            "fargate": cast("ExecutionBackend", fargate_backend),
+            "dataproc_serverless": cast("ExecutionBackend", spark_backend),
+        },
+        environment="auto",
+        placement_candidates=(
+            PlacementCandidate(fargate.revision, "us-east-1", 50),
+            PlacementCandidate(spark_small.revision, "us-central1", 100),
+            PlacementCandidate(spark_large.revision, "us-central1", 200),
+        ),
+        preferred_locality="us-central1",
+        max_cost_microusd=500,
+        size_class_candidates=(
+            SizeClassCandidate(spark_small.revision, "small", 1_000),
+            SizeClassCandidate(spark_large.revision, "large", 10_000),
+        ),
+        default_size_class="small",
+        input_size_estimators=(("spark", estimator),),
+        start_reconciler=False,
+        clock=lambda: datetime.now(UTC) + timedelta(seconds=1),
+    )
+    application = ControlApplication(
+        graph_store,
+        lifecycle=composition.lifecycle,
+        submission_resolver=composition.resolver,
+        projects=("demo",),
+    )
+
+    first = application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        idempotency_key="auto-metadata-key",
+    )
+    estimator.estimated_input_bytes = 5_000
+    restarted = ControlApplication(
+        graph_store,
+        lifecycle=composition.lifecycle,
+        submission_resolver=replace(
+            composition.resolver,
+            preferred_locality="us-east-1",
+        ),
+        projects=("demo",),
+    )
+    replayed = restarted.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        idempotency_key="auto-metadata-key",
+    )
+
+    assert replayed.run_id == first.run_id
+    assert estimator.calls == 1
+    assert len(spark_backend.submissions) == 1
+    assert len(fargate_backend.submissions) == 0
+
+    application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        environment="production",
+        idempotency_key="cross-environment-key",
+    )
+    calls_before_manual_collision = estimator.calls
+    with pytest.raises(ControlOperationIdempotencyConflictError, match="different"):
+        application.start_run(
+            "demo",
+            "hosted-graph",
+            expected_revision=graph.revision,
+            idempotency_key="cross-environment-key",
+        )
+    assert estimator.calls == calls_before_manual_collision
+    application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        environment="spark",
+        idempotency_key="cross-environment-key",
+    )
+    calls_before_collision = estimator.calls
+    with pytest.raises(ControlOperationIdempotencyConflictError, match="multiple"):
+        application.start_run(
+            "demo",
+            "hosted-graph",
+            expected_revision=graph.revision,
+            idempotency_key="cross-environment-key",
+        )
+    assert estimator.calls == calls_before_collision
 
 
 def test_plan_files_must_be_canonical_and_content_addressed(tmp_path: Path) -> None:
@@ -1486,7 +1716,14 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
         plan_paths=(aws_path, gcp_path, spark_path),
         run_store_bucket="dander-control-runs",
         run_store_prefix="control/runs/v1",
-        environment="production",
+        environment="auto",
+        placement_candidates=(
+            PlacementCandidate(aws_plan.revision, "us-east-1", 300),
+            PlacementCandidate(gcp_plan.revision, "us-central1", 150),
+            PlacementCandidate(spark_plan.revision, "us-central1", 100),
+        ),
+        preferred_locality="us-central1",
+        max_cost_microusd=500,
         gcp_project_id="dander-unit-project",
         size_class_candidates=(SizeClassCandidate(spark_plan.revision, "small", 1_000),),
         default_size_class="small",
@@ -1510,6 +1747,16 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
     assert selected_spark.plan_revision == spark_plan.revision
     assert selected_spark.size_class_decision is not None
     assert selected_spark.size_class_decision.estimate_source == "bigquery_table_metadata"
+    automatic = composition.resolver.resolve(
+        graph,
+        idempotency_key="auto-start-key-0001",
+        requested_at=NOW,
+    )
+    assert automatic.plan_revision == spark_plan.revision
+    assert automatic.placement_decision is not None
+    assert automatic.placement_decision.mode is PlacementMode.AUTOMATIC
+    assert automatic.size_class_decision is not None
+    assert automatic.size_class_decision.estimate_source == "bigquery_table_metadata"
     assert estimator_binding_calls == [("dander-unit-project", "raw")]
     assert cloud_binding_calls == [
         {

@@ -2260,3 +2260,17 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
   that evidence, and canonical v4/v1 sizing records remain readable without invented provenance.
   Estimation is limited to one exact environment; dynamic allocation, generalized placement,
   autoscaling, and additional graph shapes remain separate work.
+
+## 2026-08-28 — Automatic placement composes bounded per-environment sizing
+
+- **Selection:** For `environment=auto`, Control estimates every configured sized environment,
+  retains unsized candidates, and then applies the existing locality-first, budget-bounded,
+  deterministic cost policy to the resulting immutable plan revisions. Explicit environment and
+  sizing requests keep their existing behavior.
+- **Durability:** Before reading mutable metadata, a no-sizing API retry searches every bounded
+  exact environment registered for the graph. It replays only one request with the expected
+  automatic placement mode and rejects manual/default collisions or multiple scoped claims.
+- **Evidence and boundary:** Existing placement-decision v1 and size-class-decision v2 records
+  already describe the selected plan, estimate, resources, and recovery truth, so no new canonical
+  schema is introduced. Provider payloads, schedules, single-container execution, Spark allocation,
+  backends, reconciliation, and cost formulas are unchanged.
