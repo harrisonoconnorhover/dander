@@ -16,12 +16,12 @@ from dander.physical_plan import (
     serialize_physical_plan,
 )
 from dander.pipeline.errors import GraphValidationError
-from dander.pipeline.node_config import TransformNodeConfig
+from dander.pipeline.node_config import ExecutableJoinType, TransformNodeConfig
 
 if TYPE_CHECKING:
     from dander.control.models import PipelineGraphDocument
     from dander.deployment.projection import ExecutionTemplate
-    from dander.pipeline.graph import PipelineGraph
+    from dander.pipeline.graph import Node, PipelineGraph
 
 _DEFAULT_DISTRIBUTED_PARTITIONS = 2
 _MAX_DISTRIBUTED_PARTITIONS = 2_000
@@ -47,7 +47,7 @@ class PhysicalPlanner(Protocol):
 
 
 class StaticPhysicalPlanner:
-    """Compile fused graphs or the first fixed two-stage distributed graph shape."""
+    """Compile fused graphs or the two explicitly supported distributed graph shapes."""
 
     def plan(
         self,
@@ -128,6 +128,19 @@ class StaticPhysicalPlanner:
             )
             for node_type in _KNOWN_NODE_TYPES
         }
+        if (
+            len(by_type["source"]) == 2
+            and len(by_type["transform"]) == 1
+            and len(by_type["target"]) == 1
+        ):
+            return StaticPhysicalPlanner._keyed_join_plan(
+                graph,
+                pipeline_id=pipeline_id,
+                partition_count=partition_count,
+                sources=by_type["source"],
+                transform=by_type["transform"][0],
+                target=by_type["target"][0],
+            )
         if any(len(by_type[node_type]) != 1 for node_type in _KNOWN_NODE_TYPES):
             raise PhysicalPlanningError(
                 "Distributed planning supports exactly one source, transform, and target node."
@@ -172,6 +185,101 @@ class StaticPhysicalPlanner:
                     transport=ExchangeTransport.OBJECT_STORE,
                     partitioning=PartitioningStrategy.ROUND_ROBIN,
                     partition_count=partition_count,
+                ),
+            ),
+            maximum_parallelism=partition_count,
+        )
+
+    @staticmethod
+    def _keyed_join_plan(
+        graph: PipelineGraph,
+        *,
+        pipeline_id: str,
+        partition_count: int,
+        sources: tuple[Node, ...],
+        transform: Node,
+        target: Node,
+    ) -> PhysicalPlan:
+        config = transform.config
+        if not isinstance(config, TransformNodeConfig) or config.join is None:
+            raise PhysicalPlanningError(
+                "Distributed join planning requires one explicit transform join."
+            )
+        join = config.join
+        if (
+            join.type is not ExecutableJoinType.INNER
+            or len(join.keys) != 1
+            or config.operations
+            or any(edge.join is not None for edge in graph.edges)
+        ):
+            raise PhysicalPlanningError(
+                "Distributed join planning supports one inner equality key without operations."
+            )
+        by_id = {source.id: source for source in sources}
+        if set(by_id) != {join.left_input, join.right_input}:
+            raise PhysicalPlanningError(
+                "Distributed join inputs must match the graph's two source nodes."
+            )
+        expected_edges = {
+            (join.left_input, transform.id),
+            (join.right_input, transform.id),
+            (transform.id, target.id),
+        }
+        if {(edge.source, edge.target) for edge in graph.edges} != expected_edges:
+            raise PhysicalPlanningError(
+                "Distributed join planning supports only two sources feeding one join target."
+            )
+        key = join.keys[0]
+        left_types = {field.name: field.type.upper() for field in by_id[join.left_input].fields}
+        right_types = {field.name: field.type.upper() for field in by_id[join.right_input].fields}
+        if (
+            key.left not in left_types
+            or key.right not in right_types
+            or left_types[key.left] != right_types[key.right]
+        ):
+            raise PhysicalPlanningError(
+                "Distributed join keys must exist and have the same declared type."
+            )
+
+        return PhysicalPlan(
+            pipeline_id=pipeline_id,
+            execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+            stages=(
+                PhysicalStage(
+                    stage_id="extract-left",
+                    operators=(join.left_input,),
+                    partition_count=partition_count,
+                ),
+                PhysicalStage(
+                    stage_id="extract-right",
+                    operators=(join.right_input,),
+                    partition_count=partition_count,
+                ),
+                PhysicalStage(
+                    stage_id="join",
+                    operators=tuple(sorted((transform.id, target.id))),
+                    partition_count=partition_count,
+                    depends_on=("extract-left", "extract-right"),
+                ),
+            ),
+            exchanges=(
+                PhysicalExchange(
+                    exchange_id="left-join",
+                    producer_stage_id="extract-left",
+                    consumer_stage_id="join",
+                    transport=ExchangeTransport.OBJECT_STORE,
+                    partitioning=PartitioningStrategy.HASH,
+                    partition_count=partition_count,
+                    partition_keys=(key.left,),
+                ),
+                PhysicalExchange(
+                    exchange_id="right-join",
+                    producer_stage_id="extract-right",
+                    consumer_stage_id="join",
+                    transport=ExchangeTransport.OBJECT_STORE,
+                    partitioning=PartitioningStrategy.HASH,
+                    partition_count=partition_count,
+                    partition_keys=(key.right,),
                 ),
             ),
             maximum_parallelism=partition_count,

@@ -1,0 +1,40 @@
+# Immutable, credential-free two-endpoint fixture for fused and distributed join parity.
+# The pinned upstream document contains only three posts and two comments.
+name: keyed_join_fixture
+base_url: https://raw.githubusercontent.com/typicode/demo/f0b44972443d306e32eed093910687d26cd9f3f1
+auth_strategy: none
+rate_limit:
+  requests_per_second: 1
+  burst: 1
+  backoff: exponential
+  max_retries: 3
+
+endpoints:
+  - name: posts
+    path: /db.json
+    pagination: none
+    data_selector: posts
+    primary_key: [id]
+    raw_schema:
+      - name: id
+        type: INT64
+        mode: REQUIRED
+      - name: title
+        type: STRING
+        mode: REQUIRED
+
+  - name: comments
+    path: /db.json
+    pagination: none
+    data_selector: comments
+    primary_key: [id]
+    raw_schema:
+      - name: id
+        type: INT64
+        mode: REQUIRED
+      - name: body
+        type: STRING
+        mode: REQUIRED
+      - name: postId
+        type: INT64
+        mode: REQUIRED

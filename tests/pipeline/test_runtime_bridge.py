@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dander.concurrency import FencingToken
-from dander.ingestion import Endpoint, RawField, SourceConfig
+from dander.ingestion import Endpoint, RawField, SourceConfig, load_source_config
 from dander.pipeline.graph import NodeField, PipelineGraph, load_graph_from_yaml
 from dander.pipeline.runtime import GraphRuntimeError, plan_graph_execution
 from dander.providers.bigquery.graph import BigQueryGraphRunner
@@ -354,3 +354,24 @@ def test_greenhouse_linear_fixture_keeps_the_fused_bigquery_path() -> None:
     assert "FROM `unit-project`.`raw`.`greenhouse_job_board_jobs`" in plan.targets[0].query
     assert "SELECT *" not in plan.targets[0].query
     assert result.models == ("curated_jobs",)
+
+
+def test_keyed_join_fixture_compiles_through_the_existing_fused_bigquery_path() -> None:
+    graph = load_graph_from_yaml(Path("graphs/keyed_join_qualification.yaml"))
+    source = load_source_config(Path("connectors/keyed_join_fixture.yaml"))
+
+    plan = plan_graph_execution(
+        graph,
+        source,
+        project="unit-project",
+        dataset="raw",
+    )
+
+    assert plan.bindings.endpoint_names == ("posts", "comments")
+    assert plan.targets[0].node_id == "curated_post_comments"
+    assert plan.targets[0].target.table == "graph_post_comments"
+    assert "FROM `unit-project`.`raw`.`keyed_join_fixture_posts`" in plan.targets[0].query
+    assert "FROM `unit-project`.`raw`.`keyed_join_fixture_comments`" in plan.targets[0].query
+    assert "INNER JOIN `_node_1` AS rhs" in plan.targets[0].query
+    assert "ON lhs.`id` = rhs.`postId`" in plan.targets[0].query
+    assert "SELECT *" not in plan.targets[0].query

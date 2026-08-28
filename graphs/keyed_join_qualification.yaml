@@ -1,0 +1,111 @@
+name: keyed_join_qualification
+nodes:
+  - id: posts
+    type: source
+    name: Posts
+    config:
+      connector: keyed_join_fixture
+      endpoint: posts
+    fields:
+      - name: id
+        type: INT64
+        nullable: false
+      - name: title
+        type: STRING
+        nullable: false
+
+  - id: comments
+    type: source
+    name: Comments
+    config:
+      connector: keyed_join_fixture
+      endpoint: comments
+    fields:
+      - name: id
+        type: INT64
+        nullable: false
+      - name: body
+        type: STRING
+        nullable: false
+      - name: postId
+        type: INT64
+        nullable: false
+
+  - id: joined_post_comments
+    type: transform
+    name: Joined post comments
+    config:
+      join:
+        left_input: posts
+        right_input: comments
+        type: inner
+        keys:
+          - left: id
+            right: postId
+      operations: []
+    fields:
+      - name: post_id
+        type: INT64
+        nullable: false
+      - name: title
+        type: STRING
+        nullable: false
+      - name: comment_id
+        type: INT64
+        nullable: false
+      - name: comment_body
+        type: STRING
+        nullable: false
+
+  - id: curated_post_comments
+    type: target
+    name: Curated post comments
+    config:
+      writer:
+        write_mode: replace
+        destination:
+          dataset: staging
+          table: graph_post_comments
+          business_key: []
+    fields:
+      - name: post_id
+        type: INT64
+        nullable: false
+      - name: title
+        type: STRING
+        nullable: false
+      - name: comment_id
+        type: INT64
+        nullable: false
+      - name: comment_body
+        type: STRING
+        nullable: false
+
+edges:
+  - from: posts
+    to: joined_post_comments
+    mappings:
+      - source: id
+        target: post_id
+      - source: title
+        target: title
+
+  - from: comments
+    to: joined_post_comments
+    mappings:
+      - source: id
+        target: comment_id
+      - source: body
+        target: comment_body
+
+  - from: joined_post_comments
+    to: curated_post_comments
+    mappings:
+      - source: post_id
+        target: post_id
+      - source: title
+        target: title
+      - source: comment_id
+        target: comment_id
+      - source: comment_body
+        target: comment_body

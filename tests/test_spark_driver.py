@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -21,10 +21,16 @@ if TYPE_CHECKING:
 
 _PROJECT = "dander-cr-20260802-7f3a"
 _PIPELINE = "greenhouse_jobs_graph"
+_JOIN_PIPELINE = "keyed_join_qualification"
 
 
 def _canonical_graph() -> CanonicalGraphDocument:
     with open("graphs/greenhouse_jobs.yaml", encoding="utf-8") as stream:
+        return canonicalize_graph_document(yaml.safe_load(stream))
+
+
+def _canonical_join_graph() -> CanonicalGraphDocument:
+    with open("graphs/keyed_join_qualification.yaml", encoding="utf-8") as stream:
         return canonicalize_graph_document(yaml.safe_load(stream))
 
 
@@ -79,6 +85,41 @@ def _arguments(
     ]
 
 
+def _join_physical_plan(*, distributed_partitions: int = 2) -> str:
+    canonical = _canonical_join_graph()
+    plan = StaticPhysicalPlanner().plan(
+        canonical.document,
+        pipeline_id=_JOIN_PIPELINE,
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        distributed_partitions=distributed_partitions,
+    )
+    return serialize_physical_plan(plan).decode()
+
+
+def _join_arguments(*, graph_content_sha256: str | None = None) -> list[str]:
+    canonical = _canonical_join_graph()
+    return [
+        "runtime",
+        "execute",
+        "--contract",
+        driver.RUNTIME_CONTRACT,
+        "--pipeline",
+        _JOIN_PIPELINE,
+        "--platform",
+        "gcp",
+        "--physical-plan",
+        _join_physical_plan(),
+        "--project",
+        _PROJECT,
+        "--staging-bucket",
+        f"{_PROJECT}-spark-qualification",
+        "--graph-content-sha256",
+        graph_content_sha256 or canonical.content_sha256,
+        "--driver-sha256",
+        "a" * 64,
+    ]
+
+
 def _configuration_payload(
     *,
     graph: dict[str, object] | None = None,
@@ -98,6 +139,25 @@ def _configuration_payload(
 
 def _configuration_bytes(*, graph: dict[str, object] | None = None) -> bytes:
     return driver._canonical_json(_configuration_payload(graph=graph))
+
+
+def _join_configuration_payload(*, graph: dict[str, object] | None = None) -> dict[str, object]:
+    canonical = _canonical_join_graph()
+    graph_payload = json.loads(canonical.data) if graph is None else graph
+    graph_sha256 = hashlib.sha256(driver._canonical_json(graph_payload)).hexdigest()
+    return {
+        "schema": driver.KEYED_JOIN_CONFIGURATION_SCHEMA,
+        "graph_content_sha256": graph_sha256,
+        "graph": graph_payload,
+        "source_relations": {
+            "posts": f"{_PROJECT}.raw.keyed_join_fixture_posts",
+            "comments": f"{_PROJECT}.raw.keyed_join_fixture_comments",
+        },
+    }
+
+
+def _join_configuration_bytes(*, graph: dict[str, object] | None = None) -> bytes:
+    return driver._canonical_json(_join_configuration_payload(graph=graph))
 
 
 def _environment(*, configuration_sha256: str = "b" * 64) -> dict[str, str]:
@@ -126,6 +186,7 @@ def test_driver_accepts_the_canonical_linear_plan_and_control_context() -> None:
     assert invocation.pipeline_id == _PIPELINE
     assert invocation.physical_plan_revision == json.loads(_physical_plan())["revision"]
     assert context.attempt == 1
+    assert isinstance(configuration.graph, driver.LinearGraph)
     assert configuration.graph.source_id == "greenhouse_jobs"
     assert configuration.graph.transform_id == "prepared_jobs"
     assert configuration.graph.target_id == "curated_jobs"
@@ -141,6 +202,33 @@ def test_driver_accepts_a_larger_revision_covered_static_executor_shape() -> Non
     configuration = driver.parse_runtime_configuration(_configuration_bytes(), invocation)
 
     assert configuration.exchange_partitions == 4
+
+
+def test_driver_accepts_the_exact_keyed_join_plan_and_configuration() -> None:
+    invocation = driver.parse_invocation(_join_arguments())
+
+    configuration = driver.parse_runtime_configuration(_join_configuration_bytes(), invocation)
+
+    assert isinstance(configuration.graph, driver.KeyedJoinGraph)
+    assert configuration.graph.left.source_id == "posts"
+    assert configuration.graph.left.join_key == "id"
+    assert configuration.graph.right.source_id == "comments"
+    assert configuration.graph.right.join_key == "postId"
+    assert configuration.graph.transform_id == "joined_post_comments"
+    assert configuration.graph.target_id == "curated_post_comments"
+    assert configuration.graph.output_table == f"{_PROJECT}.staging.graph_post_comments"
+    assert configuration.exchange_partitions == 2
+
+
+def test_driver_fails_closed_for_an_unsupported_join_contract() -> None:
+    graph = json.loads(_canonical_join_graph().data)
+    transform = next(node for node in graph["nodes"] if node["type"] == "transform")
+    transform["config"]["join"]["type"] = "left"
+    graph_sha256 = hashlib.sha256(driver._canonical_json(graph)).hexdigest()
+    invocation = driver.parse_invocation(_join_arguments(graph_content_sha256=graph_sha256))
+
+    with pytest.raises(driver.SparkDriverError, match="one inner join"):
+        driver.parse_runtime_configuration(_join_configuration_bytes(graph=graph), invocation)
 
 
 def test_driver_requires_exact_planned_executors_with_dynamic_allocation_off() -> None:
@@ -247,6 +335,111 @@ def test_driver_completion_is_consumed_by_control_without_provider_fields() -> N
     assert summary.models == 1
     assert summary.assertions == 1
     assert summary.operation_count == 4
+    assert driver._spark_event(invocation, context, result) == {
+        "contract": driver.SPARK_RUNTIME_CONTRACT,
+        "event": "spark.runtime.completed",
+        "run_id": context.run_id,
+        "graph_content_sha256": invocation.graph_content_sha256,
+        "physical_plan_revision": invocation.physical_plan_revision,
+        "driver_sha256": invocation.driver_sha256,
+        "source_id": "greenhouse_jobs",
+        "target_id": "curated_jobs",
+        "output_table": f"{_PROJECT}.staging.graph_greenhouse_jobs",
+        "source_rows": 4,
+        "affected_rows": 4,
+        "executor_instances": 2,
+        "exchange_partitions": 2,
+        "exchange_cleanup": "confirmed",
+    }
+
+
+def test_keyed_join_completion_has_truthful_aggregates_and_source_detail() -> None:
+    invocation = driver.parse_invocation(_join_arguments())
+    context = driver.runtime_context(invocation, _environment())
+    result = driver.SparkResult(
+        source_id="joined_post_comments",
+        target_id="curated_post_comments",
+        output_table=f"{_PROJECT}.staging.graph_post_comments",
+        exchange_uri=(
+            f"gs://{_PROJECT}-spark-qualification/dander-spark/exchanges/run/attempt-1/left-join"
+        ),
+        source_rows=5,
+        affected_rows=2,
+        executor_instances=2,
+        exchange_partitions=2,
+        source_results=(("posts", 3), ("comments", 2)),
+        exchange_uris=("gs://qualification/left-join", "gs://qualification/right-join"),
+    )
+
+    completed = driver.completion_event(invocation, context, result, duration_ms=1_234)
+    message = json.dumps(completed, sort_keys=True, separators=(",", ":"))
+    summary = parse_execution_result_summary(message, pipeline_id=_JOIN_PIPELINE)
+    spark_event = driver._spark_event(invocation, context, result)
+
+    assert summary is not None
+    assert summary.endpoints == 1
+    assert summary.extracted_rows == 5
+    assert summary.affected_rows == 2
+    assert summary.operation_count == 6
+    outputs = cast("dict[str, object]", completed["outputs"])
+    assert outputs["endpoints"] == [
+        {
+            "name": "joined_post_comments",
+            "extracted_rows": 5,
+            "affected_rows": 2,
+            "cursor_committed": False,
+        }
+    ]
+    assert spark_event["contract"] == driver.KEYED_JOIN_SPARK_RUNTIME_CONTRACT
+    assert spark_event["source_rows_by_id"] == {"posts": 3, "comments": 2}
+
+
+def test_keyed_join_projection_qualifies_same_named_source_columns() -> None:
+    invocation = driver.parse_invocation(_join_arguments())
+    configuration = driver.parse_runtime_configuration(_join_configuration_bytes(), invocation)
+    assert isinstance(configuration.graph, driver.KeyedJoinGraph)
+    frame = MagicMock()
+    functions = MagicMock()
+
+    def column(name: str) -> MagicMock:
+        value = MagicMock()
+        value.alias.side_effect = lambda alias: (name, alias)
+        return value
+
+    functions.col.side_effect = column
+
+    driver._project_join_frame(frame, configuration.graph, functions)
+
+    frame.select.assert_called_once_with(
+        ("lhs.id", "post_id"),
+        ("lhs.title", "title"),
+        ("rhs.id", "comment_id"),
+        ("rhs.body", "comment_body"),
+    )
+
+
+def test_dual_exchange_cleanup_attempts_both_prefixes_after_one_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempted: list[str] = []
+
+    def delete(_spark: object, uri: str) -> None:
+        attempted.append(uri)
+        if uri.endswith("left-join"):
+            raise driver.SparkDriverError("left cleanup failed")
+
+    monkeypatch.setattr(driver, "_delete_exchange", delete)
+
+    error = driver._cleanup_exchanges(
+        object(),
+        ("gs://qualification/left-join", "gs://qualification/right-join"),
+    )
+
+    assert isinstance(error, driver.SparkDriverError)
+    assert attempted == [
+        "gs://qualification/left-join",
+        "gs://qualification/right-join",
+    ]
 
 
 def test_exchange_cleanup_accepts_a_verified_postcondition_after_delete_error() -> None:

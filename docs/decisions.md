@@ -2231,3 +2231,18 @@ Resolves the "separate product decisions" the two entries above deferred, unbloc
 - **Boundary:** Executor and partition count stay fixed at two. Joins, operations, casts, alternate
   writers, dynamic sizing, autoscaling, Kubernetes, and a new reconciler fail closed or remain later
   work.
+
+## 2026-08-27 — The first distributed join is one statically planned equality join
+
+- **Plan:** Control recognizes exactly two sources feeding one inner-join transform and one replace
+  target. One declared, same-type equality key per source becomes two hash-partitioned object-store
+  exchanges into a fixed join stage. Left/right orientation comes from the graph's join config, so
+  declaration order cannot change the plan or revision. Fused planning remains unchanged.
+- **Runtime:** A separate versioned Spark configuration keeps the accepted linear contract intact.
+  The driver reads two explicit BigQuery relations, writes and independently cleans both exchange
+  prefixes, joins with side-qualified columns, and requires target readback to match the produced
+  row count. Canonical runtime results use one logical join endpoint; the additive Spark event
+  retains each source's row count without attributing joined output to an arbitrary input.
+- **Qualification boundary:** One pinned, credential-free two-endpoint fixture supports exactly one
+  fused-Fargate versus Spark parity matrix. Additional join types or keys, arbitrary DAG planning,
+  dynamic sizing/allocation, autoscaling, Kubernetes, and a new reconciler remain later work.

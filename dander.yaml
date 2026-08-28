@@ -95,3 +95,16 @@ pipelines:
       job: dander-greenhouse-graph
       runtime_service_account: dander-runtime-graph
       scheduler_service_account: dander-scheduler-graph
+
+  keyed_join_qualification:
+    source: keyed_join_fixture
+    graph: graphs/keyed_join_qualification.yaml
+    models: []
+    build_models: false
+    schedule: "0 14 * * *"
+    time_zone: America/New_York
+    paused: true
+    resources:
+      job: dander-keyed-join
+      runtime_service_account: dander-runtime-keyed-join
+      scheduler_service_account: dander-scheduler-keyed-join
