@@ -47,7 +47,7 @@ class PhysicalPlanner(Protocol):
 
 
 class StaticPhysicalPlanner:
-    """Compile fused graphs or the two explicitly supported distributed graph shapes."""
+    """Compile fused graphs or the explicitly supported distributed graph shapes."""
 
     def plan(
         self,
@@ -141,9 +141,23 @@ class StaticPhysicalPlanner:
                 transform=by_type["transform"][0],
                 target=by_type["target"][0],
             )
+        if (
+            len(by_type["source"]) == 1
+            and len(by_type["transform"]) == 2
+            and len(by_type["target"]) == 1
+        ):
+            return StaticPhysicalPlanner._multistage_linear_plan(
+                graph,
+                pipeline_id=pipeline_id,
+                partition_count=partition_count,
+                source=by_type["source"][0],
+                transforms=by_type["transform"],
+                target=by_type["target"][0],
+            )
         if any(len(by_type[node_type]) != 1 for node_type in _KNOWN_NODE_TYPES):
             raise PhysicalPlanningError(
-                "Distributed planning supports exactly one source, transform, and target node."
+                "Distributed planning supports exactly one source and target, with one or two "
+                "transform nodes."
             )
         source = by_type["source"][0]
         transform = by_type["transform"][0]
@@ -182,6 +196,84 @@ class StaticPhysicalPlanner:
                     exchange_id="extract-transform",
                     producer_stage_id="extract",
                     consumer_stage_id="transform",
+                    transport=ExchangeTransport.OBJECT_STORE,
+                    partitioning=PartitioningStrategy.ROUND_ROBIN,
+                    partition_count=partition_count,
+                ),
+            ),
+            maximum_parallelism=partition_count,
+        )
+
+    @staticmethod
+    def _multistage_linear_plan(
+        graph: PipelineGraph,
+        *,
+        pipeline_id: str,
+        partition_count: int,
+        source: Node,
+        transforms: tuple[Node, ...],
+        target: Node,
+    ) -> PhysicalPlan:
+        actual_edges = {(edge.source, edge.target) for edge in graph.edges}
+        ordered: tuple[Node, Node] | None = None
+        for first in transforms:
+            second = next(transform for transform in transforms if transform.id != first.id)
+            if actual_edges == {
+                (source.id, first.id),
+                (first.id, second.id),
+                (second.id, target.id),
+            }:
+                ordered = (first, second)
+                break
+        if ordered is None:
+            raise PhysicalPlanningError(
+                "Distributed multistage planning supports only a two-transform linear chain."
+            )
+        first, second = ordered
+        if (
+            any(edge.join is not None for edge in graph.edges)
+            or not isinstance(first.config, TransformNodeConfig)
+            or not isinstance(second.config, TransformNodeConfig)
+            or first.config.join is not None
+            or second.config.join is not None
+        ):
+            raise PhysicalPlanningError("Distributed multistage planning does not support joins.")
+
+        return PhysicalPlan(
+            pipeline_id=pipeline_id,
+            execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+            stages=(
+                PhysicalStage(
+                    stage_id="extract",
+                    operators=(source.id,),
+                    partition_count=partition_count,
+                ),
+                PhysicalStage(
+                    stage_id="transform-a",
+                    operators=(first.id,),
+                    partition_count=partition_count,
+                    depends_on=("extract",),
+                ),
+                PhysicalStage(
+                    stage_id="transform-b",
+                    operators=tuple(sorted((second.id, target.id))),
+                    partition_count=partition_count,
+                    depends_on=("transform-a",),
+                ),
+            ),
+            exchanges=(
+                PhysicalExchange(
+                    exchange_id="extract-transform-a",
+                    producer_stage_id="extract",
+                    consumer_stage_id="transform-a",
+                    transport=ExchangeTransport.OBJECT_STORE,
+                    partitioning=PartitioningStrategy.ROUND_ROBIN,
+                    partition_count=partition_count,
+                ),
+                PhysicalExchange(
+                    exchange_id="transform-a-transform-b",
+                    producer_stage_id="transform-a",
+                    consumer_stage_id="transform-b",
                     transport=ExchangeTransport.OBJECT_STORE,
                     partitioning=PartitioningStrategy.ROUND_ROBIN,
                     partition_count=partition_count,

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
+from types import ModuleType
 from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock
 
@@ -21,6 +23,7 @@ if TYPE_CHECKING:
 
 _PROJECT = "dander-cr-20260802-7f3a"
 _PIPELINE = "greenhouse_jobs_graph"
+_MULTISTAGE_PIPELINE = "multistage_linear_qualification"
 _JOIN_PIPELINE = "keyed_join_qualification"
 
 
@@ -31,6 +34,11 @@ def _canonical_graph() -> CanonicalGraphDocument:
 
 def _canonical_join_graph() -> CanonicalGraphDocument:
     with open("graphs/keyed_join_qualification.yaml", encoding="utf-8") as stream:
+        return canonicalize_graph_document(yaml.safe_load(stream))
+
+
+def _canonical_multistage_graph() -> CanonicalGraphDocument:
+    with open("graphs/multistage_linear_qualification.yaml", encoding="utf-8") as stream:
         return canonicalize_graph_document(yaml.safe_load(stream))
 
 
@@ -120,6 +128,45 @@ def _join_arguments(*, graph_content_sha256: str | None = None) -> list[str]:
     ]
 
 
+def _multistage_physical_plan(*, distributed_partitions: int = 2) -> str:
+    canonical = _canonical_multistage_graph()
+    plan = StaticPhysicalPlanner().plan(
+        canonical.document,
+        pipeline_id=_MULTISTAGE_PIPELINE,
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        distributed_partitions=distributed_partitions,
+    )
+    return serialize_physical_plan(plan).decode()
+
+
+def _multistage_arguments(
+    *,
+    physical_plan: str | None = None,
+    graph_content_sha256: str | None = None,
+) -> list[str]:
+    canonical = _canonical_multistage_graph()
+    return [
+        "runtime",
+        "execute",
+        "--contract",
+        driver.RUNTIME_CONTRACT,
+        "--pipeline",
+        _MULTISTAGE_PIPELINE,
+        "--platform",
+        "gcp",
+        "--physical-plan",
+        physical_plan or _multistage_physical_plan(),
+        "--project",
+        _PROJECT,
+        "--staging-bucket",
+        f"{_PROJECT}-spark-qualification",
+        "--graph-content-sha256",
+        graph_content_sha256 or canonical.content_sha256,
+        "--driver-sha256",
+        "a" * 64,
+    ]
+
+
 def _configuration_payload(
     *,
     graph: dict[str, object] | None = None,
@@ -158,6 +205,26 @@ def _join_configuration_payload(*, graph: dict[str, object] | None = None) -> di
 
 def _join_configuration_bytes(*, graph: dict[str, object] | None = None) -> bytes:
     return driver._canonical_json(_join_configuration_payload(graph=graph))
+
+
+def _multistage_configuration_payload(
+    *, graph: dict[str, object] | None = None
+) -> dict[str, object]:
+    canonical = _canonical_multistage_graph()
+    graph_payload = json.loads(canonical.data) if graph is None else graph
+    graph_sha256 = hashlib.sha256(driver._canonical_json(graph_payload)).hexdigest()
+    return {
+        "schema": driver.MULTISTAGE_LINEAR_CONFIGURATION_SCHEMA,
+        "graph_content_sha256": graph_sha256,
+        "graph": graph_payload,
+        "source_relations": {
+            "greenhouse_jobs": f"{_PROJECT}.raw.greenhouse_job_board_jobs",
+        },
+    }
+
+
+def _multistage_configuration_bytes(*, graph: dict[str, object] | None = None) -> bytes:
+    return driver._canonical_json(_multistage_configuration_payload(graph=graph))
 
 
 def _environment(*, configuration_sha256: str = "b" * 64) -> dict[str, str]:
@@ -218,6 +285,45 @@ def test_driver_accepts_the_exact_keyed_join_plan_and_configuration() -> None:
     assert configuration.graph.target_id == "curated_post_comments"
     assert configuration.graph.output_table == f"{_PROJECT}.staging.graph_post_comments"
     assert configuration.exchange_partitions == 2
+
+
+def test_driver_accepts_the_exact_multistage_plan_and_configuration() -> None:
+    invocation = driver.parse_invocation(_multistage_arguments())
+
+    configuration = driver.parse_runtime_configuration(
+        _multistage_configuration_bytes(), invocation
+    )
+
+    assert isinstance(configuration.graph, driver.MultistageLinearGraph)
+    assert configuration.graph.source_id == "greenhouse_jobs"
+    assert configuration.graph.first_transform_id == "normalized_jobs"
+    assert configuration.graph.second_transform_id == "prepared_jobs"
+    assert configuration.graph.target_id == "curated_jobs"
+    assert configuration.graph.output_table == (
+        f"{_PROJECT}.staging.graph_greenhouse_jobs_multistage"
+    )
+    assert configuration.graph.source_to_first[0] == driver.DirectMapping(
+        source="id", target="job_id"
+    )
+    assert configuration.graph.first_to_second[0] == driver.DirectMapping(
+        source="job_id", target="id"
+    )
+    assert configuration.exchange_partitions == 2
+
+
+def test_multistage_driver_fails_closed_for_operations_and_wrong_plan() -> None:
+    graph = json.loads(_canonical_multistage_graph().data)
+    first = next(node for node in graph["nodes"] if node["id"] == "normalized_jobs")
+    first["config"]["operations"] = [{"kind": "trim_whitespace", "params": {"field": "role_title"}}]
+    graph_sha256 = hashlib.sha256(driver._canonical_json(graph)).hexdigest()
+    invocation = driver.parse_invocation(_multistage_arguments(graph_content_sha256=graph_sha256))
+
+    with pytest.raises(driver.SparkDriverError, match="without operations"):
+        driver.parse_runtime_configuration(_multistage_configuration_bytes(graph=graph), invocation)
+
+    wrong_plan = driver.parse_invocation(_multistage_arguments(physical_plan=_physical_plan()))
+    with pytest.raises(driver.SparkDriverError, match="physical plan does not match"):
+        driver.parse_runtime_configuration(_multistage_configuration_bytes(), wrong_plan)
 
 
 def test_driver_fails_closed_for_an_unsupported_join_contract() -> None:
@@ -392,6 +498,106 @@ def test_keyed_join_completion_has_truthful_aggregates_and_source_detail() -> No
     ]
     assert spark_event["contract"] == driver.KEYED_JOIN_SPARK_RUNTIME_CONTRACT
     assert spark_event["source_rows_by_id"] == {"posts": 3, "comments": 2}
+
+
+def test_multistage_completion_reports_both_transforms_and_exchanges() -> None:
+    invocation = driver.parse_invocation(_multistage_arguments())
+    context = driver.runtime_context(invocation, _environment())
+    exchange_uris = driver._multistage_exchange_uris(invocation, context)
+    result = driver.SparkResult(
+        source_id="greenhouse_jobs",
+        target_id="curated_jobs",
+        output_table=f"{_PROJECT}.staging.graph_greenhouse_jobs_multistage",
+        exchange_uri=exchange_uris[0],
+        source_rows=4,
+        affected_rows=4,
+        executor_instances=2,
+        exchange_partitions=2,
+        runtime_contract=driver.MULTISTAGE_LINEAR_SPARK_RUNTIME_CONTRACT,
+        transform_ids=("normalized_jobs", "prepared_jobs"),
+        exchange_uris=exchange_uris,
+    )
+
+    completed = driver.completion_event(invocation, context, result, duration_ms=1_234)
+    message = json.dumps(completed, sort_keys=True, separators=(",", ":"))
+    summary = parse_execution_result_summary(message, pipeline_id=_MULTISTAGE_PIPELINE)
+    spark_event = driver._spark_event(invocation, context, result)
+
+    assert summary is not None
+    assert summary.extracted_rows == 4
+    assert summary.affected_rows == 4
+    assert summary.operation_count == 7
+    assert spark_event["contract"] == driver.MULTISTAGE_LINEAR_SPARK_RUNTIME_CONTRACT
+    assert spark_event["transform_ids"] == ["normalized_jobs", "prepared_jobs"]
+    assert spark_event["exchange_uris"] == list(exchange_uris)
+
+
+def test_multistage_runtime_materializes_both_exchanges_and_cleans_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invocation = driver.parse_invocation(_multistage_arguments())
+    context = driver.runtime_context(invocation, _environment())
+    configuration = driver.parse_runtime_configuration(
+        _multistage_configuration_bytes(), invocation
+    )
+    spark = MagicMock()
+    spark_session = MagicMock()
+    spark_session.builder.appName.return_value.getOrCreate.return_value = spark
+    functions = MagicMock()
+    pyspark = ModuleType("pyspark")
+    pyspark_sql = ModuleType("pyspark.sql")
+    pyspark_sql.SparkSession = spark_session  # type: ignore[attr-defined]
+    pyspark_sql.functions = functions  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyspark", pyspark)
+    monkeypatch.setitem(sys.modules, "pyspark.sql", pyspark_sql)
+    monkeypatch.setattr(driver, "read_runtime_configuration", lambda *_args: configuration)
+    monkeypatch.setattr(driver, "_planned_executor_instances", lambda *_args: 2)
+
+    source_loaded = MagicMock()
+    source = MagicMock()
+    source.count.return_value = 4
+    source_loaded.select.return_value = source
+    readback = MagicMock()
+    readback.count.return_value = 4
+    bigquery_reader = spark.read.format.return_value
+    bigquery_reader.option.return_value = bigquery_reader
+    bigquery_reader.load.side_effect = (source_loaded, readback)
+    first_input = MagicMock()
+    second_input = MagicMock()
+    spark.read.parquet.side_effect = (first_input, second_input)
+    first_output = MagicMock()
+    second_output = MagicMock()
+    published = MagicMock()
+    monkeypatch.setattr(
+        driver,
+        "_project_frame",
+        MagicMock(side_effect=(first_output, second_output, published)),
+    )
+    published_writer = published.write.format.return_value
+    published_writer.option.return_value = published_writer
+    published_writer.mode.return_value = published_writer
+    cleaned: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        driver,
+        "_cleanup_exchanges",
+        lambda _spark, uris: cleaned.append(uris),
+    )
+    monkeypatch.setattr(driver, "_stop_spark", lambda *_args, **_kwargs: None)
+
+    result = driver.run_spark(invocation, context)
+
+    exchanges = driver._multistage_exchange_uris(invocation, context)
+    source.repartition.return_value.write.mode.return_value.parquet.assert_called_once_with(
+        exchanges[0]
+    )
+    first_output.repartition.return_value.write.mode.return_value.parquet.assert_called_once_with(
+        exchanges[1]
+    )
+    assert cleaned == [exchanges]
+    assert result.runtime_contract == driver.MULTISTAGE_LINEAR_SPARK_RUNTIME_CONTRACT
+    assert result.transform_ids == ("normalized_jobs", "prepared_jobs")
+    assert result.exchange_uris == exchanges
+    assert result.affected_rows == 4
 
 
 def test_keyed_join_projection_qualifies_same_named_source_columns() -> None:

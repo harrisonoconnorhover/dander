@@ -57,7 +57,7 @@ edges:
 """.strip()
 
 
-def test_repository_manifest_defines_seven_additive_hosted_pipelines() -> None:
+def test_repository_manifest_defines_eight_additive_hosted_pipelines() -> None:
     project = load_project_config(Path("dander.yaml"))
     project.validate_references(Path.cwd())
 
@@ -78,6 +78,7 @@ def test_repository_manifest_defines_seven_additive_hosted_pipelines() -> None:
         "greenhouse_jobs_graph",
         "hubspot_companies",
         "keyed_join_qualification",
+        "multistage_linear_qualification",
         "phase8_aws_qualification",
         "salesforce_accounts",
         "servicenow_incidents",
@@ -93,6 +94,11 @@ def test_repository_manifest_defines_seven_additive_hosted_pipelines() -> None:
     assert expanded["greenhouse_jobs_graph"]["build_models"] is False
     assert expanded["greenhouse_jobs_graph"]["paused"] is True
     assert expanded["greenhouse_jobs_graph"]["secret_env"] == {}
+    assert expanded["multistage_linear_qualification"]["job_name"] == ("dander-multistage-linear")
+    assert expanded["multistage_linear_qualification"]["models"] == []
+    assert expanded["multistage_linear_qualification"]["build_models"] is False
+    assert expanded["multistage_linear_qualification"]["paused"] is True
+    assert expanded["multistage_linear_qualification"]["secret_env"] == {}
     assert expanded["keyed_join_qualification"]["job_name"] == "dander-keyed-join"
     assert expanded["keyed_join_qualification"]["models"] == []
     assert expanded["keyed_join_qualification"]["build_models"] is False

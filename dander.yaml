@@ -96,6 +96,19 @@ pipelines:
       runtime_service_account: dander-runtime-graph
       scheduler_service_account: dander-scheduler-graph
 
+  multistage_linear_qualification:
+    source: greenhouse_job_board
+    graph: graphs/multistage_linear_qualification.yaml
+    models: []
+    build_models: false
+    schedule: "0 14 * * *"
+    time_zone: America/New_York
+    paused: true
+    resources:
+      job: dander-multistage-linear
+      runtime_service_account: dander-runtime-multistage
+      scheduler_service_account: dander-scheduler-multistage
+
   keyed_join_qualification:
     source: keyed_join_fixture
     graph: graphs/keyed_join_qualification.yaml
