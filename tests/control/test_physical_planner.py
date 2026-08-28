@@ -11,6 +11,7 @@ import pytest
 from dander.control.execution_plan_compiler import (
     ExecutionPlanCompiler,
     ExecutionPlanProfile,
+    ManagedSparkSizeClass,
 )
 from dander.control.graph_store import InMemoryGraphStore
 from dander.control.models import PipelineGraphDocument
@@ -19,6 +20,7 @@ from dander.control.orchestration import (
     ExecutionPlan,
     OrchestrationContractError,
     RetryPolicy,
+    parse_size_class_candidate_spec,
 )
 from dander.control.orchestration_serialization import (
     deserialize_execution_plan,
@@ -203,6 +205,35 @@ def test_static_planner_is_deterministic_across_canonical_graph_order() -> None:
     assert distributed.partition_count == 4
     assert distributed.exchanges[0].transport is ExchangeTransport.OBJECT_STORE
     assert distributed.revision != fused.revision
+
+
+def test_distributed_planner_accepts_one_bounded_static_partition_count() -> None:
+    planner = StaticPhysicalPlanner()
+
+    large = planner.plan(
+        _graph(),
+        pipeline_id="orders",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        distributed_partitions=4,
+    )
+
+    assert large.maximum_parallelism == 4
+    assert [stage.partition_count for stage in large.stages] == [4, 4]
+    assert large.exchanges[0].partition_count == 4
+    with pytest.raises(PhysicalPlanningError, match="outside its static bound"):
+        planner.plan(
+            _graph(),
+            pipeline_id="orders",
+            execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+            distributed_partitions=2_001,
+        )
+    with pytest.raises(PhysicalPlanningError, match="Fused planning"):
+        planner.plan(
+            _graph(),
+            pipeline_id="orders",
+            execution_mode=PhysicalExecutionMode.FUSED_CONTAINER,
+            distributed_partitions=2,
+        )
 
 
 def test_distributed_planner_fails_closed_for_an_unsupported_graph_shape() -> None:
@@ -440,6 +471,61 @@ def test_execution_plan_compiler_binds_managed_spark_to_the_control_graph() -> N
         match="already contains a graph content identity",
     ):
         ExecutionPlanCompiler().compile(graph, profile, duplicate)
+
+
+def test_compiler_materializes_canonical_managed_spark_size_classes() -> None:
+    graph = InMemoryGraphStore(
+        clock=lambda: NOW,
+        revision_factory=lambda: "graph-r1",
+    ).create(
+        "demo",
+        "orders",
+        _graph(),
+        idempotency_key="graph-key-0001",
+    )
+    template = _template(
+        "dataproc_serverless",
+        maximum_parallelism=2,
+        deadline_seconds=600,
+    )
+    profile = ExecutionPlanProfile(
+        plan_id="spark-orders",
+        environment="spark",
+        execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+    )
+    small = ManagedSparkSizeClass("small", 1_000, 2, 4_000, 16_384)
+    large = ManagedSparkSizeClass("large", 10_000, 4, 8_000, 32_768)
+    compiler = ExecutionPlanCompiler()
+
+    compiled = compiler.compile_managed_spark_size_classes(graph, profile, template, (large, small))
+    repeated = compiler.compile_managed_spark_size_classes(graph, profile, template, (small, large))
+
+    assert repeated == compiled
+    assert tuple(plan.revision for plan in compiled.plans) == tuple(
+        sorted(plan.revision for plan in compiled.plans)
+    )
+    assert (
+        tuple(parse_size_class_candidate_spec(spec) for spec in compiled.size_candidate_specs)
+        == compiled.size_class_candidates
+    )
+    assert (
+        tuple(deserialize_execution_plan(value.encode()) for value in compiled.execution_plan_json)
+        == compiled.plans
+    )
+    by_class = {
+        candidate.size_class: next(
+            plan for plan in compiled.plans if plan.revision == candidate.plan_revision
+        )
+        for candidate in compiled.size_class_candidates
+    }
+    assert by_class["small"].physical_plan is not None
+    assert by_class["small"].physical_plan.maximum_parallelism == 2
+    assert by_class["small"].execution_template.schedule.task_count == 2
+    assert by_class["large"].physical_plan is not None
+    assert by_class["large"].physical_plan.maximum_parallelism == 4
+    assert by_class["large"].execution_template.schedule.task_count == 4
+    assert by_class["large"].execution_template.resources.cpu_millis == 8_000
+    assert by_class["large"].execution_template.resources.memory_mib == 32_768
 
 
 def test_managed_spark_execution_plan_requires_distributed_physical_execution() -> None:

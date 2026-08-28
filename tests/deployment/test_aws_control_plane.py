@@ -16,7 +16,9 @@ from pydantic import ValidationError
 import dander.deployment.aws_control_plane as aws_control_plane
 from dander.control.auth import HostedOIDCDeploymentInput
 from dander.control.execution_plan_compiler import (
+    ExecutionPlanCompiler,
     ExecutionPlanProfile,
+    ManagedSparkSizeClass,
     compile_execution_plan_json,
 )
 from dander.control.graph_store import InMemoryGraphStore
@@ -848,6 +850,44 @@ def test_compiled_fargate_and_spark_plans_render_and_reload(tmp_path: Path) -> N
         paths.append(path)
     reloaded = load_execution_plans(paths)
     assert reloaded == source.execution_plans
+
+    compiled_sizes = ExecutionPlanCompiler().compile_managed_spark_size_classes(
+        graph,
+        ExecutionPlanProfile(
+            plan_id="gcp-hosted-graph",
+            environment="gcp",
+            execution_mode=PhysicalExecutionMode.DISTRIBUTED,
+        ),
+        spark_template,
+        (
+            ManagedSparkSizeClass("small", 1_000, 2, 4_000, 16_384),
+            ManagedSparkSizeClass("large", 10_000, 4, 8_000, 32_768),
+        ),
+    )
+    sized_source = _source(
+        platforms_config_yaml=_platforms_config(),
+        execution_plan_json=(
+            serialize_execution_plan(plans["fargate"]).decode(),
+            *compiled_sizes.execution_plan_json,
+        ),
+        run_size_candidates=compiled_sizes.size_candidate_specs,
+        run_default_size_class="small",
+        gcp_project_id=GCP_PROJECT,
+        gcp_control_service_account=(f"dander-aws-control@{GCP_PROJECT}.iam.gserviceaccount.com"),
+        gcp_wif_audience=(
+            "//iam.googleapis.com/projects/123456789012/locations/global/"
+            "workloadIdentityPools/dander-aws-control/providers/aws-control"
+        ),
+    )
+    sized_active = json.loads(render_aws_control_plane(sized_source)["active.tfvars.json"])
+    assert sized_active["control_args"].count("--execution-plan") == 3
+    assert sized_active["control_args"].count("--run-size-candidate") == 2
+    assert (
+        sized_active["control_args"][
+            sized_active["control_args"].index("--run-default-size-class") + 1
+        ]
+        == "small"
+    )
 
 
 @pytest.mark.parametrize("complete", [False, True])

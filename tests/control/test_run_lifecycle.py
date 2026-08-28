@@ -1027,6 +1027,100 @@ def test_bounded_size_classes_select_before_environment_placement() -> None:
         )
 
 
+def test_spark_sizing_preserves_one_unsized_fargate_route() -> None:
+    _store, graph = _graph_store()
+    fargate = _plan(graph)
+    spark_small = _spark_plan(graph)
+    assert spark_small.physical_plan is not None
+    large_physical = replace(
+        spark_small.physical_plan,
+        stages=tuple(
+            replace(stage, partition_count=4) for stage in spark_small.physical_plan.stages
+        ),
+        exchanges=tuple(
+            replace(exchange, partition_count=4) for exchange in spark_small.physical_plan.exchanges
+        ),
+        maximum_parallelism=4,
+    )
+    spark_large = replace(
+        spark_small,
+        plan_id="gcp-spark-bigquery-large",
+        physical_plan=large_physical,
+        execution_template=replace(
+            spark_small.execution_template,
+            command=(
+                *spark_small.execution_template.command[:-1],
+                serialize_physical_plan(large_physical).decode(),
+            ),
+            resources=replace(
+                spark_small.execution_template.resources,
+                cpu_millis=8_000,
+                memory_mib=32_768,
+            ),
+            schedule=replace(
+                spark_small.execution_template.schedule,
+                task_count=4,
+                maximum_parallelism=4,
+            ),
+        ),
+    )
+    sizes = (
+        SizeClassCandidate(spark_small.revision, "small", 1_000),
+        SizeClassCandidate(spark_large.revision, "large", 10_000),
+    )
+    resolver = PlanRunSubmissionResolver(
+        ExecutionPlanRegistry((fargate, spark_small, spark_large)),
+        "production",
+        size_class_candidates=sizes,
+        default_size_class="small",
+    )
+    resolver_without_default = replace(resolver, default_size_class=None)
+
+    unchanged = resolver_without_default.resolve(
+        graph,
+        idempotency_key="start-key-unsized",
+        requested_at=NOW,
+    )
+    selected_small = resolver.resolve(
+        graph,
+        environment="spark",
+        idempotency_key="start-key-small",
+        requested_at=NOW,
+        estimated_input_bytes=500,
+    )
+    selected_large = resolver.resolve(
+        graph,
+        environment="spark",
+        idempotency_key="start-key-large",
+        requested_at=NOW,
+        estimated_input_bytes=5_000,
+    )
+
+    assert unchanged.plan_revision == fargate.revision
+    assert unchanged.size_class_decision is None
+    assert selected_small.plan_revision == spark_small.revision
+    assert selected_small.size_class_decision is not None
+    assert selected_small.size_class_decision.selected_size_class == "small"
+    assert selected_large.plan_revision == spark_large.revision
+    assert selected_large.size_class_decision is not None
+    assert selected_large.size_class_decision.selected_size_class == "large"
+    with pytest.raises(ControlOperationUnavailableError, match="requested size class"):
+        resolver_without_default.resolve(
+            graph,
+            environment="spark",
+            idempotency_key="start-key-missing-size",
+            requested_at=NOW,
+        )
+    with pytest.raises(ControlOperationUnavailableError, match="requested size class"):
+        resolver.resolve(
+            graph,
+            environment="production",
+            idempotency_key="start-key-invalid-size",
+            requested_at=NOW,
+            size_class="small",
+        )
+
+
 def test_plan_files_must_be_canonical_and_content_addressed(tmp_path: Path) -> None:
     _store, graph = _graph_store()
     plan = _plan(graph)

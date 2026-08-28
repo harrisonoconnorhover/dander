@@ -359,6 +359,7 @@ class PlanRunSubmissionResolver:
     ) -> RunSubmission:
         candidates, size_mode = self._select_size_candidates(
             record,
+            environment=environment if environment is not None else self.environment,
             size_class=size_class,
             estimated_input_bytes=estimated_input_bytes,
         )
@@ -460,6 +461,7 @@ class PlanRunSubmissionResolver:
         self,
         record: GraphRecord,
         *,
+        environment: str,
         size_class: str | None,
         estimated_input_bytes: int | None,
     ) -> tuple[tuple[ExecutionPlan, ...], SizeClassMode | None]:
@@ -489,20 +491,28 @@ class PlanRunSubmissionResolver:
             else SizeClassMode.AUTOMATIC_INPUT
             if estimated_input_bytes is not None
             else SizeClassMode.CONFIGURED_DEFAULT
+            if self.default_size_class is not None
+            else None
         )
-        if selected_class is None and estimated_input_bytes is None:
-            raise ControlOperationUnavailableError(
-                "The hosted execution route requires a size class or estimated input bytes."
-            )
         configured = self._size_candidates_by_revision()
-        grouped: dict[str, list[tuple[ExecutionPlan, SizeClassCandidate]]] = {}
+        grouped: dict[str, list[ExecutionPlan]] = {}
         for plan in current:
-            candidate = configured.get(plan.revision)
-            if candidate is not None:
-                grouped.setdefault(plan.environment, []).append((plan, candidate))
+            grouped.setdefault(plan.environment, []).append(plan)
         selected: list[ExecutionPlan] = []
-        for environment in sorted(grouped):
-            choices = grouped[environment]
+        explicit_sizing = size_class is not None or estimated_input_bytes is not None
+        for route_environment in sorted(grouped):
+            if environment != "auto" and route_environment != environment:
+                continue
+            route_plans = grouped[route_environment]
+            choices = [
+                (plan, configured[plan.revision])
+                for plan in route_plans
+                if plan.revision in configured
+            ]
+            if not choices:
+                if not explicit_sizing:
+                    selected.extend(route_plans)
+                continue
             if estimated_input_bytes is not None:
                 fitting = [
                     item for item in choices if item[1].max_input_bytes >= estimated_input_bytes
@@ -550,7 +560,9 @@ class PlanRunSubmissionResolver:
     ) -> SizeClassDecision | None:
         if mode is None:
             return None
-        candidate = self._size_candidates_by_revision()[plan.revision]
+        candidate = self._size_candidates_by_revision().get(plan.revision)
+        if candidate is None:
+            return None
         resources = plan.execution_template.resources
         return SizeClassDecision(
             mode=mode,

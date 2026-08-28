@@ -186,7 +186,7 @@ def _physical_plan() -> PhysicalPlan:
             PhysicalStage(
                 stage_id="publish",
                 operators=("publish",),
-                partition_count=4,
+                partition_count=2,
                 depends_on=("extract",),
             ),
         ),
@@ -197,10 +197,10 @@ def _physical_plan() -> PhysicalPlan:
                 consumer_stage_id="publish",
                 transport=ExchangeTransport.OBJECT_STORE,
                 partitioning=PartitioningStrategy.ROUND_ROBIN,
-                partition_count=4,
+                partition_count=2,
             ),
         ),
-        maximum_parallelism=4,
+        maximum_parallelism=2,
     )
 
 
@@ -351,6 +351,27 @@ def test_submit_is_deterministic_fixed_size_and_restart_adopts() -> None:
         "authenticationConfig": {"userWorkloadAuthenticationType": "SERVICE_ACCOUNT"},
         "subnetworkUri": f"projects/{PROJECT}/regions/{REGION}/subnetworks/dander-spark",
     }
+
+
+def test_submit_rejects_executor_count_that_differs_from_physical_partitions() -> None:
+    plan = _plan()
+    mismatched_template = replace(
+        plan.execution_template,
+        schedule=replace(
+            plan.execution_template.schedule,
+            task_count=4,
+            maximum_parallelism=4,
+        ),
+    )
+    mismatched = replace(plan, execution_template=mismatched_template)
+    backend = DataprocServerlessExecutionBackend(
+        {mismatched.revision: _binding(mismatched)},
+        transport=_Transport(),
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(ExecutionBackendError, match="fixed resource bounds"):
+        _start(backend, mismatched)
 
 
 def test_submit_reconciles_lost_create_response_without_duplicate_batch() -> None:

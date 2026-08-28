@@ -5,9 +5,11 @@ from dander.control.dataproc_serverless_execution_backend import (
     DataprocServerlessExecutionBackend,
 )
 from dander.control.execution_plan_compiler import (
+    CompiledSizeClassPlans,
     ExecutionPlanCompilationError,
     ExecutionPlanCompiler,
     ExecutionPlanProfile,
+    ManagedSparkSizeClass,
     compile_execution_plan_json,
 )
 from dander.control.fargate_execution_backend import FargateExecutionBackend
@@ -194,9 +196,11 @@ __all__ = [
     "ExecutionBackend",
     "ExecutionBackendError",
     "ExecutionPlan",
+    "CompiledSizeClassPlans",
     "ExecutionPlanCompilationError",
     "ExecutionPlanCompiler",
     "ExecutionPlanProfile",
+    "ManagedSparkSizeClass",
     "EXECUTION_PLAN_SCHEMA",
     "ExecutionResultSummary",
     "EXECUTION_RESULT_SUMMARY_SCHEMA",
