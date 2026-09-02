@@ -9,7 +9,7 @@ Phase 7 evidence merge.
 
 | Boundary | Current evidence | Phase 8 boundary |
 |---|---|---|
-| GCP native | Exact private RC22 passed authenticated manual/replay and Scheduler execution on the retained Cloud Run/BigQuery/Dataplex/Secret Manager profile, followed by no drift | Provider-measured cost, scale reports, and the retained soak remain open |
+| GCP native | Exact private RC22 passed authenticated manual/replay and Scheduler execution on the retained Cloud Run/BigQuery/Dataplex/Secret Manager profile, followed by the completed 2026-08-02 through 2026-09-01 operator trial and no drift | Provider-measured cost and scale reports remain open; the unavailable ServiceNow PDI is an explicit external limitation |
 | Fargate to GCP | Public `0.8.0rc8` passed manual/scheduled lifecycle, replay, interruption, alerts, rollback, cleanup, and no drift | Scale qualification remains open; this is not the AWS-native profile |
 | Kubernetes portable | Exact private RC27 passed the named local kind profile and one hosted GKE bounded-memory audit, including its posted USD 0.05 provider cost; the accepted lifecycle evidence remains current | Other hosted-provider scale/cost, remaining launcher classes, and soak remain open |
 | Azure canonical | Exact private RC29 passed fresh Container Apps/Snowflake/PostgreSQL/Key-Vault correctness and replay with zero retries and cleanup inside 120 minutes; the separate BigQuery/GCP identity profile passed refresh and revocation | Exact-candidate scale, provider-posted cost, pairwise, and soak remain open |
@@ -431,7 +431,7 @@ ten times that limit, and peak RSS no greater than 80 percent.
 
 | Case | Launcher | Warehouse | State | Catalog | Secret | Current status |
 |---|---|---|---|---|---|---|
-| `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun passed; cost and soak open |
+| `gcp_native` | Cloud Run | BigQuery | BigQuery | Dataplex | GCP Secret Manager | exact-candidate profile rerun and retained operator trial passed; cost and scale open |
 | `aws_native` | Fargate | Redshift | PostgreSQL | Glue | AWS Secrets Manager | exact RC27 manual/replay correctness and exact cleanup passed; provider cost, scale, soak, and support remain open |
 | `kubernetes_portable` | Kubernetes | PostgreSQL | PostgreSQL | none | environment projection | exact RC27 local scale and hosted GKE bounded-memory cost pass; other hosted scale and soak open |
 | `azure_snowflake` | Azure Container Apps Jobs | Snowflake | PostgreSQL | none | Azure Key Vault | exact RC29 correctness/replay and lifecycle pass; scale, provider cost, pairwise, and soak open |

@@ -23,7 +23,7 @@ cloud path remains outside the live proof.
 | Azure launcher portability | Live-proven for the named experimental profiles | One immutable source-free digest passed the Azure/Snowflake/PostgreSQL/Key-Vault lifecycle; public `0.9.0rc1` passed Azure-to-Google refresh, secret, catalog, revocation and isolated-GCP smoke. |
 | OCI launcher portability | Live-proven for the named experimental profile | Public `0.9.0rc17` passed the OCI Container Instances/PostgreSQL/PostgreSQL/no-catalog/OCI-Vault lifecycle; unsupported OCI-to-Google identity fails closed. |
 | Infrastructure reconciliation safety | Live-proven | Exact private RC22 changed only five retained Cloud Run job images; the following current-equivalent 113-resource platform plan reported exact `No changes.` |
-| Phase 8 support qualification | Open | Private multi-platform RC28 is the current inspected candidate; accepted RC27 AWS-native and Kubernetes results remain preserved, while hosted cost/scale, remaining matrix cells, soak, final audit, and support freeze remain open. |
+| Phase 8 support qualification | Open | Private multi-platform RC28 is the current inspected candidate; accepted RC27 AWS-native and Kubernetes results remain preserved, and the retained GCP operator trial is complete. Hosted cost/scale, remaining matrix cells and soaks, final audit, and support freeze remain open. |
 
 ## Current release and deployment record
 
@@ -87,6 +87,16 @@ cloud path remains outside the live proof.
   `sha256:ce395dda3865691d2300f57577fb9b5297031293f77c89f6adc34f60853947c3`.
   Authenticated Salesforce manual/replay and Scheduler-created Greenhouse runs passed on its
   Linux/AMD64 manifest; provider-measured cost remains pending.
+- The retained GCP operator trial completed its 2026-08-02 through 2026-09-01 window with 21 of 21
+  enabled scheduled executions successful during the final seven days. Its 2026-08-25 Salesforce
+  OAuth HTTP 400 failure was durably visible and diagnosable, and later runs succeeded. Final data,
+  cursor, lease, staging, manual-rerun, and Terraform reconciliation passed on 2026-09-02. The
+  unavailable ServiceNow PDI remains an explicit external limitation; all five retained schedules
+  are paused, while their jobs and evidence remain preserved.
+- After the observation window, the 2026-09-02 scheduled Salesforce run encountered repeated
+  BigQuery transaction contention and reached its 600-second transform limit. Its configured
+  platform retry failed with HTTP 400; one documented manual recovery then succeeded in 7m18s
+  without contention, completed 5 models and 35 assertions, and left no lease or staging residue.
 - Exact RC22 passed protected CI run `31825533602` and the local final-candidate repeat: clean
   artifact installs, full runtime imports, Terraform/Helm, dependency and Git-history secret
   audits, rootless read-only runtime checks, and HIGH/CRITICAL Trivy infrastructure/main-image/
@@ -153,12 +163,12 @@ cloud path remains outside the live proof.
 - Retained Druff image: `sha256:a5e255d6…871c`; public static URL:
   <https://dander-druff-yos2b3gbca-uc.a.run.app>.
 - The four scheduled connector executions on 2026-08-05 completed successfully. Those executions
-  preceded the final stable-image reconciliation; observation of subsequent scheduled runs remains
-  in the active operator soak. A read-only review on 2026-08-14 found all four schedules enabled;
+  preceded the final stable-image reconciliation; observation of subsequent scheduled runs then
+  continued in the operator soak. A read-only review on 2026-08-14 found all four schedules enabled;
   that day's public Greenhouse run succeeded, while the other three daily schedules had not yet
   occurred. Their latest runs through 2026-08-13 were successful, but the 2026-08-10 and 2026-08-11
   ServiceNow failures were not diagnosable from the sanitized ledger or Cloud Logging. The soak
-  gate therefore remains open.
+  gate therefore remained open at that review.
 - Greenhouse graph execution `dander-greenhouse-graph-7gn9z` completed successfully on 2026-08-04;
   its 13:00 schedule remains intentionally paused.
 

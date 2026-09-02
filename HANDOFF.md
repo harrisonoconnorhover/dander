@@ -2,38 +2,36 @@
 
 ## Finished
 
-- Added deterministic three-stage planning for one source-to-two-transform-to-target graph.
-- Added a versioned Spark runtime path that materializes and cleans both planned exchanges.
-- Preserved the fused-container result and all accepted linear and keyed-join contracts.
-- Added one paused fixture pipeline for the bounded Fargate-versus-Spark parity run.
-- Kept sizing, placement, API, scheduler, provider, and reconciliation behavior unchanged.
+- Closed the 2026-08-02 through 2026-09-01 retained GCP operator observation.
+- Reconciled the final streak, reruns, failure diagnostics, data, cursors, leases, and staging cleanup.
+- Recorded the post-window Salesforce timeout and its successful one-run recovery.
+- Paused all five retained schedules through reviewed Terraform while preserving jobs and evidence.
+- Updated the bounded GCP status without claiming broader Phase 8 completion.
 
 ## Try It
 
-Run `uv run pytest -q tests/control/test_physical_planner.py tests/test_spark_driver.py`.
+Run `uv run dander validate --config dander.yaml` and review issue #26.
 
 ## Checks
 
-- Repository-wide Ruff format and lint passed.
-- Strict typing passed for 474 source files.
-- Control contract drift validation passed.
-- All 2,167 tests passed; 35 provider-dependent tests skipped with one existing warning.
-- Both adversarial reviews passed with no material findings.
+- Final seven days: 21 of 21 enabled scheduled executions succeeded.
+- Manual HubSpot and Salesforce recovery executions succeeded and matched the durable ledger.
+- Raw/staging counts and unique keys matched; all leases were released; zero staging tables remained.
+- Pause apply changed exactly three schedulers; all five are paused; post-apply Terraform reported no changes.
+- Manifest validation and `git diff --check` passed.
 
 ## Decisions
 
-- Keep this as exactly one two-transform chain, not a generalized DAG engine.
-- Derive transform order from graph edges and retain fixed canonical stage identifiers.
-- Use a new configuration contract so accepted Spark contracts remain byte-for-byte readable.
+- Preserve the unavailable ServiceNow job and evidence while recording its external PDI limitation.
+- Treat the Sep. 2 Salesforce timeout as post-window evidence and require one successful recovery before closure.
+- Keep DANDER-207 and broader Phase 8 support qualification open.
 
 ## Remaining
 
-- Commit, push, open one protected functional PR, and merge after required checks.
-- Confirm exact-main CI, then publish one immutable image pair.
-- Run exactly the two-cell parity qualification and clean its disposable resources.
+- Complete the other cost, scale, matrix, audit, documentation, release, and support gates in DANDER-207.
 
 ## Review First
 
-- `src/dander/control/physical_planner.py`
-- `scripts/spark_driver.py`
-- `tests/test_spark_driver.py`
+- `docs/operator-soak.md`
+- `dander.yaml`
+- GitHub issue #26
