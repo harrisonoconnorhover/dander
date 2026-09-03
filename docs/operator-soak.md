@@ -1,9 +1,33 @@
 # Post-release operator soak
 
-The 30-day soak began after `0.1.0` became public and continues on the newest supported release. It
-gathers operating evidence; it is not a retroactive release gate. Authenticated HubSpot is the
-primary pipeline, public Greenhouse is the daily control, and available enterprise sandboxes add
-authenticated provider paths.
+The retained 30-day operator trial ran from 2026-08-02 through 2026-09-01. It gathered operating
+evidence and was not a retroactive release gate. Authenticated HubSpot was the primary pipeline,
+public Greenhouse was the daily control, and available enterprise sandboxes added authenticated
+provider paths.
+
+## Closure outcome
+
+The trial concluded on 2026-09-02 after the final audit and planned HubSpot rerun:
+
+- All 21 enabled scheduled executions succeeded during the final seven days, 2026-08-26 through
+  2026-09-01.
+- On 2026-09-02, after the observation window, Greenhouse and HubSpot completed on schedule.
+  Salesforce encountered repeated BigQuery transaction contention, reached its 600-second task
+  limit during transform, and exhausted the existing platform retry. One documented manual
+  recovery run then succeeded without contention before the schedules were paused.
+- The 2026-08-25 Salesforce failure was visible in the durable ledger and diagnosable from
+  sanitized logs as an OAuth HTTP 400 path; later scheduled runs succeeded without data repair.
+- Raw and staging row/key counts matched, applicable watermarks did not regress, all current leases
+  were released, and no run-scoped staging table remained.
+- Planned Greenhouse, HubSpot, and Salesforce reruns completed. ServiceNow was not rerun after its
+  external PDI became unavailable; its schedule was excluded on 2026-08-23 while its job, alerts,
+  secrets, data, and history were preserved.
+- A pre-closure Terraform plan reported no changes. All five retained schedules were then paused
+  through reviewed Terraform, and the post-apply plan again reported no changes.
+
+This closes the bounded operator observation with the ServiceNow sandbox limitation recorded. It
+does not promote a provider, close Phase 8 qualification, or turn the retained private candidate
+into a public release.
 
 ## Operating cadence
 

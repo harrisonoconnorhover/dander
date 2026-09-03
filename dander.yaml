@@ -30,7 +30,7 @@ pipelines:
     models: [stg_greenhouse__jobs]
     schedule: "0 9 * * *"
     time_zone: America/New_York
-    paused: false
+    paused: true
     resources:
       job: dander-greenhouse-public
       runtime_service_account: dander-runtime
@@ -41,7 +41,7 @@ pipelines:
     models: [stg_hubspot__companies]
     schedule: "0 10 * * *"
     time_zone: America/New_York
-    paused: false
+    paused: true
     secrets:
       HUBSPOT_PRIVATE_APP_TOKEN: hubspot-private-app-token
     resources:
@@ -60,7 +60,7 @@ pipelines:
     publish_dataplex: true
     schedule: "0 11 * * *"
     time_zone: America/New_York
-    paused: false
+    paused: true
     secrets:
       SALESFORCE_EXTERNAL_CLIENT_APP_ID: salesforce-external-client-app-id
       SALESFORCE_EXTERNAL_CLIENT_APP_PRIVATE_KEY: salesforce-external-client-app-private-key
@@ -74,7 +74,7 @@ pipelines:
     models: [stg_servicenow__incidents]
     schedule: "0 12 * * *"
     time_zone: America/New_York
-    paused: false
+    paused: true
     secrets:
       SERVICENOW_CLIENT_ID: servicenow-client-id
       SERVICENOW_CLIENT_SECRET: servicenow-client-secret

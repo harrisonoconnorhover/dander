@@ -79,13 +79,13 @@ def test_init_passes_optional_runtime_inputs(
         "salesforce_accounts",
         "servicenow_incidents",
     }
-    assert pipelines["greenhouse_jobs"]["paused"] is False
+    assert pipelines["greenhouse_jobs"]["paused"] is True
     assert pipelines["greenhouse_jobs_graph"]["paused"] is True
     assert pipelines["greenhouse_jobs_graph"]["models"] == []
     assert pipelines["greenhouse_jobs_graph"]["build_models"] is False
-    assert pipelines["hubspot_companies"]["paused"] is False
-    assert pipelines["salesforce_accounts"]["paused"] is False
-    assert pipelines["servicenow_incidents"]["paused"] is False
+    assert pipelines["hubspot_companies"]["paused"] is True
+    assert pipelines["salesforce_accounts"]["paused"] is True
+    assert pipelines["servicenow_incidents"]["paused"] is True
     assert captured["secret_ids"] == ("api-token",)
     assert captured["github_repository"] == "WagnerJ-Dev/dander"
     assert captured["failure_alert_email"] == "operator@example.invalid"

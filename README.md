@@ -439,12 +439,12 @@ needs that flag so its full-platform plan preserves the service.
 
 ### Additive hosted pipelines
 
-The tracked `dander.yaml` runs Greenhouse, HubSpot, Salesforce, and ServiceNow as separate daily
-pipelines, plus one paused executable Greenhouse graph. Each pipeline receives its own Cloud Run
-Job, Scheduler trigger, runtime identity, scheduler identity, secret bindings, model selection,
-and pause policy. They share the immutable image and BigQuery datasets. Adding a pipeline never
-repurposes another pipeline's job. Salesforce and ServiceNow are supplied by exact plugin pins in
-the retained source-free project.
+The tracked `dander.yaml` defines Greenhouse, HubSpot, Salesforce, and ServiceNow as separate daily
+pipelines, plus one executable Greenhouse graph. All five retained schedules are paused after the
+completed operator trial. Each pipeline receives its own Cloud Run Job, Scheduler trigger, runtime
+identity, scheduler identity, secret bindings, model selection, and pause policy. They share the
+immutable image and BigQuery datasets. Adding a pipeline never repurposes another pipeline's job.
+Salesforce and ServiceNow are supplied by exact plugin pins in the retained source-free project.
 
 ```bash
 uv run dander validate
