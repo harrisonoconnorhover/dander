@@ -18,7 +18,7 @@ Run `uv run dander validate --config dander.yaml` and review issue #26.
 - Manual HubSpot and Salesforce recovery executions succeeded and matched the durable ledger.
 - Raw/staging counts and unique keys matched; all leases were released; zero staging tables remained.
 - Pause apply changed exactly three schedulers; all five are paused; post-apply Terraform reported no changes.
-- Manifest validation, two focused manifest tests, and `git diff --check` passed.
+- Manifest validation, focused tests, dependency audit, and `git diff --check` passed.
 
 ## Decisions
 
