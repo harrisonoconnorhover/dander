@@ -109,7 +109,7 @@ def test_repository_manifest_defines_eight_additive_hosted_pipelines() -> None:
         "HUBSPOT_PRIVATE_APP_TOKEN": "hubspot-private-app-token"
     }
     assert expanded["salesforce_accounts"]["job_name"] == "dander-salesforce-accounts"
-    assert expanded["salesforce_accounts"]["paused"] is False
+    assert expanded["salesforce_accounts"]["paused"] is True
     assert expanded["salesforce_accounts"]["models"] == [
         "stg_salesforce__users",
         "stg_salesforce__accounts",
@@ -125,7 +125,7 @@ def test_repository_manifest_defines_eight_additive_hosted_pipelines() -> None:
         ),
     }
     assert expanded["servicenow_incidents"]["job_name"] == "dander-servicenow-incidents"
-    assert expanded["servicenow_incidents"]["paused"] is False
+    assert expanded["servicenow_incidents"]["paused"] is True
     assert expanded["servicenow_incidents"]["secret_env"] == {
         "SERVICENOW_CLIENT_ID": "servicenow-client-id",
         "SERVICENOW_CLIENT_SECRET": "servicenow-client-secret",
