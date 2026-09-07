@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, cast
 
 from dander.control.input_size_estimator import InputSizeEstimate, InputSizeEstimationError
-from dander.identity.aws_google import prepare_fargate_google_identity
+from dander.identity.control_google import prepare_control_google_identity
 from dander.pipeline.node_config import SourceNodeConfig
 
 if TYPE_CHECKING:
@@ -44,7 +44,7 @@ class BigQueryInputSizeEstimator:
         raw_dataset: str,
         *,
         transport: _Transport | None = None,
-        credential_factory: Callable[[], object] = prepare_fargate_google_identity,
+        credential_factory: Callable[[], object] = prepare_control_google_identity,
         clock: Callable[[], datetime] | None = None,
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
     ) -> None:

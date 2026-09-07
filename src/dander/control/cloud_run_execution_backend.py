@@ -31,7 +31,11 @@ from dander.control.orchestration import (
     RunOutcome,
     RunTrigger,
 )
-from dander.identity.aws_google import FargateIdentityError, prepare_fargate_google_identity
+from dander.identity.aws_google import FargateIdentityError
+from dander.identity.control_google import (
+    GoogleControlIdentityError,
+    prepare_control_google_identity,
+)
 from dander.providers.cloud_run import CloudRunBinding, CloudRunOperationError
 
 if TYPE_CHECKING:
@@ -79,7 +83,7 @@ class CloudRunExecutionBackend:
         plan_bindings: Mapping[str, CloudRunBinding],
         *,
         transport: _Transport | None = None,
-        credential_factory: Callable[[], object] = prepare_fargate_google_identity,
+        credential_factory: Callable[[], object] = prepare_control_google_identity,
         clock: Callable[[], datetime] | None = None,
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
@@ -103,7 +107,7 @@ class CloudRunExecutionBackend:
                     "_Transport",
                     AuthorizedSession(credential_factory()),  # type: ignore[no-untyped-call]
                 )
-            except (FargateIdentityError, ImportError) as error:
+            except (FargateIdentityError, GoogleControlIdentityError, ImportError) as error:
                 raise ExecutionBackendError(
                     "Cloud Run workload identity is unavailable."
                 ) from error
