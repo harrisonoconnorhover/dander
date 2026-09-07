@@ -3,8 +3,8 @@
 [![CI](https://github.com/harrisonoconnorhover/dander/actions/workflows/ci.yml/badge.svg)](https://github.com/harrisonoconnorhover/dander/actions/workflows/ci.yml)
 
 > [!WARNING]
-> **Beta software.** Dander has completed source-free candidate acceptance and continues through a
-> operator trial. Use a disposable GCP project, review every Terraform plan, and read
+> **Beta software.** Dander has completed its retained GCP operator trial; broader provider and
+> release qualification remains open. Use a disposable GCP project, review every Terraform plan, and read
 > the [known limitations](https://github.com/harrisonoconnorhover/dander/blob/main/docs/known-limitations.md)
 > before relying on it. Only the latest patch in the current `0.x` minor is supported.
 
@@ -46,6 +46,7 @@ workflow artifact is reviewed.
 
 Operator-facing documentation:
 
+- [Current implementation and support status](docs/support-status.md)
 - [Hosted Greenhouse quickstart](https://github.com/harrisonoconnorhover/dander/blob/main/docs/getting-started.md)
 - [Experimental AWS-native Fargate runbook](https://github.com/harrisonoconnorhover/dander/blob/main/docs/aws-native-profile.md)
 - [Upgrades and safe reruns](https://github.com/harrisonoconnorhover/dander/blob/main/docs/upgrading.md)
