@@ -347,9 +347,10 @@ Hosted run scheduling is a later additive Control boundary. Canonical `TriggerSp
 separate from immutable `ExecutionPlan` contents. On AWS, EventBridge Scheduler sends a versioned
 occurrence wakeup through encrypted SQS; the always-on Control process resolves the current graph
 and exact plan, then invokes the same durable lifecycle used by the run API. Queue delivery is
-at-least-once, and the canonical occurrence derives durable idempotency. Local verification passes,
-but exact-main DANDER-235 remains blocked before execution because the bounded AWS deployment role
-cannot read tags from the Control schedule queue it creates.
+at-least-once, and the canonical occurrence derives durable idempotency. The August 26 DANDER-235
+attempt stopped before execution because its deployment role could not read queue tags. Later
+source registers Cloud Run and bounded Dataproc execution as well as Fargate; that historical
+attempt does not qualify the later composition. See [current support status](support-status.md).
 
 ## Regenerate and verify
 
