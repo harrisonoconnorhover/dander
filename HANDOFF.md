@@ -19,7 +19,8 @@ See `docs/control-profiles.md` for PostgreSQL startup with existing plans.
 - 23 profile and Control CLI tests passed.
 - Repository Ruff lint/format, strict typing (489 files), Control contract drift, documentation
   links, and diff whitespace checks passed.
-- Broader implementation checks and protected-main verification follow this integration.
+- The complete Python suite passed: 2,280 tests, with one existing Starlette warning.
+- Protected-main verification follows the integration PR.
 
 ## Decisions
 
