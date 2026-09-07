@@ -17,6 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from dander.control.application import (
     ControlApplication,
@@ -223,7 +224,7 @@ def create_control_app(
         try:
             yield
         finally:
-            application.close()
+            await run_in_threadpool(application.close)
 
     app = FastAPI(
         title="Dander Control API",
@@ -418,7 +419,7 @@ def create_control_app(
         return {"status": "ok"}
 
     @app.get("/readyz")
-    async def readiness(request: Request) -> Response:
+    def readiness(request: Request) -> Response:
         if not application.ready():
             return _error_response(
                 request, HTTPStatus.SERVICE_UNAVAILABLE, "not_ready", "The service is not ready."
@@ -426,7 +427,7 @@ def create_control_app(
         return JSONResponse({"status": "ready"})
 
     @app.get("/v1/capabilities", dependencies=auth_dependencies(ControlCapability.READ))
-    async def capabilities(request: Request) -> object:
+    def capabilities(request: Request) -> object:
         result = application.capabilities()
         if oidc is None:
             return result
@@ -454,14 +455,14 @@ def create_control_app(
         return application.operation_catalog
 
     @app.get("/v1/projects", dependencies=auth_dependencies(ControlCapability.READ))
-    async def list_projects() -> object:
+    def list_projects() -> object:
         return application.list_projects()
 
     @app.get(
         "/v1/projects/{project}/graphs",
         dependencies=auth_dependencies(ControlCapability.READ),
     )
-    async def list_graphs(
+    def list_graphs(
         project: str,
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
@@ -487,8 +488,12 @@ def create_control_app(
                 HTTPStatus.UNPROCESSABLE_ENTITY,
             ) from error
         application.require_project(project)
-        record = application.graph_store.create(
-            project, body.graph, body.document, idempotency_key=idempotency_key
+        record = await run_in_threadpool(
+            application.graph_store.create,
+            project,
+            body.graph,
+            body.document,
+            idempotency_key=idempotency_key,
         )
         return _resource_response(record, HTTPStatus.CREATED)
 
@@ -496,7 +501,7 @@ def create_control_app(
         "/v1/projects/{project}/graphs/{graph}",
         dependencies=auth_dependencies(ControlCapability.READ),
     )
-    async def get_graph(project: str, graph: str) -> Response:
+    def get_graph(project: str, graph: str) -> Response:
         return _resource_response(application.get_graph(project, graph))
 
     @app.put(
@@ -508,7 +513,8 @@ def create_control_app(
     ) -> Response:
         document = await read_graph_document(request)
         application.require_project(project)
-        record = application.graph_store.put(
+        record = await run_in_threadpool(
+            application.graph_store.put,
             project,
             graph,
             document,
@@ -530,7 +536,8 @@ def create_control_app(
     ) -> Response:
         await _require_empty_body(request)
         application.require_project(project)
-        application.graph_store.delete(
+        await run_in_threadpool(
+            application.graph_store.delete,
             project,
             graph,
             expected_revision=decode_revision_etag(if_match),
@@ -542,7 +549,7 @@ def create_control_app(
         "/v1/projects/{project}/graphs/{graph}/validate",
         dependencies=auth_dependencies(ControlCapability.VALIDATE_PREVIEW),
     )
-    async def validate_graph(project: str, graph: str, if_match: _IF_MATCH_HEADER) -> object:
+    def validate_graph(project: str, graph: str, if_match: _IF_MATCH_HEADER) -> object:
         return application.validate_graph(
             project, graph, expected_revision=decode_revision_etag(if_match)
         )
@@ -551,7 +558,7 @@ def create_control_app(
         "/v1/projects/{project}/graphs/{graph}/deployment-preview",
         dependencies=auth_dependencies(ControlCapability.VALIDATE_PREVIEW),
     )
-    async def preview_graph(project: str, graph: str, if_match: _IF_MATCH_HEADER) -> object:
+    def preview_graph(project: str, graph: str, if_match: _IF_MATCH_HEADER) -> object:
         return application.preview_graph(
             project, graph, expected_revision=decode_revision_etag(if_match)
         )
@@ -581,7 +588,8 @@ def create_control_app(
         ] = None,
     ) -> object:
         await _require_empty_body(request)
-        return application.start_run(
+        return await run_in_threadpool(
+            application.start_run,
             project,
             graph,
             expected_revision=decode_revision_etag(if_match),
@@ -592,21 +600,21 @@ def create_control_app(
         )
 
     @app.get("/v1/runs", dependencies=auth_dependencies(ControlCapability.READ))
-    async def list_runs(
+    def list_runs(
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
     ) -> object:
         return application.list_runs(cursor=cursor, limit=limit)
 
     @app.get("/v1/runs/{run_id}", dependencies=auth_dependencies(ControlCapability.READ))
-    async def get_run(run_id: str) -> object:
+    def get_run(run_id: str) -> object:
         return application.get_run(RunAddress(run_id))
 
     @app.get(
         "/v1/runs/{run_id}/logs",
         dependencies=auth_dependencies(ControlCapability.READ),
     )
-    async def get_logs(
+    def get_logs(
         run_id: str,
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 100,
@@ -618,14 +626,18 @@ def create_control_app(
         run_id: str, request: Request, idempotency_key: _IDEMPOTENCY_HEADER
     ) -> object:
         await _require_empty_body(request)
-        return application.cancel_run(RunAddress(run_id), idempotency_key=idempotency_key)
+        return await run_in_threadpool(
+            application.cancel_run, RunAddress(run_id), idempotency_key=idempotency_key
+        )
 
     @app.post("/v1/runs/{run_id}/replay", dependencies=auth_dependencies(ControlCapability.RUN))
     async def replay_run(
         run_id: str, request: Request, idempotency_key: _IDEMPOTENCY_HEADER
     ) -> object:
         await _require_empty_body(request)
-        return application.replay_run(RunAddress(run_id), idempotency_key=idempotency_key)
+        return await run_in_threadpool(
+            application.replay_run, RunAddress(run_id), idempotency_key=idempotency_key
+        )
 
     return app
 
