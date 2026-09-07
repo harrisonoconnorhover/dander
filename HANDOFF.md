@@ -5,8 +5,8 @@
 - Reconciled current support, source, release, and operator-trial status in PR #527.
 - Merged PostgreSQL graph/run/schedule durability and typed startup in protected PR #528.
 - Added a YAML Control profile with relative paths and explicit command-line overrides.
-- Routed Control validation errors through Typer's normal terminal formatter.
-- Shared six identical S3/Azure/OCI graph metadata and journal models, removing about 330 lines.
+- Shared six S3/Azure/OCI graph metadata and journal models in PR #529, removing about 330 lines.
+- Updated the everyday checkout and dependencies; preserved `tmp/` and the original HDFS branch.
 
 ## Try It
 
@@ -16,16 +16,16 @@ See `docs/control-profiles.md` for PostgreSQL startup with existing plans.
 
 ## Checks
 
-- 64 focused lifecycle and PostgreSQL tests passed against disposable local PostgreSQL 17.
-- 23 profile and Control CLI tests passed.
-- 24 focused CLI tests passed with forced colored output; 135 shared/provider GraphStore tests passed.
-- The combined storage, startup, and CLI regression check passed all 181 tests with colored output.
+- The complete Python suite passed: 2,280 tests, with one existing Starlette warning. This included
+  64 focused lifecycle/PostgreSQL tests against disposable PostgreSQL 17; CI also uses PostgreSQL 15.
+- All 181 combined storage, startup, and CLI regression tests passed with colored output.
 - Repository Ruff lint/format, strict typing (490 files), Control contract drift, documentation
   links, and diff whitespace checks passed.
-- The complete Python suite passed: 2,280 tests, with one existing Starlette warning.
-- The installed console served `/v1/projects` using the example profile; it was stopped and the
-  disposable PostgreSQL container removed. Colored-output assertions were normalized for CI.
-- All six protected PR #528 checks passed; exact-main and storage integration checks are pending.
+- The everyday checkout served `/v1/projects` using the example profile. The test server was
+  stopped and the disposable PostgreSQL container removed.
+- All six checks passed for PRs #528 and #529. Post-merge startup CI passed at `9fdbaa3`;
+  [combined main CI](https://github.com/harrisonoconnorhover/dander/actions/runs/34152279904)
+  passed all six jobs at `26f1fcf`.
 
 ## Decisions
 
@@ -35,9 +35,8 @@ See `docs/control-profiles.md` for PostgreSQL startup with existing plans.
 
 ## Remaining
 
-- Complete protected integration and exact-main CI.
-- Finish the protected shared-record integration.
-- Identify an existing secure Hadoop environment and access for enterprise qualification.
+- Identify an existing secure Hadoop environment and access. Then integrate the needed HDFS/YARN
+  slice and run the bounded workflow plus restart, cancellation, recovery, and credential checks.
 
 ## Review First
 
