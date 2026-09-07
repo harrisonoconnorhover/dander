@@ -3,15 +3,15 @@
 Dander `0.9.x` is beta and proves a focused GCP-native vertical slice. It remains pre-1.0 software;
 evaluate these limits before using it for an unattended system containing business-critical data.
 
-The first hosted Control schedule path is implemented only for the experimental AWS profile. It
-uses one always-on Control task, EventBridge Scheduler, encrypted standard SQS, and durable
-occurrence idempotency over the existing single-container Fargate worker. PR #495 corrected the
-first DANDER-235 platform-manifest handoff failure, but the exact-main rerun still stopped before
-execution: the bounded AWS deployment role lacks `sqs:ListQueueTags` for the Control schedule queue,
-so Terraform cannot complete the full Control stack. The smallest correction is one bounded
-`sqs:ListQueueTags` permission on the D7 Control schedule-queue prefix before a fresh acceptance
-attempt. It is not horizontally reconciled and does not add a GCP execution backend. Direct CLI
-execution remains the supported escape hatch.
+See [current implementation and support status](support-status.md) for the released, main-source,
+and unmerged enterprise boundaries. Historical attempts below do not describe every later revision.
+
+Hosted Control scheduling currently uses the experimental AWS composition: one always-on Control
+task, EventBridge Scheduler, SQS, and durable occurrence idempotency. Main registers Fargate,
+Cloud Run, and bounded Dataproc Serverless execution backends, while startup still requires AWS
+run storage. The August 26 DANDER-235 attempt stopped at a missing queue-tag permission; that
+dated attempt is not a current infrastructure inspection or a qualification of later source.
+Direct CLI execution remains available independently of Control.
 
 The Phase 5 warehouse implementations and the
 [shared four-warehouse deterministic fixture](warehouse-correctness-conformance.md) pass on one
@@ -153,10 +153,10 @@ remain Phase 8 work.
 - A crashed sandbox staging table relies on configured expiration for cleanup. Handled failures
   remove their staging table immediately.
 - Run history stores non-sensitive stage and aggregate counts, not exception text or source rows.
-  Classified failures provide stable operator guidance. A local Phase 8 patch now logs a bounded
-  exception-class chain and numeric provider status without exception text or sensitive values,
-  but retained deployment evidence remains open. ServiceNow failures on 2026-08-10 and 2026-08-11
-  remain undiagnosable and the final clean observation window has not started.
+  Classified failures provide stable operator guidance. The runtime logs a bounded exception-class
+  chain and numeric provider status without exception text or sensitive values. Earlier
+  undiagnosable ServiceNow failures remain historical evidence; the retained trial subsequently
+  completed its final clean window and closed. See the [operator-trial closure](operator-soak.md).
 - Druff is a public static interface, not a hosted control plane. Saving, validation, execution,
   status, and deployment preview require an operator-started Dander loopback service. Druff does
   not write `dander.yaml` or apply Terraform.
