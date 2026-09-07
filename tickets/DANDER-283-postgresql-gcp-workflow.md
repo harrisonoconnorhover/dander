@@ -16,8 +16,8 @@ identity. Complete one real workflow and make its setup reproducible before wide
 
 - [x] Use Google Application Default Credentials outside configured AWS federation.
 - [x] Preserve strict federation selection and sanitize credential errors.
-- [ ] Run the public Greenhouse graph through PostgreSQL-backed Control and inspect its output.
-- [ ] Restart Control during execution, adopt the same provider execution, and retain run history.
+- [x] Run the public Greenhouse graph through PostgreSQL-backed Control and inspect its output.
+- [x] Restart Control during execution, adopt the same provider execution, and retain run history.
 - [ ] Exercise cancellation and verify the provider reaches a terminal state.
 - [ ] Provide a runnable profile preparation example and document observed limits.
 - [ ] Merge implementation through protected checks and verify exact-main CI.
@@ -44,3 +44,14 @@ retain sanitized results locally. No new service account, IAM grant, paid cluste
 The initial identity patch passed 44 focused identity/backend tests, Ruff lint/format, and strict
 typing across 492 files. Live acceptance remains pending; existing RC22 completion events do not
 contain the telemetry required by current Control.
+
+The identity patch merged in PR #531 as `a548d74`; all six exact-main checks passed. Its immutable
+worker completed the real graph after a forced Control restart. The idempotent API request reused
+the same run and provider execution. Ingestion processed 18 jobs, and the graph's 38 published
+rows matched the stored source exactly, with 38 distinct keys and no missing or unexpected rows.
+
+The second execution was canceled by Google before task startup. Google omitted `completionTime`,
+leaving the initial Control implementation stuck in `canceling`. The regression failed before
+the correction and now passes; 38 focused backend/lifecycle tests, including PostgreSQL recovery,
+Ruff, and strict typing pass. A read-only observation of that exact provider execution now returns
+terminal/canceled/confirmed. Protected merge and durable API reconciliation remain pending.

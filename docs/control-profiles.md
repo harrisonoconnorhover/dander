@@ -35,6 +35,57 @@ PostgreSQL Control stores graphs, run snapshots, attempts, and optional schedule
 dedicated schema. It can register existing Cloud Run or Dataproc plans without requiring Fargate,
 S3, SQS, or AWS credentials. The existing AWS flags remain available for compatibility.
 
+For one existing version 1 Cloud Run graph pipeline, the
+[preparation example](../examples/control/prepare_cloud_run.py) creates the graph in PostgreSQL
+and writes its canonical plan, startup binding, and profile together. It requires the `postgres`
+extra, a dedicated database schema, Google credentials, and the immutable image of a job already
+deployed from the same project configuration:
+
+```bash
+uv run python examples/control/prepare_cloud_run.py \
+  --config /path/to/project/dander.yaml \
+  --pipeline greenhouse_jobs_graph \
+  --gcp-project-id your-existing-project \
+  --image 'us-central1-docker.pkg.dev/your-existing-project/dander/dander@sha256:YOUR_DIGEST' \
+  --output-dir /path/to/private/control \
+  --schema control_example
+uv run dander control serve --profile /path/to/private/control/control.yaml
+```
+
+Set `DANDER_CONTROL_DATABASE_URL` through your existing secret mechanism first. The example applies
+the known migrations and registers the graph; it does not create or execute a cloud job. Repeating
+the same configuration reuses the graph and plan. Use a separate schema and output directory for
+a different deployment; retain the original database and plans for its run history. The manifest's
+job name, service account, image, command, and task bounds must match the deployed job. A worker
+used with current Control must emit the current `runtime.completed` telemetry; the retained RC22
+worker predates that result format.
+
+With that example running, submit the graph from another terminal:
+
+```python
+import httpx
+
+base = "http://127.0.0.1:8770"
+graph_url = base + "/v1/projects/demo/graphs/greenhouse-jobs-graph"
+with httpx.Client(timeout=45) as client:
+    graph = client.get(graph_url)
+    graph.raise_for_status()
+    run = client.post(
+        graph_url + "/runs",
+        headers={"If-Match": graph.headers["etag"], "Idempotency-Key": "greenhouse-example-0001"},
+    )
+    run.raise_for_status()
+    print(run.json())
+    print(base + "/v1/runs/" + run.json()["run_id"])
+```
+
+Run the snippet with `uv run python`. Repeating its idempotency key returns the same run; choose
+a new key only to request another execution. The printed status URL contains state, row counts,
+and telemetry. `/v1/runs` lists history, and `/v1/runs/{run_id}/logs` reads execution logs. To cancel,
+POST an empty body to `/v1/runs/{run_id}/cancel` with a new `Idempotency-Key`. Wait for `canceled`
+before treating cancellation as complete. Restart Control with the same profile and database to
+resume observing an accepted execution.
+
 An operator supplies a PostgreSQL connection through `DANDER_CONTROL_DATABASE_URL` using the
 existing secret mechanism. The startup binding contains only that variable's name and the schema.
 Generate its canonical JSON once:

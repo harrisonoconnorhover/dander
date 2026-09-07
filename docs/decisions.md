@@ -1,5 +1,13 @@
 # Engineering Decisions
 
+## 2026-09-07 — Cloud Run cancellation uses the terminal provider condition
+
+- A real cancellation before task startup returned `Completed`, `CONDITION_FAILED`, and
+  `executionReason=CANCELLED`, with no `completionTime`. Control now recognizes that terminal
+  condition for observation, repeated cancellation, and cancellation-response reconciliation.
+- Preserve the existing successful run and canceled execution while verifying the correction.
+  Restarting Control can reconcile their durable records without submitting another worker.
+
 ## 2026-09-07 — Standalone Control uses ambient Google credentials
 
 - Google Control clients use Application Default Credentials outside configured Fargate
