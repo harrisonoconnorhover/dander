@@ -171,3 +171,17 @@ This is one named Cloud Run workflow. Local tests cover additional PostgreSQL pe
 claims, scheduling, and startup behavior using fake execution backends. Neither establishes
 secure Hadoop, Kubernetes, multiple-replica Control, or broader release qualification. The legacy
 graph emitted no operation-level telemetry; its zero byte counters do not establish zero billing.
+
+## Job measurements
+
+Current-source workers preserve completed BigQuery graph queries and SCD1 ingestion load/query
+statistics in `runtime.completed`. The existing Control result summary exposes their operation
+count, rows, bytes processed/billed, duration, and retry count. This also covers SCD1-derived
+incremental writes. The change is tracked in
+[DANDER-284](../tickets/DANDER-284-bigquery-graph-job-telemetry.md); it does not rewrite the earlier
+DANDER-283 observations or update an already deployed image.
+
+These counters cover the recorded successful jobs, not the whole provider bill. Other legacy
+write modes, non-graph model execution, state/catalog work, retained infrastructure, and storage
+are outside this collector. BigQuery's pricing mode, discounts, and credits also affect cash
+charges; use provider billing to reconcile actual spending.

@@ -11,6 +11,7 @@ from google.api_core.exceptions import BadRequest, NotFound
 from google.cloud import bigquery
 
 from dander.concurrency import FencingToken
+from dander.telemetry import TelemetryOperation
 from dander.writer import (
     BigQueryIncrementalWriter,
     BigQueryReplaceWriter,
@@ -965,3 +966,54 @@ def test_new_writers_reject_project_mismatch(writer: WritePattern) -> None:
             [{"id": "one", "snapshot_at": "2026-07-29T12:00:00Z"}],
             target,
         )
+
+
+def test_scd1_drains_load_and_query_statistics_once() -> None:
+    class Job(_Job):
+        job_id = "query-1"
+        total_bytes_processed = 4_096
+        total_bytes_billed = 8_192
+
+    class LoadJob(_Job):
+        job_id = "load-1"
+        output_rows = 1
+
+    class Client(_Client):
+        def load_table_from_json(
+            self,
+            json_rows: Sequence[Mapping[str, Any]],
+            destination: str,
+            *,
+            job_config: bigquery.LoadJobConfig,
+        ) -> LoadJob:
+            super().load_table_from_json(json_rows, destination, job_config=job_config)
+            return LoadJob()
+
+        def query(self, query: str, *, job_config: bigquery.QueryJobConfig | None = None) -> Job:
+            super().query(query, job_config=job_config)
+            return Job(affected=1)
+
+    client = Client()
+    writer = BigQueryScd1Writer(project="unit-project", client=client, max_batch_rows=1)
+    target = WriteTarget(
+        project="unit-project",
+        dataset="raw",
+        table="widgets",
+        business_key=("id",),
+        schema=(WriteField(name="id", data_type="INT64"),),
+    )
+
+    for _ in range(2):
+        assert writer.write([{"id": 1}, {"id": 2}], target) == 1
+        telemetry = writer.drain_telemetry()
+        assert [item.operation for item in telemetry] == [
+            TelemetryOperation.LOAD,
+            TelemetryOperation.LOAD,
+            TelemetryOperation.QUERY,
+            TelemetryOperation.QUERY,
+        ]
+        assert sum(item.rows_written for item in telemetry) == 2
+        assert sum(item.bytes_processed for item in telemetry) == 8_192
+        assert sum(item.bytes_billed for item in telemetry) == 16_384
+        assert writer.drain_telemetry() == ()
+    assert len(client.deleted) == 2
