@@ -12,7 +12,6 @@ from typing import Annotated, cast
 
 import typer
 from click import ClickException
-from google.cloud import bigquery
 from rich.console import Console
 
 from dander.cli.run_command import RunOptions, execute_run
@@ -76,6 +75,8 @@ def identity_refresh_probe_runtime_command(
     refresh_margin_seconds: int = typer.Option(15, "--refresh-margin-seconds", min=0, max=60),
 ) -> None:
     """Prove one hosted launcher can renew keyless Google credentials in-process."""
+    from google.cloud import bigquery
+
     try:
         validate_probe_target(project=project, dataset=dataset, table=table)
         context = LauncherContext.from_environment()

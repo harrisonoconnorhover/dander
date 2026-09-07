@@ -29,6 +29,7 @@ from dander.transform import (
     TransformRunError,
     TransformRunResult,
 )
+from dander.transform.assertions import GenericAssertion, plan_assertions
 from dander.transform.model import Materialization
 from dander.writer import SchemaEvolution, WriteMode, WriteTarget
 
@@ -38,7 +39,6 @@ if TYPE_CHECKING:
 
     from dander.concurrency import OwnershipGuard, TargetFence
     from dander.providers.postgresql.fence import PostgreSQLTargetFence
-    from dander.transform.config import GenericTestMetadata
     from dander.warehouse import RelationRef
 
 PostgreSQLRow = dict[str, object]
@@ -440,85 +440,56 @@ def _incremental_statements(
 
 
 def _compile_assertions(
-    project: TransformProject,
-    model: TransformModel,
+    project: TransformProject, model: TransformModel
 ) -> tuple[_PostgreSQLAssertion, ...]:
     relation = _relation_identifier(model)
-    assertions: list[_PostgreSQLAssertion] = []
-    for test in model.metadata.tests:
-        assertions.extend(_assertions_for_test(project, model.name, relation, test))
-    return tuple(assertions)
+    return tuple(
+        _render_assertion(assertion, relation) for assertion in plan_assertions(project, model)
+    )
 
 
-def _assertions_for_test(
-    project: TransformProject,
-    model_name: str,
-    relation: sql.Identifier,
-    test: GenericTestMetadata,
-) -> list[_PostgreSQLAssertion]:
-    column = sql.Identifier(test.column)
-    assertions: list[_PostgreSQLAssertion] = []
-    if test.not_null:
-        assertions.append(
-            _PostgreSQLAssertion(
-                name=f"{model_name}.{test.column}.not_null",
+def _render_assertion(
+    assertion: GenericAssertion, relation: sql.Identifier
+) -> _PostgreSQLAssertion:
+    column = sql.Identifier(assertion.column)
+    match assertion.kind:
+        case "not_null":
+            return _PostgreSQLAssertion(
+                name=assertion.name,
                 statement=sql.SQL(
                     "SELECT COUNT(*) FILTER (WHERE {} IS NULL) AS failures FROM {}"
                 ).format(column, relation),
             )
-        )
-    if test.unique:
-        assertions.append(
-            _PostgreSQLAssertion(
-                name=f"{model_name}.{test.column}.unique",
+        case "unique":
+            return _PostgreSQLAssertion(
+                name=assertion.name,
                 statement=sql.SQL(
-                    "SELECT COUNT(*) AS failures FROM ("
-                    "SELECT {} FROM {} WHERE {} IS NOT NULL GROUP BY {} HAVING COUNT(*) > 1"
-                    ") AS duplicates"
+                    "SELECT COUNT(*) AS failures FROM (SELECT {} FROM {} WHERE {} IS "
+                    "NOT NULL GROUP BY {} HAVING COUNT(*) > 1) AS duplicates"
                 ).format(column, relation, column, column),
             )
-        )
-    if test.accepted_values is not None:
-        placeholders = sql.SQL(", ").join(sql.Placeholder() for _ in test.accepted_values)
-        assertions.append(
-            _PostgreSQLAssertion(
-                name=f"{model_name}.{test.column}.accepted_values",
+        case "accepted_values":
+            placeholders = sql.SQL(", ").join(sql.Placeholder() for _ in assertion.values)
+            return _PostgreSQLAssertion(
+                name=assertion.name,
                 statement=sql.SQL(
                     "SELECT COUNT(*) FILTER (WHERE {} IS NOT NULL AND {} NOT IN ({})) "
                     "AS failures FROM {}"
                 ).format(column, column, placeholders, relation),
-                parameters=tuple(test.accepted_values),
+                parameters=tuple(assertion.values),
             )
-        )
-    if test.relationships is not None:
-        if test.relationships.to in project.models:
-            parent_model = project.models[test.relationships.to]
-            parent_columns = {column.name for column in parent_model.metadata.columns}
-            if test.relationships.field not in parent_columns:
-                raise TransformProjectError(
-                    "Relationship test references an undeclared parent column: "
-                    f"{test.relationships.to}.{test.relationships.field}"
-                )
-        parent = _relation_identifier_for_ref(project, test.relationships.to)
-        parent_field = sql.Identifier(test.relationships.field)
-        assertions.append(
-            _PostgreSQLAssertion(
-                name=f"{model_name}.{test.column}.relationships",
+        case "relationships":
+            assert assertion.parent is not None and assertion.parent_field is not None
+            parent = sql.Identifier(assertion.parent.namespace, assertion.parent.name)
+            parent_field = sql.Identifier(assertion.parent_field)
+            return _PostgreSQLAssertion(
+                name=assertion.name,
                 statement=sql.SQL(
-                    "SELECT COUNT(*) AS failures FROM {} AS child "
-                    "LEFT JOIN {} AS parent ON child.{} = parent.{} "
-                    "WHERE child.{} IS NOT NULL AND parent.{} IS NULL"
-                ).format(
-                    relation,
-                    parent,
-                    column,
-                    parent_field,
-                    column,
-                    parent_field,
-                ),
+                    "SELECT COUNT(*) AS failures FROM {} AS child LEFT JOIN {} AS "
+                    "parent ON child.{} = parent.{} WHERE child.{} IS NOT NULL AND "
+                    "parent.{} IS NULL"
+                ).format(relation, parent, column, parent_field, column, parent_field),
             )
-        )
-    return assertions
 
 
 def _relation_ref(project: TransformProject, model: TransformModel) -> RelationRef:
@@ -527,14 +498,6 @@ def _relation_ref(project: TransformProject, model: TransformModel) -> RelationR
 
 def _relation_identifier(model: TransformModel) -> sql.Identifier:
     return sql.Identifier(model.metadata.namespace, model.name)
-
-
-def _relation_identifier_for_ref(
-    project: TransformProject,
-    reference: str,
-) -> sql.Identifier:
-    relation = project.relation_ref_for_ref(reference)
-    return sql.Identifier(relation.namespace, relation.name)
 
 
 def _unique_index_name(model: TransformModel) -> str:

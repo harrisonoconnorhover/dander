@@ -12,8 +12,6 @@ from threading import Event, Lock, Thread
 from time import time
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from google.cloud import bigquery
-
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import FencingToken
 from dander.identity import google_client_options
@@ -21,6 +19,8 @@ from dander.identity import google_client_options
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
     from pathlib import Path
+
+    from google.cloud import bigquery
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,6 +91,8 @@ class BigQueryLeaseStore(LeaseStore):
         authority_id: str | None = None,
         authority_epoch: int = 1,
     ) -> None:
+        from google.cloud import bigquery
+
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", project):
             raise ValueError(f"Invalid BigQuery project: {project!r}")
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dataset):
@@ -407,6 +409,8 @@ def _lease_config(
     *,
     fencing_token: int | None = None,
 ) -> bigquery.QueryJobConfig:
+    from google.cloud import bigquery
+
     parameters = [
         bigquery.ScalarQueryParameter("pipeline_id", "STRING", pipeline_id),
         bigquery.ScalarQueryParameter("run_id", "STRING", run_id),

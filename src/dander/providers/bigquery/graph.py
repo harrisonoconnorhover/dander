@@ -128,7 +128,7 @@ class BigQueryGraphRunner:
             name=f"_dander_stage_{target.relation_ref.name}_{uuid4().hex}",
         )
         staging_id = ".".join(staging.coordinates)
-        columns = tuple(field.name for field in target.schema)
+        columns = _target_columns(target)
         quoted_columns = ", ".join(f"`{column}`" for column in columns)
         query = compiled.render(SqlDialect.BIGQUERY)
         try:
@@ -273,6 +273,11 @@ def prepare_bigquery_target_writer(
     )
 
 
+def _target_columns(target: WriteTarget) -> tuple[str, ...]:
+    fields = target.schema or (target.declared_schema.fields if target.declared_schema else ())
+    return tuple(field.name for field in fields)
+
+
 def _validate_target(compiled: CompiledTarget, project: str) -> None:
     target = compiled.target
     if target.relation_ref.catalog != project:
@@ -282,7 +287,7 @@ def _validate_target(compiled: CompiledTarget, project: str) -> None:
     coordinates = (target.relation_ref.namespace, target.relation_ref.name)
     if any(not _IDENTIFIER.fullmatch(value) for value in coordinates):
         raise GraphRuntimeError(f"Target node {compiled.node_id!r} has an invalid destination")
-    columns = [field.name for field in target.schema]
+    columns = _target_columns(target)
     if not columns or any(not _IDENTIFIER.fullmatch(column) for column in columns):
         raise GraphRuntimeError(
             f"Target node {compiled.node_id!r} must declare valid output fields"

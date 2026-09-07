@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal, InvalidOperation
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
-from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError
 
 from dander.identity import google_client_options
+
+if TYPE_CHECKING:
+    from google.cloud import bigquery
 
 _BILLING_SCOPE = "https://www.googleapis.com/auth/cloud-billing.readonly"
 _CLOUD_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
@@ -258,6 +260,8 @@ class SandboxDataset:
 
     def prepare(self, project: str, dataset: str) -> None:
         """Verify billing is disabled, then create the dataset if absent."""
+        from google.cloud import bigquery
+
         self._verifier.require_disabled(project)
         if not re.fullmatch(r"^[A-Za-z_][A-Za-z0-9_]*$", dataset):
             raise SandboxSafetyError(f"Invalid BigQuery dataset id: {dataset!r}")

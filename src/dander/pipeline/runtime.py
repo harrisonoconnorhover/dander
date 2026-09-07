@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import yaml
@@ -18,7 +18,7 @@ from dander.pipeline.compiler import (
 from dander.pipeline.errors import GraphValidationError
 from dander.pipeline.graph_ops import validate_field_wiring
 from dander.pipeline.node_config import SourceNodeConfig, TargetNodeConfig
-from dander.warehouse import RelationRef
+from dander.warehouse import BigQuerySchemaCompatibilityError, RelationRef
 from dander.writer.base import WriteMode
 
 if TYPE_CHECKING:
@@ -179,7 +179,19 @@ def plan_graph_execution(
             raise GraphRuntimeError(
                 f"Target node {node.id!r} must write inside the runtime catalog"
             )
-        targets.append(compiled)
+        try:
+            schema = compiled.target.canonical_schema
+        except BigQuerySchemaCompatibilityError:
+            # Native v1 declarations such as GEOGRAPHY remain valid for BigQuery.
+            # Do not invent a lossy canonical fallback while migrating internal plans.
+            targets.append(compiled)
+        else:
+            targets.append(
+                replace(
+                    compiled,
+                    target=replace(compiled.target, schema=(), declared_schema=schema),
+                )
+            )
     return GraphExecutionPlan(
         bindings=GraphSourceBindings(
             connector=source_config.name,

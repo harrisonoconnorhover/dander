@@ -12,8 +12,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
-from google.cloud import bigquery
-
 
 class DeploymentVerificationError(RuntimeError):
     """Raised when the deployment verifier cannot complete its checks."""
@@ -106,6 +104,8 @@ def _run_command(args: tuple[str, ...], cwd: Path) -> str:
 
 
 def _bigquery_client(project: str) -> DatasetClient:
+    from google.cloud import bigquery
+
     return bigquery.Client(project=project)
 
 

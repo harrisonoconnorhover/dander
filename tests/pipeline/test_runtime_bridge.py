@@ -15,7 +15,7 @@ from dander.pipeline.graph import NodeField, PipelineGraph, load_graph_from_yaml
 from dander.pipeline.runtime import GraphRuntimeError, plan_graph_execution
 from dander.providers.bigquery.graph import BigQueryGraphRunner
 from dander.telemetry import TelemetryOperation
-from dander.warehouse import RelationRef
+from dander.warehouse import ProviderExtension, RelationRef
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -53,6 +53,33 @@ class _Ownership:
 
     def verify(self) -> None:
         self.verifications += 1
+
+
+def test_internal_graph_plan_keeps_only_canonical_schema_and_provider_extensions() -> None:
+    graph = _graph()
+    extension = ProviderExtension(provider="snowflake", name="fallback", value="variant")
+    graph.nodes[-1].fields[-1].extensions = (extension,)
+    plan = plan_graph_execution(graph, _source_config(), project="unit-project", dataset="raw")
+
+    target = plan.targets[0].target
+    assert target.schema == ()
+    assert target.declared_schema is not None
+    assert [field.name for field in target.declared_schema.fields] == ["id", "title"]
+    assert extension in target.declared_schema.fields[-1].extensions
+
+
+@pytest.mark.parametrize("data_type", ["GEOGRAPHY", "BIGNUMERIC"])
+def test_graph_plan_retains_valid_native_types_outside_canonical_v1(data_type: str) -> None:
+    graph = _graph()
+    graph.nodes[-1].fields[0].type = data_type
+    plan = plan_graph_execution(graph, _source_config(), project="unit-project", dataset="raw")
+
+    assert plan.targets[0].target.declared_schema is None
+    assert plan.targets[0].target.schema[0].data_type == data_type
+    client = _Client()
+    result = BigQueryGraphRunner(plan=plan, project="unit-project", client=client).build(Path("."))
+    assert result.models == ("target",)
+    assert "INSERT INTO `unit-project.staging.graph_jobs` (`id`, `title`)" in client.queries[-1][0]
 
 
 def test_neutral_graph_planning_does_not_import_bigquery_runtime() -> None:

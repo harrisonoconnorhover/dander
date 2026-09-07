@@ -154,6 +154,9 @@ def test_compiles_linear_graph_to_explicit_bigquery_sql() -> None:
     )
 
     assert compiled.write_mode is WriteMode.SCD1
+    assert compiled.target.declared_schema is None
+    assert compiled.target.schema[0].name == "person_id"
+    assert compiled.target.schema[0].data_type == "STRING"
     assert compiled.target.business_key == ("person_id",)
     assert "FROM `dander-test`.`raw`.`people`" in compiled.query
     assert "SAFE_CAST(`id` AS STRING) AS `id`" in compiled.query
