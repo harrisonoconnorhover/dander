@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-09-07 — Integrate Control durability independently of the HDFS program
+
+- Reuse the PostgreSQL state/scheduling and typed-startup work from `37d4ca1` and `5524c88`.
+  Exclude the HDFS-only placement arguments so this slice preserves main's planning contracts.
+  PostgreSQL storage can host the existing execution backends without an AWS storage dependency.
+- Keep this topology to one Control process per run-store schema. Multi-replica reconciliation,
+  Hadoop execution, semantic modules, and provider qualification remain separate integration work.
+- A YAML `--profile` supplies defaults through the existing CLI option types and startup checks.
+  Paths resolve relative to the profile; explicit flags override defaults. This avoids a second
+  configuration model and preserves canonical execution-plan and provider-binding inputs.
+
 ## 2026-08-26 — One AWS-hosted Control selects immutable AWS or GCP execution plans
 
 - **Selection:** The existing run route accepts an optional environment query and otherwise keeps

@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import typer
-from click import ClickException
+from typer._click.exceptions import ClickException
 
+from dander.cli.control_profile import apply_control_profile
 from dander.control import InMemoryGraphStore, RootedLocalGraphStore
 from dander.control.application import ControlApplication, ControlOperationError
 from dander.plugins import ConnectorPluginError, load_connector_plugins
@@ -22,6 +23,13 @@ control_app = typer.Typer(help="Run Dander's multi-graph Control API.")
 
 @control_app.command("serve")
 def serve_control(
+    profile: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--profile",
+        callback=apply_control_profile,
+        is_eager=True,
+        help="YAML defaults using long option names; explicit command-line options override them.",
+    ),
     root: Path = typer.Option(  # noqa: B008
         Path(".dander/control"),
         "--root",
@@ -59,6 +67,16 @@ def serve_control(
         "--graph-store-config",
         help="Credential-free typed GraphStore locator JSON for hosted persistence.",
     ),
+    run_store_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--run-store-config",
+        help="Credential-free typed RunStore startup binding JSON.",
+    ),
+    schedule_source_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--schedule-source-config",
+        help="Credential-free typed schedule-source startup binding JSON.",
+    ),
     execution_plans: list[Path] | None = typer.Option(  # noqa: B008
         None,
         "--execution-plan",
@@ -79,10 +97,10 @@ def serve_control(
         "--run-store-bucket",
         help="S3 bucket for durable hosted run snapshots and attempt history.",
     ),
-    run_store_prefix: str = typer.Option(
-        "dander-control/v1",
+    run_store_prefix: str | None = typer.Option(
+        None,
         "--run-store-prefix",
-        help="Object prefix for durable hosted run state.",
+        help="Legacy S3 object prefix; requires --run-store-bucket.",
     ),
     run_environment: str = typer.Option(
         "production",
@@ -161,18 +179,65 @@ def serve_control(
             if graph_store_config is not None
             else None
         )
+        from dander.control.startup_factory import (
+            ControlStartup,
+            load_run_store_startup_binding,
+            load_schedule_source_startup_binding,
+        )
+
+        run_store_binding = (
+            load_run_store_startup_binding(run_store_config)
+            if run_store_config is not None
+            else None
+        )
+        schedule_source_binding = (
+            load_schedule_source_startup_binding(schedule_source_config)
+            if schedule_source_config is not None
+            else None
+        )
+        if run_store_config is not None and (
+            run_store_bucket is not None or run_store_prefix is not None
+        ):
+            raise ClickException(
+                "--run-store-config cannot be combined with legacy "
+                "--run-store-bucket/--run-store-prefix."
+            )
+        if schedule_source_config is not None and schedule_queue_url is not None:
+            raise ClickException(
+                "--schedule-source-config cannot be combined with legacy --schedule-queue-url."
+            )
+        if run_store_config is not None and schedule_queue_url is not None:
+            raise ClickException(
+                "Typed --run-store-config cannot be combined with legacy --schedule-queue-url."
+            )
+        if run_store_bucket is not None and schedule_source_config is not None:
+            raise ClickException(
+                "Legacy --run-store-bucket cannot be combined with typed --schedule-source-config."
+            )
+        if run_store_prefix is not None and run_store_bucket is None:
+            raise ClickException("--run-store-prefix requires legacy --run-store-bucket.")
         if ephemeral and graph_store_binding is not None:
             raise ClickException("--ephemeral and --graph-store-config are mutually exclusive.")
-        if bool(execution_plans) != (run_store_bucket is not None):
+        if bool(execution_plans) != (run_store_binding is not None or run_store_bucket is not None):
             raise ClickException(
-                "--execution-plan and --run-store-bucket must be configured together."
+                "--execution-plan and one run-store selection must be configured together."
             )
-        if bool(trigger_specs) != (schedule_queue_url is not None):
+        if bool(trigger_specs) != (
+            schedule_source_binding is not None or schedule_queue_url is not None
+        ):
             raise ClickException(
-                "--trigger-spec and --schedule-queue-url must be configured together."
+                "--trigger-spec and one schedule-source selection must be configured together."
             )
         if trigger_specs and not execution_plans:
             raise ClickException("Scheduled triggers require --execution-plan configuration.")
+        postgresql_control = (
+            run_store_binding is not None and run_store_binding.kind == "postgresql"
+        )
+        if postgresql_control and (ephemeral or graph_store_binding is not None):
+            raise ClickException(
+                "A PostgreSQL run-store binding owns GraphStore selection and cannot be combined "
+                "with --ephemeral or --graph-store-config."
+            )
         if not _is_loopback(host) and oidc is None:
             raise ClickException(
                 "External Control binds require a valid --oidc-config deployment input."
@@ -181,20 +246,21 @@ def serve_control(
         if project_config.is_file():
             manifest = load_project_config(project_config)
             plugins = load_connector_plugins(manifest.plugins).plugins
-        if graph_store_binding is not None:
+        if postgresql_control:
+            store = None
+        elif graph_store_binding is not None:
             from dander.control.graph_store_factory import build_bound_graph_store
 
             store = build_bound_graph_store(graph_store_binding)
         else:
             store = InMemoryGraphStore() if ephemeral else RootedLocalGraphStore(root)
         selected_projects = tuple(projects or ("default",))
+        typed_startup: ControlStartup | None = None
         if execution_plans:
-            assert run_store_bucket is not None
             from dander.control.orchestration import (
                 parse_placement_candidate_spec,
                 parse_size_class_candidate_spec,
             )
-            from dander.control.run_composition import build_fargate_run_composition
 
             placement_candidates = tuple(
                 sorted(
@@ -211,28 +277,59 @@ def serve_control(
                     key=lambda candidate: candidate.plan_revision,
                 )
             )
-            run_composition = build_fargate_run_composition(
-                graph_store=store,
-                project_config=project_config,
-                platforms_config=platforms_config,
-                plan_paths=execution_plans,
-                run_store_bucket=run_store_bucket,
-                run_store_prefix=run_store_prefix,
-                environment=run_environment,
-                placement_candidates=placement_candidates,
-                preferred_locality=run_preferred_locality,
-                max_cost_microusd=run_max_cost_microusd,
-                size_class_candidates=size_class_candidates,
-                default_size_class=run_default_size_class,
-                deployment_name=aws_deployment_name,
-                gcp_project_id=gcp_project_id,
-                gcp_deployment_name=gcp_deployment_name,
-                reconcile_interval_seconds=reconcile_interval_seconds,
-                shutdown_grace_seconds=shutdown_grace_seconds,
-                trigger_paths=trigger_specs or (),
-                schedule_queue_url=schedule_queue_url,
-            )
+            if run_store_binding is not None:
+                from dander.control.startup_factory import build_control_startup
+
+                typed_startup = build_control_startup(
+                    graph_store=store,
+                    run_store_binding=run_store_binding,
+                    schedule_source_binding=schedule_source_binding,
+                    project_config=project_config,
+                    platforms_config=platforms_config,
+                    plan_paths=execution_plans,
+                    environment=run_environment,
+                    placement_candidates=placement_candidates,
+                    preferred_locality=run_preferred_locality,
+                    max_cost_microusd=run_max_cost_microusd,
+                    size_class_candidates=size_class_candidates,
+                    default_size_class=run_default_size_class,
+                    deployment_name=aws_deployment_name,
+                    gcp_project_id=gcp_project_id,
+                    gcp_deployment_name=gcp_deployment_name,
+                    reconcile_interval_seconds=reconcile_interval_seconds,
+                    shutdown_grace_seconds=shutdown_grace_seconds,
+                    trigger_paths=trigger_specs or (),
+                )
+                store = typed_startup.graph_store
+                run_composition = typed_startup.composition
+            else:
+                assert store is not None
+                assert run_store_bucket is not None
+                from dander.control.run_composition import build_fargate_run_composition
+
+                run_composition = build_fargate_run_composition(
+                    graph_store=store,
+                    project_config=project_config,
+                    platforms_config=platforms_config,
+                    plan_paths=execution_plans,
+                    run_store_bucket=run_store_bucket,
+                    run_store_prefix=run_store_prefix or "dander-control/v1",
+                    environment=run_environment,
+                    placement_candidates=placement_candidates,
+                    preferred_locality=run_preferred_locality,
+                    max_cost_microusd=run_max_cost_microusd,
+                    size_class_candidates=size_class_candidates,
+                    default_size_class=run_default_size_class,
+                    deployment_name=aws_deployment_name,
+                    gcp_project_id=gcp_project_id,
+                    gcp_deployment_name=gcp_deployment_name,
+                    reconcile_interval_seconds=reconcile_interval_seconds,
+                    shutdown_grace_seconds=shutdown_grace_seconds,
+                    trigger_paths=trigger_specs or (),
+                    schedule_queue_url=schedule_queue_url,
+                )
             try:
+                assert store is not None
                 application = ControlApplication(
                     store,
                     lifecycle=run_composition.lifecycle,
@@ -242,9 +339,13 @@ def serve_control(
                     readiness=run_composition.lifecycle.ready,
                 )
             except Exception:  # noqa: BLE001 - close the started reconciler before re-raising
-                run_composition.lifecycle.close()
+                if typed_startup is not None:
+                    typed_startup.close()
+                else:
+                    run_composition.lifecycle.close()
                 raise
         else:
+            assert store is not None
             application = ControlApplication(
                 store,
                 connector_plugins=plugins,
@@ -256,7 +357,9 @@ def serve_control(
 
         public_url = oidc.api_url if oidc is not None else f"http://{host}:{port}"
         storage = (
-            graph_store_binding.kind
+            "postgresql"
+            if postgresql_control
+            else graph_store_binding.kind
             if graph_store_binding is not None
             else "ephemeral"
             if ephemeral
@@ -274,7 +377,11 @@ def serve_control(
                 )
             ).run()
         finally:
-            application.close()
+            try:
+                application.close()
+            finally:
+                if typed_startup is not None:
+                    typed_startup.close()
     except (
         ConnectorPluginError,
         ControlOperationError,
