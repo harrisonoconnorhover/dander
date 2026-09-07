@@ -10,6 +10,9 @@
 - A YAML `--profile` supplies defaults through the existing CLI option types and startup checks.
   Paths resolve relative to the profile; explicit flags override defaults. This avoids a second
   configuration model and preserves canonical execution-plan and provider-binding inputs.
+- Set the minimum Typer version to the already locked and tested 0.26.8, whose option and error
+  types the profile loader uses. This changes the declared minimum without changing the lock's
+  installed version.
 
 ## 2026-08-26 — One AWS-hosted Control selects immutable AWS or GCP execution plans
 

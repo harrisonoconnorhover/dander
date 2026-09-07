@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
 
 import pytest
+from click import unstyle
 from typer.testing import CliRunner
 
 from dander.cli.main import app
@@ -45,7 +46,7 @@ def test_external_bind_requires_a_valid_oidc_input() -> None:
 
     assert result.exit_code == 1
     assert result.exception is not None
-    assert "require a valid --oidc-config" in result.output
+    assert "require a valid --oidc-config" in unstyle(result.output)
 
 
 def test_hosted_server_disables_query_bearing_uvicorn_access_logs(

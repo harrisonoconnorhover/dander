@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from click import unstyle
 from typer.testing import CliRunner
 
 from dander.cli.main import app
@@ -80,5 +81,5 @@ def test_profile_resolves_typed_binding_paths_before_startup_validation(
     monkeypatch.setattr("uvicorn.Server.run", lambda server: observed.append(server))
     result = CliRunner().invoke(app, ["control", "serve", "--profile", str(profile)])
     assert result.exit_code != 0
-    assert "--execution-plan and one run-store selection" in result.output
+    assert "--execution-plan and one run-store selection" in unstyle(result.output)
     assert not observed

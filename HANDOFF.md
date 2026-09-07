@@ -20,6 +20,8 @@ See `docs/control-profiles.md` for PostgreSQL startup with existing plans.
 - Repository Ruff lint/format, strict typing (489 files), Control contract drift, documentation
   links, and diff whitespace checks passed.
 - The complete Python suite passed: 2,280 tests, with one existing Starlette warning.
+- The installed console served `/v1/projects` using the example profile; it was stopped and the
+  disposable PostgreSQL container removed. Colored-output assertions were normalized for CI.
 - Protected-main verification follows the integration PR.
 
 ## Decisions
