@@ -14,6 +14,7 @@ from dander.ingestion import Endpoint, RawField, SourceConfig, load_source_confi
 from dander.pipeline.graph import NodeField, PipelineGraph, load_graph_from_yaml
 from dander.pipeline.runtime import GraphRuntimeError, plan_graph_execution
 from dander.providers.bigquery.graph import BigQueryGraphRunner
+from dander.telemetry import TelemetryOperation
 from dander.warehouse import RelationRef
 
 if TYPE_CHECKING:
@@ -354,6 +355,38 @@ def test_greenhouse_linear_fixture_keeps_the_fused_bigquery_path() -> None:
     assert "FROM `unit-project`.`raw`.`greenhouse_job_board_jobs`" in plan.targets[0].query
     assert "SELECT *" not in plan.targets[0].query
     assert result.models == ("curated_jobs",)
+
+
+def test_graph_returns_completed_job_statistics_without_accumulating_between_builds() -> None:
+    class Job(_Job):
+        def __init__(self, job_id: str) -> None:
+            self.job_id = job_id
+            self.total_bytes_processed = 0
+            self.total_bytes_billed = 0
+
+        def result(self) -> object:
+            self.total_bytes_processed = 1_024
+            self.total_bytes_billed = 2_048
+            return self
+
+    class Client(_Client):
+        def query(self, query: str, *, job_config: object | None = None) -> Job:
+            self.queries.append((query, job_config))
+            return Job(f"job-{len(self.queries)}")
+
+    plan = plan_graph_execution(_graph(), _source_config(), project="unit-project", dataset="raw")
+    client = Client()
+    runner = BigQueryGraphRunner(plan=plan, project="unit-project", client=client)
+
+    for offset in (0, 3):
+        result = runner.build(Path("."), ownership=_Ownership())
+        assert [item.job_id for item in result.telemetry] == [
+            f"job-{offset + index}" for index in (1, 2, 3)
+        ]
+        assert all(item.operation is TelemetryOperation.TRANSFORM for item in result.telemetry)
+        assert sum(item.bytes_processed for item in result.telemetry) == 3_072
+        assert sum(item.bytes_billed for item in result.telemetry) == 6_144
+    assert len(client.deleted) == 2
 
 
 def test_multistage_linear_fixture_keeps_the_fused_bigquery_path() -> None:

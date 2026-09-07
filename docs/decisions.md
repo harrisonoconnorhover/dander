@@ -1,5 +1,14 @@
 # Engineering Decisions
 
+## 2026-09-07 — Preserve BigQuery job measurements at existing execution boundaries
+
+- Reuse the existing scalar-only BigQuery normalizer for SCD1 ingestion and graph publication.
+  Record completed parent jobs once; collect rows, byte counters, elapsed time, and retry counts
+  without adding queries, changing transactions, or changing the contention retry policy.
+- Keep the collector within the selected BigQuery provider to avoid import cycles. Ingestion
+  drains each batch once; every graph build owns a fresh collection. Other legacy paths and
+  provider billing remain distinct from the recorded job measurements.
+
 ## 2026-09-07 — Cloud Run cancellation uses the terminal provider condition
 
 - A real cancellation before task startup returned `Completed`, `CONDITION_FAILED`, and

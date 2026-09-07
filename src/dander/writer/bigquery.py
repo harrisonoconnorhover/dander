@@ -7,6 +7,7 @@ import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from functools import partial
 from itertools import islice
 from typing import TYPE_CHECKING, Any, Protocol, cast
 from uuid import uuid4
@@ -17,7 +18,9 @@ from google.cloud import bigquery
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import fenced_dml, fencing_job_config, fencing_touch_sql
 from dander.identity import google_client_options
+from dander.providers.bigquery.telemetry import BigQueryJobTelemetry
 from dander.schema import BIGQUERY_FIELD_MODES, BIGQUERY_FIELD_TYPES, normalize_bigquery_type
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.writer.base import SchemaEvolution, WriteField, WriteMode, WritePattern, WriteTarget
 
 if TYPE_CHECKING:
@@ -105,6 +108,11 @@ class BigQueryScd1Writer(WritePattern):
         )
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
         self._schema_evolution = schema_evolution
+        self._telemetry = BigQueryJobTelemetry()
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return completed SCD1 load/query statistics once per ingestion batch."""
+        return self._telemetry.drain()
 
     def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
         """Write a consistently-shaped batch idempotently.
@@ -176,18 +184,25 @@ class BigQueryScd1Writer(WritePattern):
                 max_batch_rows=self._max_batch_rows,
                 expire=True,
                 schema=declared,
+                telemetry=self._telemetry,
             )
-            self._client.query(_create_target_sql(target_id, staging_id, columns)).result()
+            self._telemetry.run(
+                lambda: self._client.query(_create_target_sql(target_id, staging_id, columns)),
+                operation=TelemetryOperation.QUERY,
+            )
             merge_sql = _merge_sql(target_id, staging_id, columns, target.business_key)
             if target.fence is not None:
                 merge_script = fenced_dml(merge_sql, target.fence)
                 merge_config = fencing_job_config(target.fence)
-                merge_job = run_mutation_with_retry(
-                    lambda: self._client.query(merge_script, job_config=merge_config)
+                merge_job = self._telemetry.run(
+                    lambda: self._client.query(merge_script, job_config=merge_config),
+                    operation=TelemetryOperation.QUERY,
+                    retry_mutation=True,
                 )
             else:
-                merge_job = self._client.query(merge_sql)
-                merge_job.result()
+                merge_job = self._telemetry.run(
+                    lambda: self._client.query(merge_sql), operation=TelemetryOperation.QUERY
+                )
             return (
                 merge_job.num_dml_affected_rows
                 if merge_job.num_dml_affected_rows is not None
@@ -805,8 +820,10 @@ def _load_rows_in_chunks(
     max_batch_rows: int,
     expire: bool = False,
     schema: Sequence[WriteField] = (),
+    telemetry: BigQueryJobTelemetry | None = None,
 ) -> None:
     """Bound each load request while preserving one logical truncate-then-append batch."""
+    observations = telemetry if telemetry is not None else BigQueryJobTelemetry()
     if expire and schema:
         _create_declared_target(
             client,
@@ -820,19 +837,26 @@ def _load_rows_in_chunks(
             if offset == 0
             else bigquery.WriteDisposition.WRITE_APPEND
         )
-        client.load_table_from_json(
-            [_json_load_row(row) for row in rows[offset : offset + max_batch_rows]],
-            destination,
-            job_config=_load_config(
-                disposition,
-                schema,
+        observations.run(
+            partial(
+                client.load_table_from_json,
+                [_json_load_row(row) for row in rows[offset : offset + max_batch_rows]],
+                destination,
+                job_config=_load_config(
+                    disposition,
+                    schema,
+                ),
             ),
-        ).result()
+            operation=TelemetryOperation.LOAD,
+        )
         if offset == 0 and expire and not schema:
             # Legacy schema-inferred writes cannot be precreated safely. Expire them
             # immediately after the first successful load without using unsupported
             # load-job properties.
-            client.query(_expire_staging_sql(destination)).result()
+            observations.run(
+                lambda: client.query(_expire_staging_sql(destination)),
+                operation=TelemetryOperation.QUERY,
+            )
 
 
 def _json_load_row(row: Mapping[str, Any]) -> dict[str, Any]:

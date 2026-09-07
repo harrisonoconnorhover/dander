@@ -9,8 +9,8 @@ from dander.pipeline.runtime import GraphExecutionPlan
 from dander.providers.bigquery.config import BigQueryWarehouseConfig
 from dander.providers.bigquery.fence import BigQueryTargetFence
 from dander.providers.bigquery.graph import BigQueryGraphRunner
+from dander.providers.bigquery.telemetry import BigQueryTelemetry
 from dander.providers.registry import PROVIDER_API_VERSION, ProviderFactory, ProviderKind
-from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.transform import BigQueryTransformRunner
 from dander.warehouse.bigquery_compat import canonical_schema_from_bigquery
 from dander.warehouse.contracts import LogicalTypeKind
@@ -128,32 +128,6 @@ class BigQueryTransformFactory:
         return None
 
 
-@dataclass(frozen=True, slots=True)
-class BigQueryTelemetry:
-    """Normalize stable BigQuery job counters and identifiers."""
-
-    def operation(
-        self,
-        job: object,
-        *,
-        operation: TelemetryOperation,
-        duration_ms: int = 0,
-        retry_count: int = 0,
-    ) -> OperationTelemetry:
-        """Read only approved scalar attributes from a completed BigQuery job."""
-        return OperationTelemetry(
-            provider="bigquery",
-            operation=operation,
-            duration_ms=duration_ms,
-            retry_count=retry_count,
-            rows_written=_nonnegative_attribute(job, "output_rows"),
-            rows_affected=_nonnegative_attribute(job, "num_dml_affected_rows"),
-            bytes_processed=_nonnegative_attribute(job, "total_bytes_processed"),
-            bytes_billed=_nonnegative_attribute(job, "total_bytes_billed"),
-            job_id=_optional_identifier(job, "job_id"),
-        )
-
-
 BIGQUERY_CAPABILITIES = WarehouseCapabilities(
     provider_id="bigquery",
     schema_contract_version=1,
@@ -194,13 +168,3 @@ BIGQUERY_WAREHOUSE_FACTORY: ProviderFactory[WarehouseRuntime] = ProviderFactory(
     api_version=PROVIDER_API_VERSION,
     build=build_bigquery_warehouse,
 )
-
-
-def _nonnegative_attribute(job: object, name: str) -> int:
-    value = getattr(job, name, None)
-    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
-
-
-def _optional_identifier(job: object, name: str) -> str | None:
-    value = getattr(job, name, None)
-    return value if isinstance(value, str) and value else None

@@ -9,7 +9,6 @@ from uuid import uuid4
 
 from google.cloud import bigquery
 
-from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import fenced_dml, fencing_job_config
 from dander.identity import google_client_options
 from dander.pipeline.compiler import (
@@ -19,6 +18,8 @@ from dander.pipeline.compiler import (
 )
 from dander.pipeline.node_config import TargetNodeConfig
 from dander.pipeline.runtime import GraphExecutionPlan, GraphRuntimeError
+from dander.providers.bigquery.telemetry import BigQueryJobTelemetry
+from dander.telemetry import TelemetryOperation
 from dander.transform import SqlDialect, TransformRunResult
 from dander.warehouse import RelationRef
 from dander.writer import (
@@ -103,11 +104,13 @@ class BigQueryGraphRunner:
         )
         if not targets:
             raise GraphRuntimeError("Graph execution selected no targets")
+        telemetry = BigQueryJobTelemetry()
         for target in targets:
-            self._materialize(target, ownership=ownership)
+            self._materialize(target, ownership=ownership, telemetry=telemetry)
         return TransformRunResult(
             models=tuple(target.node_id for target in targets),
             assertions=0,
+            telemetry=telemetry.drain(),
         )
 
     def _materialize(
@@ -115,6 +118,7 @@ class BigQueryGraphRunner:
         compiled: CompiledTarget,
         *,
         ownership: OwnershipGuard | None,
+        telemetry: BigQueryJobTelemetry,
     ) -> None:
         target = compiled.target
         target_id = ".".join(target.relation_ref.coordinates)
@@ -130,16 +134,22 @@ class BigQueryGraphRunner:
         try:
             if ownership is not None:
                 ownership.verify()
-            self._client.query(
-                f"CREATE TABLE `{staging_id}`\n"
-                "OPTIONS (expiration_timestamp="
-                "TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 1 DAY))\n"
-                f"AS\n{query}"
-            ).result()
-            self._client.query(
-                f"CREATE TABLE IF NOT EXISTS `{target_id}` AS "
-                f"SELECT {quoted_columns} FROM `{staging_id}` WHERE FALSE"
-            ).result()
+            telemetry.run(
+                lambda: self._client.query(
+                    f"CREATE TABLE `{staging_id}`\n"
+                    "OPTIONS (expiration_timestamp="
+                    "TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 1 DAY))\n"
+                    f"AS\n{query}"
+                ),
+                operation=TelemetryOperation.TRANSFORM,
+            )
+            telemetry.run(
+                lambda: self._client.query(
+                    f"CREATE TABLE IF NOT EXISTS `{target_id}` AS "
+                    f"SELECT {quoted_columns} FROM `{staging_id}` WHERE FALSE"
+                ),
+                operation=TelemetryOperation.TRANSFORM,
+            )
             if ownership is not None:
                 ownership.verify()
             replacement = (
@@ -151,10 +161,11 @@ class BigQueryGraphRunner:
             if fence is not None:
                 script = fenced_dml(replacement, fence)
                 job_config = fencing_job_config(fence)
-                run_mutation_with_retry(partial(self._client.query, script, job_config=job_config))
+                submit = partial(self._client.query, script, job_config=job_config)
             else:
                 script = f"BEGIN TRANSACTION;\n{replacement};\nCOMMIT TRANSACTION;"
-                run_mutation_with_retry(partial(self._client.query, script))
+                submit = partial(self._client.query, script)
+            telemetry.run(submit, operation=TelemetryOperation.TRANSFORM, retry_mutation=True)
         finally:
             self._client.delete_table(staging_id, not_found_ok=True)
 

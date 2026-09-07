@@ -2,51 +2,45 @@
 
 ## Finished
 
-- Completed a real PostgreSQL Control → Cloud Run → BigQuery workflow: 18 ingested jobs and
-  38 published rows matching the stored source, with no missing, unexpected, or duplicate keys.
-- Verified crash recovery without duplicate execution, cancellation before worker startup,
-  durable terminal histories after restart, and completion logs through the API.
-- Fixed standalone Google authentication and cancellation without a provider completion timestamp;
-  merged through protected PRs [#531](https://github.com/harrisonoconnorhover/dander/pull/531) and
-  [#532](https://github.com/harrisonoconnorhover/dander/pull/532).
-- Added the runnable Cloud Run profile preparation example, reusing canonical project/plan types.
-- Removed the temporary Job, image, PostgreSQL container, process, and database credentials.
-  Saved the database snapshot and results in local `tmp/postgresql-gcp-20260907`; retained jobs
-  stayed unchanged and all five schedules stayed paused.
+- Merged the previous workflow closeout through PR #533.
+- Added completed BigQuery graph and SCD1 load/query measurements to the existing runtime summary.
+- Reused one BigQuery normalizer; preserved fencing, SQL, retries, and staging cleanup.
+- Identified expired DANDER-237/238 AWS staging: two services, their load balancer, and public
+  routing. All six saved runs are terminal, and no Fargate execution is active.
 
 ## Try It
 
-Run `uv sync --frozen --extra dev --extra postgres`, then
-`uv run dander control serve --profile examples/control/local.yaml` for the local API.
-Follow [Control profiles](docs/control-profiles.md) to prepare an existing Cloud Run deployment
-with `examples/control/prepare_cloud_run.py`. The temporary acceptance environment is removed.
+Run `uv sync --frozen --extra dev --extra postgres`, then follow
+[Control profiles](docs/control-profiles.md). A current-source worker records graph/SCD1 job
+measurements. Previously deployed images and historical run results keep their original behavior.
 
 ## Checks
 
-- 44 focused identity/Google backend tests, 15 profile/identity tests, and 38 Cloud Run/lifecycle
-  tests passed, including PostgreSQL recovery. Ruff and strict typing passed across 492 files.
-- All six exact-main CI checks passed for worker source `a548d74` and final Control `98d4186`:
-  [final run](https://github.com/harrisonoconnorhover/dander/actions/runs/34161045039).
-- Live API/provider reconciliation confirmed exactly two executions and persistent terminal
-  results. Output comparison, lease/staging checks, and resource-removal checks passed.
-- Documentation links, handoff format, completed-ticket checks, and `git diff --check` passed.
+- 110 focused tests passed across BigQuery providers, graph execution, ingestion writers, retry
+  behavior, executor, runtime, and completion contracts.
+- Ruff lint/format, strict typing across 494 files, and `git diff --check` passed.
+- Read an existing completed BigQuery job: measured 4,712 bytes processed and 20 MiB billed;
+  no new query or worker execution was submitted.
+- A targeted Terraform retirement plan was reviewed against the live staging deployment. Its six
+  deletions preserve graph storage, encryption, and run history; application is underway.
 
 ## Decisions
 
-- Keep explicit AWS federation strict; use Google Application Default Credentials otherwise.
-- Preserve the private RC22 trial and the original HDFS branch. This evidence covers one local
-  Control process with PostgreSQL 17 and one public Greenhouse graph.
+- Measure completed parent jobs once and drain ingestion statistics once per batch. These are
+  operation measurements, not an invoice or coverage of every legacy runtime path.
+- Retire the expired staging compute and routing through its existing Terraform state; preserve
+  retained data, history, and accepted images.
 
 ## Remaining
 
-- Attribute existing AWS spending and idle resources before further paid work; the conservative
-  monthly reservation is close to the USD 25 ceiling.
-- Add operation-level telemetry to the legacy graph path before treating byte counters as costs.
-- Secure Hadoop work needs an existing cluster and access details.
-- DANDER-207 scale/cost, pairwise, other-profile soak, audit, and release gates remain open.
+- Finish staging removal and verify service, load-balancer, and routing absence.
+- Protected telemetry merge and exact-main CI.
+- Reconcile residual storage and billing before new paid qualification.
+- Hadoop qualification needs an existing secure cluster and access details; no cluster was found.
+- DANDER-207 release gates remain open.
 
 ## Review First
 
-- [Workflow results and limits](tickets/DANDER-283-postgresql-gcp-workflow.md)
-- [Runnable profile setup](docs/control-profiles.md)
-- [Cancellation regression](tests/control/test_cloud_run_execution_backend.py)
+- [BigQuery measurements](tickets/DANDER-284-bigquery-graph-job-telemetry.md)
+- `src/dander/providers/bigquery/telemetry.py`
+- Private retirement records: `/Users/harrison/.codex/operator/dander-cost-cleanup-20260907`
