@@ -6,10 +6,11 @@ evaluate these limits before using it for an unattended system containing busine
 See [current implementation and support status](support-status.md) for the released, main-source,
 and unmerged enterprise boundaries. Historical attempts below do not describe every later revision.
 
-Hosted Control scheduling currently uses the experimental AWS composition: one always-on Control
-task, EventBridge Scheduler, SQS, and durable occurrence idempotency. Main registers Fargate,
-Cloud Run, and bounded Dataproc Serverless execution backends, while startup still requires AWS
-run storage. The August 26 DANDER-235 attempt stopped at a missing queue-tag permission; that
+Hosted Control registers Fargate, Cloud Run, and bounded Dataproc Serverless execution backends.
+Typed startup selects PostgreSQL or S3 run storage; scheduling selects PostgreSQL or the existing
+AWS EventBridge/SQS composition. PostgreSQL uses one dedicated Control schema and removes the
+mandatory AWS storage dependency. This integration supports one Control process per run-store
+schema and does not qualify a hosted topology. The August 26 DANDER-235 attempt stopped at a missing queue-tag permission; that
 dated attempt is not a current infrastructure inspection or a qualification of later source.
 Direct CLI execution remains available independently of Control.
 

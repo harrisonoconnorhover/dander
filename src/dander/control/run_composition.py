@@ -71,6 +71,15 @@ class ControlRunComposition:
     resolver: PlanRunSubmissionResolver
 
 
+@dataclass(frozen=True, slots=True)
+class _RegisteredExecutionBackends:
+    """Provider backends plus the AWS coordinates proven by Fargate bindings."""
+
+    backends: Mapping[str, ExecutionBackend]
+    fargate_account_ids: frozenset[str]
+    fargate_regions: frozenset[str]
+
+
 def load_execution_plans(paths: Sequence[Path]) -> tuple[ExecutionPlan, ...]:
     """Load a bounded set of canonical plan files with verified content revisions."""
     if not paths or len(paths) > _MAX_PLAN_FILES:
@@ -220,78 +229,32 @@ def build_multicloud_run_composition(
             "Control trigger specs and schedule queue URL must be configured together."
         )
     triggers = load_trigger_specs(trigger_paths) if trigger_paths else ()
-    fargate_bindings: dict[str, FargateBinding] = {}
-    cloud_run_bindings: dict[str, CloudRunBinding] = {}
-    spark_bindings: dict[str, DataprocServerlessBinding] = {}
-    account_ids: set[str] = set()
-    regions: set[str] = set()
+    registered: _RegisteredExecutionBackends | None = None
     composition: ControlRunComposition | None = None
     try:
-        for plan in plans:
-            if plan.backend_id == "dataproc_serverless":
-                if gcp_project_id is None:
-                    raise ControlRunCompositionError(
-                        "Managed Spark execution plans require an exact GCP project id."
-                    )
-                spark_bindings[plan.revision] = DataprocServerlessBinding.from_execution_template(
-                    plan.execution_template,
-                    project_id=gcp_project_id,
-                )
-                continue
-            if plan.backend_id == "cloud_run":
-                if gcp_project_id is None:
-                    raise ControlRunCompositionError(
-                        "Cloud Run execution plans require an exact GCP project id."
-                    )
-                cloud_run_bindings[plan.revision] = CloudRunBinding.from_project(
-                    config=project_config,
-                    platforms_config=platforms_config,
-                    deployment=gcp_deployment_name,
-                    pipeline_id=plan.execution_template.pipeline_id,
-                    project_id=gcp_project_id,
-                )
-                continue
-            if plan.backend_id != "fargate":
-                raise ControlRunCompositionError(
-                    "The AWS Control composition accepts only Fargate, Cloud Run, or "
-                    "Managed Spark plans."
-                )
-            binding = FargateBinding.from_project(
-                config=project_config,
-                platforms_config=platforms_config,
-                deployment=plan.profile_id,
-                pipeline_id=plan.execution_template.pipeline_id,
-                name=deployment_name,
-            )
-            if not binding.schedule_paused:
-                raise ControlRunCompositionError(
-                    "Direct Fargate schedules must remain paused when Control owns hosted runs."
-                )
-            fargate_bindings[plan.revision] = binding
-            account_ids.add(binding.account_id)
-            regions.add(binding.region)
-        if len(account_ids) != 1:
+        registered = _build_registered_execution_backends(
+            plans=plans,
+            project_config=project_config,
+            platforms_config=platforms_config,
+            deployment_name=deployment_name,
+            gcp_project_id=gcp_project_id,
+            gcp_deployment_name=gcp_deployment_name,
+        )
+        if len(registered.fargate_account_ids) != 1:
             raise ControlRunCompositionError(
                 "The AWS-hosted Control composition requires one exact Fargate AWS account."
             )
-        owner = next(iter(account_ids))
+        owner = next(iter(registered.fargate_account_ids))
         store = S3RunStore(
             run_store_bucket,
             prefix=run_store_prefix,
             expected_bucket_owner=owner,
         )
-        backends: dict[str, ExecutionBackend] = {
-            "fargate": FargateExecutionBackend(fargate_bindings)
-        }
-        if cloud_run_bindings:
-            backends["cloud_run"] = CloudRunExecutionBackend(cloud_run_bindings)
-        if spark_bindings:
-            backends["dataproc_serverless"] = DataprocServerlessExecutionBackend(spark_bindings)
         composition = compose_run_control(
             graph_store=graph_store,
             store=store,
             plans=plans,
-            backends=backends,
+            backends=registered.backends,
             environment=environment,
             placement_candidates=placement_candidates,
             preferred_locality=preferred_locality,
@@ -308,14 +271,14 @@ def build_multicloud_run_composition(
             start_reconciler=not triggers,
         )
         if triggers:
-            if len(regions) != 1 or schedule_queue_url is None:
+            if len(registered.fargate_regions) != 1 or schedule_queue_url is None:
                 raise ControlRunCompositionError(
                     "Scheduled AWS Control plans must use one exact AWS region."
                 )
             queue = SQSScheduleQueue(
                 schedule_queue_url,
                 expected_account_id=owner,
-                expected_region=next(iter(regions)),
+                expected_region=next(iter(registered.fargate_regions)),
             )
             schedule_resolver = ScheduledRunSubmissionResolver(
                 composition.resolver.plans,
@@ -347,12 +310,90 @@ def build_multicloud_run_composition(
         if composition is not None:
             with suppress(ControlOperationError):
                 composition.lifecycle.close()
+        elif registered is not None:
+            for backend in registered.backends.values():
+                with suppress(Exception):
+                    backend.close()
         if isinstance(error, ControlRunCompositionError):
             raise
         raise ControlRunCompositionError("The AWS Control run binding is invalid.") from error
 
 
 build_fargate_run_composition = build_multicloud_run_composition
+
+
+def _build_registered_execution_backends(
+    *,
+    plans: tuple[ExecutionPlan, ...],
+    project_config: Path,
+    platforms_config: Path | None,
+    deployment_name: str,
+    gcp_project_id: str | None,
+    gcp_deployment_name: str,
+) -> _RegisteredExecutionBackends:
+    """Bind the existing execution backends without selecting durable Control storage."""
+    fargate_bindings: dict[str, FargateBinding] = {}
+    cloud_run_bindings: dict[str, CloudRunBinding] = {}
+    spark_bindings: dict[str, DataprocServerlessBinding] = {}
+    for plan in plans:
+        if plan.backend_id == "dataproc_serverless":
+            if gcp_project_id is None:
+                raise ControlRunCompositionError(
+                    "Managed Spark execution plans require an exact GCP project id."
+                )
+            spark_bindings[plan.revision] = DataprocServerlessBinding.from_execution_template(
+                plan.execution_template,
+                project_id=gcp_project_id,
+            )
+            continue
+        if plan.backend_id == "cloud_run":
+            if gcp_project_id is None:
+                raise ControlRunCompositionError(
+                    "Cloud Run execution plans require an exact GCP project id."
+                )
+            cloud_run_bindings[plan.revision] = CloudRunBinding.from_project(
+                config=project_config,
+                platforms_config=platforms_config,
+                deployment=gcp_deployment_name,
+                pipeline_id=plan.execution_template.pipeline_id,
+                project_id=gcp_project_id,
+            )
+            continue
+        if plan.backend_id != "fargate":
+            raise ControlRunCompositionError(
+                "Control accepts only Fargate, Cloud Run, or Managed Spark plans."
+            )
+        binding = FargateBinding.from_project(
+            config=project_config,
+            platforms_config=platforms_config,
+            deployment=plan.profile_id,
+            pipeline_id=plan.execution_template.pipeline_id,
+            name=deployment_name,
+        )
+        if not binding.schedule_paused:
+            raise ControlRunCompositionError(
+                "Direct Fargate schedules must remain paused when Control owns hosted runs."
+            )
+        fargate_bindings[plan.revision] = binding
+
+    backends: dict[str, ExecutionBackend] = {}
+    try:
+        if fargate_bindings:
+            backends["fargate"] = FargateExecutionBackend(fargate_bindings)
+        if cloud_run_bindings:
+            backends["cloud_run"] = CloudRunExecutionBackend(cloud_run_bindings)
+        if spark_bindings:
+            backends["dataproc_serverless"] = DataprocServerlessExecutionBackend(spark_bindings)
+    except Exception:
+        for backend in backends.values():
+            with suppress(Exception):
+                backend.close()
+        raise
+    return _RegisteredExecutionBackends(
+        backends=backends,
+        fargate_account_ids=frozenset(binding.account_id for binding in fargate_bindings.values()),
+        fargate_regions=frozenset(binding.region for binding in fargate_bindings.values()),
+    )
 
 
 def _bigquery_input_size_estimators(

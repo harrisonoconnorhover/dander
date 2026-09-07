@@ -97,6 +97,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from dander.control.postgresql_control_database import PostgreSQLControlPool
+
 NOW = datetime(2026, 8, 25, 18, tzinfo=UTC)
 IMAGE = "registry.example.invalid/dander/runtime@sha256:" + "b" * 64
 DOCUMENT = PipelineGraphDocument.model_validate({"name": "hosted_graph", "nodes": [], "edges": []})
@@ -1771,6 +1773,222 @@ def test_aws_hosted_composition_registers_fargate_and_gcp_plans(
     assert fargate_backend.close_count == 1
     assert cloud_run_backend.close_count == 1
     assert spark_backend.close_count == 1
+
+
+def test_postgresql_typed_startup_runs_cloud_run_without_aws_storage_or_credentials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dander.control.run_composition as composition_module
+    import dander.control.startup_factory as startup_module
+    from dander.control.startup_bindings import PostgreSQLRunStoreStartupBinding
+    from dander.control.startup_factory import build_control_startup
+
+    graph_store, graph = _graph_store()
+    plan = _gcp_plan(graph)
+    plan_path = tmp_path / "gcp-plan.json"
+    plan_path.write_bytes(serialize_execution_plan(plan))
+    binding = CloudRunBinding(
+        project_id="dander-unit-project",
+        region="us-central1",
+        deployment_name="gcp_cloud_run",
+        profile_id="gcp",
+        pipeline_id="hosted_graph",
+        job_name="dander-hosted-graph",
+        runtime_service_account="dander-runtime@dander-unit-project.iam.gserviceaccount.com",
+    )
+    backend = _Backend()
+    run_store = _Store()
+
+    @dataclass
+    class _Pool:
+        close_count: int = 0
+
+        def close(self) -> None:
+            self.close_count += 1
+
+    @dataclass(frozen=True)
+    class _Database:
+        schema_name: str = "dander_control"
+
+    @dataclass(frozen=True)
+    class _Resources:
+        database: _Database
+        pool: _Pool
+        graph_store: InMemoryGraphStore
+        run_store: _Store
+        connection_environment_variable: str
+
+    pool = _Pool()
+    resources = _Resources(
+        database=_Database(),
+        pool=pool,
+        graph_store=graph_store,
+        run_store=run_store,
+        connection_environment_variable="DANDER_CONTROL_DATABASE_URL",
+    )
+
+    monkeypatch.setattr(
+        CloudRunBinding,
+        "from_project",
+        classmethod(lambda _cls, /, **_kwargs: binding),
+    )
+    monkeypatch.setattr(
+        composition_module,
+        "CloudRunExecutionBackend",
+        lambda bindings: backend if bindings == {plan.revision: binding} else None,
+    )
+
+    def unexpected(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("AWS startup path was reached")
+
+    monkeypatch.setattr(composition_module, "FargateExecutionBackend", unexpected)
+    monkeypatch.setattr(startup_module, "S3RunStore", unexpected)
+    monkeypatch.setattr(
+        startup_module,
+        "_open_postgresql_resources",
+        lambda *_args, **_kwargs: resources,
+    )
+
+    startup = build_control_startup(
+        graph_store=None,
+        run_store_binding=PostgreSQLRunStoreStartupBinding(
+            connection_environment_variable="DANDER_CONTROL_DATABASE_URL",
+            schema_name="dander_control",
+        ),
+        schedule_source_binding=None,
+        project_config=tmp_path / "dander.yaml",
+        plan_paths=(plan_path,),
+        environment="gcp",
+        gcp_project_id="dander-unit-project",
+        reconcile_interval_seconds=0.01,
+        shutdown_grace_seconds=1,
+    )
+
+    assert startup.graph_store is graph_store
+    assert startup.composition.resolver.plans.plans == (plan,)
+    startup.close()
+    startup.close()
+    assert backend.close_count == 1
+    assert run_store.close_count == 1
+    assert pool.close_count == 1
+
+
+def test_live_postgresql_startup_owns_migrated_stores_scheduler_and_pool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+    import time
+    import uuid
+
+    from psycopg import connect, sql
+
+    import dander.control.run_composition as composition_module
+    from dander.control.postgresql_graph_store import PostgreSQLGraphStore
+    from dander.control.postgresql_run_store import PostgreSQLRunStore
+    from dander.control.postgresql_scheduler import PostgreSQLScheduleSubmissionSource
+    from dander.control.startup_bindings import (
+        PostgreSQLRunStoreStartupBinding,
+        PostgreSQLScheduleSourceStartupBinding,
+    )
+    from dander.control.startup_factory import build_control_startup
+
+    dsn = os.environ.get("DANDER_TEST_POSTGRES_DSN")
+    if not dsn:
+        pytest.skip("DANDER_TEST_POSTGRES_DSN is not configured")
+    schema_name = f"dander_startup_{uuid.uuid4().hex}"
+    connection_environment_variable = "DANDER_LIVE_CONTROL_DSN"
+    monkeypatch.setenv(connection_environment_variable, dsn)
+    _, graph = _graph_store()
+    plan = _gcp_plan(graph)
+    plan_path = tmp_path / "gcp-plan.json"
+    plan_path.write_bytes(serialize_execution_plan(plan))
+    trigger = TriggerSpec(
+        trigger_id="disabled-live-probe",
+        kind=TriggerKind.SCHEDULE,
+        plan_id=plan.plan_id,
+        plan_revision=plan.revision,
+        enabled=False,
+        schedule="0 6 * * *",
+        time_zone="UTC",
+    )
+    trigger_path = tmp_path / "trigger.json"
+    trigger_path.write_bytes(serialize_trigger_spec(trigger))
+    binding = CloudRunBinding(
+        project_id="dander-unit-project",
+        region="us-central1",
+        deployment_name="gcp_cloud_run",
+        profile_id="gcp",
+        pipeline_id="hosted_graph",
+        job_name="dander-hosted-graph",
+        runtime_service_account="dander-runtime@dander-unit-project.iam.gserviceaccount.com",
+    )
+    backend = _Backend()
+    monkeypatch.setattr(
+        CloudRunBinding,
+        "from_project",
+        classmethod(lambda _cls, /, **_kwargs: binding),
+    )
+    monkeypatch.setattr(
+        composition_module,
+        "CloudRunExecutionBackend",
+        lambda bindings: backend if bindings == {plan.revision: binding} else None,
+    )
+
+    def unexpected(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("a public-cloud client or AWS storage path was constructed")
+
+    monkeypatch.setattr(composition_module, "FargateExecutionBackend", unexpected)
+    startup = None
+    try:
+        startup = build_control_startup(
+            graph_store=None,
+            run_store_binding=PostgreSQLRunStoreStartupBinding(
+                connection_environment_variable=connection_environment_variable,
+                schema_name=schema_name,
+            ),
+            schedule_source_binding=PostgreSQLScheduleSourceStartupBinding(
+                connection_environment_variable=connection_environment_variable,
+                schema_name=schema_name,
+            ),
+            project_config=tmp_path / "dander.yaml",
+            plan_paths=(plan_path,),
+            trigger_paths=(trigger_path,),
+            environment="gcp",
+            gcp_project_id="dander-unit-project",
+            reconcile_interval_seconds=0.01,
+            shutdown_grace_seconds=1,
+        )
+        assert isinstance(startup.graph_store, PostgreSQLGraphStore)
+        run_store = startup.composition.lifecycle._store  # noqa: SLF001
+        sources = startup.composition.lifecycle._submission_sources  # noqa: SLF001
+        assert isinstance(run_store, PostgreSQLRunStore)
+        assert len(sources) == 1
+        assert isinstance(sources[0], PostgreSQLScheduleSubmissionSource)
+        created = startup.graph_store.create(
+            "demo",
+            "live-probe",
+            DOCUMENT,
+            idempotency_key="live-graph-key-0001",
+        )
+        assert startup.graph_store.get("demo", "live-probe") == created
+        assert run_store.list(cursor=None, limit=1).items == ()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not startup.composition.lifecycle.ready():
+            time.sleep(0.01)
+        assert startup.composition.lifecycle.ready()
+        pool = cast("PostgreSQLControlPool", startup._shared_pool)  # noqa: SLF001
+        assert pool is not None and pool.closed is False
+        startup.close()
+        startup.close()
+        assert pool.closed is True
+        assert backend.close_count == 1
+    finally:
+        if startup is not None:
+            startup.close()
+        with connect(dsn, autocommit=True) as connection:
+            connection.execute(
+                sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(schema_name))
+            )
 
 
 def test_fargate_startup_binds_canonical_plans_to_existing_aws_resources(
