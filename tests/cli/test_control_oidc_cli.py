@@ -6,15 +6,22 @@ import json
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
 
+import pytest
+from click import unstyle
 from typer.testing import CliRunner
 
 from dander.cli.main import app
 from dander.control import InMemoryGraphStore
+from dander.control.startup_bindings import (
+    S3RunStoreStartupBinding,
+    SQSScheduleSourceStartupBinding,
+    serialize_run_store_startup_binding,
+    serialize_schedule_source_startup_binding,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    import pytest
     from uvicorn import Server
 
     from dander.control.orchestration import PlacementCandidate, SizeClassCandidate
@@ -39,7 +46,7 @@ def test_external_bind_requires_a_valid_oidc_input() -> None:
 
     assert result.exit_code == 1
     assert result.exception is not None
-    assert "require a valid --oidc-config" in str(result.exception)
+    assert "require a valid --oidc-config" in unstyle(result.output)
 
 
 def test_hosted_server_disables_query_bearing_uvicorn_access_logs(
@@ -177,7 +184,7 @@ def test_ephemeral_and_bound_graph_store_are_mutually_exclusive(tmp_path: Path) 
 
     assert result.exit_code == 1
     assert result.exception is not None
-    assert "mutually exclusive" in str(result.exception)
+    assert "mutually exclusive" in result.output
 
 
 def test_execution_plans_require_a_durable_run_store(tmp_path: Path) -> None:
@@ -191,7 +198,7 @@ def test_execution_plans_require_a_durable_run_store(tmp_path: Path) -> None:
 
     assert result.exit_code == 1
     assert result.exception is not None
-    assert "must be configured together" in str(result.exception)
+    assert "must be configured together" in result.output
 
 
 def test_execution_plan_options_install_lifecycle_readiness(
@@ -278,3 +285,267 @@ def test_execution_plan_options_install_lifecycle_readiness(
     assert observed[0]["default_size_class"] == "small"
     assert result.stdout.count("Serving Dander Control") == 1
     assert lifecycle.close_count == 1
+
+
+def test_typed_run_and_schedule_configs_install_the_canonical_startup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text("{}", encoding="utf-8")
+    trigger_path = tmp_path / "trigger.json"
+    trigger_path.write_text("{}", encoding="utf-8")
+    run_store_path = tmp_path / "run-store.json"
+    run_store_path.write_bytes(
+        serialize_run_store_startup_binding(
+            S3RunStoreStartupBinding(
+                bucket="dander-control-runs",
+                prefix="dander-control/v1",
+                expected_bucket_owner="123456789012",
+                region="us-east-1",
+            )
+        )
+    )
+    schedule_path = tmp_path / "schedule-source.json"
+    schedule_path.write_bytes(
+        serialize_schedule_source_startup_binding(
+            SQSScheduleSourceStartupBinding(
+                queue_url=(
+                    "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules"
+                ),
+                expected_account_id="123456789012",
+                region="us-east-1",
+            )
+        )
+    )
+    observed: list[dict[str, object]] = []
+
+    class _Lifecycle:
+        close_count = 0
+
+        def ready(self) -> bool:
+            return True
+
+        def close(self) -> None:
+            self.close_count += 1
+
+    class _Startup:
+        def __init__(self) -> None:
+            self.graph_store = InMemoryGraphStore()
+            self.composition = SimpleNamespace(lifecycle=_Lifecycle(), resolver=object())
+            self.close_count = 0
+
+        def close(self) -> None:
+            self.close_count += 1
+
+    startup = _Startup()
+
+    def build(**kwargs: object) -> object:
+        observed.append(kwargs)
+        return startup
+
+    monkeypatch.setattr("dander.control.startup_factory.build_control_startup", build)
+    monkeypatch.setattr("uvicorn.Server.run", lambda _server: None)
+    result = CliRunner().invoke(
+        app,
+        [
+            "control",
+            "serve",
+            "--ephemeral",
+            "--execution-plan",
+            str(plan_path),
+            "--run-store-config",
+            str(run_store_path),
+            "--trigger-spec",
+            str(trigger_path),
+            "--schedule-source-config",
+            str(schedule_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    run_binding = cast("S3RunStoreStartupBinding", observed[0]["run_store_binding"])
+    schedule_binding = cast(
+        "SQSScheduleSourceStartupBinding", observed[0]["schedule_source_binding"]
+    )
+    assert run_binding.kind == "s3"
+    assert schedule_binding.kind == "sqs"
+    assert observed[0]["plan_paths"] == [plan_path]
+    assert observed[0]["trigger_paths"] == [trigger_path]
+    assert startup.composition.lifecycle.close_count == 1
+    assert startup.close_count == 1
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (["--run-store-bucket", "legacy-bucket"], "cannot be combined with legacy"),
+        (["--run-store-prefix", "legacy/prefix"], "cannot be combined with legacy"),
+    ],
+)
+def test_typed_run_store_rejects_mixed_legacy_selection(
+    tmp_path: Path,
+    extra: list[str],
+    message: str,
+) -> None:
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text("{}", encoding="utf-8")
+    run_store_path = tmp_path / "run-store.json"
+    run_store_path.write_bytes(
+        serialize_run_store_startup_binding(
+            S3RunStoreStartupBinding(
+                bucket="dander-control-runs",
+                prefix="dander-control/v1",
+                expected_bucket_owner="123456789012",
+                region="us-east-1",
+            )
+        )
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "control",
+            "serve",
+            "--ephemeral",
+            "--execution-plan",
+            str(plan_path),
+            "--run-store-config",
+            str(run_store_path),
+            *extra,
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert message in result.output
+
+
+def test_typed_schedule_source_rejects_mixed_legacy_queue_and_missing_pair(
+    tmp_path: Path,
+) -> None:
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text("{}", encoding="utf-8")
+    trigger_path = tmp_path / "trigger.json"
+    trigger_path.write_text("{}", encoding="utf-8")
+    run_store_path = tmp_path / "run-store.json"
+    run_store_path.write_bytes(
+        serialize_run_store_startup_binding(
+            S3RunStoreStartupBinding(
+                bucket="dander-control-runs",
+                prefix="dander-control/v1",
+                expected_bucket_owner="123456789012",
+                region="us-east-1",
+            )
+        )
+    )
+    schedule_path = tmp_path / "schedule-source.json"
+    schedule_path.write_bytes(
+        serialize_schedule_source_startup_binding(
+            SQSScheduleSourceStartupBinding(
+                queue_url=(
+                    "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules"
+                ),
+                expected_account_id="123456789012",
+                region="us-east-1",
+            )
+        )
+    )
+    base = [
+        "control",
+        "serve",
+        "--ephemeral",
+        "--execution-plan",
+        str(plan_path),
+        "--run-store-config",
+        str(run_store_path),
+        "--trigger-spec",
+        str(trigger_path),
+    ]
+
+    missing = CliRunner().invoke(app, base)
+    mixed = CliRunner().invoke(
+        app,
+        [
+            *base,
+            "--schedule-source-config",
+            str(schedule_path),
+            "--schedule-queue-url",
+            "https://sqs.us-east-1.amazonaws.com/123456789012/legacy",
+        ],
+    )
+
+    assert missing.exit_code == 1
+    assert "schedule-source selection" in missing.output
+    assert mixed.exit_code == 1
+    assert "cannot be combined with legacy" in mixed.output
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [
+        "typed-run-legacy-schedule",
+        "legacy-run-typed-schedule",
+    ],
+)
+def test_control_startup_rejects_cross_mode_run_and_schedule_selection(
+    tmp_path: Path,
+    selection: str,
+) -> None:
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text("{}", encoding="utf-8")
+    trigger_path = tmp_path / "trigger.json"
+    trigger_path.write_text("{}", encoding="utf-8")
+    run_store_path = tmp_path / "run-store.json"
+    run_store_path.write_bytes(
+        serialize_run_store_startup_binding(
+            S3RunStoreStartupBinding(
+                bucket="dander-control-runs",
+                prefix="dander-control/v1",
+                expected_bucket_owner="123456789012",
+                region="us-east-1",
+            )
+        )
+    )
+    schedule_path = tmp_path / "schedule-source.json"
+    schedule_path.write_bytes(
+        serialize_schedule_source_startup_binding(
+            SQSScheduleSourceStartupBinding(
+                queue_url=(
+                    "https://sqs.us-east-1.amazonaws.com/123456789012/dander-control-schedules"
+                ),
+                expected_account_id="123456789012",
+                region="us-east-1",
+            )
+        )
+    )
+    args = [
+        "control",
+        "serve",
+        "--ephemeral",
+        "--execution-plan",
+        str(plan_path),
+        "--trigger-spec",
+        str(trigger_path),
+    ]
+    if selection == "typed-run-legacy-schedule":
+        args.extend(
+            [
+                "--run-store-config",
+                str(run_store_path),
+                "--schedule-queue-url",
+                "https://sqs.us-east-1.amazonaws.com/123456789012/legacy",
+            ]
+        )
+    else:
+        args.extend(
+            [
+                "--run-store-bucket",
+                "legacy-bucket",
+                "--schedule-source-config",
+                str(schedule_path),
+            ]
+        )
+
+    result = CliRunner().invoke(app, args)
+
+    assert result.exit_code == 1
+    assert "cannot be combined" in result.output

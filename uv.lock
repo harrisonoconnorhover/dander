@@ -848,7 +848,7 @@ requires-dist = [
     { name = "snowflake-connector-python", marker = "extra == 'snowflake'", specifier = ">=3.12,<5" },
     { name = "sqlglot", specifier = ">=25.0" },
     { name = "tenacity", specifier = ">=8.5" },
-    { name = "typer", specifier = ">=0.12" },
+    { name = "typer", specifier = ">=0.26.8" },
     { name = "types-jsonschema", marker = "extra == 'dev'", specifier = ">=4.23" },
     { name = "types-protobuf", marker = "extra == 'dev'" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },

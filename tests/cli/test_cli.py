@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
+from click import unstyle
 from typer.testing import CliRunner
 
 from dander.cli.main import _build_source_adapter, app
@@ -310,4 +311,4 @@ def test_control_service_rejects_external_bind_without_oidc_config() -> None:
 
     assert result.exit_code == 1
     assert result.exception is not None
-    assert "require a valid --oidc-config" in str(result.exception)
+    assert "require a valid --oidc-config" in unstyle(result.output)

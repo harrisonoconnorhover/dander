@@ -1,0 +1,5 @@
+# Start a local, ephemeral graph editor API. No provider connection is constructed.
+ephemeral: true
+host: 127.0.0.1
+port: 8770
+project: [demo]

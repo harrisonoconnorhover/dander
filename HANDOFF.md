@@ -2,36 +2,42 @@
 
 ## Finished
 
-- Closed the 2026-08-02 through 2026-09-01 retained GCP operator observation.
-- Reconciled the final streak, reruns, failure diagnostics, data, cursors, leases, and staging cleanup.
-- Recorded the post-window Salesforce timeout and its successful one-run recovery.
-- Paused all five retained schedules through reviewed Terraform while preserving jobs and evidence.
-- Updated the bounded GCP status without claiming broader Phase 8 completion.
+- Reconciled current support, source, release, and operator-trial status in PR #527.
+- Integrated PostgreSQL graph/run/schedule durability and typed startup from the preserved branch.
+- Added a YAML Control profile with relative paths and explicit command-line overrides.
+- Routed Control validation errors through Typer's normal terminal formatter.
 
 ## Try It
 
-Run `uv run dander validate --config dander.yaml` and review issue #26.
+From this checkout, run `uv sync --frozen --extra dev --extra postgres`, then
+`uv run dander control serve --profile examples/control/local.yaml`. Stop with Ctrl-C.
+See `docs/control-profiles.md` for PostgreSQL startup with existing plans.
 
 ## Checks
 
-- Final seven days: 21 of 21 enabled scheduled executions succeeded.
-- Manual HubSpot and Salesforce recovery executions succeeded and matched the durable ledger.
-- Raw/staging counts and unique keys matched; all leases were released; zero staging tables remained.
-- Pause apply changed exactly three schedulers; all five are paused; post-apply Terraform reported no changes.
-- Manifest validation, focused tests, dependency audit, and `git diff --check` passed.
+- 64 focused lifecycle and PostgreSQL tests passed against disposable local PostgreSQL 17.
+- 23 profile and Control CLI tests passed.
+- Repository Ruff lint/format, strict typing (489 files), Control contract drift, documentation
+  links, and diff whitespace checks passed.
+- The complete Python suite passed: 2,280 tests, with one existing Starlette warning.
+- The installed console served `/v1/projects` using the example profile; it was stopped and the
+  disposable PostgreSQL container removed. Colored-output assertions were normalized for CI.
+- Protected-main verification follows the integration PR.
 
 ## Decisions
 
-- Preserve the unavailable ServiceNow job and evidence while recording its external PDI limitation.
-- Treat the Sep. 2 Salesforce timeout as post-window evidence and require one successful recovery before closure.
-- Keep DANDER-207 and broader Phase 8 support qualification open.
+- Keep one Control process per run-store schema; do not import HDFS-only placement contracts.
+- Reuse CLI validation and existing canonical plan/binding files for profiles.
+- Preserve the remaining HDFS branch and the completed GCP trial evidence.
 
 ## Remaining
 
-- Complete the other cost, scale, matrix, audit, documentation, release, and support gates in DANDER-207.
+- Complete protected integration and exact-main CI.
+- Consolidate identical object-store record and journal definitions separately.
+- Identify an existing secure Hadoop environment and access for enterprise qualification.
 
 ## Review First
 
-- `docs/operator-soak.md`
-- `dander.yaml`
-- GitHub issue #26
+- `src/dander/control/startup_factory.py`
+- `src/dander/cli/control_profile.py`
+- `docs/control-profiles.md`
