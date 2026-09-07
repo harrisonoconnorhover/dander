@@ -40,11 +40,8 @@ jobs:
           else
             BASE_SHA="$(git rev-parse HEAD^)"
           fi
-          mapfile -t CHANGED_PATHS < <(
-            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA"
-          )
-          LANE="$(python3 scripts/validate_redshift_objective.py \
-            --ci-scope "${CHANGED_PATHS[@]}")"
+          LANE="$(python3 scripts/check_ci_scope.py \
+            --base "$BASE_SHA" --head "$GITHUB_SHA")"
           printf 'base_sha=%s\nlane=%s\n' "$BASE_SHA" "$LANE" >> "$GITHUB_OUTPUT"
 
   python-quality:
@@ -74,7 +71,7 @@ jobs:
         with:
           enable-cache: true
       - name: Install locked environment
-        if: needs.scope.outputs.lane != 'objective'
+        if: needs.scope.outputs.lane == 'full' || needs.scope.outputs.lane == 'benchmark'
         run: uv sync --frozen --extra dev --extra postgres
       - name: Ruff lint
         if: needs.scope.outputs.lane == 'full'
@@ -115,6 +112,15 @@ jobs:
           if [ "${#OBJECTIVES[@]}" -gt 0 ]; then
             python3 scripts/validate_redshift_objective.py "${OBJECTIVES[@]}"
           fi
+      - name: Documentation checks
+        if: needs.scope.outputs.lane == 'documentation'
+        env:
+          BASE_SHA: ${{ needs.scope.outputs.base_sha }}
+        run: |
+          git diff --check "$BASE_SHA" "$GITHUB_SHA"
+          python3 scripts/verify_repository_target.py --remote origin --push
+          uv run --isolated --frozen --extra dev --extra postgres \
+            pytest tests/test_ci_scope.py tests/test_repository_safety.py -q
       - name: Objective and evidence checks
         if: needs.scope.outputs.lane == 'objective'
         env:
@@ -148,7 +154,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
-        if: needs.scope.outputs.lane != 'objective'
+        if: needs.scope.outputs.lane == 'full' || needs.scope.outputs.lane == 'benchmark'
         with:
           terraform_version: 1.15.8
       - name: Format
@@ -248,10 +254,10 @@ jobs:
           terraform -chdir=qualification/aws-native init -backend=false -input=false
           terraform -chdir=qualification/aws-native validate
           terraform -chdir=qualification/aws-native test
-      - name: Confirm objective lane has no Terraform blast radius
-        if: needs.scope.outputs.lane == 'objective'
+      - name: Confirm documentation and objective lanes have no Terraform changes
+        if: needs.scope.outputs.lane == 'objective' || needs.scope.outputs.lane == 'documentation'
         working-directory: .
-        run: test "${{ needs.scope.outputs.lane }}" = "objective"
+        run: test "${{ needs.scope.outputs.lane }}" != "full"
 
   distribution:
     name: Distribution install

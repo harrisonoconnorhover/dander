@@ -8,10 +8,20 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Preserve the old CLI/import entrypoints while generic CI policy lives independently.
+from scripts.check_ci_scope import (  # noqa: E402
+    classify_ci_scope as classify_ci_scope,
+)
 
 RC32_VERSION = "0.9.0rc32"
 RC32_GIT_COMMIT = "0d648a622fa2b0240a3b7b5fb8b7151445591bca"
@@ -617,39 +627,6 @@ def _validate_query_boundary_diagnostic(
     )
 
 
-def classify_ci_scope(paths: list[str]) -> str:
-    """Return objective, benchmark, or full for one Git diff."""
-    if not paths:
-        return "full"
-    lane = "objective"
-    for value in paths:
-        path = Path(value)
-        light = (
-            value == "AGENTS.md"
-            or value.endswith("/AGENTS.md")
-            or value == "HANDOFF.md"
-            or (value.startswith("tickets/") and value.endswith(".md"))
-            or value.startswith("docs/evidence/phase8/")
-        )
-        if light:
-            if "objective" in path.name and not _is_rc32_redshift_objective(value):
-                return "full"
-            continue
-        benchmark = (
-            value.startswith("scripts/benchmarks/")
-            or value == "scripts/validate_redshift_objective.py"
-            or value == "tests/test_validate_redshift_objective.py"
-            or (
-                value.startswith("tests/portability/")
-                and ("phase8" in path.name or "redshift" in path.name)
-            )
-        )
-        if not benchmark:
-            return "full"
-        lane = "benchmark"
-    return lane
-
-
 def smoke_candidate_commands(
     paths: list[Path],
     *,
@@ -820,11 +797,6 @@ def _candidate_command(module: str) -> str:
 def _benchmark_script(module: str) -> str:
     _require(module in BENCHMARK_DEPENDENCIES, f"unsupported benchmark module: {module}")
     return module.replace(".", "/") + ".py"
-
-
-def _is_rc32_redshift_objective(path: str) -> bool:
-    name = Path(path).name
-    return "rc32-redshift" in name and "objective" in name and name.endswith(".json")
 
 
 def _load_object(path: Path) -> dict[str, object]:

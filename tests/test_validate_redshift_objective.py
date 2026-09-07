@@ -303,8 +303,8 @@ def test_local_rc32_image_smoke_uses_exact_bundle_and_fail_closed_container(
 @pytest.mark.parametrize(
     ("paths", "expected"),
     [
-        (["AGENTS.md"], "objective"),
-        (["docs/operator/AGENTS.md"], "objective"),
+        (["AGENTS.md"], "documentation"),
+        (["docs/operator/AGENTS.md"], "documentation"),
         (["HANDOFF.md", "docs/evidence/phase8/2026-08-24/result.json"], "objective"),
         (
             ["docs/evidence/phase8/2026-08-24/aws-native-rc32-redshift-bulk-objectives.json"],
@@ -332,7 +332,7 @@ def test_ci_scope_is_proportional_to_changed_paths(
 def test_ci_routes_light_changes_away_from_distribution_and_container_builds() -> None:
     workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
 
-    assert "--ci-scope" in workflow
+    assert "scripts/check_ci_scope.py" in workflow
     assert "Objective and evidence checks" in workflow
     assert "Benchmark and harness checks" in workflow
     assert "Validate AWS-native qualification Terraform" in workflow
