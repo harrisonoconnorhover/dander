@@ -193,15 +193,16 @@ class CloudRunExecutionBackend:
             return self._running("starting")
         self._validate_execution(binding, execution, handle.execution_id)
         completion_time = execution.get("completionTime")
-        if completion_time is None:
+        terminal_cancellation = _terminal_cancellation(execution)
+        if completion_time is None and not terminal_cancellation:
             return self._running("running" if execution.get("startTime") else "starting")
-        if not isinstance(completion_time, str):
+        if completion_time is not None and not isinstance(completion_time, str):
             raise ExecutionBackendError("Cloud Run returned an invalid completion time.")
         task_count = _count(execution.get("taskCount"))
         succeeded = _count(execution.get("succeededCount"))
         failed = _count(execution.get("failedCount"))
         canceled = _count(execution.get("cancelledCount"))
-        if canceled > 0:
+        if canceled > 0 or terminal_cancellation:
             outcome = RunOutcome.CANCELED
             stage = "canceled"
             failure_code = "operator_cancelled"
@@ -315,7 +316,7 @@ class CloudRunExecutionBackend:
         if execution is None:
             raise ExecutionBackendError("Cloud Run execution is not available for cancellation.")
         self._validate_execution(binding, execution, handle.execution_id)
-        if execution.get("completionTime") is not None:
+        if execution.get("completionTime") is not None or _terminal_cancellation(execution):
             return
         etag = execution.get("etag")
         request = {"etag": etag} if isinstance(etag, str) and etag else {}
@@ -329,7 +330,9 @@ class CloudRunExecutionBackend:
             )
         except _GoogleCallError as cancel_error:
             reconciled = self._try_get_execution(handle.execution_id)
-            if reconciled is not None and reconciled.get("completionTime") is not None:
+            if reconciled is not None and (
+                reconciled.get("completionTime") is not None or _terminal_cancellation(reconciled)
+            ):
                 return
             raise ExecutionBackendError(
                 "Cloud Run cancellation could not be reconciled."
@@ -506,6 +509,18 @@ def _count(value: object) -> int:
     if isinstance(value, str) and value.isdigit():
         return int(value)
     return 0
+
+
+def _terminal_cancellation(execution: Mapping[str, object]) -> bool:
+    """Cloud Run omits completionTime when cancellation precedes task startup."""
+    conditions = execution.get("conditions")
+    return isinstance(conditions, list) and any(
+        isinstance(condition, Mapping)
+        and condition.get("type") == "Completed"
+        and condition.get("state") == "CONDITION_FAILED"
+        and condition.get("executionReason") == "CANCELLED"
+        for condition in conditions
+    )
 
 
 def _execution_failure_code(execution: Mapping[str, object]) -> str:

@@ -403,6 +403,34 @@ def test_cancel_is_idempotent_after_terminal_observation() -> None:
     assert len([call for call in transport.calls if call[1].endswith(":cancel")]) == 1
 
 
+def test_cancellation_before_start_is_terminal_without_a_completion_timestamp() -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan)
+    execution = transport.executions[handle.execution_id]
+    execution.pop("startTime")
+    execution.update(
+        {
+            "cancelledCount": 1,
+            "conditions": [
+                {"type": "Started", "state": "CONDITION_RECONCILING"},
+                {
+                    "type": "Completed",
+                    "state": "CONDITION_FAILED",
+                    "executionReason": "CANCELLED",
+                },
+            ],
+        }
+    )
+
+    observed = backend.observe(plan, handle)
+    assert observed.execution_state is BackendExecutionState.TERMINAL
+    assert observed.outcome is RunOutcome.CANCELED
+    assert observed.cleanup_state is CleanupState.CONFIRMED
+    assert observed.results_state is ResultsState.UNAVAILABLE
+    backend.cancel(plan, handle)
+    assert not [call for call in transport.calls if call[1].endswith(":cancel")]
+
+
 def test_unregistered_plan_and_foreign_handle_fail_before_provider_mutation() -> None:
     backend, plan, transport = _backend()
     changed = replace(plan, plan_id="different-plan")
