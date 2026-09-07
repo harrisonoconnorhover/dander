@@ -86,5 +86,19 @@ topology. Startup applies the known schema migrations before accepting traffic; 
 database backups and preserve the corresponding canonical plan files. No automatic data-store
 migration from an existing S3 profile occurs.
 
+## Google credentials
+
+Standalone Control uses Google's Application Default Credentials for Cloud Run, Dataproc, and
+BigQuery metadata. For a local operator, initialize them with
+`gcloud auth application-default login`; on Google infrastructure, use the attached service
+account. Set `gcp-project-id` explicitly in the profile so a different CLI default project cannot
+select the execution destination. Credentials are not stored in the YAML or canonical plan.
+
+AWS-hosted Control retains its existing Fargate federation path. If any of
+`DANDER_GCP_WIF_AUDIENCE`, `DANDER_GCP_SERVICE_ACCOUNT`, or
+`AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` is present, that path must be fully configured; incomplete
+federation never falls back to another Google account. Credential failures return a sanitized
+error without provider exception details.
+
 Local tests exercise PostgreSQL persistence, claims, scheduling, and startup using fake execution
 backends. They do not establish secure Hadoop, Kubernetes, or live GCP execution qualification.

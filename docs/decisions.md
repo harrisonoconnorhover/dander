@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-09-07 — Standalone Control uses ambient Google credentials
+
+- Google Control clients use Application Default Credentials outside configured Fargate
+  federation. Explicit or partial federation configuration keeps the existing strict AWS path;
+  authentication never silently switches accounts after a federation error.
+- The PostgreSQL/GCP workflow check uses the existing public Greenhouse graph, a current
+  exact-main immutable worker, and a temporary Cloud Run Job in the documented proof project.
+  The retained RC22 jobs and paused schedules remain the historical operator trial. Older worker
+  completion events lack the telemetry required by current Control result summaries.
+
 ## 2026-09-07 — Share identical object-store records before provider operations
 
 - S3, Azure Blob, and OCI now share their six identical graph metadata and journal models in
