@@ -3,7 +3,13 @@
 The repository workflow at `.github/workflows/ci.yml` is the required precondition for live proof
 work. It runs on pull requests, pushes to `main`, and manual dispatch without any GCP credentials.
 
-The core local preflight is:
+`scripts/check_ci_scope.py` classifies the complete Git diff, including deleted files and both
+sides of renames. Runtime, workflow, packaging, and unknown changes use the full lane.
+Documentation outside packaged source uses focused diff, scope, and repository checks. Existing
+objective/evidence and benchmark lanes retain their specialized validation. Secret scanning runs
+in every lane; required job names remain stable even when their expensive steps are unnecessary.
+
+The core local preflight for runtime changes is:
 
 ```bash
 uv sync --frozen --extra dev --extra postgres
