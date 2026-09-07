@@ -3,9 +3,10 @@
 ## Finished
 
 - Reconciled current support, source, release, and operator-trial status in PR #527.
-- Integrated PostgreSQL graph/run/schedule durability and typed startup from the preserved branch.
+- Merged PostgreSQL graph/run/schedule durability and typed startup in protected PR #528.
 - Added a YAML Control profile with relative paths and explicit command-line overrides.
 - Routed Control validation errors through Typer's normal terminal formatter.
+- Shared six identical S3/Azure/OCI graph metadata and journal models, removing about 330 lines.
 
 ## Try It
 
@@ -17,12 +18,14 @@ See `docs/control-profiles.md` for PostgreSQL startup with existing plans.
 
 - 64 focused lifecycle and PostgreSQL tests passed against disposable local PostgreSQL 17.
 - 23 profile and Control CLI tests passed.
-- Repository Ruff lint/format, strict typing (489 files), Control contract drift, documentation
+- 24 focused CLI tests passed with forced colored output; 135 shared/provider GraphStore tests passed.
+- The combined storage, startup, and CLI regression check passed all 181 tests with colored output.
+- Repository Ruff lint/format, strict typing (490 files), Control contract drift, documentation
   links, and diff whitespace checks passed.
 - The complete Python suite passed: 2,280 tests, with one existing Starlette warning.
 - The installed console served `/v1/projects` using the example profile; it was stopped and the
   disposable PostgreSQL container removed. Colored-output assertions were normalized for CI.
-- Protected-main verification follows the integration PR.
+- All six protected PR #528 checks passed; exact-main and storage integration checks are pending.
 
 ## Decisions
 
@@ -33,11 +36,11 @@ See `docs/control-profiles.md` for PostgreSQL startup with existing plans.
 ## Remaining
 
 - Complete protected integration and exact-main CI.
-- Consolidate identical object-store record and journal definitions separately.
+- Finish the protected shared-record integration.
 - Identify an existing secure Hadoop environment and access for enterprise qualification.
 
 ## Review First
 
 - `src/dander/control/startup_factory.py`
 - `src/dander/cli/control_profile.py`
-- `docs/control-profiles.md`
+- `src/dander/control/object_graph_records.py`
