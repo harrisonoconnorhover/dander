@@ -81,9 +81,11 @@ with httpx.Client(timeout=45) as client:
 
 Run the snippet with `uv run python`. Repeating its idempotency key returns the same run; choose
 a new key only to request another execution. The printed status URL contains state, row counts,
-and telemetry. `/v1/runs` lists history, and `/v1/runs/{run_id}/logs` reads execution logs. To cancel,
-POST an empty body to `/v1/runs/{run_id}/cancel` with a new `Idempotency-Key`. Wait for `canceled`
-before treating cancellation as complete. Restart Control with the same profile and database to
+and telemetry. `/v1/runs` lists history, and `/v1/runs/{run_id}/logs` reads execution logs. Pass each
+response's `next_cursor` as `cursor` until it is null; a provider page may be empty and still have
+a continuation cursor. To cancel, POST an empty body to `/v1/runs/{run_id}/cancel` with a new
+`Idempotency-Key`. Wait for `canceled` before treating cancellation as complete. Restart Control
+with the same profile and database to
 resume observing an accepted execution.
 
 An operator supplies a PostgreSQL connection through `DANDER_CONTROL_DATABASE_URL` using the
@@ -151,5 +153,21 @@ AWS-hosted Control retains its existing Fargate federation path. If any of
 federation never falls back to another Google account. Credential failures return a sanitized
 error without provider exception details.
 
-Local tests exercise PostgreSQL persistence, claims, scheduling, and startup using fake execution
-backends. They do not establish secure Hadoop, Kubernetes, or live GCP execution qualification.
+## Observed workflow
+
+On September 7, 2026, [DANDER-283](../tickets/DANDER-283-postgresql-gcp-workflow.md) exercised the
+public Greenhouse graph using local PostgreSQL 17, one Control process, native Google credentials,
+and a temporary Cloud Run Job. The worker came from main `a548d74`; final Control reconciliation
+used main `98d4186`. Both revisions passed their exact-main CI checks.
+
+A forced Control restart adopted the same execution, and repeating its request key returned the
+same run. Ingestion processed 18 jobs; the graph's 38 published rows matched the retained source
+exactly. A second execution canceled before startup. Both terminal run histories survived another
+restart, and the successful completion event was readable through API logs. The temporary Job,
+image, database container, and Control process were removed after observation; the five retained
+operator schedules stayed paused.
+
+This is one named Cloud Run workflow. Local tests cover additional PostgreSQL persistence,
+claims, scheduling, and startup behavior using fake execution backends. Neither establishes
+secure Hadoop, Kubernetes, multiple-replica Control, or broader release qualification. The legacy
+graph emitted no operation-level telemetry; its zero byte counters do not establish zero billing.
