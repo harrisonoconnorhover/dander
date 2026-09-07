@@ -9,13 +9,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol, cast
 
-from google.cloud import bigquery
-
 from dander.identity import google_client_options
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
+
+    from google.cloud import bigquery
 
 
 class RunStatus(StrEnum):
@@ -168,6 +168,8 @@ class BigQueryRunHistoryStore(RunHistoryStore):
         client: _Client | None = None,
         initialize_on_read: bool = True,
     ) -> None:
+        from google.cloud import bigquery
+
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", project):
             raise ValueError(f"Invalid BigQuery project: {project!r}")
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dataset):
@@ -185,6 +187,8 @@ class BigQueryRunHistoryStore(RunHistoryStore):
         self._ensure_table()
 
     def start(self, run_id: str, source: str, *, pipeline_id: str | None = None) -> None:
+        from google.cloud import bigquery
+
         self._ensure_table()
         config = bigquery.QueryJobConfig(
             query_parameters=[
@@ -210,6 +214,8 @@ class BigQueryRunHistoryStore(RunHistoryStore):
         pipeline_id: str | None = None,
     ) -> None:
         """Atomically resume one logical run only after a retryable terminal failure."""
+        from google.cloud import bigquery
+
         self._ensure_table()
         config = bigquery.QueryJobConfig(
             query_parameters=[
@@ -318,6 +324,8 @@ class BigQueryRunHistoryStore(RunHistoryStore):
         failure_code: str | None = None,
         failure_summary: str | None = None,
     ) -> None:
+        from google.cloud import bigquery
+
         self._ensure_table()
         config = bigquery.QueryJobConfig(
             query_parameters=[
@@ -396,6 +404,8 @@ class BigQueryRunHistoryStore(RunHistoryStore):
         limit: int = 20,
         pipeline_id: str | None = None,
     ) -> tuple[RunRecord, ...]:
+        from google.cloud import bigquery
+
         if not 1 <= limit <= 1000:
             raise ValueError("limit must be between 1 and 1000")
         if self._initialize_on_read:
@@ -421,6 +431,8 @@ class BigQueryRunHistoryStore(RunHistoryStore):
         return tuple(_bigquery_run_record(cast("_Row", row)) for row in rows)
 
     def reconcile_interrupted(self, pipeline_id: str, *, current_run_id: str) -> None:
+        from google.cloud import bigquery
+
         self._ensure_table()
         config = bigquery.QueryJobConfig(
             query_parameters=[

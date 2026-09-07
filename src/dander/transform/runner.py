@@ -7,11 +7,12 @@ from functools import partial
 from typing import TYPE_CHECKING, Protocol, cast
 
 import sqlglot
-from google.cloud import bigquery
 
-from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import OwnershipGuard, fenced_dml, fencing_job_config
 from dander.identity import google_client_options
+from dander.providers.bigquery.telemetry import BigQueryJobTelemetry
+from dander.telemetry import TelemetryOperation
+from dander.transform.assertions import GenericAssertion, plan_assertions
 from dander.transform.model import Materialization, SqlDialect
 from dander.transform.project import (
     TransformModel,
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
 
-    from dander.transform.config import GenericTestMetadata
+    from google.cloud import bigquery
 
 
 class _QueryRow(Protocol):
@@ -73,10 +74,14 @@ class BigQueryTransformRunner:
     ) -> None:
         self._project = project
         self._raw_namespace = raw_namespace
-        self._client = client or cast(
-            "_BigQueryClient",
-            bigquery.Client(project=project, **google_client_options()),
-        )
+        if client is None:
+            from google.cloud import bigquery
+
+            client = cast(
+                "_BigQueryClient",
+                bigquery.Client(project=project, **google_client_options()),
+            )
+        self._client = client
 
     def build(
         self,
@@ -101,19 +106,28 @@ class BigQueryTransformRunner:
         assertions = [
             assertion for model in models for assertion in _compile_assertions(project, model)
         ]
+        telemetry = BigQueryJobTelemetry()
         for statement in statements:
             if ownership is not None:
                 ownership.verify()
             if statement.dml_finalizer and ownership is not None and ownership.fence is not None:
                 script = fenced_dml(statement.sql, ownership.fence)
                 config = fencing_job_config(ownership.fence)
-                run_mutation_with_retry(partial(self._client.query, script, job_config=config))
+                telemetry.run(
+                    partial(self._client.query, script, job_config=config),
+                    operation=TelemetryOperation.TRANSFORM,
+                    retry_mutation=True,
+                )
             else:
-                self._client.query(statement.sql).result()
-        self._run_assertions(assertions, ownership=ownership)
+                telemetry.run(
+                    partial(self._client.query, statement.sql),
+                    operation=TelemetryOperation.TRANSFORM,
+                )
+        self._run_assertions(assertions, telemetry, ownership=ownership)
         return TransformRunResult(
             models=tuple(model.name for model in models),
             assertions=len(assertions),
+            telemetry=telemetry.drain(),
         )
 
     def test(
@@ -132,15 +146,18 @@ class BigQueryTransformRunner:
         assertions = [
             assertion for model in models for assertion in _compile_assertions(project, model)
         ]
-        self._run_assertions(assertions)
+        telemetry = BigQueryJobTelemetry()
+        self._run_assertions(assertions, telemetry)
         return TransformRunResult(
             models=tuple(model.name for model in models),
             assertions=len(assertions),
+            telemetry=telemetry.drain(),
         )
 
     def _run_assertions(
         self,
         assertions: Iterable[_Assertion],
+        telemetry: BigQueryJobTelemetry,
         *,
         ownership: OwnershipGuard | None = None,
     ) -> None:
@@ -148,7 +165,11 @@ class BigQueryTransformRunner:
         for assertion in assertions:
             if ownership is not None:
                 ownership.verify()
-            rows = list(self._client.query(assertion.sql).result())
+            rows = list(
+                telemetry.run_result(
+                    partial(self._client.query, assertion.sql), operation=TelemetryOperation.TEST
+                )
+            )
             if len(rows) != 1:
                 raise TransformRunError(f"Assertion returned an invalid result: {assertion.name}")
             try:
@@ -269,81 +290,51 @@ def _incremental_materialization_statements(
     return create, merge
 
 
-def _compile_assertions(
-    project: TransformProject,
-    model: TransformModel,
-) -> tuple[_Assertion, ...]:
+def _compile_assertions(project: TransformProject, model: TransformModel) -> tuple[_Assertion, ...]:
     relation = project.relation_for_model(model)
-    assertions: list[_Assertion] = []
-    for test in model.metadata.tests:
-        assertions.extend(_assertions_for_test(project, model.name, relation, test))
-    return tuple(assertions)
+    return tuple(
+        _render_assertion(assertion, relation) for assertion in plan_assertions(project, model)
+    )
 
 
-def _assertions_for_test(
-    project: TransformProject,
-    model_name: str,
-    relation: str,
-    test: GenericTestMetadata,
-) -> list[_Assertion]:
-    column = f"`{test.column}`"
-    assertions: list[_Assertion] = []
-    if test.not_null:
-        assertions.append(
-            _Assertion(
-                name=f"{model_name}.{test.column}.not_null",
+def _render_assertion(assertion: GenericAssertion, relation: str) -> _Assertion:
+    column = f"`{assertion.column}`"
+    match assertion.kind:
+        case "not_null":
+            return _Assertion(
+                name=assertion.name,
                 sql=f"SELECT COUNTIF({column} IS NULL) AS failures FROM {relation}",
             )
-        )
-    if test.unique:
-        assertions.append(
-            _Assertion(
-                name=f"{model_name}.{test.column}.unique",
+        case "unique":
+            return _Assertion(
+                name=assertion.name,
                 sql=(
-                    "SELECT COUNT(*) AS failures FROM (\n"
-                    f"  SELECT {column}\n"
-                    f"  FROM {relation}\n"
-                    f"  WHERE {column} IS NOT NULL\n"
-                    f"  GROUP BY {column}\n"
-                    "  HAVING COUNT(*) > 1\n"
-                    ")"
+                    f"SELECT COUNT(*) AS failures FROM (\n  SELECT {column}\n  FROM "
+                    f"{relation}\n  WHERE {column} IS NOT NULL\n  GROUP BY {column}\n  "
+                    f"HAVING COUNT(*) > 1\n)"
                 ),
             )
-        )
-    if test.accepted_values is not None:
-        rendered = ", ".join(
-            sqlglot.exp.convert(value).sql(dialect="bigquery") for value in test.accepted_values
-        )
-        assertions.append(
-            _Assertion(
-                name=f"{model_name}.{test.column}.accepted_values",
+        case "accepted_values":
+            rendered = ", ".join(
+                sqlglot.exp.convert(value).sql(dialect="bigquery") for value in assertion.values
+            )
+            return _Assertion(
+                name=assertion.name,
                 sql=(
-                    f"SELECT COUNTIF({column} IS NOT NULL AND {column} NOT IN ({rendered})) "
-                    f"AS failures FROM {relation}"
+                    f"SELECT COUNTIF({column} IS NOT NULL AND {column} NOT IN "
+                    f"({rendered})) AS failures FROM {relation}"
                 ),
             )
-        )
-    if test.relationships is not None:
-        if test.relationships.to in project.models:
-            parent_model = project.models[test.relationships.to]
-            parent_columns = {column.name for column in parent_model.metadata.columns}
-            if test.relationships.field not in parent_columns:
-                raise TransformProjectError(
-                    "Relationship test references an undeclared parent column: "
-                    f"{test.relationships.to}.{test.relationships.field}"
-                )
-        parent = project.relation_for_ref(test.relationships.to)
-        parent_field = f"`{test.relationships.field}`"
-        assertions.append(
-            _Assertion(
-                name=f"{model_name}.{test.column}.relationships",
+        case "relationships":
+            assert assertion.parent is not None and assertion.parent_field is not None
+            parent = f"`{'.'.join(assertion.parent.coordinates)}`"
+            parent_field = f"`{assertion.parent_field}`"
+            return _Assertion(
+                name=assertion.name,
                 sql=(
-                    "SELECT COUNT(*) AS failures\n"
-                    f"FROM {relation} AS child\n"
-                    f"LEFT JOIN {parent} AS parent\n"
-                    f"  ON child.{column} = parent.{parent_field}\n"
-                    f"WHERE child.{column} IS NOT NULL AND parent.{parent_field} IS NULL"
+                    f"SELECT COUNT(*) AS failures\nFROM {relation} AS child\nLEFT JOIN "
+                    f"{parent} AS parent\n  ON child.{column} = "
+                    f"parent.{parent_field}\nWHERE child.{column} IS NOT NULL AND "
+                    f"parent.{parent_field} IS NULL"
                 ),
             )
-        )
-    return assertions

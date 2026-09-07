@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
@@ -34,6 +35,7 @@ from dander.control.orchestration import (
     ExecutionBackendError,
     ExecutionPlan,
     ExecutionResultSummary,
+    HostedRunState,
     OrchestrationContractError,
     PlacementCandidate,
     PlacementMode,
@@ -44,6 +46,7 @@ from dander.control.orchestration import (
     RunRecord,
     RunStore,
     RunStoreConflictError,
+    RunStoreError,
     RunStoreIdempotencyConflictError,
     RunSubmission,
     RunTrigger,
@@ -54,6 +57,7 @@ from dander.control.orchestration import (
     TriggerKind,
     TriggerSpec,
     create_run_record,
+    transition_run,
 )
 from dander.control.orchestration_serialization import (
     serialize_execution_plan,
@@ -647,6 +651,174 @@ def test_background_recovery_controls_readiness_and_graceful_shutdown() -> None:
     assert composition.lifecycle.ready() is False
     assert backend.close_count == 1
     assert store.close_count == 1
+
+
+def test_background_recovery_drains_pages_before_waiting_and_keeps_cleanup_pending() -> None:
+    graph_store, graph = _graph_store()
+    plan = _plan(graph)
+    store = _Store()
+    backend = _Backend()
+    lifecycle = ControlRunLifecycle(
+        cast("RunStore", store),
+        ExecutionPlanRegistry((plan,)),
+        ExecutionBackendRegistry({plan.backend_id: cast("ExecutionBackend", backend)}),
+        graph_store,
+        clock=lambda: NOW + timedelta(seconds=1),
+        reconcile_interval_seconds=60,
+        reconcile_page_size=1,
+        shutdown_grace_seconds=1,
+    )
+    submissions = [_submission(graph, plan, key=f"recovery-key-{index:04}") for index in range(4)]
+    for submission in submissions:
+        store.claim(create_run_record(submission))
+    ordered = sorted(store.runs)
+    for run_id in ordered[:2]:
+        stored = store.runs[run_id]
+        store.save(
+            stored,
+            transition_run(
+                stored.record,
+                HostedRunState.TERMINAL,
+                now=NOW + timedelta(seconds=1),
+                outcome=RunOutcome.CANCELED,
+                results_state=ResultsState.UNAVAILABLE,
+                cleanup_state=CleanupState.CONFIRMED,
+            ),
+        )
+    pending = ordered[2]
+    pending_submission = next(
+        submission for submission in submissions if create_run_record(submission).run_id == pending
+    )
+    lifecycle.start(pending_submission)
+    stored = store.runs[pending]
+    store.save(
+        stored,
+        transition_run(
+            stored.record,
+            HostedRunState.TERMINAL,
+            now=NOW + timedelta(seconds=1),
+            outcome=RunOutcome.SUCCEEDED,
+            results_state=ResultsState.AVAILABLE,
+            cleanup_state=CleanupState.UNCERTAIN,
+            result_summary=_result_summary(),
+        ),
+    )
+    assert stored.record.backend_handle is not None
+    backend.observations[stored.record.backend_handle.execution_id] = _terminal(
+        RunOutcome.SUCCEEDED
+    )
+    backend.submitted.clear()
+
+    lifecycle.start_reconciler()
+    try:
+        assert backend.submitted.wait(timeout=1), (
+            "final-page queued run waited between archive pages"
+        )
+        for _ in range(100):
+            if lifecycle.ready():
+                break
+            threading.Event().wait(0.005)
+        assert lifecycle.ready()
+        assert store.runs[pending].record.cleanup_state is CleanupState.CONFIRMED
+        assert store.runs[ordered[-1]].record.run_state is HostedRunState.RUNNING
+        assert len(backend.effects) == 2
+    finally:
+        lifecycle.close()
+
+
+def test_recovery_sweep_has_a_page_budget_and_resumes_its_cursor() -> None:
+    graph_store, graph = _graph_store()
+    cursors: list[str | None] = []
+
+    class PagedStore(_Store):
+        def list(self, *, cursor: str | None, limit: int) -> StoredRunPage:
+            cursors.append(cursor)
+            return StoredRunPage(
+                items=(), next_cursor=f"page-{len(cursors)}" if len(cursors) <= 100 else None
+            )
+
+    lifecycle = _lifecycle(graph_store, _plan(graph), PagedStore(), _Backend())
+    try:
+        assert lifecycle.reconcile_once() == 0
+        assert len(cursors) == 100
+        assert lifecycle.reconcile_once() == 0
+        assert len(cursors) == 101
+        assert cursors[-1] == "page-100"
+    finally:
+        lifecycle.close()
+
+
+def test_recovery_failure_keeps_readiness_closed_until_a_clean_full_scan() -> None:
+    graph_store, graph = _graph_store()
+    first_scan_failed = threading.Event()
+
+    class FailingStore(_Store):
+        def list(self, *, cursor: str | None, limit: int) -> StoredRunPage:
+            if not first_scan_failed.is_set():
+                first_scan_failed.set()
+                raise RunStoreError("unavailable")
+            return super().list(cursor=cursor, limit=limit)
+
+    lifecycle = ControlRunLifecycle(
+        cast("RunStore", FailingStore()),
+        ExecutionPlanRegistry((_plan(graph),)),
+        ExecutionBackendRegistry({"fargate": cast("ExecutionBackend", _Backend())}),
+        graph_store,
+        reconcile_interval_seconds=60,
+        shutdown_grace_seconds=1,
+    )
+    lifecycle.start_reconciler()
+    try:
+        assert first_scan_failed.wait(timeout=1)
+        # Wait until the background failure has been recorded before resuming manually.
+        for _ in range(100):
+            with lifecycle._state_lock:  # noqa: SLF001
+                failed = lifecycle._last_pass_failed  # noqa: SLF001
+            if failed:
+                break
+            threading.Event().wait(0.005)
+        assert failed
+        assert not lifecycle.ready()
+        # A completed scan that includes the failed page is still unhealthy.
+        lifecycle.reconcile_once()
+        assert not lifecycle.ready()
+        lifecycle.reconcile_once()
+        assert lifecycle.ready()
+    finally:
+        lifecycle.close()
+
+
+def test_shutdown_during_recovery_stops_before_dispatching_a_loaded_page() -> None:
+    graph_store, graph = _graph_store()
+    plan = _plan(graph)
+    entered = threading.Event()
+    release = threading.Event()
+
+    class BlockedStore(_Store):
+        def list(self, *, cursor: str | None, limit: int) -> StoredRunPage:
+            entered.set()
+            assert release.wait(timeout=5)
+            return super().list(cursor=cursor, limit=limit)
+
+    store = BlockedStore()
+    backend = _Backend()
+    store.claim(create_run_record(_submission(graph, plan)))
+    lifecycle = _lifecycle(graph_store, plan, store, backend)
+    lifecycle.start_reconciler()
+    with ThreadPoolExecutor(1) as pool:
+        try:
+            assert entered.wait(timeout=1)
+            closing = pool.submit(lifecycle.close)
+            assert lifecycle._stop.wait(timeout=1)  # noqa: SLF001
+            release.set()
+            closing.result(timeout=1)
+            assert not lifecycle.ready()
+            assert backend.submissions == []
+            assert backend.close_count == 1
+            assert store.close_count == 1
+        finally:
+            release.set()
+            lifecycle.close()
 
 
 def test_background_submission_source_participates_in_readiness_and_shutdown() -> None:

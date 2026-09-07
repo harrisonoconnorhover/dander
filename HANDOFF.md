@@ -2,45 +2,39 @@
 
 ## Finished
 
-- Merged the previous workflow closeout through PR #533.
-- Added completed BigQuery graph and SCD1 load/query measurements to the existing runtime summary.
-- Reused one BigQuery normalizer; preserved fencing, SQL, retries, and staging cleanup.
-- Identified expired DANDER-237/238 AWS staging: two services, their load balancer, and public
-  routing. All six saved runs are terminal, and no Fargate execution is active.
+- CI includes deletions and both sides of renames; documentation has focused checks. Protected PR: #536.
+- Control storage calls leave the API responsive, and recovery drains bounded pages before polling again.
+- BigQuery models and remaining writers report completed jobs/streams; four providers share generic assertion planning.
+- S3/Azure/OCI share identical graph mutation policy, retaining their native conditional writes and recovery.
+- Local CLI commands avoid unused SDK imports; internal graph plans use canonical schemas where conversion is lossless.
 
 ## Try It
 
-Run `uv sync --frozen --extra dev --extra postgres`, then follow
-[Control profiles](docs/control-profiles.md). A current-source worker records graph/SCD1 job
-measurements. Previously deployed images and historical run results keep their original behavior.
+Run `uv sync --frozen --extra dev --extra postgres`, then `uv run dander --version` and
+`uv run dander --help`. Focused regressions:
+`uv run pytest tests/control/test_http_concurrency.py tests/control/test_run_lifecycle.py tests/cli/test_import_isolation.py`.
 
 ## Checks
 
-- 110 focused tests passed across BigQuery providers, graph execution, ingestion writers, retry
-  behavior, executor, runtime, and completion contracts.
-- Ruff lint/format, strict typing across 494 files, and `git diff --check` passed.
-- Read an existing completed BigQuery job: measured 4,712 bytes processed and 20 MiB billed;
-  no new query or worker execution was submitted.
-- A targeted Terraform retirement plan was reviewed against the live staging deployment. Its six
-  deletions preserve graph storage, encryption, and run history; application is underway.
+- Full suite: 2,351 tests passed against a disposable local PostgreSQL 15 database; container removed afterward.
+- Canonical strict typing: 503 files passed. Ruff lint/format and Control contract drift passed.
+- Original API/recovery and six telemetry regressions failed before their fixes; all pass now.
+- All 32 baseline generic assertion comparisons preserve SQL, names, and parameter bindings.
+- Protected PR checks and exact-main verification are reported with the final delivery; no live cloud workload was run.
 
 ## Decisions
 
-- Measure completed parent jobs once and drain ingestion statistics once per batch. These are
-  operation measurements, not an invoice or coverage of every legacy runtime path.
-- Retire the expired staging compute and routing through its existing Terraform state; preserve
-  retained data, history, and accepted images.
+- Share common rules while keeping provider transactions, retries, transport, and error handling explicit.
+- Preserve public compiler/custom-writer inputs and native GEOGRAPHY/BIGNUMERIC declarations; canonical migration is internal and lossless.
+- Recovery processes at most 100 pages per sweep and honors shutdown; default installation dependencies stay compatible.
 
 ## Remaining
 
-- Finish staging removal and verify service, load-balancer, and routing absence.
-- Protected telemetry merge and exact-main CI.
-- Reconcile residual storage and billing before new paid qualification.
-- Hadoop qualification needs an existing secure cluster and access details; no cluster was found.
-- DANDER-207 release gates remain open.
+- Active-run indexing and lean installation packaging are optional follow-up migrations, not part of these verified fixes.
+- Existing public release and provider-qualification boundaries remain as documented in `docs/support-status.md`.
 
 ## Review First
 
-- [BigQuery measurements](tickets/DANDER-284-bigquery-graph-job-telemetry.md)
-- `src/dander/providers/bigquery/telemetry.py`
-- Private retirement records: `/Users/harrison/.codex/operator/dander-cost-cleanup-20260907`
+- `scripts/check_ci_scope.py` and `src/dander/control/run_lifecycle.py`
+- `src/dander/control/http.py` and `src/dander/control/object_graph_mutations.py`
+- `src/dander/providers/bigquery/telemetry.py`, `schema.py`, and `src/dander/transform/assertions.py`

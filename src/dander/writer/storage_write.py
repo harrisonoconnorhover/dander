@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import partial
+from time import monotonic_ns
 from typing import TYPE_CHECKING, Any, Protocol, cast
 from uuid import uuid4
 
@@ -9,9 +11,10 @@ from google.cloud import bigquery, bigquery_storage_v1
 from google.cloud.bigquery_storage_v1 import types, writer
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 
-from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import fenced_dml, fencing_job_config
 from dander.identity import google_client_options
+from dander.providers.bigquery.telemetry import BigQueryJobTelemetry
+from dander.telemetry import OperationTelemetry, TelemetryOperation
 from dander.writer.base import SchemaEvolution, WriteMode, WritePattern, WriteTarget
 from dander.writer.bigquery import (
     BigQueryWriteError,
@@ -146,6 +149,11 @@ class BigQueryStorageScd1Writer(WritePattern):
         self._backend = backend or BigQueryPendingStreamBackend()
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
         self._schema_evolution = schema_evolution
+        self._telemetry = BigQueryJobTelemetry()
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return completed jobs and committed stream observations in execution order."""
+        return self._telemetry.drain()
 
     def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
         """Write one logical batch through a pending stream and explicit MERGE."""
@@ -179,32 +187,48 @@ class BigQueryStorageScd1Writer(WritePattern):
         staging_id = _target_id(staging_target)
         schema_sql = ", ".join(f"`{field.name}` {_field_type_sql(field)}" for field in declared)
         try:
-            self._client.query(
-                f"CREATE TABLE `{staging_id}` ({schema_sql}) OPTIONS "
-                "(expiration_timestamp = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 1 DAY))"
-            ).result()
+            self._telemetry.run(
+                partial(
+                    self._client.query,
+                    f"CREATE TABLE `{staging_id}` ({schema_sql}) OPTIONS "
+                    f"(expiration_timestamp = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), "
+                    f"INTERVAL 1 DAY))",
+                ),
+                operation=TelemetryOperation.QUERY,
+            )
+            started = monotonic_ns()
             self._backend.append(
                 staged_rows,
                 staging_target,
                 max_batch_rows=self._max_batch_rows,
             )
-            self._client.query(_create_target_sql(target_id, staging_id, columns)).result()
+            self._telemetry.record_committed_stream(
+                rows_written=len(staged_rows), duration_ms=(monotonic_ns() - started) // 1_000_000
+            )
+            self._telemetry.run(
+                partial(self._client.query, _create_target_sql(target_id, staging_id, columns)),
+                operation=TelemetryOperation.QUERY,
+            )
             _apply_schema_evolution(
                 cast("_LoadClient", self._client),
                 target_id,
                 target,
                 self._schema_evolution,
+                telemetry=self._telemetry,
             )
             merge_sql = _merge_sql(target_id, staging_id, columns, target.business_key)
             if target.fence is not None:
                 merge_script = fenced_dml(merge_sql, target.fence)
                 merge_config = fencing_job_config(target.fence)
-                merge = run_mutation_with_retry(
-                    lambda: self._client.query(merge_script, job_config=merge_config)
+                merge = self._telemetry.run(
+                    lambda: self._client.query(merge_script, job_config=merge_config),
+                    operation=TelemetryOperation.QUERY,
+                    retry_mutation=True,
                 )
             else:
-                merge = self._client.query(merge_sql)
-                merge.result()
+                merge = self._telemetry.run(
+                    lambda: self._client.query(merge_sql), operation=TelemetryOperation.QUERY
+                )
             return (
                 merge.num_dml_affected_rows
                 if merge.num_dml_affected_rows is not None

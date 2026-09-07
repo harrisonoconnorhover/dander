@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from google.cloud import bigquery
+if TYPE_CHECKING:
+    from google.cloud import bigquery
 
 _TABLE_ID = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*\.[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$")
 _AUTHORITY_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$")
@@ -109,6 +110,8 @@ def fencing_touch_sql(fence: FencingToken) -> str:
 
 def fencing_job_config(fence: FencingToken) -> bigquery.QueryJobConfig:
     """Bind non-secret lease identity to a fenced BigQuery script."""
+    from google.cloud import bigquery
+
     return bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter(

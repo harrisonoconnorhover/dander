@@ -11,8 +11,6 @@ import sqlite3
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from google.cloud import bigquery
-
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import FencingToken, fenced_dml, fencing_job_config
 from dander.identity import google_client_options
@@ -20,6 +18,8 @@ from dander.identity import google_client_options
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
     from pathlib import Path
+
+    from google.cloud import bigquery
 
 
 class WatermarkStore(ABC):
@@ -76,6 +76,8 @@ class BigQueryWatermarkStore(WatermarkStore):
         dataset: str,
         client: _BigQueryClient | None = None,
     ) -> None:
+        from google.cloud import bigquery
+
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", project):
             raise ValueError(f"Invalid BigQuery project: {project!r}")
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dataset):
@@ -93,6 +95,8 @@ class BigQueryWatermarkStore(WatermarkStore):
 
     def get(self, source: str, entity: str) -> str | None:
         """Return the most recently committed cursor for `(source, entity)`."""
+        from google.cloud import bigquery
+
         self._ensure_table()
         config = bigquery.QueryJobConfig(
             query_parameters=[
@@ -117,6 +121,8 @@ class BigQueryWatermarkStore(WatermarkStore):
 
     def set(self, source: str, entity: str, cursor: str) -> None:
         """Atomically insert or replace a committed cursor."""
+        from google.cloud import bigquery
+
         self._ensure_table()
         config = bigquery.QueryJobConfig(
             query_parameters=[
@@ -152,6 +158,8 @@ class BigQueryWatermarkStore(WatermarkStore):
         fence: FencingToken | None = None,
     ) -> bool:
         """Atomically fence and commit only the cursor boundary this run extracted from."""
+        from google.cloud import bigquery
+
         self._ensure_table()
         parameters = [
             bigquery.ScalarQueryParameter("source", "STRING", source),

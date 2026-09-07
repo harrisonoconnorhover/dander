@@ -15,7 +15,6 @@ from uuid import uuid4
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
-from dander._bigquery_retry import run_mutation_with_retry
 from dander.concurrency import fenced_dml, fencing_job_config, fencing_touch_sql
 from dander.identity import google_client_options
 from dander.providers.bigquery.telemetry import BigQueryJobTelemetry
@@ -270,6 +269,11 @@ class BigQuerySnapshotWriter(WritePattern):
         )
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
         self._schema_evolution = schema_evolution
+        self._telemetry = BigQueryJobTelemetry()
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return and clear observations from completed jobs."""
+        return self._telemetry.drain()
 
     def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
         """Stage one or more snapshots and insert rows not already stored exactly."""
@@ -290,30 +294,35 @@ class BigQuerySnapshotWriter(WritePattern):
         staging_id = _staging_id(target)
         try:
             self._load(rows, staging_id, schema=declared)
-            self._client.query(
-                _create_snapshot_target_sql(
-                    target_id,
-                    staging_id,
-                    columns,
-                    self._snapshot_field,
-                )
-            ).result()
+            self._telemetry.run(
+                partial(
+                    self._client.query,
+                    _create_snapshot_target_sql(
+                        target_id, staging_id, columns, self._snapshot_field
+                    ),
+                ),
+                operation=TelemetryOperation.QUERY,
+            )
             _apply_schema_evolution(
                 self._client,
                 target_id,
                 target,
                 self._schema_evolution,
+                telemetry=self._telemetry,
             )
             insert_sql = _snapshot_insert_sql(target_id, staging_id, columns)
             if target.fence is not None:
                 insert_script = fenced_dml(insert_sql, target.fence)
                 insert_config = fencing_job_config(target.fence)
-                insert_job = run_mutation_with_retry(
-                    lambda: self._client.query(insert_script, job_config=insert_config)
+                insert_job = self._telemetry.run(
+                    lambda: self._client.query(insert_script, job_config=insert_config),
+                    operation=TelemetryOperation.QUERY,
+                    retry_mutation=True,
                 )
             else:
-                insert_job = self._client.query(insert_sql)
-                insert_job.result()
+                insert_job = self._telemetry.run(
+                    lambda: self._client.query(insert_sql), operation=TelemetryOperation.QUERY
+                )
             return (
                 insert_job.num_dml_affected_rows
                 if insert_job.num_dml_affected_rows is not None
@@ -336,6 +345,7 @@ class BigQuerySnapshotWriter(WritePattern):
             max_batch_rows=self._max_batch_rows,
             expire=True,
             schema=schema,
+            telemetry=self._telemetry,
         )
 
 
@@ -360,6 +370,11 @@ class BigQueryScd2Writer(WritePattern):
         )
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
         self._schema_evolution = schema_evolution
+        self._telemetry = BigQueryJobTelemetry()
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return and clear observations from completed jobs."""
+        return self._telemetry.drain()
 
     def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
         """Close changed current versions and insert their replacements transactionally."""
@@ -386,13 +401,20 @@ class BigQueryScd2Writer(WritePattern):
                 max_batch_rows=self._max_batch_rows,
                 expire=True,
                 schema=declared,
+                telemetry=self._telemetry,
             )
-            self._client.query(_create_scd2_target_sql(target_id, staging_id, columns)).result()
+            self._telemetry.run(
+                partial(
+                    self._client.query, _create_scd2_target_sql(target_id, staging_id, columns)
+                ),
+                operation=TelemetryOperation.QUERY,
+            )
             _apply_schema_evolution(
                 self._client,
                 target_id,
                 target,
                 self._schema_evolution,
+                telemetry=self._telemetry,
             )
             history_sql = _scd2_sql(
                 target_id,
@@ -403,12 +425,15 @@ class BigQueryScd2Writer(WritePattern):
             )
             if target.fence is not None:
                 history_config = fencing_job_config(target.fence)
-                history_job = run_mutation_with_retry(
-                    lambda: self._client.query(history_sql, job_config=history_config)
+                history_job = self._telemetry.run(
+                    lambda: self._client.query(history_sql, job_config=history_config),
+                    operation=TelemetryOperation.QUERY,
+                    retry_mutation=True,
                 )
             else:
-                history_job = self._client.query(history_sql)
-                history_job.result()
+                history_job = self._telemetry.run(
+                    lambda: self._client.query(history_sql), operation=TelemetryOperation.QUERY
+                )
             return (
                 history_job.num_dml_affected_rows
                 if history_job.num_dml_affected_rows is not None
@@ -437,6 +462,11 @@ class BigQueryReplaceWriter(WritePattern):
             bigquery.Client(project=project, **google_client_options()),
         )
         self._max_batch_rows = _validated_batch_size(max_batch_rows)
+        self._telemetry = BigQueryJobTelemetry()
+
+    def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+        """Return and clear observations from completed jobs."""
+        return self._telemetry.drain()
 
     def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
         """Stage a bounded input stream, then atomically replace the target."""
@@ -465,11 +495,12 @@ class BigQueryReplaceWriter(WritePattern):
                     declared,
                     expires=_staging_expiration(),
                 )
-                self._client.copy_table(
-                    staging_id,
-                    target_id,
-                    job_config=_copy_config(),
-                ).result()
+                self._telemetry.run(
+                    partial(
+                        self._client.copy_table, staging_id, target_id, job_config=_copy_config()
+                    ),
+                    operation=TelemetryOperation.LOAD,
+                )
             finally:
                 self._client.delete_table(staging_id, not_found_ok=True)
             return 0
@@ -504,22 +535,28 @@ class BigQueryReplaceWriter(WritePattern):
                     if first
                     else bigquery.WriteDisposition.WRITE_APPEND
                 )
-                self._client.load_table_from_json(
-                    batch,
-                    staging_id,
-                    job_config=_load_config(disposition, declared),
-                ).result()
+                self._telemetry.run(
+                    partial(
+                        self._client.load_table_from_json,
+                        batch,
+                        staging_id,
+                        job_config=_load_config(disposition, declared),
+                    ),
+                    operation=TelemetryOperation.LOAD,
+                )
                 if first:
                     if not declared:
-                        self._client.query(_expire_staging_sql(staging_id)).result()
+                        self._telemetry.run(
+                            partial(self._client.query, _expire_staging_sql(staging_id)),
+                            operation=TelemetryOperation.QUERY,
+                        )
                     first = False
                 written += len(batch)
                 batch = [dict(record) for record in islice(record_iterator, self._max_batch_rows)]
-            self._client.copy_table(
-                staging_id,
-                target_id,
-                job_config=_copy_config(),
-            ).result()
+            self._telemetry.run(
+                partial(self._client.copy_table, staging_id, target_id, job_config=_copy_config()),
+                operation=TelemetryOperation.LOAD,
+            )
             return written
         finally:
             self._client.delete_table(staging_id, not_found_ok=True)
@@ -543,6 +580,8 @@ def _apply_schema_evolution(
     target_id: str,
     target: WriteTarget,
     mode: SchemaEvolution,
+    *,
+    telemetry: BigQueryJobTelemetry | None = None,
 ) -> None:
     """Retain additive behavior for non-CLI writer modes without nested evolution."""
     if mode is SchemaEvolution.STRICT:
@@ -558,18 +597,29 @@ def _apply_schema_evolution(
             f"ALTER TABLE `{target_id}` ADD COLUMN IF NOT EXISTS "
             f"`{field.name}` {_field_type_sql(field)}"
         )
-    client.query(";\n".join(statements)).result()
+    observations = telemetry if telemetry is not None else BigQueryJobTelemetry()
+    observations.run(
+        lambda: client.query(";\n".join(statements)), operation=TelemetryOperation.QUERY
+    )
 
 
 def _validate_declared_schema(
     target: WriteTarget,
     mode: SchemaEvolution | None,
 ) -> tuple[WriteField, ...]:
-    if not target.schema:
+    fields = target.schema
+    if not fields and target.declared_schema is not None:
+        from dander.providers.bigquery.schema import bigquery_write_fields
+
+        try:
+            fields = bigquery_write_fields(target.declared_schema)
+        except ValueError as error:
+            raise BigQueryWriteError(str(error)) from error
+    if not fields:
         if mode is SchemaEvolution.ADDITIVE:
             raise BigQueryWriteError("Additive schema evolution requires a declared target schema")
         return ()
-    return _validate_fields(target.schema, path="schema")
+    return _validate_fields(fields, path="schema")
 
 
 def _validate_fields(fields: Sequence[WriteField], *, path: str) -> tuple[WriteField, ...]:

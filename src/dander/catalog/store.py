@@ -9,13 +9,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
-from google.cloud import bigquery
-
 from dander.identity import google_client_options
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
+
+    from google.cloud import bigquery
 
 
 @dataclass(frozen=True)
@@ -70,6 +70,8 @@ class BigQueryMetadataStore(MetadataStore):
     """Keep one atomic semantic manifest per pipeline in BigQuery."""
 
     def __init__(self, *, project: str, dataset: str, client: _Client | None = None) -> None:
+        from google.cloud import bigquery
+
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", project):
             raise ValueError(f"Invalid BigQuery project: {project!r}")
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dataset):
@@ -92,6 +94,8 @@ class BigQueryMetadataStore(MetadataStore):
         run_id: str,
         manifest: dict[str, object],
     ) -> None:
+        from google.cloud import bigquery
+
         self._ensure_table()
         payload = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
         config = bigquery.QueryJobConfig(
@@ -115,6 +119,8 @@ class BigQueryMetadataStore(MetadataStore):
         ).result()
 
     def snapshots(self, *, pipeline_id: str | None = None) -> tuple[MetadataSnapshot, ...]:
+        from google.cloud import bigquery
+
         self._ensure_table()
         parameters: list[bigquery.ScalarQueryParameter] = []
         where = ""

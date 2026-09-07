@@ -11,7 +11,6 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 from dander.ingestion import (
-    DltRestSource,
     IngestionEngine,
     NetSuiteSuiteQLSource,
     OdooJson2Source,
@@ -267,9 +266,15 @@ def _validate_descriptors(plugin: ConnectorPlugin) -> None:
 
 def _builtin_source_factories() -> dict[str, SourceFactory]:
     return {
-        IngestionEngine.DLT.value: DltRestSource,
+        IngestionEngine.DLT.value: _build_dlt_source,
         IngestionEngine.NETSUITE_SUITEQL.value: NetSuiteSuiteQLSource,
         IngestionEngine.ODOO_JSON2.value: OdooJson2Source,
         IngestionEngine.SALESFORCE_BULK2.value: SalesforceBulk2Source,
         IngestionEngine.WORKDAY_RAAS.value: WorkdayRaasSource,
     }
+
+
+def _build_dlt_source(config: SourceConfig, auth: AuthStrategy) -> Source:
+    from dander.ingestion import DltRestSource
+
+    return DltRestSource(config, auth)

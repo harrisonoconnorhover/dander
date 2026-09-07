@@ -74,6 +74,7 @@ _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 _MAX_BOUNDED_INTEGER = 9_223_372_036_854_775_807
 _LOGGER = logging.getLogger("dander.control.reconciler")
+_MAX_RECONCILE_PAGES_PER_SWEEP = 100
 
 
 class RunSubmissionSource(Protocol):
@@ -1055,7 +1056,19 @@ class ControlRunLifecycle:
         )
 
     def reconcile_once(self) -> int:
-        """Reconcile one bounded durable page and advance the restart-recovery cursor."""
+        """Drain a bounded sweep of pages before the background polling interval."""
+        processed = 0
+        for _ in range(_MAX_RECONCILE_PAGES_PER_SWEEP):
+            if self._stop.is_set():
+                break
+            count, has_more = self._reconcile_page()
+            processed += count
+            if not has_more:
+                break
+        return processed
+
+    def _reconcile_page(self) -> tuple[int, bool]:
+        """Advance recovery by one page, retaining the cursor on a storage failure."""
         with self._state_lock:
             cursor = self._scan_cursor
         try:
@@ -1065,11 +1078,13 @@ class ControlRunLifecycle:
                 self._scan_failed = True
                 self._last_pass_failed = True
             _LOGGER.warning("control_reconcile_page_failed")
-            return 0
+            return 0, False
 
         failed = False
         processed = 0
         for stored in page.items:
+            if self._stop.is_set():
+                return processed, False
             try:
                 with self._mutation_lock:
                     self._reconcile_stored(stored)
@@ -1090,7 +1105,7 @@ class ControlRunLifecycle:
                     extra={"run_id": stored.record.run_id},
                 )
         self._mark_reconcile_result(failed=failed, next_cursor=page.next_cursor)
-        return processed
+        return processed, page.next_cursor is not None
 
     def close(self) -> None:
         """Stop reconciliation before closing provider transports and durable state."""

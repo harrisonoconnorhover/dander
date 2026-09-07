@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from dander.concurrency import FencingToken
+from dander.telemetry import TelemetryOperation
 from dander.writer import (
     BigQueryStorageIncrementalWriter,
     BigQueryStorageScd1Writer,
@@ -100,6 +101,15 @@ def test_storage_writer_uses_pending_backend_then_idempotent_merge() -> None:
     )
 
     assert affected == 2
+    observations = writer.drain_telemetry()
+    assert [item.operation for item in observations] == [
+        TelemetryOperation.QUERY,
+        TelemetryOperation.LOAD,
+        TelemetryOperation.QUERY,
+        TelemetryOperation.QUERY,
+    ]
+    assert observations[1].rows_written == 2
+    assert writer.drain_telemetry() == ()
     assert backend.rows == [{"id": "one", "count": 2}, {"id": "two", "count": 3}]
     assert backend.max_batch_rows == 2
     assert client.queries[0].startswith("CREATE TABLE `unit-project.raw._dander_stage_widgets_")
@@ -186,3 +196,22 @@ def test_storage_writer_rejects_undeclared_or_unsupported_schema() -> None:
         writer.write([{"id": "2026-01-01T00:00:00Z"}], unsupported)
 
     assert client.queries == []
+
+
+def test_failed_pending_stream_does_not_report_a_successful_load() -> None:
+    class FailingBackend(_Backend):
+        def append(
+            self, rows: Sequence[Mapping[str, Any]], target: WriteTarget, *, max_batch_rows: int
+        ) -> None:
+            raise RuntimeError("synthetic commit failure")
+
+    client = _Client()
+    writer = BigQueryStorageScd1Writer(
+        project="unit-project", client=client, backend=FailingBackend()
+    )
+    with pytest.raises(RuntimeError, match="synthetic commit failure"):
+        writer.write([{"id": "one", "count": 1}], _target())
+    observations = writer.drain_telemetry()
+    assert [item.operation for item in observations] == [TelemetryOperation.QUERY]
+    assert len(client.deleted) == 1
+    assert len(client.queries) == 1

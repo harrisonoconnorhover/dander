@@ -41,6 +41,7 @@ from dander.transform import (
     TransformRunError,
     TransformRunResult,
 )
+from dander.transform.assertions import GenericAssertion, plan_assertions
 from dander.transform.model import Materialization
 from dander.writer import SchemaEvolution, WriteField, WriteMode, WriteTarget
 
@@ -50,7 +51,6 @@ if TYPE_CHECKING:
 
     from dander.concurrency import OwnershipGuard, TargetFence
     from dander.providers.redshift.fence import RedshiftTargetFence
-    from dander.transform.config import GenericTestMetadata
     from dander.warehouse import RelationRef
 
 
@@ -476,76 +476,54 @@ def _publication_statements(
 
 
 def _compile_assertions(
-    project: TransformProject,
-    model: TransformModel,
+    project: TransformProject, model: TransformModel
 ) -> tuple[_RedshiftAssertion, ...]:
     relation = _local_relation(project.relation_ref_for_model(model))
-    assertions: list[_RedshiftAssertion] = []
-    for test in model.metadata.tests:
-        assertions.extend(_assertions_for_test(project, model.name, relation, test))
-    return tuple(assertions)
+    return tuple(
+        _render_assertion(assertion, relation) for assertion in plan_assertions(project, model)
+    )
 
 
-def _assertions_for_test(
-    project: TransformProject,
-    model_name: str,
-    relation: str,
-    test: GenericTestMetadata,
-) -> list[_RedshiftAssertion]:
-    column = _quote(test.column)
-    assertions: list[_RedshiftAssertion] = []
-    if test.not_null:
-        assertions.append(
-            _RedshiftAssertion(
-                name=f"{model_name}.{test.column}.not_null",
+def _render_assertion(assertion: GenericAssertion, relation: str) -> _RedshiftAssertion:
+    column = _quote(assertion.column)
+    match assertion.kind:
+        case "not_null":
+            return _RedshiftAssertion(
+                name=assertion.name,
                 statement=f"SELECT COUNT(*) AS failures FROM {relation} WHERE {column} IS NULL",
             )
-        )
-    if test.unique:
-        assertions.append(
-            _RedshiftAssertion(
-                name=f"{model_name}.{test.column}.unique",
+        case "unique":
+            return _RedshiftAssertion(
+                name=assertion.name,
                 statement=(
-                    "SELECT COUNT(*) AS failures FROM ("
-                    f"SELECT {column} FROM {relation} WHERE {column} IS NOT NULL "
-                    f"GROUP BY {column} HAVING COUNT(*) > 1) AS duplicates"
+                    f"SELECT COUNT(*) AS failures FROM (SELECT {column} FROM "
+                    f"{relation} WHERE {column} IS NOT NULL GROUP BY {column} HAVING "
+                    f"COUNT(*) > 1) AS duplicates"
                 ),
             )
-        )
-    if test.accepted_values is not None:
-        placeholders = ", ".join("%s" for _ in test.accepted_values)
-        assertions.append(
-            _RedshiftAssertion(
-                name=f"{model_name}.{test.column}.accepted_values",
+        case "accepted_values":
+            placeholders = ", ".join("%s" for _ in assertion.values)
+            return _RedshiftAssertion(
+                name=assertion.name,
                 statement=(
-                    f"SELECT COUNT(*) AS failures FROM {relation} WHERE {column} IS NOT NULL "
-                    f"AND {column} NOT IN ({placeholders})"
+                    f"SELECT COUNT(*) AS failures FROM {relation} WHERE {column} IS "
+                    f"NOT NULL AND {column} NOT IN ({placeholders})"
                 ),
-                parameters=tuple(test.accepted_values),
+                parameters=tuple(assertion.values),
             )
-        )
-    if test.relationships is not None:
-        if test.relationships.to in project.models:
-            parent_model = project.models[test.relationships.to]
-            parent_columns = {item.name for item in parent_model.metadata.columns}
-            if test.relationships.field not in parent_columns:
-                raise TransformProjectError(
-                    "Relationship test references an undeclared parent column: "
-                    f"{test.relationships.to}.{test.relationships.field}"
-                )
-        parent = _local_relation(project.relation_ref_for_ref(test.relationships.to))
-        parent_field = _quote(test.relationships.field)
-        assertions.append(
-            _RedshiftAssertion(
-                name=f"{model_name}.{test.column}.relationships",
+        case "relationships":
+            assert assertion.parent is not None and assertion.parent_field is not None
+            parent = _local_relation(assertion.parent)
+            parent_field = _quote(assertion.parent_field)
+            return _RedshiftAssertion(
+                name=assertion.name,
                 statement=(
-                    f"SELECT COUNT(*) AS failures FROM {relation} AS child "
-                    f"LEFT JOIN {parent} AS parent ON child.{column} = parent.{parent_field} "
-                    f"WHERE child.{column} IS NOT NULL AND parent.{parent_field} IS NULL"
+                    f"SELECT COUNT(*) AS failures FROM {relation} AS child LEFT JOIN "
+                    f"{parent} AS parent ON child.{column} = parent.{parent_field} "
+                    f"WHERE child.{column} IS NOT NULL AND parent.{parent_field} IS "
+                    f"NULL"
                 ),
             )
-        )
-    return assertions
 
 
 def _local_relation(relation: RelationRef) -> str:

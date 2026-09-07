@@ -146,7 +146,7 @@ class _Client:
     ) -> _Job:
         self.queries.append(query)
         self.query_configs.append(job_config)
-        if query.startswith("BEGIN TRANSACTION") and self.fenced_errors:
+        if "BEGIN TRANSACTION" in query and self.fenced_errors:
             return _Job(error=self.fenced_errors.pop(0))
         return _Job(affected=2 if query.startswith("MERGE") else None)
 
@@ -324,8 +324,10 @@ def test_scd1_finalizer_dml_touches_matching_lease_inside_transaction() -> None:
     }
 
 
-def test_scd1_fenced_finalizer_retries_bigquery_concurrent_update(
+@pytest.mark.parametrize("mode", ["scd1", "snapshot", "scd2"])
+def test_fenced_finalizer_retries_bigquery_concurrent_update(
     monkeypatch: pytest.MonkeyPatch,
+    mode: str,
 ) -> None:
     client = _Client(
         fenced_errors=[
@@ -336,13 +338,22 @@ def test_scd1_fenced_finalizer_retries_bigquery_concurrent_update(
         ]
     )
     monkeypatch.setattr("dander._bigquery_retry.sleep", lambda _delay: None)
-    writer = BigQueryScd1Writer(project="unit-project", client=client)
+    writer: WritePattern
+    if mode == "scd1":
+        writer = BigQueryScd1Writer(project="unit-project", client=client)
+    elif mode == "snapshot":
+        writer = BigQuerySnapshotWriter(project="unit-project", snapshot_field="id", client=client)
+    else:
+        writer = BigQueryScd2Writer(project="unit-project", client=client)
 
     writer.write([{"id": "one", "label": "active"}], _fenced_target())
 
-    fenced_scripts = [query for query in client.queries if query.startswith("BEGIN TRANSACTION")]
+    fenced_scripts = [query for query in client.queries if "BEGIN TRANSACTION" in query]
     assert len(fenced_scripts) == 2
     assert fenced_scripts[0] == fenced_scripts[1]
+    observations = writer.drain_telemetry()
+    assert observations[-1].retry_count == 1
+    assert len(observations) == len(client.loaded_batches) + len(client.queries) - 1
 
 
 def test_writer_rejects_inconsistent_shape_before_network() -> None:
@@ -1017,3 +1028,40 @@ def test_scd1_drains_load_and_query_statistics_once() -> None:
         assert sum(item.bytes_billed for item in telemetry) == 16_384
         assert writer.drain_telemetry() == ()
     assert len(client.deleted) == 2
+
+
+@pytest.mark.parametrize("mode", ["snapshot", "scd2", "replace"])
+def test_remaining_writers_observe_completed_jobs_once(mode: str) -> None:
+    client = _Client()
+    writer: WritePattern
+    if mode == "snapshot":
+        writer = BigQuerySnapshotWriter(project="unit-project", snapshot_field="id", client=client)
+    elif mode == "scd2":
+        writer = BigQueryScd2Writer(project="unit-project", client=client)
+    else:
+        writer = BigQueryReplaceWriter(project="unit-project", client=client)
+
+    writer.write([{"id": "one"}], _target())
+
+    observations = writer.drain_telemetry()
+    assert len(observations) == len(client.loaded_batches) + len(client.queries) + len(
+        client.copies
+    )
+    assert observations[0].operation is TelemetryOperation.LOAD
+    assert writer.drain_telemetry() == ()
+
+
+@pytest.mark.parametrize("mode", ["snapshot", "scd2", "replace"])
+def test_failed_load_is_not_reported_as_completed(mode: str) -> None:
+    client = _Client(load_error=RuntimeError("synthetic failed load"))
+    writer: WritePattern
+    if mode == "snapshot":
+        writer = BigQuerySnapshotWriter(project="unit-project", snapshot_field="id", client=client)
+    elif mode == "scd2":
+        writer = BigQueryScd2Writer(project="unit-project", client=client)
+    else:
+        writer = BigQueryReplaceWriter(project="unit-project", client=client)
+    with pytest.raises(RuntimeError, match="synthetic failed load"):
+        writer.write([{"id": "one"}], _target())
+    assert writer.drain_telemetry() == ()
+    assert client.deleted == [client.destination]

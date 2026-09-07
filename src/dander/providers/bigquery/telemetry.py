@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from dander._bigquery_retry import run_mutation_with_retry
 from dander.telemetry import OperationTelemetry, TelemetryOperation
+from dander.writer.base import WriteTransport
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -39,18 +40,18 @@ class BigQueryTelemetry:
         )
 
 
-class _Job(Protocol):
-    def result(self) -> object:
+class _Job[ResultT](Protocol):
+    def result(self) -> ResultT:
         """Wait for the submitted job."""
 
 
 class BigQueryJobTelemetry:
-    """Capture each successful job once without changing submission or retry policy."""
+    """Capture successful jobs and committed streams without changing their retry policy."""
 
     def __init__(self) -> None:
         self._operations: list[OperationTelemetry] = []
 
-    def run[JobT: _Job](
+    def run[JobT: _Job[object]](
         self,
         submit: Callable[[], JobT],
         *,
@@ -79,6 +80,35 @@ class BigQueryJobTelemetry:
             )
         )
         return job
+
+    def run_result[ResultT](
+        self,
+        submit: Callable[[], _Job[ResultT]],
+        *,
+        operation: TelemetryOperation,
+    ) -> ResultT:
+        """Observe a query while retaining its result without a second result() call."""
+        started = monotonic_ns()
+        job = submit()
+        result = job.result()
+        self._operations.append(
+            BigQueryTelemetry().operation(
+                job, operation=operation, duration_ms=(monotonic_ns() - started) // 1_000_000
+            )
+        )
+        return result
+
+    def record_committed_stream(self, *, rows_written: int, duration_ms: int) -> None:
+        """Observe only a successfully committed pending stream; it has no query-job counters."""
+        self._operations.append(
+            OperationTelemetry(
+                provider="bigquery",
+                operation=TelemetryOperation.LOAD,
+                duration_ms=duration_ms,
+                rows_written=rows_written,
+                transport=WriteTransport.STORAGE_WRITE,
+            )
+        )
 
     def drain(self) -> tuple[OperationTelemetry, ...]:
         operations = tuple(self._operations)

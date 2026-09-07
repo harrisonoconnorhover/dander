@@ -1,5 +1,18 @@
 # Engineering Decisions
 
+## 2026-09-07 — Consolidate shared rules while retaining compatibility boundaries
+
+- Control keeps synchronous provider clients, with HTTP calls off the event loop. Recovery drains
+  up to 100 bounded history pages before polling again, checking shutdown between records; it
+  still includes terminal runs with unresolved cleanup. A new persistent active-run index is not
+  necessary to remove the observed per-page delay.
+- Graph mutation policy and generic assertion planning have one implementation; provider CAS,
+  recovery, SQL, bindings, and retry semantics stay in their adapters. BigQuery observations attach
+  to completed jobs/committed streams, and simple CLI operations do not import unused SDKs.
+- Internal graph execution uses canonical schemas where the v1 conversion is lossless. Public
+  compiler results, custom writer inputs, and native GEOGRAPHY/BIGNUMERIC retain legacy fields.
+  Default installation dependencies remain compatible; a lean packaging split is separate work.
+
 ## 2026-09-07 — Preserve BigQuery job measurements at existing execution boundaries
 
 - Reuse the existing scalar-only BigQuery normalizer for SCD1 ingestion and graph publication.

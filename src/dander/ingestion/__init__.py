@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from dander.ingestion.capabilities import (
     RECORD_NOT_FOUND,
     ConnectionStatus,
@@ -23,7 +25,6 @@ from dander.ingestion.capabilities import (
     UnsupportedConnectorOperationError,
 )
 from dander.ingestion.config import ConnectorConfigError, load_source_config
-from dander.ingestion.dlt_backed import DltRestSource
 from dander.ingestion.enterprise import (
     EnterpriseHttpClient,
     EnterpriseSource,
@@ -45,6 +46,19 @@ from dander.ingestion.pagination import (
     PaginationStrategy,
 )
 from dander.ingestion.source import Endpoint, IngestionEngine, RawField, Source, SourceConfig
+
+if TYPE_CHECKING:
+    from dander.ingestion.dlt_backed import DltRestSource
+
+
+def __getattr__(name: str) -> object:
+    """Load dlt only when the extraction adapter is explicitly requested."""
+    if name == "DltRestSource":
+        from dander.ingestion.dlt_backed import DltRestSource
+
+        return DltRestSource
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "RECORD_NOT_FOUND",

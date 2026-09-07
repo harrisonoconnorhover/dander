@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dander.concurrency import FencingToken
+from dander.telemetry import TelemetryOperation
 from dander.transform import BigQueryTransformRunner, TransformProjectError, TransformRunError
 
 if TYPE_CHECKING:
@@ -19,8 +20,13 @@ if TYPE_CHECKING:
 class _FakeJob:
     def __init__(self, rows: list[_FakeRow]) -> None:
         self._rows = rows
+        self.result_calls = 0
+        self.total_bytes_processed = 0
 
     def result(self) -> list[_FakeRow]:
+        self.result_calls += 1
+        assert self.result_calls == 1
+        self.total_bytes_processed = 64
         return self._rows
 
 
@@ -125,6 +131,11 @@ def test_build_materializes_then_runs_all_generic_assertions(tmp_path: Path) -> 
 
     assert result.models == ("model_a",)
     assert result.assertions == 4
+    assert [operation.operation for operation in result.telemetry] == [
+        TelemetryOperation.TRANSFORM,
+        *([TelemetryOperation.TEST] * 4),
+    ]
+    assert sum(operation.bytes_processed for operation in result.telemetry) == 5 * 64
     assert client.queries[0].startswith(
         "CREATE OR REPLACE TABLE `valid-project-123.staging.model_a` AS"
     )
@@ -145,6 +156,7 @@ def test_test_command_path_does_not_materialize(tmp_path: Path) -> None:
     result = BigQueryTransformRunner(project="valid-project-123", client=client).test(tmp_path)
 
     assert result.assertions == 1
+    assert [operation.operation for operation in result.telemetry] == [TelemetryOperation.TEST]
     assert all(not query.startswith("CREATE") for query in client.queries)
 
 

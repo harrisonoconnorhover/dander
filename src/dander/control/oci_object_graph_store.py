@@ -7,7 +7,6 @@ Object ETags stay private implementation details and surface only as opaque Grap
 
 from __future__ import annotations
 
-import hashlib
 import math
 import re
 from collections.abc import Mapping
@@ -23,7 +22,6 @@ from dander.control.graph_store import (
     GraphDeleteReceipt,
     GraphPage,
     GraphRecord,
-    GraphStore,
     GraphStoreAlreadyExistsError,
     GraphStoreConflictError,
     GraphStoreCorruptionError,
@@ -32,37 +30,33 @@ from dander.control.graph_store import (
     GraphStoreNotFoundError,
     GraphSummary,
     _canonical_json_bytes,
-    _create_fingerprint,
     _decode_cursor,
-    _delete_fingerprint,
     _encode_cursor,
-    _timestamp,
     _utc_now,
     _validated_graph_key,
-    _validated_idempotency_key,
     _validated_identifier,
     _validated_max_bytes,
     _validated_page_size,
-    _validated_revision,
     canonicalize_graph_document,
+)
+from dander.control.object_graph_mutations import (
+    _MAX_DELETE_JOURNAL_BYTES,
+    _JournaledGraphMutations,
 )
 from dander.control.object_graph_records import (
     _CreateJournal,
     _DeleteFence,
     _DeleteJournal,
     _GraphObjectMetadata,
-    _StoredDeleteReceipt,
     _StoredGraph,
 )
 
 if TYPE_CHECKING:
     import builtins
 
-    from dander.control.models import PipelineGraphDocument
 
 _MAX_GRAPH_ENVELOPE_OVERHEAD = 256 * 1024
 _MAX_JOURNAL_OVERHEAD = 256 * 1024
-_MAX_DELETE_JOURNAL_BYTES = 64 * 1024
 _DEFAULT_TIMEOUT_SECONDS = 30.0
 _PREFIX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,510}[A-Za-z0-9]$")
 _OCI_BINDING = re.compile(r"^[A-Za-z0-9._-]{1,256}$")
@@ -143,7 +137,7 @@ class _ObjectHead:
     metadata: dict[str, str]
 
 
-class OCIObjectGraphStore(GraphStore):
+class OCIObjectGraphStore(_JournaledGraphMutations):
     """Persist canonical graph envelopes in one OCI Object Storage namespace and bucket."""
 
     def __init__(
@@ -266,143 +260,6 @@ class OCIObjectGraphStore(GraphStore):
         if resolved is None:
             raise GraphStoreNotFoundError("The graph does not exist.")
         return resolved[0]
-
-    def create(
-        self,
-        project: str,
-        graph: str,
-        document: PipelineGraphDocument,
-        *,
-        idempotency_key: str,
-    ) -> GraphRecord:
-        project, graph = _validated_graph_key(project, graph)
-        idempotency_key = _validated_idempotency_key(idempotency_key)
-        canonical = canonicalize_graph_document(document, max_bytes=self._max_graph_bytes)
-        key_sha256 = _key_sha256(idempotency_key)
-        fingerprint = _create_fingerprint(project, graph, canonical.content_sha256)
-        journal_name = self._journal_name(project, "create", key_sha256)
-        loaded = self._read_model(journal_name, _CreateJournal, self._max_create_journal_bytes)
-        if loaded is not None:
-            self._validate_create_replay(loaded[0], project, graph, key_sha256, fingerprint)
-            return self._resume_create(loaded[0], loaded[1])
-        existing = self._read_graph(project, graph)
-        if existing is not None and self._resolve_loaded_graph(*existing) is not None:
-            raise GraphStoreAlreadyExistsError("The graph already exists.")
-        now = _timestamp(self._clock())
-        planned = _StoredGraph.from_canonical(
-            project=project,
-            graph=graph,
-            canonical=canonical,
-            created_at=now,
-            updated_at=now,
-            create_key_sha256=key_sha256,
-            create_request_sha256=fingerprint,
-        )
-        journal = _CreateJournal(
-            project=project,
-            graph=graph,
-            key_sha256=key_sha256,
-            request_sha256=fingerprint,
-            planned_graph=planned,
-        )
-        try:
-            revision = self._write_model(journal_name, journal, expected_etag=None)
-        except GraphStoreConflictError:
-            loaded = self._read_model(journal_name, _CreateJournal, self._max_create_journal_bytes)
-            if loaded is None:
-                raise GraphStoreConflictError(
-                    "The graph create could not be coordinated."
-                ) from None
-            self._validate_create_replay(loaded[0], project, graph, key_sha256, fingerprint)
-            return self._resume_create(loaded[0], loaded[1])
-        self._checkpoint("after_create_pending")
-        return self._resume_create(journal, revision)
-
-    def put(
-        self,
-        project: str,
-        graph: str,
-        document: PipelineGraphDocument,
-        *,
-        expected_revision: str,
-    ) -> GraphRecord:
-        project, graph = _validated_graph_key(project, graph)
-        expected_revision = _validated_revision(expected_revision)
-        canonical = canonicalize_graph_document(document, max_bytes=self._max_graph_bytes)
-        resolved = self._load_resolved(project, graph)
-        if resolved is None:
-            raise GraphStoreNotFoundError("The graph does not exist.")
-        current, stored, etag = resolved
-        if current.revision != expected_revision:
-            raise GraphStoreConflictError("The graph revision is stale.")
-        replacement = _StoredGraph.from_canonical(
-            project=project,
-            graph=graph,
-            canonical=canonical,
-            created_at=current.created_at,
-            updated_at=_timestamp(self._clock()),
-            create_key_sha256=stored.create_key_sha256,
-            create_request_sha256=stored.create_request_sha256,
-        )
-        new_etag = self._write_model(
-            self._graph_name(project, graph),
-            replacement,
-            expected_etag=etag,
-            object_metadata=_GraphObjectMetadata.from_stored(replacement),
-        )
-        return replacement.record(canonical, new_etag)
-
-    def delete(
-        self,
-        project: str,
-        graph: str,
-        *,
-        expected_revision: str,
-        idempotency_key: str,
-    ) -> GraphDeleteReceipt:
-        project, graph = _validated_graph_key(project, graph)
-        expected_revision = _validated_revision(expected_revision)
-        idempotency_key = _validated_idempotency_key(idempotency_key)
-        key_sha256 = _key_sha256(idempotency_key)
-        fingerprint = _delete_fingerprint(project, graph, expected_revision)
-        journal_name = self._journal_name(project, "delete", key_sha256)
-        loaded = self._read_model(journal_name, _DeleteJournal, _MAX_DELETE_JOURNAL_BYTES)
-        if loaded is not None:
-            self._validate_delete_replay(loaded[0], project, graph, key_sha256, fingerprint)
-            return self._resume_delete(loaded[0], loaded[1])
-        resolved = self._load_resolved(project, graph)
-        if resolved is None:
-            raise GraphStoreNotFoundError("The graph does not exist.")
-        current = resolved[0]
-        if current.revision != expected_revision:
-            raise GraphStoreConflictError("The graph revision is stale.")
-        receipt = GraphDeleteReceipt(
-            project=project,
-            graph=graph,
-            revision=current.revision,
-            content_sha256=current.content_sha256,
-            deleted_at=_timestamp(self._clock()),
-        )
-        journal = _DeleteJournal(
-            project=project,
-            graph=graph,
-            key_sha256=key_sha256,
-            request_sha256=fingerprint,
-            expected_revision=expected_revision,
-            receipt=_StoredDeleteReceipt.from_receipt(receipt),
-        )
-        try:
-            revision = self._write_model(journal_name, journal, expected_etag=None)
-        except GraphStoreConflictError:
-            loaded = self._read_model(journal_name, _DeleteJournal, _MAX_DELETE_JOURNAL_BYTES)
-            if loaded is None:
-                raise GraphStoreConflictError(
-                    "The graph delete could not be coordinated."
-                ) from None
-            self._validate_delete_replay(loaded[0], project, graph, key_sha256, fingerprint)
-            return self._resume_delete(loaded[0], loaded[1])
-        self._checkpoint("after_delete_pending")
-        return self._resume_delete(journal, revision)
 
     def _resume_create(self, journal: _CreateJournal, journal_etag: str) -> GraphRecord:
         for _ in range(8):
@@ -1023,10 +880,6 @@ def _metadata_from_model(model: BaseModel) -> dict[str, str]:
     if not all(isinstance(key, str) and isinstance(value, str) for key, value in raw.items()):
         raise GraphStoreCorruptionError("The OCI Object Storage graph-store metadata is invalid.")
     return cast("dict[str, str]", raw)
-
-
-def _key_sha256(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _checked_etag(value: object) -> str:
