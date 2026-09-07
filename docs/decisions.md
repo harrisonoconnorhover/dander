@@ -1,5 +1,13 @@
 # Engineering Decisions
 
+## 2026-09-07 — Share identical object-store records before provider operations
+
+- S3, Azure Blob, and OCI now share their six identical graph metadata and journal models in
+  `object_graph_records.py`. Their JSON fields, validation, and provider operation bodies stay
+  unchanged, removing duplicate definitions without a new storage abstraction.
+- Keep transport, conditional writes, pagination, and error translation in each adapter. GCS
+  retains its generation-based revision behavior; broader operation consolidation is optional.
+
 ## 2026-09-07 — Integrate Control durability independently of the HDFS program
 
 - Reuse the PostgreSQL state/scheduling and typed-startup work from `37d4ca1` and `5524c88`.

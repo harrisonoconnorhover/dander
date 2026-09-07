@@ -41,10 +41,16 @@ packaged capability manifest remain authoritative for runtime selection.
 
 1. Validate the integrated PostgreSQL Control profile with existing deployed execution plans;
    keep the HDFS planning and semantic modules separate.
-2. Reuse the shared GraphStore conformance tests to consolidate identical storage bookkeeping.
+2. The identical S3/Azure/OCI graph records and journals now share one definition and pass the
+   existing GraphStore conformance tests. Further operation consolidation is optional.
 3. Use [Control profiles](control-profiles.md) to resolve existing startup configuration from one file.
 4. Identify an existing secure Hadoop environment and its owner before live enterprise tests.
    Local simulations and disposable PostgreSQL checks do not qualify a secure Hadoop estate.
+
+Once an environment is available, integrate the required HDFS/YARN slice from the preserved
+branch. Begin with one bounded two-source-to-Parquet workflow, then test restart, cancellation,
+recovery, and credential renewal. Those checks establish the first installation; the existing
+broader qualification gates still determine enterprise support.
 
 [DANDER-207](../tickets/DANDER-207-phase8-soak-release.md) remains open. Its broader scale/cost,
 pairwise, other-profile soak, audit, and release gates are not closed by the GCP observation or
