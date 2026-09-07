@@ -1,7 +1,7 @@
 ---
 id: DANDER-284
 title: Preserve BigQuery graph and ingestion job measurements
-status: in-code
+status: done
 component: python
 depends_on: [DANDER-283]
 created: 2026-09-07
@@ -19,7 +19,7 @@ could not support cost comparisons.
 - [x] Reuse the BigQuery normalizer and preserve query submission, fencing, cleanup, and retry policy.
 - [x] Drain ingestion measurements once and isolate successive graph builds.
 - [x] Verify counters after completion, retry counts, and failure behavior with focused tests.
-- [ ] Merge through protected checks and verify exact-main CI.
+- [x] Merge through protected checks and verify exact-main CI.
 
 ## Scope and Verification
 
@@ -36,3 +36,11 @@ and 20,971,520 bytes billed. No new query or worker execution was submitted for 
 These are job measurements, not a complete invoice. Other legacy write modes, non-graph model
 execution, state/catalog operations, retained infrastructure, storage, discounts, and capacity
 pricing remain outside this collector's coverage. The historical DANDER-283 results stay unchanged.
+
+The original graph's three completed parent jobs were also inspected directly. Their measured
+billed bytes were 10,485,760 for staging, zero for empty target creation, and 41,943,040 for the
+transactional publish. The normalizer preserved each value without adding child-job totals.
+[PR #534](https://github.com/harrisonoconnorhover/dander/pull/534) merged as `1aa1f60` after all six
+protected checks passed. All six
+[exact-main checks](https://github.com/harrisonoconnorhover/dander/actions/runs/34164220943)
+passed at `1aa1f6024497e6f94d75d3cf0adcff83910c395a`.

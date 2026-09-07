@@ -11,6 +11,7 @@ integrated or a named release/profile changes status.
 | Public prerelease `0.9.0rc20` | Published August 14 | The package installed by the hosted quickstart; later main-source features are not automatically included. |
 | Current source (`0.9.0rc32`) | Unreleased integration | Includes PostgreSQL Control, startup profiles, and later planning/Spark work. This is not a new public release. |
 | Retained GCP private RC22 | Operator trial closed | The August 2–September 1 observation and final seven clean days passed; all five schedules were subsequently paused. |
+| AWS DANDER-237/238 staging | Retired September 7 | Expired compute and public routing removed; versioned graph data, six run records, and accepted images retained. |
 | Local `codex/hdfs-enterprise-foundations` at `e187fdd` | Remaining enterprise implementation | PostgreSQL durability/startup has been integrated here. HDFS/YARN, Hive interfaces, semantics, locality, and enterprise packaging remain on the preserved branch. |
 
 The [operator closure](operator-soak.md) records 21/21 successful final-week scheduled runs,
@@ -44,11 +45,16 @@ The [profile preparation example](control-profiles.md) now registers an existing
 and writes its plan and startup files together. S3/Azure/OCI graph records and journals also share
 one definition; further operation consolidation is optional.
 
-1. Attribute existing AWS account costs and remove confirmed idle Dander resources before the next
-   paid qualification phase. The conservative monthly reservation is close to the USD 25 ceiling;
-   account-wide billing alone does not identify which resources belong to Dander.
-2. Fill the legacy graph's operation-level telemetry gap before relying on its byte counters for
-   cost comparisons. The successful workflow exposed row metrics but no recorded operations.
+1. Reconcile residual storage, keys, and registry costs before the next paid qualification phase.
+   The expired AWS staging services and routing were retired through their existing Terraform
+   state. Direct checks found no Control tasks/services/network interfaces and unchanged durable
+   run records. About USD 2.80/day in related service charges informed the savings estimate;
+   settled billing remains separate, and the USD 25 monthly cash ceiling is unchanged.
+2. Use a current-source worker for the next graph cost comparison.
+   [DANDER-284](../tickets/DANDER-284-bigquery-graph-job-telemetry.md) preserves completed BigQuery
+   graph and SCD1 load/query statistics. Local tests and readback of existing completed jobs pass;
+   no fresh cloud worker was submitted to validate this change. Other legacy paths and the full
+   provider bill remain outside this collector's coverage.
 3. Identify an existing secure Hadoop environment and its owner before live enterprise tests.
    Local simulations and disposable PostgreSQL checks do not qualify a secure Hadoop estate.
 4. Select the next exact-candidate release gate from DANDER-207 once its environment and cost
