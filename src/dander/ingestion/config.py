@@ -31,6 +31,8 @@ def load_source_config(path: Path) -> SourceConfig:
     """
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except UnicodeDecodeError as error:
+        raise ConnectorConfigError(f"Connector config must use UTF-8: {path}") from error
     except (OSError, yaml.YAMLError) as error:
         raise ConnectorConfigError(f"Could not load connector config {path}: {error}") from error
 
