@@ -2,42 +2,36 @@
 
 ## Finished
 
-- Named pipelines and connector commands use consistent project-relative paths and explicit deployment/platform selection; setup documentation matches the current schema and CLI.
-- Normal CLI failures render concise errors with their original exit codes; incorrectly encoded configuration files identify UTF-8 as the remedy.
-- Storage Write preserves canonical-schema values in protobuf rows and rejects unsupported repeated fields before opening a stream.
-- Control shutdown retains dependencies until workers finish and supports cleanup retries; S3 history pagination accepts valid short pages.
-- Failed-write observations cannot leak into successful retries; all ingestion paths share the same write-and-drain boundary.
+- Basic CLI commands and local/PostgreSQL imports no longer load Google SDKs.
+- Azure-to-Google credentials load only when selected; generic OAuth JWT signing uses the existing PyJWT dependency.
+- Distribution CI now exercises five fresh installation profiles outside the checkout.
 
 ## Try It
 
 Run `uv sync --frozen --extra dev --extra postgres`, then `source .venv/bin/activate`.
-From another directory, run
-`dander run PIPELINE --config /path/to/project/dander.yaml --dry-run`.
-Use `dander connector inspect PIPELINE --config /path/to/project/dander.yaml --deployment NAME`
-to inspect a selected deployment's connector.
-For focused checks, use `uv run pytest tests/cli/test_project_paths.py tests/control/test_shutdown_recovery.py tests/writer/test_storage_write_writer.py`.
+Try `dander --help`, `dander control --help`, and `dander runtime compatibility`.
+To verify built packages, run `python3 scripts/check_provider_installations.py dist/*.whl dist/*.tar.gz --work-dir /tmp/dander-install-check --version 0.9.0rc32` with a fresh work directory.
 
 ## Checks
 
-- Final combined changes: 2,396 full-suite tests passed with disposable PostgreSQL 15; its container was removed afterward.
-- Canonical strict typing: 506 files passed. Ruff lint/format, Control contract drift, and diff checks passed.
-- All 161 CLI tests passed after adding connector selectors, including subprocess rendering, exit codes, and import isolation.
-- Schema, shutdown, telemetry-retry, encoding, and S3 pagination failures were reproduced before fixes; their regressions now pass.
-- Protected runtime PRs #538–#540 passed every required check; [final runtime main CI](https://github.com/harrisonoconnorhover/dander/actions/runs/34177142315) tracks commit `9902baf`. No live provider workload was run.
+- All 2,402 tests passed with disposable PostgreSQL 15; its container was removed afterward.
+- Canonical strict typing passed for 507 files; Ruff lint/format, Control contract drift, and diff checks passed.
+- Wheel/source archive validation passed. Base wheel, base source, PostgreSQL, BigQuery/GCP, and full-runtime fresh installations passed CLI, scaffold, and selected-SDK checks.
+- JWT signature, claims, expiry, and invalid-key behavior passed without Google imports.
 
 ## Decisions
 
-- Resolve input paths and native schema fields at their owning boundary, then reuse them consistently.
-- Keep shutdown requested distinct from cleanup completed; shared dependencies remain available until their workers stop.
-- Preserve public Click error classes, legacy schema precedence, standalone source paths, and existing provider commit/retry behavior.
+- Keep provider SDK imports within selected provider operations.
+- Verify clean installations before changing dependency declarations; full-runtime behavior remains available through its existing extra.
 
 ## Remaining
 
-- Recovery scaling: with one active run among 1,000 records, an offline fake produced 2,010 S3 reads/list requests every sweep. A PostgreSQL pending-work query needs transactional eligibility fields and a migration; real provider latency remains unmeasured.
-- Packaging: existing development-environment metadata attributes about 234 MiB to Google/BigQuery dependencies. Verify clean PostgreSQL and BigQuery wheel installations before moving dependencies into existing extras; this is not a measured deployment saving.
+- Move Google/BigQuery dependencies from the base installation into existing extras and document installation choices.
+- Integrate the separately tested PostgreSQL pending-recovery query and migration.
+- Finish protected CI and exact-main verification for each runtime slice. No live provider qualification is part of this work.
 
 ## Review First
 
-- `src/dander/control/run_lifecycle.py`, `startup_factory.py`, and `s3_run_store.py`
-- `src/dander/cli/entrypoint.py`, `run_command.py`, and `tests/cli/test_project_paths.py`
-- `src/dander/runtime.py`, `tests/test_runtime.py`, and `src/dander/writer/storage_write.py`
+- `src/dander/security/oauth_jwt.py` and `tests/security/test_enterprise_auth.py`
+- `src/dander/identity/_azure_google_credentials.py` and `tests/cli/test_import_isolation.py`
+- `scripts/check_provider_installations.py` and `.github/workflows/ci.yml`

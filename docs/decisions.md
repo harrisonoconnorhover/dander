@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-09-08 — Load Google SDKs only at their provider boundary
+
+- Basic CLI commands, local runtime setup, and PostgreSQL imports work without Google SDKs.
+  Azure-to-Google credentials retain their class and cloning behavior in a lazily loaded module;
+  BigQuery retry and GCP billing helpers import their SDKs only when selected.
+- Generic OAuth JWT signing uses the existing PyJWT dependency for RS256. Its claims, expiry,
+  signature verification, and invalid-key failures are tested independently of Google Auth.
+- Distribution CI exercises base wheel/source, PostgreSQL, BigQuery/GCP, and full-runtime installs
+  in fresh environments outside the checkout before changing default dependency declarations.
+
 ## 2026-09-07 — Reuse deployment selection and honor short object-store pages
 
 - Connector inspection and operations use the same deployment/platform selection as project

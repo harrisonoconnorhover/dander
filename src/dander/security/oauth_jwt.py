@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from time import monotonic, time
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol
 
 import httpx
-from google.auth import crypt, jwt
+import jwt
 
 from dander.security.base import AuthStrategy
 from dander.security.oauth import OAuthTokenError
@@ -129,7 +129,7 @@ class OAuth2JWT(AuthStrategy):
             )
             response.raise_for_status()
             payload: Any = response.json()
-        except (httpx.HTTPError, ValueError) as error:
+        except (httpx.HTTPError, jwt.InvalidKeyError, ValueError) as error:
             raise OAuthTokenError("OAuth JWT token exchange failed") from error
 
         if not isinstance(payload, Mapping):
@@ -168,9 +168,7 @@ def _sign_rs256(
         payload["scope"] = scope
     if subject is not None:
         payload["sub"] = subject
-    signer = crypt.RSASigner.from_string(private_key)  # type: ignore[no-untyped-call]
-    encoded = jwt.encode(signer, payload)  # type: ignore[no-untyped-call]
-    return cast("bytes", encoded).decode("ascii")
+    return jwt.encode(payload, private_key, algorithm="RS256")
 
 
 def _post_token(

@@ -81,11 +81,11 @@ def test_billing_verifier_uses_launcher_identity_credentials(
         lambda: {"credentials": credentials},
     )
     monkeypatch.setattr(
-        "dander.sandbox.google.auth.default",
+        "google.auth.default",
         lambda **_kwargs: pytest.fail("ambient credentials must not be used"),
     )
     monkeypatch.setattr(
-        "dander.sandbox.AuthorizedSession",
+        "google.auth.transport.requests.AuthorizedSession",
         lambda value: session if value is credentials else pytest.fail("wrong credentials"),
     )
 
@@ -201,11 +201,11 @@ def test_guarded_free_tier_uses_launcher_identity_credentials(
         lambda: {"credentials": credentials},
     )
     monkeypatch.setattr(
-        "dander.sandbox.google.auth.default",
+        "google.auth.default",
         lambda **_kwargs: pytest.fail("ambient credentials must not be used"),
     )
     monkeypatch.setattr(
-        "dander.sandbox.AuthorizedSession",
+        "google.auth.transport.requests.AuthorizedSession",
         lambda value: session if value is credentials else pytest.fail("wrong credentials"),
     )
 

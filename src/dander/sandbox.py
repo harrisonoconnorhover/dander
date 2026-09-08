@@ -6,8 +6,6 @@ import re
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Protocol, cast
 
-import google.auth
-from google.auth.transport.requests import AuthorizedSession
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError
 
 from dander.identity import google_client_options
@@ -97,6 +95,9 @@ class GcpBillingVerifier:
     def __init__(self, session: _Session | None = None) -> None:
         if session is None:
             try:
+                import google.auth
+                from google.auth.transport.requests import AuthorizedSession
+
                 credentials = google_client_options().get("credentials")
                 if credentials is None:
                     credentials, _ = google.auth.default(scopes=[_BILLING_SCOPE])
@@ -158,6 +159,9 @@ class GuardedFreeTierVerifier:
     def __init__(self, session: _Session | None = None) -> None:
         if session is None:
             try:
+                import google.auth
+                from google.auth.transport.requests import AuthorizedSession
+
                 credentials = google_client_options().get("credentials")
                 if credentials is None:
                     credentials, _ = google.auth.default(scopes=[_CLOUD_SCOPE])
