@@ -243,6 +243,7 @@ class ExecutionBackendRegistry:
             raise OrchestrationContractError("at least one named execution backend is required")
         self._backends = selected
         self._closed = False
+        self._closed_backends: set[int] = set()
 
     def require(self, backend_id: str) -> ExecutionBackend:
         """Return the selected backend without importing another provider implementation."""
@@ -260,14 +261,16 @@ class ExecutionBackendRegistry:
         seen: set[int] = set()
         failed = False
         for backend in self._backends.values():
-            if id(backend) in seen:
+            if id(backend) in seen or id(backend) in self._closed_backends:
                 continue
             seen.add(id(backend))
             try:
                 backend.close()
             except ExecutionBackendError:
                 failed = True
-        self._closed = True
+            else:
+                self._closed_backends.add(id(backend))
+        self._closed = not failed
         if failed:
             raise ExecutionBackendError("One or more execution backends failed to close.")
 
@@ -731,6 +734,10 @@ class ControlRunLifecycle:
         self._scan_failed = False
         self._last_pass_failed = False
         self._closed = False
+        self._cleanup_complete = False
+        self._close_lock = threading.Lock()
+        self._closed_sources: set[int] = set()
+        self._store_closed = False
 
     def install_submission_source(self, source: RunSubmissionSource) -> None:
         """Install one ingress source before the reconciler and its workers start."""
@@ -772,6 +779,7 @@ class ControlRunLifecycle:
 
     def start(self, submission: RunSubmission) -> RunStatusResponse:
         with self._mutation_lock:
+            self._require_open()
             return self._start(submission)
 
     def find_api_start(
@@ -938,6 +946,7 @@ class ControlRunLifecycle:
 
     def cancel(self, address: RunAddress, *, idempotency_key: str) -> MutationResult:
         with self._mutation_lock:
+            self._require_open()
             return self._cancel(address, idempotency_key=idempotency_key)
 
     def _cancel(self, address: RunAddress, *, idempotency_key: str) -> MutationResult:
@@ -976,6 +985,11 @@ class ControlRunLifecycle:
         return result
 
     def replay(self, address: RunAddress, *, idempotency_key: str) -> MutationResult:
+        with self._mutation_lock:
+            self._require_open()
+            return self._replay(address, idempotency_key=idempotency_key)
+
+    def _replay(self, address: RunAddress, *, idempotency_key: str) -> MutationResult:
         source = self._require_run(address.run_id).record
         if source.run_state is not HostedRunState.TERMINAL:
             raise ControlOperationConflictError("Only a terminal run can be replayed.")
@@ -1087,6 +1101,8 @@ class ControlRunLifecycle:
                 return processed, False
             try:
                 with self._mutation_lock:
+                    if self._stop.is_set():
+                        return processed, False
                     self._reconcile_stored(stored)
                 processed += 1
             except RunStoreConflictError:
@@ -1108,37 +1124,64 @@ class ControlRunLifecycle:
         return processed, page.next_cursor is not None
 
     def close(self) -> None:
-        """Stop reconciliation before closing provider transports and durable state."""
+        """Stop every worker before cleanup; a timed-out close can be retried."""
+        with self._close_lock:
+            if self._cleanup_complete:
+                return
+            with self._state_lock:
+                self._closed = True
+                thread = self._thread
+                sources = tuple(self._submission_sources)
+            self._stop.set()
+            source_failed = False
+            for source in sources:
+                if id(source) in self._closed_sources:
+                    continue
+                try:
+                    source.close()
+                except Exception:  # noqa: BLE001 - stop other sources before reporting failure
+                    source_failed = True
+                else:
+                    self._closed_sources.add(id(source))
+            if thread is not None:
+                thread.join(timeout=self._shutdown_grace)
+                if thread.is_alive():
+                    raise ControlOperationDependencyError(
+                        "The Control reconciler did not stop within its shutdown grace period."
+                    )
+            if source_failed:
+                raise ControlOperationDependencyError(
+                    "The Control submission sources could not close cleanly."
+                )
+            if not self._mutation_lock.acquire(timeout=self._shutdown_grace):
+                raise ControlOperationDependencyError(
+                    "The active Control mutation did not stop within its shutdown grace period."
+                )
+            try:
+                failed = False
+                try:
+                    self._backends.close()
+                except ExecutionBackendError:
+                    failed = True
+                if not self._store_closed:
+                    try:
+                        self._store.close()
+                    except RunStoreError:
+                        failed = True
+                    else:
+                        self._store_closed = True
+                if failed:
+                    raise ControlOperationDependencyError(
+                        "The Control lifecycle could not close cleanly."
+                    )
+                self._cleanup_complete = True
+            finally:
+                self._mutation_lock.release()
+
+    def _require_open(self) -> None:
         with self._state_lock:
             if self._closed:
-                return
-            self._closed = True
-            thread = self._thread
-            sources = tuple(self._submission_sources)
-        source_failed = False
-        for source in sources:
-            try:
-                source.close()
-            except ControlOperationDependencyError:
-                source_failed = True
-        self._stop.set()
-        if thread is not None:
-            thread.join(timeout=self._shutdown_grace)
-            if thread.is_alive():
-                raise ControlOperationDependencyError(
-                    "The Control reconciler did not stop within its shutdown grace period."
-                )
-        failed = source_failed
-        try:
-            self._backends.close()
-        except ExecutionBackendError:
-            failed = True
-        try:
-            self._store.close()
-        except RunStoreError:
-            failed = True
-        if failed:
-            raise ControlOperationDependencyError("The Control lifecycle could not close cleanly.")
+                raise ControlOperationDependencyError("The run lifecycle is closed.")
 
     def _cancel_once(self, run_id: str) -> MutationResult:
         stored = self._require_run(run_id)

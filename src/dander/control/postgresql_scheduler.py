@@ -169,6 +169,8 @@ class PostgreSQLScheduler:
         self._initial_tick_complete = False
         self._last_tick_failed = False
         self._closed = False
+        self._cleanup_complete = False
+        self._close_lock = threading.Lock()
 
     def start(self) -> None:
         """Start the scheduler producer thread idempotently."""
@@ -199,6 +201,8 @@ class PostgreSQLScheduler:
 
     def tick_once(self) -> int:
         """Produce due wakeups once when this process owns the dedicated session lock."""
+        if self._stop.is_set():
+            return 0
         try:
             if not self._leader.try_acquire():
                 produced = 0
@@ -223,26 +227,33 @@ class PostgreSQLScheduler:
                 self._last_tick_failed = True
             raise
 
-    def close(self) -> None:
-        """Stop production before releasing leadership; the shared queue remains open."""
+    def request_stop(self) -> None:
+        """Stop accepting work without closing dependencies used by an active worker."""
         with self._state_lock:
-            if self._closed:
-                return
             self._closed = True
-            thread = self._thread
         self._stop.set()
-        if thread is not None:
-            thread.join(timeout=self._shutdown_grace)
-            if thread.is_alive():
+
+    def close(self) -> None:
+        """Wait for the worker before cleanup, retaining ownership after a timeout."""
+        with self._close_lock:
+            if self._cleanup_complete:
+                return
+            self.request_stop()
+            with self._state_lock:
+                thread = self._thread
+            if thread is not None:
+                thread.join(timeout=self._shutdown_grace)
+                if thread.is_alive():
+                    raise ControlOperationDependencyError(
+                        "The PostgreSQL scheduler did not stop within its shutdown grace period."
+                    )
+            try:
+                self._leader.close()
+            except ScheduleQueueError as error:
                 raise ControlOperationDependencyError(
-                    "The PostgreSQL scheduler did not stop within its shutdown grace period."
-                )
-        try:
-            self._leader.close()
-        except ScheduleQueueError as error:
-            raise ControlOperationDependencyError(
-                "The PostgreSQL scheduler could not release leadership."
-            ) from error
+                    "The PostgreSQL scheduler could not release leadership."
+                ) from error
+            self._cleanup_complete = True
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -264,6 +275,8 @@ class PostgreSQLScheduleSubmissionSource:
         self._producer = producer
         self._consumer = consumer
         self._closed = False
+        self._cleanup_complete = False
+        self._close_lock = threading.Lock()
 
     def start(self) -> None:
         """Start consumption before enabling occurrence production."""
@@ -279,22 +292,16 @@ class PostgreSQLScheduleSubmissionSource:
         return not self._closed and self._producer.ready() and self._consumer.ready()
 
     def close(self) -> None:
-        """Stop the producer before the consumer closes their shared queue."""
-        if self._closed:
-            return
-        self._closed = True
-        producer_error: Exception | None = None
-        try:
+        """Stop both loops; retain the shared queue until the producer has stopped."""
+        with self._close_lock:
+            if self._cleanup_complete:
+                return
+            self._closed = True
+            self._producer.request_stop()
+            self._consumer.request_stop()
             self._producer.close()
-        except Exception as error:  # noqa: BLE001 - still stop the consumer deterministically
-            producer_error = error
-        try:
             self._consumer.close()
-        except Exception:
-            if producer_error is None:
-                raise
-        if producer_error is not None:
-            raise producer_error
+            self._cleanup_complete = True
 
 
 __all__ = [

@@ -7,6 +7,7 @@ adapters are reached only after the PostgreSQL union arm has been selected.
 from __future__ import annotations
 
 import os
+import threading
 from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, cast
@@ -77,28 +78,23 @@ class ControlStartup:
     composition: ControlRunComposition
     _shared_pool: _Closeable | None = field(default=None, repr=False)
     _closed: bool = field(default=False, init=False, repr=False)
+    _close_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     def close(self) -> None:
-        """Close sources and lifecycle before closing the shared pool exactly once."""
-        if self._closed:
-            return
-        self._closed = True
-        failure: Exception | None = None
-        try:
-            self.composition.lifecycle.close()
-        except Exception as error:  # noqa: BLE001 - the pool must still close
-            failure = error
-        pool, self._shared_pool = self._shared_pool, None
-        if pool is not None:
+        """Keep the shared pool until lifecycle shutdown and cleanup have completed."""
+        with self._close_lock:
+            if self._closed:
+                return
             try:
-                pool.close()
-            except Exception as error:  # noqa: BLE001 - sanitize driver failures
-                if failure is None:
-                    failure = error
-        if failure is not None:
-            raise ControlRunCompositionError(
-                "The typed Control startup could not close cleanly."
-            ) from None
+                self.composition.lifecycle.close()
+                if self._shared_pool is not None:
+                    self._shared_pool.close()
+                    self._shared_pool = None
+            except Exception:  # noqa: BLE001 - sanitize failures and retain retryable ownership
+                raise ControlRunCompositionError(
+                    "The typed Control startup could not close cleanly."
+                ) from None
+            self._closed = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,21 +263,19 @@ def build_control_startup(
         ScheduleQueueError,
         ValueError,
     ) as error:
-        if composition is not None:
-            with suppress(Exception):
+        with suppress(Exception):
+            if composition is not None:
                 composition.lifecycle.close()
-        if postgresql is not None:
-            with suppress(Exception):
+            if postgresql is not None:
                 postgresql.pool.close()
         if isinstance(error, ControlRunCompositionError):
             raise
         raise ControlRunCompositionError("The typed Control startup binding is invalid.") from None
     except Exception:  # noqa: BLE001 - never leak provider or DSN-bearing errors
-        if composition is not None:
-            with suppress(Exception):
+        with suppress(Exception):
+            if composition is not None:
                 composition.lifecycle.close()
-        if postgresql is not None:
-            with suppress(Exception):
+            if postgresql is not None:
                 postgresql.pool.close()
         raise ControlRunCompositionError("The typed Control startup binding is invalid.") from None
 
