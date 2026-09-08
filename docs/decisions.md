@@ -1,5 +1,19 @@
 # Engineering Decisions
 
+## 2026-09-08 — Recover pending PostgreSQL runs without reading completed history
+
+- PostgreSQL Control schema v4 derives `needs_reconciliation` from canonical run records and
+  indexes only eligible run IDs. Claim and conditional save update that projection in the same
+  transaction as the record. Migration validates existing records in bounded pages and preserves
+  their bytes and revisions; invalid history rolls back the migration.
+- Recovery selects the optional pending query once. Other stores retain history pagination;
+  query failures do not switch implementations. A run stays eligible until execution, outcome,
+  results, and cleanup are resolved. The public history query remains unchanged, and readiness
+  checks recovery progress rather than auditing completed history.
+- Upgrade the existing single Control process while it is stopped. Migration holds the existing
+  transaction/table locks during backfill; older binaries reject a v4 schema. This is not a
+  rolling-version or multi-replica migration, and no live database was migrated for this change.
+
 ## 2026-09-08 — Install only the selected provider SDKs
 
 - The base package retains generic REST extraction and OAuth dependencies; Google SDKs belong to

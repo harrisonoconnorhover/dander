@@ -35,6 +35,16 @@ PostgreSQL Control stores graphs, run snapshots, attempts, and optional schedule
 dedicated schema. It can register existing Cloud Run or Dataproc plans without requiring Fargate,
 S3, SQS, or AWS credentials. The existing AWS flags remain available for compatibility.
 
+Schema v4 adds an index of runs with unfinished execution, unknown outcomes, pending results, or
+unconfirmed cleanup. Recovery queries that index while the history API continues to return all
+runs. Completed history no longer forms part of the recovery readiness check.
+
+For an existing database, stop the single Control process before upgrading. Startup migrates the
+schema in one transaction, validates existing records, and preserves their saved contents and
+revisions. The backfill holds table locks for its duration, so allow a maintenance window based
+on history size. Migration failure leaves the previous schema intact. After a successful v4
+migration, older binaries reject the schema; do not run mixed versions against it.
+
 For one existing version 1 Cloud Run graph pipeline, the
 [preparation example](../examples/control/prepare_cloud_run.py) creates the graph in PostgreSQL
 and writes its canonical plan, startup binding, and profile together. It requires the `postgres`,
