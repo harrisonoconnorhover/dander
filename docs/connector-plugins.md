@@ -161,9 +161,9 @@ dander plugins search
 dander plugins search salesforce
 ```
 
-Each result includes an exact public package pin, its compatible Dander range, support status,
-provider-validation status, and documentation links. The catalog ships with Dander; PyPI remains
-the package store and source of the actual distribution.
+CLI results include an exact public package pin, its compatible Dander range, support status,
+and provider-validation status. Catalog API metadata also includes documentation links. The
+catalog ships with Dander; PyPI remains the package store and source of the actual distribution.
 
 When `dander graph serve` opens a project, `GET /v1/plugin-catalog` exposes the same non-secret
 catalog and marks only validated, manifest-declared plugins as installed. `GET /v1/connectors`
