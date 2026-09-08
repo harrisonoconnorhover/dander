@@ -20,6 +20,7 @@ from dander.ingestion import (
     SourceCapabilities,
     SourceConfig,
 )
+from dander.plugins import ConnectorPluginRegistry
 from dander.project import prepare_version_one_migration
 from dander.security import EnvironmentSecretStore, OAuthTokenError
 
@@ -110,6 +111,66 @@ def _config() -> SourceConfig:
         engine="dlt",
         auth_strategy="none",
     )
+
+
+@pytest.mark.parametrize("selector", ("--deployment", "--platforms-config"))
+def test_explicit_selector_requires_project_before_constructing_provider_or_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, selector: str
+) -> None:
+    project = tmp_path / "missing.yaml"
+    args = [
+        "connector",
+        "inspect",
+        "greenhouse_job_board",
+        "--config",
+        str(project),
+        "--connectors-dir",
+        str(_REPO_ROOT / "connectors"),
+    ]
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Unresolved deployment must not construct a provider or source")
+
+    with monkeypatch.context() as context:
+        context.setattr(cli_module, "build_secret_store", forbidden)
+        context.setattr(ConnectorPluginRegistry, "build_capabilities", forbidden)
+        result = CliRunner().invoke(app, [*args, selector, "requested"])
+
+    assert result.exit_code == 1
+    assert "Cannot select a deployment without project configuration" in str(result.exception)
+    assert str(project) in str(result.exception)
+
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert "greenhouse_job_board" in result.output
+
+
+def test_write_rejects_non_utf8_record_before_loading_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = tmp_path / "record.json"
+    record.write_bytes('{"Name":"Example"}'.encode("utf-16"))
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Invalid write input must not load the source")
+
+    monkeypatch.setattr(cli_module, "_load_connector_capabilities", forbidden)
+    result = CliRunner().invoke(
+        app,
+        [
+            "connector",
+            "write",
+            "example",
+            "accounts",
+            "create",
+            "--record",
+            str(record),
+            "--confirm-write",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert str(result.exception) == "--record must name a readable JSON object"
 
 
 def test_inspect_selects_external_platforms_and_deployment(

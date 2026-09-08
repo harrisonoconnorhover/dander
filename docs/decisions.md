@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-09-07 — Reuse deployment selection and honor short object-store pages
+
+- Connector inspection and operations use the same deployment/platform selection as project
+  execution, including the selected secret provider and manifest-relative connector paths.
+  An explicit selection requires a readable project manifest; standalone source commands keep
+  their existing defaults when no deployment selection is requested.
+- S3 run listing accepts nonempty truncated pages even when they contain fewer than the requested
+  maximum. The existing exclusive last-key cursor advances them without a schema or index change;
+  empty truncated pages still fail because they cannot provide a progressing cursor. This follows
+  the [ListObjectsV2 response contract](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html).
+
 ## 2026-09-07 — Keep failed-write observations inside their attempt
 
 - All ingestion write paths share one write-and-drain boundary. It clears stale observations

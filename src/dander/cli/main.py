@@ -1850,6 +1850,12 @@ def _load_connector_capabilities(
     secret_provider = "gcp_secret_manager"
     secret_config: dict[str, object] | None = None
     try:
+        if (
+            platforms_config is not None or deployment is not None
+        ) and not project_config.is_file():
+            raise ProjectConfigError(
+                f"Cannot select a deployment without project configuration: {project_config}"
+            )
         registry = load_connector_plugins({})
         if project_config.is_file():
             manifest = load_project_config(
@@ -1885,7 +1891,7 @@ def _read_json_object(path: Path | None, label: str) -> dict[str, object]:
         raise ClickException(f"--{label} is required")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ClickException(f"--{label} must name a readable JSON object") from error
     if not isinstance(payload, dict) or any(not isinstance(key, str) for key in payload):
         raise ClickException(f"--{label} must contain one JSON object")

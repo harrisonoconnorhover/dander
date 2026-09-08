@@ -114,7 +114,7 @@ dander connector inspect acme_crm --config dander.yaml --platforms-config dander
 Select a deployment explicitly when the platform file contains more than one. For a named
 pipeline, relative `--connectors-dir` paths are resolved beside the project manifest; standalone
 source names retain their working-directory interpretation. Absolute directory overrides are
-used as supplied.
+used as supplied. Supplying either deployment-selection flag requires a readable project manifest.
 
 ## Prove provider behavior
 
