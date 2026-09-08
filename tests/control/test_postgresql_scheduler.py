@@ -150,6 +150,9 @@ class _OrderedComponent:
     def ready(self) -> bool:
         return True
 
+    def request_stop(self) -> None:
+        pass
+
     def close(self) -> None:
         self._calls.append(f"close:{self._name}")
 

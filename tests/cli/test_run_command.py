@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,6 +33,41 @@ if TYPE_CHECKING:
     from dander.state import LeaseStore, RunHistoryStore, WatermarkStore
 
 _REPO_ROOT = Path(__file__).parents[2]
+
+
+@pytest.mark.parametrize("connector_text", (None, "name: [not-closed"))
+def test_run_reports_unreadable_connector_as_cli_error(
+    tmp_path: Path, connector_text: str | None
+) -> None:
+    connectors = tmp_path / "connectors"
+    connectors.mkdir()
+    connector = connectors / "example.yaml"
+    if connector_text is not None:
+        connector.write_text(connector_text, encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from dander.cli.entrypoint import main; main()",
+            "run",
+            "example",
+            "--dry-run",
+            "--config",
+            str(tmp_path / "missing-project.yaml"),
+            "--connectors-dir",
+            str(connectors),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 1
+    assert "Error: Could not load connector config" in result.stderr
+    assert str(connector) in result.stderr
+    assert "Traceback" not in result.stdout + result.stderr
 
 
 @dataclass(frozen=True)
@@ -67,8 +104,12 @@ class _Migrator:
         self.calls = 0
 
 
+@pytest.mark.parametrize("external_project", (False, True))
 def test_hosted_project_run_wires_runtime_without_network(
     monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+    *,
+    external_project: bool,
 ) -> None:
     captured: dict[str, object] = {}
 
@@ -200,6 +241,31 @@ def test_hosted_project_run_wires_runtime_without_network(
     monkeypatch.setattr(run_module, "_build_state_runtime", build_state)
     monkeypatch.setattr(run_module, "PipelineExecutor", _Executor)
 
+    project_root = tmp_path if external_project else _REPO_ROOT
+    if external_project:
+        (project_root / "dander.yaml").write_text(
+            "version: 1\npipelines:\n  greenhouse_jobs:\n"
+            "    source: greenhouse_job_board\n    models: [stg_greenhouse__jobs]\n",
+            encoding="utf-8",
+        )
+        (project_root / "connectors").mkdir()
+        (project_root / "connectors" / "greenhouse_job_board.yaml").write_bytes(
+            (_REPO_ROOT / "connectors" / "greenhouse_job_board.yaml").read_bytes()
+        )
+        (project_root / "models").mkdir()
+        (project_root / "models" / "stg_greenhouse__jobs.sql").write_text(
+            "SELECT 1 AS id", encoding="utf-8"
+        )
+    directory_args = (
+        []
+        if external_project
+        else [
+            "--connectors-dir",
+            str(_REPO_ROOT / "connectors"),
+            "--models-dir",
+            str(_REPO_ROOT / "models"),
+        ]
+    )
     result = CliRunner().invoke(
         app,
         [
@@ -210,11 +276,8 @@ def test_hosted_project_run_wires_runtime_without_network(
             "--dataset",
             "landing",
             "--config",
-            str(_REPO_ROOT / "dander.yaml"),
-            "--connectors-dir",
-            str(_REPO_ROOT / "connectors"),
-            "--models-dir",
-            str(_REPO_ROOT / "models"),
+            str(project_root / "dander.yaml"),
+            *directory_args,
         ],
     )
 
@@ -232,6 +295,7 @@ def test_hosted_project_run_wires_runtime_without_network(
         )
     }
     assert executor["selected_models"] == ("stg_greenhouse__jobs",)
+    assert executor["models_dir"] == project_root / "models"
     assert executor["build_models"] is True
     assert executor["history"] == captured["history"]
     assert executor["leases"] == captured["leases"]

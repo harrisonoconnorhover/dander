@@ -67,3 +67,47 @@ def test_non_control_console_dispatch_preserves_the_legacy_cli() -> None:
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Usage: dander [OPTIONS] COMMAND [ARGS]" in unstyle(result.stdout)
+
+
+def test_control_console_error_preserves_exit_code_without_loading_providers() -> None:
+    script = textwrap.dedent(
+        """
+        import sys
+        from click import ClickException
+        from dander.cli.control_command import control_app
+        from dander.cli.entrypoint import dispatch
+
+        class ConfigurationFailure(ClickException):
+            exit_code = 7
+
+        @control_app.command("invalid-config")
+        def invalid_config():
+            raise ConfigurationFailure("Invalid Control binding")
+
+        try:
+            dispatch(("control", "invalid-config"))
+        except SystemExit as error:
+            forbidden = (
+                "azure.identity", "boto3", "google.cloud.bigquery", "google.cloud.dataplex",
+                "google.cloud.secretmanager", "oci",
+            )
+            loaded = sorted(
+                name for name in sys.modules
+                if any(name == prefix or name.startswith(prefix + ".") for prefix in forbidden)
+            )
+            assert loaded == [], loaded
+            raise SystemExit(error.code) from None
+        raise AssertionError("Expected a nonzero console exit")
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 7
+    assert "Error: Invalid Control binding" in result.stderr
+    assert "Traceback" not in result.stdout + result.stderr

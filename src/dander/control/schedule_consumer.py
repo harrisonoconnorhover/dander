@@ -201,6 +201,8 @@ class ControlScheduleConsumer:
         self._initial_poll_complete = False
         self._last_poll_failed = False
         self._closed = False
+        self._cleanup_complete = False
+        self._close_lock = threading.Lock()
 
     def start(self) -> None:
         """Start the one schedule-consumer thread owned by this Control process."""
@@ -231,6 +233,8 @@ class ControlScheduleConsumer:
 
     def poll_once(self) -> int:
         """Receive one bounded batch, deleting only successfully handed-off occurrences."""
+        if self._stop.is_set():
+            return 0
         try:
             messages = self._queue.receive()
         except ScheduleQueueError:
@@ -242,6 +246,8 @@ class ControlScheduleConsumer:
             self._last_poll_failed = False
         accepted = 0
         for message in messages:
+            if self._stop.is_set():
+                break
             try:
                 wakeup = deserialize_schedule_wakeup(message.body)
                 submission = self._resolver.resolve(wakeup, requested_at=self._clock())
@@ -258,26 +264,33 @@ class ControlScheduleConsumer:
                 _LOGGER.warning("control_schedule_message_failed")
         return accepted
 
-    def close(self) -> None:
-        """Stop receiving before closing the queue transport."""
+    def request_stop(self) -> None:
+        """Stop accepting work without closing dependencies used by an active worker."""
         with self._state_lock:
-            if self._closed:
-                return
             self._closed = True
-            thread = self._thread
         self._stop.set()
-        if thread is not None:
-            thread.join(timeout=self._shutdown_grace)
-            if thread.is_alive():
+
+    def close(self) -> None:
+        """Wait for the worker before cleanup, retaining ownership after a timeout."""
+        with self._close_lock:
+            if self._cleanup_complete:
+                return
+            self.request_stop()
+            with self._state_lock:
+                thread = self._thread
+            if thread is not None:
+                thread.join(timeout=self._shutdown_grace)
+                if thread.is_alive():
+                    raise ControlOperationDependencyError(
+                        "The schedule consumer did not stop within its shutdown grace period."
+                    )
+            try:
+                self._queue.close()
+            except ScheduleQueueError as error:
                 raise ControlOperationDependencyError(
-                    "The schedule consumer did not stop within its shutdown grace period."
-                )
-        try:
-            self._queue.close()
-        except ScheduleQueueError as error:
-            raise ControlOperationDependencyError(
-                "The schedule queue could not close cleanly."
-            ) from error
+                    "The schedule queue could not close cleanly."
+                ) from error
+            self._cleanup_complete = True
 
     def _loop(self) -> None:
         while not self._stop.is_set():
