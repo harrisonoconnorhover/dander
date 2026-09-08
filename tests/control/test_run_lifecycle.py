@@ -57,6 +57,7 @@ from dander.control.orchestration import (
     TriggerKind,
     TriggerSpec,
     create_run_record,
+    run_needs_reconciliation,
     transition_run,
 )
 from dander.control.orchestration_serialization import (
@@ -621,6 +622,145 @@ def test_restart_recovers_queued_save_after_submit_gap_by_adopting_same_effect()
     assert backend.submissions[0] == backend.submissions[1]
     assert len(backend.effects) == 1
     assert len(store.attempts) == 1
+
+
+def test_recovery_resolves_terminal_results_after_cleanup_was_confirmed() -> None:
+    graph_store, graph = _graph_store()
+    plan = _plan(graph)
+    store = _Store()
+    backend = _Backend()
+    lifecycle = _lifecycle(graph_store, plan, store, backend)
+    try:
+        started = lifecycle.start(_submission(graph, plan))
+        stored = store.runs[started.run_id]
+        assert stored.record.backend_handle is not None
+        store.save(
+            stored,
+            transition_run(
+                stored.record,
+                HostedRunState.TERMINAL,
+                now=NOW + timedelta(seconds=2),
+                outcome=RunOutcome.SUCCEEDED,
+                results_state=ResultsState.PENDING,
+                cleanup_state=CleanupState.CONFIRMED,
+            ),
+        )
+        backend.observations[stored.record.backend_handle.execution_id] = _terminal(
+            RunOutcome.SUCCEEDED
+        )
+
+        assert lifecycle.reconcile_once() == 1
+        assert store.runs[started.run_id].record.results_state is ResultsState.AVAILABLE
+        assert store.runs[started.run_id].record.result_summary == _result_summary()
+    finally:
+        lifecycle.close()
+
+
+@pytest.mark.parametrize("optimized", [False, True])
+def test_recovery_selects_optional_query_once_and_preserves_public_history(
+    optimized: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    history_reads: list[str | None] = []
+    pending_reads: list[str | None] = []
+
+    class CountingStore(_Store):
+        def list(self, *, cursor: str | None, limit: int) -> StoredRunPage:
+            history_reads.append(cursor)
+            return super().list(cursor=cursor, limit=limit)
+
+    class PendingStore(CountingStore):
+        def list_pending(self, *, cursor: str | None, limit: int) -> StoredRunPage:
+            pending_reads.append(cursor)
+            with self.lock:
+                candidates = sorted(
+                    run_id
+                    for run_id, stored in self.runs.items()
+                    if run_needs_reconciliation(stored.record)
+                    and (cursor is None or run_id > cursor)
+                )
+                selected = candidates[:limit]
+                return StoredRunPage(
+                    items=tuple(self.runs[run_id] for run_id in selected),
+                    next_cursor=selected[-1] if len(candidates) > limit else None,
+                )
+
+    graph_store, graph = _graph_store()
+    plan = _plan(graph)
+    store = PendingStore() if optimized else CountingStore()
+    backend = _Backend()
+    lifecycle = _lifecycle(graph_store, plan, store, backend)
+    finished = store.claim(create_run_record(_submission(graph, plan, key="finished-key"))).stored
+    store.save(
+        finished,
+        transition_run(
+            finished.record,
+            HostedRunState.TERMINAL,
+            now=NOW + timedelta(seconds=1),
+            outcome=RunOutcome.CANCELED,
+            results_state=ResultsState.UNAVAILABLE,
+            cleanup_state=CleanupState.CONFIRMED,
+        ),
+    )
+    store.claim(create_run_record(_submission(graph, plan, key="pending-key")))
+
+    def unexpected_query(*, cursor: str | None, limit: int) -> StoredRunPage:
+        raise AssertionError("recovery query was reselected after construction")
+
+    monkeypatch.setattr(store, "list_pending", unexpected_query, raising=False)
+    try:
+        assert lifecycle.reconcile_once() == (1 if optimized else 2)
+        assert len(backend.effects) == 1
+        assert len(history_reads) == (0 if optimized else 1)
+        assert len(pending_reads) == (1 if optimized else 0)
+        assert len(lifecycle.list(cursor=None, limit=100).items) == 2
+        assert len(history_reads) == (1 if optimized else 2)
+    finally:
+        lifecycle.close()
+
+
+def test_pending_query_error_keeps_readiness_closed_without_history_fallback() -> None:
+    query_failed = threading.Event()
+    history_reads: list[str | None] = []
+
+    class PendingStore(_Store):
+        def list(self, *, cursor: str | None, limit: int) -> StoredRunPage:
+            history_reads.append(cursor)
+            return super().list(cursor=cursor, limit=limit)
+
+        def list_pending(self, *, cursor: str | None, limit: int) -> StoredRunPage:
+            if not query_failed.is_set():
+                query_failed.set()
+                raise RunStoreError("pending query unavailable")
+            return StoredRunPage(items=())
+
+    graph_store, graph = _graph_store()
+    lifecycle = ControlRunLifecycle(
+        PendingStore(),
+        ExecutionPlanRegistry((_plan(graph),)),
+        ExecutionBackendRegistry({"fargate": _Backend()}),
+        graph_store,
+        reconcile_interval_seconds=60,
+        shutdown_grace_seconds=1,
+    )
+    lifecycle.start_reconciler()
+    try:
+        assert query_failed.wait(timeout=1)
+        for _ in range(100):
+            with lifecycle._state_lock:  # noqa: SLF001 - wait for the recorded failure
+                failed = lifecycle._last_pass_failed  # noqa: SLF001
+            if failed:
+                break
+            threading.Event().wait(0.005)
+        assert failed
+        assert not lifecycle.ready()
+        lifecycle.reconcile_once()
+        assert not lifecycle.ready()
+        lifecycle.reconcile_once()
+        assert lifecycle.ready()
+        assert history_reads == []
+    finally:
+        lifecycle.close()
 
 
 def test_background_recovery_controls_readiness_and_graceful_shutdown() -> None:

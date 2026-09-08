@@ -28,6 +28,7 @@ from dander.control.orchestration import (
     RunStoreIdempotencyConflictError,
     StoredRun,
     StoredRunPage,
+    run_needs_reconciliation,
 )
 from dander.control.orchestration_serialization import (
     OrchestrationSerializationError,
@@ -75,8 +76,8 @@ class PostgreSQLRunStore:
                 row = connection.execute(
                     sql.SQL(
                         "INSERT INTO {} (run_id, environment, project, "
-                        "idempotency_key_sha256, submission_sha256, record_bytes, revision) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                        "idempotency_key_sha256, submission_sha256, record_bytes, revision, "
+                        "needs_reconciliation) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
                         "ON CONFLICT DO NOTHING "
                         "RETURNING run_id, environment, project, idempotency_key_sha256, "
                         "submission_sha256, record_bytes, revision"
@@ -89,6 +90,7 @@ class PostgreSQLRunStore:
                         record.submission_sha256,
                         data,
                         revision,
+                        run_needs_reconciliation(record),
                     ),
                 ).fetchone()
                 if row is not None:
@@ -184,12 +186,18 @@ class PostgreSQLRunStore:
             with self._database.pool.connection() as connection, connection.transaction():
                 row = connection.execute(
                     sql.SQL(
-                        "UPDATE {} SET record_bytes = %s, revision = %s "
+                        "UPDATE {} SET record_bytes = %s, revision = %s, needs_reconciliation = %s "
                         "WHERE run_id = %s AND revision = %s "
                         "RETURNING run_id, environment, project, idempotency_key_sha256, "
                         "submission_sha256, record_bytes, revision"
                     ).format(self._database.relation("dander_runs")),
-                    (data, next_revision, record.run_id, expected_revision),
+                    (
+                        data,
+                        next_revision,
+                        run_needs_reconciliation(record),
+                        record.run_id,
+                        expected_revision,
+                    ),
                 ).fetchone()
                 if row is None:
                     raise RunStoreConflictError("The PostgreSQL run-store precondition failed.")
@@ -310,29 +318,30 @@ class PostgreSQLRunStore:
 
     def list(self, *, cursor: str | None, limit: int) -> StoredRunPage:
         """Return a bounded deterministic page ordered by logical run identity."""
+        return self._list(cursor=cursor, limit=limit, pending_only=False)
+
+    def list_pending(self, *, cursor: str | None, limit: int) -> StoredRunPage:
+        """Read unfinished recovery work using the transactionally maintained partial index."""
+        return self._list(cursor=cursor, limit=limit, pending_only=True)
+
+    def _list(self, *, cursor: str | None, limit: int, pending_only: bool) -> StoredRunPage:
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
             raise RunStoreCorruptionError("The PostgreSQL run-store page size is invalid.")
         after = _decode_cursor(cursor) if cursor is not None else None
         try:
             with self._database.pool.connection() as connection:
-                if after is None:
-                    rows = connection.execute(
-                        sql.SQL(
-                            "SELECT run_id, environment, project, idempotency_key_sha256, "
-                            "submission_sha256, record_bytes, revision FROM {} "
-                            "ORDER BY run_id LIMIT %s"
-                        ).format(self._database.relation("dander_runs")),
-                        (limit + 1,),
-                    ).fetchall()
-                else:
-                    rows = connection.execute(
-                        sql.SQL(
-                            "SELECT run_id, environment, project, idempotency_key_sha256, "
-                            "submission_sha256, record_bytes, revision FROM {} "
-                            "WHERE run_id > %s ORDER BY run_id LIMIT %s"
-                        ).format(self._database.relation("dander_runs")),
-                        (after, limit + 1),
-                    ).fetchall()
+                rows = connection.execute(
+                    sql.SQL(
+                        "SELECT run_id, environment, project, idempotency_key_sha256, "
+                        "submission_sha256, record_bytes, revision FROM {} "
+                        "WHERE {} {} ORDER BY run_id LIMIT %s"
+                    ).format(
+                        self._database.relation("dander_runs"),
+                        sql.SQL("needs_reconciliation" if pending_only else "TRUE"),
+                        sql.SQL("AND run_id > %s" if after is not None else ""),
+                    ),
+                    (after, limit + 1) if after is not None else (limit + 1,),
+                ).fetchall()
             selected = rows[:limit]
             items = tuple(_stored_run_from_row(row) for row in selected)
             next_cursor = (

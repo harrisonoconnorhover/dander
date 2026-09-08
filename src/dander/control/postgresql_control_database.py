@@ -14,8 +14,9 @@ from psycopg import Connection, sql
 from psycopg_pool import ConnectionPool
 
 from dander.control.graph_store import MAX_GRAPH_DOCUMENT_BYTES
+from dander.control.orchestration import run_needs_reconciliation
 
-CONTROL_SCHEMA_VERSION = 3
+CONTROL_SCHEMA_VERSION = 4
 
 _SCHEMA_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
@@ -35,6 +36,7 @@ CONTROL_SCHEMA_MIGRATIONS = (
     ControlSchemaMigration(version=1, name="graph_store_v1"),
     ControlSchemaMigration(version=2, name="run_store_v1"),
     ControlSchemaMigration(version=3, name="schedule_queue_v1"),
+    ControlSchemaMigration(version=4, name="run_pending_recovery_v1"),
 )
 
 
@@ -149,7 +151,53 @@ class PostgreSQLControlMigrator:
         if migration.version == 3:
             self._apply_schedule_queue_v1(connection)
             return
+        if migration.version == 4:
+            self._apply_run_pending_recovery_v1(connection)
+            return
         raise RuntimeError("The PostgreSQL Control migration is unsupported.")
+
+    def _apply_run_pending_recovery_v1(self, connection: Connection[PostgreSQLRow]) -> None:
+        # Reuse the adapter's canonical snapshot and indexed-identity validation. The adapter
+        # imports this module only for typing, so migration does not introduce an import cycle.
+        from dander.control.postgresql_run_store import _stored_run_from_row
+
+        relation = self._database.relation("dander_runs")
+        connection.execute(
+            sql.SQL(
+                "ALTER TABLE {} ADD COLUMN needs_reconciliation BOOLEAN NOT NULL DEFAULT TRUE"
+            ).format(relation)
+        )
+        after = ""
+        while True:
+            rows = connection.execute(
+                sql.SQL(
+                    "SELECT run_id, environment, project, idempotency_key_sha256, "
+                    "submission_sha256, record_bytes, revision FROM {} "
+                    "WHERE run_id > %s ORDER BY run_id LIMIT 100"
+                ).format(relation),
+                (after,),
+            ).fetchall()
+            if not rows:
+                break
+            stored_runs = tuple(_stored_run_from_row(row) for row in rows)
+            settled_ids = [
+                stored.record.run_id
+                for stored in stored_runs
+                if not run_needs_reconciliation(stored.record)
+            ]
+            if settled_ids:
+                connection.execute(
+                    sql.SQL(
+                        "UPDATE {} SET needs_reconciliation = FALSE WHERE run_id = ANY(%s)"
+                    ).format(relation),
+                    (settled_ids,),
+                )
+            after = stored_runs[-1].record.run_id
+        connection.execute(
+            sql.SQL("CREATE INDEX {} ON {} (run_id) WHERE needs_reconciliation").format(
+                sql.Identifier("dander_runs_pending_recovery"), relation
+            )
+        )
 
     def _apply_graph_store_v1(self, connection: Connection[PostgreSQLRow]) -> None:
         relation = self._database.relation
