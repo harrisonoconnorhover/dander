@@ -20,7 +20,13 @@ from dander.cli.provider_runtime import build_catalog_publisher, build_secret_st
 from dander.compatibility import CompatibilityError, load_runtime_compatibility
 from dander.core.config import Settings
 from dander.executor import PipelineExecutionResult, PipelineExecutor
-from dander.ingestion import Endpoint, Source, SourceConfig, load_source_config
+from dander.ingestion import (
+    ConnectorConfigError,
+    Endpoint,
+    Source,
+    SourceConfig,
+    load_source_config,
+)
 from dander.pipeline.runtime import (
     GraphExecutionPlan,
     GraphRuntimeError,
@@ -112,6 +118,7 @@ class _ResolvedRun:
     project_pipeline: bool
     graph_file: Path | None
     graph_plan: GraphExecutionPlan | None
+    models_dir: Path
     gcp_project: str
     endpoint_relations: dict[str, RelationRef]
     state_catalog: str | None
@@ -196,6 +203,8 @@ def execute_run(
 
 def _resolve_run(options: RunOptions) -> _ResolvedRun:
     source = options.pipeline_or_source
+    connectors_dir = options.connectors_dir
+    models_dir = options.models_dir
     project_pipeline = False
     graph_file: Path | None = None
     selected_models = (
@@ -224,15 +233,18 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
             pipeline = manifest.pipelines.get(options.pipeline_or_source)
             if pipeline is not None:
                 project_pipeline = True
+                project_root = options.project_config.resolve().parent
+                connectors_dir = (project_root / connectors_dir).resolve()
+                models_dir = (project_root / models_dir).resolve()
                 manifest.validate_references(
-                    options.project_config.resolve().parent,
-                    connectors_dir=options.connectors_dir,
-                    models_dir=options.models_dir,
+                    project_root,
+                    connectors_dir=connectors_dir,
+                    models_dir=models_dir,
                     plugin_registry=plugin_registry,
                 )
                 source = pipeline.source
                 if pipeline.graph is not None:
-                    graph_file = options.project_config.resolve().parent / pipeline.graph
+                    graph_file = project_root / pipeline.graph
                 elif selected_models is None:
                     selected_models = tuple(pipeline.models)
                 build_models = build_models or pipeline.build_models
@@ -256,7 +268,10 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
 
     if not _SOURCE_NAME.fullmatch(source):
         raise typer.BadParameter("Source names may contain only letters, numbers, '_' and '-'")
-    config = load_source_config(options.connectors_dir / f"{source}.yaml")
+    try:
+        config = load_source_config(connectors_dir / f"{source}.yaml")
+    except ConnectorConfigError as error:
+        raise ClickException(str(error)) from error
     if config.name != source:
         raise ClickException(f"Connector file declares source {config.name!r}, expected {source!r}")
     try:
@@ -317,6 +332,7 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         project_pipeline=project_pipeline,
         graph_file=graph_file,
         graph_plan=graph_plan,
+        models_dir=models_dir,
         gcp_project=gcp_project,
         endpoint_relations=endpoint_relations,
         state_catalog=state_catalog,
@@ -453,7 +469,7 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         history=stores.history,
         source_relations=resolved.endpoint_relations,
         models_dir=(
-            resolved.graph_file.parent if resolved.graph_file is not None else options.models_dir
+            resolved.graph_file.parent if resolved.graph_file is not None else resolved.models_dir
         ),
         selected_models=(None if resolved.graph_plan is not None else resolved.selected_models),
         build_models=resolved.graph_plan is not None or resolved.build_models,

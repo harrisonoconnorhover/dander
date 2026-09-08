@@ -1,5 +1,18 @@
 # Engineering Decisions
 
+## 2026-09-07 — Resolve runtime inputs once and retain ownership until shutdown completes
+
+- Named project pipelines resolve connector and model directories against the selected manifest
+  before validation, loading, and execution. Absolute overrides stay absolute; standalone source
+  commands retain their working-directory behavior. The console handles public Click errors once
+  at dispatch because the installed Typer uses distinct vendored exception classes.
+- Storage Write derives its native fields before protobuf preflight, then uses that representation
+  for staging and row serialization. Repeated fields remain a load-job capability and are rejected
+  before opening a Storage Write stream.
+- A shutdown request prevents new work but does not mean cleanup succeeded. Worker timeouts retain
+  queues, backend transports, and the shared PostgreSQL pool for a later close attempt; successful
+  resource closes are not repeated. Shared dependencies close only after their workers stop.
+
 ## 2026-09-07 — Consolidate shared rules while retaining compatibility boundaries
 
 - Control keeps synchronous provider clients, with HTTP calls off the event loop. Recovery drains

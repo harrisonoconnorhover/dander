@@ -1841,6 +1841,7 @@ def _load_connector_capabilities(
             pipeline = manifest.pipelines.get(source_or_pipeline)
             if pipeline is not None:
                 source = pipeline.source
+                connectors_dir = (project_config.resolve().parent / connectors_dir).resolve()
         if not _SOURCE_NAME.fullmatch(source):
             raise ConnectorConfigError(
                 "Connector source names may contain only letters, numbers, '_' and '-'"
