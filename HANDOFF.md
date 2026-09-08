@@ -2,7 +2,7 @@
 
 ## Finished
 
-- Named pipelines and connector inspection resolve project-relative files consistently, including model directories and explicit overrides.
+- Named pipelines and connector commands use consistent project-relative paths and explicit deployment/platform selection.
 - Normal CLI failures render concise errors with their original exit codes; incorrectly encoded configuration files identify UTF-8 as the remedy.
 - Storage Write preserves canonical-schema values in protobuf rows and rejects unsupported repeated fields before opening a stream.
 - Control shutdown retains dependencies while workers finish; retries close remaining resources without repeating successful cleanup.
@@ -16,9 +16,9 @@ For focused checks, use `uv run pytest tests/cli/test_project_paths.py tests/con
 
 ## Checks
 
-- Full suite: 2,387 tests passed with disposable PostgreSQL 15; its container was removed afterward.
+- Runtime changes: 2,387 full-suite tests passed with disposable PostgreSQL 15; its container was removed afterward.
 - Canonical strict typing: 506 files passed. Ruff lint/format, Control contract drift, and diff checks passed.
-- All 154 CLI tests passed, including actual subprocess rendering, exit codes, and import isolation.
+- All 158 CLI tests passed after adding connector selectors, including subprocess rendering, exit codes, and import isolation.
 - Schema, shutdown, telemetry-retry, and encoding failures were reproduced before fixes; their regressions now pass.
 - Protected PR and exact-main results are reported with final delivery. No live provider workload was run.
 
@@ -30,7 +30,6 @@ For focused checks, use `uv run pytest tests/cli/test_project_paths.py tests/con
 
 ## Remaining
 
-- Connector commands still need the deployment/platform selector flags already supported by run and validate.
 - Active-run indexing and leaner dependency packaging remain optional migrations.
 
 ## Review First

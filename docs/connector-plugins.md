@@ -74,18 +74,22 @@ assert_plugin_distribution("dander-connector-acme-crm", plugin_id="acme_crm")
 kit verifies the factory returns a real Dander `Source`; without them, it checks only the API-v1
 declaration. Provider behavior still needs focused tests.
 
-## Add optional read capabilities
+## Add optional capabilities
 
 API v1 requires only `discover()` and `extract()`. A concrete source may additionally implement
 `get_single_object()`, `count()`, or `test_connection()` using the public protocols exported from
 `dander.ingestion`. Dander detects those methods on the source returned by the existing factory;
 the `ConnectorPlugin` declaration and API version do not change.
 
+The same capability interface supports `get_deleted()` feeds and `create()`, `update()`,
+`upsert()`, and `delete()` operations when the source implements those protocols. The CLI exposes
+them through `connector get-deleted` and `connector write`. Writes require the existing
+`--confirm-write` acknowledgement and the JSON inputs appropriate to the selected operation.
+
 Do not add placeholder methods that raise `NotImplementedError`: method presence advertises real
 support. Callers use `SourceCapabilities` (or `ConnectorPluginRegistry.build_capabilities()`) so
 an unsupported operation and an invalid plugin result fail with a connector-facing error rather
-than an `AttributeError`. The initial capability contract is intentionally read-only; deleted-row
-feeds and provider create/update/delete operations require separate runtime semantics.
+than an `AttributeError`.
 
 Inspect the configured source without contacting its provider, then run its optional connection
 probe when one is implemented:
@@ -98,6 +102,19 @@ dander connector check acme_crm
 Both commands also accept a pipeline name and resolve its configured source. `check` uses the same
 core authentication and secret-reference path as `dander run`; a successful implementation returns
 only a scalar status and no business records.
+
+All four connector commands accept `--config`, `--platforms-config`, and `--deployment`, using the
+same deployment-selection rules as `run` and `validate`. They use the selected deployment's
+secret-provider configuration. For example:
+
+```console
+dander connector inspect acme_crm --config dander.yaml --platforms-config dander.platforms.yaml --deployment gcp_cloud_run
+```
+
+Select a deployment explicitly when the platform file contains more than one. For a named
+pipeline, relative `--connectors-dir` paths are resolved beside the project manifest; standalone
+source names retain their working-directory interpretation. Absolute directory overrides are
+used as supplied.
 
 ## Prove provider behavior
 
