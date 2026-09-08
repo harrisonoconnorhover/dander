@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from unittest.mock import Mock
 
 import pytest
 
@@ -19,6 +20,8 @@ from dander.writer import WriteMode, WritePattern, WriteTarget
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping, Sequence
+
+    from google.cloud import bigquery
 
     from dander.warehouse import PreparedWarehouseStatement, RelationSchema
 
@@ -961,3 +964,119 @@ def test_runner_rejects_invalid_batch_rows(batch_rows: int) -> None:
             dataset="raw",
             batch_rows=batch_rows,
         )
+
+
+def test_retry_with_bigquery_writer_excludes_failed_attempt_observations() -> None:
+    from dander.writer import BigQueryScd1Writer
+
+    attempt = 0
+    failure = RuntimeError("synthetic merge failure")
+
+    def load(
+        rows: Sequence[Mapping[str, Any]], destination: str, *, job_config: bigquery.LoadJobConfig
+    ) -> Mock:
+        nonlocal attempt
+        attempt += 1
+        return Mock(job_id=f"attempt-{attempt}-load")
+
+    def query(sql: str, *, job_config: bigquery.QueryJobConfig | None = None) -> Mock:
+        job = Mock(job_id=f"attempt-{attempt}-{sql.split()[0]}", num_dml_affected_rows=2)
+        if sql.startswith("MERGE") and attempt == 1:
+            job.result.side_effect = failure
+        return job
+
+    client = Mock()
+    client.load_table_from_json.side_effect = load
+    client.query.side_effect = query
+    watermarks = _Watermarks([])
+    runner = PipelineRunner(
+        source=_Source([]),
+        writer=BigQueryScd1Writer(project="unit-project", client=client),
+        watermarks=watermarks,
+        project="unit-project",
+        dataset="raw",
+    )
+    with pytest.raises(RuntimeError) as caught:
+        runner.run(run_id="failed-attempt")
+    assert caught.value is failure
+    assert watermarks.committed is None
+
+    result = runner.run(run_id="successful-attempt")
+
+    assert [operation.job_id for operation in result.telemetry] == [
+        "attempt-2-load",
+        "attempt-2-ALTER",
+        "attempt-2-CREATE",
+        "attempt-2-MERGE",
+    ]
+    assert watermarks.committed == "2026-01-03T00:00:00Z"
+
+
+@pytest.mark.parametrize("path", ["buffered", "streaming", "batched", "empty_batched"])
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+def test_runtime_write_paths_isolate_failure_telemetry_and_preserve_write_error(
+    path: str, cleanup_fails: bool
+) -> None:
+    failure = RuntimeError("synthetic write failure")
+
+    class SourceFixture(_Source):
+        def extract(
+            self, endpoint: str, *, since: str | None = None
+        ) -> Iterator[Mapping[str, Any]]:
+            if path != "empty_batched":
+                yield from super().extract(endpoint, since=since)
+
+    class WriterFixture(WritePattern):
+        mode = WriteMode.SCD1
+
+        def __init__(self) -> None:
+            self.supports_batched_writes = path in {"batched", "empty_batched"}
+            self.accepts_streaming_input = path == "streaming"
+            self.pending: list[OperationTelemetry] = []
+            self.writes = 0
+            self.fail_cleanup = cleanup_fails
+
+        def write(self, records: Iterable[Mapping[str, Any]], target: WriteTarget) -> int:
+            count = len(list(records))
+            self.writes += 1
+            self.pending.append(
+                OperationTelemetry(
+                    provider="testwarehouse",
+                    operation=TelemetryOperation.LOAD,
+                    job_id=f"write-{self.writes}",
+                    rows_written=count,
+                )
+            )
+            if self.writes == 1:
+                raise failure
+            return count
+
+        def drain_telemetry(self) -> tuple[OperationTelemetry, ...]:
+            if self.pending and self.fail_cleanup:
+                self.fail_cleanup = False
+                raise RuntimeError("synthetic telemetry cleanup failure")
+            pending, self.pending = tuple(self.pending), []
+            return pending
+
+    writer = WriterFixture()
+    watermarks = _Watermarks([])
+    runner = PipelineRunner(
+        source=SourceFixture([]),
+        writer=writer,
+        watermarks=watermarks,
+        project="unit-project",
+        dataset="raw",
+        batch_rows=2,
+    )
+    with pytest.raises(RuntimeError) as caught:
+        runner.run(run_id="failed-attempt")
+    assert caught.value is failure
+    assert watermarks.committed is None
+    if not cleanup_fails:
+        assert writer.pending == []
+
+    result = runner.run(run_id="successful-attempt")
+
+    assert [operation.job_id for operation in result.telemetry] == ["write-2"]
+    assert writer.pending == []
+    assert watermarks.committed == (None if path == "empty_batched" else "2026-01-03T00:00:00Z")
