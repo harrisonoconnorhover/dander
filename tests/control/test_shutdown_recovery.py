@@ -85,7 +85,8 @@ def test_shutdown_timeout_retains_dependencies_and_retries_after_worker_stops(
             assert release.wait(5)
             return StoredRunPage(items=(), next_cursor=None)
 
-        monkeypatch.setattr(store, "list", blocked_list)
+        # The lifecycle binds its recovery query once when it is constructed.
+        monkeypatch.setattr(lifecycle, "_list_recovery", blocked_list)
     else:
         if blocked_worker == "consumer":
 

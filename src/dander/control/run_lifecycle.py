@@ -40,6 +40,7 @@ from dander.control.orchestration import (
     ExecutionPlan,
     HostedRunState,
     OrchestrationContractError,
+    PendingRunStore,
     PlacementCandidate,
     PlacementDecision,
     PlacementMode,
@@ -59,6 +60,7 @@ from dander.control.orchestration import (
     dispatch_run_attempt,
     dispatch_stored_run_attempt,
     logical_run_identity,
+    run_needs_reconciliation,
     transition_run,
     validate_submission_plan,
 )
@@ -716,6 +718,9 @@ class ControlRunLifecycle:
         if not isinstance(store, DurableMutationClaimStore):
             raise ValueError("Control's durable run store must support mutation idempotency.")
         self._store = store
+        self._list_recovery = (
+            store.list_pending if isinstance(store, PendingRunStore) else store.list
+        )
         self._mutations = store
         self._plans = plans
         self._backends = backends
@@ -1086,7 +1091,7 @@ class ControlRunLifecycle:
         with self._state_lock:
             cursor = self._scan_cursor
         try:
-            page = self._store.list(cursor=cursor, limit=self._page_size)
+            page = self._list_recovery(cursor=cursor, limit=self._page_size)
         except RunStoreError:
             with self._state_lock:
                 self._scan_failed = True
@@ -1261,10 +1266,7 @@ class ControlRunLifecycle:
 
     def _reconcile_stored(self, stored: StoredRun) -> StoredRun:
         record = stored.record
-        if (
-            record.run_state is HostedRunState.TERMINAL
-            and record.cleanup_state is CleanupState.CONFIRMED
-        ):
+        if not run_needs_reconciliation(record):
             return stored
         plan = self._plans.for_run(record)
         backend = self._backends.require(plan.backend_id)

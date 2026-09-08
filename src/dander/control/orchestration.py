@@ -13,7 +13,7 @@ import json
 import re
 from dataclasses import dataclass, replace
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from dander.physical_plan import PhysicalExecutionMode, PhysicalPlan, serialize_physical_plan
 
@@ -943,6 +943,28 @@ class RunStore(Protocol):
     def close(self) -> None: ...
 
 
+@runtime_checkable
+class PendingRunStore(Protocol):
+    """Optional recovery query; public history remains the ``RunStore.list`` contract.
+
+    Return every run for which ``run_needs_reconciliation`` is true, with bounded pages and
+    store-opaque cursors. Rows may leave the pending set between pages; continuation must not
+    require the preceding row to remain pending. New rows before the cursor join the next sweep.
+    """
+
+    def list_pending(self, *, cursor: str | None, limit: int) -> StoredRunPage: ...
+
+
+def run_needs_reconciliation(record: RunRecord) -> bool:
+    """Keep a run eligible until execution, outcome, results, and cleanup are resolved."""
+    return (
+        record.run_state is not HostedRunState.TERMINAL
+        or record.outcome is RunOutcome.UNKNOWN
+        or record.results_state is ResultsState.PENDING
+        or record.cleanup_state is not CleanupState.CONFIRMED
+    )
+
+
 def create_run_record(submission: RunSubmission) -> RunRecord:
     """Create the deterministic queued candidate used by ``RunStore.claim``."""
     run_id = logical_run_identity(submission)
@@ -1392,6 +1414,7 @@ __all__ = [
     "ExecutionResultSummary",
     "HostedRunState",
     "OrchestrationContractError",
+    "PendingRunStore",
     "PlacementCandidate",
     "PlacementDecision",
     "PlacementMode",
@@ -1425,6 +1448,7 @@ __all__ = [
     "logical_run_identity",
     "parse_placement_candidate_spec",
     "parse_size_class_candidate_spec",
+    "run_needs_reconciliation",
     "transition_run",
     "validate_submission_plan",
 ]

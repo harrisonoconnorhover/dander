@@ -134,12 +134,12 @@ def test_postgresql_control_migration_is_versioned_and_idempotent(
     database, pool, schema_name = postgresql_control
     migrator = PostgreSQLControlMigrator(database)
 
-    assert CONTROL_SCHEMA_VERSION == 3
+    assert CONTROL_SCHEMA_VERSION == 4
     assert migrator.migrations == CONTROL_SCHEMA_MIGRATIONS
     assert migrator.current_version() == 0
-    assert migrator.migrate() == 3
-    assert migrator.migrate() == 3
-    assert migrator.current_version() == 3
+    assert migrator.migrate() == 4
+    assert migrator.migrate() == 4
+    assert migrator.current_version() == 4
     with pool.connection() as connection:
         tables = connection.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_schema = %s "
@@ -175,8 +175,8 @@ def test_postgresql_control_migrates_an_existing_graph_only_schema(
         )
 
     assert migrator.current_version() == 1
-    assert migrator.migrate() == 3
-    assert migrator.current_version() == 3
+    assert migrator.migrate() == 4
+    assert migrator.current_version() == 4
 
 
 def test_postgresql_control_serializes_concurrent_first_migrations(
