@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pytest
+import yaml
 from typer.testing import CliRunner
 
 import dander.cli.main as cli_module
@@ -17,12 +20,12 @@ from dander.ingestion import (
     SourceCapabilities,
     SourceConfig,
 )
-from dander.security import OAuthTokenError
+from dander.plugins import ConnectorPluginRegistry
+from dander.project import prepare_version_one_migration
+from dander.security import EnvironmentSecretStore, OAuthTokenError
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
-
-    import pytest
 
 _REPO_ROOT = Path(__file__).parents[2]
 
@@ -108,6 +111,158 @@ def _config() -> SourceConfig:
         engine="dlt",
         auth_strategy="none",
     )
+
+
+@pytest.mark.parametrize("selector", ("--deployment", "--platforms-config"))
+def test_explicit_selector_requires_project_before_constructing_provider_or_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, selector: str
+) -> None:
+    project = tmp_path / "missing.yaml"
+    args = [
+        "connector",
+        "inspect",
+        "greenhouse_job_board",
+        "--config",
+        str(project),
+        "--connectors-dir",
+        str(_REPO_ROOT / "connectors"),
+    ]
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Unresolved deployment must not construct a provider or source")
+
+    with monkeypatch.context() as context:
+        context.setattr(cli_module, "build_secret_store", forbidden)
+        context.setattr(ConnectorPluginRegistry, "build_capabilities", forbidden)
+        result = CliRunner().invoke(app, [*args, selector, "requested"])
+
+    assert result.exit_code == 1
+    assert "Cannot select a deployment without project configuration" in str(result.exception)
+    assert str(project) in str(result.exception)
+
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert "greenhouse_job_board" in result.output
+
+
+def test_write_rejects_non_utf8_record_before_loading_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = tmp_path / "record.json"
+    record.write_bytes('{"Name":"Example"}'.encode("utf-16"))
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Invalid write input must not load the source")
+
+    monkeypatch.setattr(cli_module, "_load_connector_capabilities", forbidden)
+    result = CliRunner().invoke(
+        app,
+        [
+            "connector",
+            "write",
+            "example",
+            "accounts",
+            "create",
+            "--record",
+            str(record),
+            "--confirm-write",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert str(result.exception) == "--record must name a readable JSON object"
+
+
+def test_inspect_selects_external_platforms_and_deployment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = tmp_path / "dander.yaml"
+    manifest.write_text(
+        "version: 1\npipelines:\n  greenhouse_control:\n"
+        "    source: greenhouse_job_board\n    models: []\n    build_models: false\n",
+        encoding="utf-8",
+    )
+    migration = prepare_version_one_migration(manifest)
+    manifest.write_text(migration.logical_yaml, encoding="utf-8")
+    platforms = yaml.safe_load(migration.platforms_yaml)
+    platforms["platforms"]["local_secrets"] = deepcopy(platforms["platforms"]["gcp"])
+    platforms["platforms"]["local_secrets"]["secrets"] = {"provider": "environment"}
+    platforms["deployments"]["local_control"] = deepcopy(platforms["deployments"]["gcp_cloud_run"])
+    platforms["deployments"]["local_control"]["platform"] = "local_secrets"
+    platforms["deployments"]["local_control"]["launcher"] = {
+        "provider": "kubernetes",
+        "context": "test-context",
+    }
+    platforms_file = tmp_path / "profiles.yaml"
+    platforms_file.write_text(yaml.safe_dump(platforms), encoding="utf-8")
+    (tmp_path / "connectors").mkdir()
+    (tmp_path / "connectors" / "greenhouse_job_board.yaml").write_bytes(
+        (_REPO_ROOT / "connectors" / "greenhouse_job_board.yaml").read_bytes()
+    )
+    selected: list[tuple[str, dict[str, object] | None]] = []
+
+    def build_secrets(
+        provider_id: str, provider_config: dict[str, object] | None = None
+    ) -> EnvironmentSecretStore:
+        selected.append((provider_id, provider_config))
+        return EnvironmentSecretStore()
+
+    monkeypatch.setattr(cli_module, "build_secret_store", build_secrets)
+    args = [
+        "connector",
+        "inspect",
+        "greenhouse_control",
+        "--config",
+        str(manifest),
+        "--platforms-config",
+        str(platforms_file),
+    ]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 1
+    assert "Multiple deployments" in str(result.exception)
+    assert selected == []
+
+    result = CliRunner().invoke(app, [*args, "--deployment", "local_control"])
+    assert result.exit_code == 0, result.output
+    assert "greenhouse_job_board" in result.output
+    assert selected == [("environment", {"provider": "environment"})]
+
+    result = CliRunner().invoke(app, [*args, "--deployment", "unknown"])
+    assert result.exit_code == 1
+    assert "Unknown deployment" in str(result.exception)
+    assert len(selected) == 1
+
+
+@pytest.mark.parametrize("command", ("check", "get-deleted", "write"))
+def test_connector_operations_forward_platform_selection(
+    command: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = (
+        _DeletedFeedSource(_config()) if command == "get-deleted" else _WritableSource(_config())
+    )
+    platforms = tmp_path / "profiles.yaml"
+
+    def load_source(
+        source_or_pipeline: str, **kwargs: object
+    ) -> tuple[SourceConfig, SourceCapabilities]:
+        assert source_or_pipeline == "example"
+        assert kwargs["deployment"] == "selected_deployment"
+        assert kwargs["platforms_config"] == platforms
+        return source.config, SourceCapabilities(source)
+
+    monkeypatch.setattr(cli_module, "_load_connector_capabilities", load_source)
+    args = ["connector", command, "example"]
+    if command == "get-deleted":
+        args.append("accounts")
+    elif command == "write":
+        record = tmp_path / "record.json"
+        record.write_text('{"Name":"Example"}', encoding="utf-8")
+        args.extend(["accounts", "create", "--record", str(record), "--confirm-write"])
+    args.extend(["--deployment", "selected_deployment", "--platforms-config", str(platforms)])
+
+    result = CliRunner().invoke(app, args)
+
+    assert result.exit_code == 0, result.output
 
 
 def test_inspect_resolves_pipeline_and_lists_capabilities_without_provider_call(

@@ -333,6 +333,8 @@ def inspect_connector(
         help="Connector source name or pipeline name from dander.yaml.",
     ),
     project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
+    deployment: str | None = typer.Option(None, "--deployment"),
     connectors_dir: Path = typer.Option(  # noqa: B008
         _DEFAULT_CONNECTORS_DIR,
         "--connectors-dir",
@@ -343,6 +345,8 @@ def inspect_connector(
         source_or_pipeline,
         project_config=project_config,
         connectors_dir=connectors_dir,
+        platforms_config=platforms_config,
+        deployment=deployment,
     )
     table = Table(title=f"Dander connector: {config.name}")
     table.add_column("Capability")
@@ -360,6 +364,8 @@ def check_connector(
         help="Connector source name or pipeline name from dander.yaml.",
     ),
     project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
+    deployment: str | None = typer.Option(None, "--deployment"),
     connectors_dir: Path = typer.Option(  # noqa: B008
         _DEFAULT_CONNECTORS_DIR,
         "--connectors-dir",
@@ -370,6 +376,8 @@ def check_connector(
         source_or_pipeline,
         project_config=project_config,
         connectors_dir=connectors_dir,
+        platforms_config=platforms_config,
+        deployment=deployment,
     )
     try:
         status = capabilities.test_connection()
@@ -400,6 +408,8 @@ def get_deleted_records(
         help="Optional provider cursor; interpretation is connector-specific.",
     ),
     project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
+    deployment: str | None = typer.Option(None, "--deployment"),
     connectors_dir: Path = typer.Option(  # noqa: B008
         _DEFAULT_CONNECTORS_DIR,
         "--connectors-dir",
@@ -410,6 +420,8 @@ def get_deleted_records(
         source_or_pipeline,
         project_config=project_config,
         connectors_dir=connectors_dir,
+        platforms_config=platforms_config,
+        deployment=deployment,
     )
     try:
         for record in capabilities.get_deleted(endpoint, since=since):
@@ -452,6 +464,8 @@ def write_connector_record(
         help="Required acknowledgement that this command mutates the source system.",
     ),
     project_config: Path = typer.Option(_DEFAULT_PROJECT_CONFIG, "--config"),  # noqa: B008
+    platforms_config: Path | None = typer.Option(None, "--platforms-config"),  # noqa: B008
+    deployment: str | None = typer.Option(None, "--deployment"),
     connectors_dir: Path = typer.Option(  # noqa: B008
         _DEFAULT_CONNECTORS_DIR,
         "--connectors-dir",
@@ -495,6 +509,8 @@ def write_connector_record(
         source_or_pipeline,
         project_config=project_config,
         connectors_dir=connectors_dir,
+        platforms_config=platforms_config,
+        deployment=deployment,
     )
     try:
         if selected is ConnectorOperation.CREATE:
@@ -1826,15 +1842,27 @@ def _load_connector_capabilities(
     *,
     project_config: Path,
     connectors_dir: Path,
+    platforms_config: Path | None = None,
+    deployment: str | None = None,
 ) -> tuple[SourceConfig, SourceCapabilities]:
     """Resolve one configured source and inspect its optional operations without provider I/O."""
     source = source_or_pipeline
     secret_provider = "gcp_secret_manager"
     secret_config: dict[str, object] | None = None
     try:
+        if (
+            platforms_config is not None or deployment is not None
+        ) and not project_config.is_file():
+            raise ProjectConfigError(
+                f"Cannot select a deployment without project configuration: {project_config}"
+            )
         registry = load_connector_plugins({})
         if project_config.is_file():
-            manifest = load_project_config(project_config)
+            manifest = load_project_config(
+                project_config,
+                platforms_path=platforms_config,
+                deployment=deployment,
+            )
             secret_provider = manifest.secret_provider
             secret_config = manifest.secret_config
             registry = load_connector_plugins(manifest.plugins)
@@ -1863,7 +1891,7 @@ def _read_json_object(path: Path | None, label: str) -> dict[str, object]:
         raise ClickException(f"--{label} is required")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ClickException(f"--{label} must name a readable JSON object") from error
     if not isinstance(payload, dict) or any(not isinstance(key, str) for key in payload):
         raise ClickException(f"--{label} must contain one JSON object")
