@@ -1,5 +1,13 @@
 # Engineering Decisions
 
+## 2026-09-07 — Keep failed-write observations inside their attempt
+
+- All ingestion write paths share one write-and-drain boundary. It clears stale observations
+  before a new write and drains after success or failure; telemetry cleanup cannot replace the
+  original write error. Failed writes continue to leave their watermark unchanged.
+- Configuration readers translate decoding failures into their existing domain errors and name
+  UTF-8 as the required encoding. Model metadata uses explicit UTF-8 like the other readers.
+
 ## 2026-09-07 — Resolve runtime inputs once and retain ownership until shutdown completes
 
 - Named project pipelines resolve connector and model directories against the selected manifest

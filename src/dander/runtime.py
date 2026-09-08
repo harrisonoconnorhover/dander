@@ -247,14 +247,12 @@ class PipelineRunner:
         elif self._writer.accepts_streaming_input:
             if ownership is not None:
                 ownership.verify()
-            affected = self._writer.write(records, target)
-            telemetry = self._writer.drain_telemetry()
+            affected, telemetry = self._write_with_telemetry(records, target)
         else:
             buffered = list(records)
             if ownership is not None:
                 ownership.verify()
-            affected = self._writer.write(buffered, target)
-            telemetry = self._writer.drain_telemetry()
+            affected, telemetry = self._write_with_telemetry(buffered, target)
         committed_cursor: str | None = None
         if observation.extracted and observation.maximum_cursor is not None:
             if ownership is not None:
@@ -298,6 +296,27 @@ class PipelineRunner:
             telemetry=telemetry,
         )
 
+    def _write_with_telemetry(
+        self,
+        records: Iterable[Mapping[str, Any]],
+        target: WriteTarget,
+    ) -> tuple[int, tuple[OperationTelemetry, ...]]:
+        """Keep a writer's observations inside one write, including failed attempts."""
+        # A previous failed cleanup must not attribute old work to this write.
+        self._writer.drain_telemetry()
+        try:
+            affected = self._writer.write(records, target)
+        except BaseException:
+            try:
+                self._writer.drain_telemetry()
+            except Exception:
+                _LOGGER.warning(
+                    "writer_telemetry_cleanup_failed",
+                    extra={"dander_event": "writer_telemetry_cleanup_failed"},
+                )
+            raise
+        return affected, self._writer.drain_telemetry()
+
     def _write_batched(
         self,
         records: Iterable[Mapping[str, Any]],
@@ -317,8 +336,8 @@ class PipelineRunner:
             wrote_batch = True
             if ownership is not None:
                 ownership.verify()
-            batch_affected = self._writer.write(record_batch, target)
-            telemetry.extend(self._writer.drain_telemetry())
+            batch_affected, batch_telemetry = self._write_with_telemetry(record_batch, target)
+            telemetry.extend(batch_telemetry)
             affected += batch_affected
             _LOGGER.info(
                 "batch_finished",
@@ -335,8 +354,8 @@ class PipelineRunner:
         if not wrote_batch:
             if ownership is not None:
                 ownership.verify()
-            affected = self._writer.write((), target)
-            telemetry.extend(self._writer.drain_telemetry())
+            affected, batch_telemetry = self._write_with_telemetry((), target)
+            telemetry.extend(batch_telemetry)
         return affected, tuple(telemetry)
 
 

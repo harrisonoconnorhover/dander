@@ -171,7 +171,9 @@ def load_model_metadata(path: Path) -> ModelMetadata:
         TransformConfigError: If the file cannot be read or fails schema validation.
     """
     try:
-        raw = yaml.safe_load(path.read_text())
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except UnicodeDecodeError as error:
+        raise TransformConfigError(f"Model metadata must use UTF-8: {path}") from error
     except (OSError, yaml.YAMLError) as error:
         raise TransformConfigError(f"Cannot read model metadata: {path}") from error
     if not isinstance(raw, dict):

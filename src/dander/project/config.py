@@ -482,6 +482,8 @@ def load_project_plugins(path: Path) -> dict[str, PluginSpec]:
 def _load_yaml_mapping(path: Path, *, label: str) -> dict[str, object]:
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except UnicodeDecodeError as error:
+        raise ProjectConfigError(f"{label} must use UTF-8: {path}") from error
     except (OSError, yaml.YAMLError) as error:
         raise ProjectConfigError(f"Cannot read {label}: {path}") from error
     if not isinstance(raw, dict):

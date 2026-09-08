@@ -45,6 +45,8 @@ def load_graph_for_execution(path: Path) -> PipelineGraph:
         text = path.read_text(encoding="utf-8")
         raw = json.loads(text) if path.suffix.lower() == ".json" else yaml.safe_load(text)
         return PipelineGraph.model_validate(raw, extra="forbid")
+    except UnicodeDecodeError as error:
+        raise GraphRuntimeError(f"Graph file must use UTF-8: {path.name}") from error
     except (OSError, json.JSONDecodeError, yaml.YAMLError, ValidationError) as error:
         raise GraphRuntimeError(f"Graph file is invalid: {path.name}") from error
 

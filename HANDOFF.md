@@ -3,9 +3,10 @@
 ## Finished
 
 - Named pipelines and connector inspection resolve project-relative files consistently, including model directories and explicit overrides.
-- Normal CLI failures render concise errors with their original exit codes, including the isolated Control entry point.
+- Normal CLI failures render concise errors with their original exit codes; incorrectly encoded configuration files identify UTF-8 as the remedy.
 - Storage Write preserves canonical-schema values in protobuf rows and rejects unsupported repeated fields before opening a stream.
 - Control shutdown retains dependencies while workers finish; retries close remaining resources without repeating successful cleanup.
+- Failed-write observations cannot leak into successful retries; all ingestion paths share the same write-and-drain boundary.
 
 ## Try It
 
@@ -15,10 +16,10 @@ For focused checks, use `uv run pytest tests/cli/test_project_paths.py tests/con
 
 ## Checks
 
-- Full suite: 2,374 tests passed with disposable PostgreSQL 15; its container was removed afterward.
-- Canonical strict typing: 505 files passed. Ruff lint/format, Control contract drift, and diff checks passed.
+- Full suite: 2,387 tests passed with disposable PostgreSQL 15; its container was removed afterward.
+- Canonical strict typing: 506 files passed. Ruff lint/format, Control contract drift, and diff checks passed.
 - All 154 CLI tests passed, including actual subprocess rendering, exit codes, and import isolation.
-- Schema serialization and shutdown failures were reproduced before fixes; focused regressions now pass.
+- Schema, shutdown, telemetry-retry, and encoding failures were reproduced before fixes; their regressions now pass.
 - Protected PR and exact-main results are reported with final delivery. No live provider workload was run.
 
 ## Decisions
@@ -29,11 +30,11 @@ For focused checks, use `uv run pytest tests/cli/test_project_paths.py tests/con
 
 ## Remaining
 
-- A separately reproduced failed-write telemetry leak is the next focused refinement.
+- Connector commands still need the deployment/platform selector flags already supported by run and validate.
 - Active-run indexing and leaner dependency packaging remain optional migrations.
 
 ## Review First
 
 - `src/dander/control/run_lifecycle.py`, `startup_factory.py`, and `tests/control/test_shutdown_recovery.py`
 - `src/dander/cli/entrypoint.py`, `run_command.py`, and `tests/cli/test_project_paths.py`
-- `src/dander/writer/storage_write.py` and its protobuf request tests
+- `src/dander/runtime.py`, `tests/test_runtime.py`, and `src/dander/writer/storage_write.py`
