@@ -264,10 +264,9 @@ class _MeasuredStorageBackend:
         *,
         max_batch_rows: int,
     ) -> None:
-        message_class, _ = storage_write._message_type(target)
-        encoded_bytes = sum(
-            len(storage_write._serialize_row(message_class, row, target)) for row in rows
-        )
+        fields = bigquery_writer._validate_declared_schema(target, SchemaEvolution.ADDITIVE)
+        message_class, _ = storage_write._message_type(fields)
+        encoded_bytes = sum(len(storage_write._serialize_row(message_class, row)) for row in rows)
         self._backend.append(rows, target, max_batch_rows=max_batch_rows)
         self.append_requests += math.ceil(len(rows) / max_batch_rows)
         self.serialized_bytes += encoded_bytes

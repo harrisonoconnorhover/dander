@@ -1,4 +1,7 @@
-"""BigQuery Storage Write API staging with idempotent SCD1/incremental merge."""
+"""BigQuery Storage Write API staging with idempotent SCD1/incremental merge.
+
+This transport encodes supported scalar fields only. Use load_job for REPEATED fields.
+"""
 
 from __future__ import annotations
 
@@ -34,6 +37,8 @@ from dander.writer.bigquery import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
+
+    from dander.writer.base import WriteField
 
 
 class _Job(Protocol):
@@ -86,6 +91,8 @@ class BigQueryPendingStreamBackend:
         *,
         max_batch_rows: int,
     ) -> None:
+        fields = _validate_declared_schema(target, SchemaEvolution.ADDITIVE)
+        message_class, descriptor = _message_type(fields)
         client = self._client or bigquery_storage_v1.BigQueryWriteClient(  # type: ignore[no-untyped-call]
             **google_client_options()
         )
@@ -94,7 +101,6 @@ class BigQueryPendingStreamBackend:
             parent=parent,
             write_stream=types.WriteStream(type_=types.WriteStream.Type.PENDING),
         )
-        message_class, descriptor = _message_type(target)
         template = types.AppendRowsRequest(write_stream=stream.name)
         proto_schema = types.ProtoSchema(proto_descriptor=descriptor)
         template.proto_rows = types.AppendRowsRequest.ProtoData(writer_schema=proto_schema)
@@ -103,7 +109,7 @@ class BigQueryPendingStreamBackend:
             offset = 0
             for start in range(0, len(rows), max_batch_rows):
                 serialized = [
-                    _serialize_row(message_class, row, target)
+                    _serialize_row(message_class, row)
                     for row in rows[start : start + max_batch_rows]
                 ]
                 request = types.AppendRowsRequest(offset=offset)
@@ -174,14 +180,14 @@ class BigQueryStorageScd1Writer(WritePattern):
             raise BigQueryWriteError(
                 "Storage Write API schema must exactly match the incoming columns"
             )
-        _message_type(target)
+        _message_type(declared)
 
         staging_table = f"_dander_stage_{target.table}_{uuid4().hex}"
         staging_target = WriteTarget(
             project=target.project,
             dataset=target.dataset,
             table=staging_table,
-            schema=target.schema,
+            schema=declared,
             declared_schema=target.canonical_schema,
         )
         staging_id = _target_id(staging_target)
@@ -286,7 +292,7 @@ _PROTO_TYPES = {
 
 
 def _message_type(
-    target: WriteTarget,
+    fields: Sequence[WriteField],
 ) -> tuple[type[Any], descriptor_pb2.DescriptorProto]:
     file_descriptor = descriptor_pb2.FileDescriptorProto(
         name="dander_storage_write.proto",
@@ -294,7 +300,11 @@ def _message_type(
         syntax="proto2",
     )
     message = file_descriptor.message_type.add(name="DanderRow")
-    for number, field in enumerate(target.schema, start=1):
+    for number, field in enumerate(fields, start=1):
+        if field.mode == "REPEATED":
+            raise BigQueryWriteError(
+                f"Storage Write API does not support REPEATED field {field.name!r}; use load_job"
+            )
         data_type = field.data_type.upper()
         try:
             proto_type = _PROTO_TYPES[data_type]
@@ -318,10 +328,9 @@ def _message_type(
 def _serialize_row(
     message_class: type[Any],
     row: Mapping[str, Any],
-    target: WriteTarget,
 ) -> bytes:
     message = message_class()
-    for field in target.schema:
+    for field in message.DESCRIPTOR.fields:
         value = row[field.name]
         if value is not None:
             setattr(message, field.name, value)
