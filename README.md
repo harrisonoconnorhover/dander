@@ -401,8 +401,9 @@ writes it. See [platform profiles](docs/platform-profiles.md). Secret Manager co
 and per-pipeline runtime access are managed by Terraform, but secret values never enter the
 manifest or Terraform state.
 GitHub Actions authenticates through repository/ref-constrained OIDC rather than a downloaded key.
-Set `publish_dataplex: true` only on pipelines that should store catalog aspects; it enables the
-API and IAM required for that potentially billable operation.
+Set `publish_catalog: true` in version 2 projects (`publish_dataplex: true` in version 1) only on
+pipelines that should store catalog aspects; it enables the API and IAM required for that
+potentially billable operation.
 The optional integrated cost guard creates the project budget, Pub/Sub wiring, and Gen 2 function in
 simulation mode. Live billing detachment requires the additional `--live-cost-guard` flag and is
 called out in the apply confirmation. Function deployment uses billable Cloud Build, Cloud Run,
