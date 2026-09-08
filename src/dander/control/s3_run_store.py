@@ -454,7 +454,7 @@ class S3RunStore:
             start_after=start_after,
             max_keys=limit + 1,
         )
-        if truncated and len(entries) <= limit:
+        if truncated and not entries:
             raise RunStoreCorruptionError("The S3 run-store page is invalid.")
         selected = entries[:limit]
         items: list[StoredRun] = []

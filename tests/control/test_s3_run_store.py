@@ -25,6 +25,7 @@ from dander.control.orchestration import (
     RunOutcome,
     RunRecord,
     RunStoreConflictError,
+    RunStoreCorruptionError,
     RunStoreIdempotencyConflictError,
     RunSubmission,
     RunTrigger,
@@ -549,6 +550,41 @@ def test_run_pagination_uses_an_opaque_exclusive_cursor() -> None:
     assert {item.record.run_id for item in first.items}.isdisjoint(
         {item.record.run_id for item in second.items}
     )
+
+
+def test_run_pagination_accepts_short_truncated_pages_without_missing_runs() -> None:
+    class ShortPageClient(FakeS3Client):
+        def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+            assert kwargs["MaxKeys"] == 3
+            # S3's MaxKeys is an upper bound, not a promised page length.
+            return dict(super().list_objects_v2(**{**kwargs, "MaxKeys": 1}))
+
+    store = S3RunStore("unit-bucket", client=ShortPageClient(FakeS3Backend()))
+    expected = []
+    for number in range(3):
+        record = create_run_record(_submission(key=f"short-page-key-{number:04}"))
+        store.claim(record)
+        expected.append(record.run_id)
+
+    cursor = None
+    seen: list[str] = []
+    for number in range(3):
+        page = store.list(cursor=cursor, limit=2)
+        assert len(page.items) == 1
+        seen.extend(item.record.run_id for item in page.items)
+        cursor = page.next_cursor
+        assert (cursor is not None) == (number < 2)
+    assert seen == sorted(expected)
+
+
+def test_run_pagination_rejects_empty_truncated_pages() -> None:
+    class EmptyTruncatedClient(FakeS3Client):
+        def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+            return {"Contents": [], "IsTruncated": True}
+
+    store = S3RunStore("unit-bucket", client=EmptyTruncatedClient(FakeS3Backend()))
+    with pytest.raises(RunStoreCorruptionError, match="page is invalid"):
+        store.list(cursor=None, limit=2)
 
 
 class _InterruptedClaimStore(S3RunStore):
