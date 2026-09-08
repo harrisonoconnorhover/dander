@@ -7,8 +7,6 @@ import random
 from time import sleep
 from typing import TYPE_CHECKING, Protocol
 
-from google.api_core.exceptions import BadRequest
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -28,6 +26,8 @@ class _Job(Protocol):
 
 def run_mutation_with_retry[JobT: _Job](submit: Callable[[], JobT]) -> JobT:
     """Run a mutation, retrying only BigQuery's concurrent-update transaction abort."""
+    from google.api_core.exceptions import BadRequest
+
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
             job = submit()

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
-from base64 import urlsafe_b64decode
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import httpx
+import jwt
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -210,9 +211,15 @@ def test_oauth2_jwt_default_signer_emits_expected_claims() -> None:
     strategy.apply(httpx.Request("GET", "https://api.example.test"))
 
     assertion = server.calls[0]["data"]["assertion"]
-    encoded_claims = assertion.split(".")[1]
-    padding = "=" * (-len(encoded_claims) % 4)
-    claims = json.loads(urlsafe_b64decode(encoded_claims + padding))
+    assert jwt.get_unverified_header(assertion) == {"alg": "RS256", "typ": "JWT"}
+    claims = jwt.decode(
+        assertion,
+        key.public_key(),
+        algorithms=["RS256"],
+        audience="https://auth.example.test",
+        issuer="service@example.test",
+        options={"verify_exp": False, "verify_iat": False},
+    )
     assert claims == {
         "aud": "https://auth.example.test",
         "exp": 1_800_000_120,
@@ -220,6 +227,85 @@ def test_oauth2_jwt_default_signer_emits_expected_claims() -> None:
         "iss": "service@example.test",
         "scope": "records.read",
     }
+
+
+def test_oauth2_jwt_signing_and_expiry_without_google_sdks() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            """
+import importlib.abc
+import sys
+
+forbidden = ("google.auth", "google.api_core", "google.cloud", "dlt")
+
+class BlockUnselectedSDKs(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if any(fullname == prefix or fullname.startswith(prefix + ".") for prefix in forbidden):
+            raise ImportError("Generic JWT signing attempted provider import: " + fullname)
+
+sys.meta_path.insert(0, BlockUnselectedSDKs())
+import jwt
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from dander.security.oauth_jwt import _sign_rs256
+
+key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+private_key = key.private_bytes(
+    serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+    serialization.NoEncryption(),
+).decode("ascii")
+assertion = _sign_rs256(
+    issuer="service@example.test", private_key=private_key,
+    audience="https://auth.example.test", scope=None,
+    subject="delegated@example.test", issued_at=1_600_000_000, assertion_lifetime=120,
+)
+claims = jwt.decode(
+    assertion, key.public_key(), algorithms=["RS256"],
+    audience="https://auth.example.test", issuer="service@example.test",
+    options={"verify_exp": False},
+)
+assert claims["sub"] == "delegated@example.test"
+assert "scope" not in claims
+assert claims["exp"] == claims["iat"] + 120
+try:
+    jwt.decode(assertion, key.public_key(), algorithms=["RS256"],
+               audience="https://auth.example.test")
+except jwt.ExpiredSignatureError:
+    pass
+else:
+    raise AssertionError("Expired assertion was accepted")
+assert not any(
+    name == prefix or name.startswith(prefix + ".")
+    for name in sys.modules for prefix in forbidden
+)
+""",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_oauth2_jwt_invalid_private_key_keeps_public_error() -> None:
+    server = _JwtServer({"access_token": "unused"})
+    strategy = OAuth2JWT(
+        _Secrets({"issuer": "service@example.test", "key": "invalid-private-key"}),
+        issuer_ref="issuer",
+        private_key_ref="key",
+        token_url="https://auth.example.test/token",
+        request_token=server,
+    )
+
+    with pytest.raises(OAuthTokenError, match="^OAuth JWT token exchange failed$"):
+        strategy.apply(httpx.Request("GET", "https://api.example.test"))
+
+    assert server.calls == []
 
 
 def test_oauth1_tba_builds_deterministic_rfc5849_header() -> None:

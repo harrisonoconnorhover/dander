@@ -24,6 +24,9 @@ def test_control_console_dispatch_does_not_import_provider_sdks() -> None:
         forbidden = (
             "azure.identity",
             "boto3",
+            "google.auth",
+            "google.api_core",
+            "dlt",
             "google.cloud.bigquery",
             "google.cloud.dataplex",
             "google.cloud.secretmanager",
@@ -88,7 +91,8 @@ def test_control_console_error_preserves_exit_code_without_loading_providers() -
             dispatch(("control", "invalid-config"))
         except SystemExit as error:
             forbidden = (
-                "azure.identity", "boto3", "google.cloud.bigquery", "google.cloud.dataplex",
+                "azure.identity", "boto3", "google.auth", "google.api_core", "dlt",
+                "google.cloud.bigquery", "google.cloud.dataplex",
                 "google.cloud.secretmanager", "oci",
             )
             loaded = sorted(

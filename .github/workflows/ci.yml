@@ -281,31 +281,11 @@ jobs:
         if: needs.scope.outputs.lane == 'full'
         run: |
           TEMP_DIR="$(mktemp -d)"
-          VERSION="$(uv version --short)"
-          INDEX=0
-          for ARTIFACT in dist/*.whl dist/*.tar.gz; do
-            ENV_DIR="$TEMP_DIR/venv-$INDEX"
-            PROJECT_DIR="$TEMP_DIR/project-$INDEX"
-            uv venv "$ENV_DIR"
-            uv pip install --python "$ENV_DIR/bin/python" "$ARTIFACT"
-            (
-              cd "$TEMP_DIR"
-              "$ENV_DIR/bin/dander" --version | grep -F "dander $VERSION"
-              "$ENV_DIR/bin/dander" new "$PROJECT_DIR"
-              cd "$PROJECT_DIR"
-              "$ENV_DIR/bin/dander" validate
-              grep -F "ARG DANDER_VERSION=$VERSION" Dockerfile
-              "$ENV_DIR/bin/python" -c 'import dander; assert "site-packages" in dander.__file__'
-            )
-            INDEX=$((INDEX + 1))
-          done
-          FULL_ENV="$TEMP_DIR/venv-runtime-all"
-          uv venv "$FULL_ENV"
-          uv pip install --python "$FULL_ENV/bin/python" "dist/dander_platform-${VERSION}-py3-none-any.whl[runtime-all]"
-          "$FULL_ENV/bin/python" -c \
-            'from dander.providers.dependencies import require_full_runtime; require_full_runtime()'
-          terraform -chdir="$TEMP_DIR/project-0/infra" init -backend=false -input=false
-          terraform -chdir="$TEMP_DIR/project-0/infra" validate
+          trap 'rm -rf "$TEMP_DIR"' EXIT
+          python3 scripts/check_provider_installations.py dist/*.whl dist/*.tar.gz \
+            --work-dir "$TEMP_DIR" --version "$(uv version --short)"
+          terraform -chdir="$TEMP_DIR/project-base-wheel/infra" init -backend=false -input=false
+          terraform -chdir="$TEMP_DIR/project-base-wheel/infra" validate
       - name: Confirm distribution is outside this lane
         if: needs.scope.outputs.lane != 'full'
         run: test "${{ needs.scope.outputs.lane }}" != "full"
