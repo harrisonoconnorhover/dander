@@ -15,6 +15,10 @@ _MYPY_COMMAND = (
     "dev",
     "--extra",
     "postgres",
+    "--extra",
+    "bigquery",
+    "--extra",
+    "gcp",
     "mypy",
 )
 

@@ -72,7 +72,7 @@ jobs:
           enable-cache: true
       - name: Install locked environment
         if: needs.scope.outputs.lane == 'full' || needs.scope.outputs.lane == 'benchmark'
-        run: uv sync --frozen --extra dev --extra postgres
+        run: uv sync --frozen --extra dev --extra postgres --extra bigquery --extra gcp
       - name: Ruff lint
         if: needs.scope.outputs.lane == 'full'
         run: uv run ruff check .
@@ -119,7 +119,7 @@ jobs:
         run: |
           git diff --check "$BASE_SHA" "$GITHUB_SHA"
           python3 scripts/verify_repository_target.py --remote origin --push
-          uv run --isolated --frozen --extra dev --extra postgres \
+          uv run --isolated --frozen --extra dev --extra postgres --extra bigquery --extra gcp \
             pytest tests/test_ci_scope.py tests/test_repository_safety.py -q
       - name: Objective and evidence checks
         if: needs.scope.outputs.lane == 'objective'
@@ -141,7 +141,7 @@ jobs:
           if [ "${#OBJECTIVES[@]}" -gt 0 ]; then
             python3 scripts/validate_redshift_objective.py "${OBJECTIVES[@]}"
           fi
-          uv run --isolated --frozen --extra dev --extra postgres \
+          uv run --isolated --frozen --extra dev --extra postgres --extra bigquery --extra gcp \
             pytest tests/test_validate_redshift_objective.py tests/test_repository_safety.py -q
 
   terraform-quality:

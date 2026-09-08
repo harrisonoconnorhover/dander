@@ -10,6 +10,12 @@ the [hosted quickstart](getting-started.md). A guarded installation must also re
 
 ## Upgrade the CLI and project image
 
+The commands below target public RC20. When adopting the unreleased source packaging change,
+select `dander-platform[bigquery,gcp]` for this GCP workflow or `dander-platform[runtime-all]` to
+retain all provider dependencies. For example, after that change is released, use
+`uv tool install --force "dander-platform[bigquery,gcp]==$DANDER_TARGET_VERSION"` with the chosen
+exact version. The source and starter Dockerfiles already select `runtime-all`.
+
 ```bash
 export DANDER_TARGET_VERSION="0.9.0rc20"
 uv tool install --force "dander-platform==$DANDER_TARGET_VERSION"

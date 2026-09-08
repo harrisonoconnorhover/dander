@@ -23,7 +23,26 @@ GCP_IMPORTS = (
     "google.cloud.secretmanager",
     "google.cloud.storage",
 )
-POSTGRES_IMPORTS = ("psycopg", "psycopg_pool")
+POSTGRES_IMPORTS = (
+    "psycopg",
+    "psycopg_pool",
+    "dander.providers.postgresql.runtime",
+    "dander.providers.postgresql.state",
+    "dander.control.postgresql_graph_store",
+    "dander.control.postgresql_run_store",
+)
+GOOGLE_DISTRIBUTIONS = (
+    "google-api-core",
+    "google-auth",
+    "google-cloud-core",
+    "google-cloud-bigquery",
+    "google-cloud-bigquery-storage",
+    "google-cloud-dataplex",
+    "google-cloud-secret-manager",
+    "google-cloud-storage",
+    "google-resumable-media",
+    "googleapis-common-protos",
+)
 PROFILE_IMPORTS = {
     "base-wheel": (),
     "base-sdist": (),
@@ -57,7 +76,6 @@ def main() -> None:
     parser.add_argument("--version", required=True)
     parser.add_argument("--python", default="3.12")
     parser.add_argument("--profile", choices=tuple(PROFILE_IMPORTS), action="append")
-    parser.add_argument("--forbid-base-distribution", action="append", default=[])
     args = parser.parse_args()
     work_dir = args.work_dir.resolve()
     if work_dir.is_relative_to(ROOT):
@@ -75,7 +93,6 @@ def main() -> None:
             version=args.version,
             python_version=args.python,
             environment=environment,
-            forbidden_base_distributions=args.forbid_base_distribution,
         )
 
 
@@ -87,7 +104,6 @@ def _check_profile(
     version: str,
     python_version: str,
     environment: dict[str, str],
-    forbidden_base_distributions: list[str],
 ) -> None:
     def run(*command: str, cwd: Path = work_dir) -> None:
         print(f"[{profile}] {shlex.join(command)}", flush=True)
@@ -143,15 +159,16 @@ def _check_profile(
             "from dander.providers.dependencies import require_full_runtime; "
             "require_full_runtime()",
         )
-    elif profile.startswith("base-") and forbidden_base_distributions:
+    elif profile in {"base-wheel", "base-sdist", "postgres"}:
         run(
             python,
             "-I",
             "-c",
             "import sys; from importlib.metadata import distributions; "
             "installed = {dist.metadata['Name'].lower() for dist in distributions()}; "
-            "assert not installed.intersection(name.lower() for name in sys.argv[1:])",
-            *forbidden_base_distributions,
+            "unexpected = sorted(installed.intersection(sys.argv[1:])); "
+            "assert not unexpected, f'Unexpected Google dependencies: {unexpected}'",
+            *GOOGLE_DISTRIBUTIONS,
         )
     print(f"Validated {profile} installation and starter project: {project}", flush=True)
 

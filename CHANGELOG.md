@@ -6,6 +6,14 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+### Changed
+
+- The base installation and `postgres` extra no longer install Google/BigQuery SDKs. Install
+  `dander-platform[bigquery,gcp]` for the GCP stack or `dander-platform[runtime-all]` for every
+  provider. Runtime Dockerfiles already select `runtime-all`; public RC20 remains unchanged.
+- Basic CLI commands and local/PostgreSQL imports keep unselected provider SDKs unloaded.
+  Generic RS256 OAuth assertions use the existing PyJWT dependency.
+
 ### Added
 
 - Let one always-on AWS-hosted Control select immutable AWS Fargate/Redshift or GCP Cloud

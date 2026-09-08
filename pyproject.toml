@@ -18,12 +18,7 @@ classifiers = [
   "Topic :: Software Development :: Build Tools",
 ]
 dependencies = [
-  "dlt[bigquery]>=1.0",            # standard-REST ingestion path (hybrid decision)
-  "google-cloud-bigquery>=3.25",
-  "google-cloud-bigquery-storage>=2.30",
-  "google-cloud-dataplex>=2.20,<3",
-  "google-cloud-secret-manager>=2.20",
-  "google-auth>=2.35",
+  "dlt>=1.0",                     # provider-neutral REST extraction
   "pydantic>=2.12",                # config + per-call strict-extra graph validation
   "pydantic-settings>=2.3",
   "packaging>=24.0",              # exact plugin pins + installed-version comparison

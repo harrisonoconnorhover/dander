@@ -75,11 +75,19 @@ class BigQueryTransformRunner:
         self._project = project
         self._raw_namespace = raw_namespace
         if client is None:
-            from google.cloud import bigquery
+            try:
+                from google.cloud.bigquery import Client
+            except ModuleNotFoundError as error:
+                if error.name not in {"google", "google.cloud", "google.cloud.bigquery"}:
+                    raise
+                raise TransformRunError(
+                    "BigQuery transforms require optional dependencies. "
+                    "Install dander-platform[bigquery]."
+                ) from error
 
             client = cast(
                 "_BigQueryClient",
-                bigquery.Client(project=project, **google_client_options()),
+                Client(project=project, **google_client_options()),
             )
         self._client = client
 

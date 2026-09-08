@@ -109,11 +109,27 @@ scripts/        dev tooling (e.g. the workflow monitor)
 ```bash
 brew install uv                 # one-time: install uv
 git clone <repo-url> dander && cd dander
-uv sync --extra dev             # install app + dev deps into .venv (fetches Python 3.12 if needed)
+uv sync --frozen --extra dev --extra postgres --extra bigquery --extra gcp
 ```
 
-That's it — `uv sync` creates the virtualenv, installs everything from `pyproject.toml`, and pins
-it in `uv.lock`.
+`uv sync` creates the virtualenv and installs the selected dependencies from `uv.lock`.
+
+### Installation profiles in current source
+
+The unreleased source keeps Google SDKs out of the base package. The public RC20 command above
+retains its original dependencies. Choose extras for the providers you actually use:
+
+| Use | Source checkout | Built package requirement |
+|---|---|---|
+| CLI, configuration, local Control | `uv sync --frozen` | `dander-platform` |
+| PostgreSQL | `uv sync --frozen --extra postgres` | `dander-platform[postgres]` |
+| BigQuery and GCP services | `uv sync --frozen --extra bigquery --extra gcp` | `dander-platform[bigquery,gcp]` |
+| All providers | `uv sync --frozen --extra runtime-all` | `dander-platform[runtime-all]` |
+
+For a locally built wheel, use `uv pip install './dist/dander_platform-0.9.0rc32-py3-none-any.whl[bigquery,gcp]'`
+in an activated environment. Pin the exact version when installing a published package. Existing
+runtime Dockerfiles select `runtime-all`; selecting an extra does not qualify a provider or change
+the [runtime compatibility matrix](docs/compatibility-matrix.md).
 
 ## Everyday commands
 
@@ -129,8 +145,8 @@ uv run dander validate     # validate dander.yaml and every pipeline reference
 uv run dander metadata list --project my-gcp-project
 ```
 
-`python3 scripts/check_types.py` is the canonical strict type check. It selects the locked dev and
-PostgreSQL environment, while its maintained targets live in `[tool.mypy].files` in
+`python3 scripts/check_types.py` is the canonical strict type check. It selects the locked dev,
+PostgreSQL, BigQuery, and GCP environment, while its maintained targets live in `[tool.mypy].files` in
 `pyproject.toml`. Do not replace it with `mypy .` or recursively check every auxiliary script. Add
 a maintained script to that target list deliberately, and keep CI calling this same checker.
 

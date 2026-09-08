@@ -60,7 +60,7 @@ jobs:
           terraform_version: 1.15.8
       - name: Locked Python checks
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen --extra dev --extra bigquery --extra gcp
           uv run ruff check .
           uv run ruff format --check .
           python3 scripts/check_types.py
@@ -92,7 +92,7 @@ jobs:
         with:
           terraform_version: 1.15.8
       - name: Install locked runtime
-        run: uv sync --frozen --extra dev
+        run: uv sync --frozen --extra dev --extra bigquery --extra gcp
       - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           workload_identity_provider: ${{ vars.DANDER_WIF_PROVIDER }}
