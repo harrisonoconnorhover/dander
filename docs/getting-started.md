@@ -40,7 +40,7 @@ dander run greenhouse_jobs --dry-run --project "$DANDER_PROJECT"
 ```
 
 The generated `dander.platforms.yaml` keeps the schedule paused. The dry-run performs no credential or network
-access and should identify one Greenhouse endpoint and one selected model.
+access and should identify one Greenhouse endpoint and its destination table.
 
 ## Create the Terraform backend once
 
