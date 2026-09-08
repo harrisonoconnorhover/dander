@@ -30,6 +30,9 @@ gcloud auth application-default set-quota-project "$DANDER_PROJECT"
 
 ## Install and scaffold
 
+This guide pins public RC20, which includes the GCP dependencies. For current source builds,
+select the `bigquery,gcp` extras described in the [installation profiles](../README.md#installation-profiles-in-current-source).
+
 ```bash
 uv tool install dander-platform==0.9.0rc20
 dander --version

@@ -579,6 +579,14 @@ def _build_state_runtime(resolved: _ResolvedRun) -> StateRuntime:
             context=_state_runtime_context(resolved),
         )
     except ProviderFactoryError as error:
+        if (
+            resolved.state_provider == "bigquery"
+            and isinstance(error.__cause__, ModuleNotFoundError)
+            and error.__cause__.name in {"google", "google.cloud", "google.cloud.bigquery"}
+        ):
+            raise ClickException(
+                "BigQuery state requires optional dependencies. Install dander-platform[bigquery]."
+            ) from error
         raise ClickException(str(error)) from error
     if not isinstance(runtime, StateRuntime):
         raise ClickException("Selected state provider returned an invalid runtime")

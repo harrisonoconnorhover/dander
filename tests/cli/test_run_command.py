@@ -35,6 +35,51 @@ if TYPE_CHECKING:
 _REPO_ROOT = Path(__file__).parents[2]
 
 
+@pytest.mark.parametrize("missing_module", ("google.cloud", "unrelated_dependency"))
+def test_default_run_explains_missing_bigquery_only(missing_module: str) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            """
+import importlib.abc
+import sys
+
+missing_module = sys.argv[1]
+
+class MissingSDK(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "google.cloud":
+            raise ModuleNotFoundError("No module named " + missing_module, name=missing_module)
+
+def forbid_network(event, args):
+    if event == "socket.connect":
+        raise AssertionError("Missing SDK must fail before making provider calls")
+
+sys.addaudithook(forbid_network)
+sys.meta_path.insert(0, MissingSDK())
+from dander.cli.entrypoint import dispatch
+dispatch(["run", "greenhouse_jobs", "--project", "offline-project"])
+""",
+            missing_module,
+        ],
+        cwd=_REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 1
+    assert "Traceback" not in result.stdout + result.stderr
+    if missing_module == "google.cloud":
+        assert "Install dander-platform[bigquery]" in result.stderr
+    else:
+        assert "Provider state.bigquery factory could not be loaded" in result.stderr
+        assert "dander-platform[bigquery]" not in result.stderr
+
+
 @pytest.mark.parametrize("connector_text", (None, "name: [not-closed"))
 def test_run_reports_unreadable_connector_as_cli_error(
     tmp_path: Path, connector_text: str | None

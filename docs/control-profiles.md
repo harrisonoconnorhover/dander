@@ -37,11 +37,12 @@ S3, SQS, or AWS credentials. The existing AWS flags remain available for compati
 
 For one existing version 1 Cloud Run graph pipeline, the
 [preparation example](../examples/control/prepare_cloud_run.py) creates the graph in PostgreSQL
-and writes its canonical plan, startup binding, and profile together. It requires the `postgres`
-extra, a dedicated database schema, Google credentials, and the immutable image of a job already
+and writes its canonical plan, startup binding, and profile together. It requires the `postgres`,
+`bigquery`, and `gcp` extras, a dedicated database schema, Google credentials, and the immutable image of a job already
 deployed from the same project configuration:
 
 ```bash
+uv sync --frozen --extra postgres --extra bigquery --extra gcp
 uv run python examples/control/prepare_cloud_run.py \
   --config /path/to/project/dander.yaml \
   --pipeline greenhouse_jobs_graph \

@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-09-08 — Install only the selected provider SDKs
+
+- The base package retains generic REST extraction and OAuth dependencies; Google SDKs belong to
+  the existing `bigquery` and `gcp` extras. PostgreSQL installations must remain Google-free.
+  The `runtime-all` extra and runtime Dockerfiles retain the complete provider dependency set.
+- Development checks explicitly select `dev`, `postgres`, `bigquery`, and `gcp`; distribution CI
+  verifies the actual installed package profiles outside the source checkout. The lock changes
+  only dependency membership, without upgrading any package versions.
+- This is an unreleased packaging change. Public RC20 installation instructions and immutable
+  historical candidate artifacts remain unchanged; source and upgrade guidance name the extras.
+
 ## 2026-09-08 — Load Google SDKs only at their provider boundary
 
 - Basic CLI commands, local runtime setup, and PostgreSQL imports work without Google SDKs.
