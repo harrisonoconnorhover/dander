@@ -1,7 +1,7 @@
 ---
 id: DANDER-251
 title: Execute one static multistage linear graph through Managed Spark
-status: in-review
+status: done
 component: python
 epic: control-orchestration
 depends_on: [DANDER-250]
@@ -30,8 +30,8 @@ engine or changing pipeline selection.
       alternate writers, dynamic allocation, and changed executor counts.
 - [x] Preserve existing one-transform, join, fused-container, API, scheduler, sizing, placement,
       retry, cancellation, and restart-recovery behavior.
-- [ ] Publish one immutable main runtime image and Spark driver/image pair from repaired exact main.
-- [ ] Run exactly one fused Fargate cell and one Dataproc cell against the same raw snapshot, prove
+- [x] Publish one immutable main runtime image and Spark driver/image pair from repaired exact main.
+- [x] Run exactly one fused Fargate cell and one Dataproc cell against the same raw snapshot, prove
       exact output parity, capture Control evidence, and clean disposable resources.
 
 ## Boundaries
@@ -42,3 +42,10 @@ engine or changing pipeline selection.
   Terraform, public API, scheduling, cost model, or placement-policy change.
 - No preliminary or status-only PR, extra acceptance cells, soak, release, C27, RC32, or Phase 8
   work.
+
+## Retained acceptance reconciliation — September 30, 2026
+
+The August 27–28 operator records confirm the immutable publication and bounded execution
+criteria above. See the [reviewed execution history](../docs/control-execution-history.md) for
+the exact source revision, result, cleanup boundary, and retained record identifier. Earlier
+failed attempts remain historical evidence; no new cloud execution was performed for this update.

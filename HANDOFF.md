@@ -2,40 +2,31 @@
 
 ## Finished
 
-- Basic CLI commands and local/PostgreSQL imports keep Google SDKs unloaded; generic OAuth JWT signing uses the existing PyJWT dependency.
-- Base and PostgreSQL installations omit Google SDKs. Existing BigQuery/GCP and full-runtime extras retain their provider dependencies; selected BigQuery commands explain missing extras.
-- Distribution CI exercises five fresh installation profiles outside the checkout, including actual PostgreSQL adapter imports.
-- PostgreSQL recovery queries an index of unfinished runs; conditional writes maintain its eligibility flag atomically and public run history stays complete.
-- Schema v4 backfills from validated canonical records without changing their bytes or revisions; migration failures roll back.
+- Reconciled retained August 27–28 Control/Fargate/Spark successes and corrected the obsolete DANDER-251 non-execution claim.
+- Updated five completed tickets, Druff hosted-mode documentation, and Salesforce plugin write-command boundaries.
+- Prepared Salesforce 0.3.2, ServiceNow 0.2.3, and Dander catalog/install-check patches outside this documentation change.
 
 ## Try It
 
-For development, run `uv sync --frozen --extra dev --extra postgres --extra bigquery --extra gcp`.
-For a lean PostgreSQL checkout, use `uv sync --frozen --extra postgres`.
-Try `uv run dander control serve --profile examples/control/local.yaml` and stop with Ctrl-C.
-See README installation profiles and `docs/control-profiles.md` before upgrading an existing database.
+Read `docs/control-execution-history.md`, then `docs/support-status.md`. Prepared package and catalog patches are in `/tmp/dander-curated-compat-20260930/`.
 
 ## Checks
 
-- Final integrated suite: 2,416 tests passed with disposable PostgreSQL 15. Focused Control suite also passed 398 tests on PostgreSQL 17. Test containers were removed.
-- Canonical strict typing passed for 507 files; Ruff lint/format, Control contract drift, release metadata, and diff checks passed.
-- Wheel/source archive validation and all five fresh-install profiles passed after the dependency split. Base and PostgreSQL profiles contained no Google SDKs.
-- Migration tests cover backfill/reopen, bytes/revisions, rollback on corruption, conditional-write conflicts, pending-page continuation, complete history, and recovery readiness/fallback.
-- Fresh base installation: 97 to 60 distributions; package-file metadata totals 290.1 to 52.3 MiB on this Mac. These are local installation measurements, not deployment memory or cloud cost.
+- Documentation: relative links, retained output equality, source/image identities, and `git diff --check` passed.
+- Prepared fixes: 93 Salesforce and 23 ServiceNow tests passed on public Dander 0.7.1 and 0.9.0rc20, current 0.9.0rc32, and each package's locked environment. Package lint, format, and typing passed.
+- Prepared Dander patch: 37 focused tests, full Ruff lint/format, canonical strict typing (507 files), contract drift, and outside-checkout wheel resolution/metadata/entry-point checks passed using local candidate wheels.
 
 ## Decisions
 
-- Keep provider SDK imports and optional-dependency errors at selected provider boundaries; no package versions changed in the lockfile.
-- A run needs recovery until execution, outcome, results, and cleanup are resolved; readiness checks recovery, not completed-history integrity.
-- Stop the single Control process for the v4 migration. Backfill holds table locks; older binaries reject v4, so mixed-version operation is unsupported.
+- Retained live evidence qualifies only its named revisions and workloads; no new cloud runs or support promotion.
+- Do not publish catalog pins until the corresponding packages exist on PyPI.
 
 ## Remaining
 
-- No live database upgrade or provider qualification was performed. Existing provider support boundaries and public RC20 remain unchanged.
-- A future deployed upgrade needs a maintenance window sized for its saved history and the documented single-process restart.
+- Await the requested narrow exception to AGENTS.md's single-writable-repository rule for the two existing connector repositories.
+- Then apply the prepared connector patches, complete protected CI/publication, verify PyPI, apply the Dander catalog patch, and merge with exact-main CI.
 
 ## Review First
 
-- `src/dander/control/postgresql_control_database.py` and `postgresql_run_store.py`
-- `src/dander/control/run_lifecycle.py` and `tests/control/test_postgresql_run_store.py`
-- `pyproject.toml`, `scripts/check_provider_installations.py`, and README installation profiles
+- `docs/control-execution-history.md` and corrected support boundaries.
+- `/tmp/dander-curated-compat-20260930/*-compatibility.patch` for the pending package work.

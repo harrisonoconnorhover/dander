@@ -1,6 +1,6 @@
 # Current implementation and support status
 
-Updated September 7, 2026. This page is the current overview; dated decisions and acceptance
+Updated September 30, 2026. This page is the current overview; dated decisions and acceptance
 records preserve what happened on their named revisions. Update this page when a capability is
 integrated or a named release/profile changes status.
 
@@ -25,7 +25,8 @@ the final paused/no-drift state. These are dated observations, not a continuous 
 | Direct single-container execution | Existing default path | Does not require hosted Control, Spark, Kubernetes, or Hadoop. |
 | Hosted Control API, graph persistence, OIDC | Implemented with named local/cloud acceptance records | Experimental; each profile keeps its own identity, storage, and lifecycle evidence. |
 | Control execution through Fargate, Cloud Run, or Dataproc | Implemented with typed PostgreSQL or S3 run storage | Experimental; one Control process per run-store schema. AWS compatibility flags remain available. |
-| Distributed Spark graphs | Bounded linear, keyed-join, and two-transform shapes implemented | Experimental; DANDER-251 has no accepted immutable paired Fargate/Dataproc parity record. |
+| Distributed Spark graphs | Bounded linear, keyed-join, and two-transform shapes implemented; retained August 27–28 runs include exact Fargate/Dataproc output parity | Experimental; the [execution history](control-execution-history.md) identifies each tested revision and bounded shape. |
+| Druff hosted authoring | Hosted Control connections, OIDC/PKCE, persisted graphs, and run lifecycle controls implemented | Experimental; retained browser checks used synthetic OIDC. They do not establish production identity-provider or HA qualification. |
 | PostgreSQL, Snowflake, Redshift warehouse adapters | Local conformance and named bounded live evidence | Experimental; the runtime compatibility matrix determines allowed state/warehouse pairs. |
 | Azure, OCI, Kubernetes profiles | Named lifecycle/qualification records | No general support promotion; consult each exact profile's evidence. |
 | PostgreSQL Control graphs/runs/schedules | Database conformance plus one real Cloud Run graph with crash recovery, cancellation, output, and history checks | Experimental; one local Control process, no supported hosted or multiple-replica topology. |
@@ -44,9 +45,9 @@ The [profile preparation example](control-profiles.md) now registers an existing
 and writes its plan and startup files together. S3/Azure/OCI graph records and journals also share
 one definition; further operation consolidation is optional.
 
-1. Attribute existing AWS account costs and remove confirmed idle Dander resources before the next
-   paid qualification phase. The conservative monthly reservation is close to the USD 25 ceiling;
-   account-wide billing alone does not identify which resources belong to Dander.
+1. Reconcile current Dander costs and reservations before the next paid qualification phase.
+   The September 7 snapshot was close to the USD 25 monthly cash ceiling; it is not a current
+   balance. Account-wide billing alone does not identify which resources belong to Dander.
 2. Fill the legacy graph's operation-level telemetry gap before relying on its byte counters for
    cost comparisons. The successful workflow exposed row metrics but no recorded operations.
 3. Identify an existing secure Hadoop environment and its owner before live enterprise tests.
@@ -61,5 +62,6 @@ broader qualification gates still determine enterprise support.
 
 [DANDER-207](../tickets/DANDER-207-phase8-soak-release.md) remains open. Its broader scale/cost,
 pairwise, other-profile soak, audit, and release gates are not closed by the GCP observation or
-the enterprise branch. Historical DANDER-251 parity work was left unexecuted; future execution
-needs a current objective and does not rewrite the old evidence.
+the enterprise branch. The completed historical DANDER-251 parity run qualifies its recorded
+immutable pair and bounded graph only. A future candidate needs its own current objective and
+verification; the [historical evidence](control-execution-history.md) does not qualify it.

@@ -1,7 +1,7 @@
 ---
 id: DANDER-249
 title: Select bounded Managed Spark size classes from BigQuery metadata
-status: in-review
+status: done
 component: python
 epic: control-orchestration
 depends_on: [DANDER-247]
@@ -28,9 +28,9 @@ BigQuery table metadata for the canonical graph sources.
       the AWS Control identity only the BigQuery Metadata Viewer role.
 - [x] Preserve unsized fused Fargate execution, explicit size overrides, static Spark allocation,
       and existing pipeline logic.
-- [ ] Publish one exact-main immutable main runtime image while reusing the accepted DANDER-248
+- [x] Publish one exact-main immutable main runtime image while reusing the accepted DANDER-248
       Spark artifact.
-- [ ] Run exactly two Managed Spark cells that prove metadata-derived small and large selection,
+- [x] Run exactly two Managed Spark cells that prove metadata-derived small and large selection,
       results parity, durable evidence, and cleanup.
 
 ## Boundaries
@@ -40,3 +40,10 @@ BigQuery table metadata for the canonical graph sources.
 - No table-data reads, estimator registry, new graph shapes, dynamic Spark allocation, autoscaling,
   Kubernetes, job clusters, cost/locality changes, or new reconciler.
 - No Fargate live rerun, extra qualification cells, status-only PR, or evidence framework.
+
+## Retained acceptance reconciliation — September 30, 2026
+
+The August 27–28 operator records confirm the immutable publication and bounded execution
+criteria above. See the [reviewed execution history](../docs/control-execution-history.md) for
+the exact source revision, result, cleanup boundary, and retained record identifier. Earlier
+failed attempts remain historical evidence; no new cloud execution was performed for this update.

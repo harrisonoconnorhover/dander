@@ -1,7 +1,7 @@
 ---
 id: DANDER-246
 title: Execute one reusable linear graph through Managed Spark
-status: in-review
+status: done
 component: python
 epic: control-orchestration
 depends_on: [DANDER-245]
@@ -28,9 +28,9 @@ hard-coded its BigQuery output. This slice replaces that fixture with one graph-
   writer modes, cross-project relations, mutable configuration, and changed executor shape.
 - [x] Preserve byte-identical driver/image identity, canonical Control results, verified exchange
   cleanup, and the existing single-container graph execution path.
-- [ ] Publish one immutable main runtime image and one immutable Spark image/driver from the same
+- [x] Publish one immutable main runtime image and one immutable Spark image/driver from the same
   exact-main commit, with their digests recorded.
-- [ ] Run exactly one fused Fargate cell followed by one Dataproc cell against the same raw BigQuery
+- [x] Run exactly one fused Fargate cell followed by one Dataproc cell against the same raw BigQuery
   snapshot, prove exact output parity, capture Control evidence, and clean disposable resources.
 
 ## Boundaries
@@ -39,3 +39,10 @@ hard-coded its BigQuery output. This slice replaces that fixture with one graph-
   allocation, autotuning, Kubernetes, cluster management, or new reconciler.
 - No extra acceptance cells, soak, status-only PR, evidence framework, release, C27, RC32, or
   Phase 8 work.
+
+## Retained acceptance reconciliation — September 30, 2026
+
+The August 27–28 operator records confirm the immutable publication and bounded execution
+criteria above. See the [reviewed execution history](../docs/control-execution-history.md) for
+the exact source revision, result, cleanup boundary, and retained record identifier. Earlier
+failed attempts remain historical evidence; no new cloud execution was performed for this update.
