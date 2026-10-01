@@ -166,8 +166,8 @@ def test_plugins_search_lists_curated_exact_package_pins() -> None:
     result = CliRunner().invoke(app, ["plugins", "search"])
 
     assert result.exit_code == 0, result.output
-    assert "dander-connector-salesforce==0.3.1" in result.output
-    assert "dander-connector-servicenow==0.2.2" in result.output
+    assert "dander-connector-salesforce==0.3.2" in result.output
+    assert "dander-connector-servicenow==0.2.3" in result.output
 
 
 def test_plugins_search_filters_and_reports_no_match() -> None:
@@ -175,7 +175,7 @@ def test_plugins_search_filters_and_reports_no_match() -> None:
     missing = CliRunner().invoke(app, ["plugins", "search", "not-a-connector"])
 
     assert filtered.exit_code == 0, filtered.output
-    assert "dander-connector-servicenow==0.2.2" in filtered.output
+    assert "dander-connector-servicenow==0.2.3" in filtered.output
     assert "dander-connector-salesforce" not in filtered.output
     assert missing.exit_code == 0, missing.output
     assert "No curated connectors match" in missing.output

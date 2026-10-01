@@ -9,7 +9,7 @@ integrated or a named release/profile changes status.
 | Revision or artifact | State | What it means |
 |---|---|---|
 | Public prerelease `0.9.0rc20` | Published August 14 | The package installed by the hosted quickstart; later main-source features are not automatically included. |
-| Current source (`0.9.0rc32`) | Unreleased integration | Includes PostgreSQL Control, startup profiles, and later planning/Spark work. This is not a new public release. |
+| Current source (`0.9.0rc33`) | Prepared GitHub integration candidate | Includes PostgreSQL Control, planning/Spark work, graph previews, run explanations, and scoped repair. Consumer integration requires the exact verified artifact; this does not promote the public PyPI beta. |
 | Retained GCP private RC22 | Operator trial closed | The August 2–September 1 observation and final seven clean days passed; all five schedules were subsequently paused. |
 | Local `codex/hdfs-enterprise-foundations` at `e187fdd` | Remaining enterprise implementation | PostgreSQL durability/startup has been integrated here. HDFS/YARN, Hive interfaces, semantics, locality, and enterprise packaging remain on the preserved branch. |
 
@@ -23,6 +23,7 @@ the final paused/no-drift state. These are dated observations, not a continuous 
 |---|---|---|
 | GCP Cloud Run + BigQuery pipeline | Released named profile and retained operator evidence | GCP remains the supported compatibility baseline within the documented beta limits. |
 | Direct single-container execution | Existing default path | Does not require hosted Control, Spark, Kubernetes, or Hadoop. |
+| Curated connector packages | RC33 catalog pins Salesforce `0.3.2` and ServiceNow `0.2.3`; clean-install behavior checks cover the declared minimums, Dander `0.7.1`, and public RC20 | Compatibility metadata now accepts Dander 0.9 candidates. Existing provider evidence keeps its recorded versions; this is not a new live provider qualification. |
 | Hosted Control API, graph persistence, OIDC | Implemented with named local/cloud acceptance records | Experimental; each profile keeps its own identity, storage, and lifecycle evidence. |
 | Control execution through Fargate, Cloud Run, or Dataproc | Implemented with typed PostgreSQL or S3 run storage | Experimental; one Control process per run-store schema. AWS compatibility flags remain available. |
 | Distributed Spark graphs | Bounded linear, keyed-join, and two-transform shapes implemented; retained August 27–28 runs include exact Fargate/Dataproc output parity | Experimental; the [execution history](control-execution-history.md) identifies each tested revision and bounded shape. |

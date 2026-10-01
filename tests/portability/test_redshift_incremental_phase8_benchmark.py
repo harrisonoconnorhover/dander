@@ -16,7 +16,6 @@ from scripts.benchmarks import redshift as shared
 from scripts.benchmarks import redshift_bulk_phase8 as bulk
 from scripts.benchmarks import redshift_incremental_phase8 as incremental
 
-from dander import __version__
 from dander.qualification import ApprovedCostCeiling, ApprovedObjectiveSet, BenchmarkClass
 
 if TYPE_CHECKING:
@@ -25,6 +24,8 @@ if TYPE_CHECKING:
     from dander.warehouse import WarehouseRuntime
 
 
+# These fixtures exercise the historical RC32 launcher contract.
+_RELEASE_VERSION = "0.9.0rc32"
 _COMMIT = "b" * 40
 _DIGEST = f"sha256:{'a' * 64}"
 _REFERENCE = "codex-goal-phase8-redshift-incremental"
@@ -52,7 +53,7 @@ def _config(**overrides: object) -> incremental.RedshiftIncrementalConfig:
 
 def _identity() -> incremental.CandidateIdentity:
     return incremental.CandidateIdentity(
-        release_version=__version__,
+        release_version=_RELEASE_VERSION,
         git_commit=_COMMIT,
         image_digest=_DIGEST,
         approval_reference=_REFERENCE,
@@ -70,7 +71,7 @@ def _approval(config: incremental.RedshiftIncrementalConfig) -> incremental._App
             names=incremental._OBJECTIVES,
             benchmark_class=BenchmarkClass.INCREMENTAL,
             profile_id="aws_native_redshift",
-            release_version=__version__,
+            release_version=_RELEASE_VERSION,
             git_commit=_COMMIT,
             image_digest=_DIGEST,
             configuration_sha256=config.configuration_sha256(),
@@ -173,7 +174,7 @@ def _manifest(config: incremental.RedshiftIncrementalConfig) -> dict[str, object
             "names": list(incremental._OBJECTIVES),
             "benchmark_class": BenchmarkClass.INCREMENTAL.value,
             "profile_id": "aws_native_redshift",
-            "release_version": __version__,
+            "release_version": _RELEASE_VERSION,
             "git_commit": _COMMIT,
             "image_digest": _DIGEST,
             "configuration_sha256": config.configuration_sha256(),

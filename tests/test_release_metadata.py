@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import tomllib
 from pathlib import Path
 
 from scripts.check_release_metadata import release_metadata_errors
@@ -37,7 +38,7 @@ def test_publication_check_rejects_unpromoted_prepared_version(tmp_path: Path) -
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         pyproject.read_text(encoding="utf-8").replace(
-            'version = "0.9.0rc32"',
+            f'version = "{tomllib.loads(pyproject.read_text())["project"]["version"]}"',
             'version = "0.9.0rc99"',
             1,
         ),
@@ -69,7 +70,7 @@ def test_publication_check_accepts_matching_package_and_public_versions(tmp_path
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         pyproject.read_text(encoding="utf-8").replace(
-            'version = "0.9.0rc32"',
+            f'version = "{tomllib.loads(pyproject.read_text())["project"]["version"]}"',
             'version = "0.9.0rc20"',
             1,
         ),

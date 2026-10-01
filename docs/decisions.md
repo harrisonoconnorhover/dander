@@ -1,5 +1,15 @@
 # Engineering Decisions
 
+## 2026-10-01 — Publish a fixed integration candidate before consuming its contracts
+
+- Publish RC33 as a canonical GitHub prerelease after protected merge, exact-main CI, and
+  distribution checks. Upload the wheel, source archive, and checksums to a draft, then publish
+  with repository release immutability enabled. Consumers pin the wheel and contract hashes.
+- Keep public PyPI RC20 and its support documentation unchanged. The existing publication
+  metadata check still prevents promoting an unqualified candidate through the PyPI workflow.
+- The user approved this task's Druff, Salesforce, and ServiceNow repository work, including
+  protected PRs, merges, and verified releases. Upstream WagnerJ-Dev repositories remain read-only.
+
 ## 2026-10-01 — Repair output dates from retained raw data
 
 - Keep a repair window in the existing durable run trigger, preserving cancellation, replay,

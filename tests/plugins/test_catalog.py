@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+import pytest
+
 from dander.plugins import (
     CURATED_CONNECTORS,
     ConnectorPlugin,
@@ -27,15 +29,19 @@ def _installed_salesforce(version: str = "0.2.0") -> InstalledConnectorPlugin:
     )
 
 
-def test_curated_catalog_has_exact_stable_pins_and_dander_07_compatibility() -> None:
-    catalog = build_plugin_catalog(dander_version="0.7.0rc1")
+@pytest.mark.parametrize("version", ["0.7.0rc1", "0.7.1", "0.9.0rc20", "0.9.0rc33"])
+def test_curated_catalog_has_exact_pins_and_current_dander_compatibility(version: str) -> None:
+    catalog = build_plugin_catalog(dander_version=version)
     connectors = cast("list[dict[str, object]]", catalog["connectors"])
 
     assert catalog["schema_version"] == 1
-    assert catalog["dander_version"] == "0.7.0rc1"
+    assert catalog["dander_version"] == version
     assert {connector["id"] for connector in connectors} == {"salesforce", "servicenow"}
-    assert {connector["version"] for connector in connectors} == {"0.3.1", "0.2.2"}
-    assert all(connector["dander_specifier"] == ">=0.6.0,<0.8" for connector in connectors)
+    assert {connector["version"] for connector in connectors} == {"0.3.2", "0.2.3"}
+    assert {connector["id"]: connector["dander_specifier"] for connector in connectors} == {
+        "salesforce": ">=0.6.0rc1,<0.10",
+        "servicenow": ">=0.5.0,<0.10",
+    }
     assert all(connector["compatible"] is True for connector in connectors)
     assert all(connector["support_status"] == "first-party-beta" for connector in connectors)
     assert all(connector["validation_status"] == "provider-validated" for connector in connectors)
@@ -68,14 +74,23 @@ def test_catalog_installation_status_uses_only_validated_manifest_plugins() -> N
 
 
 def test_catalog_marks_unsupported_dander_version_incompatible() -> None:
-    catalog = build_plugin_catalog(dander_version="0.8.0")
+    catalog = build_plugin_catalog(dander_version="0.10.0")
     connectors = cast("list[dict[str, object]]", catalog["connectors"])
 
     assert all(connector["compatible"] is False for connector in connectors)
 
 
-def test_catalog_marks_dander_05_incompatible_with_current_connectors() -> None:
-    catalog = build_plugin_catalog(dander_version="0.5.1")
+@pytest.mark.parametrize(
+    ("version", "salesforce", "servicenow"),
+    [("0.4.9", False, False), ("0.5.0", False, True), ("0.6.0rc1", True, True)],
+)
+def test_catalog_preserves_each_published_minimum(
+    version: str, salesforce: bool, servicenow: bool
+) -> None:
+    catalog = build_plugin_catalog(dander_version=version)
     connectors = cast("list[dict[str, object]]", catalog["connectors"])
 
-    assert all(connector["compatible"] is False for connector in connectors)
+    assert {connector["id"]: connector["compatible"] for connector in connectors} == {
+        "salesforce": salesforce,
+        "servicenow": servicenow,
+    }

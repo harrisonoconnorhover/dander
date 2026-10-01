@@ -1,13 +1,17 @@
 # Session Resume — 2026-08-16
 
+This is a dated operational snapshot. Use [current support status](support-status.md) and
+`HANDOFF.md` for today's deployment and integration state, including paused schedules.
+
 Read `HANDOFF.md`, `docs/decisions.md`, `docs/spec-alignment.md`, and
 `docs/release-audit.md` before changing code or cloud resources.
 
 ## Public releases
 
 - Dander `0.9.0rc20` is the current public beta.
-- Salesforce `0.3.1` and ServiceNow `0.2.2` are the current stable connector releases for Dander
-  `0.7.x`; their accepted release candidates remain recorded in the Phase 1 evidence.
+- Salesforce `0.3.2` and ServiceNow `0.2.3` are the current stable connector releases and accept
+  Dander 0.9 candidates. These compatibility releases preserve the existing runtime behavior;
+  accepted earlier provider runs remain recorded with their original versions in Phase 1 evidence.
 - Druff's fork contains Josh's reconciled graph-client ancestry and the later persistence,
   execution, catalog, operation-authoring, and deployment-preview work.
 

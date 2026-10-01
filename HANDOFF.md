@@ -6,6 +6,7 @@
 - Merged selected-date output repair from retained raw data with single-task Cloud Run and BigQuery through [PR #548](https://github.com/harrisonoconnorhover/dander/pull/548).
 - Reused durable run identity, cancellation, history, replay, lease fencing, and conditional cleanup.
 - Added preview/start contracts, publication measurements, and operator documentation with explicit support limits.
+- Updated the curated catalog, Salesforce starter, and setup docs for Salesforce `0.3.2` and ServiceNow `0.2.3`; producer merge waits for verified publication.
 
 ## Try It
 
@@ -17,6 +18,9 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 - Strict typing passed across 516 files; Ruff, generated contracts, distribution installation, infrastructure validation, and container/secret scans passed.
 - Exact-main CI passed for preview/explanation at `099fb52` and for repair at [`79aa1cb`](https://github.com/harrisonoconnorhover/dander/actions/runs/36849004513).
 - No live repair workload or paid qualification ran.
+- RC33 preparation: 4 release metadata tests, Ruff lint/format, metadata consistency, and contract drift checks passed; lockfile dependencies stayed fixed.
+- CI exposed 5 historical Redshift fixture failures after the version bump. Fixtures now explicitly bind RC32; all 32 focused benchmark/metadata tests pass. Candidate CI must rerun.
+- The corrected version candidate passed full protected CI. Catalog/starter changes passed 42 focused checks plus all 10 catalog cases, Ruff, strict typing, metadata, and unchanged regenerated contracts; final combined CI remains required.
 
 ## Decisions
 
@@ -26,10 +30,10 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 
 ## Remaining
 
-- Complete the bounded live repair check after the existing AWS billing session is restored; current aggregate cash exposure is unverified.
-- Integrate Druff's guided flow once the requested repository exception is answered.
-- Publish and consume the matching immutable contract/runtime artifacts; the complete guided journey is not delivered yet.
-- Curated connector releases await their requested repository exception; advertised Salesforce/ServiceNow pins still target Dander 0.7.
+- Complete current aggregate billing reconciliation and bounded live repair; AWS sign-in now works.
+- Finish Druff's guided flow. The user approved its repository work and protected delivery.
+- Publish and consume the verified RC33 GitHub integration candidate after protected merge and exact-main CI; public PyPI RC20 stays unchanged.
+- Finish the approved Salesforce/ServiceNow compatibility releases; advertised pins still target Dander 0.7.
 
 ## Review First
 
