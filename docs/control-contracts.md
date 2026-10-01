@@ -1,7 +1,7 @@
 # Dander Control contract bundle
 
-Status: the complete hosted-resource bundle is published in Dander `0.9.0rc19` and is the
-immutable release artifact Druff may consume
+Published client baseline: Dander `0.9.0rc19`. The current source bundle also contains unreleased
+additions described below; their presence in this checkout does not publish a new client artifact.
 
 Dander is the authority for data crossing the future Control API boundary. The deterministic
 `io.dander.control.contracts/v1` bundle lives in `src/dander/control/contracts/v1` and is included
@@ -13,12 +13,13 @@ checkout or treat handwritten browser schemas as authoritative.
 
 The bundle contains Draft 2020-12 JSON Schemas and canonical fixtures for graph documents, API
 errors, connectors, plugins, operations, deployment previews, graph validation, run requests and
-status, bounded logs, mutation results, and capabilities. Each schema has a stable URN `$id` and
+status, graph change previews, run explanations, bounded logs, mutation results, and capabilities.
+Each schema has a stable URN `$id` and
 uses only self-contained `#/$defs` references.
 
 `manifest.json` records every file hash and the bundle SHA-256. The bundle digest excludes the
 manifest itself, so the same source models always produce the same identity. The current reviewed
-digest is:
+digest for the published RC19 baseline is:
 
 ```text
 695791dfda6058d68453d9e146146d5cdda1439d86c40a7ec249cb4e14a12be3
@@ -159,6 +160,40 @@ require false all-provider live parity before hosted authentication work began.
 
 These are server-internal storage semantics for DANDER-120. DANDER-121 projects them through the
 separately named hosted service while preserving `dander graph serve --file` unchanged.
+
+## Read-only change previews and run explanations
+
+Current source adds two operations for a guided authoring workflow. They use the same Control
+authentication, graph limits, and normalized lifecycle as the existing routes:
+
+| Operation | Request | Result |
+| --- | --- | --- |
+| `graph.change-preview` | `POST /v1/projects/{project}/graphs/{graph}/change-preview`, candidate graph JSON and the saved graph's `If-Match` ETag | Static differences against that exact saved definition; no save, deployment, or warehouse access |
+| `run.explain` | `GET /v1/runs/{run_id}/explanation` | Readable outcome and suggested next action from the run's recorded status |
+
+Preview **before saving**: the graph store retains the current definition, not revision history.
+The result identifies changed nodes/connections, downstream affected outputs, before/after writer
+settings, and all outputs a full run will write. Moving a node on the canvas alone does not mark
+outputs as data changes. Removing an output stops future writes but does not delete its existing
+table; moving its destination retains the previous table. Unknown row counts and costs stay null.
+The preview's two content hashes identify what was compared. Saving and running still use existing
+revision checks; editing again requires another preview.
+
+This is a static comparison inside one graph, not a data diff or proof of executability. All
+configured outputs execute on a full run; affected outputs are not a selective execution plan.
+Existing runtime constraints still apply, including replace-only graph targets. Infrastructure
+deployment remains the separate `/deployment-preview` operation and can build/push artifacts.
+
+Run explanations only show counters when the runtime result summary has been collected. An
+execution can succeed before those measurements arrive; missing measurements are not zero rows.
+Explanations distinguish skipped work, pending cancellation, failed execution, and confirmed
+results without guessing an error cause. Suggested actions honor the current run controls; the
+explanation does not perform them. Replay is another execution, not rollback or date-range repair.
+Neither operation requires provider-specific browser logic or a new service dependency.
+
+Editors can request change previews; viewers can read run explanations when a lifecycle is wired.
+Regenerate consumers from the immutable producer artifact after its release. The guided Druff
+surface and date-scoped repair are separate follow-on work, not delivered by these two routes.
 
 ## Hosted Control service
 

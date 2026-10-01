@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Final
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
+from dander.control.change_preview import GraphChangePreviewResponse, compare_graph_changes
 from dander.control.models import (
     ApiErrorEnvelope,
     CapabilitiesResponse,
@@ -28,8 +29,10 @@ from dander.control.models import (
     ProjectListResponse,
     RunPageResponse,
     RunRequest,
+    RunState,
     RunStatusResponse,
 )
+from dander.control.run_explanation import RunExplanationResponse, explain_run
 from dander.pipeline.graph import graph_to_payload
 
 BUNDLE_ID: Final = "io.dander.control.contracts/v1"
@@ -45,6 +48,7 @@ CONTRACT_MODELS: Final[dict[str, type[BaseModel]]] = {
     "control-bootstrap": ControlBootstrapDescriptor,
     "deployment-preview": DeploymentPreviewResponse,
     "graph-create": GraphCreateRequest,
+    "graph-change-preview": GraphChangePreviewResponse,
     "graph-page": GraphPageResponse,
     "graph-resource": GraphResourceResponse,
     "graph-validation": GraphValidationResponse,
@@ -55,6 +59,7 @@ CONTRACT_MODELS: Final[dict[str, type[BaseModel]]] = {
     "plugin-catalog": PluginCatalogResponse,
     "project-list": ProjectListResponse,
     "run-page": RunPageResponse,
+    "run-explanation": RunExplanationResponse,
     "run-request": RunRequest,
     "run-status": RunStatusResponse,
 }
@@ -402,7 +407,14 @@ def _fixtures() -> dict[str, tuple[str, dict[str, Any]]]:
                     "minimum_druff_contract": "1.0.0",
                     "maximum_druff_contract": "1.x",
                 },
-                "operations": ["graph.read", "graph.edit", "graph.validate", "run.read"],
+                "operations": [
+                    "graph.read",
+                    "graph.edit",
+                    "graph.validate",
+                    "graph.change-preview",
+                    "run.read",
+                    "run.explain",
+                ],
                 "limits": {
                     "max_graph_bytes": 5 * 1024 * 1024,
                     "max_page_size": 100,
@@ -622,6 +634,32 @@ def _fixtures() -> dict[str, tuple[str, dict[str, Any]]]:
         "run-request": (
             "run-request",
             {"expected_revision": "opaque-revision", "idempotency_key": "idem-synthetic"},
+        ),
+        "graph-change-preview": (
+            "graph-change-preview",
+            compare_graph_changes(
+                PipelineGraphDocument(name="new_pipeline"),
+                PipelineGraphDocument.model_validate(_graph_fixture()),
+            ).model_dump(mode="json"),
+        ),
+        "run-explanation": (
+            "run-explanation",
+            explain_run(
+                RunStatusResponse(
+                    run_id="run-synthetic",
+                    state=RunState.SUCCEEDED,
+                    stage="complete",
+                    result_schema="io.dander.control.execution-result-summary/v1",
+                    endpoints=1,
+                    extracted=2,
+                    affected=2,
+                    models=1,
+                    assertions=1,
+                    assets=1,
+                    can_replay=True,
+                    logs_available=True,
+                )
+            ).model_dump(mode="json"),
         ),
         "run-status": (
             "run-status",

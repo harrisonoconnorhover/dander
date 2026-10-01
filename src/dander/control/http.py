@@ -555,6 +555,22 @@ def create_control_app(
         )
 
     @app.post(
+        "/v1/projects/{project}/graphs/{graph}/change-preview",
+        dependencies=auth_dependencies(ControlCapability.VALIDATE_PREVIEW),
+    )
+    async def preview_graph_changes(
+        project: str, graph: str, request: Request, if_match: _IF_MATCH_HEADER
+    ) -> object:
+        candidate = await read_graph_document(request)
+        return await run_in_threadpool(
+            application.preview_graph_changes,
+            project,
+            graph,
+            candidate,
+            expected_revision=decode_revision_etag(if_match),
+        )
+
+    @app.post(
         "/v1/projects/{project}/graphs/{graph}/deployment-preview",
         dependencies=auth_dependencies(ControlCapability.VALIDATE_PREVIEW),
     )
@@ -609,6 +625,13 @@ def create_control_app(
     @app.get("/v1/runs/{run_id}", dependencies=auth_dependencies(ControlCapability.READ))
     def get_run(run_id: str) -> object:
         return application.get_run(RunAddress(run_id))
+
+    @app.get(
+        "/v1/runs/{run_id}/explanation",
+        dependencies=auth_dependencies(ControlCapability.READ),
+    )
+    def explain_run(run_id: str) -> object:
+        return application.explain_run(RunAddress(run_id))
 
     @app.get(
         "/v1/runs/{run_id}/logs",
@@ -672,7 +695,7 @@ def _error_response(
 def _operation_capability(operation: str) -> ControlCapability:
     if operation in {"graph.edit"}:
         return ControlCapability.EDIT
-    if operation in {"graph.validate", "deployment.preview"}:
+    if operation in {"graph.validate", "graph.change-preview", "deployment.preview"}:
         return ControlCapability.VALIDATE_PREVIEW
     if operation in {"run.start", "run.cancel", "run.replay"}:
         return ControlCapability.RUN

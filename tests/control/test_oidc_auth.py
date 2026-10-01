@@ -270,6 +270,13 @@ def test_each_route_capability_is_enforced_server_side() -> None:
 
         created = _create(client, "editor")
         assert created.status_code == 201
+        for role, expected_status in (("viewer", 403), ("editor", 200)):
+            preview = client.post(
+                "/v1/projects/demo-project/graphs/alpha-graph/change-preview",
+                json=created.json()["document"],
+                headers={**_authorization(role), "If-Match": created.headers["etag"]},
+            )
+            assert preview.status_code == expected_status
         assert (
             client.post(
                 "/v1/projects/demo-project/graphs/alpha-graph/validate",
@@ -315,12 +322,18 @@ def test_capabilities_are_filtered_for_the_authenticated_role() -> None:
         editor = client.get("/v1/capabilities", headers=_authorization("editor")).json()
         admin = client.get("/v1/capabilities", headers=_authorization("admin")).json()
     assert viewer["operations"] == ["graph.read"]
-    assert set(editor["operations"]) == {"graph.read", "graph.edit", "graph.validate"}
+    assert set(editor["operations"]) == {
+        "graph.read",
+        "graph.edit",
+        "graph.validate",
+        "graph.change-preview",
+    }
     assert set(admin["operations"]) == {
         "graph.read",
         "graph.edit",
         "graph.delete",
         "graph.validate",
+        "graph.change-preview",
     }
 
 
