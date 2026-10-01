@@ -88,6 +88,9 @@ jobs:
       - name: Tests
         if: needs.scope.outputs.lane == 'full'
         run: uv run pytest
+      - name: Catalog compatibility with minimum packaging version
+        if: needs.scope.outputs.lane == 'full'
+        run: uv run --isolated --frozen --extra dev --with packaging==24.0 pytest tests/plugins/test_catalog.py -q
       - name: Dependency audit
         if: needs.scope.outputs.lane == 'full'
         run: |
