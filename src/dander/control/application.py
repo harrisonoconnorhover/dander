@@ -14,6 +14,7 @@ from dander.control.catalogs import (
     build_typed_operation_catalog,
     build_typed_plugin_catalog,
 )
+from dander.control.change_preview import GraphChangePreviewResponse, compare_graph_changes
 from dander.control.graph_store import (
     MAX_GRAPH_DOCUMENT_BYTES,
     MAX_GRAPH_PAGE_SIZE,
@@ -36,12 +37,14 @@ from dander.control.models import (
     LogPageResponse,
     MutationResult,
     OperationCatalogResponse,
+    PipelineGraphDocument,
     PluginCatalogResponse,
     ProjectListResponse,
     ProjectSummaryResponse,
     RunPageResponse,
     RunStatusResponse,
 )
+from dander.control.run_explanation import RunExplanationResponse, explain_run
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -219,11 +222,14 @@ class ControlApplication:
             "graph.edit",
             "graph.delete",
             "graph.validate",
+            "graph.change-preview",
         ]
         if self.preview_port is not None:
             operations.append("deployment.preview")
         if self.lifecycle_port is not None:
-            operations.extend(["run.start", "run.read", "run.logs", "run.cancel", "run.replay"])
+            operations.extend(
+                ["run.start", "run.read", "run.explain", "run.logs", "run.cancel", "run.replay"]
+            )
         return CapabilitiesResponse(
             dander_version=__version__,
             contract=ContractIdentity(id=BUNDLE_ID, sha256=packaged_bundle_digest()),
@@ -299,6 +305,18 @@ class ControlApplication:
             self.require_graph_revision(project, graph, expected_revision)
         )
 
+    def preview_graph_changes(
+        self,
+        project: str,
+        graph: str,
+        candidate: PipelineGraphDocument,
+        *,
+        expected_revision: str,
+    ) -> GraphChangePreviewResponse:
+        """Compare an unsaved candidate with the exact current saved graph."""
+        baseline = self.require_graph_revision(project, graph, expected_revision)
+        return compare_graph_changes(baseline.document, candidate)
+
     def start_run(
         self,
         project: str,
@@ -341,6 +359,10 @@ class ControlApplication:
 
     def get_run(self, address: RunAddress) -> RunStatusResponse:
         return self._require_lifecycle().get(address)
+
+    def explain_run(self, address: RunAddress) -> RunExplanationResponse:
+        """Explain the same normalized status used by the existing run controls."""
+        return explain_run(self.get_run(address))
 
     def list_runs(self, *, cursor: str | None, limit: int) -> RunPageResponse:
         if not 1 <= limit <= 100:

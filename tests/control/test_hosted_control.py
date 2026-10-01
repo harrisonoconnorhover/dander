@@ -164,6 +164,7 @@ def test_capabilities_are_honest_and_unwired_operations_fail_closed(client: Test
             "graph.edit",
             "graph.delete",
             "graph.validate",
+            "graph.change-preview",
         }
         created = _create(client, "alpha-graph")
         preview = client.post(
@@ -199,6 +200,47 @@ def test_run_start_rejects_a_body_before_operation_dispatch(client: TestClient) 
         )
         assert response.status_code == 422
         assert response.json()["error"]["code"] == "request_invalid"
+
+
+def test_change_preview_uses_saved_revision_without_saving_candidate(client: TestClient) -> None:
+    with client:
+        created = _create(client, "alpha-graph")
+        route = "/v1/projects/demo-project/graphs/alpha-graph"
+        headers = {"If-Match": created.headers["etag"]}
+        preview = client.post(f"{route}/change-preview", json=GRAPH_TWO, headers=headers)
+        assert preview.status_code == 200
+        result = preview.json()
+        assert result["baseline_content_sha256"] == created.json()["content_sha256"]
+        assert result["candidate_content_sha256"] != result["baseline_content_sha256"]
+        saved = client.get(route)
+        assert saved.headers["etag"] == created.headers["etag"]
+        assert saved.json() == created.json()
+
+        assert client.put(route, json=GRAPH_TWO, headers=headers).status_code == 200
+        stale = client.post(f"{route}/change-preview", json=GRAPH_TWO, headers=headers)
+        assert stale.status_code == 412
+        missing = client.post(f"{route}/change-preview", json=GRAPH_TWO)
+        assert missing.status_code == 422
+
+
+def test_change_preview_reuses_graph_validation_and_size_limits(client: TestClient) -> None:
+    with client:
+        created = _create(client, "alpha-graph")
+        route = "/v1/projects/demo-project/graphs/alpha-graph/change-preview"
+        headers = {"If-Match": created.headers["etag"]}
+        invalid = client.post(route, json={**GRAPH, "unexpected": True}, headers=headers)
+        assert invalid.status_code == 422
+        oversized = client.post(
+            route,
+            content=b"{}",
+            headers={
+                **headers,
+                "Content-Type": "application/json",
+                "Content-Length": str(5 * 1024 * 1024 + 1),
+            },
+        )
+        assert oversized.status_code == 413
+        assert client.get("/v1/projects/demo-project/graphs/alpha-graph").json() == created.json()
 
 
 def test_graph_delete_rejects_a_body_before_mutation(client: TestClient) -> None:
@@ -375,6 +417,12 @@ def test_normalized_lifecycle_receives_decoded_revision_and_explicit_idempotency
         assert selected.status_code == 202
         assert lifecycle.starts[-1].environment == "gcp"
         assert client.get("/v1/runs").json()["items"][0]["run_id"] == "run-one"
+        explanation = client.get("/v1/runs/run-one/explanation")
+        assert explanation.status_code == 200
+        assert explanation.json()["run_id"] == "run-one"
+        assert explanation.json()["state"] == "queued"
+        assert "run.explain" in client.get("/v1/capabilities").json()["operations"]
+        assert lifecycle.mutations == []
         assert client.get("/v1/runs/run-one/logs?limit=25").status_code == 200
         assert (
             client.post(

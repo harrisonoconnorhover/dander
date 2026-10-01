@@ -2,38 +2,36 @@
 
 ## Finished
 
-- Scanned repository structure, duplication, import boundaries, error handling, and test health; recorded scope and remaining priorities in `docs/quality-review-2026-09-30.md`.
-- Isolated plugin commands so help and catalog search avoid bootstrap, deployment, and provider modules.
-- Shared the existing durable-run identity rule between S3 and PostgreSQL, with storage behavior preserved.
-- Updated four dependencies after protected CI identified 20 published advisories; the strict runtime dependency audit is now clean locally.
-- Refreshed flagged system packages in runtime/starter, Spark, and OCI Dockerfiles; the runtime OS layer and complete Spark/OCI images pass local scans.
+- Added a read-only comparison of an unsaved graph with its exact saved revision, including downstream outputs and write effects.
+- Added readable explanations of recorded run outcomes and eligible next actions; unavailable measurements remain unknown.
+- Exposed both operations through existing Control authentication and regenerated their public contracts.
 
 ## Try It
 
-Run `uv run dander plugins --help` and `uv run dander plugins search incident`. Read the quality review for findings and the limits of the scan.
+With Control running and a saved graph selected, POST candidate graph JSON to `/v1/projects/{project}/graphs/{graph}/change-preview` with its saved `If-Match` ETag. GET `/v1/runs/{run_id}/explanation` for a configured lifecycle's run. See `docs/control-contracts.md` for semantics and client compatibility.
 
 ## Checks
 
-- Full suite with disposable local PostgreSQL 17: **2,419 passed**, one existing Starlette/httpx deprecation warning.
-- Focused CLI/storage/lifecycle suite: **75 passed**; final CLI test-import adjustment: **10 passed**.
-- Updated dependencies: **139 authentication/ingestion tests passed**; strict `runtime-all` dependency audit reports **no known vulnerabilities**.
-- Runtime OS layer and Spark/OCI images: linux/amd64 builds and Trivy scans passed with **zero fixable high/critical findings**. User/driver/handler checks passed. Scaffold/release/import tests: **15 passed**; OCI image/publication tests: **10 passed**.
-- Ruff lint/format, canonical strict typing (**509 files**), Control contract drift, documentation links, and diff checks passed.
-- Compared moved command bodies and identity comparisons structurally against the original code; behavior-bearing expressions match. Protected CI and merge results are available on the task's attached quality-review PR.
+- 87 focused comparison, explanation, HTTP, OIDC, and contract tests passed.
+- Canonical strict typing passed across 513 files.
+- Ruff lint/format, generated Control contract drift, and diff checks passed.
+- Protected CI and exact-main verification remain pending for this implementation step. No live cloud workload was run.
 
 ## Decisions
 
-- Use the existing lightweight command-dispatch pattern; preserve command options, installer pins, and storage schemas.
-- Keep provider-specific SQL and recovery explicit; defer broader extraction until changes demonstrate a shared responsibility.
+- Keep static graph comparison separate from infrastructure deployment preview; no new persistence or provider reads.
+- Explain existing run evidence deterministically, with no new AI service or fabricated diagnosis.
+- Deliver real date-scoped output repair and the guided interface as subsequent steps of the same active objective.
 
 ## Remaining
 
-- Large CLI/bootstrap and warehouse/deployment modules remain the next maintenance targets; see the review's specific recommendations.
-- Curated connector releases remain separately blocked on the requested exception to the single-writable-repository rule. Prepared patches remain in `/tmp/dander-curated-compat-20260930/` and the preserved connector branch.
-- Existing test-client deprecation warning remains; no live cloud qualification was rerun.
+- Implement bounded output-partition repair from retained raw data, preserving normal extraction progress and unrelated output rows.
+- Integrate connect, configure, preview, run, and outcome in Druff; its repository exception is awaiting the user's answer.
+- Publish and consume a verified immutable producer artifact for the paired Druff client; existing published clients use their original bundle.
+- Complete protected PR, merge, and exact-main CI for each runtime change.
 
 ## Review First
 
-- `docs/quality-review-2026-09-30.md` for the assessment and scope.
-- `src/dander/cli/plugins_command.py` and `src/dander/cli/entrypoint.py` for command isolation.
-- `src/dander/control/orchestration.py` for the shared run identity rule.
+- `src/dander/control/change_preview.py` for graph comparison and write explanations.
+- `src/dander/control/run_explanation.py` for evidence-based outcome handling.
+- `docs/control-contracts.md` for the API and publication boundaries.

@@ -1,5 +1,17 @@
 # Engineering Decisions
 
+## 2026-10-01 — Explain pipeline changes and runs through the existing Control boundary
+
+- Compare an unsaved graph with the exact saved revision in a pure, provider-neutral operation.
+  Keep infrastructure deployment preview separate; no graph history store, warehouse reads, or
+  new persistence is needed for an author to review a proposed edit.
+- Derive readable run explanations from the existing normalized status and collected result
+  summary. Missing measurements remain unknown; no generated diagnosis or additional AI service
+  is introduced. Existing start, cancel, and replay semantics remain unchanged.
+- Preserve the complete guided-journey objective: the new routes are foundations for Druff,
+  while date-scoped repair requires its own verified execution behavior. Do not relabel full
+  replay as date-range repair or advertise an interface before it is implemented.
+
 ## 2026-09-30 — Keep command loading and run identity at their owning boundaries
 
 - Plugin commands live in `cli/plugins_command.py`. The console dispatcher selects their group
