@@ -71,6 +71,14 @@ job name, service account, image, command, and task bounds must match the deploy
 used with current Control must emit the current `runtime.completed` telemetry; the retained RC22
 worker predates that result format.
 
+When a job uses an immutable OCI index, Cloud Run reports the resolved Linux/AMD64 image on its
+execution. RC34 Control verifies that image against the exact index through Artifact Registry
+before adopting the execution or restoring repair settings. Its identity therefore needs
+`artifactregistry.dockerImages.get` on that existing repository, included in
+`roles/artifactregistry.reader`. Direct manifest references retain the exact-image fast path.
+Missing access or inconsistent index metadata stops reconciliation rather than accepting another
+image. RC33 Control lacks this index-resolution check and can leave a completed repair unresolved.
+
 With that example running, submit the graph from another terminal:
 
 ```python

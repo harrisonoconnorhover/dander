@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-10-01 — Verify Cloud Run's resolved image through Artifact Registry
+
+- Cloud Run reports a platform manifest even when the registered job uses an OCI index. Preserve
+  literal job-image matching and accept the execution's image only when authenticated Artifact
+  Registry metadata identifies it as the single Linux/AMD64 member of the exact planned index.
+- Keep this lookup inside the Cloud Run adapter and only on a same-repository image mismatch.
+  No registry framework, new dependency, cache, public DTO, or native runtime change is required.
+- Publish the Control-only correction as RC34. Preserve the failed RC33 reconciliation evidence;
+  its native data operation succeeded. Clean its cloud resources on the original deadline and
+  qualify the correction with a distinct bounded synthetic fixture.
+
 ## 2026-10-01 — Publish a fixed integration candidate before consuming its contracts
 
 - Publish RC33 as a canonical GitHub prerelease after protected merge, exact-main CI, and
