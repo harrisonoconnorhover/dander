@@ -30,6 +30,7 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 - Complete the bounded live repair check after the existing AWS billing session is restored; current aggregate cash exposure is unverified.
 - Integrate Druff's guided flow once the requested repository exception is answered.
 - Publish and consume the matching immutable contract/runtime artifacts; the complete guided journey is not delivered yet.
+- Curated connector releases await their requested repository exception; advertised Salesforce/ServiceNow pins still target Dander 0.7.
 
 ## Review First
 
