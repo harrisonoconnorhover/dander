@@ -13,7 +13,7 @@ A repository-wide structural scan found that offline plugin discovery loaded dep
 and the S3 and PostgreSQL run stores each maintained the same submission-identity comparison.
 Both add unnecessary coupling when changing otherwise independent features.
 Protected CI also identified published advisories in four existing dependencies.
-The image scan subsequently found 13 advisories in four inherited Debian packages.
+Image scans subsequently found affected inherited libraries in runtime, Spark, and OCI images.
 
 ## Acceptance Criteria
 
@@ -23,7 +23,7 @@ The image scan subsequently found 13 advisories in four inherited Debian package
 - [x] Verify rejected identity changes leave persisted records unchanged and lifecycle saves work.
 - [x] Record review scope, checks, and remaining maintenance priorities.
 - [x] Update the four affected dependencies and pass the strict runtime dependency audit.
-- [x] Refresh the four affected system packages in runtime and starter images and verify the OS layer.
+- [x] Refresh affected system packages in runtime/starter, Spark, and OCI Dockerfiles; build and scan the runtime OS layer and complete Spark/OCI images.
 
 ## Implementation Notes
 
