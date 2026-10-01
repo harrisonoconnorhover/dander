@@ -15,7 +15,7 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 
 - Repair protected CI: **2,515 tests passed**, including PostgreSQL; one existing test-client deprecation warning.
 - Strict typing passed across 516 files; Ruff, generated contracts, distribution installation, infrastructure validation, and container/secret scans passed.
-- Preview/explanation exact-main CI passed at `099fb52`. Repair exact-main CI at `79aa1cb` is [tracked here](https://github.com/harrisonoconnorhover/dander/actions/runs/36849004513) and remains pending at this update.
+- Exact-main CI passed for preview/explanation at `099fb52` and for repair at [`79aa1cb`](https://github.com/harrisonoconnorhover/dander/actions/runs/36849004513).
 - No live repair workload or paid qualification ran.
 
 ## Decisions
@@ -26,7 +26,6 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 
 ## Remaining
 
-- Verify repair exact-main CI.
 - Complete the bounded live repair check after the existing AWS billing session is restored; current aggregate cash exposure is unverified.
 - Integrate Druff's guided flow once the requested repository exception is answered.
 - Publish and consume the matching immutable contract/runtime artifacts; the complete guided journey is not delivered yet.
