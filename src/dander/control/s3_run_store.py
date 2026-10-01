@@ -23,6 +23,7 @@ from dander.control.orchestration import (
     RunStoreIdempotencyConflictError,
     StoredRun,
     StoredRunPage,
+    same_run_identity,
 )
 from dander.control.orchestration_serialization import (
     OrchestrationSerializationError,
@@ -365,7 +366,7 @@ class S3RunStore:
 
     def save(self, stored: StoredRun, record: RunRecord) -> StoredRun:
         """Replace one run snapshot only at the caller's opaque S3 revision."""
-        if record.run_id != stored.record.run_id or not _same_run_identity(stored.record, record):
+        if not same_run_identity(stored.record, record):
             raise RunStoreConflictError("A run snapshot cannot change its durable identity.")
         revision = self._write_object(
             self._run_name(record.run_id),
@@ -644,40 +645,6 @@ class S3RunStore:
             or entry.submission_sha256 != record.submission_sha256
         ):
             raise RunStoreCorruptionError("An S3 run snapshot contradicts its idempotency claim.")
-
-
-def _same_run_identity(first: RunRecord, second: RunRecord) -> bool:
-    return (
-        first.run_id,
-        first.environment,
-        first.project,
-        first.graph,
-        first.graph_revision,
-        first.graph_content_sha256,
-        first.plan_id,
-        first.plan_revision,
-        first.trigger,
-        first.idempotency_key_sha256,
-        first.submission_sha256,
-        first.requested_at,
-        first.requested_deadline_seconds,
-        first.created_at,
-    ) == (
-        second.run_id,
-        second.environment,
-        second.project,
-        second.graph,
-        second.graph_revision,
-        second.graph_content_sha256,
-        second.plan_id,
-        second.plan_revision,
-        second.trigger,
-        second.idempotency_key_sha256,
-        second.submission_sha256,
-        second.requested_at,
-        second.requested_deadline_seconds,
-        second.created_at,
-    )
 
 
 def _canonical_json(value: object) -> bytes:

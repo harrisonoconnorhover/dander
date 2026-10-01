@@ -1,5 +1,16 @@
 # Engineering Decisions
 
+## 2026-09-30 — Keep command loading and run identity at their owning boundaries
+
+- Plugin commands live in `cli/plugins_command.py`. The console dispatcher selects their group
+  directly, like hosted Control; project configuration is loaded only by installation so help and
+  catalog search do not depend on deployment modules. CLI options and outputs remain compatible.
+- `same_run_identity` lives beside the provider-neutral `RunStore` contract. S3 and PostgreSQL use
+  the same existing 14-field comparison; storage schemas and lifecycle transitions are unchanged.
+- Refresh the four dependencies flagged by protected CI without audit exclusions. Raise the direct
+  PyJWT minimum to 2.15.1 so package consumers also receive its fixes; keep transitive updates in
+  the lockfile and verify the full runtime requirements with the existing strict audit.
+
 ## 2026-09-08 — Recover pending PostgreSQL runs without reading completed history
 
 - PostgreSQL Control schema v4 derives `needs_reconciliation` from canonical run records and

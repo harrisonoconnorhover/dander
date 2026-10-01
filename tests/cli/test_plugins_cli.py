@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from typing import TYPE_CHECKING
 
 from typer.testing import CliRunner
 
-import dander.cli.main as cli_module
+import dander.cli.plugins_command as plugins_module
 from dander import __version__
 from dander.cli.main import app
 
@@ -51,9 +52,9 @@ def test_plugins_install_uses_exact_manifest_pins(
         captured.append(command)
         return subprocess.CompletedProcess(command, 0)
 
-    monkeypatch.setattr(cli_module.shutil, "which", lambda _: None)
-    monkeypatch.setattr(cli_module.subprocess, "run", run)
-    monkeypatch.setattr(cli_module, "load_connector_plugins", lambda _: None)
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(plugins_module, "load_connector_plugins", lambda _: None)
 
     result = CliRunner().invoke(app, ["plugins", "install", "--config", str(manifest)])
 
@@ -81,7 +82,7 @@ def test_plugins_install_is_a_noop_without_declarations(
     def unexpected_run(*args: object, **kwargs: object) -> None:
         raise AssertionError((args, kwargs))
 
-    monkeypatch.setattr(cli_module.subprocess, "run", unexpected_run)
+    monkeypatch.setattr(subprocess, "run", unexpected_run)
 
     result = CliRunner().invoke(app, ["plugins", "install", "--config", str(manifest)])
 
@@ -115,9 +116,9 @@ pipelines:
         captured.append(command)
         return subprocess.CompletedProcess(command, 0)
 
-    monkeypatch.setattr(cli_module.shutil, "which", lambda _: None)
-    monkeypatch.setattr(cli_module.subprocess, "run", run)
-    monkeypatch.setattr(cli_module, "load_connector_plugins", lambda _: None)
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(plugins_module, "load_connector_plugins", lambda _: None)
 
     result = CliRunner().invoke(app, ["plugins", "install", "--config", str(manifest)])
 

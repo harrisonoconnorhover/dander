@@ -1,4 +1,4 @@
-"""Lightweight console dispatcher that keeps hosted Control startup provider-free."""
+"""Load hosted Control and plugin commands without the full deployment CLI."""
 
 from __future__ import annotations
 
@@ -23,6 +23,16 @@ def dispatch(arguments: Sequence[str]) -> None:
             hosted_app = typer.Typer()
             hosted_app.add_typer(control_app, name="control")
             hosted_app(args=args, prog_name="dander")
+            return
+
+        if args[:1] == ["plugins"]:
+            import typer
+
+            from dander.cli.plugins_command import plugins_app
+
+            plugin_app = typer.Typer()
+            plugin_app.add_typer(plugins_app, name="plugins")
+            plugin_app(args=args, prog_name="dander")
             return
 
         from dander.cli.main import app

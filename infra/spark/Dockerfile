@@ -16,6 +16,7 @@ RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
         ca-certificates \
         libjemalloc2 \
+        libpcre2-8-0 \
         procps \
         tini \
     && groupadd --gid 1099 spark \

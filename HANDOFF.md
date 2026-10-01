@@ -2,31 +2,38 @@
 
 ## Finished
 
-- Reconciled retained August 27–28 Control/Fargate/Spark successes and corrected the obsolete DANDER-251 non-execution claim.
-- Updated five completed tickets, Druff hosted-mode documentation, and Salesforce plugin write-command boundaries.
-- Prepared Salesforce 0.3.2, ServiceNow 0.2.3, and Dander catalog/install-check patches outside this documentation change.
+- Scanned repository structure, duplication, import boundaries, error handling, and test health; recorded scope and remaining priorities in `docs/quality-review-2026-09-30.md`.
+- Isolated plugin commands so help and catalog search avoid bootstrap, deployment, and provider modules.
+- Shared the existing durable-run identity rule between S3 and PostgreSQL, with storage behavior preserved.
+- Updated four dependencies after protected CI identified 20 published advisories; the strict runtime dependency audit is now clean locally.
+- Refreshed flagged system packages in runtime/starter, Spark, and OCI Dockerfiles; the runtime OS layer and complete Spark/OCI images pass local scans.
 
 ## Try It
 
-Read `docs/control-execution-history.md`, then `docs/support-status.md`. Prepared package and catalog patches are in `/tmp/dander-curated-compat-20260930/`.
+Run `uv run dander plugins --help` and `uv run dander plugins search incident`. Read the quality review for findings and the limits of the scan.
 
 ## Checks
 
-- Documentation: relative links, retained output equality, source/image identities, and `git diff --check` passed.
-- Prepared fixes: 93 Salesforce and 23 ServiceNow tests passed on public Dander 0.7.1 and 0.9.0rc20, current 0.9.0rc32, and each package's locked environment. Package lint, format, and typing passed.
-- Prepared Dander patch: 37 focused tests, full Ruff lint/format, canonical strict typing (507 files), contract drift, and outside-checkout wheel resolution/metadata/entry-point checks passed using local candidate wheels.
+- Full suite with disposable local PostgreSQL 17: **2,419 passed**, one existing Starlette/httpx deprecation warning.
+- Focused CLI/storage/lifecycle suite: **75 passed**; final CLI test-import adjustment: **10 passed**.
+- Updated dependencies: **139 authentication/ingestion tests passed**; strict `runtime-all` dependency audit reports **no known vulnerabilities**.
+- Runtime OS layer and Spark/OCI images: linux/amd64 builds and Trivy scans passed with **zero fixable high/critical findings**. User/driver/handler checks passed. Scaffold/release/import tests: **15 passed**; OCI image/publication tests: **10 passed**.
+- Ruff lint/format, canonical strict typing (**509 files**), Control contract drift, documentation links, and diff checks passed.
+- Compared moved command bodies and identity comparisons structurally against the original code; behavior-bearing expressions match. Protected CI and merge results are available on the task's attached quality-review PR.
 
 ## Decisions
 
-- Retained live evidence qualifies only its named revisions and workloads; no new cloud runs or support promotion.
-- Do not publish catalog pins until the corresponding packages exist on PyPI.
+- Use the existing lightweight command-dispatch pattern; preserve command options, installer pins, and storage schemas.
+- Keep provider-specific SQL and recovery explicit; defer broader extraction until changes demonstrate a shared responsibility.
 
 ## Remaining
 
-- Await the requested narrow exception to AGENTS.md's single-writable-repository rule for the two existing connector repositories.
-- Then apply the prepared connector patches, complete protected CI/publication, verify PyPI, apply the Dander catalog patch, and merge with exact-main CI.
+- Large CLI/bootstrap and warehouse/deployment modules remain the next maintenance targets; see the review's specific recommendations.
+- Curated connector releases remain separately blocked on the requested exception to the single-writable-repository rule. Prepared patches remain in `/tmp/dander-curated-compat-20260930/` and the preserved connector branch.
+- Existing test-client deprecation warning remains; no live cloud qualification was rerun.
 
 ## Review First
 
-- `docs/control-execution-history.md` and corrected support boundaries.
-- `/tmp/dander-curated-compat-20260930/*-compatibility.patch` for the pending package work.
+- `docs/quality-review-2026-09-30.md` for the assessment and scope.
+- `src/dander/cli/plugins_command.py` and `src/dander/cli/entrypoint.py` for command isolation.
+- `src/dander/control/orchestration.py` for the shared run identity rule.

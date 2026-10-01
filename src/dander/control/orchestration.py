@@ -919,7 +919,8 @@ class RunStore(Protocol):
 
     Implementations own deterministic keys, idempotency lookup, bounded pagination, and
     compare-and-swap revisions.  ``append_attempt`` must replay an identical record and reject a
-    different record at the same ``attempt_id``.
+    different record at the same ``attempt_id``. ``save`` must preserve the submission identity
+    defined by ``same_run_identity`` while permitting lifecycle and result updates.
     """
 
     def claim(self, record: RunRecord) -> RunClaim: ...
@@ -953,6 +954,41 @@ class PendingRunStore(Protocol):
     """
 
     def list_pending(self, *, cursor: str | None, limit: int) -> StoredRunPage: ...
+
+
+def same_run_identity(first: RunRecord, second: RunRecord) -> bool:
+    """Compare the original submission fields that snapshot updates must preserve."""
+    return (
+        first.run_id,
+        first.environment,
+        first.project,
+        first.graph,
+        first.graph_revision,
+        first.graph_content_sha256,
+        first.plan_id,
+        first.plan_revision,
+        first.trigger,
+        first.idempotency_key_sha256,
+        first.submission_sha256,
+        first.requested_at,
+        first.requested_deadline_seconds,
+        first.created_at,
+    ) == (
+        second.run_id,
+        second.environment,
+        second.project,
+        second.graph,
+        second.graph_revision,
+        second.graph_content_sha256,
+        second.plan_id,
+        second.plan_revision,
+        second.trigger,
+        second.idempotency_key_sha256,
+        second.submission_sha256,
+        second.requested_at,
+        second.requested_deadline_seconds,
+        second.created_at,
+    )
 
 
 def run_needs_reconciliation(record: RunRecord) -> bool:
@@ -1449,6 +1485,7 @@ __all__ = [
     "parse_placement_candidate_spec",
     "parse_size_class_candidate_spec",
     "run_needs_reconciliation",
+    "same_run_identity",
     "transition_run",
     "validate_submission_plan",
 ]

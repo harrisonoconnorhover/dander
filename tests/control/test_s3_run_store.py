@@ -496,6 +496,9 @@ def test_snapshot_compare_and_swap_and_attempt_immutability() -> None:
     backend = FakeS3Backend()
     store = _store(backend)
     claimed = store.claim(create_run_record(_submission())).stored
+    with pytest.raises(RunStoreConflictError, match="durable identity"):
+        store.save(claimed, replace(claimed.record, plan_revision="f" * 64))
+    assert store.get(claimed.record.run_id) == claimed
     canceling = transition_run(
         claimed.record,
         HostedRunState.CANCELING,
