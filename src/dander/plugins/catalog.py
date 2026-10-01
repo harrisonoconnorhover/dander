@@ -54,7 +54,9 @@ class CatalogConnector:
     ) -> dict[str, object]:
         """Project the catalog entry into the stable HTTP/CLI data shape."""
         try:
-            compatible = Version(dander_version) in SpecifierSet(self.dander_specifier)
+            compatible = SpecifierSet(self.dander_specifier).contains(
+                Version(dander_version), prereleases=True
+            )
         except InvalidVersion:
             compatible = False
         return {
