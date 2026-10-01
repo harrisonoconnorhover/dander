@@ -55,6 +55,7 @@ from dander.control.models import (
     GraphCreateRequest,
     PipelineGraphDocument,
 )
+from dander.pipeline.repair import GraphRepairError, GraphRepairWindow
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
@@ -580,6 +581,58 @@ def create_control_app(
         )
 
     @app.post(
+        "/v1/projects/{project}/graphs/{graph}/repair-preview",
+        dependencies=auth_dependencies(ControlCapability.VALIDATE_PREVIEW),
+    )
+    async def preview_repair(
+        project: str, graph: str, request: Request, if_match: _IF_MATCH_HEADER
+    ) -> object:
+        window = await _read_repair_window(request)
+        try:
+            return await run_in_threadpool(
+                application.preview_repair,
+                project,
+                graph,
+                window,
+                expected_revision=decode_revision_etag(if_match),
+            )
+        except GraphRepairError as error:
+            raise GraphBodyError(
+                "repair_invalid", str(error), HTTPStatus.UNPROCESSABLE_ENTITY
+            ) from error
+
+    @app.post(
+        "/v1/projects/{project}/graphs/{graph}/repairs",
+        status_code=HTTPStatus.ACCEPTED,
+        dependencies=auth_dependencies(ControlCapability.RUN),
+    )
+    async def start_repair(
+        project: str,
+        graph: str,
+        request: Request,
+        if_match: _IF_MATCH_HEADER,
+        idempotency_key: _IDEMPOTENCY_HEADER,
+        environment: Annotated[
+            str | None, Query(pattern=r"^[a-z0-9][a-z0-9_-]{0,62}$", max_length=63)
+        ] = None,
+    ) -> object:
+        window = await _read_repair_window(request)
+        try:
+            return await run_in_threadpool(
+                application.start_run,
+                project,
+                graph,
+                expected_revision=decode_revision_etag(if_match),
+                idempotency_key=idempotency_key,
+                environment=environment,
+                repair_window=window,
+            )
+        except GraphRepairError as error:
+            raise GraphBodyError(
+                "repair_invalid", str(error), HTTPStatus.UNPROCESSABLE_ENTITY
+            ) from error
+
+    @app.post(
         "/v1/projects/{project}/graphs/{graph}/runs",
         status_code=HTTPStatus.ACCEPTED,
         dependencies=auth_dependencies(ControlCapability.RUN),
@@ -665,6 +718,18 @@ def create_control_app(
     return app
 
 
+async def _read_repair_window(request: Request) -> GraphRepairWindow:
+    payload = await _read_bounded_json(request, 1024, subject="repair")
+    try:
+        return GraphRepairWindow.model_validate(payload)
+    except ValidationError as error:
+        raise GraphBodyError(
+            "repair_invalid",
+            "Use YYYY-MM-DD start_date and end_date; the end date is exclusive and must be later.",
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+        ) from error
+
+
 def _resource_response(record: GraphRecord, status: HTTPStatus = HTTPStatus.OK) -> JSONResponse:
     projected = graph_resource_response(record)
     response = JSONResponse(projected.model_dump(mode="json"), status_code=status)
@@ -695,9 +760,14 @@ def _error_response(
 def _operation_capability(operation: str) -> ControlCapability:
     if operation in {"graph.edit"}:
         return ControlCapability.EDIT
-    if operation in {"graph.validate", "graph.change-preview", "deployment.preview"}:
+    if operation in {
+        "graph.validate",
+        "graph.change-preview",
+        "graph.repair-preview",
+        "deployment.preview",
+    }:
         return ControlCapability.VALIDATE_PREVIEW
-    if operation in {"run.start", "run.cancel", "run.replay"}:
+    if operation in {"run.start", "run.repair", "run.cancel", "run.replay"}:
         return ControlCapability.RUN
     if operation == "graph.delete":
         return ControlCapability.ADMIN

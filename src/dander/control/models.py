@@ -18,6 +18,7 @@ from dander.pipeline.graph import PipelineGraph
 from dander.pipeline.graph_ops import validate_field_wiring
 from dander.pipeline.node_config import ExecutableJoinType, PartitioningType
 from dander.pipeline.operations import ComparisonOperator, MatchLogic
+from dander.pipeline.repair import GraphRepairWindow  # noqa: TC001 - Pydantic resolves this model
 from dander.pipeline.request_spec import HttpMethod
 from dander.warehouse import ProviderExtension  # noqa: TC001 - Pydantic resolves this enum
 from dander.writer import SchemaEvolution, WriteMode
@@ -702,6 +703,7 @@ class RunStatusResponse(ControlModel):
     can_cancel: bool = False
     can_replay: bool = False
     logs_available: bool = False
+    repair_window: GraphRepairWindow | None = None
 
 
 class RunPageResponse(ControlModel):
@@ -798,10 +800,12 @@ class CapabilitiesResponse(ControlModel):
             "graph.delete",
             "graph.validate",
             "graph.change-preview",
+            "graph.repair-preview",
             "deployment.preview",
             "run.start",
             "run.read",
             "run.explain",
+            "run.repair",
             "run.logs",
             "run.cancel",
             "run.replay",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -31,6 +31,7 @@ from dander.deployment.projection import (
     ScheduleProjection,
     SecretReference,
 )
+from dander.pipeline.repair import GraphRepairWindow
 from dander.providers.fargate import FargateBinding
 from dander.runtime_contract import RUNTIME_CONTRACT
 
@@ -315,6 +316,23 @@ def _backend(
         logs,
         ecs,
     )
+
+
+def test_repair_rejects_before_any_fargate_api_call(tmp_path: Path) -> None:
+    backend, plan, step_functions, logs, ecs = _backend(tmp_path)
+    trigger = RunTrigger(
+        kind=TriggerKind.API,
+        trigger_id="control-api",
+        repair_window=GraphRepairWindow(start_date=date(2026, 9, 1), end_date=date(2026, 9, 2)),
+    )
+
+    with pytest.raises(ExecutionBackendError, match="Date repair is not supported"):
+        backend.submit_or_adopt(plan, run_id="repair-run", attempt_id="attempt-1", trigger=trigger)
+
+    assert not step_functions.describe_calls
+    assert not step_functions.start_calls
+    assert not logs.calls
+    assert not ecs.calls
 
 
 def _start(

@@ -144,6 +144,8 @@ class FargateExecutionBackend:
         trigger: RunTrigger,
     ) -> BackendHandle:
         """Start or adopt the one deterministic Standard Workflow execution for an attempt."""
+        if trigger.repair_window is not None:
+            raise ExecutionBackendError("Date repair is not supported by the Fargate backend.")
         binding = self._binding_for(plan)
         name = _execution_name(run_id, attempt_id)
         execution_arn = _execution_arn(binding, name)

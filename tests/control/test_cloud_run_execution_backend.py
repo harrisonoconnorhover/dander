@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -29,6 +31,7 @@ from dander.deployment.projection import (
     ResourceProjection,
     ScheduleProjection,
 )
+from dander.pipeline.repair import GraphRepairWindow
 from dander.providers.cloud_run import CloudRunBinding
 from dander.runtime_contract import RUNTIME_CONTRACT
 
@@ -90,6 +93,8 @@ class _Transport:
     calls: list[tuple[str, str, dict[str, object]]] = field(default_factory=list)
     log_response: dict[str, object] = field(default_factory=dict)
     lose_patch_response: bool = False
+    reject_restore: bool = False
+    supersede_before_restore: bool = False
     fail_job_read: bool = False
     fail_log_read: bool = False
     close_count: int = 0
@@ -117,9 +122,22 @@ class _Transport:
         if method == "PATCH" and "/jobs/" in resource:
             payload = kwargs["json"]
             assert isinstance(payload, dict)
+            if "startExecutionToken" not in payload:
+                if self.supersede_before_restore:
+                    self.job["startExecutionToken"] = "f" * 16
+                    self.job["etag"] = "new-launch-etag"
+                    return _Response(409, {})
+                if self.reject_restore:
+                    return _Response(503, {})
+                self.job.update(deepcopy(payload))
+                if self.lose_patch_response:
+                    raise OSError("provider transport secret")
+                return _Response(200, {"name": "operations/restore"})
             token = payload["startExecutionToken"]
             assert isinstance(token, str)
-            self.job["startExecutionToken"] = token
+            self.job.update(deepcopy(payload))
+            template = payload["template"]
+            assert isinstance(template, dict)
             execution_resource = (
                 f"projects/{PROJECT}/locations/{REGION}/jobs/{JOB}/executions/{JOB}-{token}"
             )
@@ -127,6 +145,7 @@ class _Transport:
                 "name": execution_resource,
                 "job": JOB,
                 "taskCount": 1,
+                "template": deepcopy(template["template"]),
                 "startTime": "2026-08-26T18:00:01Z",
             }
             if self.lose_patch_response:
@@ -250,12 +269,18 @@ def _backend(
     )
 
 
-def _start(backend: CloudRunExecutionBackend, plan: ExecutionPlan) -> BackendHandle:
+def _start(
+    backend: CloudRunExecutionBackend,
+    plan: ExecutionPlan,
+    *,
+    trigger: RunTrigger | None = None,
+    run_id: str = "run-hosted-001",
+) -> BackendHandle:
     return backend.submit_or_adopt(
         plan,
-        run_id="run-hosted-001",
+        run_id=run_id,
         attempt_id="attempt-1-hosted",
-        trigger=RunTrigger(kind=TriggerKind.API, trigger_id="control-api"),
+        trigger=trigger or RunTrigger(kind=TriggerKind.API, trigger_id="control-api"),
     )
 
 
@@ -315,6 +340,186 @@ def test_submit_rejects_deployed_job_drift_before_mutation() -> None:
         _start(backend, plan)
 
     assert not [call for call in transport.calls if call[0] == "PATCH"]
+
+
+def _repair_trigger() -> RunTrigger:
+    return RunTrigger(
+        kind=TriggerKind.API,
+        trigger_id="control-api",
+        repair_window=GraphRepairWindow(start_date=date(2026, 9, 1), end_date=date(2026, 9, 3)),
+    )
+
+
+def _execution_container(transport: _Transport, handle: BackendHandle) -> dict[str, object]:
+    task = transport.executions[handle.execution_id]["template"]
+    assert isinstance(task, dict)
+    containers = task["containers"]
+    assert isinstance(containers, list) and isinstance(containers[0], dict)
+    return containers[0]
+
+
+def test_repair_is_execution_bound_and_adopted_after_lost_response() -> None:
+    backend, plan, transport = _backend(
+        transport=_Transport(_job(_plan()), lose_patch_response=True)
+    )
+
+    handle = _start(backend, plan, trigger=_repair_trigger())
+    adopted = _start(backend, plan, trigger=_repair_trigger())
+
+    assert adopted == handle
+    assert len([call for call in transport.calls if call[0] == "PATCH"]) == 1
+    container = _execution_container(transport, handle)
+    assert container["args"] == [
+        *plan.execution_template.command,
+        "--graph-repair-contract",
+        "io.dander.graph-repair/v1",
+    ]
+    environment = container["env"]
+    assert isinstance(environment, list)
+    payload = json.loads(environment[0]["value"])
+    assert payload == {
+        "start_date": "2026-09-01",
+        "end_date": "2026-09-03",
+        "graph_content_sha256": plan.graph_content_sha256,
+        "execution_name": handle.execution_id.rsplit("/", maxsplit=1)[-1],
+    }
+
+
+@pytest.mark.parametrize("execution_visible", [True, False])
+def test_adoption_rejects_another_repair_window_without_second_patch(
+    execution_visible: bool,
+) -> None:
+    backend, plan, transport = _backend()
+    _start(backend, plan, trigger=_repair_trigger())
+    if not execution_visible:
+        transport.executions.clear()
+    changed = replace(
+        _repair_trigger(),
+        repair_window=GraphRepairWindow(start_date=date(2026, 9, 2), end_date=date(2026, 9, 3)),
+    )
+
+    with pytest.raises(ExecutionBackendError, match="different date-repair selection"):
+        _start(backend, plan, trigger=changed)
+
+    assert len([call for call in transport.calls if call[0] == "PATCH"]) == 1
+
+
+def test_normal_run_clears_repair_marker_and_window_without_changing_prior_execution() -> None:
+    backend, plan, transport = _backend()
+    repair = _start(backend, plan, trigger=_repair_trigger())
+
+    normal = _start(backend, plan, run_id="next-normal-run")
+
+    assert _execution_container(transport, normal)["args"] == list(plan.execution_template.command)
+    assert _execution_container(transport, normal)["env"] == []
+    assert _execution_container(transport, repair)["env"]
+    assert _start(backend, plan, trigger=_repair_trigger()) == repair
+
+
+def test_repair_adoption_requires_the_guard_that_makes_old_images_fail_closed() -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan, trigger=_repair_trigger())
+    _execution_container(transport, handle)["args"] = list(plan.execution_template.command)
+
+    with pytest.raises(ExecutionBackendError, match="immutable execution plan"):
+        _start(backend, plan, trigger=_repair_trigger())
+
+    assert len([call for call in transport.calls if call[0] == "PATCH"]) == 1
+
+
+def _fail_execution(transport: _Transport, handle: BackendHandle) -> None:
+    transport.executions[handle.execution_id].update(
+        {"completionTime": "2026-08-26T18:01:00Z", "failedCount": 1}
+    )
+
+
+@pytest.mark.parametrize("lost_response", [False, True])
+def test_terminal_repair_restores_job_without_starting_work_and_reconciles_lost_response(
+    lost_response: bool,
+) -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan, trigger=_repair_trigger())
+    _fail_execution(transport, handle)
+    transport.lose_patch_response = lost_response
+
+    observed = backend.observe(plan, handle)
+    backend.observe(plan, handle)
+
+    assert observed.outcome is RunOutcome.FAILED
+    assert observed.cleanup_state is CleanupState.CONFIRMED
+    patches = [call[2]["json"] for call in transport.calls if call[0] == "PATCH"]
+    assert len(patches) == 2
+    cleanup = patches[1]
+    assert isinstance(cleanup, dict)
+    assert cleanup["etag"] == "job-etag-1"
+    assert "startExecutionToken" not in cleanup
+    assert "runExecutionToken" not in cleanup
+    template = cleanup["template"]
+    assert isinstance(template, dict)
+    task = template["template"]
+    assert isinstance(task, dict)
+    containers = task["containers"]
+    assert isinstance(containers, list)
+    assert containers[0]["args"] == list(plan.execution_template.command)
+    assert containers[0]["env"] == []
+    assert len(transport.executions) == 1
+
+
+def test_cleanup_conflict_preserves_newer_launch_configuration() -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan, trigger=_repair_trigger())
+    _fail_execution(transport, handle)
+    transport.supersede_before_restore = True
+
+    observed = backend.observe(plan, handle)
+
+    assert observed.cleanup_state is CleanupState.CONFIRMED
+    assert transport.job["startExecutionToken"] == "f" * 16
+    assert transport.job["etag"] == "new-launch-etag"
+    assert len([call for call in transport.calls if call[0] == "PATCH"]) == 2
+    backend.observe(plan, handle)
+    assert len([call for call in transport.calls if call[0] == "PATCH"]) == 2
+
+
+def test_failed_cleanup_remains_pending_until_existing_reconciliation_retries() -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan, trigger=_repair_trigger())
+    _fail_execution(transport, handle)
+    transport.reject_restore = True
+
+    observed = backend.observe(plan, handle)
+
+    assert observed.outcome is RunOutcome.FAILED
+    assert observed.cleanup_state is CleanupState.PENDING
+    transport.reject_restore = False
+    assert backend.observe(plan, handle).cleanup_state is CleanupState.CONFIRMED
+    assert len(transport.executions) == 1
+
+
+def test_old_repair_cleanup_does_not_change_a_later_normal_launch() -> None:
+    backend, plan, transport = _backend()
+    repair = _start(backend, plan, trigger=_repair_trigger())
+    normal = _start(backend, plan, run_id="new-normal")
+    _fail_execution(transport, repair)
+    current = deepcopy(transport.job)
+
+    assert backend.observe(plan, repair).cleanup_state is CleanupState.CONFIRMED
+
+    assert transport.job == current
+    assert len([call for call in transport.calls if call[0] == "PATCH"]) == 2
+    assert _execution_container(transport, normal)["env"] == []
+
+
+def test_normal_terminal_observation_does_not_patch_job_configuration() -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan)
+    _fail_execution(transport, handle)
+    transport.calls.clear()
+
+    assert backend.observe(plan, handle).cleanup_state is CleanupState.CONFIRMED
+
+    assert len(transport.calls) == 1
+    assert transport.calls[0][0] == "GET"
 
 
 def test_observe_normalizes_start_success_failure_and_cancellation() -> None:

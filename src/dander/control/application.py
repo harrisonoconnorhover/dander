@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from dander import __version__
 from dander.control.bundle import BUNDLE_ID, packaged_bundle_digest
@@ -44,12 +44,14 @@ from dander.control.models import (
     RunPageResponse,
     RunStatusResponse,
 )
+from dander.control.repair import GraphRepairPreviewResponse, preview_graph_repair
 from dander.control.run_explanation import RunExplanationResponse, explain_run
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from dander.control.orchestration import PlacementMode, RunSubmission
+    from dander.pipeline.repair import GraphRepairWindow
     from dander.plugins import InstalledConnectorPlugin
 
 MAX_LOG_RECORDS = 500
@@ -123,6 +125,7 @@ class RunLifecyclePort(Protocol):
         environments: tuple[str, ...],
         placement_mode: PlacementMode,
         idempotency_key: str,
+        repair_window: GraphRepairWindow | None = None,
     ) -> RunStatusResponse | None: ...
 
     def list(self, *, cursor: str | None, limit: int) -> RunPageResponse: ...
@@ -163,6 +166,18 @@ class RunSubmissionResolver(Protocol):
         record: GraphRecord,
         environment: str | None,
     ) -> tuple[tuple[str, ...], PlacementMode]: ...
+
+
+@runtime_checkable
+class RepairSubmissionResolver(Protocol):
+    """Optional repair admission supported by selected hosted execution plans."""
+
+    @property
+    def supports_repairs(self) -> bool: ...
+
+    def repair_environments(self, record: GraphRecord) -> tuple[str, ...]: ...
+
+    def require_repair_submission(self, submission: RunSubmission) -> None: ...
 
 
 class CanonicalGraphValidator:
@@ -230,6 +245,11 @@ class ControlApplication:
             operations.extend(
                 ["run.start", "run.read", "run.explain", "run.logs", "run.cancel", "run.replay"]
             )
+            if (
+                isinstance(self.submission_resolver, RepairSubmissionResolver)
+                and self.submission_resolver.supports_repairs
+            ):
+                operations.extend(["graph.repair-preview", "run.repair"])
         return CapabilitiesResponse(
             dander_version=__version__,
             contract=ContractIdentity(id=BUNDLE_ID, sha256=packaged_bundle_digest()),
@@ -317,6 +337,29 @@ class ControlApplication:
         baseline = self.require_graph_revision(project, graph, expected_revision)
         return compare_graph_changes(baseline.document, candidate)
 
+    def preview_repair(
+        self,
+        project: str,
+        graph: str,
+        window: GraphRepairWindow,
+        *,
+        expected_revision: str,
+    ) -> GraphRepairPreviewResponse:
+        """Validate declared output eligibility and show currently available routes."""
+        record = self.require_graph_revision(project, graph, expected_revision)
+        resolver = self._require_repair_resolver()
+        environments = resolver.repair_environments(record)
+        if not environments:
+            raise ControlOperationUnavailableError(
+                "No current execution plan supports output repair for this graph."
+            )
+        return preview_graph_repair(
+            record.document,
+            content_sha256=record.content_sha256,
+            window=window,
+            environments=environments,
+        )
+
     def start_run(
         self,
         project: str,
@@ -327,10 +370,25 @@ class ControlApplication:
         environment: str | None = None,
         size_class: str | None = None,
         estimated_input_bytes: int | None = None,
+        repair_window: GraphRepairWindow | None = None,
     ) -> RunStatusResponse:
         lifecycle = self._require_lifecycle()
         record = self.require_graph_revision(project, graph, expected_revision)
         resolver = self._require_submission_resolver()
+        if repair_window is not None:
+            preview = self.preview_repair(
+                project, graph, repair_window, expected_revision=expected_revision
+            )
+            if environment is None:
+                if len(preview.environments) != 1:
+                    raise ControlOperationConflictError(
+                        "Choose an execution environment from the repair preview."
+                    )
+                environment = preview.environments[0]
+            elif environment not in preview.environments:
+                raise ControlOperationUnavailableError(
+                    "The selected environment does not support output repair."
+                )
         with self._run_start_lock:
             if size_class is None and estimated_input_bytes is None:
                 idempotency_environments, placement_mode = resolver.idempotency_lookup(
@@ -342,6 +400,7 @@ class ControlApplication:
                     environments=idempotency_environments,
                     placement_mode=placement_mode,
                     idempotency_key=idempotency_key,
+                    repair_window=repair_window,
                 )
                 if existing is not None:
                     return existing
@@ -355,6 +414,12 @@ class ControlApplication:
             )
             if submission.graph != record or submission.idempotency_key != idempotency_key:
                 raise RuntimeError("The submission resolver changed validated request identity.")
+            if repair_window is not None:
+                submission = replace(
+                    submission,
+                    trigger=replace(submission.trigger, repair_window=repair_window),
+                )
+                self._require_repair_resolver().require_repair_submission(submission)
             return lifecycle.start(submission)
 
     def get_run(self, address: RunAddress) -> RunStatusResponse:
@@ -416,6 +481,14 @@ class ControlApplication:
                 "Run submission is unavailable for the selected profile."
             )
         return self.submission_resolver
+
+    def _require_repair_resolver(self) -> RepairSubmissionResolver:
+        resolver = self._require_submission_resolver()
+        if not isinstance(resolver, RepairSubmissionResolver) or not resolver.supports_repairs:
+            raise ControlOperationUnavailableError(
+                "Output repair is unavailable for the selected execution profile."
+            )
+        return resolver
 
 
 def graph_resource_response(record: GraphRecord) -> GraphResourceResponse:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -31,6 +32,7 @@ from dander.physical_plan import (
     PhysicalPlanError,
     deserialize_physical_plan,
 )
+from dander.pipeline.repair import GraphRepairWindow
 from dander.runtime_contract import (
     RUNTIME_CONTRACT,
     LauncherContext,
@@ -60,6 +62,8 @@ runtime_app = typer.Typer(
 _CONSOLE = Console()
 _LOGGER = logging.getLogger(__name__)
 _PROJECTED_PLATFORMS_ENV = "DANDER_PLATFORMS_CONFIG_JSON"
+_REPAIR_ENV = "DANDER_GRAPH_REPAIR_JSON"
+_REPAIR_CONTRACT = "io.dander.graph-repair/v1"
 
 
 class RuntimePlatformConfigError(RuntimeError):
@@ -191,6 +195,7 @@ def execute_runtime(
     batch_rows: int = typer.Option(10_000, "--batch-rows", min=1, max=100_000),
     budget_name: str = typer.Option("dander-sbx-cap", "--budget-name", hidden=True),
     physical_plan: str | None = typer.Option(None, "--physical-plan", hidden=True),
+    graph_repair_contract: str | None = typer.Option(None, "--graph-repair-contract", hidden=True),
 ) -> None:
     """Execute one pipeline and emit only versioned, non-sensitive JSON Lines."""
     try:
@@ -198,6 +203,9 @@ def execute_runtime(
         validate_runtime_identifier(pipeline, label="pipeline id")
         validate_runtime_identifier(platform, label="platform")
         context = LauncherContext.from_environment()
+        repair_window, repair_graph_content_sha256 = _load_repair_selection(
+            graph_repair_contract, context=context
+        )
         selected_physical_plan = _load_physical_plan_argument(
             physical_plan,
             pipeline_id=pipeline,
@@ -245,6 +253,8 @@ def execute_runtime(
             catalog_output=catalog_output,
             publish_dataplex=False,
             dataplex_location="us",
+            repair_window=repair_window,
+            repair_graph_content_sha256=repair_graph_content_sha256,
         )
         with (
             graceful_signal_handlers(),
@@ -371,6 +381,52 @@ def execute_runtime(
             physical_plan_revision=physical_plan_revision,
         ).to_json()
     )
+
+
+def _load_repair_selection(
+    contract: str | None, *, context: LauncherContext
+) -> tuple[GraphRepairWindow | None, str | None]:
+    raw = os.environ.get(_REPAIR_ENV)
+    if contract is None and raw is None:
+        return None, None
+    if contract != _REPAIR_CONTRACT or raw is None or len(raw) > 1024:
+        raise RuntimeContractError("Date repair requires its supported contract and selection.")
+    if context.launcher != "cloud_run":
+        raise RuntimeContractError("Date repair requires Cloud Run execution context.")
+    try:
+        payload = json.loads(raw)
+        if not isinstance(payload, dict) or set(payload) != {
+            "start_date",
+            "end_date",
+            "graph_content_sha256",
+            "execution_name",
+        }:
+            raise ValueError("invalid selection")
+        content_sha256 = payload["graph_content_sha256"]
+        if (
+            not isinstance(content_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", content_sha256) is None
+        ):
+            raise ValueError("invalid graph identity")
+        execution_name = os.environ.get("CLOUD_RUN_EXECUTION")
+        if not execution_name or not isinstance(payload["execution_name"], str):
+            raise ValueError("missing execution identity")
+        validate_runtime_identifier(payload["execution_name"], label="repair execution")
+        window = GraphRepairWindow.model_validate(
+            {"start_date": payload["start_date"], "end_date": payload["end_date"]}
+        )
+    except (TypeError, ValueError) as error:
+        raise RuntimeContractError(
+            "Date repair selection is invalid for this execution."
+        ) from error
+    # Cloud Run snapshots Job configuration for every execution. An independently scheduled
+    # normal run may inherit a previous repair selection before Control restores the Job;
+    # only the named execution is allowed to apply that otherwise valid date window.
+    if payload["execution_name"] != execution_name:
+        return None, None
+    if context.shard_count != 1:
+        raise RuntimeContractError("Date repair requires a single Cloud Run task.")
+    return window, content_sha256
 
 
 def _load_physical_plan_argument(

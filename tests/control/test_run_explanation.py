@@ -7,8 +7,71 @@ from pydantic import ValidationError
 
 from dander.control.models import RunState, RunStatusResponse, RunTelemetrySummary
 from dander.control.run_explanation import RunExplanationResponse, explain_run
+from dander.pipeline.repair import GraphRepairWindow
 
 _RESULT_SCHEMA = "io.dander.control.execution-result-summary/v1"
+
+
+def test_repair_explanation_preserves_window_and_distinguishes_replay_from_history() -> None:
+    result = explain_run(
+        RunStatusResponse(
+            run_id="repair",
+            state=RunState.SUCCEEDED,
+            result_schema=_RESULT_SCHEMA,
+            can_replay=True,
+            repair_window=GraphRepairWindow.model_validate(
+                {
+                    "start_date": "2026-09-01",
+                    "end_date": "2026-09-03",
+                }
+            ),
+        )
+    )
+    assert any(
+        "2026-09-01 included through 2026-09-03 excluded" in value for value in result.details
+    )
+    assert any("does not extract" in value for value in result.caveats)
+    assert any("Replay repeats this repair window" in value for value in result.caveats)
+    assert not any("does not undo prior writes or repair only" in value for value in result.caveats)
+    assert "Output repair measurements have not been collected." in result.details
+    assert not any("0 affected rows" in value for value in result.details)
+
+
+def test_repair_explains_output_telemetry_instead_of_zero_ingestion_counts() -> None:
+    result = explain_run(
+        RunStatusResponse(
+            run_id="measured-repair",
+            state=RunState.SUCCEEDED,
+            result_schema=_RESULT_SCHEMA,
+            affected=0,
+            models=1,
+            repair_window=GraphRepairWindow.model_validate(
+                {"start_date": "2026-09-01", "end_date": "2026-09-03"}
+            ),
+            telemetry=RunTelemetrySummary(
+                duration_ms=2500,
+                operation_count=2,
+                retry_count=0,
+                rows_read=0,
+                rows_written=1234,
+                rows_affected=2456,
+                bytes_read=0,
+                bytes_written=0,
+                bytes_processed=0,
+                bytes_billed=0,
+                queue_duration_ms=0,
+                execution_duration_ms=0,
+                spill_bytes=0,
+            ),
+        )
+    )
+
+    assert any(
+        "1,234 rows written" in detail and "2,456 inserted/deleted row operations" in detail
+        for detail in result.details
+    )
+    assert not any("0 affected rows" in detail for detail in result.details)
+    assert not any("measurements have not been collected" in detail for detail in result.details)
 
 
 def test_success_explains_collected_counts_without_claiming_a_data_diff() -> None:

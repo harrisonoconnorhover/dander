@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -42,6 +42,7 @@ from dander.control.orchestration import (
     transition_run,
     validate_submission_plan,
 )
+from dander.control.orchestration_serialization import deserialize_run_record, serialize_run_record
 from dander.deployment.projection import (
     EXECUTION_PROJECTION_SCHEMA,
     ExecutionTemplate,
@@ -50,6 +51,7 @@ from dander.deployment.projection import (
     ResourceProjection,
     ScheduleProjection,
 )
+from dander.pipeline.repair import GraphRepairWindow
 from dander.runtime_contract import RUNTIME_CONTRACT
 
 NOW = datetime(2026, 8, 25, 12, tzinfo=UTC)
@@ -343,6 +345,50 @@ def test_placement_evidence_does_not_change_exact_plan_idempotency() -> None:
 
     assert placed.fingerprint == submission.fingerprint
     assert create_run_record(placed).run_id == create_run_record(submission).run_id
+
+
+def test_repair_window_is_durable_and_preserves_old_records() -> None:
+    original = _submission()
+    repair = replace(
+        original,
+        trigger=replace(
+            original.trigger,
+            repair_window=GraphRepairWindow(start_date=date(2026, 9, 1), end_date=date(2026, 9, 3)),
+        ),
+    )
+    another_window = replace(
+        repair,
+        trigger=replace(
+            repair.trigger,
+            repair_window=GraphRepairWindow(start_date=date(2026, 9, 2), end_date=date(2026, 9, 3)),
+        ),
+    )
+    record = create_run_record(repair)
+
+    assert len({original.fingerprint, repair.fingerprint, another_window.fingerprint}) == 3
+    assert deserialize_run_record(serialize_run_record(record)) == record
+    assert b'"repair_window"' not in serialize_run_record(create_run_record(original))
+    assert (
+        deserialize_run_record(serialize_run_record(create_run_record(original))).trigger
+        == original.trigger
+    )
+
+
+def test_non_cloud_run_repair_is_rejected_before_store_or_provider_effects() -> None:
+    submission = _submission(
+        trigger=RunTrigger(
+            kind=TriggerKind.API,
+            trigger_id="control-api",
+            repair_window=GraphRepairWindow(start_date=date(2026, 9, 1), end_date=date(2026, 9, 2)),
+        )
+    )
+    store = _FakeRunStore()
+    backend = _FakeBackend()
+
+    with pytest.raises(OrchestrationContractError, match="single-task Cloud Run"):
+        dispatch_run_attempt(store, backend, submission, _plan(), now=NOW)
+
+    assert not store.runs
 
 
 def test_transition_preserves_independent_outcome_results_and_cleanup_truth() -> None:

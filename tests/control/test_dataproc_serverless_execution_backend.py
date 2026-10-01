@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import json
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -42,6 +42,7 @@ from dander.physical_plan import (
     PhysicalStage,
     serialize_physical_plan,
 )
+from dander.pipeline.repair import GraphRepairWindow
 from dander.providers.dataproc_serverless import (
     DataprocServerlessBinding,
     DataprocServerlessOperationError,
@@ -302,6 +303,20 @@ def _backend(
         plan,
         selected_transport,
     )
+
+
+def test_repair_rejects_before_any_managed_spark_api_call() -> None:
+    backend, plan, transport = _backend()
+    trigger = RunTrigger(
+        kind=TriggerKind.API,
+        trigger_id="control-api",
+        repair_window=GraphRepairWindow(start_date=date(2026, 9, 1), end_date=date(2026, 9, 2)),
+    )
+
+    with pytest.raises(ExecutionBackendError, match="Date repair is not supported"):
+        backend.submit_or_adopt(plan, run_id="repair-run", attempt_id="attempt-1", trigger=trigger)
+
+    assert not transport.calls
 
 
 def _start(

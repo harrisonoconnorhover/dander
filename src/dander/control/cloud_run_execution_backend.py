@@ -11,6 +11,8 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping
+from contextlib import suppress
+from copy import deepcopy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, cast
 
@@ -30,12 +32,14 @@ from dander.control.orchestration import (
     ResultsState,
     RunOutcome,
     RunTrigger,
+    TriggerKind,
 )
 from dander.identity.aws_google import FargateIdentityError
 from dander.identity.control_google import (
     GoogleControlIdentityError,
     prepare_control_google_identity,
 )
+from dander.pipeline.repair import GraphRepairWindow
 from dander.providers.cloud_run import CloudRunBinding, CloudRunOperationError
 
 if TYPE_CHECKING:
@@ -55,6 +59,8 @@ _LOGGING_ENDPOINT = "https://logging.googleapis.com/v2/entries:list"
 _MAX_CURSOR_LENGTH = 2_048
 _MAX_LOG_MESSAGE_LENGTH = 16_384
 _DEFAULT_TIMEOUT_SECONDS = 30.0
+_REPAIR_ENV = "DANDER_GRAPH_REPAIR_JSON"
+_REPAIR_ARGUMENTS = ("--graph-repair-contract", "io.dander.graph-repair/v1")
 
 
 class _Response(Protocol):
@@ -126,7 +132,6 @@ class CloudRunExecutionBackend:
         trigger: RunTrigger,
     ) -> BackendHandle:
         """Start or adopt the deterministic Cloud Run execution for one attempt."""
-        del trigger
         binding = self._binding_for(plan)
         token = _execution_token(run_id, attempt_id)
         try:
@@ -134,34 +139,26 @@ class CloudRunExecutionBackend:
         except CloudRunOperationError as error:
             raise ExecutionBackendError("Cloud Run execution identity is invalid.") from error
         handle = BackendHandle(backend_id=_BACKEND_ID, execution_id=execution_resource)
+        repair_payload = _repair_payload(plan, trigger, execution_resource)
         execution = self._try_get_execution(execution_resource)
         if execution is not None:
-            self._validate_execution(binding, execution, execution_resource)
+            self._validate_submission_execution(
+                plan, binding, execution, execution_resource, repair_payload
+            )
             return handle
 
         job = self._get_job(binding)
         self._validate_job(plan, binding, job)
         if job.get("startExecutionToken") == token:
+            _require_repair_payload(
+                _job_task(job), repair_payload, _execution_arguments(plan, repair_payload)
+            )
             return handle
         etag = job.get("etag")
         if not isinstance(etag, str) or not etag:
             raise ExecutionBackendError("Cloud Run Job does not expose a concurrency token.")
-        update = {
-            key: value
-            for key, value in job.items()
-            if key
-            in {
-                "name",
-                "labels",
-                "annotations",
-                "launchStage",
-                "binaryAuthorization",
-                "template",
-                "client",
-                "clientVersion",
-                "etag",
-            }
-        }
+        update = _job_update(job)
+        _set_repair_payload(update, plan, repair_payload)
         update["startExecutionToken"] = token
         try:
             self._request_json(
@@ -174,11 +171,18 @@ class CloudRunExecutionBackend:
         except _GoogleCallError as start_error:
             execution = self._try_get_execution(execution_resource)
             if execution is not None:
-                self._validate_execution(binding, execution, execution_resource)
+                self._validate_submission_execution(
+                    plan, binding, execution, execution_resource, repair_payload
+                )
                 return handle
             reconciled_job = self._get_job(binding)
             self._validate_job(plan, binding, reconciled_job)
             if reconciled_job.get("startExecutionToken") == token:
+                _require_repair_payload(
+                    _job_task(reconciled_job),
+                    repair_payload,
+                    _execution_arguments(plan, repair_payload),
+                )
                 return handle
             raise ExecutionBackendError(
                 "Cloud Run execution could not be created or adopted."
@@ -214,6 +218,7 @@ class CloudRunExecutionBackend:
             outcome = RunOutcome.FAILED
             stage = "failed"
             failure_code = _execution_failure_code(execution)
+        cleanup_state = self._restore_repair_job(plan, binding, execution, handle.execution_id)
         result_summary = None
         if outcome is RunOutcome.SUCCEEDED:
             try:
@@ -238,11 +243,59 @@ class CloudRunExecutionBackend:
                 if outcome is RunOutcome.SUCCEEDED
                 else ResultsState.UNAVAILABLE
             ),
-            cleanup_state=CleanupState.CONFIRMED,
+            cleanup_state=cleanup_state,
             observed_at=self._now(),
             stage=stage,
             failure_code=failure_code,
             result_summary=result_summary,
+        )
+
+    def _restore_repair_job(
+        self,
+        plan: ExecutionPlan,
+        binding: CloudRunBinding,
+        execution: Mapping[str, object],
+        resource: str,
+    ) -> CleanupState:
+        """Restore only this completed execution's still-owned Job configuration."""
+        repair_payload = _execution_repair_payload(plan, execution, resource)
+        if repair_payload is None:
+            return CleanupState.CONFIRMED
+        self._validate_submission_execution(plan, binding, execution, resource, repair_payload)
+        token = resource.rsplit("-", maxsplit=1)[-1]
+        try:
+            job = self._get_job(binding)
+        except ExecutionBackendError:
+            return CleanupState.PENDING
+        if not _job_has_repair_selection(job, token=token, payload=repair_payload, plan=plan):
+            return CleanupState.CONFIRMED
+        # A new deployment or launch supersedes ownership. Do not restore an old plan over it.
+        try:
+            self._validate_job(plan, binding, job)
+        except ExecutionBackendError:
+            return CleanupState.CONFIRMED
+        if not isinstance(job.get("etag"), str) or not job["etag"]:
+            return CleanupState.PENDING
+        update = _job_update(job)
+        _set_repair_payload(update, plan, None)
+        # Lost responses and ETag conflicts are reconciled below before another patch.
+        with suppress(_GoogleCallError, ExecutionBackendError):
+            # Omitting both execution-token fields updates configuration without starting work.
+            self._request_json(
+                "restore job",
+                "PATCH",
+                f"{_API_ROOT}/{binding.job_resource}",
+                json=update,
+                expected=(200,),
+            )
+        try:
+            current = self._get_job(binding)
+        except ExecutionBackendError:
+            return CleanupState.PENDING
+        return (
+            CleanupState.PENDING
+            if _job_has_repair_selection(current, token=token, payload=repair_payload, plan=plan)
+            else CleanupState.CONFIRMED
         )
 
     def logs(
@@ -363,6 +416,8 @@ class CloudRunExecutionBackend:
             or image.group("project") != binding.project_id
             or image.group("region") != binding.region
             or template.workload_identity != binding.runtime_service_account
+            or _REPAIR_ARGUMENTS[0] in template.command
+            or any(name == _REPAIR_ENV for name, _ in template.environment)
         ):
             raise ExecutionBackendError("The execution plan does not match its Cloud Run binding.")
         return binding
@@ -430,7 +485,8 @@ class CloudRunExecutionBackend:
             job.get("name") != binding.job_resource
             or not isinstance(container, Mapping)
             or container.get("image") != plan.image
-            or container.get("args") != list(plan_template.command)
+            or container.get("args")
+            not in [list(plan_template.command), list(plan_template.command + _REPAIR_ARGUMENTS)]
             or template.get("taskCount") != plan_template.schedule.task_count
             or template.get("parallelism") != plan_template.schedule.maximum_parallelism
             or task_template.get("serviceAccount") != binding.runtime_service_account
@@ -447,6 +503,31 @@ class CloudRunExecutionBackend:
     ) -> None:
         if execution.get("name") != resource or execution.get("job") != binding.job_name:
             raise ExecutionBackendError("Cloud Run returned an unexpected execution.")
+
+    @classmethod
+    def _validate_submission_execution(
+        cls,
+        plan: ExecutionPlan,
+        binding: CloudRunBinding,
+        execution: Mapping[str, object],
+        resource: str,
+        repair_payload: str | None,
+    ) -> None:
+        cls._validate_execution(binding, execution, resource)
+        task = execution.get("template")
+        containers = task.get("containers") if isinstance(task, Mapping) else None
+        container = containers[0] if isinstance(containers, list) and len(containers) == 1 else None
+        if (
+            not isinstance(task, Mapping)
+            or not isinstance(container, Mapping)
+            or task.get("serviceAccount") != binding.runtime_service_account
+            or container.get("image") != plan.image
+            or container.get("args") != _execution_arguments(plan, repair_payload)
+        ):
+            raise ExecutionBackendError(
+                "The Cloud Run execution does not match its immutable execution plan."
+            )
+        _require_repair_payload(task, repair_payload, _execution_arguments(plan, repair_payload))
 
     def _request_json(
         self,
@@ -497,6 +578,143 @@ class CloudRunExecutionBackend:
 def _validate_binding(binding: CloudRunBinding) -> None:
     if not binding.job_resource.endswith(f"/jobs/{binding.job_name}"):
         raise ExecutionBackendError("A Cloud Run plan binding is invalid.")
+
+
+def _repair_payload(plan: ExecutionPlan, trigger: RunTrigger, resource: str) -> str | None:
+    if trigger.repair_window is None:
+        return None
+    if plan.execution_template.schedule.task_count != 1:
+        raise ExecutionBackendError("Date repair requires a single Cloud Run task.")
+    return json.dumps(
+        {
+            **trigger.repair_window.model_dump(mode="json"),
+            "graph_content_sha256": plan.graph_content_sha256,
+            "execution_name": resource.rsplit("/", maxsplit=1)[-1],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _execution_arguments(plan: ExecutionPlan, repair_payload: str | None) -> list[str]:
+    suffix = _REPAIR_ARGUMENTS if repair_payload is not None else ()
+    return list(plan.execution_template.command + suffix)
+
+
+def _execution_repair_payload(
+    plan: ExecutionPlan, execution: Mapping[str, object], resource: str
+) -> str | None:
+    task = execution.get("template")
+    containers = task.get("containers") if isinstance(task, Mapping) else None
+    container = containers[0] if isinstance(containers, list) and len(containers) == 1 else None
+    environment = container.get("env", []) if isinstance(container, Mapping) else []
+    if not isinstance(environment, list):
+        raise ExecutionBackendError("Cloud Run execution environment is invalid.")
+    selected = [
+        item
+        for item in environment
+        if isinstance(item, Mapping) and item.get("name") == _REPAIR_ENV
+    ]
+    if not selected:
+        return None
+    raw = selected[0].get("value")
+    try:
+        if len(selected) != 1 or not isinstance(raw, str) or len(raw) > 1024:
+            raise ValueError("invalid repair selection")
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise ValueError("invalid repair selection")
+        window = GraphRepairWindow.model_validate(
+            {"start_date": payload["start_date"], "end_date": payload["end_date"]}
+        )
+        trigger = RunTrigger(kind=TriggerKind.API, trigger_id="control-api", repair_window=window)
+        if raw != _repair_payload(plan, trigger, resource):
+            raise ValueError("repair selection does not match execution")
+    except (KeyError, TypeError, ValueError) as error:
+        raise ExecutionBackendError("Cloud Run execution repair selection is invalid.") from error
+    return raw
+
+
+def _job_has_repair_selection(
+    job: Mapping[str, object], *, token: str, payload: str, plan: ExecutionPlan
+) -> bool:
+    if job.get("startExecutionToken") != token:
+        return False
+    try:
+        _require_repair_payload(_job_task(job), payload, _execution_arguments(plan, payload))
+    except ExecutionBackendError:
+        return False
+    return True
+
+
+def _job_update(job: Mapping[str, object]) -> dict[str, object]:
+    return {
+        key: deepcopy(value)
+        for key, value in job.items()
+        if key
+        in {
+            "name",
+            "labels",
+            "annotations",
+            "launchStage",
+            "binaryAuthorization",
+            "template",
+            "client",
+            "clientVersion",
+            "etag",
+        }
+    }
+
+
+def _job_task(job: Mapping[str, object]) -> Mapping[str, object]:
+    template = job.get("template")
+    task = template.get("template") if isinstance(template, Mapping) else None
+    if not isinstance(task, Mapping):
+        raise ExecutionBackendError("Cloud Run Job task template is invalid.")
+    return cast("Mapping[str, object]", task)
+
+
+def _require_repair_payload(
+    task: Mapping[str, object], expected: str | None, arguments: list[str]
+) -> None:
+    containers = task.get("containers")
+    container = containers[0] if isinstance(containers, list) and len(containers) == 1 else None
+    if not isinstance(container, Mapping):
+        raise ExecutionBackendError("Cloud Run task container is invalid.")
+    if container.get("args") != arguments:
+        raise ExecutionBackendError("Cloud Run execution has a different date-repair command.")
+    environment = container.get("env", [])
+    if not isinstance(environment, list) or any(
+        not isinstance(item, Mapping) for item in environment
+    ):
+        raise ExecutionBackendError("Cloud Run task environment is invalid.")
+    selected = [item for item in environment if item.get("name") == _REPAIR_ENV]
+    wanted = [{"name": _REPAIR_ENV, "value": expected}] if expected is not None else []
+    if selected != wanted:
+        raise ExecutionBackendError("Cloud Run execution has a different date-repair selection.")
+
+
+def _set_repair_payload(
+    update: dict[str, object], plan: ExecutionPlan, payload: str | None
+) -> None:
+    # The patch has already been deep-copied. Preserve every unrelated container setting,
+    # and always clear a previous selection when a normal run follows a repair.
+    task = _job_task(update)
+    containers = task.get("containers")
+    container = containers[0] if isinstance(containers, list) and len(containers) == 1 else None
+    if not isinstance(container, dict):
+        raise ExecutionBackendError("Cloud Run task container is invalid.")
+    environment = container.get("env", [])
+    if not isinstance(environment, list) or any(
+        not isinstance(item, Mapping) for item in environment
+    ):
+        raise ExecutionBackendError("Cloud Run task environment is invalid.")
+    remaining = [item for item in environment if item.get("name") != _REPAIR_ENV]
+    if payload is not None:
+        remaining.append({"name": _REPAIR_ENV, "value": payload})
+    if remaining or "env" in container:
+        container["env"] = remaining
+    container["args"] = _execution_arguments(plan, payload)
 
 
 def _execution_token(run_id: str, attempt_id: str) -> str:

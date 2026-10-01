@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Protocol, cast
@@ -12,11 +12,14 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 import pytest
 from click import ClickException
 from rich.console import Console
+from tests.pipeline.test_date_repair import repair_graph, repair_source
 from typer.testing import CliRunner
 
 import dander.cli.run_command as run_module
 from dander.cli.main import app
+from dander.control.graph_store import canonicalize_graph_document
 from dander.executor import PipelineExecutionResult
+from dander.pipeline.repair import GraphRepairWindow
 from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.security import NoAuth
 from dander.state import StateCapabilities, StateMigration, StateRuntime
@@ -386,6 +389,7 @@ def test_postgresql_rejects_bigquery_safety_before_external_clients(
         sandbox=sandbox,
         guarded_free_tier=guarded_free_tier,
         dry_run=False,
+        repair_window=None,
     )
     resolved = SimpleNamespace(
         warehouse_provider="postgresql",
@@ -408,7 +412,9 @@ def test_postgresql_rejects_bigquery_safety_before_external_clients(
 def test_postgresql_dataplex_publication_fails_before_executor(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    options = SimpleNamespace(sandbox=False, guarded_free_tier=False, dry_run=False)
+    options = SimpleNamespace(
+        sandbox=False, guarded_free_tier=False, dry_run=False, repair_window=None
+    )
     resolved = SimpleNamespace(
         warehouse_provider="postgresql",
         publish_catalog=True,
@@ -583,3 +589,108 @@ def test_only_unsupported_postgresql_state_bigquery_warehouse_pair_fails_closed(
         state_provider="postgresql",
         warehouse_provider="redshift",
     )
+
+
+def _repair_options(tmp_path: Path) -> run_module.RunOptions:
+    (tmp_path / "connectors").mkdir()
+    (tmp_path / "connectors/records.yaml").write_text(repair_source().model_dump_json())
+    (tmp_path / "graph.json").write_text(repair_graph().model_dump_json(by_alias=True))
+    (tmp_path / "dander.yaml").write_text(
+        "version: 1\npipelines:\n  repair:\n    source: records\n    graph: graph.json\n"
+        "    models: []\n    build_models: false\n    publish_dataplex: false\n"
+    )
+    return run_module.RunOptions(
+        pipeline_or_source="repair",
+        project="unit-project",
+        dataset="raw",
+        connectors_dir=tmp_path / "connectors",
+        project_config=tmp_path / "dander.yaml",
+        platforms_config=None,
+        deployment=None,
+        dry_run=False,
+        sandbox=False,
+        guarded_free_tier=False,
+        batch_rows=10_000,
+        budget_name="unused",
+        state_path=tmp_path / "state.sqlite3",
+        build_models=False,
+        models_dir=tmp_path,
+        selected_models=None,
+        catalog_output=None,
+        publish_dataplex=False,
+        dataplex_location="us-central1",
+        repair_window=GraphRepairWindow.model_validate(
+            {"start_date": "2026-09-01", "end_date": "2026-09-03"}
+        ),
+        repair_graph_content_sha256=canonicalize_graph_document(
+            repair_graph().model_dump(mode="json", by_alias=True)
+        ).content_sha256,
+    )
+
+
+def test_repair_composition_does_not_build_source_auth_extraction_or_touch_watermarks(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    from dander.state import SqliteLeaseStore, SqliteRunHistoryStore
+    from dander.transform import TransformRunResult
+
+    options = _repair_options(tmp_path)
+    resolved = run_module._resolve_run(options)
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("repair must not contact source or watermarks")
+
+    for name in (
+        "build_secret_store",
+        "build_auth",
+        "build_source_adapter",
+        "_build_ingestion_runner",
+    ):
+        monkeypatch.setattr(run_module, name, forbidden)
+
+    class _Watermarks:
+        def __getattr__(self, name: str) -> object:
+            pytest.fail(f"repair must not access watermark method {name}")
+
+    class _Transform:
+        def build(self, *args: object, **kwargs: object) -> TransformRunResult:
+            assert kwargs["ownership"] is not None
+            return TransformRunResult(models=("target",), assertions=0)
+
+    stores = SimpleNamespace(
+        history=SqliteRunHistoryStore(options.state_path),
+        leases=SqliteLeaseStore(options.state_path),
+        watermarks=_Watermarks(),
+        metadata=None,
+    )
+    monkeypatch.setattr(run_module, "_build_control_stores", lambda *args: stores)
+    monkeypatch.setattr(run_module, "_build_warehouse_runtime", lambda *args: object())
+    monkeypatch.setattr(run_module, "_build_transform_runner", lambda *args: _Transform())
+
+    result = run_module._build_executor(options, resolved).execute(run_id="repair-test")
+
+    assert result.ingestion.endpoints == ()
+    assert result.models == ("target",)
+
+
+@pytest.mark.parametrize("failure", ["hash_changed", "hash_missing", "unsupported_provider"])
+def test_repair_fails_before_clients_for_stale_graph_or_unsupported_backend(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    failure: str,
+) -> None:
+    options = _repair_options(tmp_path)
+    if failure == "hash_changed":
+        options = replace(options, repair_graph_content_sha256="0" * 64)
+    elif failure == "hash_missing":
+        options = replace(options, repair_graph_content_sha256=None)
+    else:
+        resolved = replace(run_module._resolve_run(options), warehouse_provider="postgresql")
+        monkeypatch.setattr(run_module, "_resolve_run", lambda *args: resolved)
+    monkeypatch.setattr(
+        run_module, "_build_executor", lambda *args: pytest.fail("no clients allowed")
+    )
+
+    with pytest.raises(ClickException, match="hash|direct BigQuery"):
+        run_module.execute_run(options, console=Console())

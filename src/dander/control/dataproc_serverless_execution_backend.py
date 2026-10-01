@@ -128,7 +128,10 @@ class DataprocServerlessExecutionBackend:
         trigger: RunTrigger,
     ) -> BackendHandle:
         """Create or adopt one deterministic batch for the logical attempt."""
-        del trigger
+        if trigger.repair_window is not None:
+            raise ExecutionBackendError(
+                "Date repair is not supported by the Managed Spark backend."
+            )
         binding = self._binding_for(plan)
         batch_id = _batch_id(run_id, attempt_id)
         batch_resource = binding.batch_resource(batch_id)

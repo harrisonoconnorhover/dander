@@ -18,6 +18,12 @@ from dander.pipeline.compiler import (
 from dander.pipeline.errors import GraphValidationError
 from dander.pipeline.graph_ops import validate_field_wiring
 from dander.pipeline.node_config import SourceNodeConfig, TargetNodeConfig
+from dander.pipeline.repair import (
+    GraphRepairError,
+    GraphRepairWindow,
+    GraphTargetRepair,
+    plan_graph_repair,
+)
 from dander.warehouse import BigQuerySchemaCompatibilityError, RelationRef
 from dander.writer.base import WriteMode
 
@@ -66,6 +72,8 @@ class GraphExecutionPlan:
 
     bindings: GraphSourceBindings
     targets: tuple[CompiledTarget, ...]
+    repair_window: GraphRepairWindow | None = None
+    repair_targets: tuple[GraphTargetRepair, ...] = ()
 
 
 def plan_graph_execution(
@@ -75,6 +83,7 @@ def plan_graph_execution(
     endpoint_relations: Mapping[str, RelationRef] | None = None,
     project: str | None = None,
     dataset: str | None = None,
+    repair_window: GraphRepairWindow | None = None,
 ) -> GraphExecutionPlan:
     """Bind graph sources to connector endpoints and compile every executable target."""
     try:
@@ -194,6 +203,16 @@ def plan_graph_execution(
                     target=replace(compiled.target, schema=(), declared_schema=schema),
                 )
             )
+    try:
+        repair_targets = plan_graph_repair(graph, repair_window) if repair_window else ()
+    except GraphRepairError as error:
+        raise GraphRuntimeError(str(error)) from error
+    if repair_window is not None:
+        destinations = [target.target.relation_ref for target in targets]
+        if len(destinations) != len(set(destinations)):
+            raise GraphRuntimeError("Repair outputs must have distinct destinations")
+        if any(destination in relations.values() for destination in destinations):
+            raise GraphRuntimeError("Repair outputs cannot overwrite their retained raw inputs")
     return GraphExecutionPlan(
         bindings=GraphSourceBindings(
             connector=source_config.name,
@@ -201,4 +220,6 @@ def plan_graph_execution(
             source_relations=relations,
         ),
         targets=tuple(targets),
+        repair_window=repair_window,
+        repair_targets=repair_targets,
     )

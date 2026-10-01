@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from dander.catalog import CatalogAsset, CatalogPublisher, MetadataStore
     from dander.concurrency import OwnershipGuard
     from dander.ingestion import SourceConfig
+    from dander.pipeline.repair import GraphRepairWindow
     from dander.state import LeaseStore, RunHistoryStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class PipelineExecutor:
         *,
         pipeline_id: str,
         source_config: SourceConfig,
-        ingestion: _IngestionRunner,
+        ingestion: _IngestionRunner | None,
         history: RunHistoryStore,
         catalog: str | None = None,
         project: str | None = None,
@@ -92,7 +93,12 @@ class PipelineExecutor:
         catalog_publisher: CatalogPublisher | None = None,
         dataplex_publisher: CatalogPublisher | None = None,
         leases: LeaseStore | None = None,
+        repair_window: GraphRepairWindow | None = None,
     ) -> None:
+        if repair_window is not None and (ingestion is not None or not build_models):
+            raise ValueError("Date repair must build graph outputs without an ingestion runner")
+        if ingestion is None and repair_window is None:
+            raise ValueError("Ordinary pipeline execution requires an ingestion runner")
         if build_models and transform_runner is None:
             raise ValueError("A transform runner is required when build_models is enabled")
         if catalog is None:
@@ -155,6 +161,7 @@ class PipelineExecutor:
         self._registry_output = registry_output
         self._catalog_publisher = catalog_publisher or dataplex_publisher
         self._leases = leases
+        self._repair_window = repair_window
 
     def execute(
         self,
@@ -165,7 +172,7 @@ class PipelineExecutor:
         """Execute every enabled stage and record one truthful terminal outcome."""
         started_ns = time.monotonic_ns()
         run_id = run_id or uuid4().hex
-        stage = RunStage.INGEST
+        stage = RunStage.TRANSFORM if self._repair_window is not None else RunStage.INGEST
         endpoints = extracted = affected = models = assertions = assets = 0
         start_history = self._history.restart_retryable if retry else self._history.start
         start_history(run_id, self._source_config.name, pipeline_id=self._pipeline_id)
@@ -209,10 +216,13 @@ class PipelineExecutor:
                     self._pipeline_id,
                     current_run_id=run_id,
                 )
-            ingestion_result = self._ingestion.run(
-                run_id=run_id,
-                ownership=heartbeat,
-            )
+            if self._repair_window is None:
+                assert self._ingestion is not None
+                ingestion_result = self._ingestion.run(run_id=run_id, ownership=heartbeat)
+            else:
+                ingestion_result = PipelineRunResult(
+                    run_id=run_id, source=self._source_config.name, endpoints=()
+                )
             endpoints = len(ingestion_result.endpoints)
             extracted = sum(result.extracted for result in ingestion_result.endpoints)
             affected = sum(result.affected for result in ingestion_result.endpoints)

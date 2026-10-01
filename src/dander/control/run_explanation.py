@@ -68,14 +68,35 @@ def explain_run(status: RunStatusResponse) -> RunExplanationResponse:
     caveats: list[str] = []
     summary = _summary(status, results_available=results_available)
 
+    if status.repair_window is not None:
+        window = status.repair_window
+        details.append(
+            f"Output repair from retained raw data: {window.start_date.isoformat()} included "
+            f"through {window.end_date.isoformat()} excluded (UTC)."
+        )
+        caveats.append(
+            "This repair does not extract source records or advance normal source progress."
+        )
+
     if status.state in _ACTIVE_STATES and status.stage in _STAGE_DETAILS:
         details.append(_STAGE_DETAILS[status.stage])
     if results_available:
+        output_detail = (
+            f"Recorded output: {status.affected:,} affected rows and {status.models:,} models."
+        )
+        if status.repair_window is not None:
+            output_detail = "Output repair measurements have not been collected."
+            if status.telemetry is not None:
+                output_detail = (
+                    f"Recorded repair: {status.telemetry.rows_written:,} rows written and "
+                    f"{status.telemetry.rows_affected:,} inserted/deleted row operations "
+                    f"across {status.models:,} outputs."
+                )
         details.extend(
             (
                 f"Recorded extraction: {status.extracted:,} rows "
                 f"from {status.endpoints:,} endpoints.",
-                f"Recorded output: {status.affected:,} affected rows and {status.models:,} models.",
+                output_detail,
                 f"Recorded validation and catalog: {status.assertions:,} assertions evaluated "
                 f"and {status.assets:,} assets.",
             )
@@ -114,7 +135,10 @@ def explain_run(status: RunStatusResponse) -> RunExplanationResponse:
         )
     if status.can_replay:
         caveats.append(
-            "Replay starts another execution; it does not undo prior writes or repair only "
+            "Replay repeats this repair window against the raw data available at that time; "
+            "it does not restore a historical snapshot."
+            if status.repair_window is not None
+            else "Replay starts another execution; it does not undo prior writes or repair only "
             "a selected date range."
         )
 

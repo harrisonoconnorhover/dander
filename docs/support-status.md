@@ -1,6 +1,6 @@
 # Current implementation and support status
 
-Updated September 30, 2026. This page is the current overview; dated decisions and acceptance
+Updated October 1, 2026. This page is the current overview; dated decisions and acceptance
 records preserve what happened on their named revisions. Update this page when a capability is
 integrated or a named release/profile changes status.
 
@@ -27,6 +27,8 @@ the final paused/no-drift state. These are dated observations, not a continuous 
 | Control execution through Fargate, Cloud Run, or Dataproc | Implemented with typed PostgreSQL or S3 run storage | Experimental; one Control process per run-store schema. AWS compatibility flags remain available. |
 | Distributed Spark graphs | Bounded linear, keyed-join, and two-transform shapes implemented; retained August 27–28 runs include exact Fargate/Dataproc output parity | Experimental; the [execution history](control-execution-history.md) identifies each tested revision and bounded shape. |
 | Druff hosted authoring | Hosted Control connections, OIDC/PKCE, persisted graphs, and run lifecycle controls implemented | Experimental; retained browser checks used synthetic OIDC. They do not establish production identity-provider or HA qualification. |
+| Graph change preview and run explanation | Read-only comparison against the saved revision and readable recorded outcomes in current Control source | Requires a newly generated client from the matching immutable artifact; published Druff clients do not expose these operations. |
+| Date-scoped output repair | Current source implements retained-raw repair with single-task Cloud Run and BigQuery; local transaction, lifecycle, and transport tests | Experimental and not live-qualified or published. See [output repair](output-repair.md) for existing-table, date-boundary, and per-output transaction limits. |
 | PostgreSQL, Snowflake, Redshift warehouse adapters | Local conformance and named bounded live evidence | Experimental; the runtime compatibility matrix determines allowed state/warehouse pairs. |
 | Azure, OCI, Kubernetes profiles | Named lifecycle/qualification records | No general support promotion; consult each exact profile's evidence. |
 | PostgreSQL Control graphs/runs/schedules | Database conformance plus one real Cloud Run graph with crash recovery, cancellation, output, and history checks | Experimental; one local Control process, no supported hosted or multiple-replica topology. |

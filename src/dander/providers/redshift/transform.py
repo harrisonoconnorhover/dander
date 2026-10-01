@@ -216,6 +216,8 @@ class RedshiftGraphRunner:
         target_fence: RedshiftTargetFence,
         statement_timeout_ms: int,
     ) -> None:
+        if plan.repair_window is not None:
+            raise GraphRuntimeError("Date repair is unavailable for Redshift graph execution")
         self._plan = plan
         self._database = database
         self._connection_factory = connection_factory

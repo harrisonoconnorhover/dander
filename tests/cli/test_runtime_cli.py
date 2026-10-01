@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import contextmanager
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+import pytest
 from click import ClickException
 from typer.testing import CliRunner
 
@@ -49,6 +51,7 @@ def _invoke(
     extra_env: dict[str, str] | None = None,
     platform: str = "gcp",
     physical_plan: PhysicalPlan | None = None,
+    graph_repair_contract: str | None = None,
 ) -> Result:
     monkeypatch.setattr(runtime_module, "execute_run", execute)
     arguments = [
@@ -71,6 +74,8 @@ def _invoke(
         arguments.extend(
             ("--physical-plan", serialize_physical_plan(physical_plan).decode("utf-8"))
         )
+    if graph_repair_contract is not None:
+        arguments.extend(("--graph-repair-contract", graph_repair_contract))
     return CliRunner().invoke(
         app,
         arguments,
@@ -81,6 +86,127 @@ def _invoke(
         }
         | (extra_env or {}),
     )
+
+
+def test_runtime_repair_passes_exact_window_and_graph_identity_to_execution(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: list[RunOptions] = []
+
+    def execute(options: RunOptions, **_: object) -> PipelineExecutionResult:
+        captured.append(options)
+        return PipelineExecutionResult(
+            run_id="repair",
+            pipeline_id="greenhouse_jobs",
+            ingestion=PipelineRunResult(run_id="repair", source="retained_raw", endpoints=()),
+            models=("output",),
+            assertions=0,
+            assets=1,
+        )
+
+    payload = {
+        "start_date": "2026-09-01",
+        "end_date": "2026-09-03",
+        "graph_content_sha256": "a" * 64,
+        "execution_name": "job-123",
+    }
+    result = _invoke(
+        monkeypatch,
+        execute,
+        graph_repair_contract="io.dander.graph-repair/v1",
+        extra_env={
+            "CLOUD_RUN_EXECUTION": "job-123",
+            "DANDER_GRAPH_REPAIR_JSON": json.dumps(payload),
+        },
+    )
+
+    assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
+    assert len(captured) == 1
+    window = captured[0].repair_window
+    assert window is not None
+    assert window.start_date == date(2026, 9, 1)
+    assert window.end_date == date(2026, 9, 3)
+    assert captured[0].repair_graph_content_sha256 == "a" * 64
+
+
+@pytest.mark.parametrize(
+    ("marker", "payload_change", "execution_name"),
+    [
+        (None, {}, "job-123"),
+        ("io.dander.graph-repair/v0", {}, "job-123"),
+        ("io.dander.graph-repair/v1", {}, ""),
+        ("io.dander.graph-repair/v1", {"end_date": "2026-08-01"}, "job-123"),
+        ("io.dander.graph-repair/v1", {"graph_content_sha256": "invalid"}, "job-123"),
+        ("io.dander.graph-repair/v1", {"unknown": "extra"}, "job-123"),
+        ("io.dander.graph-repair/v1", {"end_date": "invalid"}, "another-execution"),
+    ],
+)
+def test_runtime_rejects_invalid_repair_before_execution(
+    monkeypatch: MonkeyPatch,
+    marker: str | None,
+    payload_change: dict[str, str],
+    execution_name: str,
+) -> None:
+    def execute(options: RunOptions, **_: object) -> PipelineExecutionResult:
+        raise AssertionError("An invalid repair must not execute any pipeline work")
+
+    payload = {
+        "start_date": "2026-09-01",
+        "end_date": "2026-09-03",
+        "graph_content_sha256": "a" * 64,
+        "execution_name": "job-123",
+        **payload_change,
+    }
+    result = _invoke(
+        monkeypatch,
+        execute,
+        graph_repair_contract=marker,
+        extra_env={
+            "CLOUD_RUN_EXECUTION": execution_name,
+            "DANDER_GRAPH_REPAIR_JSON": json.dumps(payload),
+        },
+    )
+
+    assert result.exit_code == RuntimeExitCode.INVALID_INVOCATION
+    assert "runtime.started" not in result.output
+
+
+def test_independently_scheduled_run_ignores_valid_stale_repair_selection(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: list[RunOptions] = []
+
+    def execute(options: RunOptions, **_: object) -> PipelineExecutionResult:
+        captured.append(options)
+        return PipelineExecutionResult(
+            run_id="normal",
+            pipeline_id="greenhouse_jobs",
+            ingestion=PipelineRunResult(run_id="normal", source="greenhouse_jobs", endpoints=()),
+            models=("output",),
+            assertions=0,
+            assets=1,
+        )
+
+    payload = {
+        "start_date": "2026-09-01",
+        "end_date": "2026-09-03",
+        "graph_content_sha256": "a" * 64,
+        "execution_name": "prior-repair",
+    }
+    result = _invoke(
+        monkeypatch,
+        execute,
+        graph_repair_contract="io.dander.graph-repair/v1",
+        extra_env={
+            "CLOUD_RUN_EXECUTION": "scheduled-normal",
+            "DANDER_GRAPH_REPAIR_JSON": json.dumps(payload),
+        },
+    )
+
+    assert result.exit_code == RuntimeExitCode.SUCCESS, result.output
+    assert len(captured) == 1
+    assert captured[0].repair_window is None
+    assert captured[0].repair_graph_content_sha256 is None
 
 
 def test_runtime_execute_uses_launcher_run_id_and_emits_json_lines(
