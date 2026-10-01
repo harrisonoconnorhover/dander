@@ -25,8 +25,19 @@ reading; it is not a line-by-line review of every file or new live-cloud qualifi
 | --- | --- | --- |
 | `plugins search` loaded 13 bootstrap, 3 deployment, and 55 provider modules via the root CLI. Offline discovery depended on unrelated command code. | Move install/scaffold/search into `cli/plugins_command.py`; dispatch the plugin group directly and load project configuration only for installation. | New subprocess tests failed before the change and pass afterward. Help/search import none of those module families. Existing CLI tests retain exact pins, version-2 manifests, scaffold behavior, and catalog filtering. |
 | S3 and PostgreSQL stores duplicated the same 14-field durable-identity comparison. A future change could update only one implementation. | Put `same_run_identity` beside the `RunStore` contract and remove the duplicated implementations and redundant run-ID checks. | Both backend tests reject a changed plan revision, retain the original stored snapshot, and still accept lifecycle transitions with conditional revisions. |
+| Protected CI found 20 published dependency advisories in the existing lockfile. | Update only AnyIO 4.14.1 → 4.14.2, urllib3 2.7.0 → 2.8.0, PyJWT 2.13.0 → 2.15.1, and OAuthLib 3.3.1 → 4.0.0. Raise Dander's direct PyJWT minimum to 2.15.1. | The strict audit of the exported `runtime-all` requirements reports no known vulnerabilities; 139 authentication and ingestion tests passed with the updates. |
 
-No dependency, schema, provider payload, or connector package pin changed.
+No new dependency, schema, provider payload, or connector package pin was introduced. The four
+dependency updates address the audit findings; they do not imply that every advisory was exploitable
+through Dander. The failing audit is retained in [the initial PR run](https://github.com/harrisonoconnorhover/dander/actions/runs/36795849992).
+
+Compatibility review used the upstream [AnyIO advisory](https://github.com/agronholm/anyio/security/advisories/GHSA-82r6-8w77-94w6),
+[urllib3 release notes](https://github.com/urllib3/urllib3/releases/tag/2.8.0),
+[PyJWT release](https://github.com/jpadilla/pyjwt/releases/tag/2.15.1), and
+[OAuthLib release notes](https://github.com/oauthlib/oauthlib/releases/tag/v4.0.0).
+OAuthLib's documented breaking changes concern server grant validation and token revocation;
+Dander receives it through the Google authentication client's dependency chain. Dander's OIDC
+decoder already supplies fresh verification options on every call.
 
 ## Existing protections confirmed
 
