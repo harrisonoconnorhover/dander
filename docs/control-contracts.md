@@ -3,6 +3,11 @@
 Published client baseline: Dander `0.9.0rc19`. The current source bundle also contains unreleased
 additions described below; their presence in this checkout does not publish a new client artifact.
 
+RC33 prepares those additions for a GitHub integration prerelease. Its bundle SHA-256 is
+`a28316b7e5158e0520fe1c24d59885083714f47b67aa396892fa9742060fb279`.
+Consumers must wait for the verified release wheel and pin its separate SHA-256 as well as this
+bundle digest. This candidate does not change the public PyPI beta or qualify a runtime profile.
+
 Dander is the authority for data crossing the future Control API boundary. The deterministic
 `io.dander.control.contracts/v1` bundle lives in `src/dander/control/contracts/v1` and is included
 in the `dander-platform` wheel and source distribution. Druff must generate its client from a

@@ -17,6 +17,7 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 - Strict typing passed across 516 files; Ruff, generated contracts, distribution installation, infrastructure validation, and container/secret scans passed.
 - Exact-main CI passed for preview/explanation at `099fb52` and for repair at [`79aa1cb`](https://github.com/harrisonoconnorhover/dander/actions/runs/36849004513).
 - No live repair workload or paid qualification ran.
+- RC33 preparation: 4 release metadata tests, Ruff lint/format, metadata consistency, and contract drift checks passed; lockfile dependencies stayed fixed.
 
 ## Decisions
 
@@ -26,10 +27,10 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 
 ## Remaining
 
-- Complete the bounded live repair check after the existing AWS billing session is restored; current aggregate cash exposure is unverified.
-- Integrate Druff's guided flow once the requested repository exception is answered.
-- Publish and consume the matching immutable contract/runtime artifacts; the complete guided journey is not delivered yet.
-- Curated connector releases await their requested repository exception; advertised Salesforce/ServiceNow pins still target Dander 0.7.
+- Complete current aggregate billing reconciliation and bounded live repair; AWS sign-in now works.
+- Finish Druff's guided flow. The user approved its repository work and protected delivery.
+- Publish and consume the verified RC33 GitHub integration candidate after protected merge and exact-main CI; public PyPI RC20 stays unchanged.
+- Finish the approved Salesforce/ServiceNow compatibility releases; advertised pins still target Dander 0.7.
 
 ## Review First
 

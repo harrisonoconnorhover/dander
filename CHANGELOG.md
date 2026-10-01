@@ -6,6 +6,8 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc33 — 2026-10-01 (integration candidate)
+
 ### Changed
 
 - The base installation and `postgres` extra no longer install Google/BigQuery SDKs. Install
@@ -16,9 +18,21 @@ capabilities enter through the next minor release.
 
 ### Added
 
+- Read-only graph change previews and deterministic explanations of recorded run outcomes.
+- Date-scoped output repair from retained raw data for single-task Cloud Run and BigQuery,
+  preserving source extraction progress and rows outside the selected UTC date interval.
+- Versioned preview, explanation, and repair contracts for the guided Druff integration.
 - Let one always-on AWS-hosted Control select immutable AWS Fargate/Redshift or GCP Cloud
   Run/BigQuery execution plans through the same run API and durable lifecycle, using keyless
   AWS-to-Google workload identity while preserving direct single-container execution.
+
+### Known limitations
+
+- RC33 is a GitHub integration candidate for matching consumer contracts and qualification.
+  It does not promote the public PyPI beta beyond RC20 or close the Phase 8 support gates.
+- Repair requires existing partitioned outputs with scalar business keys. Publication is atomic
+  per output; earlier outputs can remain committed if a later output fails. Retained raw data
+  is current data, not a historical snapshot. Live repair qualification remains outstanding.
 
 ## 0.9.0rc32 — 2026-08-23 (beta)
 
