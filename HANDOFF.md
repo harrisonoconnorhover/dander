@@ -18,6 +18,7 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 - Exact-main CI passed for preview/explanation at `099fb52` and for repair at [`79aa1cb`](https://github.com/harrisonoconnorhover/dander/actions/runs/36849004513).
 - No live repair workload or paid qualification ran.
 - RC33 preparation: 4 release metadata tests, Ruff lint/format, metadata consistency, and contract drift checks passed; lockfile dependencies stayed fixed.
+- CI exposed 5 historical Redshift fixture failures after the version bump. Fixtures now explicitly bind RC32; all 32 focused benchmark/metadata tests pass. Candidate CI must rerun.
 
 ## Decisions
 

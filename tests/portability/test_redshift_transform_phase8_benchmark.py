@@ -16,7 +16,6 @@ from scripts.benchmarks import redshift as shared
 from scripts.benchmarks import redshift_bulk_phase8 as bulk
 from scripts.benchmarks import redshift_transform_phase8 as transform
 
-from dander import __version__
 from dander.providers.redshift.transform import RedshiftTransformRunner
 from dander.qualification import ApprovedCostCeiling, ApprovedObjectiveSet, BenchmarkClass
 from dander.telemetry import OperationTelemetry, TelemetryOperation
@@ -29,6 +28,8 @@ if TYPE_CHECKING:
     from dander.warehouse import WarehouseRuntime
 
 
+# These fixtures exercise the historical RC32 launcher contract.
+_RELEASE_VERSION = "0.9.0rc32"
 _COMMIT = "b" * 40
 _DIGEST = f"sha256:{'a' * 64}"
 _REFERENCE = "codex-goal-phase8-redshift-transform"
@@ -52,7 +53,7 @@ def _config(**overrides: object) -> transform.RedshiftTransformConfig:
 
 def _identity() -> transform.CandidateIdentity:
     return transform.CandidateIdentity(
-        release_version=__version__,
+        release_version=_RELEASE_VERSION,
         git_commit=_COMMIT,
         image_digest=_DIGEST,
         approval_reference=_REFERENCE,
@@ -70,7 +71,7 @@ def _approval(config: transform.RedshiftTransformConfig) -> transform._Approval:
             names=transform._OBJECTIVES,
             benchmark_class=BenchmarkClass.TRANSFORM,
             profile_id="aws_native_redshift",
-            release_version=__version__,
+            release_version=_RELEASE_VERSION,
             git_commit=_COMMIT,
             image_digest=_DIGEST,
             configuration_sha256=config.configuration_sha256(),
@@ -168,7 +169,7 @@ def _manifest(config: transform.RedshiftTransformConfig) -> dict[str, object]:
             "names": list(transform._OBJECTIVES),
             "benchmark_class": BenchmarkClass.TRANSFORM.value,
             "profile_id": "aws_native_redshift",
-            "release_version": __version__,
+            "release_version": _RELEASE_VERSION,
             "git_commit": _COMMIT,
             "image_digest": _DIGEST,
             "configuration_sha256": config.configuration_sha256(),
