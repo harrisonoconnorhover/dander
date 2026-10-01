@@ -2,8 +2,8 @@
 
 ## Finished
 
-- Merged read-only graph change preview and recorded run explanations through protected PR #547.
-- Implemented selected-date output repair from retained raw data with single-task Cloud Run and BigQuery.
+- Merged read-only graph change preview and recorded run explanations through [PR #547](https://github.com/harrisonoconnorhover/dander/pull/547).
+- Merged selected-date output repair from retained raw data with single-task Cloud Run and BigQuery through [PR #548](https://github.com/harrisonoconnorhover/dander/pull/548).
 - Reused durable run identity, cancellation, history, replay, lease fencing, and conditional cleanup.
 - Added preview/start contracts, publication measurements, and operator documentation with explicit support limits.
 
@@ -13,10 +13,10 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 
 ## Checks
 
-- Full local run: 2,429 passed, 56 skipped; all 28 loopback-server failures passed on retry with socket permission. The additional explanation test passed in its 17-test file.
-- Focused Control/runtime/executor/deployment selection: 538 passed, 21 skipped.
-- Strict typing passed across 516 files; Ruff lint/format, generated contracts, and diff checks passed.
-- PR #547 protected CI passed and merged as `099fb52`; exact-main CI is running. Repair protected CI and live provider qualification remain pending.
+- Repair protected CI: **2,515 tests passed**, including PostgreSQL; one existing test-client deprecation warning.
+- Strict typing passed across 516 files; Ruff, generated contracts, distribution installation, infrastructure validation, and container/secret scans passed.
+- Preview/explanation exact-main CI passed at `099fb52`. Repair exact-main CI at `79aa1cb` is [tracked here](https://github.com/harrisonoconnorhover/dander/actions/runs/36849004513) and remains pending at this update.
+- No live repair workload or paid qualification ran.
 
 ## Decisions
 
@@ -26,7 +26,7 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 
 ## Remaining
 
-- Complete the repair protected PR, merge, and exact-main CI.
+- Verify repair exact-main CI.
 - Complete the bounded live repair check after the existing AWS billing session is restored; current aggregate cash exposure is unverified.
 - Integrate Druff's guided flow once the requested repository exception is answered.
 - Publish and consume the matching immutable contract/runtime artifacts; the complete guided journey is not delivered yet.
