@@ -1,14 +1,14 @@
 # Dander Control contract bundle
 
-Published client baseline: Dander `0.9.0rc19`. The current source bundle also contains unreleased
-additions described below; their presence in this checkout does not publish a new client artifact.
-
-RC33 prepares those additions for a GitHub integration prerelease. Its bundle SHA-256 is
+The [RC34 GitHub integration prerelease](https://github.com/harrisonoconnorhover/dander/releases/tag/v0.9.0rc34)
+publishes the current contract additions. Its bundle SHA-256 is
 `a28316b7e5158e0520fe1c24d59885083714f47b67aa396892fa9742060fb279`.
-Consumers must wait for the verified release wheel and pin its separate SHA-256 as well as this
-bundle digest. This candidate does not change the public PyPI beta or qualify a runtime profile.
+The wheel SHA-256 is `d37c1d91c15cca9ce3d080af6dec384f7cd9cbc521dea253e10dc44772d35bad`.
+Both digests are pinned by the paired Druff candidate. See [guided workflow](guided-workflow.md)
+for the exact source, installation, and verification record. Public PyPI remains RC20; the
+historical RC19 client baseline and its original publication evidence are preserved below.
 
-Dander is the authority for data crossing the future Control API boundary. The deterministic
+Dander is the authority for data crossing the Control API boundary. The deterministic
 `io.dander.control.contracts/v1` bundle lives in `src/dander/control/contracts/v1` and is included
 in the `dander-platform` wheel and source distribution. Druff must generate its client from a
 separately approved, immutable Dander release artifact; it must not copy these files from a source
@@ -198,8 +198,8 @@ date-range repair; replaying a repair run retains its recorded date window.
 Neither operation requires provider-specific browser logic or a new service dependency.
 
 Editors can request change previews; viewers can read run explanations when a lifecycle is wired.
-Regenerate consumers from the immutable producer artifact after its release. The guided Druff
-surface is separate work, not delivered by these two routes. Current source also exposes
+The [paired Druff candidate](guided-workflow.md) consumes these routes through contracts generated
+from the exact published RC34 wheel. That bundle also exposes
 `graph.repair-preview` and `run.repair` for eligible execution plans; see
 [selected output date repair](output-repair.md) for the request, supported scope, and evidence limits.
 

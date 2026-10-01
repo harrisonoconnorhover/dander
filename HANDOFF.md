@@ -2,41 +2,39 @@
 
 ## Finished
 
-- Merged read-only graph change preview and recorded run explanations through [PR #547](https://github.com/harrisonoconnorhover/dander/pull/547).
-- Merged selected-date output repair from retained raw data with single-task Cloud Run and BigQuery through [PR #548](https://github.com/harrisonoconnorhover/dander/pull/548).
-- Reused durable run identity, cancellation, history, replay, lease fencing, and conditional cleanup.
-- Added preview/start contracts, publication measurements, and operator documentation with explicit support limits.
-- Published and verified Salesforce `0.3.2` and ServiceNow `0.2.3`; merged the matching catalog, starter, and documentation through PR #550.
+- Published immutable RC34 Control with graph previews, recorded explanations, and selected-date repair; verified the paired RC33 worker image.
+- Published Salesforce `0.3.2` and ServiceNow `0.2.3` with corrected compatibility and current catalog/starter pins.
+- Published Druff `0.2.0-rc.1` after protected PR #25 and exact-main checks, generated from the exact published RC34 wheel. Its guided configure → preview → save/run → understand/recover flow is ready for the documented hosted setup.
+- Completed a distinct native BigQuery/Cloud Run repair and actual Druff client observation; cleaned both temporary proof environments.
+- Updated the setup guide, connector documentation, support boundaries, and delivery records.
 
 ## Try It
 
-Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`. Preview a saved graph's UTC date interval with its `If-Match` ETag, then start `/repairs` with the same revision and an `Idempotency-Key`. A repair-capable runtime and existing partitioned outputs are required. Published clients do not yet expose this flow.
+Follow the [guided workflow guide](docs/guided-workflow.md) for the exact RC34 Control wheel, RC33 worker, and hosted Druff setup. Use the configured OIDC deployment and matching bootstrap descriptor. Preview changes, save the reviewed revision, then run it. Repair's end date is excluded.
 
 ## Checks
 
-- Repair protected CI: **2,515 tests passed**, including PostgreSQL; one existing test-client deprecation warning.
-- Strict typing passed across 516 files; Ruff, generated contracts, distribution installation, infrastructure validation, and container/secret scans passed.
-- Exact-main CI passed for preview/explanation at `099fb52` and for repair at [`79aa1cb`](https://github.com/harrisonoconnorhover/dander/actions/runs/36849004513).
-- No live repair workload or paid qualification ran.
-- RC33 preparation: 4 release metadata tests, Ruff lint/format, metadata consistency, and contract drift checks passed; lockfile dependencies stayed fixed.
-- CI exposed 5 historical Redshift fixture failures after the version bump. Fixtures now explicitly bind RC32; all 32 focused benchmark/metadata tests pass. Candidate CI must rerun.
-- PR #550 passed combined protected CI. A follow-up explicitly includes installed prereleases when checking compatibility; the catalog suite also runs against the declared minimum `packaging` version in CI.
+- Backend exact-main [CI 36874195042](https://github.com/harrisonoconnorhover/dander/actions/runs/36874195042) passed: 2,528 tests, 516 strictly typed files, Ruff, contracts, distribution, infrastructure, container and secret checks. One existing test-client deprecation warning remains.
+- Public wheel bytes and GitHub attestations verified; fresh installation checked all 45 contract files. Published connector packages passed 93 Salesforce and 23 ServiceNow tests against RC34, plus earlier supported-version checks.
+- RC33 worker startup/shutdown, provider imports, vulnerability scan, and anonymous digest pull passed. Local secret-pattern matches were verified Oracle SDK examples.
+- Druff passed 685 unit tests, nine artifact tests, 11 browser journeys, RC34 HTTP acceptance, and the real native-run client observation. Browser OIDC/API fixtures were synthetic.
+- Druff exact-main [CI 36877515144](https://github.com/harrisonoconnorhover/druff/actions/runs/36877515144) passed, including both architecture scans and build reproducibility.
+- Published Druff image bytes matched the verified OCI index through anonymous registry access; both architectures passed source-free, non-root, read-only runtime and scan checks. Existing active/rollback aliases were preserved.
+- Native repair recorded two rows written, four affected, and zero ingestion rows; surrounding/raw data and watermark unchanged, one execution, original Job restored. Cloud cleanup passed before its deadline; local databases, processes, watchdogs, and task credentials were removed.
 
 ## Decisions
 
-- Preview stays read-only; explanations use collected evidence and retain unknown measurements.
-- Repair leaves source extraction progress untouched and replaces only the selected dates, atomically per output.
-- Deliver one guided workflow in Druff; additional providers and broader graph execution are separate work.
+- Measurements come from recorded results; missing values stay Unknown.
+- Repair uses currently retained raw data and commits per output.
+- Deliver an experimental matched candidate; public PyPI remains RC20.
 
 ## Remaining
 
-- Complete current aggregate billing reconciliation and bounded live repair; AWS sign-in now works.
-- Finish Druff's guided flow. The user approved its repository work and protected delivery.
-- Publish and consume the verified RC33 GitHub integration candidate after protected merge and exact-main CI; public PyPI RC20 stays unchanged.
-- Complete the protected prerelease comparison fix and final RC33 combined package check. Both connector releases are published and their downloaded wheels passed the existing 93 Salesforce and 23 ServiceNow tests.
+- Production identity-provider, scale, additional-provider, and broader release gates remain separate.
+- Keep the USD 1 proof reservation within the USD 21 October aggregate while billing settles.
 
 ## Review First
 
-- `src/dander/providers/bigquery/graph.py` and `tests/pipeline/test_date_repair.py` for scoped publication.
-- `src/dander/control/cloud_run_execution_backend.py` for execution binding and cleanup.
-- `docs/output-repair.md` for practical behavior and limitations.
+- [Exact artifacts and guided setup](docs/guided-workflow.md)
+- [Repair behavior and limits](docs/output-repair.md)
+- [Druff PR #25](https://github.com/harrisonoconnorhover/druff/pull/25)

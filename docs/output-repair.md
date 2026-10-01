@@ -1,8 +1,8 @@
 # Repair selected output dates
 
-Current source implements date-scoped output repair for direct Cloud Run execution with a
-BigQuery warehouse. It rebuilds selected dates from the raw data **already stored** in the
-warehouse. It does not fetch source records, advance ingestion progress, or reconstruct a past
+The [guided workflow candidate](guided-workflow.md) includes date-scoped output repair for direct
+Cloud Run execution with a BigQuery warehouse. It rebuilds selected dates from the raw data
+**already stored** in the warehouse. It does not fetch source records, advance ingestion progress, or reconstruct a past
 source snapshot. The published RC19/RC20 client/runtime pair does not include this operation.
 
 ## Preview, then start
@@ -56,6 +56,15 @@ the base Job settings after terminal repair while they still belong to that repa
 
 Local checks cover date boundaries, unchanged surrounding rows, collision rejection, transaction
 rollback, lease fencing, no source/watermark access, replay identity, and Cloud Run adoption and
-cleanup. The row checks execute translated predicates against SQLite; they do not establish live
-BigQuery or Cloud Run qualification. A bounded synthetic live check and the paired Druff interface
-remain required before claiming the complete guided workflow is delivered.
+cleanup. The original local row checks execute translated predicates against SQLite.
+
+On October 1, the published RC34 Control wheel and RC33 worker completed one distinct synthetic
+Cloud Run/BigQuery repair for September 10 through September 11. Control recorded two rows written,
+four rows affected, and zero ingestion rows. The surrounding output rows, retained raw data, and
+watermark stayed unchanged; temporary stages were absent, the original Job settings were restored,
+and repeated submission returned the same run with one native execution. A separate direct
+transaction check rejected a crossing key without changing the output. Exact artifacts and the
+paired client evidence are recorded in [guided workflow](guided-workflow.md).
+
+This proves the named small synthetic shape. It does not establish production source correctness,
+large-table cost, other warehouse backends, or transactions spanning multiple outputs.

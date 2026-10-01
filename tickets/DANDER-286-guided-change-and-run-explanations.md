@@ -1,7 +1,7 @@
 ---
 id: DANDER-286
 title: Explain unsaved graph changes and recorded run outcomes
-status: in-code
+status: done
 component: python
 depends_on: []
 created: 2026-10-01
@@ -37,3 +37,10 @@ passed across 513 files. Ruff and generated contract drift checks passed.
 [PR #547](https://github.com/harrisonoconnorhover/dander/pull/547) merged as `099fb52` after
 protected CI passed. Its [exact-main CI](https://github.com/harrisonoconnorhover/dander/actions/runs/36847441914)
 also passed. The paired guided interface remains outside this backend ticket's completion claim.
+
+## Review Log
+
+October 1: PASS against the backend acceptance criteria. The immutable RC34 producer contains
+the published contract bundle, and [Druff PR #25](https://github.com/harrisonoconnorhover/druff/pull/25)
+merged the generated client and guided interface. The [integration record](../docs/guided-workflow.md)
+identifies the exact releases and keeps the historical backend-only verification above intact.

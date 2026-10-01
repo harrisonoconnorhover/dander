@@ -1,7 +1,7 @@
 ---
 id: DANDER-287
 title: Repair selected output dates from retained raw data
-status: in-code
+status: done
 component: python
 depends_on: [DANDER-286]
 created: 2026-10-01
@@ -21,8 +21,8 @@ bounded operation to the existing Control lifecycle and direct BigQuery graph ru
 - [x] Reject incompatible backends and older runtimes before pipeline work.
 - [x] Reconcile terminal Job cleanup without overwriting a newer deployment or launch.
 - [x] Explain measured publication counts separately from the zero ingestion counts.
-- [ ] Verify a bounded synthetic BigQuery and Cloud Run run from an immutable current artifact.
-- [ ] Publish the paired contract artifact and integrate the guided Druff controls.
+- [x] Verify a bounded synthetic BigQuery and Cloud Run run from an immutable current artifact.
+- [x] Publish the paired contract artifact and integrate the guided Druff controls.
 
 ## Verification and boundary
 
@@ -41,3 +41,17 @@ Row-level tests execute the generated predicates through a narrow SQLite transla
 not live BigQuery proof. Current raw data is recompiled, so staging can scan outside the selected
 dates. Existing outputs are required; earlier outputs remain published if a later output fails.
 See [output repair](../docs/output-repair.md) for operator instructions and compatibility.
+
+## Review Log
+
+October 1: PASS against the remaining artifact and native acceptance criteria. The first RC33
+native run completed its data work but exposed the resolved-image reconciliation defect corrected
+in protected [PR #552](https://github.com/harrisonoconnorhover/dander/pull/552). The original proof
+was cleaned up on time; its accepted data operation was not repeated.
+
+The distinct `run-ec3ecadaeb48d3cca4ccf537` used the published RC34 Control wheel and immutable
+RC33 worker. Control recorded two output rows written, four affected, and zero ingestion rows;
+surrounding data, raw data, and the watermark were unchanged. One native execution, same-key
+identity, restored Job settings, collision rejection, and cleanup all passed. Druff's production
+client observed the completed run and explanation; its guided controls merged through PR #25.
+See the [integration record](../docs/guided-workflow.md) for artifact identities, times, and scope.
