@@ -29,6 +29,7 @@ from dander.control.orchestration import (
     StoredRun,
     StoredRunPage,
     run_needs_reconciliation,
+    same_run_identity,
 )
 from dander.control.orchestration_serialization import (
     OrchestrationSerializationError,
@@ -175,7 +176,7 @@ class PostgreSQLRunStore:
 
     def save(self, stored: StoredRun, record: RunRecord) -> StoredRun:
         """Replace one snapshot only when its opaque revision still matches durable state."""
-        if record.run_id != stored.record.run_id or not _same_run_identity(stored.record, record):
+        if not same_run_identity(stored.record, record):
             raise RunStoreConflictError("A run snapshot cannot change its durable identity.")
         expected_revision = _checked_revision(stored.revision)
         next_revision = _checked_revision(self._revision_factory())
@@ -447,40 +448,6 @@ def _attempt_from_row(
             "The PostgreSQL attempt record contradicts its indexed identity."
         )
     return attempt
-
-
-def _same_run_identity(first: RunRecord, second: RunRecord) -> bool:
-    return (
-        first.run_id,
-        first.environment,
-        first.project,
-        first.graph,
-        first.graph_revision,
-        first.graph_content_sha256,
-        first.plan_id,
-        first.plan_revision,
-        first.trigger,
-        first.idempotency_key_sha256,
-        first.submission_sha256,
-        first.requested_at,
-        first.requested_deadline_seconds,
-        first.created_at,
-    ) == (
-        second.run_id,
-        second.environment,
-        second.project,
-        second.graph,
-        second.graph_revision,
-        second.graph_content_sha256,
-        second.plan_id,
-        second.plan_revision,
-        second.trigger,
-        second.idempotency_key_sha256,
-        second.submission_sha256,
-        second.requested_at,
-        second.requested_deadline_seconds,
-        second.created_at,
-    )
 
 
 def _canonical_mutation_result(value: object) -> bytes:

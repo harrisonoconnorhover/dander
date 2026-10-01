@@ -266,6 +266,10 @@ def test_postgresql_run_store_conforms_across_restart(
     with pytest.raises(RunStoreIdempotencyConflictError):
         restarted.claim(replace(first, submission_sha256="c" * 64))
 
+    with pytest.raises(RunStoreConflictError, match="durable identity"):
+        restarted.save(claimed.stored, replace(first, plan_revision="f" * 64))
+    assert restarted.get(first.run_id) == claimed.stored
+
     canceling = transition_run(
         claimed.stored.record,
         HostedRunState.CANCELING,
