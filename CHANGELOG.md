@@ -18,8 +18,9 @@ capabilities enter through the next minor release.
 
 ### Compatibility
 
-- The Control contract bundle and native repair protocol are unchanged. This Control candidate
-  can recover the accepted RC33 runtime execution without submitting its data work again.
+- The Control contract bundle and native repair protocol are unchanged; RC34 Control uses the
+  verified RC33 worker. The original proof was cleaned up on its deadline. A distinct synthetic
+  fixture qualified the correction without repeating that accepted data operation.
 - Public PyPI remains RC20. The fixed GitHub wheel and named runtime/client artifacts form an
   experimental integration; broader qualification and support gates remain open.
 

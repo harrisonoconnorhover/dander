@@ -47,6 +47,7 @@ workflow artifact is reviewed.
 Operator-facing documentation:
 
 - [Current implementation and support status](docs/support-status.md)
+- [Guided workflow integration candidate](docs/guided-workflow.md)
 - [Control startup profiles and PostgreSQL storage](docs/control-profiles.md)
 - [Hosted Greenhouse quickstart](https://github.com/harrisonoconnorhover/dander/blob/main/docs/getting-started.md)
 - [Experimental AWS-native Fargate runbook](https://github.com/harrisonoconnorhover/dander/blob/main/docs/aws-native-profile.md)

@@ -13,7 +13,7 @@ plugins:
     version: 0.2.3
 ```
 
-This package accepts Dander `>=0.5.0,<0.10`, including the public RC20 beta and RC33 integration
+This package accepts Dander `>=0.5.0,<0.10`, including the public RC20 beta and RC34 integration
 candidate. Run `dander plugins install` and `dander validate`, then rebuild the runtime image.
 See [connector discovery](connector-plugins.md#discover-curated-connectors) for the distinction
 between package compatibility and live provider evidence.

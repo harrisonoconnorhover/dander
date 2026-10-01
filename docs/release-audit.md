@@ -27,6 +27,23 @@ cloud path remains outside the live proof.
 
 ## Current release and deployment record
 
+- The October 1 [RC34 integration candidate](guided-workflow.md) is published as an immutable
+  GitHub prerelease from protected source `6964d63f4e9e8eab15ce63e4a1c65efb5268c2d0`. Exact-main
+  CI passed; public wheel bytes and GitHub release attestations matched the verified distributions.
+  Its fresh installed environment verified all 45 contract files. The released Salesforce `0.3.2`
+  and ServiceNow `0.2.3` packages passed their combined 116 tests with this published wheel.
+  RC34 is not published to PyPI and does not close the broader Phase 8 release gates.
+- RC33's first native repair completed its data work but exposed a Control reconciliation bug
+  when Cloud Run resolved an OCI index to its AMD64 image. Protected PR #552 corrected that
+  relationship check in RC34; its exact-main CI passed 2,528 tests and 516 strictly typed files.
+  The verified RC33 worker remains the paired runtime because its execution protocol did not
+  change. Use the RC34 wheel, rather than that worker image, to start Control.
+- Druff `0.2.0-rc.1` was published from protected source
+  `eabceb21d7b1b38fcbccdf34f07772e89ea52f6a` after exact-main CI passed. Its verified OCI index
+  `sha256:6aade12c399a67c604577e4a022af6dff22db7764626dd9a7a4f5cea1a2ceac1` was copied without
+  rebuilding and verified anonymously; active/rollback aliases were preserved. The distinct
+  RC34 Control repair and actual Druff client observation passed, followed by complete bounded
+  cleanup. [Guided workflow](guided-workflow.md) records the exact pairing and proof limits.
 - Public Dander beta: `0.9.0rc20`; public Salesforce connector: `0.3.2`; public ServiceNow connector:
   `0.2.3`. The October 1 connector releases widen package compatibility through Dander 0.9 with
   clean-install behavior checks; the historical live evidence below keeps its recorded versions.
