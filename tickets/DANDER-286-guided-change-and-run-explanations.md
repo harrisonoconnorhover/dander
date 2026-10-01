@@ -33,3 +33,7 @@ real date-scoped output repair remain follow-on work.
 
 Focused comparison, explanation, HTTP, OIDC, and contract tests passed. Canonical strict typing
 passed across 513 files. Ruff and generated contract drift checks passed.
+
+[PR #547](https://github.com/harrisonoconnorhover/dander/pull/547) merged as `099fb52` after
+protected CI passed. Its [exact-main CI](https://github.com/harrisonoconnorhover/dander/actions/runs/36847441914)
+also passed. The paired guided interface remains outside this backend ticket's completion claim.
