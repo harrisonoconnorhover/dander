@@ -6,6 +6,7 @@
 - Isolated plugin commands so help and catalog search avoid bootstrap, deployment, and provider modules.
 - Shared the existing durable-run identity rule between S3 and PostgreSQL, with storage behavior preserved.
 - Updated four dependencies after protected CI identified 20 published advisories; the strict runtime dependency audit is now clean locally.
+- Refreshed four inherited system packages in runtime/starter Dockerfiles after 13 container findings; the updated OS layer passes a local vulnerability scan.
 
 ## Try It
 
@@ -16,6 +17,7 @@ Run `uv run dander plugins --help` and `uv run dander plugins search incident`. 
 - Full suite with disposable local PostgreSQL 17: **2,419 passed**, one existing Starlette/httpx deprecation warning.
 - Focused CLI/storage/lifecycle suite: **75 passed**; final CLI test-import adjustment: **10 passed**.
 - Updated dependencies: **139 authentication/ingestion tests passed**; strict `runtime-all` dependency audit reports **no known vulnerabilities**.
+- Runtime OS layer: linux/amd64 build and patched-package inspection passed; Trivy found **zero fixable high/critical findings**. Scaffold/release/import checks: **15 passed**.
 - Ruff lint/format, canonical strict typing (**509 files**), Control contract drift, documentation links, and diff checks passed.
 - Compared moved command bodies and identity comparisons structurally against the original code; behavior-bearing expressions match. Protected CI and merge results are available on the task's attached quality-review PR.
 

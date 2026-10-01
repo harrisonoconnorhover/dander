@@ -26,14 +26,18 @@ RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
         libpq5 \
         bsdutils \
+        gzip \
         libblkid1 \
         liblastlog2-2 \
         libmount1 \
+        libpcre2-8-0 \
         libsmartcols1 \
+        libsqlite3-0 \
         libuuid1 \
         login \
         mount \
         openssl \
+        perl-base \
         util-linux \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv==0.12.0

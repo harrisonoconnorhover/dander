@@ -26,6 +26,7 @@ reading; it is not a line-by-line review of every file or new live-cloud qualifi
 | `plugins search` loaded 13 bootstrap, 3 deployment, and 55 provider modules via the root CLI. Offline discovery depended on unrelated command code. | Move install/scaffold/search into `cli/plugins_command.py`; dispatch the plugin group directly and load project configuration only for installation. | New subprocess tests failed before the change and pass afterward. Help/search import none of those module families. Existing CLI tests retain exact pins, version-2 manifests, scaffold behavior, and catalog filtering. |
 | S3 and PostgreSQL stores duplicated the same 14-field durable-identity comparison. A future change could update only one implementation. | Put `same_run_identity` beside the `RunStore` contract and remove the duplicated implementations and redundant run-ID checks. | Both backend tests reject a changed plan revision, retain the original stored snapshot, and still accept lifecycle transitions with conditional revisions. |
 | Protected CI found 20 published dependency advisories in the existing lockfile. | Update only AnyIO 4.14.1 → 4.14.2, urllib3 2.7.0 → 2.8.0, PyJWT 2.13.0 → 2.15.1, and OAuthLib 3.3.1 → 4.0.0. Raise Dander's direct PyJWT minimum to 2.15.1. | The strict audit of the exported `runtime-all` requirements reports no known vulnerabilities; 139 authentication and ingestion tests passed with the updates. |
+| The runtime image scan found 13 high/critical advisories in inherited Debian packages. | Add `gzip`, `libpcre2-8-0`, `libsqlite3-0`, and `perl-base` to the existing package-refresh step in the runtime and starter Dockerfiles. | Built the actual runtime OS layer for linux/amd64 and confirmed patched package versions. Trivy reports zero fixable high/critical findings in that layer; 15 scaffold, release-metadata, and import-isolation tests pass. Full image checks remain part of protected CI. |
 
 No new dependency, schema, provider payload, or connector package pin was introduced. The four
 dependency updates address the audit findings; they do not imply that every advisory was exploitable
@@ -68,5 +69,6 @@ decoder already supplies fresh verification options on every call.
 - Changed-path validation: 75 plugin CLI, console dispatch, S3/PostgreSQL storage, and lifecycle
   tests passed. The new import tests demonstrated the pre-change coupling before passing.
 - Final full-suite and protected CI results are recorded in the handoff and pull request.
+- The full 2,419-test suite and strict typing passed again after the Python dependency updates.
 - The baseline and focused runs emitted one existing Starlette/httpx test-client deprecation
   warning. No live provider workload was submitted by this review.
