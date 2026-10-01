@@ -15,6 +15,7 @@ from contextlib import suppress
 from copy import deepcopy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, cast
+from urllib.parse import quote
 
 from dander.control.execution_results import (
     ExecutionResultCollectionError,
@@ -504,16 +505,15 @@ class CloudRunExecutionBackend:
         if execution.get("name") != resource or execution.get("job") != binding.job_name:
             raise ExecutionBackendError("Cloud Run returned an unexpected execution.")
 
-    @classmethod
     def _validate_submission_execution(
-        cls,
+        self,
         plan: ExecutionPlan,
         binding: CloudRunBinding,
         execution: Mapping[str, object],
         resource: str,
         repair_payload: str | None,
     ) -> None:
-        cls._validate_execution(binding, execution, resource)
+        self._validate_execution(binding, execution, resource)
         task = execution.get("template")
         containers = task.get("containers") if isinstance(task, Mapping) else None
         container = containers[0] if isinstance(containers, list) and len(containers) == 1 else None
@@ -521,13 +521,62 @@ class CloudRunExecutionBackend:
             not isinstance(task, Mapping)
             or not isinstance(container, Mapping)
             or task.get("serviceAccount") != binding.runtime_service_account
-            or container.get("image") != plan.image
             or container.get("args") != _execution_arguments(plan, repair_payload)
+            or not self._execution_image_matches(plan.image, container.get("image"))
         ):
             raise ExecutionBackendError(
                 "The Cloud Run execution does not match its immutable execution plan."
             )
         _require_repair_payload(task, repair_payload, _execution_arguments(plan, repair_payload))
+
+    def _execution_image_matches(self, expected: str, actual: object) -> bool:
+        if actual == expected:
+            return True
+        if (
+            not isinstance(actual, str)
+            or _ARTIFACT_IMAGE.fullmatch(actual) is None
+            or actual.rpartition("@")[0] != expected.rpartition("@")[0]
+        ):
+            return False
+        # Cloud Run resolves a configured OCI index to its Linux/AMD64 manifest.
+        # Verify that relationship against the accepted index, never a mutable tag.
+        parts = expected.split("/", maxsplit=3)
+        if len(parts) != 4:
+            return False
+        registry, project, repository, image = parts
+        region = registry.removesuffix("-docker.pkg.dev")
+        resource = (
+            f"projects/{project}/locations/{region}/repositories/{repository}/"
+            f"dockerImages/{quote(image, safe='')}"
+        )
+        try:
+            metadata = self._request_json(
+                "read image",
+                "GET",
+                f"https://artifactregistry.googleapis.com/v1/{resource}",
+                expected=(200,),
+            )
+        except _GoogleCallError as error:
+            raise ExecutionBackendError("Cloud Run image identity lookup failed.") from error
+        manifests = metadata.get("imageManifests")
+        if (
+            metadata.get("uri") != expected
+            or metadata.get("mediaType")
+            not in (
+                "application/vnd.oci.image.index.v1+json",
+                "application/vnd.docker.distribution.manifest.list.v2+json",
+            )
+            or not isinstance(manifests, list)
+        ):
+            return False
+        selected = [
+            item
+            for item in manifests
+            if isinstance(item, Mapping)
+            and item.get("os") == "linux"
+            and item.get("architecture") == "amd64"
+        ]
+        return len(selected) == 1 and selected[0].get("digest") == actual.rpartition("@")[2]
 
     def _request_json(
         self,

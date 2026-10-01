@@ -40,6 +40,11 @@ REGION = "us-central1"
 JOB = "dander-hosted-graph"
 PIPELINE = "hosted_graph"
 IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/dander/runtime@sha256:" + "b" * 64
+RESOLVED_IMAGE = IMAGE.replace("b" * 64, "d" * 64)
+IMAGE_METADATA_URL = (
+    f"https://artifactregistry.googleapis.com/v1/projects/{PROJECT}/locations/{REGION}/"
+    "repositories/dander/dockerImages/runtime%40sha256%3A" + "b" * 64
+)
 NOW = datetime(2026, 8, 26, 18, tzinfo=UTC)
 
 
@@ -92,6 +97,8 @@ class _Transport:
     executions: dict[str, dict[str, object]] = field(default_factory=dict)
     calls: list[tuple[str, str, dict[str, object]]] = field(default_factory=list)
     log_response: dict[str, object] = field(default_factory=dict)
+    image_metadata: dict[str, object] = field(default_factory=dict)
+    image_status: int = 200
     lose_patch_response: bool = False
     reject_restore: bool = False
     supersede_before_restore: bool = False
@@ -101,6 +108,8 @@ class _Transport:
 
     def request(self, method: str, url: str, **kwargs: object) -> _Response:
         self.calls.append((method, url, dict(kwargs)))
+        if method == "GET" and url == IMAGE_METADATA_URL:
+            return _Response(self.image_status, self.image_metadata)
         if url.endswith("/entries:list"):
             if self.fail_log_read:
                 raise OSError("provider transport secret")
@@ -356,6 +365,95 @@ def _execution_container(transport: _Transport, handle: BackendHandle) -> dict[s
     containers = task["containers"]
     assert isinstance(containers, list) and isinstance(containers[0], dict)
     return containers[0]
+
+
+def _image_metadata() -> dict[str, object]:
+    return {
+        "uri": IMAGE,
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "imageManifests": [
+            {"os": "linux", "architecture": "amd64", "digest": "sha256:" + "d" * 64},
+            {"os": "unknown", "architecture": "unknown", "digest": "sha256:" + "e" * 64},
+        ],
+    }
+
+
+def test_resolved_index_image_allows_restart_adoption_and_terminal_repair_cleanup() -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan, trigger=_repair_trigger())
+    _execution_container(transport, handle)["image"] = RESOLVED_IMAGE
+    transport.image_metadata = _image_metadata()
+    restarted, _, _ = _backend(transport=transport)
+
+    assert _start(restarted, plan, trigger=_repair_trigger()) == handle
+    transport.executions[handle.execution_id].update(
+        {"completionTime": "2026-08-26T18:01:00Z", "succeededCount": 1}
+    )
+    transport.log_response = {
+        "entries": [{"timestamp": "2026-08-26T18:00:02Z", "jsonPayload": _completion_payload()}]
+    }
+
+    observed = restarted.observe(plan, handle)
+
+    assert observed.outcome is RunOutcome.SUCCEEDED
+    assert observed.results_state is ResultsState.AVAILABLE
+    assert observed.result_summary is not None
+    assert observed.cleanup_state is CleanupState.CONFIRMED
+    assert len(transport.executions) == 1
+    patches = [call[2]["json"] for call in transport.calls if call[0] == "PATCH"]
+    assert len(patches) == 2
+    restored = patches[1]
+    assert isinstance(restored, dict)
+    assert "startExecutionToken" not in restored
+    template = restored["template"]
+    assert isinstance(template, dict)
+    task = template["template"]
+    assert isinstance(task, dict)
+    containers = task["containers"]
+    assert isinstance(containers, list)
+    assert containers[0]["image"] == IMAGE
+    assert containers[0]["args"] == list(plan.execution_template.command)
+    assert containers[0]["env"] == []
+
+
+@pytest.mark.parametrize(
+    "mismatch",
+    ["index", "repository", "child", "platform", "ambiguous", "not-index", "unavailable"],
+)
+def test_resolved_image_mismatch_cannot_adopt_or_restore(mismatch: str) -> None:
+    backend, plan, transport = _backend()
+    handle = _start(backend, plan, trigger=_repair_trigger())
+    container = _execution_container(transport, handle)
+    container["image"] = RESOLVED_IMAGE
+    metadata = _image_metadata()
+    manifests = metadata["imageManifests"]
+    assert isinstance(manifests, list)
+    if mismatch == "index":
+        metadata["uri"] = RESOLVED_IMAGE
+    elif mismatch == "repository":
+        container["image"] = RESOLVED_IMAGE.replace("/dander/runtime", "/other/runtime")
+    elif mismatch == "child":
+        container["image"] = RESOLVED_IMAGE.replace("d" * 64, "f" * 64)
+    elif mismatch == "platform":
+        manifests[0]["architecture"] = "arm64"
+    elif mismatch == "ambiguous":
+        manifests.append(dict(manifests[0]))
+    elif mismatch == "not-index":
+        metadata["mediaType"] = "application/vnd.oci.image.manifest.v1+json"
+    elif mismatch == "unavailable":
+        transport.image_status = 503
+    transport.image_metadata = metadata
+    _fail_execution(transport, handle)
+
+    with pytest.raises(ExecutionBackendError):
+        _start(backend, plan, trigger=_repair_trigger())
+    with pytest.raises(ExecutionBackendError):
+        backend.observe(plan, handle)
+
+    assert len([call for call in transport.calls if call[0] == "PATCH"]) == 1
+    assert len(transport.executions) == 1
+    if mismatch == "repository":
+        assert not [call for call in transport.calls if call[1] == IMAGE_METADATA_URL]
 
 
 def test_repair_is_execution_bound_and_adopted_after_lost_response() -> None:

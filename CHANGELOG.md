@@ -6,6 +6,23 @@ capabilities enter through the next minor release.
 
 ## Unreleased
 
+## 0.9.0rc34 — 2026-10-01 (Control integration candidate)
+
+### Fixed
+
+- Verify Cloud Run's resolved Linux/AMD64 image against its registered immutable Artifact
+  Registry index during execution adoption and repair cleanup. The original exact comparison
+  remains the fast path; unrelated images and ambiguous index metadata still fail closed.
+- This corrects a live RC33 repair whose data work succeeded but whose terminal reconciliation
+  stopped before collecting results and restoring the job configuration.
+
+### Compatibility
+
+- The Control contract bundle and native repair protocol are unchanged. This Control candidate
+  can recover the accepted RC33 runtime execution without submitting its data work again.
+- Public PyPI remains RC20. The fixed GitHub wheel and named runtime/client artifacts form an
+  experimental integration; broader qualification and support gates remain open.
+
 ## 0.9.0rc33 — 2026-10-01 (integration candidate)
 
 ### Changed
@@ -35,6 +52,8 @@ capabilities enter through the next minor release.
 - Repair requires existing partitioned outputs with scalar business keys. Publication is atomic
   per output; earlier outputs can remain committed if a later output fails. Retained raw data
   is current data, not a historical snapshot. Live repair qualification remains outstanding.
+- Live qualification found that Control reconciliation fails when Cloud Run resolves an OCI
+  index to its platform image. Use the corrective RC34 Control candidate for that case.
 
 ## 0.9.0rc32 — 2026-08-23 (beta)
 
