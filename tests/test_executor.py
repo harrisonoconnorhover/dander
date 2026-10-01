@@ -11,6 +11,7 @@ import pytest
 from dander.catalog import MetadataSnapshot, MetadataStore
 from dander.executor import PipelineExecutor
 from dander.ingestion import Endpoint, SourceConfig
+from dander.pipeline.repair import GraphRepairWindow
 from dander.runtime import EndpointRunResult, PipelineRunResult
 from dander.state import (
     LeaseHandle,
@@ -103,6 +104,7 @@ class _History(RunHistoryStore):
         self.failure: tuple[str | None, str | None] | None = None
         self.reconciled: tuple[str, str] | None = None
         self.restarted = False
+        self.counts: tuple[int, int, int] | None = None
 
     def start(self, run_id: str, source: str, *, pipeline_id: str | None = None) -> None:
         assert pipeline_id is not None
@@ -144,6 +146,7 @@ class _History(RunHistoryStore):
     ) -> None:
         assert self.started is not None and run_id == self.started[0]
         self.finished = (status, failure_stage, models, assertions, assets)
+        self.counts = (endpoints, extracted, affected)
         self.failure = (failure_code, failure_summary)
 
     def reconcile_interrupted(self, pipeline_id: str, *, current_run_id: str) -> None:
@@ -277,6 +280,44 @@ def _executor(
         catalog_publisher=catalog_publisher,
         leases=leases,
     )
+
+
+def test_date_repair_keeps_history_and_lease_without_ingestion_or_watermarks(
+    tmp_path: Path,
+) -> None:
+    history = _History()
+    leases = _Leases(available=True)
+    executor = PipelineExecutor(
+        pipeline_id="example_pipeline",
+        source_config=SourceConfig(
+            name="example",
+            base_url="https://unused.example.test",
+            auth_strategy="none",
+            endpoints=[Endpoint(name="widgets", path="/widgets", primary_key=["id"])],
+        ),
+        ingestion=None,
+        history=history,
+        project="valid-project-123",
+        models_dir=tmp_path,
+        selected_models=("stg_widgets",),
+        build_models=True,
+        transform_runner=_Transform(),
+        leases=leases,
+        repair_window=GraphRepairWindow.model_validate(
+            {"start_date": "2026-09-01", "end_date": "2026-09-03"}
+        ),
+    )
+
+    result = executor.execute(run_id="repair-run")
+
+    assert result.ingestion.endpoints == ()
+    assert result.models == ("stg_widgets",)
+    assert history.counts == (0, 0, 0)
+    assert sum(item.rows_affected for item in result.telemetry.operations) == 3
+    assert history.finished == (RunStatus.SUCCEEDED, None, 1, 2, 0)
+    assert history.checkpoints == [RunStage.TRANSFORM]
+    assert history.reconciled == ("example_pipeline", "repair-run")
+    assert leases.released
 
 
 def test_executor_records_one_truthful_complete_lifecycle(

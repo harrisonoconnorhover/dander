@@ -1,5 +1,18 @@
 # Engineering Decisions
 
+## 2026-10-01 — Repair output dates from retained raw data
+
+- Keep a repair window in the existing durable run trigger, preserving cancellation, replay,
+  history, and request identity. Preview reads only the saved graph and current execution plans.
+  The initial runtime is single-task Cloud Run with BigQuery; other backends reject repair.
+- Skip extraction and its saved progress. Compile current retained raw data, then replace only
+  the selected UTC dates in each existing output under the normal lease fence. Reject keys
+  crossing the interval boundary; publication is atomic per output, not across all outputs.
+- Bind the exact graph hash and dates to the native execution. A fixed runtime argument rejects
+  older images before work; conditional cleanup restores the Job configuration only while the
+  repair still owns it. Live provider qualification and the paired Druff client remain separate
+  delivery requirements, not claims implied by local tests.
+
 ## 2026-10-01 — Explain pipeline changes and runs through the existing Control boundary
 
 - Compare an unsaved graph with the exact saved revision in a pure, provider-neutral operation.

@@ -16,6 +16,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from dander.physical_plan import PhysicalExecutionMode, PhysicalPlan, serialize_physical_plan
+from dander.pipeline.repair import GraphRepairWindow
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -563,6 +564,7 @@ class RunTrigger:
     trigger_id: str
     scheduled_occurrence: datetime | None = None
     replay_of_run_id: str | None = None
+    repair_window: GraphRepairWindow | None = None
 
     def __post_init__(self) -> None:
         _require_portable_id(self.trigger_id, label="trigger")
@@ -578,6 +580,11 @@ class RunTrigger:
             )
         if self.replay_of_run_id is not None:
             _require_opaque_id(self.replay_of_run_id, label="replayed run")
+        if self.repair_window is not None:
+            if not isinstance(self.repair_window, GraphRepairWindow):
+                raise OrchestrationContractError("repair window is invalid")
+            if self.kind not in {TriggerKind.API, TriggerKind.MANUAL}:
+                raise OrchestrationContractError("date repair requires an explicit run trigger")
 
 
 @dataclass(frozen=True, slots=True)
@@ -623,6 +630,14 @@ class RunSubmission:
     def fingerprint(self) -> str:
         """Identity of logical input excluding request time and the idempotency key itself."""
         occurrence = self.trigger.scheduled_occurrence
+        trigger_payload: dict[str, object] = {
+            "kind": self.trigger.kind.value,
+            "trigger_id": self.trigger.trigger_id,
+            "scheduled_occurrence": occurrence.isoformat() if occurrence else None,
+            "replay_of_run_id": self.trigger.replay_of_run_id,
+        }
+        if self.trigger.repair_window is not None:
+            trigger_payload["repair_window"] = self.trigger.repair_window.model_dump(mode="json")
         payload = {
             "environment": self.environment,
             "project": self.project,
@@ -631,12 +646,7 @@ class RunSubmission:
             "graph_content_sha256": self.graph.content_sha256,
             "plan_id": self.plan_id,
             "plan_revision": self.plan_revision,
-            "trigger": {
-                "kind": self.trigger.kind.value,
-                "trigger_id": self.trigger.trigger_id,
-                "scheduled_occurrence": occurrence.isoformat() if occurrence else None,
-                "replay_of_run_id": self.trigger.replay_of_run_id,
-            },
+            "trigger": trigger_payload,
             "requested_deadline_seconds": self.requested_deadline_seconds,
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
@@ -1155,6 +1165,10 @@ def attempt_identity(run_id: str, attempt_number: int) -> str:
 
 def validate_submission_plan(submission: RunSubmission, plan: ExecutionPlan) -> None:
     """Reject plan selection drift before a provider request can occur."""
+    if submission.trigger.repair_window is not None and (
+        plan.backend_id != "cloud_run" or plan.execution_template.schedule.task_count != 1
+    ):
+        raise OrchestrationContractError("date repair requires a single-task Cloud Run plan")
     expected = (
         submission.environment,
         submission.project,

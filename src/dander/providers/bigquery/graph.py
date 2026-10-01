@@ -38,11 +38,12 @@ from dander.writer import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
     from pathlib import Path
 
     from dander.concurrency import OwnershipGuard
     from dander.pipeline.graph import Node
+    from dander.pipeline.repair import GraphRepairWindow, GraphTargetRepair
     from dander.writer.bigquery import _BigQueryClient as _WriterClient
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -66,6 +67,38 @@ class _BigQueryClient(Protocol):
         """Delete one run-scoped staging table."""
 
 
+class _RepairQueryJob:
+    """Keep actual committed row counts from the repair script's final SELECT."""
+
+    def __init__(self, job: _QueryJob) -> None:
+        self._job = job
+        self.output_rows = 0
+        self.num_dml_affected_rows = 0
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._job, name)
+
+    def result(self) -> object:
+        result = self._job.result()
+        rows = iter(cast("Iterable[Mapping[str, object]]", result))
+        row = next(rows, None)
+        if row is None:
+            raise GraphRuntimeError("Date repair did not return its committed row counts")
+        written, affected = row["rows_written"], row["rows_affected"]
+        if (
+            not isinstance(written, int)
+            or isinstance(written, bool)
+            or not isinstance(affected, int)
+            or isinstance(affected, bool)
+            or written < 0
+            or affected < written
+        ):
+            raise GraphRuntimeError("Date repair returned invalid committed row counts")
+        self.output_rows = written
+        self.num_dml_affected_rows = affected
+        return result
+
+
 class BigQueryGraphRunner:
     """Materialize compiled graph targets inside the transform stage."""
 
@@ -78,6 +111,10 @@ class BigQueryGraphRunner:
     ) -> None:
         for target in plan.targets:
             _validate_target(target, project)
+        if plan.repair_window is not None and {item.node_id for item in plan.repair_targets} != {
+            target.node_id for target in plan.targets
+        }:
+            raise GraphRuntimeError("Date repair requires an eligible partition for every output")
         self._plan = plan
         self._project = project
         self._client = client or cast(
@@ -93,6 +130,10 @@ class BigQueryGraphRunner:
         ownership: OwnershipGuard | None = None,
     ) -> TransformRunResult:
         """Stage and transactionally publish selected replace-mode targets."""
+        if self._plan.repair_window is not None and (
+            ownership is None or ownership.fence is None or ownership.fence.lease_table is None
+        ):
+            raise GraphRuntimeError("Date repair requires active BigQuery lease fencing")
         selected_ids = set(selected) if selected is not None else None
         known = {target.node_id for target in self._plan.targets}
         if selected_ids is not None and (unknown := sorted(selected_ids - known)):
@@ -143,13 +184,14 @@ class BigQueryGraphRunner:
                 ),
                 operation=TelemetryOperation.TRANSFORM,
             )
-            telemetry.run(
-                lambda: self._client.query(
-                    f"CREATE TABLE IF NOT EXISTS `{target_id}` AS "
-                    f"SELECT {quoted_columns} FROM `{staging_id}` WHERE FALSE"
-                ),
-                operation=TelemetryOperation.TRANSFORM,
-            )
+            if self._plan.repair_window is None:
+                telemetry.run(
+                    lambda: self._client.query(
+                        f"CREATE TABLE IF NOT EXISTS `{target_id}` AS "
+                        f"SELECT {quoted_columns} FROM `{staging_id}` WHERE FALSE"
+                    ),
+                    operation=TelemetryOperation.TRANSFORM,
+                )
             if ownership is not None:
                 ownership.verify()
             replacement = (
@@ -157,6 +199,13 @@ class BigQueryGraphRunner:
                 f"INSERT INTO `{target_id}` ({quoted_columns})\n"
                 f"SELECT {quoted_columns} FROM `{staging_id}`"
             )
+            if self._plan.repair_window is not None:
+                repair = next(
+                    item for item in self._plan.repair_targets if item.node_id == compiled.node_id
+                )
+                replacement = _repair_dml(
+                    target_id, staging_id, columns, repair, self._plan.repair_window
+                )
             fence = ownership.fence if ownership is not None else None
             if fence is not None:
                 script = fenced_dml(replacement, fence)
@@ -165,9 +214,76 @@ class BigQueryGraphRunner:
             else:
                 script = f"BEGIN TRANSACTION;\n{replacement};\nCOMMIT TRANSACTION;"
                 submit = partial(self._client.query, script)
-            telemetry.run(submit, operation=TelemetryOperation.TRANSFORM, retry_mutation=True)
+            if self._plan.repair_window is not None:
+                script = (
+                    "DECLARE dander_repair_deleted INT64 DEFAULT 0;\n"
+                    "DECLARE dander_repair_inserted INT64 DEFAULT 0;\n"
+                    + script
+                    + "\nSELECT dander_repair_inserted AS rows_written, "
+                    "dander_repair_deleted + dander_repair_inserted AS rows_affected;"
+                )
+                repair_config = fencing_job_config(fence) if fence is not None else None
+                telemetry.run(
+                    lambda: _RepairQueryJob(self._client.query(script, job_config=repair_config)),
+                    operation=TelemetryOperation.TRANSFORM,
+                    retry_mutation=True,
+                )
+            else:
+                telemetry.run(submit, operation=TelemetryOperation.TRANSFORM, retry_mutation=True)
         finally:
             self._client.delete_table(staging_id, not_found_ok=True)
+
+
+def _repair_dml(
+    target_id: str,
+    staging_id: str,
+    columns: tuple[str, ...],
+    repair: GraphTargetRepair,
+    window: GraphRepairWindow,
+) -> str:
+    """Validate the selected keys against both retained sides before changing any target row."""
+
+    def selected(alias: str) -> str:
+        value = f"{alias}.`{repair.partition_field}`"
+        if repair.partition_type == "TIMESTAMP":
+            value = f"DATE({value}, 'UTC')"
+        return (
+            f"({value} >= DATE '{window.start_date.isoformat()}' "
+            f"AND {value} < DATE '{window.end_date.isoformat()}')"
+        )
+
+    invalid = " OR ".join(f"`{column}` IS NULL" for column in repair.business_key)
+    keys = ", ".join(f"`{key}`" for key in repair.business_key)
+    join = " AND ".join(f"s.`{key}` = t.`{key}`" for key in repair.business_key)
+    quoted_columns = ", ".join(f"`{column}`" for column in columns)
+    validations: list[str] = []
+    for relation in (staging_id, target_id):
+        validations.extend(
+            (
+                f"ASSERT NOT EXISTS (SELECT 1 FROM `{relation}` s "
+                f"WHERE {selected('s')} AND ({invalid})) "
+                "AS 'Selected repair business keys must not be null';",
+                f"ASSERT NOT EXISTS (SELECT 1 FROM `{relation}` s "
+                f"WHERE {selected('s')} GROUP BY {keys} "
+                "HAVING COUNT(*) > 1) AS 'Repair business keys must be unique';",
+            )
+        )
+    validations.extend(
+        (
+            f"ASSERT NOT EXISTS (SELECT 1 FROM `{staging_id}` s JOIN `{target_id}` t ON {join} "
+            f"WHERE {selected('s')} AND NOT COALESCE({selected('t')}, FALSE)) "
+            "AS 'Repair staged keys overlap target rows outside the selected dates';",
+            f"ASSERT NOT EXISTS (SELECT 1 FROM `{target_id}` t JOIN `{staging_id}` s ON {join} "
+            f"WHERE {selected('t')} AND NOT COALESCE({selected('s')}, FALSE)) "
+            "AS 'Repair target keys moved outside the selected dates in retained raw data';",
+            f"DELETE FROM `{target_id}` t WHERE {selected('t')};",
+            "SET dander_repair_deleted = @@row_count;",
+            f"INSERT INTO `{target_id}` ({quoted_columns})\n"
+            f"SELECT {quoted_columns} FROM `{staging_id}` s WHERE {selected('s')};",
+            "SET dander_repair_inserted = @@row_count",
+        )
+    )
+    return "\n".join(validations)
 
 
 def prepare_bigquery_target_writer(

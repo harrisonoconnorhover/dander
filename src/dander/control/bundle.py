@@ -17,6 +17,7 @@ from dander.control.models import (
     ConnectorCatalogResponse,
     ControlBootstrapDescriptor,
     DeploymentPreviewResponse,
+    DestinationDocument,
     GraphCreateRequest,
     GraphPageResponse,
     GraphResourceResponse,
@@ -32,8 +33,10 @@ from dander.control.models import (
     RunState,
     RunStatusResponse,
 )
+from dander.control.repair import GraphRepairOutput, GraphRepairPreviewResponse
 from dander.control.run_explanation import RunExplanationResponse, explain_run
 from dander.pipeline.graph import graph_to_payload
+from dander.pipeline.repair import GraphRepairWindow
 
 BUNDLE_ID: Final = "io.dander.control.contracts/v1"
 MANIFEST_SCHEMA: Final = "io.dander.control.contracts-manifest/v1"
@@ -49,6 +52,8 @@ CONTRACT_MODELS: Final[dict[str, type[BaseModel]]] = {
     "deployment-preview": DeploymentPreviewResponse,
     "graph-create": GraphCreateRequest,
     "graph-change-preview": GraphChangePreviewResponse,
+    "graph-repair-preview": GraphRepairPreviewResponse,
+    "graph-repair-window": GraphRepairWindow,
     "graph-page": GraphPageResponse,
     "graph-resource": GraphResourceResponse,
     "graph-validation": GraphValidationResponse,
@@ -659,6 +664,34 @@ def _fixtures() -> dict[str, tuple[str, dict[str, Any]]]:
                     can_replay=True,
                     logs_available=True,
                 )
+            ).model_dump(mode="json"),
+        ),
+        "graph-repair-window": (
+            "graph-repair-window",
+            {"start_date": "2026-09-01", "end_date": "2026-09-03"},
+        ),
+        "graph-repair-preview": (
+            "graph-repair-preview",
+            GraphRepairPreviewResponse(
+                graph_content_sha256="a" * 64,
+                window=GraphRepairWindow.model_validate(
+                    {"start_date": "2026-09-01", "end_date": "2026-09-03"}
+                ),
+                outputs=(
+                    GraphRepairOutput(
+                        node_id="daily_output",
+                        name="Daily output",
+                        destination=DestinationDocument(
+                            dataset="analytics",
+                            table="daily_output",
+                            business_key=["id"],
+                        ),
+                        partition_field="updated_at",
+                        partition_type="TIMESTAMP",
+                        business_key=("id",),
+                    ),
+                ),
+                environments=("gcp",),
             ).model_dump(mode="json"),
         ),
         "run-status": (

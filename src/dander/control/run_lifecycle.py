@@ -71,6 +71,7 @@ if TYPE_CHECKING:
     from dander.control.graph_store import GraphRecord, GraphStore
     from dander.control.input_size_estimator import InputSizeEstimator
     from dander.control.orchestration import ExecutionBackend, RunStore
+    from dander.pipeline.repair import GraphRepairWindow
 
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 _PORTABLE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
@@ -296,6 +297,31 @@ class PlanRunSubmissionResolver:
     size_class_candidates: tuple[SizeClassCandidate, ...] = ()
     default_size_class: str | None = None
     input_size_estimators: tuple[tuple[str, InputSizeEstimator], ...] = ()
+
+    @property
+    def supports_repairs(self) -> bool:
+        """Whether a registered route can transport bounded retained-raw repair."""
+        return any(_supports_date_repair(plan) for plan in self.plans.plans)
+
+    def repair_environments(self, record: GraphRecord) -> tuple[str, ...]:
+        """Current graph environments with single-task Cloud Run transport."""
+        return tuple(
+            sorted(
+                {
+                    plan.environment
+                    for plan in self.plans.current_for_graph(record)
+                    if _supports_date_repair(plan)
+                }
+            )
+        )
+
+    def require_repair_submission(self, submission: RunSubmission) -> None:
+        """Check exact plan eligibility before admitting a repair to the lifecycle."""
+        plan = self.plans.for_submission(submission)
+        if submission.trigger.repair_window is None or not _supports_date_repair(plan):
+            raise ControlOperationUnavailableError(
+                "Date repair requires a single-task Cloud Run execution plan."
+            )
 
     def __post_init__(self) -> None:
         revisions = [candidate.plan_revision for candidate in self.placement_candidates]
@@ -794,6 +820,7 @@ class ControlRunLifecycle:
         environments: tuple[str, ...],
         placement_mode: PlacementMode,
         idempotency_key: str,
+        repair_window: GraphRepairWindow | None = None,
     ) -> RunStatusResponse | None:
         """Replay one unambiguous no-sizing API request before mutable estimation."""
         if (
@@ -847,6 +874,7 @@ class ControlRunLifecycle:
             and durable.graph_content_sha256 == record.content_sha256
             and durable.trigger.kind is TriggerKind.API
             and durable.trigger.trigger_id == "control-api"
+            and durable.trigger.repair_window == repair_window
             and placement_matches
             and (
                 durable.size_class_decision is None
@@ -1027,6 +1055,7 @@ class ControlRunLifecycle:
                     kind=TriggerKind.API,
                     trigger_id="control-api",
                     replay_of_run_id=source.run_id,
+                    repair_window=source.trigger.repair_window,
                 ),
                 placement_decision=PlacementDecision(
                     mode=PlacementMode.REPLAY,
@@ -1351,6 +1380,10 @@ class ControlRunLifecycle:
         return now.astimezone(UTC)
 
 
+def _supports_date_repair(plan: ExecutionPlan) -> bool:
+    return plan.backend_id == "cloud_run" and plan.execution_template.schedule.task_count == 1
+
+
 def _run_state(record: RunRecord) -> RunState:
     if record.run_state is HostedRunState.QUEUED:
         return RunState.QUEUED
@@ -1387,6 +1420,7 @@ def _status_response(record: RunRecord) -> RunStatusResponse:
         assertions=summary.assertions if summary else 0,
         assets=summary.assets if summary else 0,
         result_schema=summary.schema if summary else None,
+        repair_window=record.trigger.repair_window,
         skipped=summary.skipped if summary else False,
         telemetry=(
             RunTelemetrySummary(

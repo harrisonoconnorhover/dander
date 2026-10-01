@@ -43,6 +43,7 @@ from dander.deployment.projection import (
     SecretReference,
 )
 from dander.physical_plan import deserialize_physical_plan
+from dander.pipeline.repair import GraphRepairWindow
 
 RUN_RECORD_SCHEMA_V1 = "io.dander.control.run-record/v1"
 RUN_RECORD_SCHEMA_V2 = "io.dander.control.run-record/v2"
@@ -746,7 +747,7 @@ def _deserialize_execution_result_summary_value(value: object) -> ExecutionResul
 
 
 def _trigger_payload(trigger: RunTrigger) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "kind": trigger.kind.value,
         "trigger_id": trigger.trigger_id,
         "scheduled_occurrence": (
@@ -754,6 +755,9 @@ def _trigger_payload(trigger: RunTrigger) -> dict[str, object]:
         ),
         "replay_of_run_id": trigger.replay_of_run_id,
     }
+    if trigger.repair_window is not None:
+        payload["repair_window"] = trigger.repair_window.model_dump(mode="json")
+    return payload
 
 
 def _trigger(value: object) -> RunTrigger:
@@ -765,6 +769,11 @@ def _trigger(value: object) -> RunTrigger:
             values["scheduled_occurrence"], "scheduled_occurrence"
         ),
         replay_of_run_id=_optional_string(values["replay_of_run_id"], "replay_of_run_id"),
+        repair_window=(
+            GraphRepairWindow.model_validate(values["repair_window"])
+            if "repair_window" in values
+            else None
+        ),
     )
 
 

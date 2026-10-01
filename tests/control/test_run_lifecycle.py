@@ -6,7 +6,7 @@ import hashlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -93,10 +93,12 @@ from dander.physical_plan import (
     PhysicalStage,
     serialize_physical_plan,
 )
+from dander.pipeline.repair import GraphRepairWindow
 from dander.providers.cloud_run import CloudRunBinding
 from dander.providers.dataproc_serverless import DataprocServerlessBinding
 from dander.providers.fargate import FargateBinding
 from dander.runtime_contract import RUNTIME_CONTRACT
+from tests.pipeline.test_date_repair import repair_graph
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -1140,6 +1142,49 @@ def test_replay_creates_a_new_durable_run_and_rejects_graph_drift() -> None:
         lifecycle.replay(RunAddress(source.run_id), idempotency_key="replay-key-0002")
 
 
+def test_repair_replay_and_history_preserve_window_and_reject_normal_key_reuse() -> None:
+    graph_store, graph = _graph_store()
+    plan = _gcp_plan(graph)
+    store = _Store()
+    backend = _Backend()
+    lifecycle = _lifecycle(graph_store, plan, store, backend)
+    selection = PlanRunSubmissionResolver(ExecutionPlanRegistry((plan,)), "gcp")
+    original = selection.resolve(graph, idempotency_key="repair-key-0001", requested_at=NOW)
+    window = GraphRepairWindow(start_date=date(2026, 9, 1), end_date=date(2026, 9, 3))
+    repair = replace(original, trigger=replace(original.trigger, repair_window=window))
+
+    assert selection.supports_repairs
+    assert selection.repair_environments(graph) == ("gcp",)
+    selection.require_repair_submission(repair)
+    source = lifecycle.start(repair)
+    assert source.repair_window == window
+    with pytest.raises(ControlOperationIdempotencyConflictError):
+        lifecycle.find_api_start(
+            graph,
+            environments=("gcp",),
+            placement_mode=PlacementMode.CONFIGURED_DEFAULT,
+            idempotency_key="repair-key-0001",
+        )
+    handle = next(iter(backend.effects.values()))
+    backend.observations[handle.execution_id] = _terminal(RunOutcome.FAILED)
+    lifecycle.reconcile_once()
+
+    replayed = lifecycle.replay(RunAddress(source.run_id), idempotency_key="repair-replay-0001")
+
+    assert replayed.resulting_run_id is not None
+    assert store.runs[replayed.resulting_run_id].record.trigger.repair_window == window
+    assert store.runs[replayed.resulting_run_id].record.trigger.replay_of_run_id == source.run_id
+    assert lifecycle.get(RunAddress(replayed.resulting_run_id)).repair_window == window
+
+
+def test_repair_resolver_excludes_non_cloud_run_routes() -> None:
+    _, graph = _graph_store()
+    resolver = PlanRunSubmissionResolver(ExecutionPlanRegistry((_plan(graph),)), "production")
+
+    assert not resolver.supports_repairs
+    assert resolver.repair_environments(graph) == ()
+
+
 def test_same_lifecycle_interface_selects_a_non_aws_backend_without_pipeline_changes() -> None:
     graph_store, graph = _graph_store()
     plan = _plan(graph, backend_id="gcp")
@@ -1722,6 +1767,105 @@ def test_idempotent_retry_replays_before_mutable_metadata_is_reestimated() -> No
             expected_revision=graph.revision,
             idempotency_key="explicit-metadata-key",
         )
+
+
+def test_repair_retry_preserves_sizing_and_rejects_changed_window_or_normal_key_reuse() -> None:
+    graph_store = InMemoryGraphStore()
+    graph = graph_store.create(
+        "demo",
+        "hosted-graph",
+        PipelineGraphDocument.from_domain(repair_graph()),
+        idempotency_key="repair-graph-key",
+    )
+    small = _gcp_plan(graph)
+    large = replace(
+        small,
+        plan_id="gcp-bigquery-large",
+        execution_template=replace(
+            small.execution_template,
+            resources=replace(small.execution_template.resources, memory_mib=8192),
+        ),
+    )
+    estimator = _InputEstimator(500)
+    store = _Store()
+    backend = _Backend()
+    composition = compose_run_control(
+        graph_store=graph_store,
+        store=cast("RunStore", store),
+        plans=(small, large),
+        backends={"cloud_run": cast("ExecutionBackend", backend)},
+        environment="gcp",
+        size_class_candidates=(
+            SizeClassCandidate(small.revision, "small", 1_000),
+            SizeClassCandidate(large.revision, "large", 10_000),
+        ),
+        default_size_class="small",
+        input_size_estimators=(("gcp", estimator),),
+        start_reconciler=False,
+        clock=lambda: datetime.now(UTC) + timedelta(seconds=1),
+    )
+    application = ControlApplication(
+        graph_store,
+        lifecycle=composition.lifecycle,
+        submission_resolver=composition.resolver,
+        projects=("demo",),
+    )
+    window = GraphRepairWindow(start_date=date(2026, 9, 1), end_date=date(2026, 9, 3))
+    first = application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        idempotency_key="stable-repair-key",
+        repair_window=window,
+        environment="gcp",
+    )
+    estimator.estimated_input_bytes = 5_000
+
+    replayed = application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        idempotency_key="stable-repair-key",
+        repair_window=window,
+        environment="gcp",
+    )
+
+    assert replayed.run_id == first.run_id
+    assert store.runs[first.run_id].record.plan_revision == small.revision
+    assert len(backend.submissions) == 1
+    assert estimator.calls == 1
+    for changed_window in (
+        None,
+        GraphRepairWindow(start_date=date(2026, 9, 1), end_date=date(2026, 9, 4)),
+    ):
+        with pytest.raises(ControlOperationIdempotencyConflictError):
+            application.start_run(
+                "demo",
+                "hosted-graph",
+                expected_revision=graph.revision,
+                idempotency_key="stable-repair-key",
+                repair_window=changed_window,
+                environment="gcp",
+            )
+    assert estimator.calls == 1
+
+    application.start_run(
+        "demo",
+        "hosted-graph",
+        expected_revision=graph.revision,
+        idempotency_key="normal-run-key",
+        environment="gcp",
+    )
+    with pytest.raises(ControlOperationIdempotencyConflictError):
+        application.start_run(
+            "demo",
+            "hosted-graph",
+            expected_revision=graph.revision,
+            idempotency_key="normal-run-key",
+            repair_window=window,
+            environment="gcp",
+        )
+    assert estimator.calls == 2
 
 
 def test_auto_retry_preserves_placement_and_rejects_cross_environment_key_collisions() -> None:

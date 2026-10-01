@@ -81,6 +81,7 @@ if TYPE_CHECKING:
     from rich.console import Console
 
     from dander.core.interfaces import SecretStoreProvider
+    from dander.pipeline.repair import GraphRepairWindow
 
 _SOURCE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 
@@ -108,6 +109,8 @@ class RunOptions:
     catalog_output: Path | None
     publish_dataplex: bool
     dataplex_location: str
+    repair_window: GraphRepairWindow | None = None
+    repair_graph_content_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,6 +327,8 @@ def _resolve_run(options: RunOptions) -> _ResolvedRun:
         selected_models=selected_models,
         catalog_output=options.catalog_output,
         publish_catalog=publish_catalog,
+        repair_window=options.repair_window,
+        repair_graph_content_sha256=options.repair_graph_content_sha256,
     )
     return _ResolvedRun(
         pipeline_id=options.pipeline_or_source,
@@ -387,8 +392,14 @@ def _resolve_graph_plan(
     selected_models: Sequence[str] | None,
     catalog_output: Path | None,
     publish_catalog: bool,
+    repair_window: GraphRepairWindow | None = None,
+    repair_graph_content_sha256: str | None = None,
 ) -> GraphExecutionPlan | None:
+    if (repair_window is None) != (repair_graph_content_sha256 is None):
+        raise ClickException("Date repair requires both a date window and an exact graph hash")
     if graph_file is None:
+        if repair_window is not None:
+            raise ClickException("Date repair requires a graph pipeline")
         return None
     if build_models or selected_models is not None:
         raise ClickException("Graph pipelines do not accept --build-models or --select-model")
@@ -396,10 +407,17 @@ def _resolve_graph_plan(
         raise ClickException("Graph metadata publication is not supported yet")
     try:
         graph = load_graph_for_execution(graph_file)
+        if repair_window is not None:
+            from dander.control.graph_store import canonicalize_graph_document
+
+            canonical = canonicalize_graph_document(graph.model_dump(mode="json", by_alias=True))
+            if canonical.content_sha256 != repair_graph_content_sha256:
+                raise GraphRuntimeError("Date repair graph hash does not match the loaded graph")
         return plan_graph_execution(
             graph,
             config,
             endpoint_relations=endpoint_relations,
+            repair_window=repair_window,
         )
     except GraphRuntimeError as error:
         raise ClickException(str(error)) from error
@@ -423,7 +441,13 @@ def _verify_safety(options: RunOptions, resolved: _ResolvedRun) -> None:
 
 def _require_provider_compatible_options(options: RunOptions, resolved: _ResolvedRun) -> None:
     """Reject BigQuery-only operations before any external client can be constructed."""
+    if options.repair_window is not None and options.sandbox:
+        raise ClickException("Date repair requires BigQuery lease fencing and cannot use --sandbox")
     if resolved.warehouse_provider != "bigquery":
+        if options.repair_window is not None:
+            raise ClickException(
+                "Date repair is available only with direct BigQuery graph execution"
+            )
         if options.sandbox:
             raise ClickException("--sandbox is available only with a BigQuery warehouse")
         if options.guarded_free_tier:
@@ -433,19 +457,21 @@ def _require_provider_compatible_options(options: RunOptions, resolved: _Resolve
 
 
 def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExecutor:
-    secrets = build_secret_store(
-        "environment" if options.sandbox else resolved.secret_provider,
-        None if options.sandbox else resolved.secret_config,
-    )
-    auth = build_auth(resolved.source_config, secrets)
-    try:
-        source_adapter = build_source_adapter(
-            resolved.source_config,
-            auth,
-            plugin_registry=resolved.plugin_registry,
+    source_adapter = None
+    if options.repair_window is None:
+        secrets = build_secret_store(
+            "environment" if options.sandbox else resolved.secret_provider,
+            None if options.sandbox else resolved.secret_config,
         )
-    except ConnectorPluginError as error:
-        raise ClickException(str(error)) from error
+        auth = build_auth(resolved.source_config, secrets)
+        try:
+            source_adapter = build_source_adapter(
+                resolved.source_config,
+                auth,
+                plugin_registry=resolved.plugin_registry,
+            )
+        except ConnectorPluginError as error:
+            raise ClickException(str(error)) from error
 
     stores = _build_control_stores(options, resolved)
     catalog_publisher = (
@@ -460,7 +486,11 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         else None
     )
     warehouse = _build_warehouse_runtime(resolved)
-    ingestion = _build_ingestion_runner(options, resolved, source_adapter, warehouse, stores)
+    ingestion = (
+        _build_ingestion_runner(options, resolved, source_adapter, warehouse, stores)
+        if source_adapter is not None
+        else None
+    )
     transform_runner = _build_transform_runner(resolved, warehouse)
     return PipelineExecutor(
         pipeline_id=resolved.pipeline_id,
@@ -478,6 +508,7 @@ def _build_executor(options: RunOptions, resolved: _ResolvedRun) -> PipelineExec
         registry_output=options.catalog_output,
         catalog_publisher=catalog_publisher,
         leases=stores.leases,
+        repair_window=options.repair_window,
     )
 
 
@@ -711,16 +742,24 @@ def _render_dry_run(options: RunOptions, resolved: _ResolvedRun, *, console: Con
     missing_bigquery_catalog = (
         resolved.warehouse_provider == "bigquery" and not resolved.gcp_project
     )
-    _print_plan(
-        resolved.source_config.name,
-        resolved.endpoint_relations,
-        _selected_endpoints(resolved.source_config, resolved.graph_plan),
-        console=console,
-        catalog_label="<unset>" if missing_bigquery_catalog else None,
-        sandbox=options.sandbox,
-        guarded_free_tier=options.guarded_free_tier,
-        batch_rows=options.batch_rows,
-    )
+    if options.repair_window is not None:
+        window = options.repair_window
+        console.print(
+            f"Retained-raw repair: {window.start_date} inclusive to {window.end_date} exclusive "
+            "(UTC). No source extraction or watermark changes. Current raw data is recompiled; "
+            "staging may scan outside the selected dates."
+        )
+    else:
+        _print_plan(
+            resolved.source_config.name,
+            resolved.endpoint_relations,
+            _selected_endpoints(resolved.source_config, resolved.graph_plan),
+            console=console,
+            catalog_label="<unset>" if missing_bigquery_catalog else None,
+            sandbox=options.sandbox,
+            guarded_free_tier=options.guarded_free_tier,
+            batch_rows=options.batch_rows,
+        )
     if resolved.graph_plan is not None:
         _print_graph_plan(
             resolved.graph_plan,

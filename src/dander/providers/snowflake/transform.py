@@ -212,6 +212,8 @@ class SnowflakeGraphRunner:
         target_fence: SnowflakeTargetFence,
         warehouse: str | None = None,
     ) -> None:
+        if plan.repair_window is not None:
+            raise GraphRuntimeError("Date repair is unavailable for Snowflake graph execution")
         self._plan = plan
         self._database = database
         self._connection_factory = connection_factory

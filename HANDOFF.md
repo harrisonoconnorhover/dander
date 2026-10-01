@@ -2,36 +2,37 @@
 
 ## Finished
 
-- Added a read-only comparison of an unsaved graph with its exact saved revision, including downstream outputs and write effects.
-- Added readable explanations of recorded run outcomes and eligible next actions; unavailable measurements remain unknown.
-- Exposed both operations through existing Control authentication and regenerated their public contracts.
+- Merged read-only graph change preview and recorded run explanations through protected PR #547.
+- Implemented selected-date output repair from retained raw data with single-task Cloud Run and BigQuery.
+- Reused durable run identity, cancellation, history, replay, lease fencing, and conditional cleanup.
+- Added preview/start contracts, publication measurements, and operator documentation with explicit support limits.
 
 ## Try It
 
-With Control running and a saved graph selected, POST candidate graph JSON to `/v1/projects/{project}/graphs/{graph}/change-preview` with its saved `If-Match` ETag. GET `/v1/runs/{run_id}/explanation` for a configured lifecycle's run. See `docs/control-contracts.md` for semantics and client compatibility.
+Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`. Preview a saved graph's UTC date interval with its `If-Match` ETag, then start `/repairs` with the same revision and an `Idempotency-Key`. A repair-capable runtime and existing partitioned outputs are required. Published clients do not yet expose this flow.
 
 ## Checks
 
-- 87 focused comparison, explanation, HTTP, OIDC, and contract tests passed.
-- Canonical strict typing passed across 513 files.
-- Ruff lint/format, generated Control contract drift, and diff checks passed.
-- Protected CI and exact-main verification remain pending for this implementation step. No live cloud workload was run.
+- Full local run: 2,429 passed, 56 skipped; all 28 loopback-server failures passed on retry with socket permission. The additional explanation test passed in its 17-test file.
+- Focused Control/runtime/executor/deployment selection: 538 passed, 21 skipped.
+- Strict typing passed across 516 files; Ruff lint/format, generated contracts, and diff checks passed.
+- PR #547 protected CI passed and merged as `099fb52`; exact-main CI is running. Repair protected CI and live provider qualification remain pending.
 
 ## Decisions
 
-- Keep static graph comparison separate from infrastructure deployment preview; no new persistence or provider reads.
-- Explain existing run evidence deterministically, with no new AI service or fabricated diagnosis.
-- Deliver real date-scoped output repair and the guided interface as subsequent steps of the same active objective.
+- Preview stays read-only; explanations use collected evidence and retain unknown measurements.
+- Repair leaves source extraction progress untouched and replaces only the selected dates, atomically per output.
+- Deliver one guided workflow in Druff; additional providers and broader graph execution are separate work.
 
 ## Remaining
 
-- Implement bounded output-partition repair from retained raw data, preserving normal extraction progress and unrelated output rows.
-- Integrate connect, configure, preview, run, and outcome in Druff; its repository exception is awaiting the user's answer.
-- Publish and consume a verified immutable producer artifact for the paired Druff client; existing published clients use their original bundle.
-- Complete protected PR, merge, and exact-main CI for each runtime change.
+- Complete the repair protected PR, merge, and exact-main CI.
+- Complete the bounded live repair check after the existing AWS billing session is restored; current aggregate cash exposure is unverified.
+- Integrate Druff's guided flow once the requested repository exception is answered.
+- Publish and consume the matching immutable contract/runtime artifacts; the complete guided journey is not delivered yet.
 
 ## Review First
 
-- `src/dander/control/change_preview.py` for graph comparison and write explanations.
-- `src/dander/control/run_explanation.py` for evidence-based outcome handling.
-- `docs/control-contracts.md` for the API and publication boundaries.
+- `src/dander/providers/bigquery/graph.py` and `tests/pipeline/test_date_repair.py` for scoped publication.
+- `src/dander/control/cloud_run_execution_backend.py` for execution binding and cleanup.
+- `docs/output-repair.md` for practical behavior and limitations.

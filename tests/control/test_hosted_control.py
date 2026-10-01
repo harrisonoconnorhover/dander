@@ -25,6 +25,7 @@ from dander.control.models import (
     RunStatusResponse,
 )
 from dander.control.orchestration import PlacementMode, RunSubmission, RunTrigger, TriggerKind
+from dander.pipeline.repair import GraphRepairWindow
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -288,6 +289,7 @@ class _Lifecycle:
         environments: tuple[str, ...],
         placement_mode: PlacementMode,
         idempotency_key: str,
+        repair_window: GraphRepairWindow | None = None,
     ) -> RunStatusResponse | None:
         del record, environments, placement_mode, idempotency_key
         return None
@@ -376,6 +378,118 @@ class _SubmissionResolver:
 
 def _status(run_id: str) -> RunStatusResponse:
     return RunStatusResponse(run_id=run_id, state=RunState.QUEUED)
+
+
+@dataclass(frozen=True)
+class _RepairResolver(_SubmissionResolver):
+    supports_repairs: bool = True
+
+    def repair_environments(self, record: GraphRecord) -> tuple[str, ...]:
+        return ("gcp",)
+
+    def require_repair_submission(self, submission: RunSubmission) -> None:
+        assert submission.trigger.repair_window is not None
+
+
+def _repair_graph() -> dict[str, object]:
+    fields = [{"name": "id", "type": "STRING"}, {"name": "updated_at", "type": "TIMESTAMP"}]
+    return {
+        "name": "repairable",
+        "nodes": [
+            {
+                "id": "records",
+                "type": "source",
+                "name": "Records",
+                "fields": fields,
+                "config": {"connector": "records", "endpoint": "records"},
+            },
+            {
+                "id": "output",
+                "type": "target",
+                "name": "Daily output",
+                "fields": fields,
+                "config": {
+                    "writer": {
+                        "write_mode": "replace",
+                        "destination": {
+                            "dataset": "analytics",
+                            "table": "daily",
+                            "business_key": ["id"],
+                        },
+                        "partitioning": {"field": "updated_at"},
+                    }
+                },
+            },
+        ],
+        "edges": [{"from": "records", "to": "output"}],
+    }
+
+
+def test_repair_preview_and_start_bind_window_to_saved_graph_without_source_access() -> None:
+    lifecycle = _Lifecycle()
+    application = ControlApplication(
+        InMemoryGraphStore(),
+        lifecycle=cast("RunLifecyclePort", lifecycle),
+        submission_resolver=cast("RunSubmissionResolver", _RepairResolver(environment="gcp")),
+        projects=("demo-project",),
+    )
+    window = {"start_date": "2026-09-01", "end_date": "2026-09-03"}
+    with TestClient(create_control_app(application)) as client:
+        created = _create(client, "alpha-graph", _repair_graph())
+        assert created.status_code == 201
+        route = "/v1/projects/demo-project/graphs/alpha-graph"
+        headers = {"If-Match": created.headers["etag"]}
+        preview = client.post(f"{route}/repair-preview", json=window, headers=headers)
+        assert preview.status_code == 200
+        assert preview.json()["window"] == window
+        assert preview.json()["source"] == "retained_raw"
+        assert preview.json()["outputs"][0]["partition_field"] == "updated_at"
+        assert preview.json()["environments"] == ["gcp"]
+        assert lifecycle.starts == []
+        assert client.get(route).headers["etag"] == created.headers["etag"]
+        started = client.post(
+            f"{route}/repairs",
+            json=window,
+            headers={**headers, "Idempotency-Key": "repair-key-0001"},
+        )
+        assert started.status_code == 202
+        assert lifecycle.starts[0].graph.content_sha256 == created.json()["content_sha256"]
+        assert lifecycle.starts[0].trigger.repair_window == GraphRepairWindow.model_validate(window)
+        assert lifecycle.starts[0].idempotency_key == "repair-key-0001"
+        assert lifecycle.starts[0].environment == "gcp"
+        assert "run.repair" in client.get("/v1/capabilities").json()["operations"]
+
+        unavailable = client.post(
+            f"{route}/repairs?environment=aws",
+            json=window,
+            headers={**headers, "Idempotency-Key": "repair-key-0002"},
+        )
+        assert unavailable.status_code == 501
+        assert len(lifecycle.starts) == 1
+        stale = client.post(
+            f"{route}/repair-preview", json=window, headers={"If-Match": '"c3RhbGU"'}
+        )
+        assert stale.status_code == 412
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"start_date": "2026-09-03", "end_date": "2026-09-01"},
+        {"start_date": "2026-09-01", "end_date": "2026-09-03", "source_token": "no-echo"},
+    ],
+)
+def test_invalid_repair_body_is_rejected_before_dispatch(client: TestClient, body: object) -> None:
+    with client:
+        created = _create(client, "alpha-graph")
+        for suffix in ("repair-preview", "repairs"):
+            response = client.post(
+                f"/v1/projects/demo-project/graphs/alpha-graph/{suffix}",
+                json=body,
+                headers={"If-Match": created.headers["etag"], "Idempotency-Key": "repair-key-0001"},
+            )
+            assert response.status_code == 422
+            assert "no-echo" not in response.text
 
 
 def test_normalized_lifecycle_receives_decoded_revision_and_explicit_idempotency() -> None:

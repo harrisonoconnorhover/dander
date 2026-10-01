@@ -187,6 +187,8 @@ class PostgreSQLGraphRunner:
         target_fence: PostgreSQLTargetFence,
         timeouts: PostgreSQLTimeouts,
     ) -> None:
+        if plan.repair_window is not None:
+            raise GraphRuntimeError("Date repair is unavailable for PostgreSQL graph execution")
         self._plan = plan
         self._database = database
         self._pool = pool

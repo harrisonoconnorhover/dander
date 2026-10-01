@@ -188,12 +188,15 @@ Run explanations only show counters when the runtime result summary has been col
 execution can succeed before those measurements arrive; missing measurements are not zero rows.
 Explanations distinguish skipped work, pending cancellation, failed execution, and confirmed
 results without guessing an error cause. Suggested actions honor the current run controls; the
-explanation does not perform them. Replay is another execution, not rollback or date-range repair.
+explanation does not perform them. Ordinary replay is another full execution, not rollback or
+date-range repair; replaying a repair run retains its recorded date window.
 Neither operation requires provider-specific browser logic or a new service dependency.
 
 Editors can request change previews; viewers can read run explanations when a lifecycle is wired.
 Regenerate consumers from the immutable producer artifact after its release. The guided Druff
-surface and date-scoped repair are separate follow-on work, not delivered by these two routes.
+surface is separate work, not delivered by these two routes. Current source also exposes
+`graph.repair-preview` and `run.repair` for eligible execution plans; see
+[selected output date repair](output-repair.md) for the request, supported scope, and evidence limits.
 
 ## Hosted Control service
 
