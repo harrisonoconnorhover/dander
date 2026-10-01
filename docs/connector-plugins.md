@@ -165,6 +165,16 @@ CLI results include an exact public package pin, its compatible Dander range, su
 and provider-validation status. Catalog API metadata also includes documentation links. The
 catalog ships with Dander; PyPI remains the package store and source of the actual distribution.
 
+The RC33 catalog pins Salesforce `0.3.2` (`dander-platform>=0.6.0rc1,<0.10`) and ServiceNow
+`0.2.3` (`dander-platform>=0.5.0,<0.10`). Both accept the public Dander RC20 beta and RC33
+integration candidate. Older Dander installations retain their bundled catalog; use these exact
+pins in the project's `plugins` configuration, then run `dander plugins install` and
+`dander validate` before rebuilding the runtime image. Installing a package alone does not
+activate it or replace a deployed image.
+
+Compatibility checks cover clean package installations and each connector's existing behavior
+suite. They do not add a new live Salesforce or ServiceNow acceptance result.
+
 When `dander graph serve` opens a project, `GET /v1/plugin-catalog` exposes the same non-secret
 catalog and marks only validated, manifest-declared plugins as installed. `GET /v1/connectors`
 continues to describe the runtime connectors that are actually active. Authoring tools may present

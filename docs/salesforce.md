@@ -53,14 +53,15 @@ add its governed projection to the relevant model. Undeclared fields fail before
 
 ## Project configuration
 
-With `dander-connector-salesforce 0.3.1`, a Dander `0.7` project can use:
+With `dander-connector-salesforce 0.3.2`, projects using Dander `>=0.6.0rc1,<0.10` can use the
+following exact pin, including the public RC20 beta and RC33 integration candidate:
 
 ```yaml
 version: 1
 plugins:
   salesforce:
     distribution: dander-connector-salesforce
-    version: 0.3.1
+    version: 0.3.2
 pipelines:
   salesforce_crm:
     source: salesforce

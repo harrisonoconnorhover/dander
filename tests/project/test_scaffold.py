@@ -75,7 +75,7 @@ def test_scaffold_creates_complete_paused_project(tmp_path: Path) -> None:
     project_manifest = load_project_config(project / "dander.yaml")
     assert project_manifest.pipelines["phase8_aws_qualification"].publish_catalog
     salesforce = load_project_config(project / "examples" / "salesforce" / "dander.yaml")
-    assert salesforce.plugins["salesforce"].version == "0.3.1"
+    assert salesforce.plugins["salesforce"].version == "0.3.2"
     assert set(salesforce.pipelines) == {"salesforce_crm"}
     assert not list(project.rglob("*.tfplan"))
     assert not list(project.rglob("*.tfstate"))

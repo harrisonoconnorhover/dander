@@ -10,6 +10,8 @@ capabilities enter through the next minor release.
 
 ### Changed
 
+- Curated discovery and the Salesforce starter pin compatible Salesforce `0.3.2` and ServiceNow
+  `0.2.3` packages, with their exact published minimums and a shared upper bound below Dander 0.10.
 - The base installation and `postgres` extra no longer install Google/BigQuery SDKs. Install
   `dander-platform[bigquery,gcp]` for the GCP stack or `dander-platform[runtime-all]` for every
   provider. Runtime Dockerfiles already select `runtime-all`; public RC20 remains unchanged.

@@ -4,6 +4,20 @@ Dander's first ServiceNow slice reads the `incident` table through the official 
 deliberately read-only: the connector performs one OAuth token operation and one paged GET. The
 simulator's create, update, and delete operations exist only to prepare synthetic acceptance data.
 
+For the curated package, pin `dander-connector-servicenow==0.2.3` through the project's manifest:
+
+```yaml
+plugins:
+  servicenow:
+    distribution: dander-connector-servicenow
+    version: 0.2.3
+```
+
+This package accepts Dander `>=0.5.0,<0.10`, including the public RC20 beta and RC33 integration
+candidate. Run `dander plugins install` and `dander validate`, then rebuild the runtime image.
+See [connector discovery](connector-plugins.md#discover-curated-connectors) for the distinction
+between package compatibility and live provider evidence.
+
 The tracked contract is
 [`contracts/servicenow-table-simulator.openapi.yaml`](../contracts/servicenow-table-simulator.openapi.yaml).
 Its seven operations are:

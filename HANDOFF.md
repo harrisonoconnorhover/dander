@@ -6,6 +6,7 @@
 - Merged selected-date output repair from retained raw data with single-task Cloud Run and BigQuery through [PR #548](https://github.com/harrisonoconnorhover/dander/pull/548).
 - Reused durable run identity, cancellation, history, replay, lease fencing, and conditional cleanup.
 - Added preview/start contracts, publication measurements, and operator documentation with explicit support limits.
+- Updated the curated catalog, Salesforce starter, and setup docs for Salesforce `0.3.2` and ServiceNow `0.2.3`; producer merge waits for verified publication.
 
 ## Try It
 
@@ -19,6 +20,7 @@ Use the API examples in `docs/control-contracts.md` and `docs/output-repair.md`.
 - No live repair workload or paid qualification ran.
 - RC33 preparation: 4 release metadata tests, Ruff lint/format, metadata consistency, and contract drift checks passed; lockfile dependencies stayed fixed.
 - CI exposed 5 historical Redshift fixture failures after the version bump. Fixtures now explicitly bind RC32; all 32 focused benchmark/metadata tests pass. Candidate CI must rerun.
+- The corrected version candidate passed full protected CI. Catalog/starter changes passed 42 focused checks plus all 10 catalog cases, Ruff, strict typing, metadata, and unchanged regenerated contracts; final combined CI remains required.
 
 ## Decisions
 

@@ -23,6 +23,7 @@ the final paused/no-drift state. These are dated observations, not a continuous 
 |---|---|---|
 | GCP Cloud Run + BigQuery pipeline | Released named profile and retained operator evidence | GCP remains the supported compatibility baseline within the documented beta limits. |
 | Direct single-container execution | Existing default path | Does not require hosted Control, Spark, Kubernetes, or Hadoop. |
+| Curated connector packages | RC33 catalog pins Salesforce `0.3.2` and ServiceNow `0.2.3`; clean-install behavior checks cover the declared minimums, Dander `0.7.1`, and public RC20 | Compatibility metadata now accepts Dander 0.9 candidates. Existing provider evidence keeps its recorded versions; this is not a new live provider qualification. |
 | Hosted Control API, graph persistence, OIDC | Implemented with named local/cloud acceptance records | Experimental; each profile keeps its own identity, storage, and lifecycle evidence. |
 | Control execution through Fargate, Cloud Run, or Dataproc | Implemented with typed PostgreSQL or S3 run storage | Experimental; one Control process per run-store schema. AWS compatibility flags remain available. |
 | Distributed Spark graphs | Bounded linear, keyed-join, and two-transform shapes implemented; retained August 27–28 runs include exact Fargate/Dataproc output parity | Experimental; the [execution history](control-execution-history.md) identifies each tested revision and bounded shape. |
