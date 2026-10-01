@@ -10,8 +10,10 @@ Hosted Control registers Fargate, Cloud Run, and bounded Dataproc Serverless exe
 Typed startup selects PostgreSQL or S3 run storage; scheduling selects PostgreSQL or the existing
 AWS EventBridge/SQS composition. PostgreSQL uses one dedicated Control schema and removes the
 mandatory AWS storage dependency. This integration supports one Control process per run-store
-schema and does not qualify a hosted topology. The August 26 DANDER-235 attempt stopped at a missing queue-tag permission; that
-dated attempt is not a current infrastructure inspection or a qualification of later source.
+schema and does not qualify a hosted PostgreSQL topology. The August 26 DANDER-235 attempt
+stopped at a missing queue-tag permission; the corrected August 27 S3-backed Control/Fargate
+qualification subsequently passed. See the [dated execution history](control-execution-history.md)
+for this and the later bounded Spark runs; neither qualifies a different topology or candidate.
 Direct CLI execution remains available independently of Control.
 
 The Phase 5 warehouse implementations and the
@@ -134,9 +136,13 @@ remain Phase 8 work.
 - ServiceNow incidents extraction performs a stably ordered full endpoint read. It does not use a
   timestamp watermark with offset paging because that combination can skip moving records.
 - Source hard deletes are not propagated by the first ServiceNow incidents slice.
-- Salesforce reads Accounts, Contacts, Opportunities, and Users only. QueryAll preserves visible
-  soft-deletion tombstones, but hard-deleted or purged records cannot be recovered and provider
-  write-back is not supported. ServiceNow remains one read-only incident slice.
+- The built-in Salesforce source reads Accounts, Contacts, Opportunities, and Users only.
+  QueryAll preserves visible soft-deletion tombstones, but hard-deleted or purged records cannot
+  be recovered from that feed. The separate Salesforce plugin also implements explicit deleted
+  lookups and operator-invoked create/update/delete, plus upsert when an External ID field is
+  configured and verified. These optional commands do not make `dander run` a write-back workflow
+  or establish live qualification of provider writes. ServiceNow remains one read-only incident
+  slice. See [connector plugins](connector-plugins.md) for package compatibility and activation.
 - NetSuite customers are simulator-validated only. The first SuiteQL slice performs a full read,
   is capped by NetSuite's 100,000-result SuiteQL REST limit, and has not passed tenant-specific
   role, field-availability, or authentication acceptance. It is not in the current public support
@@ -158,9 +164,12 @@ remain Phase 8 work.
   chain and numeric provider status without exception text or sensitive values. Earlier
   undiagnosable ServiceNow failures remain historical evidence; the retained trial subsequently
   completed its final clean window and closed. See the [operator-trial closure](operator-soak.md).
-- Druff is a public static interface, not a hosted control plane. Saving, validation, execution,
-  status, and deployment preview require an operator-started Dander loopback service. Druff does
-  not write `dander.yaml` or apply Terraform.
+- Druff is the browser interface to Dander Control. Its local mode uses an operator-started
+  loopback service; its hosted mode uses an explicit Control endpoint and OIDC authorization-code
+  login with PKCE. Hosted graph persistence and run/status/log/cancel/replay controls are
+  implemented. Retained browser acceptance used synthetic OIDC, not a production identity-provider
+  or HA proof. Druff does not write `dander.yaml` or apply Terraform. See the
+  [reviewed Druff revision](https://github.com/harrisonoconnorhover/druff/tree/62879d5f865fe8ee2473beb18538f30a218caf40).
 
 ## Platform and cost
 

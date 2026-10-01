@@ -1,7 +1,7 @@
 ---
 id: DANDER-247
 title: Select bounded Managed Spark worker shapes from supplied input estimates
-status: in-review
+status: done
 component: python
 epic: control-orchestration
 depends_on: [DANDER-246]
@@ -29,8 +29,8 @@ input estimator.
       keep Spark dynamic allocation disabled.
 - [x] Render the generated plan JSON and size candidates through the existing Control startup
       arguments without changing pipeline logic.
-- [ ] Publish one immutable Spark image/driver pair from repaired exact main.
-- [ ] Run exactly two Managed Spark cells using controlled small and large byte estimates against
+- [x] Publish one immutable Spark image/driver pair from repaired exact main.
+- [x] Run exactly two Managed Spark cells using controlled small and large byte estimates against
       one raw BigQuery snapshot; prove selection, submitted worker properties, output parity, and
       cleanup.
 
@@ -40,3 +40,10 @@ input estimator.
 - No Spark dynamic allocation, autoscaling, autotuning, joins, new graph shapes, Kubernetes,
   job-cluster management, cost/locality changes, or new reconciler.
 - No main-runtime image publication, extra live cells, soak, status-only PR, or evidence framework.
+
+## Retained acceptance reconciliation — September 30, 2026
+
+The August 27–28 operator records confirm the immutable publication and bounded execution
+criteria above. See the [reviewed execution history](../docs/control-execution-history.md) for
+the exact source revision, result, cleanup boundary, and retained record identifier. Earlier
+failed attempts remain historical evidence; no new cloud execution was performed for this update.

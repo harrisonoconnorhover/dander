@@ -1,7 +1,7 @@
 ---
 id: DANDER-243
 title: Publish and qualify one immutable Spark driver and image pair
-status: in-review
+status: done
 component: python
 epic: control-orchestration
 depends_on: [DANDER-242]
@@ -23,9 +23,9 @@ particular driver and image. This slice supplies exactly one narrow pair and one
 - [x] Build an amd64 Debian 12 custom image with Spark's required UID/GID and utilities, without
   bundling Spark or a JRE.
 - [x] Contract-test the plan, Control handoff, driver/image identity, and Control result parser.
-- [ ] Publish one tag-immutable image whose tag resolves to the recorded digest and one same-region
+- [x] Publish one tag-immutable image whose tag resolves to the recorded digest and one same-region
   GCS driver object from exact main.
-- [ ] Run one two-executor Managed Spark/BigQuery qualification through Control and clean up its
+- [x] Run one two-executor Managed Spark/BigQuery qualification through Control and clean up its
   disposable dataset, bucket contents, batch metadata where supported, and temporary IAM.
 
 ## Boundaries
@@ -34,3 +34,10 @@ particular driver and image. This slice supplies exactly one narrow pair and one
   cluster creation, or reusable arbitrary-operator runtime is introduced.
 - This qualifies one fixed driver/image pair, not every distributed Dander pipeline.
 - C27, RC32, Phase 8, releases, and the existing main runtime image remain untouched.
+
+## Retained acceptance reconciliation — September 30, 2026
+
+The August 27–28 operator records confirm the immutable publication and bounded execution
+criteria above. See the [reviewed execution history](../docs/control-execution-history.md) for
+the exact source revision, result, cleanup boundary, and retained record identifier. Earlier
+failed attempts remain historical evidence; no new cloud execution was performed for this update.
